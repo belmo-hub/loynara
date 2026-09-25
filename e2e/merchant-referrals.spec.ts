@@ -67,6 +67,14 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       expect((await guest.get(`/api/card/${encodeURIComponent(referredToken)}`).then(response => response.json()) as { balance: number }).balance).toBe(0);
       await merchantPage.reload();
       await expect(merchantPage.getByText("Bonus korrigiert")).toBeVisible();
+      const analytics = await owner.get("/api/merchant/analytics?window=30");
+      expect(analytics.status()).toBe(200);
+      expect((await analytics.json() as { referrals: { attributed: number; qualified: number; reversed: number } }).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
+      await merchantPage.goto("/merchant/analytics");
+      await expect(merchantPage.getByRole("heading", { name: "Empfehlungsereignisse" })).toBeVisible();
+      await expect(merchantPage.getByText("Korrigierte Empfehlungen")).toBeVisible();
+      await expect(merchantPage.getByText("Ein bestätigter Beitritt ist noch keine Bonusqualifikation.")).toBeVisible();
+      await merchantPage.screenshot({ path: "screenshots/platform-after-referral-analytics.png", fullPage: true });
     } finally { await ownerBrowser.close(); await guestBrowser.close(); }
   } finally { await owner.dispose(); await guest.dispose(); }
 });

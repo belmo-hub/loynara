@@ -2,6 +2,12 @@
 
 Run dates: **2026-09-25–26**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
 
+## Referral reporting checkpoint after `151bde3`
+
+The owner analytics now counts referral link attribution at join, bonus qualification after the first eligible checkout, and completed bonus reversal at its own recorded time. The same referral may appear in multiple event counts; there is no claimed conversion rate or incremental revenue. A synthetic lifecycle and controlled 30/90-day date shift verified tenant isolation and the distinct event windows. The actual Chrome referral journey reached the updated owner analytics screen after a reversal; [`platform-after-referral-analytics.png`](screenshots/platform-after-referral-analytics.png) shows the 1/1/1 counts and counting explanation.
+
+Repeated local browser runs exhausted the shared `card_read_peer` counter at **241/240** hits and `card_export_peer` at **31/30** hits. The guarded synthetic runner now clears those exact peer counters along with its existing auth/enrollment test counters between shards; application rate limits are unchanged. The final browser run passed **30 active checks**, with the disabled billing fixture check skipped. `npm test` passed **41 files / 187 tests**; lint, typecheck and compiled build exited 0. No external traffic, physical device or real provider was involved.
+
 ## Staff access audit checkpoint after `daad13b`
 
 Invite creation, acceptance and staff revocation now append tenant-scoped records in the same transaction as the access change. Repeated revocation writes no second event; rejected invitation acceptance writes none. A database trigger rejects audit-row update and delete. The owner-only Team screen shows the newest 50 events, and merchant export format 3 includes the full bounded history without invitation tokens or invited email addresses. Existing actions before migration 0013 were not backfilled, and retention remains undecided.

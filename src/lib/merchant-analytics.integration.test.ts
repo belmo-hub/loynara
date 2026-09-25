@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignRecipients, campaigns, ledgerEntries, memberships, outboxJobs, programRuleVersions, rewardVersions, rewards, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignRecipients, campaigns, ledgerEntries, memberships, outboxJobs, programRuleVersions, referrals, rewardVersions, rewards, staffRoles } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll } from "./product";
 import { getMerchantAnalytics } from "./merchant-analytics";
+import { configureReferrals, getCardReferralShare } from "./referrals";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Analytics tests require looplocal_test");
 
@@ -111,5 +112,34 @@ describe("owner-only merchant analytics", () => {
     await award({ userId: ownerId, locationId: shop.locationId, membershipId: card.id, purchaseAmountMinor: 1250, ruleVersionId: rule.id, idempotencyKey: randomUUID(), requestId: randomUUID() });
     const report = await getMerchantAnalytics(ownerId, { windowDays: 30, asOf: new Date(Date.now() + 1000) });
     expect(report).toMatchObject({ qualifyingCheckouts: 1, issued: { stampUnits: 0, pointUnits: 25, awardActions: 1 } });
+  });
+
+  it("counts referral attribution, qualification and reversal by their own event times without mixing tenants", async () => {
+    const originalOrigin = process.env.PUBLIC_BASE_URL;
+    process.env.PUBLIC_BASE_URL = "http://localhost:3000";
+    try {
+      const ownerA = await user();
+      const ownerB = await user();
+      const a = await merchant(ownerA, "Synthetic Referral Analytics A");
+      await merchant(ownerB, "Synthetic Referral Analytics B");
+      const referrer = await enroll({ slug: a.programSlug, acceptedTerms: true });
+      await configureReferrals({ actorUserId: ownerA, programSlug: a.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+      const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+      const referred = await enroll({ slug: a.programSlug, acceptedTerms: true, referralCode: code });
+      const report = () => getMerchantAnalytics(ownerA, { windowDays: 30, asOf: new Date(Date.now() + 1000) });
+      expect((await report()).referrals).toEqual({ attributed: 1, qualified: 0, reversed: 0 });
+      const awardEntry = await award({ userId: ownerA, locationId: a.locationId, membershipId: referred.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+      expect((await report()).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 0 });
+      await reverseEntry({ userId: ownerA, locationId: a.locationId, entryId: awardEntry.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
+      expect((await report()).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
+      expect((await getMerchantAnalytics(ownerB, { windowDays: 30, asOf: new Date(Date.now() + 1000) })).referrals).toEqual({ attributed: 0, qualified: 0, reversed: 0 });
+      const past = new Date(Date.now() - 45 * 86_400_000);
+      await db.update(referrals).set({ createdAt: past }).where(eq(referrals.tenantId, a.tenantId));
+      expect((await report()).referrals).toEqual({ attributed: 0, qualified: 1, reversed: 1 });
+      expect((await getMerchantAnalytics(ownerA, { windowDays: 90, asOf: new Date(Date.now() + 1000) })).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
+    } finally {
+      if (originalOrigin === undefined) delete process.env.PUBLIC_BASE_URL;
+      else process.env.PUBLIC_BASE_URL = originalOrigin;
+    }
   });
 });

@@ -8,6 +8,7 @@ function report(overrides: Partial<MerchantAnalytics> = {}): MerchantAnalytics {
     currentActiveCards: 0, newCards: 0, qualifyingCheckouts: 0, participatingCards: 0, repeatCards: 0,
     issued: { stampUnits: 0, pointUnits: 0, awardActions: 0 },
     rewards: { redemptions: 0, topTitles: [] },
+    referrals: { attributed: 0, qualified: 0, reversed: 0 },
     campaignAttempts: { total: 0, complete: 0, suppressed: 0, retry: 0, failed: 0, blocked: 0 },
     series: [], countingRule: "Distinct confirmed checkouts", limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
     ...overrides,

@@ -16,6 +16,7 @@ export type MerchantAnalytics = {
   repeatCards: number;
   issued: { stampUnits: number; pointUnits: number; awardActions: number };
   rewards: { redemptions: number; topTitles: Array<{ title: string; count: number }> };
+  referrals: { attributed: number; qualified: number; reversed: number };
   campaignAttempts: { total: number; complete: number; suppressed: number; retry: number; failed: number; blocked: number };
   series: Array<{ from: string; to: string; newCards: number; checkouts: number }>;
   countingRule: string;
@@ -27,6 +28,7 @@ type CheckoutCounts = { qualifyingCheckouts: number; participatingCards: number;
 type RedemptionCounts = { redemptions: number };
 type TopTitle = { title: string; count: number };
 type AttemptCounts = { status: string; count: number };
+type ReferralCounts = { attributed: number; qualified: number; reversed: number };
 type BucketCount = { bucket: number; count: number };
 
 // A checkout is one distinct server-accepted staff-award request on one card. All entries for a
@@ -65,7 +67,7 @@ export async function getMerchantAnalytics(
 
   const from = new Date(asOf.getTime() - options.windowDays * 86_400_000);
   const params = [owner.tenantId, from, asOf];
-  const [members, checkout, redemption, titles, attempts, membershipBuckets, checkoutBuckets] = await Promise.all([
+  const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets] = await Promise.all([
     pool.query<MembershipCounts>(`
       SELECT
         count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
@@ -107,6 +109,13 @@ export async function getMerchantAnalytics(
       SELECT status, count(*)::int AS count FROM campaign_attempts
       WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
       GROUP BY status
+    `, params),
+    pool.query<ReferralCounts>(`
+      SELECT
+        count(*) FILTER (WHERE created_at >= $2 AND created_at < $3)::int AS attributed,
+        count(*) FILTER (WHERE qualified_at >= $2 AND qualified_at < $3)::int AS qualified,
+        count(*) FILTER (WHERE reversed_at >= $2 AND reversed_at < $3)::int AS reversed
+      FROM referrals WHERE tenant_id = $1
     `, params),
     pool.query<BucketCount>(`
       SELECT floor(extract(epoch FROM (created_at - $2::timestamptz)) / 604800)::int AS bucket,
@@ -153,9 +162,10 @@ export async function getMerchantAnalytics(
       awardActions: checkout.rows[0].awardActions,
     },
     rewards: { redemptions: redemption.rows[0].redemptions, topTitles: titles.rows },
+    referrals: referralCounts.rows[0],
     campaignAttempts: attemptCount,
     series,
-    countingRule: "Ein Kassenvorgang ist eine eindeutige Karten- und Anfragekennung mit mindestens einer nicht rückgängig gemachten, vom Server bestätigten Online- oder nachträglich synchronisierten Offline-Gutschrift. Ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Kampagnenwerte zählen Zustellversuche, keine Öffnungen.",
+    countingRule: "Ein Kassenvorgang ist eine eindeutige Karten- und Anfragekennung mit mindestens einer nicht rückgängig gemachten, vom Server bestätigten Online- oder nachträglich synchronisierten Offline-Gutschrift. Ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen zugeordneten Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum; dieselbe Empfehlung kann in mehreren Werten stehen. Kampagnenwerte zählen Zustellversuche, keine Öffnungen.",
     limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
   };
 }

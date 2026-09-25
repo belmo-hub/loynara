@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import pg from "pg";
 
 // The browser suite intentionally uses the synthetic local app. Several
-// independent sign-ups and enrollments would otherwise exhaust shared peer
+// independent sign-ups, enrollments, card reads and exports would otherwise exhaust shared peer
 // limits. Reset only this runner's auth/enrollment peer counters between bounded
 // shards; never change the application's limiter or a nonlocal database.
 const base = dotenv.parse(readFileSync(".env"));
@@ -26,7 +26,7 @@ if (process.env.NODE_ENV === "production" || database.protocol !== "postgresql:"
 const client = new pg.Client({ connectionString: next.DATABASE_URL });
 await client.connect();
 try {
-  const scopes = ["auth_signup_peer", "auth_signin_peer", "enroll_peer"];
+  const scopes = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_export_peer"];
   const hashes = scopes.map(scope => createHmac("sha256", next.BETTER_AUTH_SECRET)
     .update(scope).update("\0").update("untrusted-peer").digest("hex"));
   for (let shard = 1; shard <= 3; shard++) {
