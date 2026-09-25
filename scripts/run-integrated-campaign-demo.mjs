@@ -1,24 +1,40 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, rename, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { chromium, request } from "@playwright/test";
+import pg from "pg";
 
 // This demonstration is restricted to the local synthetic development instance.
 const origin = "http://localhost:3000";
 const mailpit = "http://127.0.0.1:8026";
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
-if (process.env.PUBLIC_BASE_URL !== origin || !["localhost", "127.0.0.1"].includes(database.hostname)
+if (process.env.PUBLIC_BASE_URL !== origin || process.env.BETTER_AUTH_URL !== origin
+  || database.protocol !== "postgresql:" || database.port !== "54329" || database.username !== "looplocal"
+  || !["localhost", "127.0.0.1"].includes(database.hostname)
   || database.pathname !== "/looplocal" || !["localhost", "127.0.0.1"].includes(process.env.SMTP_HOST ?? "")
-  || process.env.EXTERNAL_EMAIL_ENABLED === "true") throw new Error("Synthetic local demo configuration required");
+  || process.env.SMTP_PORT !== "1026" || process.env.PUBLIC_REGISTRATION_ENABLED !== "true"
+  || process.env.TRUST_PROXY_CLIENT_IP === "true" || process.env.EXTERNAL_EMAIL_ENABLED === "true"
+  || (process.env.BETTER_AUTH_SECRET?.length ?? 0) < 32) throw new Error("Synthetic local demo configuration required");
 const run = promisify(execFile);
 const output = resolve(process.cwd(), "screenshots");
 const videoDir = resolve(process.cwd(), "var/integrated-demo-video");
 await mkdir(output, { recursive: true });
 await mkdir(videoDir, { recursive: true });
+
+// Repeated synthetic demonstrations share one loopback peer identity. Clear
+// only these test-flow counters after the exact local target has been checked.
+const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+await db.connect();
+try {
+  const scopes = ["auth_signup_peer", "enroll_peer", "card_contact_peer"];
+  const hashes = scopes.map(scope => createHmac("sha256", process.env.BETTER_AUTH_SECRET)
+    .update(scope).update("\0").update("untrusted-peer").digest("hex"));
+  await db.query("DELETE FROM rate_limits WHERE key_hash = ANY($1::text[])", [hashes]);
+} finally { await db.end(); }
 
 const headers = { Origin: origin };
 const owner = await request.newContext({ baseURL: origin, extraHTTPHeaders: headers });

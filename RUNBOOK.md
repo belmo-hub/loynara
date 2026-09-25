@@ -36,6 +36,14 @@ The synthetic A5 [`demo/counter-sign.html`](demo/counter-sign.html) has a decode
 
 The current award ledger records actor, count, and time but has **no migration-specific reason or one-time transfer enforcement**; the customer activity labels such an award as a visit. Treat this as a controlled synthetic procedure until the operator reviews those limits and the real-customer policy. No real paper card or customer data was used here.
 
+### Cashier quick guide for the synthetic demonstration
+
+1. Select the correct merchant location, open **Kasse**, and scan the customer's complete QR. If camera access fails, use the displayed scan code as the manual fallback. Compare the returned card and balance before continuing.
+2. For a stamp programme, the award starts at **one**. For purchase points, enter the purchase amount shown by the checkout and check the calculated points. Confirm the displayed action explicitly. Wait for **bestätigt**; a pending or failed action is not a confirmed balance. Check the transaction before retrying an uncertain request.
+3. Show the eligible reward choices, select the customer's choice, and confirm redemption while online. Ask the customer to reopen/reload the private card and compare the persisted balance. Scanning alone never awards or redeems.
+
+French staff reminder for this same local workflow: choisir le bon établissement, scanner le QR ou saisir le code, vérifier la carte et le solde, confirmer **un** tampon ou le montant d'achat, attendre la confirmation, puis choisir et confirmer la récompense en ligne. Faire rouvrir la carte pour vérifier le solde. This short reminder does not make the German merchant UI fully translated.
+
 ### A. Immediate Mac camera smoke test — hardware camera only
 
 1. Run `npm run preview`; read only the synthetic `var/preview-access.json` locally. On the Mac, open its seeded customer card at `http://localhost:3001/card/<cardToken>` and show the QR on a phone by transferring **only a screenshot of the QR** locally (for example, AirDrop). Do not transfer the bearer card URL or recovery token.
@@ -64,10 +72,9 @@ For a physical journey, record actual phone model, OS/browser, Access login, con
 
 ## Local marketing mail test
 
-`POST /api/merchant/email/test` is owner-only and accepts a membership ID, subject, and plain-text body. It queues only a **verified synthetic `.test` recipient** whose latest email-marketing consent is granted. No recipient address is copied into the outbox payload. The worker checks the owner's active role, verification, and the latest consent again while locking the membership; a prior withdrawal or owner revocation marks the job `suppressed` without contacting Mailpit. The customer can view consent with `GET /api/card/<card-token>/marketing` and withdraw with a same-origin `POST` to that path. The checkout scan code is not a preference credential.
+Contact-free enrollment remains available. On the private browser card, a synthetic `.test` address can request a one-time verification message through `POST /api/card/<card-token>/contact`; the customer opens the link captured in Mailpit and then explicitly enables email marketing through `POST /api/card/<card-token>/contact/marketing`. The card also supports withdrawal. No raw email address appears in merchant customer lists or campaign outbox payloads. The checkout scan code is not a preference credential.
 
-For an eligible job, the worker can send a clearly marked `[LOCAL TEST]` message to the fixed loopback Mailpit API at `127.0.0.1:8026`. This is a local capture, never an external provider delivery. The test is disabled in production, when external mail is enabled, or for any non-`.test` recipient. An email ownership verification flow, signed unsubscribe links, campaign authoring, quotas, external transport, bounces, and live sending are **not implemented**. Do not treat this local path as a production campaign tool.
-The outbox is at least once: a process crash after Mailpit captures a message but before the database records completion can duplicate a local test message on retry. An external sender needs its own idempotency and suppression design before activation.
+Owners can create and schedule a draft at `/merchant/campaigns` after checking a database-backed audience and eligible/excluded counts. `/merchant/automations` configures first-checkout or inactivity rules. The worker rechecks audience, verified contact, consent, owner authorization, cooldown and local quotas at dispatch/delivery; it records sent, suppressed and failed attempts. All such messages are clearly marked `[LOCAL TEST]` and sent only to `.test` addresses through fixed loopback Mailpit at `127.0.0.1:8026`. Run one local pass with `./node_modules/.bin/tsx scripts/worker.ts --once`. `node scripts/run-integrated-campaign-demo.mjs` exercises synthetic join, checkout, audience change, one-time verification, opt-in and scheduled Mailpit capture, and records a local browser video. It refuses a nonlocal origin, database or mail transport. No external provider, bounce/complaint webhook, real unsubscribe link or real-recipient send is verified. The outbox is at least once: a crash after Mailpit capture but before commit can duplicate a local message on retry; an external sender needs its own idempotency design before activation.
 
 ## Local backup and restore check
 

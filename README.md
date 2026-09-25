@@ -1,6 +1,6 @@
 # LoopLocal
 
-Local, German-first merchant loyalty SaaS built with Next.js, TypeScript, PostgreSQL, Drizzle and Better Auth. The synthetic demo covers merchant onboarding, public QR enrollment, a browser card, cashier awards/redemptions and owner activity. Wallet adapters and local Mailpit tests are present; real wallet/device operation, public deployment, external sending and live billing are not enabled.
+Local, German-first merchant loyalty SaaS built with Next.js, TypeScript, PostgreSQL, Drizzle and Better Auth. The synthetic demo covers programme/reward setup, QR enrollment, browser card and guarded checkout, pseudonymous activity and audiences, merchant campaigns and automations captured by Mailpit, referrals, multiple locations, analytics and rule-based advice. [PARITY_MATRIX.md](PARITY_MATRIX.md) records the evidence and unfinished work for each module. Real Wallet/device operation, public deployment, external sending, offline earning and live billing are not enabled.
 
 ## Run locally
 
