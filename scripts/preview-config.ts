@@ -19,6 +19,7 @@ export function previewConfigIssues(env: Record<string, string | undefined>): st
     if (env[name] !== "false") issues.push(`${name} must be false in the local preview`);
   }
   if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") issues.push("Google provider assets must be disabled in the local preview");
+  if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture must be disabled in the compiled preview");
   if (env.SMTP_HOST !== "disabled") issues.push("Preview must disable mail transport");
   if (env.DEMO_MODE === "true" || env.DEMO_SEED_ALLOWED === "true") issues.push("Legacy demo runtime flags are forbidden");
   return issues;

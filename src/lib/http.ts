@@ -40,7 +40,7 @@ export async function jsonBody(request: Request, maxBytes = 3_100_000) {
 export function respondError(error: unknown) {
   if (error instanceof ZodError) return Response.json({ error: "Invalid input", issues: error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
   if (error instanceof DomainError) {
-    const status = error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" ? 404 : error.code === "INSUFFICIENT_BALANCE" || error.code === "KEY_REUSED" || error.code === "ALREADY_ONBOARDED" ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
+    const status = error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" ? 404 : ["INSUFFICIENT_BALANCE", "KEY_REUSED", "ALREADY_ONBOARDED", "PLAN_MEMBER_LIMIT", "BILLING_STATE"].includes(error.code) ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
     const headers = error instanceof RateLimitError ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined;
     return Response.json({ error: error.message, code: error.code }, { status, headers });
   }

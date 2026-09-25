@@ -43,6 +43,7 @@ export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
     if (env[name] !== "false") issues.push(`${name} must be false in the device test`);
   }
   if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") issues.push("Google provider assets require separate routing approval");
+  if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture must be disabled in the device test");
   if (env.SMTP_HOST !== "disabled") issues.push("Device test must disable mail transport");
   if (env.DEMO_MODE === "true" || env.DEMO_SEED_ALLOWED === "true" || env.LOOPLOCAL_PREVIEW_SEED === "true") {
     issues.push("Other demo and preview runtime flags are forbidden");

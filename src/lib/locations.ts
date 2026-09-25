@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "@/db";
-import { locations, programRuleVersions, programs, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { billingLocationPlans, locations, programRuleVersions, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 
@@ -50,6 +50,8 @@ export async function createAdditionalLocation(actorUserId: string, raw: z.input
     if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
     const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, owner.tenantId)).for("update");
     if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
+    const [subscription] = await tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenant.id)).for("update");
+    if (!subscription) throw new DomainError("PLAN_UNAVAILABLE", "Merchant plan is unavailable");
     if ((tenant.currency === "EUR" && data.country !== "DE") || (tenant.currency === "MAD" && data.country !== "MA")) {
       throw new DomainError("INVALID_COUNTRY", "Location country must match the merchant currency");
     }
@@ -60,6 +62,8 @@ export async function createAdditionalLocation(actorUserId: string, raw: z.input
     const [location] = await tx.insert(locations).values({
       tenantId: tenant.id, name: data.name, city: data.city, country: data.country, timezone: data.timezone,
     }).returning({ id: locations.id });
+    await tx.insert(billingLocationPlans).values({ tenantId: tenant.id, locationId: location.id, currency: subscription.currency, priceMinor: subscription.priceMinor });
+    await tx.update(subscriptions).set({ activeLocationCount: subscription.activeLocationCount + 1, updatedAt: new Date() }).where(eq(subscriptions.tenantId, tenant.id));
     const [program] = await tx.insert(programs).values({
       tenantId: tenant.id, locationId: location.id,
       slug: `${slugOf(data.programName)}-${randomBytes(10).toString("hex")}`,
@@ -108,7 +112,7 @@ export async function listMerchantLocations(actorUserId: string) {
     currency: tenant.currency,
     totals: { locations: rows.length, cards: rows.reduce((sum, row) => sum + row.cards, 0), awards: rows.reduce((sum, row) => sum + row.awards, 0), redemptions: rows.reduce((sum, row) => sum + row.redemptions, 0) },
     locations: rows,
-    countingRule: "Karten zählen alle Anmeldungen je Standort, auch aus archivierten Programmen. Gutschriften zählen Online-Vergabe-Einträge und Einlösungen zählen Einlöse-Einträge seit Programmstart. Diese Rohzahlen bleiben nach einer späteren Korrektur unverändert. Die Summen umfassen alle Standorte dieses Betriebs.",
+    countingRule: "Karten zählen alle Anmeldungen je Standort, auch aus archivierten Programmen. Gutschriften zählen vom Server bestätigte Online- und synchronisierte Offline-Vergabe-Einträge; ausstehende Offline-Vergaben zählen nicht. Einlösungen zählen Einlöse-Einträge seit Programmstart. Diese Rohzahlen bleiben nach einer späteren Korrektur unverändert. Die Summen umfassen alle Standorte dieses Betriebs.",
   };
 }
 

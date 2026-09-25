@@ -61,4 +61,9 @@ describe("production configuration gate", () => {
     });
     expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/database/i)]));
   });
+
+  it("rejects the local billing fixture even with otherwise valid production settings", () => {
+    const issues = productionConfigIssues({ NODE_ENV: "production", DATABASE_URL: "postgresql://merchant:unique-value@db.example.com/loyalty", BETTER_AUTH_URL: "https://app.example.com", PUBLIC_BASE_URL: "https://app.example.com", BETTER_AUTH_SECRET: "a".repeat(64), BILLING_FIXTURE_MODE: "true" });
+    expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/fixture/i)]));
+  });
 });

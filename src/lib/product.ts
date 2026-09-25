@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { draftPriceMinor } from "./pricing";
@@ -69,7 +69,9 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
     await tx.insert(programRuleVersions).values({ tenantId: tenant.id, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, effectiveAt: program.effectiveAt });
     const [reward] = await tx.insert(rewards).values({ tenantId: tenant.id, programId: program.id }).returning();
     await tx.insert(rewardVersions).values({ tenantId: tenant.id, rewardId: reward.id, version: 1, title: input.rewardTitle, cost: input.rewardCost });
-    await tx.insert(subscriptions).values({ tenantId: tenant.id, currency: input.currency, priceMinor: draftPriceMinor(input.currency) });
+    const priceMinor = draftPriceMinor(input.currency);
+    await tx.insert(subscriptions).values({ tenantId: tenant.id, currency: input.currency, priceMinor });
+    await tx.insert(billingLocationPlans).values({ tenantId: tenant.id, locationId: location.id, currency: input.currency, priceMinor });
     return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
   });
 }
@@ -126,6 +128,12 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     if (!program) throw new DomainError("NOT_FOUND", "Program not found");
     const [availability] = await tx.select({ active: sql<boolean>`${programs.effectiveAt} <= now()` }).from(programs).where(eq(programs.id, program.id));
     if (!availability.active) throw new DomainError("NOT_AVAILABLE", "Program is not active yet");
+    const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
+    if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Location plan is unavailable");
+    const [usage] = await tx.select({ total: sql<number>`count(*)::int` }).from(memberships)
+      .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+      .where(and(eq(memberships.tenantId, program.tenantId), eq(programs.locationId, program.locationId), sql`${memberships.closedAt} is null`));
+    if (usage.total >= plan.memberLimit) throw new DomainError("PLAN_MEMBER_LIMIT", "This location has reached its card limit");
     const [member] = await tx.insert(memberships).values({ tenantId: program.tenantId, programId: program.id, scanCode: `sc_${randomCode(24)}`, cardToken: `card_${randomCode(32)}` }).returning();
     if (input.referralCode) await recordReferralAttribution(tx, { tenantId: program.tenantId, programId: program.id, referredMembershipId: member.id, referralCode: input.referralCode });
     if (input.email) await tx.insert(membershipContacts).values({ tenantId: program.tenantId, membershipId: member.id, email: input.email.toLowerCase() });

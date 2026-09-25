@@ -1,0 +1,16 @@
+.main { padding-block: 2.5rem 5rem; display: grid; gap: 1.35rem; }
+.main h2 { margin: 0 0 .6rem; }
+.main p { line-height: 1.55; }
+.summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+.summary p { margin-bottom: 0; }
+.total { display: block; margin-top: .5rem; font-size: clamp(2rem, 4vw, 3.25rem); color: #18392f; line-height: 1; }
+.planList, .invoiceList { display: grid; gap: .75rem; }
+.plan, .invoiceList article { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid #dce5db; border-radius: 1rem; background: #fafbf7; }
+.plan strong, .invoiceList strong { display: block; }
+.plan small, .invoiceList small, .invoiceList span { display: block; color: #50685c; margin-top: .3rem; }
+.plan p { margin: 0; white-space: nowrap; }
+.invoiceList article { display: block; }
+.note { color: #52695e; font-size: .91rem; }
+.confirm { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+.confirm p { flex-basis: 100%; }
+@media (max-width: 700px) { .summary { grid-template-columns: 1fr; } .plan { display: block; } .plan p { margin-top: .7rem; white-space: normal; } }

@@ -543,7 +543,66 @@ export const subscriptions = pgTable("subscriptions", {
   currency: varchar("currency", { length: 3 }).notNull(),
   priceMinor: integer("price_minor").notNull(),
   activeLocationCount: integer("active_location_count").notNull().default(1),
+  provider: varchar("provider", { length: 24 }),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  graceUntil: timestamp("grace_until", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled')`),
+  check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
+]);
+
+export const billingLocationPlans = pgTable("billing_location_plans", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  locationId: uuid("location_id").notNull(),
+  planCode: varchar("plan_code", { length: 32 }).notNull().default("local_standard"),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  priceMinor: integer("price_minor").notNull(),
+  memberLimit: integer("member_limit").notNull().default(10000),
+  createdAt: createdAt(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  check("billing_plan_values_valid", sql`${t.priceMinor} > 0 and ${t.memberLimit} > 0 and ${t.planCode} = 'local_standard'`),
+]);
+
+export const billingHandoffs = pgTable("billing_handoffs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  provider: varchar("provider", { length: 24 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  createdAt: createdAt(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (t) => [
+  index("billing_handoff_tenant_idx").on(t.tenantId, t.createdAt),
+  check("billing_handoff_values_valid", sql`${t.provider} = 'local_fixture' and ${t.status} in ('pending','complete') and ${t.amountMinor} > 0`),
+]);
+
+export const billingInvoices = pgTable("billing_invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  handoffId: uuid("handoff_id").notNull().references(() => billingHandoffs.id),
+  providerInvoiceId: varchar("provider_invoice_id", { length: 120 }).notNull().unique(),
+  status: varchar("status", { length: 24 }).notNull(),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  taxMinor: integer("tax_minor"),
+  periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  index("billing_invoice_tenant_idx").on(t.tenantId, t.createdAt),
+  check("billing_invoice_values_valid", sql`${t.status} = 'fixture_paid' and ${t.amountMinor} > 0 and ${t.taxMinor} is null`),
+]);
+
+export const billingWebhookEvents = pgTable("billing_webhook_events", {
+  eventId: varchar("event_id", { length: 120 }).primaryKey(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  eventType: varchar("event_type", { length: 32 }).notNull(),
+  payloadHash: varchar("payload_hash", { length: 64 }).notNull(),
+  processedAt: createdAt(),
 });
 
 export const demoRequests = pgTable("demo_requests", {

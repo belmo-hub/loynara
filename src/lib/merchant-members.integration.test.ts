@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db, pool } from "@/db";
-import { consentEvents, locations, membershipContacts, memberships, programRuleVersions, programs, rewards, rewardVersions, staffRoles } from "@/db/schema";
+import { billingLocationPlans, consentEvents, locations, membershipContacts, memberships, programRuleVersions, programs, rewards, rewardVersions, staffRoles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll } from "./product";
@@ -111,6 +111,7 @@ describe("merchant member read model", () => {
     const cardA = await enroll({ slug: shopA.programSlug, acceptedTerms: true });
     const cardB = await enroll({ slug: shopB.programSlug, acceptedTerms: true });
     const [secondLocation] = await db.insert(locations).values({ tenantId: shopA.tenantId, name: "Second location", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    await db.insert(billingLocationPlans).values({ tenantId: shopA.tenantId, locationId: secondLocation.id, currency: "EUR", priceMinor: 4900 });
     const secondSlug = `second-${randomUUID()}`;
     await db.insert(programs).values({ tenantId: shopA.tenantId, locationId: secondLocation.id, slug: secondSlug, name: "Second card", type: "stamp", rulesText: "Synthetic rule" });
     const cardSecond = await enroll({ slug: secondSlug, acceptedTerms: true });

@@ -57,7 +57,7 @@ describe("separate synthetic device-test configuration", () => {
   });
 
   it("rejects all external delivery, billing, signup, Wallet, and proxy-IP switches", () => {
-    for (const name of ["PUBLIC_REGISTRATION_ENABLED", "EXTERNAL_EMAIL_ENABLED", "LIVE_BILLING_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
+    for (const name of ["PUBLIC_REGISTRATION_ENABLED", "EXTERNAL_EMAIL_ENABLED", "LIVE_BILLING_ENABLED", "BILLING_FIXTURE_MODE", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
       expect(deviceTestRuntimeIssues({ ...runtime, [name]: "true" })).not.toEqual([]);
     }
     expect(deviceTestRuntimeIssues({ ...runtime, SMTP_HOST: "smtp.provider.example" })).not.toEqual([]);

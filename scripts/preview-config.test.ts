@@ -32,6 +32,7 @@ describe("compiled local preview configuration", () => {
     expect(previewConfigIssues({ ...preview, PUBLIC_REGISTRATION_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, EXTERNAL_EMAIL_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, LIVE_BILLING_ENABLED: "true" })).not.toEqual([]);
+    expect(previewConfigIssues({ ...preview, BILLING_FIXTURE_MODE: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, APPLE_WALLET_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, GOOGLE_WALLET_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, GOOGLE_WALLET_ASSET_ENABLED: "true" })).not.toEqual([]);

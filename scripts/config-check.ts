@@ -26,6 +26,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.PUBLIC_REGISTRATION_ENABLED === "true") issues.push("Public registration is not approved for production");
   if (env.EXTERNAL_EMAIL_ENABLED === "true") issues.push("External email delivery is not configured and approved for production");
   if (env.LIVE_BILLING_ENABLED === "true") issues.push("Live billing is not configured and approved for production");
+  if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");

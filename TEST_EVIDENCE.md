@@ -1,6 +1,14 @@
 # Test evidence
 
-Run date: **2026-09-25**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
+Run dates: **2026-09-25–26**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
+
+## Local billing fixture checkpoint after `7518f94`
+
+Per-location plan rows now snapshot the configured draft EUR/MAD price, and an owner screen reads actual unclosed-card usage. Enrollment serializes on the location plan and rejects another card at its 10,000-card limit. A separate loopback-only fixture exercises owner handoff, signed webhook verification, duplicate-event handling, a labelled non-tax invoice record, end-of-period cancellation, seven-day failure grace and expiry with controlled test clocks. The owner export includes plans and fixture invoices; no credentials are exported.
+
+On the final source, `npm test` passed **41 files / 184 tests**; `BILLING_FIXTURE_BROWSER=true npm run test:e2e` passed **31/31 Chrome checks** on the guarded synthetic local app, including an actual owner browser handoff and cancellation. An unsigned HTTP fixture webhook was rejected. `npm run lint`, `npm run typecheck` and the compiled `npm run preview` build exited 0. The preview applied migration 0012, started web and worker on loopback, returned healthy database status and passed `npm run preview:browser-check` with final balance 0. Its fixture webhook returned HTTP 400 because the fixture was disabled. `npm run preview:backup` and `npm run preview:restore-check` passed in an isolated temporary database, with 1 tenant, 15 memberships and 38 ledger entries reported. Both local web listeners were stopped afterward, and the temporary fixture secret was removed.
+
+Actual owner-screen captures are [`platform-after-billing.png`](screenshots/platform-after-billing.png) and [`platform-after-billing-fixture.png`](screenshots/platform-after-billing-fixture.png). These show draft prices and synthetic fixture state, not a real charge or tax invoice. The actual provider, portal, external webhook, legal/tax terms and real customer billing remain **NOT RUN**; spending incurred was **€0**.
 
 ## Offline earning checkpoint after `4670fae`
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, locations, membershipContacts, memberships, programs, rewardVersions, rewards, staffRoles } from "@/db/schema";
+import { billingLocationPlans, ledgerEntries, locations, membershipContacts, memberships, programs, rewardVersions, rewards, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { selectAudience, selectAudienceBySlug } from "./segments";
 
@@ -93,6 +93,7 @@ describe("database-backed customer audiences", () => {
     const aTwo = await card(a.programSlug, "2030-01-30T10:00:00.000Z");
     await card(b.programSlug, "2030-01-30T10:00:00.000Z");
     const [secondLocation] = await db.insert(locations).values({ tenantId: a.tenantId, name: "Other location", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    await db.insert(billingLocationPlans).values({ tenantId: a.tenantId, locationId: secondLocation.id, currency: "EUR", priceMinor: 4900 });
     const [secondProgram] = await db.insert(programs).values({ tenantId: a.tenantId, locationId: secondLocation.id, slug: "second-" + randomUUID(), name: "Other card", type: "stamp", rulesText: "One stamp per purchase." }).returning();
     await card(secondProgram.slug, "2030-01-30T10:00:00.000Z");
     await db.insert(staffRoles).values([
