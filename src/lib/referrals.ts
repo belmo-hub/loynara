@@ -140,9 +140,8 @@ export async function qualifyReferralOnAward(tx: Transaction, input: {
   let reviewReason: string | null = null;
   if (!referrer || referrer.closedAt || referrer.programId !== input.programId || !referred || referred.closedAt) reviewReason = "member_unavailable";
   else {
-    const [referrerEmail, referredEmail] = await Promise.all([
-      verifiedEmail(tx, input.tenantId, referrer.id), verifiedEmail(tx, input.tenantId, referred.id),
-    ]);
+    const referrerEmail = await verifiedEmail(tx, input.tenantId, referrer.id);
+    const referredEmail = await verifiedEmail(tx, input.tenantId, referred.id);
     if (referrerEmail && referredEmail && referrerEmail === referredEmail) reviewReason = "same_verified_email";
     else if (referrer.balance + referral.referrerBonus > 2_147_483_647 || referred.balance + referral.referredBonus > 2_147_483_647) reviewReason = "balance_limit";
   }
@@ -162,7 +161,7 @@ export async function qualifyReferralOnAward(tx: Transaction, input: {
 }
 
 async function reverseOutstandingBonuses(tx: Transaction, referral: Referral, input: { actorUserId: string; allowLargeBonus: boolean }) {
-  let unresolved = false;
+  let unresolvedReason: string | null = null;
   for (const [recipient, bonusEntryId] of [["referrer", referral.referrerBonusEntryId], ["referred", referral.referredBonusEntryId]] as const) {
     if (!bonusEntryId) continue;
     const [bonus] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, referral.tenantId), eq(ledgerEntries.id, bonusEntryId)));
@@ -170,8 +169,9 @@ async function reverseOutstandingBonuses(tx: Transaction, referral: Referral, in
     const [already] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, referral.tenantId), eq(ledgerEntries.reversalOfId, bonus.id)));
     if (already) continue;
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.tenantId, referral.tenantId), eq(memberships.id, bonus.membershipId))).for("update");
-    if (!input.allowLargeBonus && bonus.delta > 100) { unresolved = true; continue; }
-    if (!member || member.closedAt || member.balance < bonus.delta) { unresolved = true; continue; }
+    if (!input.allowLargeBonus && bonus.delta > 100) { unresolvedReason ??= "owner_required"; continue; }
+    if (!member || member.closedAt) { unresolvedReason ??= "member_unavailable"; continue; }
+    if (member.balance < bonus.delta) { unresolvedReason ??= "bonus_spent"; continue; }
     await tx.insert(ledgerEntries).values({
       tenantId: referral.tenantId, locationId: bonus.locationId, membershipId: bonus.membershipId,
       delta: -bonus.delta, kind: "reversal", source: "staff_correction", actorUserId: input.actorUserId,
@@ -181,8 +181,8 @@ async function reverseOutstandingBonuses(tx: Transaction, referral: Referral, in
     await tx.update(memberships).set({ balance: member.balance - bonus.delta }).where(eq(memberships.id, member.id));
     await tx.insert(outboxJobs).values({ tenantId: referral.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
   }
-  const next = unresolved ? "review" : "reversed";
-  await tx.update(referrals).set({ status: next, reviewReason: unresolved ? input.allowLargeBonus ? "bonus_spent" : "owner_required" : null, reversedAt: unresolved ? null : new Date() }).where(eq(referrals.id, referral.id));
+  const next = unresolvedReason ? "review" : "reversed";
+  await tx.update(referrals).set({ status: next, reviewReason: unresolvedReason, reversedAt: unresolvedReason ? null : new Date() }).where(eq(referrals.id, referral.id));
   return next;
 }
 
@@ -203,6 +203,7 @@ export async function listReferrals(input: { actorUserId: string; programSlug: s
     return rows.map(row => ({
       id: row.id, status: row.status, referrerCard: row.referrerMembershipId.slice(0, 12), referredCard: row.referredMembershipId.slice(0, 12),
       referrerBonus: row.referrerBonus, referredBonus: row.referredBonus, reviewReason: row.reviewReason,
+      hasCreditedBonus: Boolean(row.referrerBonusEntryId || row.referredBonusEntryId),
       createdAt: row.createdAt.toISOString(), qualifiedAt: row.qualifiedAt?.toISOString() ?? null,
     }));
   });

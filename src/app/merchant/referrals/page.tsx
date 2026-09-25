@@ -8,7 +8,7 @@ import { BrandMark } from "@/components/loyalty-ui";
 import styles from "./referrals.module.css";
 
 type Settings = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
-type Referral = { id: string; status: string; referrerCard: string; referredCard: string; referrerBonus: number; referredBonus: number; reviewReason: string | null; createdAt: string; qualifiedAt: string | null };
+type Referral = { id: string; status: string; referrerCard: string; referredCard: string; referrerBonus: number; referredBonus: number; reviewReason: string | null; hasCreditedBonus: boolean; createdAt: string; qualifiedAt: string | null };
 
 function status(value: string) {
   switch (value) {
@@ -43,7 +43,7 @@ export default function MerchantReferralsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reviewing, setReviewing] = useState<string | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -88,9 +88,11 @@ export default function MerchantReferralsPage() {
   async function review(referral: Referral, action: "reject" | "retry_reversal") {
     setReviewing(referral.id); setError(""); setNotice("");
     try {
-      await postJson(`/api/merchant/referrals/${encodeURIComponent(referral.id)}/review`, action === "reject" ? { action, reason: reviewNote.trim() } : { action });
+      const outcome = await postJson<{ status: string }>(`/api/merchant/referrals/${encodeURIComponent(referral.id)}/review`, action === "reject" ? { action, reason: (reviewNotes[referral.id] ?? "").trim() } : { action });
       const list = await apiJson<{ referrals: Referral[] }>(`/api/merchant/referrals?programSlug=${encodeURIComponent(me!.programSlug)}`);
-      setReferrals(list.referrals); setReviewNote(""); setNotice("Prüfentscheidung gespeichert.");
+      setReferrals(list.referrals);
+      setReviewNotes(current => { const next = { ...current }; delete next[referral.id]; return next; });
+      setNotice(outcome.status === "review" ? "Die Bonus-Korrektur ist noch nicht möglich. Der Vorgang bleibt zur Prüfung offen." : "Prüfentscheidung gespeichert.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Prüfung konnte nicht gespeichert werden."); }
     finally { setReviewing(null); }
   }
@@ -112,7 +114,7 @@ export default function MerchantReferralsPage() {
           <section className={`app-panel ${styles.panel}`}><span className="tiny-label">ABLAUF</span><h2>So funktioniert es</h2><ol><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Ein berechtigter erster Kassenauftrag wird bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol><p>Gleiche verifizierte E-Mail-Adressen werden zur Prüfung angehalten. Pseudonyme Karten lassen sich nicht zuverlässig derselben Person zuordnen; Missbrauch kann daher nicht vollständig ausgeschlossen werden.</p></section>
         </div>
         <section className={`app-panel ${styles.history}`}><div className={styles.head}><div><span className="tiny-label">LETZTE 100 EMPFEHLUNGEN</span><h2>Vorgänge und Prüfung</h2></div><span>{referrals.length} angezeigt</span></div>
-          {referrals.length === 0 ? <p>Noch keine Anmeldungen über Empfehlungslinks.</p> : <ul>{referrals.map(referral => <li key={referral.id}><div className={styles.row}><div><strong>{status(referral.status)}</strong><small>Karte {referral.referrerCard} → Karte {referral.referredCard}</small><small>Angemeldet: {new Date(referral.createdAt).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}</small></div><div className={styles.bonus}>+{referral.referrerBonus} / +{referral.referredBonus} {unit}</div></div>{referral.reviewReason && <p className={styles.reviewReason}>{reviewReason(referral.reviewReason)}</p>}{referral.status === "review" && <div className={styles.actions}>{referral.reviewReason === "bonus_spent" || referral.reviewReason === "owner_required" ? <button type="button" className="button button--outline" disabled={reviewing === referral.id} onClick={() => void review(referral, "retry_reversal")}>{reviewing === referral.id ? "Prüft …" : "Bonus-Korrektur erneut prüfen"}</button> : <><label>Prüfvermerk<input value={reviewNote} onChange={event => setReviewNote(event.target.value)} minLength={10} maxLength={240} placeholder="Grund für die Ablehnung" /></label><button type="button" className="button button--outline" disabled={reviewing === referral.id || reviewNote.trim().length < 10} onClick={() => void review(referral, "reject")}>{reviewing === referral.id ? "Speichert …" : "Empfehlung ablehnen"}</button></>}</div>}</li>)}</ul>}
+          {referrals.length === 0 ? <p>Noch keine Anmeldungen über Empfehlungslinks.</p> : <ul>{referrals.map(referral => <li key={referral.id}><div className={styles.row}><div><strong>{status(referral.status)}</strong><small>Karte {referral.referrerCard} → Karte {referral.referredCard}</small><small>Angemeldet: {new Date(referral.createdAt).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}</small></div><div className={styles.bonus}>+{referral.referrerBonus} / +{referral.referredBonus} {unit}</div></div>{referral.reviewReason && <p className={styles.reviewReason}>{reviewReason(referral.reviewReason)}</p>}{referral.status === "review" && <div className={styles.actions}>{referral.hasCreditedBonus ? <button type="button" className="button button--outline" disabled={reviewing === referral.id} onClick={() => void review(referral, "retry_reversal")}>{reviewing === referral.id ? "Prüft …" : "Bonus-Korrektur erneut prüfen"}</button> : <><label>Prüfvermerk<input value={reviewNotes[referral.id] ?? ""} onChange={event => setReviewNotes(current => ({ ...current, [referral.id]: event.target.value }))} minLength={10} maxLength={240} placeholder="Grund für die Ablehnung" /></label><button type="button" className="button button--outline" disabled={reviewing === referral.id || (reviewNotes[referral.id] ?? "").trim().length < 10} onClick={() => void review(referral, "reject")}>{reviewing === referral.id ? "Speichert …" : "Empfehlung ablehnen"}</button></>}</div>}</li>)}</ul>}
         </section>
       </>}
     </main>
