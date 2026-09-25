@@ -64,6 +64,16 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
     const ownDetail = await ownerA.context.get(`/api/merchant/customers/${membershipId}`);
     expect(ownDetail.status()).toBe(200);
     expect((await ownDetail.json() as { timeline: Array<{ delta: number }> }).timeline.map(entry => entry.delta)).toEqual([3]);
+    expect((await ownerA.context.get("/api/merchant/customers/import-preview")).status()).toBe(200);
+    const importResponse = await ownerA.context.post("/api/merchant/customers/import-preview", { data: {
+      csv: "legacy,email,balance,consent,source,date\nSYN-001,test@example.test,4,yes,paper_form,2026-09-20\nSYN-001,other@example.test,2,no,,",
+      mapping: { externalId: "legacy", email: "email", balance: "balance", marketingConsent: "consent", consentSource: "source", consentDate: "date" },
+    } });
+    expect(importResponse.status()).toBe(200);
+    const importPreview = await importResponse.json() as { total: number; ready: number; duplicates: number; writesPerformed: boolean; rows: Array<{ status: string }> };
+    expect(importPreview).toMatchObject({ total: 2, ready: 1, duplicates: 1, writesPerformed: false });
+    expect(JSON.stringify(importPreview)).not.toContain("test@example.test");
+    expect((await ownerA.context.get(`/api/merchant/customers/${membershipId}`).then(response => response.json()) as { member: { balance: number; emailMarketingEligible: boolean } }).member).toMatchObject({ balance: 3, emailMarketingEligible: false });
     expect((await ownerB.context.get(`/api/merchant/customers/${membershipId}`)).status()).toBe(404);
     const otherList = await ownerB.context.get("/api/merchant/customers");
     expect(otherList.status()).toBe(200);
@@ -79,8 +89,10 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
       expect((await person.context.post("/api/staff/accept", { data: { token } })).status()).toBe(200);
     }
     expect((await manager.context.get("/api/merchant/customers")).status()).toBe(200);
+    expect((await manager.context.get("/api/merchant/customers/import-preview")).status()).toBe(403);
     expect((await cashier.context.get("/api/merchant/customers")).status()).toBe(403);
     expect((await cashier.context.get(`/api/merchant/customers/${membershipId}`)).status()).toBe(403);
+    expect((await cashier.context.get("/api/merchant/customers/import-preview")).status()).toBe(403);
 
     const ownerBrowser = await browser.newContext({ baseURL: url, storageState: await ownerA.context.storageState() });
     try {
@@ -90,6 +102,10 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
       await page.getByRole("button", { name: new RegExp(membershipId.slice(0, 12)) }).click();
       await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
       await expect(page.getByText("+3 Stempel")).toBeVisible();
+      await page.getByRole("link", { name: "Synthetische CSV-Vorschau" }).click();
+      await expect(page.getByRole("heading", { name: "Synthetische CSV-Vorschau" })).toBeVisible();
+      await page.getByRole("button", { name: "Vorschau prüfen" }).click();
+      await expect(page.getByRole("heading", { name: "Prüfergebnis" })).toBeVisible();
     } finally { await ownerBrowser.close(); }
 
     const staffList = await ownerA.context.get("/api/staff");
