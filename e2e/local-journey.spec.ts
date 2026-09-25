@@ -15,7 +15,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
   try {
     const programResponse = await page.request.get(`/api/program/${encodeURIComponent(demo.programSlug)}`);
     expect(programResponse.ok()).toBe(true);
-    const program = await programResponse.json() as { active: boolean; rewardCost: number; programType: "stamp" | "points"; locale: string };
+    const program = await programResponse.json() as { active: boolean; rewardCost: number; rewardTitle: string; programType: "stamp" | "points"; locale: string };
     expect(program.active).toBe(true);
     expect(program.locale).toBe("de");
     expect(program.rewardCost).toBeGreaterThan(0);
@@ -30,6 +30,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
+    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} für „${program.rewardTitle}“`);
     await page.getByRole("button", { name: "Kartencode anzeigen" }).click();
     const scanCode = await page.locator(".customer-qr-panel code").innerText();
     expect(scanCode.startsWith("sc_")).toBe(true);
@@ -65,6 +66,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await page.reload();
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
+    await expect(page.locator(".reward-remaining")).toContainText("Prämie verfügbar");
 
     await cashier.locator(".reward-action-list button").first().click();
     await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toBeVisible();
@@ -82,6 +84,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`-${program.rewardCost} ${unit}`);
+    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} für „${program.rewardTitle}“`);
     await expect(page.getByText("Prämie eingelöst")).toBeVisible();
 
     await page.getByRole("button", { name: "Karte schließen" }).click();

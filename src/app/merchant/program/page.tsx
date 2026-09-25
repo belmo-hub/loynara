@@ -62,7 +62,7 @@ export default function ProgramPage() {
         timezone: input.timezone, locale: input.locale, currency: input.currency,
         programName: input.programName, programType: input.type === "stamps" ? "stamp" : "points",
         rulesText: input.rules, rewardTitle: input.rewardName, rewardCost: input.rewardCost,
-        locationName: input.locationName, contactEmail: input.contactEmail,
+        locationName: input.locationName, ...(input.contactEmail ? { contactEmail: input.contactEmail } : {}),
         brandColor: input.brandColor, effectiveDate: input.effectiveDate, logoData,
         latitude: input.latitude, longitude: input.longitude,
       });

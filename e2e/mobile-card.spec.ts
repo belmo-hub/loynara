@@ -30,3 +30,55 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   });
 }
+
+test("card foregrounds the merchant, states the remaining stamps, and can be reopened from a copied link", async ({ page, context }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const response = await page.request.get(`/api/card/${encodeURIComponent(demo.cardToken)}`);
+  expect(response.ok()).toBe(true);
+  const card = await response.json() as { merchantName: string; balance: number; rewards: { title: string; cost: number }[] };
+  const reward = card.rewards[0];
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  await expect(page.locator(".customer-header-merchant")).toHaveText(card.merchantName);
+  await expect(page.locator(".customer-card-business strong")).toHaveText(card.merchantName);
+  await expect(page.getByRole("link", { name: "Apple Wallet" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google Wallet" })).toHaveCount(0);
+  if (reward && card.balance < reward.cost) {
+    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${reward.cost - card.balance} Stempel für „${reward.title}“`);
+  }
+  await page.getByRole("button", { name: "Kartenlink kopieren" }).click();
+  await expect(page.getByRole("status")).toContainText("Kartenlink kopiert");
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(new URL(copied).pathname).toBe(`/card/${demo.cardToken}`);
+  expect(new URL(copied).search).toBe("");
+  const reopened = await context.newPage();
+  await reopened.goto(copied);
+  await expect(reopened.locator(".customer-card-business strong")).toHaveText(card.merchantName);
+  await expect(reopened.locator(".customer-balance-line strong")).toContainText(String(card.balance));
+  await reopened.close();
+});
+
+test("long merchant and location names remain readable without horizontal overflow", async ({ page }) => {
+  const token = encodeURIComponent(demo.cardToken);
+  const response = await page.request.get(`/api/card/${token}`);
+  expect(response.ok()).toBe(true);
+  const card = await response.json() as Record<string, unknown>;
+  const merchantName = "Lange Geschäftsbezeichnung mit mehreren Wörtern für eine Filiale im Viertel am Hauptbahnhof";
+  const locationName = "W".repeat(120);
+  await page.route(`**/api/card/${token}`, route => route.fulfill({ json: { ...card, merchantName, locationName } }));
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto(`/card/${token}`);
+  const heading = page.locator(".customer-header-merchant");
+  await expect(heading).toHaveText(merchantName);
+  await expect(page.locator(".customer-card-business span")).toHaveText(locationName);
+  const headerBox = await page.locator(".customer-header").boundingBox();
+  const headingBox = await heading.boundingBox();
+  expect(headerBox).not.toBeNull();
+  expect(headingBox).not.toBeNull();
+  expect(headingBox!.y).toBeGreaterThanOrEqual(headerBox!.y);
+  expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(headerBox!.y + headerBox!.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  const qr = page.locator(".customer-qr img");
+  await expect(qr).toBeVisible();
+  await expect.poll(() => qr.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+});

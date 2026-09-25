@@ -35,6 +35,7 @@ const accessNote = localPreview
   ? "LOKALE TESTVORSCHAU · Dieser Link funktioniert nur auf dem Mac, auf dem LoopLocal unter localhost:3001 läuft. Für den Test mit zwei Geräten ist zuerst eine freigegebene HTTPS-Vorschau nötig."
   : "GESCHÜTZTE TESTVORSCHAU · Nur mit freigegebenem HTTPS-Zugang und synthetischen Daten verwenden.";
 const action = localPreview ? "Am Mac öffnen. Karte erstellen." : "QR scannen. Karte öffnen.";
+const merchantName = "Demo Kaffeebar Kassel";
 
 const html = `<!doctype html>
 <html lang="de">
@@ -42,15 +43,13 @@ const html = `<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>Demo Kaffeebar Kassel · LoopLocal Anmeldeschild</title>
+  <title>${escape(merchantName)} · Anmeldeschild</title>
   <style>
     :root { color-scheme: light; --forest:#193b2d; --green:#2f6b58; --paper:#f4f1e9; --orange:#ef9c74; }
     * { box-sizing:border-box; }
     body { margin:0; background:#e6ebe4; color:var(--forest); font-family:Arial,Helvetica,sans-serif; }
     .sheet { width:148mm; min-height:210mm; margin:18px auto; padding:12mm 13mm 9mm; background:var(--paper); box-shadow:0 14px 40px #193b2d22; display:flex; flex-direction:column; align-items:center; text-align:center; }
-    .brand { align-self:flex-start; display:flex; align-items:center; gap:8px; font-size:22px; font-weight:800; letter-spacing:-.08em; }
-    .brand-icon { width:25px; height:25px; display:grid; place-items:center; border-radius:8px; background:var(--orange); font-size:20px; line-height:1; letter-spacing:-.12em; transform:rotate(-8deg); }
-    .eyebrow { margin:10mm 0 3mm; color:var(--green); font-size:10px; font-weight:800; letter-spacing:.18em; }
+    .eyebrow { margin:7mm 0 3mm; color:var(--green); font-size:10px; font-weight:800; letter-spacing:.18em; }
     h1 { margin:0; font-size:31px; line-height:1.06; letter-spacing:-.06em; }
     .sub { margin:3mm 0 7mm; font-size:15px; font-weight:700; }
     .qr { width:76mm; height:76mm; padding:3mm; border:2px solid var(--green); border-radius:8mm; background:#fff; }
@@ -60,22 +59,23 @@ const html = `<!doctype html>
     .steps li { width:30mm; }
     .steps b { display:inline-grid; place-items:center; width:17px; height:17px; margin-right:3px; border-radius:50%; background:var(--green); color:#fff; font-size:10px; }
     .join-url { width:100%; margin:7mm 0 0; padding:3mm; border-top:1px solid #c9d8ca; border-bottom:1px solid #c9d8ca; overflow-wrap:anywhere; font-size:10px; font-weight:700; }
-    .note { margin:auto 0 0; padding-top:5mm; color:#597363; font-size:8.5px; line-height:1.4; text-align:left; }
+    .note { margin:auto 0 0; padding-top:5mm; color:#415d49; font-size:9px; line-height:1.4; text-align:left; }
+    .attribution { align-self:flex-end; margin:4mm 0 0; color:#415d49; font-size:10px; font-weight:700; }
     @page { size:A5 portrait; margin:0; }
     @media print { body { background:#fff; print-color-adjust:exact; -webkit-print-color-adjust:exact; } .sheet { margin:0; box-shadow:none; } }
   </style>
 </head>
 <body>
   <main class="sheet">
-    <div class="brand"><span class="brand-icon" aria-hidden="true">∞</span><span>looplocal.</span></div>
     <p class="eyebrow">SYNTHETISCHE DEMO · KASSEL</p>
-    <h1>Deine Kaffeekarte.<br>Direkt im Browser.</h1>
-    <p class="sub">Demo Kaffeebar Kassel</p>
+    <h1>${escape(merchantName)}</h1>
+    <p class="sub">Deine Stempelkarte im Browser</p>
     <div class="qr" role="img" aria-label="QR-Code zur Demo-Kaffeekarte">${qr}</div>
     <p class="instruction">${escape(action)}</p>
     <ol class="steps"><li><b>1</b>Programm lesen</li><li><b>2</b>Karte erstellen</li><li><b>3</b>An der Kasse zeigen</li></ol>
     <p class="join-url">${escape(joinUrl)}</p>
     <p class="note">${escape(accessNote)} Es werden keine echten Kundendaten benötigt. Die Teilnahmebedingungen in der Vorschau sind ein Entwurf.</p>
+    <p class="attribution">Mit LoopLocal</p>
   </main>
 </body>
 </html>
