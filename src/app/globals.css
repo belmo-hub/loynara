@@ -252,6 +252,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .customer-wallet .card-contact-error { margin-top: 10px; color: #9e302f; font-weight: 700; }
 .customer-footer { color: #5c7160; }
 .customer-qr-panel code { font-size: 13px; letter-spacing: .02em; }
+.app-header-inner { gap: 20px; }
+.app-header-inner > a { flex: 0 0 auto; }
+.app-header nav { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+.app-header nav a { flex: 0 0 auto; }
+.app-header-location { flex: 0 0 auto; }
+@media (max-width: 1100px) { .app-header-location { display: none; } }
 .join-contact-note { margin: 0; padding: 12px 14px; border-radius: 9px; background: #eef5ea; color: #536f59; font-size: 12px; line-height: 1.5; }
 @media (max-width: 560px) {
   .customer-header { height: auto; min-height: 55px; padding-block: 10px; }
