@@ -8,6 +8,7 @@ import { locations, memberships, programs, staffRoles } from "../src/db/schema";
 import { award } from "../src/lib/loyalty";
 import { createMerchant, enroll } from "../src/lib/product";
 import { assertLocalTarget } from "./local-guard";
+import { previewConfigIssues } from "./preview-config";
 
 type DemoAccess = {
   ownerEmail: string;
@@ -18,7 +19,8 @@ type DemoAccess = {
   cardToken?: string;
 };
 
-const accessPath = path.resolve("var/demo-access.json");
+const previewSeed = process.env.LOOPLOCAL_PREVIEW_SEED === "true";
+const accessPath = path.resolve(previewSeed ? "var/preview-access.json" : "var/demo-access.json");
 const ownerEmail = "owner.demo@looplocal.test";
 const cashierEmail = "cashier.demo@looplocal.test";
 
@@ -60,7 +62,13 @@ async function ensureUser(email: string, name: string, password: string) {
 }
 
 async function main() {
-  assertLocalTarget({ databaseUrl: process.env.DATABASE_URL, authUrl: process.env.BETTER_AUTH_URL, baseUrl: process.env.PUBLIC_BASE_URL, nodeEnv: process.env.NODE_ENV });
+  if (previewSeed) {
+    if (process.env.NODE_ENV === "production") throw new Error("Preview seeding refuses NODE_ENV=production");
+    const issues = previewConfigIssues(process.env);
+    if (issues.length) throw new Error(`Preview seeding rejected: ${issues.join("; ")}`);
+  } else {
+    assertLocalTarget({ databaseUrl: process.env.DATABASE_URL, authUrl: process.env.BETTER_AUTH_URL, baseUrl: process.env.PUBLIC_BASE_URL, nodeEnv: process.env.NODE_ENV });
+  }
   const access = getAccess();
   const ownerId = await ensureUser(access.ownerEmail, "Demo Inhaber", access.ownerPassword);
   const cashierId = await ensureUser(access.cashierEmail, "Demo Kasse", access.cashierPassword);

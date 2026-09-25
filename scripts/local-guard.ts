@@ -22,7 +22,7 @@ export function assertLocalTarget(target: LocalTarget): void {
     throw new Error("Invalid local configuration URL");
   }
 
-  if (!["postgres:", "postgresql:"].includes(database.protocol) || !localHosts.has(database.hostname) || decodeURIComponent(database.pathname) !== "/looplocal") {
+  if (!["postgres:", "postgresql:"].includes(database.protocol) || !localHosts.has(database.hostname) || decodeURIComponent(database.pathname) !== "/looplocal" || database.search || database.hash) {
     throw new Error("Local operations require the localhost looplocal database");
   }
   if (auth.protocol !== "http:" || base.protocol !== "http:" || !localHosts.has(auth.hostname) || !localHosts.has(base.hostname)) {

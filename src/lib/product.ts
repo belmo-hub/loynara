@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { consentEvents, ledgerEntries, locations, membershipContacts, memberships, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { validCardToken } from "./card-lifecycle";
 import { draftPriceMinor } from "./pricing";
 
 const shortText = z.string().trim().min(2).max(180);
@@ -133,12 +134,13 @@ async function currentRewards(tenantId: string, programId: string) {
 }
 
 export async function getCard(token: string) {
+  if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
   const [row] = await db.select({ member: memberships, program: programs, location: locations, tenant: tenants })
     .from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
-    .where(eq(memberships.cardToken, token));
+    .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
   if (!row) throw new DomainError("NOT_FOUND", "Card not found");
   const activity = await db.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
@@ -150,7 +152,7 @@ export async function lookupCard(input: { userId: string; locationId: string; sc
   const [row] = await db.select({ member: memberships, program: programs }).from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .where(eq(memberships.scanCode, input.scanCode));
-  if (!row || row.program.locationId !== input.locationId || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+  if (!row || row.member.closedAt || row.program.locationId !== input.locationId || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, row.member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
   if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
   return { membershipId: row.member.id, balance: row.member.balance, programType: row.program.type, rewards: await currentRewards(row.member.tenantId, row.program.id) };

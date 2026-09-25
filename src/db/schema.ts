@@ -133,6 +133,7 @@ export const memberships = pgTable("memberships", {
   scanCode: varchar("scan_code", { length: 64 }).notNull().unique(),
   cardToken: varchar("card_token", { length: 100 }).notNull().unique(),
   balance: integer("balance").notNull().default(0),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [
   unique("memberships_tenant_id_id_uq").on(t.tenantId, t.id),
@@ -277,3 +278,13 @@ export const demoRequests = pgTable("demo_requests", {
   email: varchar("email", { length: 320 }).notNull(),
   createdAt: createdAt(),
 });
+
+export const rateLimits = pgTable("rate_limits", {
+  keyHash: varchar("key_hash", { length: 64 }).primaryKey(),
+  hits: integer("hits").notNull(),
+  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("rate_limits_reset_idx").on(t.resetAt),
+  check("rate_limits_hits_positive", sql`${t.hits} > 0`),
+]);

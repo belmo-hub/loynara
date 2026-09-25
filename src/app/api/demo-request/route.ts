@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { demoRequests } from "@/db/schema";
 import { jsonBody, requireSameOrigin, respondError } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
+import { enforcePeerLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -16,6 +17,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     requireSameOrigin(request);
+    await enforcePeerLimit(request, "demo_request", 10, 24 * 60 * 60);
     const input = schema.parse(await jsonBody(request, 10_000));
     if (input.website) return Response.json({ message: "Danke! Deine Anfrage wurde gespeichert." });
     const email = input.email.toLowerCase();

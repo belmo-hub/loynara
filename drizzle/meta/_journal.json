@@ -43,6 +43,13 @@
       "when": 1790345900549,
       "tag": "0005_living_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790347449816,
+      "tag": "0006_lonely_brood",
+      "breakpoints": true
     }
   ]
 }

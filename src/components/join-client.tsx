@@ -19,8 +19,6 @@ export function JoinClient({ slug }: { slug: string }) {
   const router = useRouter();
   const [program, setProgram] = useState<PublicProgram | null>(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState("");
-  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,11 +39,10 @@ export function JoinClient({ slug }: { slug: string }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError("");
     if (!acceptedTerms) { setError(t.acceptError); return; }
-    if (marketingOptIn && !email.trim()) { setError(t.emailError); return; }
     setBusy(true);
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
-      const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(email.trim() ? { email: email.trim() } : {}), marketingOptIn });
+      const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true });
       router.push(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : t.submitError); }
     finally { setBusy(false); }
@@ -61,9 +58,8 @@ export function JoinClient({ slug }: { slug: string }) {
           <div className="join-rules"><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
           {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
           <form className="join-form" onSubmit={submit}>
-            <label className="join-email">{t.email} <span>{t.optional}</span><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nom@exemple.fr" maxLength={254} required={marketingOptIn} /><small>{t.emailHint}</small></label>
+            <p className="join-contact-note">{locale === "fr" ? "Votre carte est créée sans adresse e-mail. Les messages et la récupération par e-mail ne sont pas encore disponibles." : "Deine Karte wird ohne E-Mail-Adresse erstellt. Nachrichten und Wiederherstellung per E-Mail sind derzeit nicht verfügbar."}</p>
             <label className="join-checkbox"><input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required /><span>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</span></label>
-            <label className="join-checkbox"><input type="checkbox" checked={marketingOptIn} onChange={e => setMarketingOptIn(e.target.checked)} /><span>{t.marketing}</span></label>
             {error && <p className="auth-error" role="alert">{error}</p>}
             <button type="submit" className="button button--accent button--full" disabled={busy || program.active === false}>{busy ? t.submitting : t.submit}<Icon name="arrow" size={18} /></button>
           </form>

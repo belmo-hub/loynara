@@ -16,7 +16,13 @@
     "db:seed": "tsx scripts/seed.ts",
     "diagnose": "tsx scripts/diagnose.ts",
     "worker": "tsx scripts/worker.ts",
+    "rate-limits:prune": "tsx scripts/prune-rate-limits.ts",
     "local": "sh scripts/local-start.sh",
+    "preview": "sh scripts/preview-start.sh",
+    "preview:browser-check": "node scripts/preview-browser-check.mjs",
+    "preview:backup": "sh scripts/preview-backup.sh",
+    "preview:restore-check": "sh scripts/preview-restore-check.sh",
+    "preview:worker": "sh scripts/preview-worker.sh",
     "backup": "sh scripts/backup.sh",
     "restore-check": "sh scripts/restore-check.sh"
   },

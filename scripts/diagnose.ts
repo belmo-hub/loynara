@@ -8,7 +8,9 @@ import { productionConfigIssues } from "./config-check";
 
 async function main() {
   const issues: string[] = [...productionConfigIssues(process.env)];
-  if (process.env.NODE_ENV === "production" && existsSync(path.resolve("var/demo-access.json"))) issues.push("Local demo credentials exist in this application directory");
+  if (process.env.NODE_ENV === "production" && ["var/demo-access.json", "var/preview-access.json", "var/preview.env"].some((file) => existsSync(path.resolve(file)))) {
+    issues.push("Local demo or preview credentials exist in this application directory");
+  }
 
   console.log("LoopLocal environment diagnostic");
   console.log(`Mode: ${process.env.NODE_ENV ?? "development"}`);

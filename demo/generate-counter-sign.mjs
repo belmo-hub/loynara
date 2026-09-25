@@ -1,0 +1,71 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import QRCode from "qrcode";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const access = JSON.parse(readFileSync(path.join(root, "var/preview-access.json"), "utf8"));
+if (!/^[a-z0-9-]{1,120}$/.test(access.programSlug ?? "")) throw new Error("Synthetic preview programme slug is missing");
+
+const joinUrl = process.argv[2] ?? `http://localhost:3001/join/${access.programSlug}`;
+const parsed = new URL(joinUrl);
+const localPreview = parsed.protocol === "http:" && parsed.hostname === "localhost" && parsed.port === "3001";
+if ((!localPreview && parsed.protocol !== "https:") || parsed.pathname !== `/join/${access.programSlug}` || parsed.search || parsed.hash || parsed.username || parsed.password) {
+  throw new Error("Use the current synthetic programme's localhost preview URL or its approved HTTPS URL");
+}
+
+const escape = (value) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+const qr = await QRCode.toString(joinUrl, { type: "svg", width: 720, margin: 2, errorCorrectionLevel: "H" });
+const accessNote = localPreview
+  ? "LOKALE TESTVORSCHAU · Dieser Link funktioniert nur auf dem Mac, auf dem LoopLocal unter localhost:3001 läuft. Für den Test mit zwei Geräten ist zuerst eine freigegebene HTTPS-Vorschau nötig."
+  : "GESCHÜTZTE TESTVORSCHAU · Nur mit freigegebenem HTTPS-Zugang und synthetischen Daten verwenden.";
+const action = localPreview ? "Am Mac öffnen. Karte erstellen." : "QR scannen. Karte öffnen.";
+
+const html = `<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Demo Kaffeebar Kassel · LoopLocal Anmeldeschild</title>
+  <style>
+    :root { color-scheme: light; --forest:#193b2d; --green:#2f6b58; --paper:#f4f1e9; --orange:#ef9c74; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#e6ebe4; color:var(--forest); font-family:Arial,Helvetica,sans-serif; }
+    .sheet { width:148mm; min-height:210mm; margin:18px auto; padding:12mm 13mm 9mm; background:var(--paper); box-shadow:0 14px 40px #193b2d22; display:flex; flex-direction:column; align-items:center; text-align:center; }
+    .brand { align-self:flex-start; display:flex; align-items:center; gap:8px; font-size:22px; font-weight:800; letter-spacing:-.08em; }
+    .brand-icon { width:25px; height:25px; display:grid; place-items:center; border-radius:8px; background:var(--orange); font-size:20px; line-height:1; letter-spacing:-.12em; transform:rotate(-8deg); }
+    .eyebrow { margin:10mm 0 3mm; color:var(--green); font-size:10px; font-weight:800; letter-spacing:.18em; }
+    h1 { margin:0; font-size:31px; line-height:1.06; letter-spacing:-.06em; }
+    .sub { margin:3mm 0 7mm; font-size:15px; font-weight:700; }
+    .qr { width:76mm; height:76mm; padding:3mm; border:2px solid var(--green); border-radius:8mm; background:#fff; }
+    .qr svg { display:block; width:100%; height:100%; }
+    .instruction { margin:7mm 0 2mm; font-size:18px; line-height:1.2; font-weight:800; letter-spacing:-.04em; }
+    .steps { margin:0; padding:0; display:flex; gap:4mm; list-style:none; font-size:11px; line-height:1.35; font-weight:700; }
+    .steps li { width:30mm; }
+    .steps b { display:inline-grid; place-items:center; width:17px; height:17px; margin-right:3px; border-radius:50%; background:var(--green); color:#fff; font-size:10px; }
+    .join-url { width:100%; margin:7mm 0 0; padding:3mm; border-top:1px solid #c9d8ca; border-bottom:1px solid #c9d8ca; overflow-wrap:anywhere; font-size:10px; font-weight:700; }
+    .note { margin:auto 0 0; padding-top:5mm; color:#597363; font-size:8.5px; line-height:1.4; text-align:left; }
+    @page { size:A5 portrait; margin:0; }
+    @media print { body { background:#fff; print-color-adjust:exact; -webkit-print-color-adjust:exact; } .sheet { margin:0; box-shadow:none; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">∞</span><span>looplocal.</span></div>
+    <p class="eyebrow">SYNTHETISCHE DEMO · KASSEL</p>
+    <h1>Deine Kaffeekarte.<br>Direkt im Browser.</h1>
+    <p class="sub">Demo Kaffeebar Kassel</p>
+    <div class="qr" role="img" aria-label="QR-Code zur Demo-Kaffeekarte">${qr}</div>
+    <p class="instruction">${escape(action)}</p>
+    <ol class="steps"><li><b>1</b>Programm lesen</li><li><b>2</b>Karte erstellen</li><li><b>3</b>An der Kasse zeigen</li></ol>
+    <p class="join-url">${escape(joinUrl)}</p>
+    <p class="note">${escape(accessNote)} Es werden keine echten Kundendaten benötigt. Die Teilnahmebedingungen in der Vorschau sind ein Entwurf.</p>
+  </main>
+</body>
+</html>
+`;
+
+const target = path.join(root, "demo/counter-sign.html");
+writeFileSync(target, html, "utf8");
+console.log(`Generated ${path.relative(root, target)} for ${localPreview ? "loopback preview" : "supplied HTTPS preview"}.`);

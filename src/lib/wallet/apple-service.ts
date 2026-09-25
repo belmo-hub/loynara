@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { appleDevices, appleRegistrations, walletPasses } from "@/db/schema";
+import { appleDevices, appleRegistrations, memberships, walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { validApplePassToken, type ApplePassConfig } from "./apple";
 import { walletPassDataByMembershipId } from "./data";
@@ -28,6 +28,9 @@ export async function registerAppleDevice(input: RegistrationInput, config: Appl
   if (!/^[a-f0-9]{32,300}$/i.test(input.pushToken)) throw new DomainError("INVALID_TOKEN", "Invalid Apple push token");
   const pass = await registeredApplePass(input, config);
   return db.transaction(async (tx) => {
+    const [member] = await tx.select({ id: memberships.id, closedAt: memberships.closedAt }).from(memberships)
+      .where(and(eq(memberships.tenantId, pass.tenantId), eq(memberships.id, pass.membershipId))).for("update");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Pass not found");
     await tx.update(walletPasses).set({ status: "registered" }).where(and(eq(walletPasses.membershipId, pass.membershipId), eq(walletPasses.provider, "apple")));
     await tx.insert(appleDevices).values({ deviceLibraryIdentifier: input.deviceId, pushToken: input.pushToken })
       .onConflictDoUpdate({ target: appleDevices.deviceLibraryIdentifier, set: { pushToken: input.pushToken, updatedAt: new Date() } });
@@ -54,7 +57,8 @@ export async function listUpdatedApplePasses(deviceId: string, passTypeId: strin
   const rows = await db.select({ serialNumber: appleRegistrations.serialNumber, updatedAt: walletPasses.updatedAt })
     .from(appleRegistrations)
     .innerJoin(walletPasses, and(eq(walletPasses.membershipId, appleRegistrations.membershipId), eq(walletPasses.tenantId, appleRegistrations.tenantId), eq(walletPasses.provider, "apple")))
-    .where(and(eq(appleRegistrations.deviceLibraryIdentifier, deviceId), eq(appleRegistrations.passTypeIdentifier, passTypeId)));
+    .innerJoin(memberships, and(eq(memberships.id, appleRegistrations.membershipId), eq(memberships.tenantId, appleRegistrations.tenantId)))
+    .where(and(eq(appleRegistrations.deviceLibraryIdentifier, deviceId), eq(appleRegistrations.passTypeIdentifier, passTypeId), isNull(memberships.closedAt)));
   const changed = rows.filter((row) => row.updatedAt.getTime() > since);
   if (!changed.length) return null;
   return { serialNumbers: changed.map((row) => row.serialNumber), lastUpdated: String(Math.max(...changed.map((row) => row.updatedAt.getTime()))) };

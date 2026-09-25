@@ -13,6 +13,17 @@ The browser card at `/card/[token]` is the default membership card. Apple and Go
 | Real Apple Wallet install, APNs push, pass fetch, lock-screen relevance | **NOT RUN** | Requires Apple Developer pass certificate, production HTTPS, and physical Apple device. |
 | Real Google Save, object update, nearby notification, publishing | **NOT RUN** | Requires issuer/service account, public HTTPS logo, account approval, and physical Android device. |
 
+## Physical-provider handoff
+
+| Provider | Exact account/credential requirement | Required environment variables | Test device/account | Public endpoint | Next verification action |
+| --- | --- | --- | --- | --- | --- |
+| Apple | Apple Developer team with registered Pass Type ID; **Apple-issued** matching Pass Type ID signing certificate/private key and WWDR chain. A self-signed fixture only proves archive construction, not Apple trust. | `APPLE_WALLET_ENABLED`, `APPLE_PASS_TYPE_ID`, `APPLE_TEAM_ID`, `APPLE_SIGNING_CERT_PATH`, `APPLE_SIGNING_KEY_PATH`, `APPLE_WWDR_CERT_PATH`, `APPLE_WALLET_AUTH_SECRET`, `APPLE_WALLET_WEB_SERVICE_URL` | Physical iPhone with Wallet; designated test operator. | Public HTTPS base `APPLE_WALLET_WEB_SERVICE_URL=https://<approved-host>/api/apple` for device registration, update listing and pass fetch; APNs outbound reachability. | With approved credentials and permission, inspect `/api/wallet/status`, download/install a pass, register device, award/redeem, confirm APNs and updated pass/QR on the iPhone. |
+| Google | Google Wallet issuer in Console; enabled Google Wallet API; issuer-authorized Developer service account with securely stored JSON key. New issuers start in **Demo Mode**; test-account issuance is separate from public publishing approval. | `GOOGLE_WALLET_ENABLED`, `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_FILE`, `GOOGLE_WALLET_PROGRAM_LOGO_URL`, `GOOGLE_WALLET_PUBLISHING_STATUS=demo` (until approved) | Designated Google Wallet tester account on a physical Android device. | Public HTTPS logo URL fetchable by Google; application endpoint under an approved HTTPS origin for a device journey. | With approved credentials and tester, perform actual Save, scan, award/redeem and object-update checks. Request publishing access only after the issuer's separate approval prerequisites; never relabel a Demo Mode test as public issuance. |
+
+No issuer credentials, designated provider testers, or permission to call live providers were supplied, so both rows remain **NOT RUN** for real provider/device operation. Store certificate/key and service-account files outside Git and `public/` with restricted local permissions; never paste private keys in chat or logs. The browser-card preview needs neither provider.
+
+An Access-gated browser preview does not automatically make Apple device callbacks reachable or a Google logo fetchable. Those provider-facing URLs need their own reviewed public HTTPS routing and token-path log policy before real provider tests. Do not open them merely to make a fixture test pass.
+
 ## Apple configuration
 
 Set `APPLE_WALLET_ENABLED=true` only after placing credentials outside the repository and configuring:

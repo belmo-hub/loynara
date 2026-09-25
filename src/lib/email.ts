@@ -38,17 +38,21 @@ async function latestMarketingConsent(tenantId: string, membershipId: string, qu
 export async function queueMarketingEmail(raw: z.input<typeof messageInput>): Promise<{ id: string; status: "pending" }> {
   if (!localMailAllowed()) throw new DomainError("EMAIL_DISABLED", "Only local Mailpit email tests are available");
   const input = messageInput.parse(raw);
-  const [member] = await db.select().from(memberships).where(eq(memberships.id, input.membershipId)).limit(1);
-  if (!member) throw new DomainError("NOT_FOUND", "Membership not found");
-  const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true), eq(staffRoles.role, "owner"))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Only this merchant's owner can queue a local email test");
-  const [contact] = await db.select().from(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);
-  if (!contact?.email || !contact.emailVerified) throw new DomainError("EMAIL_UNVERIFIED", "A verified email is required");
-  if (!syntheticAddress(contact.email)) throw new DomainError("EMAIL_TEST_ONLY", "Only synthetic .test recipients are allowed");
-  if (!await latestMarketingConsent(member.tenantId, member.id)) throw new DomainError("CONSENT_REQUIRED", "Current marketing consent is required");
-
-  const [job] = await db.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.marketing", payload: { membershipId: member.id, subject: input.subject, body: input.body, actorUserId: input.userId } }).returning({ id: outboxJobs.id });
-  return { id: job.id, status: "pending" };
+  return db.transaction(async (tx) => {
+    // Closure and consent withdrawal use this same row lock. Eligibility and
+    // insertion must commit together so a closed card cannot gain a fresh job
+    // after closure has already scrubbed the outbox.
+    const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Membership not found");
+    const [role] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true), eq(staffRoles.role, "owner"))).limit(1);
+    if (!role) throw new DomainError("FORBIDDEN", "Only this merchant's owner can queue a local email test");
+    const [contact] = await tx.select().from(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);
+    if (!contact?.email || !contact.emailVerified) throw new DomainError("EMAIL_UNVERIFIED", "A verified email is required");
+    if (!syntheticAddress(contact.email)) throw new DomainError("EMAIL_TEST_ONLY", "Only synthetic .test recipients are allowed");
+    if (!await latestMarketingConsent(member.tenantId, member.id, tx)) throw new DomainError("CONSENT_REQUIRED", "Current marketing consent is required");
+    const [job] = await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.marketing", payload: { membershipId: member.id, subject: input.subject, body: input.body, actorUserId: input.userId } }).returning({ id: outboxJobs.id });
+    return { id: job.id, status: "pending" as const };
+  });
 }
 
 export async function withdrawMarketingConsent(cardToken: string): Promise<void> {
@@ -94,7 +98,7 @@ export async function deliverMarketingEmail(
 
   return db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, parsed.data.membershipId), eq(memberships.tenantId, job.tenantId))).for("update");
-    if (!member) return { status: "suppressed" as const, reason: "Membership unavailable" };
+    if (!member || member.closedAt) return { status: "suppressed" as const, reason: "Membership unavailable" };
     const [actor] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, parsed.data.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).for("update").limit(1);
     if (!actor) return { status: "suppressed" as const, reason: "Queueing owner no longer authorized" };
     const [contact] = await tx.select().from(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);

@@ -25,4 +25,8 @@ describe("local operations target guard", () => {
   it("rejects a different database name so seed cannot touch a test or customer DB", () => {
     expect(() => assertLocalTarget({ ...local, databaseUrl: "postgresql://looplocal:password@localhost:54329/looplocal_test" })).toThrow();
   });
+
+  it("rejects connection parameters that override the checked local host", () => {
+    expect(() => assertLocalTarget({ ...local, databaseUrl: `${local.databaseUrl}?host=db.example.com&port=5432` })).toThrow();
+  });
 });

@@ -26,4 +26,27 @@ describe("production configuration gate", () => {
   it("does not label a local development environment as production-invalid", () => {
     expect(productionConfigIssues({ NODE_ENV: "development" })).toEqual([]);
   });
+
+  it("refuses the preview seed switch in a real production configuration", () => {
+    const issues = productionConfigIssues({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://merchant:unique-value@db.example.com/loyalty",
+      BETTER_AUTH_URL: "https://app.example.com",
+      PUBLIC_BASE_URL: "https://app.example.com",
+      BETTER_AUTH_SECRET: "a".repeat(64),
+      LOOPLOCAL_PREVIEW_SEED: "true",
+    });
+    expect(issues).toContain("Preview seeding is forbidden in production");
+  });
+
+  it("rejects database query parameters that override the checked production host", () => {
+    const issues = productionConfigIssues({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://merchant:unique-value@db.example.com/loyalty?host=localhost&port=54329",
+      BETTER_AUTH_URL: "https://app.example.com",
+      PUBLIC_BASE_URL: "https://app.example.com",
+      BETTER_AUTH_SECRET: "a".repeat(64),
+    });
+    expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/database/i)]));
+  });
 });

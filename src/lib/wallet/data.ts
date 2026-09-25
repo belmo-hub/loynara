@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { locations, memberships, programs, tenants } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
@@ -11,7 +11,7 @@ export async function walletPassDataByMembershipId(membershipId: string): Promis
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(eq(memberships.id, membershipId));
-  if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!row || row.member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
   return {
     tenantId: row.tenant.id,
     membershipId: row.member.id,
@@ -29,7 +29,7 @@ export async function walletPassDataByMembershipId(membershipId: string): Promis
 }
 
 export async function walletPassDataByCardToken(cardToken: string): Promise<WalletPassData> {
-  const [member] = await db.select({ id: memberships.id }).from(memberships).where(eq(memberships.cardToken, cardToken));
+  const [member] = await db.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
   if (!member) throw new DomainError("NOT_FOUND", "Card not found");
   return walletPassDataByMembershipId(member.id);
 }

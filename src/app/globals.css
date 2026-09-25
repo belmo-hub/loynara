@@ -174,3 +174,48 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .dashboard-export { display: inline-flex; align-items: center; gap: 8px; width: fit-content; color: #3d7650; font-size: 11px; font-weight: 800; padding: 6px 2px; }.dashboard-export:hover { text-decoration: underline; }
 .cashier-header-actions { display: flex; align-items: center; gap: 17px; }.cashier-header-actions select { min-width: 56px; height: 34px; padding: 0 7px; border: 1px solid #d9e5d8; border-radius: 7px; background: #f6faf4; color: #315d3d; font-size: 11px; font-weight: 800; }.card-result-head h2 { overflow-wrap: anywhere; word-break: break-all; }
 @media (max-width: 560px) { .cashier-header-actions { gap: 8px; }.cashier-exit { font-size: 10px; } }
+
+/* Checkout first: the full QR and balance fit a phone viewport without shrinking the code. */
+.customer-code-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 7px; }
+.customer-code-actions .text-button { min-height: 42px; padding: 0 9px; text-decoration: underline; text-underline-offset: 3px; }
+.cashier-camera-action { min-height: 56px; margin: 14px 0 12px; font-size: 16px; }
+.cashier-scan-card .cashier-camera-action + p { margin-bottom: 12px; }
+.cashier-code-form { margin-top: 14px; }
+.cashier-code-form .camera-help { margin-top: 7px; font-size: 11px; }
+.customer-close { margin: 14px 0 0; padding: 14px 0; border-top: 1px solid #dce6db; }
+.customer-close > .text-button { min-height: 44px; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+.customer-close-confirm { margin-top: 7px; padding: 16px; border: 1px solid #ead9c2; border-radius: 10px; background: #fff9ef; }
+.customer-close-confirm p { margin: 0 0 13px; font-size: 13px; line-height: 1.55; color: #604f3c; }
+.customer-close-confirm .button { min-height: 44px; }
+.customer-close-confirm [role="alert"] { color: #a33f2e; margin-top: 10px; }
+@media (max-width: 560px) {
+  .cashier-main { padding-top: 22px; }
+  .cashier-intro h1 { margin: 10px 0 7px; font-size: 32px; }
+  .cashier-intro p { margin-bottom: 16px; }
+  .cashier-scan-card { padding: 19px; }
+}
+.customer-scan-note { margin: 12px 5px 0; color: #6c806f; font-size: 12px; line-height: 1.45; }
+.customer-qr-panel code { font-size: 13px; letter-spacing: .02em; }
+.join-contact-note { margin: 0; padding: 12px 14px; border-radius: 9px; background: #eef5ea; color: #536f59; font-size: 12px; line-height: 1.5; }
+@media (max-width: 560px) {
+  .customer-header { height: 55px; }
+  .customer-main { padding-top: 12px; padding-bottom: 38px; }
+  .customer-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .customer-card { min-height: 98px; height: auto; padding: 13px 16px; gap: 9px; border-radius: 14px; box-shadow: none; }
+  .customer-card-top { line-height: 1; }
+  .customer-card-mark { font-size: 26px; }
+  .customer-card-business strong { font-size: 21px; line-height: 1.1; overflow-wrap: anywhere; }
+  .customer-card-business span { font-size: 11px; }
+  .customer-card-bottom { display: none; }
+  .customer-qr-panel { margin-top: 9px; padding: 10px 13px 6px; }
+  .customer-qr-panel h2 { margin: 3px 0 8px; font-size: 16px; }
+  .customer-qr { width: 206px; height: 206px; }
+  .customer-balance-panel { margin-top: 9px; padding: 11px 15px; }
+  .customer-balance-line strong { font-size: 29px; }
+  .balance-round-icon { width: 39px; height: 39px; }
+  .reward-progress { margin-top: 8px; padding-top: 8px; }
+  .reward-progress-caption { font-size: 11px; }
+  .progress-track { margin-top: 7px; }
+  .reward-progress p { margin-top: 6px; }
+  .customer-wallet { padding-top: 18px; }
+}

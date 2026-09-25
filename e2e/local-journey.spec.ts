@@ -24,10 +24,13 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
 
     await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
     await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "E-Mail-Adresse" })).toHaveCount(0);
+    await expect(page.getByRole("checkbox")).toHaveCount(1);
     await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
+    await page.getByRole("button", { name: "Kartencode anzeigen" }).click();
     const scanCode = await page.locator(".customer-qr-panel code").innerText();
     expect(scanCode.startsWith("sc_")).toBe(true);
     await expect.poll(() => page.locator(".customer-qr img").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -38,6 +41,12 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await cashier.getByRole("button", { name: "Anmelden" }).click();
     await expect.poll(() => new URL(cashier.url()).pathname).toBe("/cashier");
     await expect(cashier.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
+    const cameraButton = await cashier.getByRole("button", { name: "Kamera öffnen" }).boundingBox();
+    const manualField = await cashier.getByLabel("Kartencode manuell eingeben").boundingBox();
+    expect(cameraButton).not.toBeNull();
+    expect(manualField).not.toBeNull();
+    expect(cameraButton!.y).toBeLessThan(manualField!.y);
+    await expect(cashier.getByLabel("Kartencode manuell eingeben")).toHaveAttribute("placeholder", "sc_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
 
     await cashier.getByLabel("Kartencode manuell eingeben").fill(scanCode);
     await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
@@ -50,6 +59,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toBeVisible();
     await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
     await expect(cashier.locator(".balance-display strong")).toHaveText(`${program.rewardCost} ${unit}`);
+    await expect(cashier.locator(".quantity-row output")).toHaveText("1");
     await expect(cashier.locator(".reward-action-list button").first()).toBeEnabled();
 
     await page.reload();
@@ -60,12 +70,26 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toBeVisible();
     await cashier.getByRole("button", { name: "Ja, einlösen" }).click();
     await expect(cashier.locator(".balance-display strong")).toHaveText(`0 ${unit}`);
+    await cashier.getByRole("button", { name: "Menge erhöhen" }).click();
+    await cashier.getByRole("button", { name: "Menge erhöhen" }).click();
+    await expect(cashier.locator(".quantity-row output")).toHaveText("3");
+    await cashier.getByRole("button", { name: "Andere Karte" }).click();
+    await cashier.getByLabel("Kartencode manuell eingeben").fill(scanCode);
+    await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await expect(cashier.locator(".quantity-row output")).toHaveText("1");
 
     await page.reload();
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`-${program.rewardCost} ${unit}`);
     await expect(page.getByText("Prämie eingelöst")).toBeVisible();
+
+    await page.getByRole("button", { name: "Karte schließen" }).click();
+    await expect(page.getByText("Buchungen und Einlösungen bleiben vorerst")).toBeVisible();
+    await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
+    await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar." })).toBeVisible();
   } finally {
     await cashier.close();
   }

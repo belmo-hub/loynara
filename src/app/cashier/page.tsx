@@ -18,6 +18,7 @@ export default function CashierPage() {
   const [accessState, setAccessState] = useState<"loading" | "ready" | "blocked">("loading");
   const [accessMessage, setAccessMessage] = useState("");
   const [card, setCard] = useState<CashierCard | null>(null);
+  const [completedTransaction, setCompletedTransaction] = useState(0);
   const [busy, setBusy] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "pending" | "rejected" | "offline">("idle");
@@ -68,6 +69,7 @@ export default function CashierPage() {
         : { membershipId: selectedCard.id, rewardVersionId: (value as CashierReward).id, idempotencyKey: pending.idempotencyKey, requestId: pending.requestId, deviceAt: new Date().toISOString() });
       pendingRef.current = null;
       setCard(current => current?.id === selectedCard.id ? { ...current, balance: result.balance, rewards: current.rewards.map(reward => ({ ...reward, eligible: result.balance >= reward.cost })) } : current);
+      setCompletedTransaction(value => value + 1);
       setStatus("success"); setMessage(result.duplicate ? locale === "fr" ? "L’opération était déjà enregistrée. Le solde est à jour." : "Der Vorgang war bereits gebucht. Der Kontostand ist aktuell." : kind === "award" ? locale === "fr" ? "Les tampons ou points ont été ajoutés." : "Stempel oder Punkte wurden vergeben." : locale === "fr" ? "La récompense a été utilisée." : "Die Prämie wurde eingelöst.");
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
@@ -79,5 +81,5 @@ export default function CashierPage() {
   }
 
   if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <a href="/login" className="button button--outline">Zur Anmeldung</a>}</div></main>;
-  return <><CashierView locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, quantity) => transact("award", selected, quantity)} onRedeem={(selected, reward) => transact("redeem", selected, reward)} onClear={() => { setCard(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} />{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
+  return <><CashierView key={`${card?.id ?? "empty"}:${completedTransaction}`} locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, quantity) => transact("award", selected, quantity)} onRedeem={(selected, reward) => transact("redeem", selected, reward)} onClear={() => { setCard(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} />{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
 }

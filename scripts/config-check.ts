@@ -11,8 +11,10 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   const database = parsedUrl(env.DATABASE_URL);
   const auth = parsedUrl(env.BETTER_AUTH_URL);
   const base = parsedUrl(env.PUBLIC_BASE_URL);
+  // pg-connection-string gives these parameters priority over the URL fields.
+  const databaseOverride = database && (["host", "port", "user", "password"].some(name => database.searchParams.has(name)) || Boolean(database.hash));
 
-  if (!database || !["postgres:", "postgresql:"].includes(database.protocol) || localHosts.has(database.hostname) || database.password === "looplocal_local_only") {
+  if (!database || !["postgres:", "postgresql:"].includes(database.protocol) || localHosts.has(database.hostname) || database.password === "looplocal_local_only" || databaseOverride) {
     issues.push("Production database must use a remote PostgreSQL target and unique credentials");
   }
   if (!auth || !base || auth.protocol !== "https:" || base.protocol !== "https:" || localHosts.has(auth.hostname) || localHosts.has(base.hostname)) {
@@ -25,5 +27,6 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.EXTERNAL_EMAIL_ENABLED === "true") issues.push("External email delivery is not configured and approved for production");
   if (env.LIVE_BILLING_ENABLED === "true") issues.push("Live billing is not configured and approved for production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
+  if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   return issues;
 }

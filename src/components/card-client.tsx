@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiJson, type CardResponse } from "./client-api";
+import { apiJson, postJson, type CardResponse } from "./client-api";
 import { BrandMark, CustomerCardView } from "./loyalty-ui";
 
 type WalletStatus = {
@@ -17,6 +17,9 @@ export function CardClient({ token }: { token: string }) {
   const [walletStatus, setWalletStatus] = useState<WalletStatus | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState("");
+  const [closeBusy, setCloseBusy] = useState(false);
+  const [closeError, setCloseError] = useState("");
+  const [closed, setClosed] = useState(false);
   useEffect(() => {
     let mounted = true;
     void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); } }).catch(cause => { if (mounted) { setError(cause instanceof Error ? cause.message : "Karte nicht gefunden."); setLoading(false); } });
@@ -38,12 +41,24 @@ export function CardClient({ token }: { token: string }) {
     } catch (cause) { setWalletError(cause instanceof Error ? cause.message : "Google Wallet konnte nicht vorbereitet werden."); setWalletBusy(false); }
   }
 
+  async function closeCurrentCard() {
+    setCloseBusy(true); setCloseError("");
+    try {
+      await postJson<{ closed: true }>(`/api/card/${encodeURIComponent(token)}/close`, { confirm: "CLOSE_CARD" });
+      setClosed(true);
+      setCard(null);
+    } catch (cause) {
+      setCloseError(cause instanceof Error ? cause.message : "Die Karte konnte nicht geschlossen werden.");
+    } finally { setCloseBusy(false); }
+  }
+
+  if (closed) return <CardState title="Karte geschlossen." message="Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." />;
   if (loading) return <CardState title="Deine Karte wird geladen." message="Kontostand und Prämien werden abgerufen." />;
   if (!card) return <CardState title="Karte nicht erreichbar." message={error} />;
   const firstReward = card.rewards[0];
   const french = card.locale === "fr";
   const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" ? french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
-  return <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} cardCode={card.scanCode} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} appleWalletUrl={walletStatus?.apple.ready ? `/api/wallet/apple/${encodeURIComponent(token)}` : undefined} onGoogleWallet={walletStatus?.google.ready ? openGoogleWallet : undefined} googleWalletBusy={walletBusy} googlePublishingStatus={walletStatus?.google.publishingStatus} walletError={walletError} />;
+  return <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} cardCode={card.scanCode} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} appleWalletUrl={walletStatus?.apple.ready ? `/api/wallet/apple/${encodeURIComponent(token)}` : undefined} onGoogleWallet={walletStatus?.google.ready ? openGoogleWallet : undefined} googleWalletBusy={walletBusy} googlePublishingStatus={walletStatus?.google.publishingStatus} walletError={walletError} />;
 }
 
 function CardState({ title, message }: { title: string; message: string }) {

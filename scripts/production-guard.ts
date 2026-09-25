@@ -6,7 +6,9 @@ import { googleWalletStatus } from "../src/lib/wallet/google";
 import { productionConfigIssues } from "./config-check";
 
 const issues = productionConfigIssues({ ...process.env, NODE_ENV: "production" });
-if (existsSync(path.resolve("var/demo-access.json"))) issues.push("Local demo credentials exist in this application directory");
+if (["var/demo-access.json", "var/preview-access.json", "var/preview.env"].some((file) => existsSync(path.resolve(file)))) {
+  issues.push("Local demo or preview credentials exist in this application directory");
+}
 const apple = appleWalletStatus();
 const google = googleWalletStatus();
 if (apple.enabled && !apple.ready) issues.push(`Apple Wallet enabled without working configuration: ${apple.reason}`);

@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { consentEvents, ledgerEntries, locations, memberships, programs, redemptions, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { validCardToken } from "./card-lifecycle";
 
 const MAX_ROWS = 50_000;
 function checked<T>(rows: T[], label: string) {
@@ -20,7 +21,7 @@ export async function getMerchantExport(actorUserId: string) {
     db.select().from(programs).where(eq(programs.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(rewards).where(eq(rewards.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(rewardVersions).where(eq(rewardVersions.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select({ id: memberships.id, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(eq(memberships.tenantId, tenantId)).limit(MAX_ROWS + 1),
+    db.select({ id: memberships.id, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(redemptions).where(eq(redemptions.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(consentEvents).where(eq(consentEvents.tenantId, tenantId)).limit(MAX_ROWS + 1),
@@ -46,7 +47,8 @@ export async function getMerchantExport(actorUserId: string) {
 }
 
 export async function getCustomerExport(cardToken: string) {
-  const [card] = await db.select({ id: memberships.id, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(eq(memberships.cardToken, cardToken));
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  const [card] = await db.select({ id: memberships.id, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
   if (!card) throw new DomainError("NOT_FOUND", "Card not found");
   const [[program], entries, redemptionRows, consentRows] = await Promise.all([
     db.select({ name: programs.name, type: programs.type, rulesText: programs.rulesText }).from(programs).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
