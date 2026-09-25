@@ -67,6 +67,7 @@ export type PublicProgram = {
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; termsText: string; sortOrder: number }>;
   brandColor?: string;
   active?: boolean;
+  referral?: { enabled: boolean; referrerBonus: number; referredBonus: number };
 };
 
 export type CardResponse = {

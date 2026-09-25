@@ -7,6 +7,7 @@ import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { draftPriceMinor } from "./pricing";
 import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
+import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -112,6 +113,7 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
 const enrollInput = z.object({
   slug: z.string().min(1).max(120),
   acceptedTerms: z.literal(true),
+  referralCode: z.string().regex(/^ref_[A-Za-z0-9_-]{24}$/).optional(),
   email: z.email().optional(),
   marketingOptIn: z.boolean().default(false),
 });
@@ -125,6 +127,7 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     const [availability] = await tx.select({ active: sql<boolean>`${programs.effectiveAt} <= now()` }).from(programs).where(eq(programs.id, program.id));
     if (!availability.active) throw new DomainError("NOT_AVAILABLE", "Program is not active yet");
     const [member] = await tx.insert(memberships).values({ tenantId: program.tenantId, programId: program.id, scanCode: `sc_${randomCode(24)}`, cardToken: `card_${randomCode(32)}` }).returning();
+    if (input.referralCode) await recordReferralAttribution(tx, { tenantId: program.tenantId, programId: program.id, referredMembershipId: member.id, referralCode: input.referralCode });
     if (input.email) await tx.insert(membershipContacts).values({ tenantId: program.tenantId, membershipId: member.id, email: input.email.toLowerCase() });
     if (input.marketingOptIn) await tx.insert(consentEvents).values({ tenantId: program.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: true, noticeVersion: "2026-09", source: "enrollment" });
     return { id: member.id, cardToken: member.cardToken, scanCode: member.scanCode };
@@ -253,7 +256,7 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active };
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string) {

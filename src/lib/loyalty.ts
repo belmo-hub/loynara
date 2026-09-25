@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { PointsError, purchasePoints } from "./points";
+import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
 
 export class DomainError extends Error {
   constructor(public code: string, message: string) {
@@ -86,7 +87,11 @@ export async function award(input: AwardInput): Promise<{ balance: number; dupli
     const balance = member.balance + quantity;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
-    return { balance, duplicate: false, entryId: entry.id, creditedQuantity: quantity };
+    const referral = entry.source === "staff_online" ? await qualifyReferralOnAward(tx, {
+      tenantId: member.tenantId, programId: program.id, locationId: input.locationId,
+      referredMembershipId: member.id, awardEntryId: entry.id, actorUserId: input.userId,
+    }) : { referredBonus: 0 };
+    return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity };
   });
 }
 
@@ -164,6 +169,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
   return db.transaction(async (tx) => {
     const [original] = await tx.select().from(ledgerEntries).where(eq(ledgerEntries.id, input.entryId));
     if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Transaction not found at this location");
+    if (original.source === "referral_bonus") throw new DomainError("REFERRAL_REVIEW_REQUIRED", "Referral bonuses are corrected through referral review");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, original.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
@@ -181,6 +187,10 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     const [entry] = await tx.insert(ledgerEntries).values({ tenantId: original.tenantId, locationId: original.locationId, membershipId: member.id, delta: -original.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: input.idempotencyKey, reason, reversalOfId: original.id }).returning();
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await tx.insert(outboxJobs).values({ tenantId: original.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
-    return { balance, duplicate: false, entryId: entry.id };
+    if (original.kind === "award" && original.source === "staff_online") {
+      await reverseReferralForCheckout(tx, { qualifyingEntryId: original.id, tenantId: original.tenantId, actorUserId: input.userId, allowLargeBonus: staff.role === "owner" });
+    }
+    const [updated] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, member.id));
+    return { balance: updated.balance, duplicate: false, entryId: entry.id };
   });
 }

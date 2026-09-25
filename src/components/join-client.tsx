@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { apiJson, postJson, type PublicProgram } from "./client-api";
 import { BrandMark, Icon } from "./loyalty-ui";
 
@@ -15,6 +15,13 @@ const copy = {
   },
 } as const;
 
+function subscribeToLocation(notify: () => void) {
+  window.addEventListener("popstate", notify);
+  return () => window.removeEventListener("popstate", notify);
+}
+function currentReferralCode() { return new URLSearchParams(window.location.search).get("ref"); }
+function serverReferralCode() { return null; }
+
 export function JoinClient({ slug }: { slug: string }) {
   const router = useRouter();
   const [program, setProgram] = useState<PublicProgram | null>(null);
@@ -22,6 +29,7 @@ export function JoinClient({ slug }: { slug: string }) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const referralCode = useSyncExternalStore(subscribeToLocation, currentReferralCode, serverReferralCode);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
   const unit = program?.programType === "points" ? t.points : t.stamp;
@@ -42,7 +50,7 @@ export function JoinClient({ slug }: { slug: string }) {
     setBusy(true);
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
-      const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true });
+      const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}) });
       router.push(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : t.submitError); }
     finally { setBusy(false); }
@@ -57,6 +65,9 @@ export function JoinClient({ slug }: { slug: string }) {
           <div className="join-reward"><span><Icon name="spark" size={22} /></span><div><small>{t.reward}</small><strong>{program.rewardTitle}</strong><span>{t.for} {program.rewardCost} {unit}</span></div></div>
           {program.rewards?.length > 1 && <div className="join-reward-list" aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(reward => <div key={reward.id}><strong>{reward.title}</strong><span>{reward.cost} {unit}</span></div>)}</div>}
           {program.programType === "points" && program.earningMode === "purchase" && <p className="join-earn-rule">{locale === "fr" ? `${program.pointsPerCurrencyUnit} points par 1 ${program.currency} dépensé. Les fractions de point sont arrondies à l’entier inférieur.` : `${program.pointsPerCurrencyUnit} Punkte pro ausgegebener 1 ${program.currency}. Bruchteile von Punkten werden abgerundet.`}</p>}
+          {referralCode && <p className="join-contact-note">{program.referral?.enabled
+            ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${program.referral.referrerBonus} ${unit} et vous ${program.referral.referredBonus} ${unit}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${program.referral.referrerBonus} ${unit} und deine Karte ${program.referral.referredBonus} ${unit} erhalten. Das Öffnen des Links bringt keinen Bonus.`
+            : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
           <div className="join-rules"><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
           {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
           <form className="join-form" onSubmit={submit}>
