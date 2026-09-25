@@ -372,7 +372,7 @@ export function CustomerCardView({ businessName, locationName, programType, bala
 }
 
 function AppHeader({ location, canManageStaff = false, canViewCustomers = false }: { location: string; canManageStaff?: boolean; canViewCustomers?: boolean }) {
-  return <header className="app-header"><div className="app-header-inner"><Link href="/merchant" aria-label="Zur Übersicht"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/program">Programm</Link>{canViewCustomers && <><Link href="/merchant/customers">Kundenkarten</Link><Link href="/merchant/audiences">Zielgruppen</Link></>}{canManageStaff && <Link href="/merchant/staff">Team</Link>}<Link href="/cashier">Kasse</Link></nav><span className="app-header-location">{location}</span></div></header>;
+  return <header className="app-header"><div className="app-header-inner"><Link href="/merchant" aria-label="Zur Übersicht"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/program">Programm</Link>{canViewCustomers && <><Link href="/merchant/customers">Kundenkarten</Link><Link href="/merchant/audiences">Zielgruppen</Link></>}{canManageStaff && <><Link href="/merchant/campaigns">Kampagnen</Link><Link href="/merchant/referrals">Empfehlungen</Link><Link href="/merchant/analytics">Auswertung</Link><Link href="/merchant/staff">Team</Link></>}<Link href="/cashier">Kasse</Link></nav><span className="app-header-location">{location}</span></div></header>;
 }
 
 function readableTextColor(hex: string) {
