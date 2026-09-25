@@ -118,12 +118,16 @@ export function previewSyntheticCsv(csv: string, mapping: ImportMapping): Import
     externalId: column("externalId"), email: column("email"), balance: column("balance"),
     marketingConsent: column("marketingConsent"), consentSource: column("consentSource"), consentDate: column("consentDate"),
   };
+  const mappedColumns = new Set(Object.values(index).filter(value => value >= 0));
   const seenIds = new Set<string>();
   const seenEmails = new Set<string>();
   const rows = records.slice(1).map(record => {
     const raw = (at: number) => at < 0 ? "" : (record.fields[at] ?? "").trim();
     const errors: string[] = [];
     if (record.fields.length !== headers.length) errors.push("Column count differs from header");
+    if (record.fields.some((value, position) => !mappedColumns.has(position) && value.trim() !== "")) {
+      errors.push("Unmapped columns must be empty in a synthetic preview");
+    }
     const rawId = raw(index.externalId).toUpperCase();
     const externalId = /^SYN-[A-Z0-9-]{3,40}$/.test(rawId) ? rawId : null;
     if (!externalId) errors.push("Synthetic ID must start with SYN- and contain 3–40 letters, numbers, or hyphens");
@@ -141,13 +145,13 @@ export function previewSyntheticCsv(csv: string, mapping: ImportMapping): Import
     let consentDate: string | null = null;
     if (consent === "no" || consent === "nein") consentClaim = "not_granted";
     if (consent === "yes" || consent === "ja") {
-      if (/^[a-z][a-z0-9_-]{2,39}$/.test(source) && validDate(recorded)) {
+      if (["paper_form", "legacy_platform", "customer_form"].includes(source) && validDate(recorded)) {
         consentClaim = "claimed_with_provenance";
         consentSource = source;
         consentDate = recorded;
       } else {
         consentClaim = "missing_provenance";
-        errors.push("A claimed consent needs a source label and valid YYYY-MM-DD record date");
+        errors.push("A claimed consent needs paper_form, legacy_platform, or customer_form as source and a valid YYYY-MM-DD record date");
       }
     }
     let duplicate = false;

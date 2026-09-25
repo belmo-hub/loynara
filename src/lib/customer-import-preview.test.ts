@@ -38,6 +38,19 @@ describe("synthetic customer CSV preview", () => {
     expect(() => previewSyntheticCsv(`id\n${"SYN-001\n".repeat(101)}`, { externalId: "id" })).toThrow(/100/);
   });
 
+  it("refuses unmapped nonempty cells so a hidden contact column cannot enter the preview", () => {
+    const result = previewSyntheticCsv("id,private_name\nSYN-001,Real person", { externalId: "id" });
+    expect(result.rows[0]).toMatchObject({ status: "invalid" });
+    expect(result.rows[0].errors).toContain("Unmapped columns must be empty in a synthetic preview");
+    expect(JSON.stringify(result)).not.toContain("Real person");
+  });
+
+  it("accepts only named synthetic provenance categories", () => {
+    const result = previewSyntheticCsv("id,consent,source,date\nSYN-001,yes,person_name,2026-09-20", { externalId: "id", marketingConsent: "consent", consentSource: "source", consentDate: "date" });
+    expect(result.rows[0]).toMatchObject({ status: "invalid", consentClaim: "missing_provenance", consentSource: null });
+    expect(JSON.stringify(result)).not.toContain("person_name");
+  });
+
   it("enables the preview only for an explicit loopback public origin", () => {
     expect(isLocalImportPreviewOrigin("http://localhost:3000")).toBe(true);
     expect(isLocalImportPreviewOrigin("http://127.0.0.1:3001")).toBe(true);
