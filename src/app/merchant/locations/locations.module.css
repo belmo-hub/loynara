@@ -1,0 +1,33 @@
+.main { padding-bottom: 5rem; }
+.header nav { display: flex; gap: clamp(.75rem, 1.8vw, 1.6rem); overflow-x: auto; }
+.error, .success { padding: .9rem 1.1rem; border-radius: .55rem; }
+.error { background: #f9e7e3; color: #762d24; }
+.success { background: #e8f2e8; color: #24533a; }
+.overview { margin: 1.5rem 0; }
+.overview h2 { margin: .3rem 0 1.2rem; }
+.overview dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 0 0 1rem; }
+.overview dl div { border-right: 1px solid #dcd5c7; }
+.overview dl div:last-child { border-right: 0; }
+.overview dt { color: #665f55; font-size: .9rem; }
+.overview dd { margin: .4rem 0 0; font-size: 2rem; font-weight: 700; }
+.overview p { color: #665f55; font-size: .88rem; line-height: 1.5; }
+.columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(19rem, .9fr); gap: 1rem; align-items: start; }
+.columns > section > h2 { margin: 0 0 .8rem; }
+.locations { display: grid; gap: .8rem; }
+.locations article { min-width: 0; }
+.locationHead { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+.locationHead h3 { margin: 0; }
+.locationHead p, .locations article > p { color: #665f55; margin: .4rem 0 1rem; }
+.active { border-radius: 100px; background: #e6efe9; color: #25543b; padding: .3rem .65rem; white-space: nowrap; font-size: .78rem; font-weight: 700; }
+.locations dl { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: 1rem 0; }
+.locations dl div { display: flex; justify-content: space-between; gap: .8rem; border-bottom: 1px solid #e4ded3; padding: .4rem 0; }
+.locations dt { color: #665f55; }
+.locations dd { margin: 0; font-weight: 700; }
+.creator h2 { margin: .3rem 0 .8rem; }
+.creator p { color: #665f55; font-size: .9rem; line-height: 1.55; }
+.creator fieldset { display: grid; gap: .85rem; padding: 0; margin: 1.3rem 0 0; border: 0; }
+.creator label { display: grid; gap: .35rem; font-weight: 600; }
+.creator input, .creator select, .creator textarea { width: 100%; min-height: 2.7rem; border: 1px solid #a9a094; border-radius: .4rem; background: #fff; padding: .5rem .65rem; color: #302d27; font: inherit; font-weight: 400; }
+.creator button { justify-self: start; }
+@media (max-width: 900px) { .columns { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .overview dl { grid-template-columns: 1fr 1fr; } .overview dl div:nth-child(2) { border-right: 0; } .locationHead { flex-wrap: wrap; } }

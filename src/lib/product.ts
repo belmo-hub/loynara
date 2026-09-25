@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
@@ -259,11 +259,17 @@ export async function getPublicProgram(slug: string) {
   return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
-export async function getMerchantContext(userId: string) {
+export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {
   const [staff] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, userId), eq(staffRoles.active, true))).limit(1);
   if (!staff) return null;
+  // Staff have one assigned location. Only an owner can use a selected-location
+  // cookie, and every request checks that selection against the owner tenant.
+  if (staff.role === "owner" && selectedLocationId && !z.uuid().safeParse(selectedLocationId).success) throw new DomainError("INVALID_LOCATION", "Invalid selected location");
+  if (staff.role !== "owner" && !staff.locationId) throw new DomainError("FORBIDDEN", "Staff location is missing");
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
-  const [location] = await db.select().from(locations).where(and(eq(locations.tenantId, staff.tenantId), staff.locationId ? eq(locations.id, staff.locationId) : sql`true`)).limit(1);
+  const targetLocationId = staff.role === "owner" ? selectedLocationId : staff.locationId;
+  const [location] = await db.select().from(locations).where(and(eq(locations.tenantId, staff.tenantId), targetLocationId ? eq(locations.id, targetLocationId) : sql`true`)).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
+  if (staff.role === "owner" && selectedLocationId && !location) throw new DomainError("NOT_FOUND", "Selected location not found");
   if (!tenant || !location) return null;
   const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
