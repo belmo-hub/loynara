@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { locations, memberships, programs, tenants } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import type { WalletPassData } from "./types";
+import { merchantGoogleLogoUrl } from "./logo";
 
 export async function walletPassDataByMembershipId(membershipId: string): Promise<WalletPassData> {
   const [row] = await db.select({ member: memberships, program: programs, location: locations, tenant: tenants })
@@ -24,6 +25,7 @@ export async function walletPassDataByMembershipId(membershipId: string): Promis
     scanCode: row.member.scanCode,
     brandColor: row.location.brandColor,
     country: row.location.country,
+    googleLogoUrl: merchantGoogleLogoUrl(row.program.id, row.location.logoData),
     ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
   };
 }

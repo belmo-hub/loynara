@@ -8,6 +8,7 @@ import { applePassArchive, applePassJson, applePassToken, appleWalletStatus } fr
 import { GoogleWalletClient, googleClass, googleObject, googleSaveUrl, googleWalletStatus } from "./google";
 import { apnsPassUpdateRequest } from "./apple-push";
 import type { WalletPassData } from "./types";
+import { decodeMerchantLogoPng, merchantGoogleLogoUrl } from "./logo";
 
 const pass: WalletPassData = {
   tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -92,6 +93,25 @@ describe("wallet pass adapters (fixtures; no provider/device contact)", () => {
     expect(obj.classId).toBe(cls.id);
     expect(obj.barcode.value).toBe(pass.scanCode);
     expect(obj.loyaltyPoints.balance.int).toBe(7);
+  });
+
+  it("uses a merchant-specific approved PNG URL for its Google class when available", () => {
+    const config = { issuerId: "123456", logoUrl: "https://example.test/default.png" };
+    const merchantLogoUrl = "https://assets.example.test/api/wallet/assets/google-logo/cccccccc-cccc-4ccc-8ccc-cccccccccccc.png?v=abc123";
+    expect(googleClass({ ...pass, googleLogoUrl: merchantLogoUrl }, config).programLogo.sourceUri.uri).toBe(merchantLogoUrl);
+    expect(googleClass(pass, config).programLogo.sourceUri.uri).toBe(config.logoUrl);
+    expect(() => googleClass({ ...pass, googleLogoUrl: "http://localhost:3000/logo.png" }, config)).toThrow("HTTPS");
+  });
+
+  it("derives a versioned merchant PNG URL only with an explicitly enabled HTTPS asset origin", () => {
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y5pQ4sAAAAASUVORK5CYII=";
+    const env = { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.example.test" };
+    const url = merchantGoogleLogoUrl(pass.programId, png, env);
+    expect(url).toMatch(new RegExp(`^https://assets\\.example\\.test/api/wallet/assets/google-logo/${pass.programId}\\.png\\?v=[0-9a-f]{16}$`));
+    expect(decodeMerchantLogoPng(png)?.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(merchantGoogleLogoUrl(pass.programId, png, { ...env, GOOGLE_WALLET_ASSET_ENABLED: "false" })).toBeUndefined();
+    expect(merchantGoogleLogoUrl(pass.programId, png, { ...env, GOOGLE_WALLET_ASSET_ORIGIN: "http://localhost:3000" })).toBeUndefined();
+    expect(merchantGoogleLogoUrl(pass.programId, "data:image/jpeg;base64,YWJj", env)).toBeUndefined();
   });
 
   it("includes only merchant location coordinates in wallet relevance fields when supplied", () => {

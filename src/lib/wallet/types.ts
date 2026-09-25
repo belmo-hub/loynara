@@ -10,6 +10,7 @@ export type WalletPassData = {
   scanCode: string;
   brandColor: string;
   country: string;
+  googleLogoUrl?: string;
   latitude?: number;
   longitude?: number;
 };

@@ -34,12 +34,14 @@ export function googleConfig(env: Record<string, string | undefined> = process.e
 }
 
 export function googleClass(pass: WalletPassData, config: GoogleConfig) {
+  const logoUrl = pass.googleLogoUrl ?? config.logoUrl;
+  if (new URL(logoUrl).protocol !== "https:") throw new Error("Google logo must use HTTPS");
   return {
     id: `${config.issuerId}.program_${pass.programId}`,
     issuerName: pass.merchantName,
     programName: pass.programName,
     reviewStatus: "UNDER_REVIEW",
-    programLogo: { sourceUri: { uri: config.logoUrl }, contentDescription: { defaultValue: { language: "de-DE", value: `${pass.merchantName} Logo` } } },
+    programLogo: { sourceUri: { uri: logoUrl }, contentDescription: { defaultValue: { language: "de-DE", value: `${pass.merchantName} Logo` } } },
     countryCode: pass.country,
     hexBackgroundColor: pass.brandColor,
     ...(pass.latitude !== undefined && pass.longitude !== undefined ? { locations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
