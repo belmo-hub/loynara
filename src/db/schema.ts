@@ -356,6 +356,58 @@ export const campaignDailyUsage = pgTable("campaign_daily_usage", {
   check("campaign_daily_queued_valid", sql`${t.queued} between 0 and 100`),
 ]);
 
+export const automationRules = pgTable("automation_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  createdByUserId: text("created_by_user_id").notNull(),
+  triggerKind: varchar("trigger_kind", { length: 20 }).notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  channel: varchar("channel", { length: 8 }).notNull().default("email"),
+  subject: varchar("subject", { length: 120 }).notNull(),
+  body: text("body").notNull(),
+  inactivityDays: integer("inactivity_days"),
+  cooldownDays: integer("cooldown_days").notNull().default(7),
+  dailyCap: integer("daily_cap").notNull().default(20),
+  revision: integer("revision").notNull().default(1),
+  nextScanAt: timestamp("next_scan_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("automation_rules_tenant_id_id_uq").on(t.tenantId, t.id),
+  unique("automation_rules_program_trigger_uq").on(t.programId, t.triggerKind),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("automation_rule_trigger_valid", sql`${t.triggerKind} in ('first_checkout','inactive')`),
+  check("automation_rule_channel_valid", sql`${t.channel} = 'email'`),
+  check("automation_rule_cooldown_valid", sql`${t.cooldownDays} between 7 and 365`),
+  check("automation_rule_daily_cap_valid", sql`${t.dailyCap} between 1 and 20`),
+  check("automation_rule_inactivity_valid", sql`(${t.triggerKind} = 'first_checkout' and ${t.inactivityDays} is null) or (${t.triggerKind} = 'inactive' and ${t.inactivityDays} between 7 and 365)`),
+]);
+
+export const automationRuns = pgTable("automation_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  ruleId: uuid("rule_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  ruleRevision: integer("rule_revision").notNull(),
+  triggerKey: varchar("trigger_key", { length: 40 }).notNull(),
+  sourceEntryId: uuid("source_entry_id"),
+  status: varchar("status", { length: 12 }).notNull().default("queued"),
+  reason: varchar("reason", { length: 120 }),
+  attempts: integer("attempts").notNull().default(0),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("automation_runs_tenant_id_id_uq").on(t.tenantId, t.id),
+  unique("automation_run_once_uq").on(t.ruleId, t.membershipId, t.triggerKey),
+  foreignKey({ columns: [t.tenantId, t.ruleId], foreignColumns: [automationRules.tenantId, automationRules.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  foreignKey({ columns: [t.tenantId, t.sourceEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  index("automation_run_member_time_idx").on(t.tenantId, t.membershipId, t.createdAt),
+  check("automation_run_status_valid", sql`${t.status} in ('queued','complete','suppressed','failed')`),
+  check("automation_run_attempts_valid", sql`${t.attempts} >= 0`),
+]);
+
 export const walletPasses = pgTable("wallet_passes", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
