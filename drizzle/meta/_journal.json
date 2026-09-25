@@ -64,6 +64,13 @@
       "when": 1790365412649,
       "tag": "0008_happy_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790366483044,
+      "tag": "0009_powerful_lady_bullseye",
+      "breakpoints": true
     }
   ]
 }

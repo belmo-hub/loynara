@@ -234,7 +234,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   index("ledger_member_time_idx").on(t.membershipId, t.createdAt),
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
   check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_correction','synthetic_seed','legacy_unclassified')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus')`),
 ]);
 
 export const purchaseAwards = pgTable("purchase_awards", {
@@ -376,6 +376,63 @@ export const appleDevices = pgTable("apple_devices", {
   pushToken: varchar("push_token", { length: 300 }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const referralSettings = pgTable("referral_settings", {
+  programId: uuid("program_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  referrerBonus: integer("referrer_bonus").notNull().default(0),
+  referredBonus: integer("referred_bonus").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("referral_settings_bonus_valid", sql`${t.referrerBonus} between 0 and 1000 and ${t.referredBonus} between 0 and 1000 and (not ${t.enabled} or ${t.referrerBonus} + ${t.referredBonus} > 0)`),
+]);
+
+export const referralCodes = pgTable("referral_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  membershipId: uuid("membership_id").notNull().unique(),
+  code: varchar("code", { length: 40 }).notNull().unique(),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+]);
+
+export const referrals = pgTable("referrals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  referrerMembershipId: uuid("referrer_membership_id").notNull(),
+  referredMembershipId: uuid("referred_membership_id").notNull().unique(),
+  codeId: uuid("code_id").notNull().references(() => referralCodes.id),
+  referrerBonus: integer("referrer_bonus").notNull(),
+  referredBonus: integer("referred_bonus").notNull(),
+  status: varchar("status", { length: 12 }).notNull().default("pending"),
+  qualifyingEntryId: uuid("qualifying_entry_id"),
+  referrerBonusEntryId: uuid("referrer_bonus_entry_id"),
+  referredBonusEntryId: uuid("referred_bonus_entry_id"),
+  reviewReason: varchar("review_reason", { length: 64 }),
+  reviewNote: varchar("review_note", { length: 240 }),
+  reviewedByUserId: text("reviewed_by_user_id"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
+  reversedAt: timestamp("reversed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  foreignKey({ columns: [t.tenantId, t.referrerMembershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  foreignKey({ columns: [t.tenantId, t.referredMembershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  foreignKey({ columns: [t.tenantId, t.qualifyingEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  foreignKey({ columns: [t.tenantId, t.referrerBonusEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  foreignKey({ columns: [t.tenantId, t.referredBonusEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  index("referrals_program_status_idx").on(t.programId, t.status, t.createdAt),
+  check("referral_members_differ", sql`${t.referrerMembershipId} <> ${t.referredMembershipId}`),
+  check("referral_bonus_snapshot_valid", sql`${t.referrerBonus} between 0 and 1000 and ${t.referredBonus} between 0 and 1000 and ${t.referrerBonus} + ${t.referredBonus} > 0`),
+  check("referral_status_valid", sql`${t.status} in ('pending','qualified','review','rejected','reversed')`),
+]);
 
 export const appleRegistrations = pgTable("apple_registrations", {
   deviceLibraryIdentifier: varchar("device_library_identifier", { length: 200 }).notNull().references(() => appleDevices.deviceLibraryIdentifier),
