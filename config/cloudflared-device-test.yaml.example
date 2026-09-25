@@ -1,0 +1,17 @@
+# REVIEW TEMPLATE ONLY. Do not run this or create a route until the owner has
+# approved the exact hostname, account/zone, named testers, Access policy,
+# external changes and any cost. Store the real tunnel credentials under an
+# ignored, mode-0600 local path; never commit them.
+tunnel: REPLACE_WITH_APPROVED_TUNNEL_UUID
+credentials-file: /absolute/restricted/path/to/approved-tunnel.json
+loglevel: info
+ingress:
+  - hostname: looplocal-preview.REPLACE_WITH_APPROVED_DOMAIN
+    service: http://127.0.0.1:3002
+    originRequest:
+      access:
+        required: true
+        teamName: REPLACE_WITH_APPROVED_ACCESS_TEAM
+        audTag:
+          - REPLACE_WITH_APPROVED_ACCESS_APPLICATION_AUD
+  - service: http_status:404

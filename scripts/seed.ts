@@ -9,6 +9,7 @@ import { award } from "../src/lib/loyalty";
 import { createMerchant, enroll } from "../src/lib/product";
 import { assertLocalTarget } from "./local-guard";
 import { previewConfigIssues } from "./preview-config";
+import { deviceTestRuntimeIssues } from "./device-test-config";
 
 type DemoAccess = {
   ownerEmail: string;
@@ -20,9 +21,10 @@ type DemoAccess = {
 };
 
 const previewSeed = process.env.LOOPLOCAL_PREVIEW_SEED === "true";
-const accessPath = path.resolve(previewSeed ? "var/preview-access.json" : "var/demo-access.json");
-const ownerEmail = "owner.demo@looplocal.test";
-const cashierEmail = "cashier.demo@looplocal.test";
+const deviceTestSeed = process.env.LOOPLOCAL_DEVICE_TEST_SEED === "true";
+const accessPath = path.resolve(deviceTestSeed ? "var/device-test-access.json" : previewSeed ? "var/preview-access.json" : "var/demo-access.json");
+const ownerEmail = deviceTestSeed ? "owner.device@looplocal.test" : "owner.demo@looplocal.test";
+const cashierEmail = deviceTestSeed ? "cashier.device@looplocal.test" : "cashier.demo@looplocal.test";
 
 function saveAccess(access: DemoAccess) {
   mkdirSync(path.dirname(accessPath), { recursive: true });
@@ -62,7 +64,12 @@ async function ensureUser(email: string, name: string, password: string) {
 }
 
 async function main() {
-  if (previewSeed) {
+  if (previewSeed && deviceTestSeed) throw new Error("Choose only one local seed target");
+  if (deviceTestSeed) {
+    if (process.env.NODE_ENV === "production") throw new Error("Device-test seeding refuses NODE_ENV=production");
+    const issues = deviceTestRuntimeIssues(process.env);
+    if (issues.length) throw new Error(`Device-test seeding rejected: ${issues.join("; ")}`);
+  } else if (previewSeed) {
     if (process.env.NODE_ENV === "production") throw new Error("Preview seeding refuses NODE_ENV=production");
     const issues = previewConfigIssues(process.env);
     if (issues.length) throw new Error(`Preview seeding rejected: ${issues.join("; ")}`);

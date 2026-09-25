@@ -32,6 +32,7 @@ Status describes the strongest evidence available **in this installation**. `LOC
 | Prospect import and outreach drafts | LOCAL_VERIFIED | Unit tests enforce source evidence, deduplication, suppression and default `CONSENT_UNKNOWN`. All example data/drafts are offline; nothing was sent. |
 | Shared abuse limits and sensitive path logging | LOCAL_VERIFIED | PostgreSQL atomic rate counters cover enrollment, QR rendering, card read/actions, cashier lookup and enabled sensitive routes; app request-path logs are suppressed. Reverse-proxy access-log redaction remains a future destination gate. |
 | Compiled LOCAL PREVIEW, worker and persistence | LOCAL_VERIFIED | Clean install, isolated migration/seed, compiled `next start` on loopback, health, worker, browser path, restart persistence and isolated restore passed. No public deployment occurred. |
+| Separate HTTPS device-test preparation | LOCAL_PREPARED | Fresh mode-0600 secrets, empty isolated loopback database, separate build-only artifact and one-pass worker check passed. Approved origin, Access app, tunnel, DNS route, hardware and provider checks are NOT RUN. |
 | Local seed, diagnostic and worker safety gates | LOCAL_VERIFIED | Synthetic seed/browser data and local configuration/worker tests; see [TEST_EVIDENCE.md](TEST_EVIDENCE.md). No production operations were performed. |
 | Local backup and restore check | LOCAL_VERIFIED | Restricted local dump and isolated restore both exited 0; restored tables, counts and append-only trigger were checked. See [TEST_EVIDENCE.md](TEST_EVIDENCE.md). |
 

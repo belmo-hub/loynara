@@ -44,7 +44,8 @@ export default function MerchantPage() {
 
   const stats: DashboardStats | undefined = me.stats ? { members: me.stats.members, awards: me.stats.awards, redemptions: me.stats.redemptions, periodLabel: me.stats.periodLabel || "Aktuelle Daten" } : undefined;
   const activity: DashboardActivity[] = (me.activity || []).map((entry, index) => ({ id: entry.id || String(index), kind: entry.kind === "redeem" ? "redemption" : entry.kind, occurredAt: entry.occurredAt || entry.createdAt || "", amount: Math.abs(entry.amount ?? entry.delta ?? 0), unit: me.programType === "points" ? "Punkte" : "Stempel", reference: entry.reference || "Kartenvorgang" }));
-  const joinUrl = new URL(`/join/${encodeURIComponent(me.programSlug)}`, window.location.origin).toString();
+  if (!me.publicBaseUrl) return <StatePage title="Anmeldelink nicht verfügbar" message="Die öffentliche Adresse ist noch nicht konfiguriert." />;
+  const joinUrl = new URL(`/join/${encodeURIComponent(me.programSlug)}`, me.publicBaseUrl).toString();
 
   async function downloadQr() {
     try {

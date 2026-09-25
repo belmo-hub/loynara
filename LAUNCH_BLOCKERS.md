@@ -2,6 +2,12 @@
 
 The repository is a local, synthetic-data build. **It has not been publicly deployed or used with real merchants or customers.** External expenditure during this run: **€0**. The draft €49/location/month (excluding any applicable VAT) is proposed merchant pricing, not an incurred charge or an approved tax position.
 
+## Next protected device-test gate
+
+The **separate** device-test database, restricted secrets, build-only compiled artifact and one-pass worker check are prepared locally. Its HTTPS origin and Access team/audience are deliberately unset, port 3002 is closed, and no tunnel or DNS route is active. Before any external change, the owner must approve one specific package: exact FQDN and Cloudflare account/zone, named testers and one-hour exact-email Allow policy, Cloudflare processing of synthetic traffic, Access app/Tunnel/DNS-route creation, origin JWT enforcement and proxy log policy, and the **confirmed incremental cost**. Cloudflare advertises a free small-team tier but [new Zero Trust setup asks for payment details](https://developers.cloudflare.com/cloudflare-one/setup/); without the owner's existing account/domain details, an exact cost cannot be asserted. The full phone journey remains **NOT RUN**.
+
+Google Demo Mode is the first Wallet path if an authorized Android tester and issuer are available. The existing adapter still needs a provider-fetchable public HTTPS PNG logo and Google-supplied Save-button artwork; the logo asset requires a **separate minimal routing approval** while browser pages remain behind Access. No issuer credentials, tester account, public asset route or real Save/update test is present. Apple remains an alternative only with Apple-issued signing material, iPhone and separately approved callbacks. Neither provider is enabled in the device-test launcher.
+
 ## Before any public browser-card pilot
 
 1. **Operator identity and permission:** establish the business operator, the right to conduct this activity, invoicing/tax position, customer support contact and merchant contract. Code cannot approve business-operation or self-employment permission.
@@ -19,7 +25,7 @@ The browser-card journey can be piloted with wallet and live billing disabled af
 | Integration | Exact external prerequisite and remaining verification |
 | --- | --- |
 | Apple Wallet | Apple Developer Pass Type ID, matching pass certificate/private key and WWDR chain, stable web-service secret, public HTTPS URL, APNs reachability, Apple device. Install, register, award, push, fetch, redeem and QR scan on device. Test certificate expiry/rotation. |
-| Google Wallet | Wallet issuer and authorized service account, enabled API, public HTTPS logo, designated demo test accounts then publishing approval, Android device. Save, update, scan and proximity behavior must be checked. Google controls nearby presentation. |
+| Google Wallet | Wallet issuer and authorized service account, enabled API, public HTTPS PNG logo and approved narrow asset route, designated demo test account then separate publishing approval, Android device. Use Google's Save-button artwork before public use. Actual install, award/redeem balance updates and scan must be checked; Google controls nearby presentation. |
 | External email | Approved sender/domain, customer email verification, consent and unsubscribe flow, suppression/quotas, delivery and bounce/complaint webhooks, reviewed campaign; explicit permission for a specific promotional send. Local Mailpit is a sink, not proof of deliverability. |
 | Billing | Select payment provider per jurisdiction, obtain test account/keys, implement hosted checkout/portal, signed idempotent webhooks, tax/invoice treatment and cancellation/grace behavior. `manual_pending` is a draft state, not a subscription entitlement or live payment. |
 | Morocco | Separate legal, data transfer, language and payment review. MAD configuration and French enrollment copy do not establish Moroccan launch readiness. |

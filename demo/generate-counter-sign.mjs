@@ -1,13 +1,28 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import QRCode from "qrcode";
+import { parse } from "dotenv";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const access = JSON.parse(readFileSync(path.join(root, "var/preview-access.json"), "utf8"));
+const deviceTest = process.argv[2] === "--device-test";
+if (deviceTest && process.argv.length !== 3) throw new Error("Device-test sign uses only the configured approved origin");
+const accessPath = path.join(root, deviceTest ? "var/device-test-access.json" : "var/preview-access.json");
+if (deviceTest && !existsSync(accessPath)) throw new Error("Start and seed the approved device-test instance before printing its sign");
+const access = JSON.parse(readFileSync(accessPath, "utf8"));
 if (!/^[a-z0-9-]{1,120}$/.test(access.programSlug ?? "")) throw new Error("Synthetic preview programme slug is missing");
 
-const joinUrl = process.argv[2] ?? `http://localhost:3001/join/${access.programSlug}`;
+const approved = deviceTest ? parse(readFileSync(path.join(root, "var/device-test.env"))) : null;
+if (deviceTest) {
+  const origin = approved?.DEVICE_TEST_APPROVED_ORIGIN;
+  const parsedOrigin = origin ? new URL(origin) : null;
+  if (!origin || approved?.BETTER_AUTH_URL !== origin || approved?.PUBLIC_BASE_URL !== origin
+    || parsedOrigin?.origin !== origin || parsedOrigin.protocol !== "https:"
+    || ["localhost", "127.0.0.1", "[::1]"].includes(parsedOrigin.hostname)) {
+    throw new Error("Device-test sign requires the exact approved HTTPS origin in both app URLs");
+  }
+}
+const joinUrl = deviceTest ? `${approved.DEVICE_TEST_APPROVED_ORIGIN}/join/${access.programSlug}` : process.argv[2] ?? `http://localhost:3001/join/${access.programSlug}`;
 const parsed = new URL(joinUrl);
 const localPreview = parsed.protocol === "http:" && parsed.hostname === "localhost" && parsed.port === "3001";
 if ((!localPreview && parsed.protocol !== "https:") || parsed.pathname !== `/join/${access.programSlug}` || parsed.search || parsed.hash || parsed.username || parsed.password) {
@@ -66,6 +81,17 @@ const html = `<!doctype html>
 </html>
 `;
 
-const target = path.join(root, "demo/counter-sign.html");
+const target = path.join(root, deviceTest ? "var/device-test-counter-sign.html" : "demo/counter-sign.html");
 writeFileSync(target, html, "utf8");
-console.log(`Generated ${path.relative(root, target)} for ${localPreview ? "loopback preview" : "supplied HTTPS preview"}.`);
+if (deviceTest) {
+  const { chromium } = await import("@playwright/test");
+  const browser = await chromium.launch({ channel: "chrome", headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(target).href);
+    await page.pdf({ path: path.join(root, "var/device-test-counter-sign.pdf"), preferCSSPageSize: true, printBackground: true });
+  } finally {
+    await browser.close();
+  }
+}
+console.log(`Generated ${path.relative(root, target)}${deviceTest ? " and var/device-test-counter-sign.pdf" : ""} for ${localPreview ? "loopback preview" : "configured HTTPS device test"}.`);

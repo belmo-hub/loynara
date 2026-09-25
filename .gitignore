@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-device-test/
 /out/
 
 # production

@@ -37,6 +37,7 @@ Accessed **2026-09-25**. These links document implementation choices and prerequ
 | [Google Wallet FAQ](https://developers.google.com/wallet/retail/loyalty-cards/resources/faq) | Logo images must be reliably available over HTTPS to render in Wallet; a private Access-gated app origin is not by itself a suitable image host. |
 | [Google push and nearby notifications](https://developers.google.com/wallet/retail/loyalty-cards/use-cases/trigger-push-notifications) | Constrained issuer messages and supported field changes; at most three notifying messages per 24 hours. Nearby behavior uses merchant locations and is controlled by Google and user settings. |
 | [Google publishing access](https://developers.google.com/wallet/retail/loyalty-cards/test-and-go-live/request-publishing-access) and [prelaunch testing](https://developers.google.com/wallet/retail/loyalty-cards/test-and-go-live/prelaunch-testing) | New issuers are in Demo Mode for designated test accounts; public issuance needs approval and real Android device tests. |
+| [Google Wallet brand guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/brand-guidelines) | Supplied Add to Google Wallet artwork and suitable programme logo are needed before public use. |
 
 ## Controlled HTTPS preview research
 
@@ -46,6 +47,9 @@ Accessed **2026-09-25**. These links document implementation choices and prerequ
 | [Cloudflare self-hosted Access application](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/) | Set an allow policy before adding a tunnel route; otherwise the hostname can be openly reachable. The connector can validate Access JWTs. |
 | [Cloudflare origin Access validation](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/) | `cloudflared` can require Access JWT validation before forwarding to a loopback origin. |
 | [Cloudflare Zero Trust pricing](https://www.cloudflare.com/plans/) | Published $0 tier for teams under 50 users or proof-of-concept tests; a usable owner domain is a separate prerequisite and may cost money. Verify plan terms again before owner approval. |
+| [Cloudflare Zero Trust setup](https://developers.cloudflare.com/cloudflare-one/setup/) | A new organization setup asks for a selected subscription and payment details even when the Free plan has no charge; an existing approved account and zone cannot be assumed. |
+| [Tunnel configuration](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/configuration-file/) and [origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/) | Published route to loopback with a final 404 catch-all; `originRequest.access` can require and validate Access JWTs before forwarding. Route publication can create DNS. |
+| [Tunnel logging](https://developers.cloudflare.com/tunnel/reference/run-parameters/) and [HTTP request log fields](https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/) | Debug logging exposes URLs and headers; edge log exports can include full bearer paths and queries. Review/redact before route activation. |
 
 ## Email and billing
 

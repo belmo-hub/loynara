@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
+const deviceTestDistDir = process.env.LOOPLOCAL_NEXT_DIST_DIR;
+if (deviceTestDistDir && deviceTestDistDir !== ".next-device-test") {
+  throw new Error("Unsupported Next build directory");
+}
+
 const nextConfig: NextConfig = {
+  ...(deviceTestDistDir ? { distDir: deviceTestDistDir } : {}),
   // In development Next logs full request paths by default, including bearer
   // card URLs and scan-code query strings. Keep application diagnostics in
   // respondError/worker logs, which never print request URLs or credentials.

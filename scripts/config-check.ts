@@ -28,5 +28,6 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.LIVE_BILLING_ENABLED === "true") issues.push("Live billing is not configured and approved for production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
+  if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
   return issues;
 }

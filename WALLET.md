@@ -24,6 +24,8 @@ No issuer credentials, designated provider testers, or permission to call live p
 
 An Access-gated browser preview does not automatically make Apple device callbacks reachable or a Google logo fetchable. Those provider-facing URLs need their own reviewed public HTTPS routing and token-path log policy before real provider tests. Do not open them merely to make a fixture test pass.
 
+For the first approved Android test, keep Google in **Demo Mode** and authorize the designated Android Google account as an issuer tester. The current adapter has no inbound Google callback, but it still lacks a provider-fetchable HTTPS PNG logo; the Access-protected browser origin alone cannot supply that asset. The current custom Save button also needs Google's supplied artwork before public use. [Google logo guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/faq) and [brand guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/brand-guidelines) are separate from fixture success. Mark the device test passed only after a pass actually installs and its displayed balance updates after both an award and redemption; a generated Save URL or REST-created object is insufficient. Google notes that display updates may take up to 24 hours in [prelaunch testing](https://developers.google.com/wallet/retail/loyalty-cards/test-and-go-live/prelaunch-testing).
+
 ## Apple configuration
 
 Set `APPLE_WALLET_ENABLED=true` only after placing credentials outside the repository and configuring:

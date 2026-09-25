@@ -23,6 +23,10 @@
     "preview:backup": "sh scripts/preview-backup.sh",
     "preview:restore-check": "sh scripts/preview-restore-check.sh",
     "preview:worker": "sh scripts/preview-worker.sh",
+    "device-test:prepare": "sh scripts/device-test-prepare.sh",
+    "device-test:start": "sh scripts/device-test-start.sh",
+    "device-test:stop": "sh scripts/device-test-db-stop.sh",
+    "device-test:worker": "sh scripts/device-test-worker.sh",
     "backup": "sh scripts/backup.sh",
     "restore-check": "sh scripts/restore-check.sh"
   },

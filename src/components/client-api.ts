@@ -42,6 +42,7 @@ export type MeResponse = {
   role: "owner" | "manager" | "cashier";
   businessName: string;
   locationName: string;
+  publicBaseUrl: string;
   locale?: "de" | "fr";
   programSlug: string;
   programType: "stamp" | "points";

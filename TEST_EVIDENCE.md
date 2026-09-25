@@ -2,6 +2,12 @@
 
 Run date: **2026-09-25**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
 
+## Separate HTTPS device-test preparation after `4714eb5`
+
+`npm run device-test:prepare` exited 0 on a fresh separate Compose volume, applied auth/app migrations, compiled into ignored `.next-device-test`, and started the worker for **one pass with 0 due jobs**. This is a build-only artifact with no approved origin; Better Auth emitted expected missing-base-URL warnings, and the runtime launcher always rebuilds after the origin is supplied. `var/device-test.env` is ignored and mode **0600**; the database binds only `127.0.0.1:54331` and contained **0 users, 0 tenants, 0 memberships**. Port 3002 had no listener, while the existing port-3001 preview health returned HTTP 200. `npm run device-test:start` and the device-test worker command exited 1 before startup because the approved HTTPS origin and Access team/AUD are absent. Configuration tests reject localhost, mismatched URLs, PostgreSQL URL overrides, missing Access values and enabled external integrations. The Cloudflare YAML template parsed with Ruby and was checked against official syntax; `cloudflared` is not installed, so live ingress validation was **NOT RUN**.
+
+The current app regression gate after local preparation and the merchant-link origin fix: `npm test` **19 files / 83 tests passed**, `npm run typecheck` and `npm run lint` exited 0, `npm run test:e2e` **7/7 passed**, and the separate device-test build completed. `/api/me` now returns the configured public origin even for a private loopback request; merchant enrollment and staff invitation links use it rather than the browser's loopback origin. No approved HTTPS address, Access policy, tunnel, DNS record, physical device action, provider call, or Wallet pass test was performed. Spending incurred: **€0**.
+
 ## Current synthetic release candidate
 
 The clean starting commit was tagged `checkpoint/pre-demo-rc-20260925` before changes. The checks below exercise this candidate; the older operations and browser notes further down are historical baseline evidence.

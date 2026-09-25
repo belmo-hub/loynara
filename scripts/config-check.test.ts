@@ -39,6 +39,18 @@ describe("production configuration gate", () => {
     expect(issues).toContain("Preview seeding is forbidden in production");
   });
 
+  it("refuses the device-test seed switch in a real production configuration", () => {
+    const issues = productionConfigIssues({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://merchant:unique-value@db.example.com/loyalty",
+      BETTER_AUTH_URL: "https://app.example.com",
+      PUBLIC_BASE_URL: "https://app.example.com",
+      BETTER_AUTH_SECRET: "a".repeat(64),
+      LOOPLOCAL_DEVICE_TEST_SEED: "true",
+    });
+    expect(issues).toContain("Device-test seeding is forbidden in production");
+  });
+
   it("rejects database query parameters that override the checked production host", () => {
     const issues = productionConfigIssues({
       NODE_ENV: "production",
