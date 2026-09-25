@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, locations, membershipContacts, memberships, programs, rewardVersions, rewards, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
-import { selectAudience } from "./segments";
+import { selectAudience, selectAudienceBySlug } from "./segments";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Segment tests require looplocal_test");
 
@@ -112,6 +112,8 @@ describe("database-backed customer audiences", () => {
     await expect(selectAudience({ actorUserId: manager, ...query, programId: secondProgram.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(selectAudience({ actorUserId: ownerB, ...query })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(selectAudience({ actorUserId: cashier, ...query })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await selectAudienceBySlug({ actorUserId: manager, programSlug: a.programSlug, asOf, definition: query.definition })).total).toBe(2);
+    await expect(selectAudienceBySlug({ actorUserId: ownerB, programSlug: a.programSlug, asOf, definition: query.definition })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("rejects invalid audience thresholds before querying", async () => {

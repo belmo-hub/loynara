@@ -1,0 +1,15 @@
+.main { padding-bottom: 84px; }
+.grid { display: grid; grid-template-columns: minmax(320px, .95fr) minmax(320px, 1.05fr); align-items: start; gap: 24px; }
+.form, .result { min-width: 0; padding: 28px; }
+.form h2, .result h2 { margin: 8px 0 8px; font-size: 26px; letter-spacing: -.04em; }
+.form p, .result p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+.form label { display: grid; gap: 8px; margin-top: 18px; color: var(--ink); font-size: 13px; font-weight: 700; line-height: 1.4; }
+.form input, .form select { width: 100%; min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); padding: 0 13px; font: inherit; font-weight: 500; }
+.form button { margin-top: 24px; }
+.total { display: block; margin-top: 20px; color: var(--forest); font-size: clamp(60px, 10vw, 96px); line-height: 1; letter-spacing: -.07em; }
+.result .muted { font-size: 12px; }
+.note { margin-top: 26px; padding: 20px; border-radius: 14px; background: #e8f0e8; }
+.note h3 { margin: 0 0 8px; font-size: 16px; }
+.note p { margin: 8px 0 0; font-size: 12px; }
+.error { color: #a33f29 !important; font-size: 13px !important; font-weight: 700; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .form, .result { padding: 22px; } }

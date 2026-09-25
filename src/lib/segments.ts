@@ -25,6 +25,7 @@ const audienceQuerySchema = z.object({
 }).strict();
 
 export type AudienceQuery = z.input<typeof audienceQuerySchema>;
+export type SlugAudienceQuery = Omit<AudienceQuery, "programId"> & { programSlug: string };
 export type AudienceResult = {
   total: number;
   membershipIds: string[];
@@ -132,4 +133,13 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
     asOf: asOf.toISOString(),
     countingRule: QUALIFYING_CHECKOUT_RULE,
   };
+}
+
+/** Resolve a public programme slug, then apply the same staff and tenant checks. */
+export async function selectAudienceBySlug(raw: SlugAudienceQuery): Promise<AudienceResult> {
+  const { programSlug, ...query } = raw;
+  const slug = z.string().min(1).max(120).parse(programSlug);
+  const [program] = await db.select({ id: programs.id }).from(programs).where(eq(programs.slug, slug)).limit(1);
+  if (!program) throw new DomainError("NOT_FOUND", "Programme not found in your scope");
+  return selectAudience({ ...query, programId: program.id });
 }
