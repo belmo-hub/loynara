@@ -66,16 +66,23 @@ test("HTTP sessions enforce tenant and staff boundaries, retries, redemption and
     expect((await cashier.context.get(`/api/cashier/lookup?code=${encodeURIComponent(cardA.scanCode)}`)).status()).toBe(200);
     expect((await cashier.context.get("/api/staff")).status()).toBe(403);
     expect((await cashier.context.get("/api/merchant/export")).status()).toBe(403);
+    const staffAudit = await ownerA.context.get("/api/staff/audit");
+    expect(staffAudit.status()).toBe(200);
+    expect((await staffAudit.json() as { events: Array<{ action: string }> }).events.map(event => event.action)).toEqual(["invite_accepted", "invite_created"]);
+    expect(JSON.stringify(await staffAudit.json())).not.toContain(inviteToken);
+    expect((await ownerB.context.get("/api/staff/audit").then(response => response.json()) as { events: unknown[] }).events).toEqual([]);
+    expect((await cashier.context.get("/api/staff/audit")).status()).toBe(403);
 
     const merchantExport = await ownerA.context.get("/api/merchant/export");
     expect(merchantExport.status()).toBe(200);
     expect(merchantExport.headers()["content-disposition"]).toContain("attachment");
-    const merchantData = await merchantExport.json() as { tenant: { id: string }; memberships: { id: string }[]; ledger: unknown[] };
+    const merchantData = await merchantExport.json() as { tenant: { id: string }; memberships: { id: string }[]; ledger: unknown[]; staffAuditEvents: Array<{ action: string }> };
     expect(merchantData.tenant.id).toBe(merchantA.tenantId);
     expect(merchantData.memberships.map(row => row.id)).toContain(cardA.membershipId);
     expect(merchantData.memberships.map(row => row.id)).not.toContain(cardB.membershipId);
     expect(JSON.stringify(merchantData)).not.toContain(cardA.cardToken);
     expect(JSON.stringify(merchantData)).not.toContain(cardA.scanCode);
+    expect(merchantData.staffAuditEvents.map(event => event.action)).toEqual(["invite_accepted", "invite_created"]);
 
     const cardExport = await ownerA.context.get(`/api/card/${encodeURIComponent(cardA.cardToken)}/export`);
     expect(cardExport.status()).toBe(200);
@@ -133,6 +140,15 @@ test("HTTP sessions enforce tenant and staff boundaries, retries, redemption and
     const cashierId = staff.staff.find(row => row.email === cashier.email)?.userId;
     expect(cashierId).toBeTruthy();
     expect((await ownerA.context.post("/api/staff/revoke", { data: { userId: cashierId } })).status()).toBe(200);
+    expect((await ownerA.context.get("/api/staff/audit").then(response => response.json()) as { events: Array<{ action: string }> }).events.map(event => event.action)).toEqual(["access_revoked", "invite_accepted", "invite_created"]);
+    const auditBrowser = await browser.newContext({ baseURL: url, storageState: await ownerA.context.storageState() });
+    try {
+      const auditPage = await auditBrowser.newPage();
+      await auditPage.goto("/merchant/staff");
+      await expect(auditPage.getByRole("heading", { name: "Zugriffsverlauf" })).toBeVisible();
+      await expect(auditPage.getByText("Zugang gesperrt")).toBeVisible();
+      await auditPage.screenshot({ path: "screenshots/platform-after-staff-audit.png", fullPage: true });
+    } finally { await auditBrowser.close(); }
     expect((await cashier.context.get(`/api/cashier/lookup?code=${encodeURIComponent(cardA.scanCode)}`)).status()).toBe(403);
     expect((await cashier.context.post("/api/cashier/award", { data: { ...awardInput, idempotencyKey: randomUUID(), requestId: randomUUID() } })).status()).toBe(403);
 

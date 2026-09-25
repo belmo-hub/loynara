@@ -1,6 +1,6 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { billingInvoices, billingLocationPlans, consentEvents, ledgerEntries, locations, memberships, programs, redemptions, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { billingInvoices, billingLocationPlans, consentEvents, ledgerEntries, locations, memberships, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 
@@ -14,7 +14,7 @@ export async function getMerchantExport(actorUserId: string) {
   const [owner] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
   if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
   const tenantId = owner.tenantId;
-  const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, planRows, invoiceRows] = await Promise.all([
+  const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows] = await Promise.all([
     db.select().from(tenants).where(eq(tenants.id, tenantId)),
     db.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
     db.select({ id: locations.id, name: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, brandColor: locations.brandColor, latitude: locations.latitude, longitude: locations.longitude, createdAt: locations.createdAt }).from(locations).where(eq(locations.tenantId, tenantId)).limit(MAX_ROWS + 1),
@@ -26,12 +26,13 @@ export async function getMerchantExport(actorUserId: string) {
     db.select().from(redemptions).where(eq(redemptions.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(consentEvents).where(eq(consentEvents.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select({ userId: staffRoles.userId, role: staffRoles.role, locationId: staffRoles.locationId, active: staffRoles.active, createdAt: staffRoles.createdAt }).from(staffRoles).where(eq(staffRoles.tenantId, tenantId)).limit(MAX_ROWS + 1),
+    db.select().from(staffAuditEvents).where(eq(staffAuditEvents.tenantId, tenantId)).orderBy(desc(staffAuditEvents.createdAt), desc(staffAuditEvents.id)).limit(MAX_ROWS + 1),
     db.select().from(billingLocationPlans).where(eq(billingLocationPlans.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(billingInvoices).where(eq(billingInvoices.tenantId, tenantId)).limit(MAX_ROWS + 1),
   ]);
   if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
   return {
-    formatVersion: 2,
+    formatVersion: 3,
     exportedAt: new Date().toISOString(),
     scope: "owner-business-data-without-card-or-contact-credentials",
     tenant,
@@ -45,6 +46,7 @@ export async function getMerchantExport(actorUserId: string) {
     redemptions: checked(redemptionRows, "Redemptions"),
     consentEvents: checked(consentRows, "Consent events"),
     staff: checked(roleRows, "Staff roles"),
+    staffAuditEvents: checked(auditRows, "Staff audit events"),
     billingLocationPlans: checked(planRows, "Billing location plans"),
     billingInvoices: checked(invoiceRows, "Billing fixture invoices"),
   };

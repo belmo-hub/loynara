@@ -2,6 +2,12 @@
 
 Run dates: **2026-09-25–26**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
 
+## Staff access audit checkpoint after `daad13b`
+
+Invite creation, acceptance and staff revocation now append tenant-scoped records in the same transaction as the access change. Repeated revocation writes no second event; rejected invitation acceptance writes none. A database trigger rejects audit-row update and delete. The owner-only Team screen shows the newest 50 events, and merchant export format 3 includes the full bounded history without invitation tokens or invited email addresses. Existing actions before migration 0013 were not backfilled, and retention remains undecided.
+
+`npm test` passed **41 files / 186 tests**; `npm run test:e2e` passed **30 active Chrome checks**, with the local billing fixture browser check intentionally skipped because the fixture was off. The HTTP/session journey checked tenant separation, cashier denial, owner export, revocation and the actual Team history screen. `npm run lint`, `npm run typecheck` and `npm run build` exited 0. `npm run preview` applied migration 0013 to its separate synthetic database, built and ran the compiled app and worker on loopback; `/api/health` returned `{"status":"ok","database":"reachable"}`. `npm run preview:browser-check` passed join, reopen, manual lookup, one award and redemption with final balance 0; camera was **NOT RUN**. The preview backup and isolated restore check passed with 1 tenant, 16 memberships and 41 ledger entries. Its web listener was stopped. The actual owner-screen capture is [`platform-after-staff-audit.png`](screenshots/platform-after-staff-audit.png). No physical device, public HTTPS route or real provider was used; spending was **€0**.
+
 ## Local billing fixture checkpoint after `7518f94`
 
 Per-location plan rows now snapshot the configured draft EUR/MAD price, and an owner screen reads actual unclosed-card usage. Enrollment serializes on the location plan and rejects another card at its 10,000-card limit. A separate loopback-only fixture exercises owner handoff, signed webhook verification, duplicate-event handling, a labelled non-tax invoice record, end-of-period cancellation, seven-day failure grace and expiry with controlled test clocks. The owner export includes plans and fixture invoices; no credentials are exported.

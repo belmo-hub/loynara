@@ -78,6 +78,23 @@ export const staffInvites = pgTable("staff_invites", {
   check("staff_invite_role_valid", sql`${t.role} in ('manager','cashier')`),
 ]);
 
+export const staffAuditEvents = pgTable("staff_audit_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  action: varchar("action", { length: 24 }).notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  subjectUserId: text("subject_user_id"),
+  inviteId: uuid("invite_id"),
+  locationId: uuid("location_id"),
+  role: varchar("role", { length: 12 }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  index("staff_audit_tenant_time_idx").on(t.tenantId, t.createdAt),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  check("staff_audit_action_valid", sql`${t.action} in ('invite_created','invite_accepted','access_revoked')`),
+  check("staff_audit_role_valid", sql`${t.role} in ('manager','cashier')`),
+]);
+
 export const programs = pgTable("programs", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
