@@ -81,6 +81,22 @@ describe("referral lifecycle with synthetic cards", () => {
     expect((await db.select().from(referrals))[0].status).toBe("rejected");
   });
 
+  it("awards the referral bonus only once for simultaneous distinct checkout requests", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId);
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const referrer = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+    const referred = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: code });
+    await Promise.all([
+      awardOne({ ownerId, locationId: merchant.locationId, membershipId: referred.id }),
+      awardOne({ ownerId, locationId: merchant.locationId, membershipId: referred.id }),
+    ]);
+    expect((await db.select().from(ledgerEntries).where(eq(ledgerEntries.source, "referral_bonus")))).toHaveLength(2);
+    expect((await db.select().from(memberships).where(eq(memberships.id, referrer.id)))[0].balance).toBe(2);
+    expect((await db.select().from(memberships).where(eq(memberships.id, referred.id)))[0].balance).toBe(3);
+  });
+
   it("reverses both ledger bonuses when the qualifying checkout is corrected", async () => {
     const ownerId = await user();
     const merchant = await shop(ownerId);

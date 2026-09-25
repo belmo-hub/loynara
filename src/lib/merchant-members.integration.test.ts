@@ -6,11 +6,20 @@ import { eq } from "drizzle-orm";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll } from "./product";
 import { getMerchantMember, listMerchantMembers } from "./merchant-members";
+import { configureReferrals, getCardReferralShare } from "./referrals";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Merchant member tests require looplocal_test");
 
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
-afterAll(async () => { await pool.end(); });
+const originalBaseUrl = process.env.PUBLIC_BASE_URL;
+beforeEach(async () => {
+  process.env.PUBLIC_BASE_URL = "http://localhost:3000";
+  await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
+});
+afterAll(async () => {
+  if (originalBaseUrl === undefined) delete process.env.PUBLIC_BASE_URL;
+  else process.env.PUBLIC_BASE_URL = originalBaseUrl;
+  await pool.end();
+});
 
 async function user() {
   const id = randomUUID();
@@ -42,7 +51,7 @@ describe("merchant member read model", () => {
       { tenantId: shop.tenantId, rewardId: earlierReward.id, version: 1, title: "Tee", cost: 2 },
     ]);
     const detailsBefore = await getMerchantMember(ownerId, card.id);
-    expect(detailsBefore.member).toMatchObject({ id: card.id, balance: 5, qualifyingCheckouts: 1, activityCount: 1, redemptionCount: 0, purchaseCount: null, referralStatus: "not_available", eligibility: "eligible" });
+    expect(detailsBefore.member).toMatchObject({ id: card.id, balance: 5, qualifyingCheckouts: 1, activityCount: 1, redemptionCount: 0, purchaseCount: null, referralStatus: "none", qualifiedReferrals: 0, eligibility: "eligible" });
     expect(detailsBefore.member.firstQualifyingAt).toBeTruthy();
     expect(detailsBefore.member.lastQualifyingAt).toBeTruthy();
     expect(JSON.stringify(detailsBefore)).not.toContain(card.cardToken);
@@ -70,6 +79,26 @@ describe("merchant member read model", () => {
     expect(detail.member).toMatchObject({ balance: 3, qualifyingCheckouts: 0, activityCount: 3, firstQualifyingAt: null, lastQualifyingAt: null });
     expect(detail.timeline.map(entry => entry.delta)).toEqual([-2, 2, 3]);
     expect(detail.timeline[0].kind).toBe("reversal");
+  });
+
+  it("shows persisted referral attribution and qualified referral counts without exposing identifiers", async () => {
+    const ownerId = await user();
+    const shop = await merchant(ownerId, "Synthetic Referral Detail");
+    const referrer = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+    await configureReferrals({ actorUserId: ownerId, programSlug: shop.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const share = await getCardReferralShare(referrer.cardToken);
+    const referralCode = new URL(share.shareUrl).searchParams.get("ref")!;
+    const referred = await enroll({ slug: shop.programSlug, acceptedTerms: true, referralCode });
+
+    expect((await getMerchantMember(ownerId, referred.id)).member).toMatchObject({ referralStatus: "pending", qualifiedReferrals: 0 });
+    await award({ userId: ownerId, locationId: shop.locationId, membershipId: referred.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect((await getMerchantMember(ownerId, referred.id)).member).toMatchObject({ referralStatus: "qualified", qualifiedReferrals: 0 });
+    const referrerDetail = await getMerchantMember(ownerId, referrer.id);
+    expect(referrerDetail.member).toMatchObject({ referralStatus: "none", qualifiedReferrals: 1 });
+    expect((await listMerchantMembers(ownerId, {})).members.find(member => member.id === referrer.id)).toMatchObject({ qualifiedReferrals: 1 });
+    expect(JSON.stringify(referrerDetail)).not.toContain(referralCode);
+    expect(JSON.stringify(referrerDetail)).not.toContain(referrer.cardToken);
+    expect(JSON.stringify(referrerDetail)).not.toContain(referred.cardToken);
   });
 
   it("enforces owner tenant scope and manager location scope, denies cashier/revoked staff and filters pseudonymous cards", async () => {

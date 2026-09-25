@@ -150,7 +150,8 @@ export default function MerchantCustomersPage() {
               <div><dt>Erfasste Käufe</dt><dd>{detail.member.purchaseCount === null ? "Nicht erfasst" : detail.member.purchaseCount}</dd></div>
               <div><dt>Einlösungen</dt><dd>{detail.member.redemptionCount}</dd></div>
               <div><dt>E-Mail-Marketing</dt><dd>{detail.member.emailMarketingEligible ? "Verifiziert und zugestimmt" : "Nicht berechtigt"}</dd></div>
-              <div><dt>Empfehlungsstatus</dt><dd>Nicht verfügbar</dd></div>
+              <div><dt>Als geworbene Karte</dt><dd>{referralLabel(detail.member.referralStatus)}</dd></div>
+              <div><dt>Erfolgreich geworbene Karten</dt><dd>{detail.member.qualifiedReferrals}</dd></div>
               <div><dt>Prämienstatus</dt><dd>{eligibilityLabel(detail.member.eligibility)}</dd></div>
             </dl>
             {detail.eligibleRewards.length > 0 && <div className={styles.rewards}><h3>Jetzt einlösbar</h3><ul>{detail.eligibleRewards.map(reward => <li key={reward.id}>{reward.title} · {reward.cost} {detail.member.programType === "stamp" ? "Stempel" : "Punkte"}</li>)}</ul></div>}
@@ -171,5 +172,16 @@ function eligibilityLabel(value: MerchantMember["eligibility"]) {
     case "closed": return "Karte geschlossen";
     case "not_checked": return "Noch nicht geprüft";
     default: return "Nicht verfügbar";
+  }
+}
+
+function referralLabel(value: MerchantMember["referralStatus"]) {
+  switch (value) {
+    case "pending": return "Wartet auf den ersten bestätigten Kassenvorgang";
+    case "qualified": return "Bonus gutgeschrieben";
+    case "review": return "In Prüfung";
+    case "rejected": return "Abgelehnt";
+    case "reversed": return "Nach Korrektur zurückgenommen";
+    default: return "Keine Zuordnung";
   }
 }

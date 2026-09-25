@@ -9,12 +9,14 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 type Scope = { tenantId: string; locationId: string | null };
 type Cursor = { at: string; id: string };
+type ReferralStatus = "none" | "pending" | "qualified" | "review" | "rejected" | "reversed";
 type MemberRow = {
   id: string; programId: string; programName: string; programType: "stamp" | "points";
   earningMode: "manual" | "purchase"; programStatus: string; programStarted: boolean; locationId: string; locationName: string;
   balance: number; createdAt: Date; closedAt: Date | null;
   qualifyingCheckouts: number; firstQualifyingAt: Date | null; lastQualifyingAt: Date | null;
   activityCount: number; redemptionCount: number; purchaseCount: number; emailMarketingEligible: boolean; cursorAt: string;
+  referralStatus: ReferralStatus; qualifiedReferrals: number;
 };
 type TimelineRow = {
   id: string; kind: "award" | "redeem" | "reversal"; delta: number; source: string;
@@ -26,7 +28,8 @@ export type MerchantMember = {
   id: string; pseudonym: string; programName: string; programType: "stamp" | "points";
   locationName: string; balance: number; createdAt: string; closedAt: string | null;
   qualifyingCheckouts: number; firstQualifyingAt: string | null; lastQualifyingAt: string | null;
-  activityCount: number; redemptionCount: number; purchaseCount: number | null; referralStatus: "not_available";
+  activityCount: number; redemptionCount: number; purchaseCount: number | null;
+  referralStatus: ReferralStatus; qualifiedReferrals: number;
   emailMarketingEligible: boolean;
   eligibility: "eligible" | "not_yet" | "not_configured" | "closed" | "unavailable" | "not_checked";
 };
@@ -81,7 +84,8 @@ function memberView(row: MemberRow, eligibility: MerchantMember["eligibility"] =
     activityCount: row.activityCount,
     redemptionCount: row.redemptionCount,
     purchaseCount: row.earningMode === "purchase" ? row.purchaseCount : null,
-    referralStatus: "not_available",
+    referralStatus: row.referralStatus,
+    qualifiedReferrals: row.qualifiedReferrals,
     emailMarketingEligible: row.emailMarketingEligible,
     eligibility: row.closedAt ? "closed" : eligibility,
   };
@@ -110,6 +114,13 @@ const memberFields = `
   page.id, page."programId", page."programName", page."programType", page."earningMode", page."programStatus", page."programStarted",
   page."locationId", page."locationName", page.balance, page."createdAt", page."closedAt", page."cursorAt",
   summary."qualifyingCheckouts", summary."firstQualifyingAt", summary."lastQualifyingAt", summary."activityCount", summary."redemptionCount", summary."purchaseCount",
+  COALESCE((
+    SELECT referral.status FROM referrals referral
+    WHERE referral.tenant_id = page.tenant_id AND referral.referred_membership_id = page.id
+  ), 'none') AS "referralStatus",
+  (SELECT count(*)::int FROM referrals referral
+    WHERE referral.tenant_id = page.tenant_id AND referral.referrer_membership_id = page.id
+      AND referral.status = 'qualified') AS "qualifiedReferrals",
   EXISTS (
     SELECT 1 FROM membership_contacts contact
     WHERE contact.tenant_id = page.tenant_id AND contact.membership_id = page.id AND page."closedAt" IS NULL
