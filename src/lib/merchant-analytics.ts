@@ -54,7 +54,10 @@ export async function getMerchantAnalytics(
   if (options.windowDays !== 30 && options.windowDays !== 90) {
     throw new DomainError("INVALID_WINDOW", "Choose a 30 or 90 day window");
   }
-  const asOf = options.asOf ?? new Date();
+  // Ledger timestamps are assigned by PostgreSQL. Use its clock for live
+  // reports so a freshly committed redemption cannot fall just after a host
+  // clock that is slightly behind the database.
+  const asOf = options.asOf ?? (await pool.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
   if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");
   const [owner] = await db.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);

@@ -8,7 +8,7 @@
     "start": "tsx scripts/production-guard.ts && next start",
     "lint": "eslint",
     "test": "sh scripts/test-local.sh",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/test-e2e-local.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

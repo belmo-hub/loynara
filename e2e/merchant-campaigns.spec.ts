@@ -24,7 +24,7 @@ test("owner previews an audience and saves a campaign draft without claiming del
       await expect(page.getByRole("heading", { name: "Kampagnen" })).toBeVisible();
       await page.getByLabel("Titel").fill("Synthetische Testaktion");
       await page.getByLabel("Betreff").fill("Nur ein Test");
-      await page.getByLabel("Nachricht").fill("Dies ist eine lokale synthetische Kampagnenvorschau.");
+      await page.getByRole("textbox", { name: "Nachricht", exact: true }).fill("Dies ist eine lokale synthetische Kampagnenvorschau.");
       await page.getByRole("button", { name: "Zielgruppe prüfen" }).click();
       await expect(page.getByText("1 Karte in der Zielgruppe")).toBeVisible();
       await expect(page.getByText("0 kontaktierbar")).toBeVisible();
