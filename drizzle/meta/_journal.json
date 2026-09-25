@@ -57,6 +57,13 @@
       "when": 1790363870739,
       "tag": "0007_broad_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790365412649,
+      "tag": "0008_happy_boomerang",
+      "breakpoints": true
     }
   ]
 }

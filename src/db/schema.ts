@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   doublePrecision,
   foreignKey,
   index,
@@ -179,6 +180,20 @@ export const membershipContacts = pgTable("membership_contacts", {
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
 ]);
 
+export const contactVerificationChallenges = pgTable("contact_verification_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("contact_challenge_membership_idx").on(t.tenantId, t.membershipId, t.createdAt),
+]);
+
 export const consentEvents = pgTable("consent_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
@@ -271,6 +286,74 @@ export const outboxJobs = pgTable("outbox_jobs", {
 }, (t) => [
   index("outbox_due_idx").on(t.status, t.nextAttemptAt),
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
+]);
+
+export const campaigns = pgTable("campaigns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  createdByUserId: text("created_by_user_id").notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  subject: varchar("subject", { length: 120 }).notNull(),
+  body: text("body").notNull(),
+  audienceDefinition: jsonb("audience_definition").$type<Record<string, unknown>>().notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("draft"),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  scheduleRevision: integer("schedule_revision").notNull().default(0),
+  audienceAsOf: timestamp("audience_as_of", { withTimezone: true }),
+  audienceCount: integer("audience_count").notNull().default(0),
+  queuedCount: integer("queued_count").notNull().default(0),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("campaigns_tenant_id_id_uq").on(t.tenantId, t.id),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  index("campaigns_tenant_created_idx").on(t.tenantId, t.createdAt),
+  check("campaign_status_valid", sql`${t.status} in ('draft','scheduled','paused','dispatching','complete','blocked','cancelled')`),
+  check("campaign_schedule_revision_nonnegative", sql`${t.scheduleRevision} >= 0`),
+  check("campaign_counts_nonnegative", sql`${t.audienceCount} >= 0 and ${t.queuedCount} >= 0 and ${t.queuedCount} <= ${t.audienceCount}`),
+]);
+
+export const campaignRecipients = pgTable("campaign_recipients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  campaignId: uuid("campaign_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  status: varchar("status", { length: 12 }).notNull().default("queued"),
+  suppressReason: varchar("suppress_reason", { length: 120 }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("campaign_recipients_tenant_id_id_uq").on(t.tenantId, t.id),
+  unique("campaign_recipient_member_uq").on(t.campaignId, t.membershipId),
+  foreignKey({ columns: [t.tenantId, t.campaignId], foreignColumns: [campaigns.tenantId, campaigns.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  check("campaign_recipient_status_valid", sql`${t.status} in ('queued','complete','suppressed','failed')`),
+]);
+
+export const campaignAttempts = pgTable("campaign_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  recipientId: uuid("recipient_id").notNull(),
+  outboxJobId: uuid("outbox_job_id").notNull().references(() => outboxJobs.id),
+  attempt: integer("attempt").notNull(),
+  status: varchar("status", { length: 12 }).notNull(),
+  reason: varchar("reason", { length: 120 }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.recipientId], foreignColumns: [campaignRecipients.tenantId, campaignRecipients.id] }),
+  unique("campaign_attempt_once_uq").on(t.outboxJobId, t.attempt),
+  check("campaign_attempt_positive", sql`${t.attempt} > 0`),
+  check("campaign_attempt_status_valid", sql`${t.status} in ('complete','suppressed','retry','failed','blocked')`),
+]);
+
+export const campaignDailyUsage = pgTable("campaign_daily_usage", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  day: date("day").notNull(),
+  queued: integer("queued").notNull().default(0),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.day] }),
+  check("campaign_daily_queued_valid", sql`${t.queued} between 0 and 100`),
 ]);
 
 export const walletPasses = pgTable("wallet_passes", {

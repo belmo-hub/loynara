@@ -11,10 +11,10 @@ const messageInput = z.object({
   body: z.string().trim().min(5).max(3000),
 });
 const payloadInput = messageInput.pick({ membershipId: true, subject: true, body: true }).extend({ actorUserId: z.string().min(1) });
-type LocalMessage = { to: string; subject: string; body: string; jobId: string };
-type LocalSender = (message: LocalMessage) => Promise<void>;
+export type LocalMessage = { to: string; subject: string; body: string; jobId: string };
+export type LocalSender = (message: LocalMessage) => Promise<void>;
 
-function localMailAllowed() {
+export function localMailAllowed() {
   if (process.env.NODE_ENV === "production" || process.env.EXTERNAL_EMAIL_ENABLED === "true") return false;
   if (!["localhost", "127.0.0.1"].includes(process.env.SMTP_HOST ?? "")) return false;
   try {
@@ -24,7 +24,7 @@ function localMailAllowed() {
   } catch { return false; }
 }
 
-function syntheticAddress(email: string) {
+export function syntheticAddress(email: string) {
   return email.toLowerCase().endsWith(".test");
 }
 
@@ -71,7 +71,7 @@ export async function getMarketingPreference(cardToken: string): Promise<{ marke
   return { marketingEmail: await latestMarketingConsent(member.tenantId, member.id) };
 }
 
-async function sendLocalMailpit(message: LocalMessage) {
+export async function sendLocalMailpit(message: LocalMessage) {
   const response = await fetch("http://127.0.0.1:8026/api/v1/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
