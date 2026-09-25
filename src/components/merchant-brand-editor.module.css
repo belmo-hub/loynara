@@ -1,0 +1,20 @@
+.panel { margin-top: 17px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .8fr); gap: 20px; }
+.form { display: grid; gap: 13px; }
+.form label { display: grid; gap: 7px; color: #2d4734; font-size: 12px; font-weight: 800; }
+.form input { width: 100%; min-height: 44px; border: 1px solid #dce5da; border-radius: 9px; background: #fff; color: var(--ink); padding: 9px 11px; font-size: 13px; font-weight: 500; }
+.form input[type=color] { width: 86px; padding: 4px; }
+.form input[type=file] { max-width: 100%; font-size: 11px; }
+.form small, .previewWrap > p { color: var(--muted); font-size: 11px; line-height: 1.5; font-weight: 500; }
+.form .button { width: fit-content; }
+.success, .error { margin: 0; font-size: 12px; line-height: 1.45; }
+.success { color: #276a43; }.error { color: #a64130; }
+.previewWrap { min-width: 0; }
+.preview { display: grid; gap: 5px; margin-top: 11px; padding: 20px; border-radius: 14px; min-height: 214px; }
+.previewHead, .previewFoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.previewHead img { max-height: 42px; object-fit: contain; }
+.previewHead small { font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.preview strong { align-self: end; font-size: 24px; line-height: 1.1; overflow-wrap: anywhere; }
+.preview > span { font-size: 13px; overflow-wrap: anywhere; }
+.previewFoot { margin-top: 18px; padding-top: 12px; border-top: 1px solid currentColor; font-size: 11px; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
