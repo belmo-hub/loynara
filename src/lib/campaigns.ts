@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
-import { audienceDefinitionSchema, selectAudience, type AudienceDefinition } from "./segments";
+import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
 
 const DAILY_QUOTA = 100;
 const MAX_AUDIENCE = 500;
@@ -57,8 +57,8 @@ async function remainingQuota(tenantId: string, at: Date, query: Query = db) {
   return Math.max(0, DAILY_QUOTA - (usage?.queued ?? 0));
 }
 
-async function audience(actorUserId: string, programId: string, definition: AudienceDefinition, asOf: Date) {
-  const selection = await selectAudience({ actorUserId, programId, definition, asOf, limit: MAX_AUDIENCE });
+async function audience(actorUserId: string, programId: string, definition: AudienceDefinition, asOf?: Date) {
+  const selection = await selectAudience({ actorUserId, programId, definition, ...(asOf ? { asOf } : {}), limit: MAX_AUDIENCE });
   if (selection.total > MAX_AUDIENCE) throw new DomainError("AUDIENCE_TOO_LARGE", `Local campaign audiences are limited to ${MAX_AUDIENCE} cards`);
   return selection;
 }
@@ -91,7 +91,7 @@ export async function previewCampaign(raw: { actorUserId: string; programSlug: s
   requireLocalMail();
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), audienceDefinition: audienceDefinitionSchema }).strict().parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
-  const now = new Date();
+  const now = await databaseAudienceNow();
   const selection = await audience(input.actorUserId, program.id, input.audienceDefinition, now);
   const classified = await classify(program.tenantId, selection.membershipIds);
   const quotaRemaining = await remainingQuota(program.tenantId, now);
@@ -177,7 +177,8 @@ export async function getCampaign(raw: { actorUserId: string; campaignId: string
   return { campaign, summary, attempts };
 }
 
-export async function dispatchCampaign(job: DispatchJob, now = new Date()): Promise<{ status: "complete" | "suppressed" | "blocked"; reason?: string; queuedCount?: number }> {
+export async function dispatchCampaign(job: DispatchJob, now?: Date): Promise<{ status: "complete" | "suppressed" | "blocked"; reason?: string; queuedCount?: number }> {
+  now ??= await databaseAudienceNow();
   const parsed = z.object({ campaignId: z.uuid(), scheduleRevision: z.string().regex(/^\d{1,9}$/) }).strict().safeParse(job.payload);
   if (!parsed.success) return { status: "blocked", reason: "Invalid campaign dispatch payload" };
   const [initial] = await db.select().from(campaigns).where(and(eq(campaigns.id, parsed.data.campaignId), eq(campaigns.tenantId, job.tenantId))).limit(1);
@@ -188,7 +189,7 @@ export async function dispatchCampaign(job: DispatchJob, now = new Date()): Prom
     return { status: "blocked", reason: "Local Mailpit delivery unavailable" };
   }
   let selection: Awaited<ReturnType<typeof audience>>;
-  try { selection = await audience(initial.createdByUserId, initial.programId, audienceDefinitionSchema.parse(initial.audienceDefinition), initial.audienceAsOf); }
+  try { selection = await audience(initial.createdByUserId, initial.programId, audienceDefinitionSchema.parse(initial.audienceDefinition), now); }
   catch {
     await db.update(campaigns).set({ status: "blocked", updatedAt: now }).where(and(eq(campaigns.id, initial.id), eq(campaigns.status, "scheduled"), eq(campaigns.scheduleRevision, initial.scheduleRevision)));
     return { status: "blocked", reason: "Audience selection unavailable or owner no longer authorized" };
@@ -251,6 +252,11 @@ export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSend
     if (!owner) return suppress("Queueing owner no longer authorized");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, recipient.membershipId), eq(memberships.tenantId, campaign.tenantId))).for("update");
     if (!member || member.closedAt) return suppress("Membership unavailable");
+    try {
+      const currentAudience = await selectAudience({ actorUserId: campaign.createdByUserId, programId: campaign.programId,
+        definition: audienceDefinitionSchema.parse(campaign.audienceDefinition), membershipId: member.id, limit: 1 });
+      if (currentAudience.total !== 1) return suppress("No longer in selected audience");
+    } catch { return suppress("Audience could not be rechecked"); }
     const classified = await classify(campaign.tenantId, [member.id], tx);
     if (!classified.eligible.length) return suppress(classified.excluded.noConsent ? "Marketing consent withdrawn" : classified.excluded.nonSynthetic ? "Recipient is not synthetic" : "Contact unavailable or unverified");
     try {

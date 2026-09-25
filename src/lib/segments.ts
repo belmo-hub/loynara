@@ -22,6 +22,7 @@ const audienceQuerySchema = z.object({
   asOf: z.date().optional(),
   limit: z.number().int().min(1).max(500).default(100),
   afterMembershipId: z.uuid().optional(),
+  membershipId: z.uuid().optional(),
 }).strict();
 
 export type AudienceQuery = z.input<typeof audienceQuerySchema>;
@@ -39,6 +40,11 @@ export const QUALIFYING_CHECKOUT_RULE = "One distinct request ID with at least o
 
 type SegmentRow = { total: number; membershipId: string | null };
 
+export async function databaseAudienceNow(): Promise<Date> {
+  const result = await pool.query<{ now: Date }>("SELECT clock_timestamp() AS now");
+  return result.rows[0].now;
+}
+
 /**
  * Returns only pseudonymous membership IDs. Contact addresses and card/scan
  * credentials are not queried. asOf bounds enrollment and award timestamps;
@@ -46,7 +52,7 @@ type SegmentRow = { total: number; membershipId: string | null };
  */
 export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult> {
   const input = audienceQuerySchema.parse(raw);
-  const asOf = input.asOf ?? new Date();
+  const asOf = input.asOf ?? await databaseAudienceNow();
   const [staff] = await db.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, input.actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
@@ -107,7 +113,7 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
     ), eligible AS (
       SELECT m.id FROM memberships m CROSS JOIN params p ${join}
       WHERE m.tenant_id = p.tenant_id AND m.program_id = p.program_id AND m.closed_at IS NULL
-        AND m.created_at <= p.as_of AND ${predicate}
+        AND m.created_at <= p.as_of AND ($10::uuid IS NULL OR m.id = $10::uuid) AND ${predicate}
     ), totals AS (
       SELECT count(*)::int AS total FROM eligible
     ), page AS (
@@ -121,7 +127,7 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
     definition.kind === "frequent_visitors" ? definition.minCheckouts : 0,
     definition.kind === "close_to_reward" ? definition.maxRemaining : 0,
     definition.kind === "close_to_reward" ? definition.rewardId ?? null : null,
-    input.afterMembershipId ?? null, input.limit + 1,
+    input.afterMembershipId ?? null, input.limit + 1, input.membershipId ?? null,
   ]);
   const ids = result.rows.map(row => row.membershipId).filter((id): id is string => id !== null);
   const hasMore = ids.length > input.limit;

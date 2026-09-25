@@ -8,6 +8,7 @@ import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, co
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
 import { createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
+import { award } from "./loyalty";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Campaign tests require looplocal_test");
 const run = promisify(execFile);
@@ -97,6 +98,23 @@ describe("local campaign core", () => {
     expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).summary).toMatchObject({ sent: 1, suppressed: 1, queued: 0 });
     expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(2);
     expect([first.id, second.id].sort()).toEqual((await db.select().from(campaignRecipients)).map(row => row.membershipId).sort());
+  });
+
+  it("suppresses a queued message when the member leaves the selected audience before delivery", async () => {
+    const f = await fixture();
+    const card = await member(f.merchant.programSlug, "reward-gap@example.test", true, true);
+    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields,
+      audienceDefinition: { kind: "close_to_reward", maxRemaining: 8 } });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+    const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ queuedCount: 1 });
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 8, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverCampaignRecipient({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send)).toMatchObject({ status: "suppressed", reason: "No longer in selected audience" });
+    expect(send).not.toHaveBeenCalled();
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).summary).toMatchObject({ sent: 0, suppressed: 1, queued: 0 });
   });
 
   it("blocks an over-quota batch before any recipients are queued", async () => {
