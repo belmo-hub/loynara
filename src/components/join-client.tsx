@@ -1,0 +1,74 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiJson, postJson, type PublicProgram } from "./client-api";
+import { BrandMark, Icon } from "./loyalty-ui";
+
+const copy = {
+  de: {
+    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "WILLKOMMEN BEI", headline: "Mach deinen Besuch zählbar.", intro: "Hol dir deine Karte direkt im Browser. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", for: "Für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", consentStart: "Ich habe die oben stehenden Programmregeln gelesen und akzeptiere sie.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutzhinweise", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit LoopLocal · Ohne zusätzliche App", acceptError: "Bitte akzeptiere zuerst die Programmregeln.", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.", and: "und",
+  },
+  fr: {
+    header: "CARTE DE FIDÉLITÉ NUMÉRIQUE", loadingLabel: "UN INSTANT", loadingTitle: "Chargement du programme.", loadingText: "Nous récupérons les règles et la récompense.", missingLabel: "INDISPONIBLE", missingTitle: "Ce programme est inaccessible.", home: "Retour à l’accueil", welcome: "BIENVENUE CHEZ", headline: "Chaque visite compte.", intro: "Obtenez votre carte directement dans le navigateur. En caisse, cumulez des", introEnd: "pour votre prochaine récompense.", stamp: "tampons", points: "points", reward: "VOTRE RÉCOMPENSE", for: "Pour", rules: "Règles du programme", inactive: "Ce programme commencera plus tard. L’inscription n’est pas encore ouverte.", email: "Adresse e-mail", optional: "facultative", emailHint: "Aucune adresse e-mail n’est nécessaire pour obtenir la carte.", consentStart: "J’ai lu et j’accepte les règles du programme ci-dessus.", terms: "Autres conditions de participation", privacy: "Politique de confidentialité", marketing: "Je souhaite recevoir à l’avenir des e-mails promotionnels de ce commerce. Ce choix est facultatif et indépendant de ma carte.", submit: "Créer ma carte", submitting: "Création de la carte …", footer: "Avec LoopLocal · Sans application supplémentaire", acceptError: "Veuillez d’abord accepter les règles du programme.", emailError: "Une adresse e-mail est nécessaire pour recevoir des messages.", inactiveError: "Ce programme n’est pas encore actif.", submitError: "La carte n’a pas pu être créée.", loadError: "Programme introuvable.", and: "et",
+  },
+} as const;
+
+export function JoinClient({ slug }: { slug: string }) {
+  const router = useRouter();
+  const [program, setProgram] = useState<PublicProgram | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const locale = program?.locale === "fr" ? "fr" : "de";
+  const t = copy[locale];
+  const unit = program?.programType === "points" ? t.points : t.stamp;
+
+  useEffect(() => {
+    let mounted = true;
+    void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).then(result => {
+      if (mounted) { setProgram(result); setLoading(false); }
+    }).catch(cause => {
+      if (mounted) { setError(cause instanceof Error ? cause.message : copy.de.loadError); setLoading(false); }
+    });
+    return () => { mounted = false; };
+  }, [slug]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError("");
+    if (!acceptedTerms) { setError(t.acceptError); return; }
+    if (marketingOptIn && !email.trim()) { setError(t.emailError); return; }
+    setBusy(true);
+    try {
+      if (program?.active === false) throw new Error(t.inactiveError);
+      const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(email.trim() ? { email: email.trim() } : {}), marketingOptIn });
+      router.push(`/card/${encodeURIComponent(result.cardToken)}`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t.submitError); }
+    finally { setBusy(false); }
+  }
+
+  return <div className="join-page" lang={locale}>
+    <header className="join-header"><Link href="/" aria-label="LoopLocal"><BrandMark /></Link><span>{t.header}</span></header>
+    <main className="join-main">
+      {loading ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.loadingLabel}</span><h1>{t.loadingTitle}</h1><p>{t.loadingText}</p></div> : !program ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.missingLabel}</span><h1>{t.missingTitle}</h1><p role="alert">{error}</p><Link href="/" className="button button--outline">{t.home}</Link></div> : <>
+        <div className="join-hero" style={{ backgroundColor: program.brandColor || "#214739" }}><span>{t.welcome}</span><h1>{program.businessName}</h1><p>{program.locationName}</p><div className="join-hero-symbol">∞</div></div>
+        <div className="join-panel"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span><h2>{t.headline}</h2><p>{t.intro} {unit} {t.introEnd}</p>
+          <div className="join-reward"><span><Icon name="spark" size={22} /></span><div><small>{t.reward}</small><strong>{program.rewardTitle}</strong><span>{t.for} {program.rewardCost} {unit}</span></div></div>
+          <div className="join-rules"><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
+          {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
+          <form className="join-form" onSubmit={submit}>
+            <label className="join-email">{t.email} <span>{t.optional}</span><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nom@exemple.fr" maxLength={254} required={marketingOptIn} /><small>{t.emailHint}</small></label>
+            <label className="join-checkbox"><input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required /><span>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</span></label>
+            <label className="join-checkbox"><input type="checkbox" checked={marketingOptIn} onChange={e => setMarketingOptIn(e.target.checked)} /><span>{t.marketing}</span></label>
+            {error && <p className="auth-error" role="alert">{error}</p>}
+            <button type="submit" className="button button--accent button--full" disabled={busy || program.active === false}>{busy ? t.submitting : t.submit}<Icon name="arrow" size={18} /></button>
+          </form>
+        </div>
+      </>}
+    </main><footer className="join-footer">{t.footer}</footer>
+  </div>;
+}

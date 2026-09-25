@@ -1,69 +1,30 @@
+import Link from "next/link";
 import Image from "next/image";
+import { BrandMark, DemoRequestForm, Icon, SectionHeading } from "@/components/loyalty-ui";
+import { draftPriceMinor } from "@/lib/pricing";
+
+const monthlyPrice = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(draftPriceMinor("EUR") / 100);
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+  return <div className="site-page">
+    <header className="site-header"><div className="site-container site-header-inner"><Link href="/" aria-label="LoopLocal Startseite"><BrandMark /></Link><nav aria-label="Seitennavigation"><a href="#so-gehts">So funktioniert’s</a><a href="#funktionen">Funktionen</a><a href="#preise">Preis</a></nav><div className="site-header-actions"><Link href="/login" className="header-login">Anmelden</Link><Link href="/register" className="button button--small button--ink">Jetzt starten <Icon name="arrow" size={16} /></Link></div></div></header>
+
+    <main>
+      <section className="hero"><div className="site-container hero-grid"><div className="hero-copy"><span className="hero-kicker"><span className="status-light" /> LOYALITÄT, DIE SICH LEICHT ANFÜHLT</span><h1>Ein guter Grund,<br /><em>wiederzukommen.</em></h1><p className="hero-lead">Die digitale Treuekarte für deinen Tresen. Gäste sammeln Stempel oder Punkte im Browser. Dein Team bucht jeden Besuch mit wenigen klaren Schritten.</p><div className="hero-actions"><Link href="/register" className="button button--accent">Programm einrichten <Icon name="arrow" size={19} /></Link><a href="#so-gehts" className="button button--light">Ablauf ansehen <Icon name="chevron" size={17} /></a></div><div className="hero-assurance"><span><Icon name="check" size={16} /> Keine Kunden-App nötig</span><span><Icon name="check" size={16} /> Klare Kassenbestätigung</span></div></div><div className="hero-visual" aria-label="Illustrative Produktvorschau mit synthetischen Daten"><div className="visual-halo" /><div className="visual-note visual-note--top"><span className="note-icon"><Icon name="scan" size={18} /></span><span><strong>Ein Scan.</strong><small>Dann bewusst buchen.</small></span></div><div className="hero-card"><div className="hero-card-top"><span className="hero-infinity">∞</span><span>LOOPLOCAL</span></div><div className="hero-card-middle"><span>DEINE TREUEKARTE</span><strong>Muster Café</strong><small>Beispielstandort · Kassel</small></div><div className="hero-card-stamps"><span>●</span><span>●</span><span>●</span><span>●</span><span>○</span><span>○</span></div><div className="hero-card-bottom"><span>4 VON 6 STEMPELN</span><span>↗</span></div></div><div className="visual-note visual-note--bottom"><span className="note-icon note-icon--peach"><Icon name="check" size={18} /></span><span><strong>Besuch bestätigt</strong><small>Der Stand ist nachvollziehbar.</small></span></div><span className="visual-disclaimer">Produktvorschau · synthetische Beispieldaten</span></div></div></section>
+
+      <section className="value-strip" aria-label="Produktprinzipien"><div className="site-container value-strip-inner"><div><span>01</span>Dein Programm</div><i /><div><span>02</span>Die Karte deiner Gäste</div><i /><div><span>03</span>Klare Buchungen</div></div></section>
+
+      <section className="site-section journey" id="so-gehts"><div className="site-container"><SectionHeading eyebrow="WENIGE SCHRITTE, KLARER ABLAUF" title="Vom ersten Besuch zur nächsten Runde.">Einfach für Gäste, nachvollziehbar für dein Team.</SectionHeading><div className="journey-grid"><article className="journey-card"><span className="journey-step">01 / START</span><div className="journey-illustration journey-illustration--program"><div className="mini-panel"><span>DEIN PROGRAMM</span><strong>6 Stempel</strong><small>→ 1 Kaffee nach Wahl</small><div className="mini-pills"><i /><i /><i /><i /><i /><i /></div></div></div><h3>Regeln festlegen</h3><p>Wähle Stempel oder Punkte, definiere eine Prämie und gestalte die Karte in deinen Farben.</p></article><article className="journey-card"><span className="journey-step">02 / GAST</span><div className="journey-illustration journey-illustration--join"><div className="join-illustration-card"><Icon name="wallet" size={27} /><div><strong>Deine Karte ist bereit.</strong><small>Direkt im Browser öffnen</small></div><span>↗</span></div></div><h3>Per QR beitreten</h3><p>Deine Gäste scannen den Anmeldecode am Tresen. Eine eigene App ist nicht nötig.</p></article><article className="journey-card"><span className="journey-step">03 / KASSE</span><div className="journey-illustration journey-illustration--cashier"><div className="cashier-illustration-card"><span><Icon name="scan" size={18} /> KARTE GEFUNDEN</span><strong>4 Stempel</strong><span className="fake-confirm">Vergabe bestätigen <Icon name="arrow" size={15} /></span></div></div><h3>Besuch bestätigen</h3><p>Dein Team prüft die Karte und bestätigt Vergabe oder Einlösung ausdrücklich. Jede Buchung bleibt sichtbar.</p></article></div></div></section>
+
+      <section className="site-section feature-section" id="funktionen"><div className="site-container feature-layout"><div className="feature-copy"><SectionHeading eyebrow="FÜR DEN ALLTAG GEMACHT" title="So einfach wie eine Stempelkarte. Nur besser organisiert.">Kundinnen und Kunden sehen ihren Stand. Du behältst die Regeln und Vorgänge im Blick.</SectionHeading><div className="feature-list"><div><span><Icon name="stamp" size={21} /></span><p><strong>Deine Regeln, dein Stil</strong><small>Stempel oder Punkte, Prämie, Farbe und Standort.</small></p></div><div><span><Icon name="scan" size={21} /></span><p><strong>Ein ruhiger Kassenablauf</strong><small>Karte finden, Stand prüfen, Buchung bestätigen.</small></p></div><div><span><Icon name="shield" size={21} /></span><p><strong>Nachvollziehbare Aktivität</strong><small>Vergaben und Einlösungen im Programmüberblick.</small></p></div></div><Link href="/register" className="inline-link">Eigenes Programm anlegen <Icon name="arrow" size={18} /></Link></div><figure className="feature-art" aria-label="Echte Anwendungsscreenshots mit synthetischen Daten"><div className="feature-screenshots"><div className="feature-screenshot feature-screenshot--card"><Image src="/screenshots/card-mobile-viewport.jpg" alt="Browserkarte der Anwendung mit synthetischem Bäckerei-Programm" width={390} height={844} sizes="(max-width: 560px) 48vw, 235px" /></div><div className="feature-screenshot feature-screenshot--cashier"><Image src="/screenshots/cashier-mobile-viewport.jpg" alt="Kassenansicht der Anwendung vor einem Kartenscan" width={390} height={844} sizes="(max-width: 560px) 48vw, 235px" /></div></div><figcaption className="feature-art-tag">Echte Anwendungsscreenshots mit synthetischen Daten</figcaption></figure></div></section>
+
+      <section className="site-section principle-section"><div className="site-container principle-grid"><div><span className="eyebrow eyebrow--light"><span className="eyebrow-dot" /> WENIGER REIBUNG</span><h2>Treue beginnt nicht mit einem Download.</h2></div><div><p>Der Beitritt soll nur einen Moment dauern. Die Karte bleibt im Browser erreichbar, selbst wenn Wallet für einen Standort noch nicht eingerichtet ist.</p><p>Ein QR-Code zeigt die Karte an. Er bucht keinen Stempel und löst keine Prämie ein. Das entscheidet dein Team nach der Prüfung.</p><a href="#demo" className="text-link-light">Eine Demo anfragen <Icon name="arrow" size={18} /></a></div></div></section>
+
+      <section className="site-section pricing-section" id="preise"><div className="site-container pricing-grid"><div><SectionHeading eyebrow="FAIR PRO STANDORT" title="Ein Preis, den du einplanen kannst.">Für unabhängige Geschäfte, die klein starten und den Ablauf erst kennenlernen möchten.</SectionHeading><div className="pricing-caution"><Icon name="shield" size={18} /><span>Entwurfspreis für den Start in Deutschland. Abrechnung und öffentliche Registrierung werden erst nach Betreiberfreigabe aktiviert.</span></div></div><div className="price-card"><div className="price-card-top"><span>LOOPLOCAL · STANDORT</span><span className="price-badge">ENTWURF</span></div><div className="price-amount"><strong>{monthlyPrice}</strong><span> / Standort / Monat</span></div><p>zzgl. gegebenenfalls anfallender Umsatzsteuer</p><ul><li><Icon name="check" size={17} /> Digitales Stempel- oder Punkteprogramm</li><li><Icon name="check" size={17} /> Browserkarte für Gäste</li><li><Icon name="check" size={17} /> Kassenansicht und Aktivitäten</li></ul><Link href="/register" className="button button--ink button--full">Programm anlegen <Icon name="arrow" size={18} /></Link><small>Es wird in dieser Produktvorschau keine Zahlung ausgelöst.</small></div></div></section>
+
+      <section className="site-section demo-section" id="demo"><div className="site-container demo-grid"><div className="demo-copy"><span className="eyebrow"><span className="eyebrow-dot" /> LASS ES UNS ZEIGEN</span><h2>Passt das an deinen Tresen?</h2><p>Erzähl uns kurz von deinem Geschäft. Wir speichern deine Anfrage, damit wir eine passende Demo vorbereiten können.</p><div className="demo-small-card"><span><Icon name="mail" size={23} /></span><div><strong>Keine Werbeautomatik</strong><small>Eine Demo-Anfrage ist kein Newsletter-Abo.</small></div></div></div><DemoRequestForm /></div></section>
+    </main>
+
+    <footer className="site-footer"><div className="site-container footer-main"><div><BrandMark /><p>Digitale Treue, die in deinen Alltag passt.</p></div><div><span>PRODUKT</span><a href="#so-gehts">So funktioniert’s</a><a href="#funktionen">Funktionen</a><a href="#preise">Preis</a></div><div><span>STARTEN</span><Link href="/register">Programm anlegen</Link><Link href="/login">Anmelden</Link><a href="#demo">Demo anfragen</a></div></div><div className="site-container footer-bottom"><span>© {new Date().getFullYear()} LoopLocal · Produktvorschau</span><span>Betreiberdaten und Rechtstexte vor öffentlichem Start ergänzen.</span></div></footer>
+  </div>;
 }

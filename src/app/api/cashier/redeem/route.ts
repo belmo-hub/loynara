@@ -1,0 +1,16 @@
+import { z } from "zod";
+import { DomainError, redeem } from "@/lib/loyalty";
+import { getMerchantContext } from "@/lib/product";
+import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/http";
+
+const body = z.object({ membershipId: z.uuid(), rewardVersionId: z.uuid(), idempotencyKey: z.string().min(8).max(100), requestId: z.uuid(), deviceAt: z.iso.datetime().optional() });
+export async function POST(request: Request) {
+  try {
+    requireSameOrigin(request);
+    const user = await sessionUser(request);
+    const context = await getMerchantContext(user.id);
+    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    const { deviceAt, ...input } = body.parse(await jsonBody(request, 2000));
+    return Response.json(await redeem({ ...input, userId: user.id, locationId: context.locationId, deviceAt: deviceAt ? new Date(deviceAt) : undefined }), { headers: { "Cache-Control": "no-store" } });
+  } catch (error) { return respondError(error); }
+}

@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LoopLocal
 
-## Getting Started
+Local, German-first merchant loyalty SaaS built with Next.js, TypeScript, PostgreSQL, Drizzle and Better Auth. The synthetic demo covers merchant onboarding, public QR enrollment, a browser card, cashier awards/redemptions and owner activity. Wallet adapters and local Mailpit tests are present; real wallet/device operation, public deployment, external sending and live billing are not enabled.
 
-First, run the development server:
+## Run locally
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Requires Node.js 26, npm and Docker Compose. The optional Playwright test uses locally installed Google Chrome. From this directory:
+
+```sh
+npm ci
+cp .env.example .env
+# Replace BETTER_AUTH_SECRET in .env with: openssl rand -hex 32
+# Set PUBLIC_REGISTRATION_ENABLED=true in .env for this local synthetic demo.
+cp .env .env.local
+npm run local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Synthetic demo access details are written to the ignored `var/demo-access.json`; the local Mailpit inbox is at [http://localhost:8026](http://localhost:8026). Both env files must match. `npm run local` starts local services, migrates, seeds and starts the app and worker. See [RUNBOOK.md](RUNBOOK.md) for diagnostics, backup/restore, worker replay and production preparation.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What has been checked
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+With `npm run local` still running, a second terminal can run `npm test` and `npm run test:e2e`. See [TEST_EVIDENCE.md](TEST_EVIDENCE.md) for observed results and [screenshots/](screenshots/) for actual browser captures. [FEATURE_STATUS.md](FEATURE_STATUS.md) distinguishes local tests, provider fixtures and unfinished features. [LAUNCH_BLOCKERS.md](LAUNCH_BLOCKERS.md) lists work before public use; [ARCHITECTURE.md](ARCHITECTURE.md) explains data flow and security boundaries. [WALLET.md](WALLET.md) covers issuer prerequisites, and [SOURCES.md](SOURCES.md) records official references.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No public service was deployed, no external email or charge was sent, and new external expenditure in this run was €0.

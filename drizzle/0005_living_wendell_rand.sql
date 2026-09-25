@@ -1,0 +1,1 @@
+ALTER TABLE "staff_roles" ADD CONSTRAINT "staff_roles_user_id_uq" UNIQUE("user_id");

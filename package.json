@@ -3,24 +3,50 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "tsx scripts/production-guard.ts && next start",
+    "lint": "eslint",
+    "test": "sh scripts/test-local.sh",
+    "test:e2e": "playwright test",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed.ts",
+    "diagnose": "tsx scripts/diagnose.ts",
+    "worker": "tsx scripts/worker.ts",
+    "local": "sh scripts/local-start.sh",
+    "backup": "sh scripts/backup.sh",
+    "restore-check": "sh scripts/restore-check.sh"
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "better-auth": "^1.7.6",
+    "drizzle-orm": "^0.45.3",
+    "lucide-react": "^0.468.0",
     "next": "16.3.6",
+    "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^26.0.0",
+    "@types/pg": "^8.15.5",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.2.2",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.20.6",
+    "typescript": "^5",
+    "vitest": "^5.0.2"
   }
 }
