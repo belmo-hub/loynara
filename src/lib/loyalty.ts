@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, memberships, outboxJobs, programs, redemptions, rewardVersions, rewards, staffRoles } from "@/db/schema";
+import { ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { PointsError, purchasePoints } from "./points";
 
 export class DomainError extends Error {
   constructor(public code: string, message: string) {
@@ -13,7 +14,9 @@ export type AwardInput = {
   userId: string;
   locationId: string;
   membershipId: string;
-  quantity: number;
+  quantity?: number;
+  purchaseAmountMinor?: number;
+  ruleVersionId?: string;
   idempotencyKey: string;
   requestId: string;
   deviceAt?: Date;
@@ -21,8 +24,7 @@ export type AwardInput = {
   source?: "staff_online" | "synthetic_seed";
 };
 
-export async function award(input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string }> {
-  if (!Number.isInteger(input.quantity) || input.quantity < 1) throw new DomainError("INVALID_QUANTITY", "Quantity must be a positive integer");
+export async function award(input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
   if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 100) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 
   return db.transaction(async (tx) => {
@@ -32,20 +34,42 @@ export async function award(input: AwardInput): Promise<{ balance: number; dupli
     if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
     const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
     if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
-    const limit = staff.role === "cashier" ? 10 : staff.role === "manager" ? 100 : 1000;
-    if (input.quantity > limit) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role limit");
-
+    const purchaseMode = program.type === "points" && program.earningMode === "purchase";
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
-      if (existing.membershipId !== member.id || existing.kind !== "award" || existing.delta !== input.quantity) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
-      return { balance: member.balance, duplicate: true, entryId: existing.id };
+      if (existing.membershipId !== member.id || existing.kind !== "award") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      const [purchase] = await tx.select().from(purchaseAwards).where(eq(purchaseAwards.ledgerEntryId, existing.id));
+      if (purchase) {
+        if (purchase.amountMinor !== input.purchaseAmountMinor || purchase.ruleVersionId !== input.ruleVersionId || purchase.pointsAwarded !== existing.delta || input.quantity !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      } else if (purchase || existing.delta !== input.quantity || input.purchaseAmountMinor !== undefined || input.ruleVersionId !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      return { balance: member.balance, duplicate: true, entryId: existing.id, creditedQuantity: existing.delta };
     }
+
+    let quantity: number;
+    let ruleVersionId: string | undefined;
+    if (purchaseMode) {
+      if (input.quantity !== undefined || input.purchaseAmountMinor === undefined || !input.ruleVersionId) throw new DomainError("INVALID_EARNING_MODE", "A purchase amount and rule version are required");
+      const [rule] = await tx.select().from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, program.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
+      if (!rule || rule.id !== input.ruleVersionId) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
+      ruleVersionId = rule.id;
+      try { quantity = purchasePoints(input.purchaseAmountMinor, program.pointsPerCurrencyUnit); }
+      catch (error) { if (error instanceof PointsError) throw new DomainError(error.code, error.code); throw error; }
+    } else {
+      if (input.purchaseAmountMinor !== undefined || input.ruleVersionId !== undefined) throw new DomainError("INVALID_EARNING_MODE", "This programme uses manual quantity");
+      if (!Number.isInteger(input.quantity) || input.quantity === undefined || input.quantity < 1) throw new DomainError("INVALID_QUANTITY", "Quantity must be a positive integer");
+      quantity = input.quantity;
+    }
+    const manualLimit = staff.role === "cashier" ? 10 : staff.role === "manager" ? 100 : 1000;
+    const purchaseAmountLimit = staff.role === "cashier" ? 50_000 : staff.role === "manager" ? 200_000 : 1_000_000;
+    const purchasePointsLimit = staff.role === "cashier" ? 500 : staff.role === "manager" ? 2_000 : 10_000;
+    if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
+    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
 
     const [entry] = await tx.insert(ledgerEntries).values({
       tenantId: member.tenantId,
       locationId: input.locationId,
       membershipId: member.id,
-      delta: input.quantity,
+      delta: quantity,
       kind: "award",
       source: input.source ?? "staff_online",
       actorUserId: input.userId,
@@ -54,10 +78,15 @@ export async function award(input: AwardInput): Promise<{ balance: number; dupli
       deviceAt: input.deviceAt,
       reason: input.reason,
     }).returning();
-    const balance = member.balance + input.quantity;
+    if (purchaseMode && ruleVersionId) {
+      const [tenant] = await tx.select({ currency: tenants.currency }).from(tenants).where(eq(tenants.id, member.tenantId));
+      if (!tenant || (tenant.currency !== "EUR" && tenant.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Unsupported currency for purchase points");
+      await tx.insert(purchaseAwards).values({ ledgerEntryId: entry.id, tenantId: member.tenantId, ruleVersionId, amountMinor: input.purchaseAmountMinor!, currency: tenant.currency, appliedRate: program.pointsPerCurrencyUnit, pointsAwarded: quantity, rounding: "floor" });
+    }
+    const balance = member.balance + quantity;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
-    return { balance, duplicate: false, entryId: entry.id };
+    return { balance, duplicate: false, entryId: entry.id, creditedQuantity: quantity };
   });
 }
 

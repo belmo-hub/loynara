@@ -64,7 +64,7 @@ export default function MerchantPage() {
     } catch (cause) { setSignError(cause instanceof Error ? cause.message : "Anmeldeschild konnte nicht geladen werden."); }
   }
 
-  return <MerchantDashboardView businessName={me.businessName} locationName={me.locationName} programType={me.programType === "stamp" ? "stamps" : "points"} rewardName={me.rewardTitle} rewardCost={me.rewardCost} stats={stats} activity={activity} joinUrl={joinUrl} onDownloadSign={downloadSign} signError={signError} canManageStaff={me.role === "owner"} exportUrl={me.role === "owner" ? "/api/merchant/export" : undefined} />;
+  return <MerchantDashboardView businessName={me.businessName} locationName={me.locationName} programType={me.programType === "stamp" ? "stamps" : "points"} rewardName={me.rewardTitle} rewardCost={me.rewardCost} stats={stats} activity={activity} joinUrl={joinUrl} onDownloadSign={downloadSign} signError={signError} canManageStaff={me.role === "owner"} canViewCustomers exportUrl={me.role === "owner" ? "/api/merchant/export" : undefined} />;
 }
 
 function StatePage({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void | Promise<void> }) {

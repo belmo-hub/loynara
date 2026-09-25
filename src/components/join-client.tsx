@@ -55,6 +55,8 @@ export function JoinClient({ slug }: { slug: string }) {
         <div className="join-hero" style={{ backgroundColor: program.brandColor || "#214739" }}><span>{t.welcome}</span><h1>{program.businessName}</h1><p>{program.locationName}</p><div className="join-hero-symbol">∞</div></div>
         <div className="join-panel"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span><h2>{t.headline}</h2><p>{t.intro} {unit} {t.introEnd}</p>
           <div className="join-reward"><span><Icon name="spark" size={22} /></span><div><small>{t.reward}</small><strong>{program.rewardTitle}</strong><span>{t.for} {program.rewardCost} {unit}</span></div></div>
+          {program.rewards?.length > 1 && <div className="join-reward-list" aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(reward => <div key={reward.id}><strong>{reward.title}</strong><span>{reward.cost} {unit}</span></div>)}</div>}
+          {program.programType === "points" && program.earningMode === "purchase" && <p className="join-earn-rule">{locale === "fr" ? `${program.pointsPerCurrencyUnit} points par 1 ${program.currency} dépensé. Les fractions de point sont arrondies à l’entier inférieur.` : `${program.pointsPerCurrencyUnit} Punkte pro ausgegebener 1 ${program.currency}. Bruchteile von Punkten werden abgerundet.`}</p>}
           <div className="join-rules"><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
           {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
           <form className="join-form" onSubmit={submit}>

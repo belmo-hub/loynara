@@ -2,10 +2,11 @@ import { randomBytes } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { consentEvents, ledgerEntries, locations, membershipContacts, memberships, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { draftPriceMinor } from "./pricing";
+import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -19,6 +20,8 @@ const merchantInput = z.object({
   currency: z.enum(["EUR", "MAD"]),
   programName: shortText,
   programType: z.enum(["stamp", "points"]),
+  earningMode: z.enum(["manual", "purchase"]).optional(),
+  pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
   rulesText: z.string().trim().min(10).max(3000),
   rewardTitle: shortText,
   rewardCost: z.number().int().min(1).max(100000),
@@ -46,6 +49,8 @@ function checkedLogo(value?: string) {
 
 export async function createMerchant(raw: z.input<typeof merchantInput>) {
   const input = merchantInput.parse(raw);
+  const earningMode = input.earningMode ?? "manual";
+  if (input.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
@@ -59,7 +64,8 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "User already belongs to a merchant");
-    const [program] = await tx.insert(programs).values({ tenantId: tenant.id, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, rulesText: input.rulesText, effectiveAt: input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined }).returning();
+    const [program] = await tx.insert(programs).values({ tenantId: tenant.id, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, earningMode, pointsPerCurrencyUnit: input.pointsPerCurrencyUnit ?? 1, rulesText: input.rulesText, effectiveAt: input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined }).returning();
+    await tx.insert(programRuleVersions).values({ tenantId: tenant.id, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, effectiveAt: program.effectiveAt });
     const [reward] = await tx.insert(rewards).values({ tenantId: tenant.id, programId: program.id }).returning();
     await tx.insert(rewardVersions).values({ tenantId: tenant.id, rewardId: reward.id, version: 1, title: input.rewardTitle, cost: input.rewardCost });
     await tx.insert(subscriptions).values({ tenantId: tenant.id, currency: input.currency, priceMinor: draftPriceMinor(input.currency) });
@@ -72,9 +78,9 @@ const updateProgramInput = z.object({
   programSlug: z.string().min(1).max(120),
   name: shortText,
   rulesText: z.string().trim().min(10).max(3000),
-  rewardTitle: shortText,
-  rewardCost: z.number().int().min(1).max(100000),
   programType: z.enum(["stamp", "points"]).optional(),
+  earningMode: z.enum(["manual", "purchase"]).optional(),
+  pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
 }).strict();
 
 export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
@@ -85,19 +91,21 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
     if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
     const nextType = input.programType ?? program.type;
+    const earningMode = input.earningMode ?? program.earningMode;
+    const pointsPerCurrencyUnit = input.pointsPerCurrencyUnit ?? program.pointsPerCurrencyUnit;
+    if (nextType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
     if (nextType !== program.type) {
       const [activity] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, program.tenantId), eq(ledgerEntries.locationId, program.locationId))).limit(1);
       if (activity) throw new DomainError("TYPE_LOCKED", "Program type cannot change after transactions");
     }
-    const [reward] = await tx.select().from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true))).for("update");
-    if (!reward) throw new DomainError("NOT_FOUND", "Reward not found");
-    const [latest] = await tx.select().from(rewardVersions).where(and(eq(rewardVersions.tenantId, program.tenantId), eq(rewardVersions.rewardId, reward.id))).orderBy(desc(rewardVersions.version)).limit(1);
-    if (!latest) throw new DomainError("NOT_FOUND", "Reward rule not found");
-    await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType }).where(eq(programs.id, program.id));
-    if (latest.title !== input.rewardTitle || latest.cost !== input.rewardCost) {
-      await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: latest.version + 1, title: input.rewardTitle, cost: input.rewardCost, termsText: latest.termsText });
+    const [latestRule] = await tx.select().from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, program.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
+    if (!latestRule) throw new DomainError("NOT_FOUND", "Programme rule not found");
+    const ruleChanged = program.name !== input.name || program.rulesText !== input.rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
+    if (ruleChanged) {
+      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit }).where(eq(programs.id, program.id));
+      await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name: input.name, type: nextType, rulesText: input.rulesText, earningMode, pointsPerCurrencyUnit });
     }
-    return { programSlug: program.slug, programType: nextType, rewardVersion: latest.version + Number(latest.title !== input.rewardTitle || latest.cost !== input.rewardCost) };
+    return { programSlug: program.slug, programType: nextType, ruleVersion: latestRule.version + Number(ruleChanged) };
   });
 }
 
@@ -130,7 +138,82 @@ async function currentRewards(tenantId: string, programId: string) {
     .orderBy(desc(rewardVersions.version));
   const seen = new Set<string>();
   return rows.filter(({ reward }) => { if (seen.has(reward.id)) return false; seen.add(reward.id); return true; })
-    .map(({ version }) => ({ id: version.id, title: version.title, cost: version.cost, termsText: version.termsText }));
+    .sort((a, b) => a.reward.sortOrder - b.reward.sortOrder || a.reward.id.localeCompare(b.reward.id))
+    .map(({ reward, version }) => ({ id: version.id, rewardId: reward.id, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder }));
+}
+
+const rewardFields = z.object({ title: shortText, cost: z.number().int().min(1).max(100000), termsText: z.string().trim().max(3000).default("") });
+
+async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], actorUserId: string, programSlug: string) {
+  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).for("update");
+  if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+  const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
+  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  return program;
+}
+
+export async function getMerchantRewards(input: { actorUserId: string; programSlug: string }) {
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    const rows = await tx.select({ reward: rewards, version: rewardVersions }).from(rewards)
+      .innerJoin(rewardVersions, and(eq(rewardVersions.rewardId, rewards.id), eq(rewardVersions.tenantId, rewards.tenantId)))
+      .where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id)))
+      .orderBy(desc(rewardVersions.version));
+    const seen = new Set<string>();
+    return rows.filter(({ reward }) => { if (seen.has(reward.id)) return false; seen.add(reward.id); return true; })
+      .sort((a, b) => a.reward.sortOrder - b.reward.sortOrder || a.reward.id.localeCompare(b.reward.id))
+      .map(({ reward, version }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: reward.active }));
+  });
+}
+
+export async function createReward(raw: { actorUserId: string; programSlug: string; title: string; cost: number; termsText?: string }) {
+  const input = rewardFields.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).parse(raw);
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
+    if (active.length >= 100) throw new DomainError("REWARD_LIMIT", "A programme can have at most 100 active rewards");
+    const [highest] = await tx.select({ sortOrder: rewards.sortOrder }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id))).orderBy(desc(rewards.sortOrder)).limit(1);
+    const [reward] = await tx.insert(rewards).values({ tenantId: program.tenantId, programId: program.id, sortOrder: (highest?.sortOrder ?? -1) + 1 }).returning();
+    const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: 1, title: input.title, cost: input.cost, termsText: input.termsText }).returning();
+    return { rewardId: reward.id, versionId: version.id };
+  });
+}
+
+export async function editReward(raw: { actorUserId: string; programSlug: string; rewardId: string; title: string; cost: number; termsText: string }) {
+  const input = rewardFields.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() }).parse(raw);
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    const [reward] = await tx.select().from(rewards).where(and(eq(rewards.id, input.rewardId), eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true))).for("update");
+    if (!reward) throw new DomainError("NOT_FOUND", "Reward not found");
+    const [latest] = await tx.select().from(rewardVersions).where(and(eq(rewardVersions.tenantId, program.tenantId), eq(rewardVersions.rewardId, reward.id))).orderBy(desc(rewardVersions.version)).limit(1);
+    if (!latest) throw new DomainError("NOT_FOUND", "Reward version not found");
+    if (latest.title === input.title && latest.cost === input.cost && latest.termsText === input.termsText) return { rewardId: reward.id, versionId: latest.id, version: latest.version };
+    const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: latest.version + 1, title: input.title, cost: input.cost, termsText: input.termsText }).returning();
+    return { rewardId: reward.id, versionId: version.id, version: version.version };
+  });
+}
+
+export async function reorderRewards(raw: { actorUserId: string; programSlug: string; rewardIds: string[] }) {
+  const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardIds: z.array(z.uuid()).min(1).max(100) }).parse(raw);
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
+    if (input.rewardIds.length !== active.length || new Set(input.rewardIds).size !== active.length || active.some(row => !input.rewardIds.includes(row.id))) throw new DomainError("INVALID_REWARD_ORDER", "Order must include every active reward once");
+    for (const [index, id] of input.rewardIds.entries()) await tx.update(rewards).set({ sortOrder: index }).where(eq(rewards.id, id));
+    return { rewardIds: input.rewardIds };
+  });
+}
+
+export async function archiveReward(raw: { actorUserId: string; programSlug: string; rewardId: string }) {
+  const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() }).parse(raw);
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
+    if (!active.some(row => row.id === input.rewardId)) throw new DomainError("NOT_FOUND", "Active reward not found");
+    if (active.length === 1) throw new DomainError("LAST_ACTIVE_REWARD", "At least one active reward is required");
+    await tx.update(rewards).set({ active: false }).where(eq(rewards.id, input.rewardId));
+    return { rewardId: input.rewardId, archived: true };
+  });
 }
 
 export async function getCard(token: string) {
@@ -142,20 +225,24 @@ export async function getCard(token: string) {
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
   if (!row) throw new DomainError("NOT_FOUND", "Card not found");
-  const activity = await db.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
+  const activity = await db.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, createdAt: ledgerEntries.createdAt, purchaseLedgerId: purchaseAwards.ledgerEntryId }).from(ledgerEntries)
+    .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(10);
-  return { scanCode: row.member.scanCode, balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity };
+  return { scanCode: row.member.scanCode, balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
 }
 
 export async function lookupCard(input: { userId: string; locationId: string; scanCode: string }) {
-  const [row] = await db.select({ member: memberships, program: programs }).from(memberships)
+  const [row] = await db.select({ member: memberships, program: programs, tenant: tenants }).from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+    .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(eq(memberships.scanCode, input.scanCode));
   if (!row || row.member.closedAt || row.program.locationId !== input.locationId || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, row.member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
   if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
-  return { membershipId: row.member.id, balance: row.member.balance, programType: row.program.type, rewards: await currentRewards(row.member.tenantId, row.program.id) };
+  const [rule] = await db.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, row.member.tenantId), eq(programRuleVersions.programId, row.program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
+  if (!rule) throw new DomainError("NOT_FOUND", "Programme rule not found");
+  return { membershipId: row.member.id, balance: row.member.balance, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ruleVersionId: rule.id, rewards: await currentRewards(row.member.tenantId, row.program.id) };
 }
 
 export async function getPublicProgram(slug: string) {
@@ -164,8 +251,9 @@ export async function getPublicProgram(slug: string) {
     .innerJoin(tenants, eq(tenants.id, programs.tenantId))
     .where(and(eq(programs.slug, slug), eq(programs.status, "active")));
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
-  const [reward] = await currentRewards(row.tenant.id, row.program.id);
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, locale: row.tenant.locale, rulesText: row.program.rulesText, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active };
+  const rewardList = await currentRewards(row.tenant.id, row.program.id);
+  const [reward] = rewardList;
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active };
 }
 
 export async function getMerchantContext(userId: string) {

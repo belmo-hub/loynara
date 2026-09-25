@@ -85,7 +85,9 @@ export const programs = pgTable("programs", {
   name: varchar("name", { length: 180 }).notNull(),
   type: varchar("type", { length: 8 }).notNull(),
   status: varchar("status", { length: 10 }).notNull().default("active"),
-  pointsPerEuro: integer("points_per_euro").notNull().default(1),
+  earningMode: varchar("earning_mode", { length: 8 }).notNull().default("manual"),
+  // Retain the legacy physical column name; rates are per EUR or MAD major unit.
+  pointsPerCurrencyUnit: integer("points_per_euro").notNull().default(1),
   rulesText: text("rules_text").notNull(),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
@@ -95,7 +97,29 @@ export const programs = pgTable("programs", {
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("program_type_valid", sql`${t.type} in ('stamp','points')`),
   check("program_status_valid", sql`${t.status} in ('active','archived')`),
-  check("program_points_positive", sql`${t.pointsPerEuro} > 0`),
+  check("program_earning_mode_valid", sql`${t.earningMode} in ('manual','purchase')`),
+  check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
+]);
+
+export const programRuleVersions = pgTable("program_rule_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  version: integer("version").notNull(),
+  name: varchar("name", { length: 180 }).notNull(),
+  type: varchar("type", { length: 8 }).notNull(),
+  rulesText: text("rules_text").notNull(),
+  earningMode: varchar("earning_mode", { length: 8 }).notNull(),
+  pointsPerCurrencyUnit: integer("points_per_currency_unit").notNull(),
+  effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("program_rule_versions_tenant_id_id_uq").on(t.tenantId, t.id),
+  unique("program_rule_versions_number_uq").on(t.programId, t.version),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("program_rule_version_type_valid", sql`${t.type} in ('stamp','points')`),
+  check("program_rule_version_earning_mode_valid", sql`${t.earningMode} in ('manual','purchase')`),
+  check("program_rule_version_points_valid", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
 ]);
 
 export const rewards = pgTable("rewards", {
@@ -103,10 +127,12 @@ export const rewards = pgTable("rewards", {
   tenantId: uuid("tenant_id").notNull(),
   programId: uuid("program_id").notNull(),
   active: boolean("active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: createdAt(),
 }, (t) => [
   unique("rewards_tenant_id_id_uq").on(t.tenantId, t.id),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("reward_sort_order_nonnegative", sql`${t.sortOrder} >= 0`),
 ]);
 
 export const rewardVersions = pgTable("reward_versions", {
@@ -194,6 +220,26 @@ export const ledgerEntries = pgTable("ledger_entries", {
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
   check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
   check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_correction','synthetic_seed','legacy_unclassified')`),
+]);
+
+export const purchaseAwards = pgTable("purchase_awards", {
+  ledgerEntryId: uuid("ledger_entry_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  ruleVersionId: uuid("rule_version_id").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  appliedRate: integer("applied_rate").notNull(),
+  pointsAwarded: integer("points_awarded").notNull(),
+  rounding: varchar("rounding", { length: 8 }).notNull().default("floor"),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.ledgerEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  foreignKey({ columns: [t.tenantId, t.ruleVersionId], foreignColumns: [programRuleVersions.tenantId, programRuleVersions.id] }),
+  check("purchase_amount_positive", sql`${t.amountMinor} between 1 and 10000000`),
+  check("purchase_rate_positive", sql`${t.appliedRate} between 1 and 1000`),
+  check("purchase_points_positive", sql`${t.pointsAwarded} > 0`),
+  check("purchase_currency_valid", sql`${t.currency} in ('EUR','MAD')`),
+  check("purchase_rounding_valid", sql`${t.rounding} = 'floor'`),
 ]);
 
 export const redemptions = pgTable("redemptions", {

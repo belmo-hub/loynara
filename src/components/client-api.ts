@@ -1,15 +1,15 @@
 export class ClientApiError extends Error {
-  constructor(public readonly status: number, message: string) { super(message); }
+  constructor(public readonly status: number, message: string, public readonly code?: string) { super(message); }
 }
 
 export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try { response = await fetch(url, { credentials: "same-origin", cache: "no-store", ...init }); }
   catch { throw new ClientApiError(0, "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut."); }
-  const result = await response.json().catch(() => null) as (T & { error?: string; message?: string }) | null;
+  const result = await response.json().catch(() => null) as (T & { error?: string; message?: string; code?: string }) | null;
   if (!response.ok) {
     const text = result?.message || result?.error || `Anfrage fehlgeschlagen (${response.status}).`;
-    throw new ClientApiError(response.status, text);
+    throw new ClientApiError(response.status, text, result?.code);
   }
   if (!result) throw new ClientApiError(response.status, "Die Antwort des Servers war leer.");
   return result;
@@ -57,10 +57,14 @@ export type PublicProgram = {
   locationName: string;
   programName: string;
   programType: "stamp" | "points";
+  earningMode: "manual" | "purchase";
+  pointsPerCurrencyUnit: number;
+  currency: "EUR" | "MAD";
   locale?: "de" | "fr";
   rulesText: string;
   rewardTitle: string;
   rewardCost: number;
+  rewards: Array<{ id: string; rewardId: string; title: string; cost: number; termsText: string; sortOrder: number }>;
   brandColor?: string;
   active?: boolean;
 };
@@ -72,9 +76,10 @@ export type CardResponse = {
   locationName: string;
   programName: string;
   programType: "stamp" | "points";
+  earningMode?: "manual" | "purchase";
   locale?: "de" | "fr";
   brandColor?: string;
   rulesText?: string;
-  rewards: Array<{ id: string; title: string; cost: number; termsText?: string }>;
-  activity: Array<{ delta: number; kind: string; createdAt: string }>;
+  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
+  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean }>;
 };

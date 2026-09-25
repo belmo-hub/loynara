@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { locations, memberships, outboxJobs, programs, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) {
@@ -16,10 +16,11 @@ async function fixture(role: "owner" | "manager" | "cashier" = "cashier") {
   const [location] = await db.insert(locations).values({ tenantId: tenant.id, name: "Synthetic Kassel", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
   await db.insert(staffRoles).values({ tenantId: tenant.id, userId, role, locationId: role === "owner" ? null : location.id });
   const [program] = await db.insert(programs).values({ tenantId: tenant.id, locationId: location.id, slug: `program-${userId}`, name: "Stempelkarte", type: "stamp", rulesText: "Ein Stempel pro Besuch." }).returning();
+  const [rule] = await db.insert(programRuleVersions).values({ tenantId: tenant.id, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit }).returning();
   const [reward] = await db.insert(rewards).values({ tenantId: tenant.id, programId: program.id }).returning();
   const [rewardVersion] = await db.insert(rewardVersions).values({ tenantId: tenant.id, rewardId: reward.id, version: 1, title: "Kaffee", cost: 5 }).returning();
   const [member] = await db.insert(memberships).values({ tenantId: tenant.id, programId: program.id, scanCode: `sc_${randomUUID()}`, cardToken: `card_${randomUUID()}` }).returning();
-  return { userId, tenant, location, program, rewardVersion, member };
+  return { userId, tenant, location, program, rule, rewardVersion, member };
 }
 
 beforeEach(async () => {
@@ -85,5 +86,35 @@ describe("loyalty ledger", () => {
     const f = await fixture("cashier");
     const first = await award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     await expect(reverseEntry({ userId: f.userId, locationId: f.location.id, entryId: first.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("awards floor-rounded purchase points once and retains amount and rule audit", async () => {
+    const f = await fixture("owner");
+    await db.update(programs).set({ type: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).where(eq(programs.id, f.program.id));
+    const [rule] = await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 2, name: f.program.name, type: "points", rulesText: "Drei Punkte pro Euro Kaufbetrag.", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).returning();
+    const request = { userId: f.userId, locationId: f.location.id, membershipId: f.member.id, purchaseAmountMinor: 499, ruleVersionId: rule.id, idempotencyKey: randomUUID(), requestId: randomUUID() };
+    const first = await award(request);
+    expect(first).toMatchObject({ balance: 14, creditedQuantity: 14, duplicate: false });
+    expect(await award(request)).toMatchObject({ balance: 14, creditedQuantity: 14, duplicate: true, entryId: first.entryId });
+    const entries = await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, f.member.id));
+    expect(entries).toMatchObject([{ id: first.entryId, kind: "award", source: "staff_online", delta: 14 }]);
+    expect(await db.select().from(purchaseAwards).where(eq(purchaseAwards.ledgerEntryId, first.entryId))).toMatchObject([{ amountMinor: 499, currency: "EUR", appliedRate: 3, pointsAwarded: 14, ruleVersionId: rule.id, rounding: "floor" }]);
+    await expect(award({ ...request, purchaseAmountMinor: 498 })).rejects.toMatchObject({ code: "KEY_REUSED" });
+    await expect(reverseEntry({ userId: f.userId, locationId: f.location.id, entryId: first.entryId, reason: "Synthetic purchase amount corrected by owner", idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 0 });
+    expect(await db.select().from(purchaseAwards)).toHaveLength(1);
+  });
+
+  it("rejects stale purchase rules, zero-point purchases, and cashier cap overflow", async () => {
+    const f = await fixture("cashier");
+    await db.update(programs).set({ type: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).where(eq(programs.id, f.program.id));
+    const [rule] = await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 2, name: f.program.name, type: "points", rulesText: "Drei Punkte pro Euro Kaufbetrag.", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).returning();
+    const base = { userId: f.userId, locationId: f.location.id, membershipId: f.member.id, ruleVersionId: rule.id, idempotencyKey: randomUUID(), requestId: randomUUID() };
+    await expect(award({ ...base, purchaseAmountMinor: 25 })).rejects.toMatchObject({ code: "NO_POINTS" });
+    await expect(award({ ...base, purchaseAmountMinor: 50_001 })).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" });
+    await expect(award({ ...base, purchaseAmountMinor: 16_700 })).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" });
+    await expect(award({ ...base, quantity: 3 })).rejects.toMatchObject({ code: "INVALID_EARNING_MODE" });
+    await db.update(programs).set({ pointsPerCurrencyUnit: 4 }).where(eq(programs.id, f.program.id));
+    await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 3, name: f.program.name, type: "points", rulesText: "Vier Punkte pro Euro Kaufbetrag.", earningMode: "purchase", pointsPerCurrencyUnit: 4 });
+    await expect(award({ ...base, purchaseAmountMinor: 200 })).rejects.toMatchObject({ code: "STALE_RULE" });
   });
 });

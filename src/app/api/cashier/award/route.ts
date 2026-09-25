@@ -3,8 +3,13 @@ import { award } from "@/lib/loyalty";
 import { getMerchantContext } from "@/lib/product";
 import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
+import { MAX_PURCHASE_AMOUNT_MINOR } from "@/lib/points";
 
-const body = z.object({ membershipId: z.uuid(), quantity: z.number().int().min(1), idempotencyKey: z.string().min(8).max(100), requestId: z.uuid(), deviceAt: z.iso.datetime().optional() });
+const common = { membershipId: z.uuid(), idempotencyKey: z.string().min(8).max(100), requestId: z.uuid(), deviceAt: z.iso.datetime().optional() };
+const body = z.union([
+  z.object({ ...common, quantity: z.number().int().min(1) }).strict(),
+  z.object({ ...common, purchaseAmountMinor: z.number().int().min(1).max(MAX_PURCHASE_AMOUNT_MINOR), ruleVersionId: z.uuid() }).strict(),
+]);
 export async function POST(request: Request) {
   try {
     requireSameOrigin(request);

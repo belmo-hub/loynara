@@ -2,8 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { consentEvents, ledgerEntries, locations, membershipContacts, rewardVersions, staffRoles, subscriptions } from "@/db/schema";
-import { createMerchant, enroll, getCard, getMerchantContext, lookupCard, updateProgram } from "./product";
+import { consentEvents, ledgerEntries, locations, membershipContacts, programRuleVersions, rewardVersions, staffRoles, subscriptions } from "@/db/schema";
+import { archiveReward, createMerchant, createReward, editReward, enroll, getCard, getMerchantContext, getMerchantRewards, getPublicProgram, lookupCard, reorderRewards, updateProgram } from "./product";
 import { award } from "./loyalty";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
@@ -93,12 +93,49 @@ describe("merchant and customer journey", () => {
   it("versions reward changes and locks program units after the first transaction", async () => {
     const ownerId = await createUser();
     const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 });
-    const updated = await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee, maximal einmal je Kauf.", rewardTitle: "Cappuccino gratis", rewardCost: 9, programType: "points" });
+    const updated = await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee, maximal einmal je Kauf.", programType: "points" });
     expect(updated.programType).toBe("points");
+    const [reward] = await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug });
+    await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Cappuccino gratis", cost: 9, termsText: "" });
     const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     await award({ userId: ownerId, locationId: merchant.locationId, membershipId: member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
-    await expect(updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee, maximal einmal je Kauf.", rewardTitle: "Cappuccino gratis", rewardCost: 9, programType: "stamp" })).rejects.toMatchObject({ code: "TYPE_LOCKED" });
+    await expect(updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee, maximal einmal je Kauf.", programType: "stamp" })).rejects.toMatchObject({ code: "TYPE_LOCKED" });
     expect(await db.select().from(rewardVersions)).toHaveLength(2);
     expect(await db.select().from(ledgerEntries)).toHaveLength(1);
+  });
+
+  it("stores purchase earning mode and versions rate changes without rewriting the old rule", async () => {
+    const ownerId = await createUser();
+    const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3, rulesText: "Drei Punkte je vollem Euro Kaufbetrag.", rewardTitle: "Kaffee gratis", rewardCost: 30 });
+    const first = await getPublicProgram(merchant.programSlug);
+    expect(first).toMatchObject({ earningMode: "purchase", pointsPerCurrencyUnit: 3, currency: "EUR", rewards: [{ title: "Kaffee gratis", cost: 30 }] });
+    const changed = await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 4, rulesText: "Vier Punkte je vollem Euro Kaufbetrag." });
+    expect(changed.ruleVersion).toBe(2);
+    const versions = await db.select().from(programRuleVersions);
+    expect(versions.map(row => [row.version, row.pointsPerCurrencyUnit, row.rulesText])).toEqual([
+      [1, 3, "Drei Punkte je vollem Euro Kaufbetrag."],
+      [2, 4, "Vier Punkte je vollem Euro Kaufbetrag."],
+    ]);
+  });
+
+  it("lets only the owner create, version, order, and archive rewards while retaining one active option", async () => {
+    const ownerId = await createUser();
+    const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kauf.", rewardTitle: "Kaffee", rewardCost: 8 });
+    const cashierId = await createUser();
+    await db.insert(staffRoles).values({ tenantId: merchant.tenantId, userId: cashierId, role: "cashier", locationId: merchant.locationId });
+    await expect(createReward({ actorUserId: cashierId, programSlug: merchant.programSlug, title: "Kuchen", cost: 12, termsText: "Ein Stück" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const created = await createReward({ actorUserId: ownerId, programSlug: merchant.programSlug, title: "Kuchen", cost: 12, termsText: "Ein Stück" });
+    const initial = await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug });
+    expect(initial).toHaveLength(2);
+    await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Torte", cost: 15, termsText: "Ein Stück Torte" });
+    expect((await db.select().from(rewardVersions)).filter(row => row.rewardId === created.rewardId).map(row => row.version)).toEqual([1, 2]);
+    await reorderRewards({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardIds: [created.rewardId, initial[0].rewardId] });
+    expect((await getPublicProgram(merchant.programSlug)).rewards.map(row => row.title)).toEqual(["Torte", "Kaffee"]);
+    await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch." });
+    expect(await db.select().from(rewardVersions)).toHaveLength(3);
+    await archiveReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: created.rewardId });
+    expect((await getPublicProgram(merchant.programSlug)).rewards.map(row => row.title)).toEqual(["Kaffee"]);
+    await expect(archiveReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: initial[0].rewardId })).rejects.toMatchObject({ code: "LAST_ACTIVE_REWARD" });
+    expect((await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug })).map(row => row.active)).toEqual([false, true]);
   });
 });
