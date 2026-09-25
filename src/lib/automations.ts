@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { automationRules, automationRuns, consentEvents, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
-import { selectAudience } from "./segments";
+import { databaseAudienceNow, selectAudience } from "./segments";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
@@ -43,7 +43,8 @@ async function activeOwner(rule: Rule, query: Pick<typeof db, "select">) {
   return Boolean(owner && program);
 }
 
-export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now = new Date()) {
+export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now?: Date) {
+  now ??= await databaseAudienceNow();
   const input = ruleInput.parse(raw);
   if (input.enabled && !localMailAllowed()) throw new DomainError("EMAIL_DISABLED", "Automations require local Mailpit and synthetic .test contacts");
   return db.transaction(async tx => {
@@ -136,7 +137,8 @@ async function queueRun(tx: Transaction, rule: Rule, membershipId: string, trigg
   return reason ? "suppressed" : "queued";
 }
 
-export async function processAutomationEvent(job: Job, now = new Date()): Promise<Outcome> {
+export async function processAutomationEvent(job: Job, now?: Date): Promise<Outcome> {
+  now ??= await databaseAudienceNow();
   const payload = eventPayload.safeParse(job.payload);
   if (!payload.success) return { status: "blocked", reason: "Invalid automation event payload" };
   return db.transaction(async tx => {
@@ -155,7 +157,8 @@ export async function processAutomationEvent(job: Job, now = new Date()): Promis
   });
 }
 
-export async function processAutomationScan(job: Job, now = new Date()): Promise<Outcome> {
+export async function processAutomationScan(job: Job, now?: Date): Promise<Outcome> {
+  now ??= await databaseAudienceNow();
   const payload = scanPayload.safeParse(job.payload);
   if (!payload.success) return { status: "blocked", reason: "Invalid automation scan payload" };
   const [initial] = await db.select().from(automationRules).where(and(eq(automationRules.id, payload.data.ruleId), eq(automationRules.tenantId, job.tenantId))).limit(1);
@@ -185,7 +188,8 @@ export async function processAutomationScan(job: Job, now = new Date()): Promise
   });
 }
 
-export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender = sendLocalMailpit, now = new Date()): Promise<Outcome> {
+export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender = sendLocalMailpit, now?: Date): Promise<Outcome> {
+  now ??= await databaseAudienceNow();
   const payload = deliveryPayload.safeParse(job.payload);
   if (!payload.success || !Number.isInteger(job.attempts) || job.attempts < 1) return { status: "blocked", reason: "Invalid automation delivery payload" };
   return db.transaction(async tx => {
