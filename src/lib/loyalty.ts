@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { automationRules, ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
 
@@ -91,6 +91,11 @@ export async function award(input: AwardInput): Promise<{ balance: number; dupli
       tenantId: member.tenantId, programId: program.id, locationId: input.locationId,
       referredMembershipId: member.id, awardEntryId: entry.id, actorUserId: input.userId,
     }) : { referredBonus: 0 };
+    if (entry.source === "staff_online") {
+      const [rule] = await tx.select({ id: automationRules.id, revision: automationRules.revision }).from(automationRules)
+        .where(and(eq(automationRules.tenantId, member.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, "first_checkout"), eq(automationRules.enabled, true))).limit(1);
+      if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
+    }
     return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity };
   });
 }

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { appleDevices, appleRegistrations, consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs, walletPasses } from "@/db/schema";
+import { appleDevices, appleRegistrations, automationRuns, consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs, walletPasses } from "@/db/schema";
 import { DomainError } from "./loyalty";
 
 const cardTokenPattern = /^card_[A-Za-z0-9_-]{32,80}$/;
@@ -33,6 +33,8 @@ export async function closeCard(cardToken: string): Promise<{ closed: true; rete
       status: sql`case when ${outboxJobs.status} in ('pending','retry','processing','blocked') then 'suppressed' else ${outboxJobs.status} end`,
       lastError: sql`case when ${outboxJobs.status} in ('pending','retry','processing','blocked') then 'Card closed' else ${outboxJobs.lastError} end`,
     }).where(and(eq(outboxJobs.tenantId, member.tenantId), sql`${outboxJobs.payload} ->> 'membershipId' = ${member.id}`));
+    await tx.update(automationRuns).set({ status: "suppressed", reason: "Card closed" })
+      .where(and(eq(automationRuns.tenantId, member.tenantId), eq(automationRuns.membershipId, member.id), eq(automationRuns.status, "queued")));
     // There is no live provider revocation adapter yet. Keep issued-pass rows
     // visible to an operator as explicit pending work; the retired scan code
     // and closedAt gate prevent checkout and fresh pass issuance meanwhile.

@@ -1,0 +1,24 @@
+.ruleForm .toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.ruleForm .toggle input {
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  accent-color: #2d7650;
+}
+
+.limits p {
+  font-size: 13px;
+  line-height: 1.55;
+}

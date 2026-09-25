@@ -94,6 +94,23 @@ async function processJob(job: Job) {
       return permanent ? "failed" : "retry";
     }
   }
+  if (job.kind === "automation.event" || job.kind === "automation.scan" || job.kind === "email.automation") {
+    try {
+      const { processAutomationEvent, processAutomationScan, deliverAutomationRun } = await import("../src/lib/automations");
+      const result = job.kind === "automation.event" ? await processAutomationEvent(job)
+        : job.kind === "automation.scan" ? await processAutomationScan(job)
+          : await deliverAutomationRun(job);
+      const delay = result.status === "retry" ? Math.min(3600, 10 * 2 ** (job.attempts - 1)) : 0;
+      await mark(job, result.status, result.reason, delay);
+      return result.status;
+    } catch (error) {
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
+      await mark(job, permanent ? "failed" : "retry", "Local automation processing failed", permanent ? 0 : delay);
+      console.error(`Automation job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return permanent ? "failed" : "retry";
+    }
+  }
   if (job.kind === "email.marketing") {
     try {
       const { deliverMarketingEmail } = await import("../src/lib/email");
