@@ -22,13 +22,20 @@ export type AwardInput = {
   requestId: string;
   deviceAt?: Date;
   reason?: string;
-  source?: "staff_online" | "synthetic_seed";
+  source?: "staff_online" | "staff_offline" | "synthetic_seed";
 };
 
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export async function award(input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
+  return db.transaction(tx => awardInTransaction(tx, input));
+}
+
+// Offline reconciliation holds its lease lock and books the ledger in the
+// same database transaction. The ordinary online path uses this same logic.
+export async function awardInTransaction(tx: Transaction, input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
   if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 100) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 
-  return db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
@@ -87,17 +94,16 @@ export async function award(input: AwardInput): Promise<{ balance: number; dupli
     const balance = member.balance + quantity;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
-    const referral = entry.source === "staff_online" ? await qualifyReferralOnAward(tx, {
+    const referral = (entry.source === "staff_online" || entry.source === "staff_offline") ? await qualifyReferralOnAward(tx, {
       tenantId: member.tenantId, programId: program.id, locationId: input.locationId,
       referredMembershipId: member.id, awardEntryId: entry.id, actorUserId: input.userId,
     }) : { referredBonus: 0 };
-    if (entry.source === "staff_online") {
+    if (entry.source === "staff_online" || entry.source === "staff_offline") {
       const [rule] = await tx.select({ id: automationRules.id, revision: automationRules.revision }).from(automationRules)
         .where(and(eq(automationRules.tenantId, member.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, "first_checkout"), eq(automationRules.enabled, true))).limit(1);
       if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
     }
     return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity };
-  });
 }
 
 export type RedeemInput = {
@@ -192,7 +198,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     const [entry] = await tx.insert(ledgerEntries).values({ tenantId: original.tenantId, locationId: original.locationId, membershipId: member.id, delta: -original.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: input.idempotencyKey, reason, reversalOfId: original.id }).returning();
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await tx.insert(outboxJobs).values({ tenantId: original.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
-    if (original.kind === "award" && original.source === "staff_online") {
+    if (original.kind === "award" && (original.source === "staff_online" || original.source === "staff_offline")) {
       await reverseReferralForCheckout(tx, { qualifyingEntryId: original.id, tenantId: original.tenantId, actorUserId: input.userId, allowLargeBonus: staff.role === "owner" });
     }
     const [updated] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, member.id));

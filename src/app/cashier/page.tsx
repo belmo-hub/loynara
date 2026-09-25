@@ -5,10 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
 import { BrandMark, CashierView, type CashierAward, type CashierCard, type CashierReward, type UiLocale } from "@/components/loyalty-ui";
 import { QrScanner } from "@/components/qr-scanner";
+import { OfflineQueuePanel } from "@/components/offline-queue-panel";
+import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupResult = { membershipId: string; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
 type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
+type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
+type OfflineSyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: number; duplicate?: boolean };
 
 export default function CashierPage() {
   const router = useRouter();
@@ -23,12 +27,20 @@ export default function CashierPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "pending" | "rejected" | "offline">("idle");
   const [message, setMessage] = useState("");
+  const [actorUserId, setActorUserId] = useState("");
+  const [offlineLease, setOfflineLease] = useState<OfflineLease | null>(null);
+  const [offlineEvents, setOfflineEvents] = useState<OfflineQueuedEvent[]>([]);
+  const [offlineError, setOfflineError] = useState("");
+  const [offlineBusy, setOfflineBusy] = useState(false);
   const pendingRef = useRef<PendingOperation | null>(null);
 
   useEffect(() => {
     void apiJson<MeResponse>("/api/me").then(me => {
       if (!me.tenantId || !me.locationId || !me.role) { setAccessState("blocked"); setAccessMessage("Dieses Konto hat keinen aktiven Standortzugang. Eine Inhaberin oder ein Inhaber kann den Teamzugang prüfen."); return; }
-      setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setAccessState("ready");
+      setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setActorUserId(me.userId);
+      try { setOfflineEvents(readOfflineEvents(localStorage, me.userId)); }
+      catch (error) { setOfflineError(error instanceof Error ? error.message : "Offline queue unavailable"); }
+      setAccessState("ready");
     }).catch(cause => {
       if (cause instanceof ClientApiError && cause.status === 401) router.replace("/login");
       else { setAccessState("blocked"); setAccessMessage(cause instanceof Error ? cause.message : "Standort konnte nicht geladen werden."); }
@@ -36,11 +48,19 @@ export default function CashierPage() {
   }, [router]);
 
   const lookup = useCallback(async (code: string) => {
-    setBusy(true); setStatus("idle"); setMessage("");
+    setBusy(true); setStatus("idle"); setMessage(""); setOfflineLease(null);
     try {
       const result = await apiJson<LookupResult>(`/api/cashier/lookup?code=${encodeURIComponent(code)}`);
       setCard({ id: result.membershipId, code, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
       pendingRef.current = null;
+      try {
+        const deviceId = getOfflineDeviceId(localStorage);
+        const lease = await postJson<{ leaseId: string; expiresAt: string }>("/api/cashier/offline/lease", { membershipId: result.membershipId, deviceId });
+        setOfflineLease({ ...lease, membershipId: result.membershipId });
+        setOfflineError("");
+      } catch (error) {
+        setOfflineError(error instanceof Error ? error.message : "Offline earning unavailable for this card");
+      }
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
       setCard(null);
@@ -48,6 +68,53 @@ export default function CashierPage() {
       setMessage(cause instanceof Error ? cause.message : "Karte konnte nicht geprüft werden.");
     } finally { setBusy(false); }
   }, []);
+
+  function queueOffline(selectedCard: CashierCard, award: CashierAward) {
+    try {
+      if (!actorUserId || !offlineLease || offlineLease.membershipId !== selectedCard.id || new Date(offlineLease.expiresAt).getTime() <= Date.now()) throw new Error("Offline-Freigabe fehlt oder ist abgelaufen. Karte online erneut prüfen.");
+      if (pendingRef.current) throw new Error("Ein Online-Vorgang hat ein unklares Ergebnis. Zuerst diesen Vorgang prüfen.");
+      getOfflineDeviceId(localStorage);
+      addOfflineEvent(localStorage, { eventId: newRequestId(), leaseId: offlineLease.leaseId, actorUserId, membershipId: selectedCard.id, eventAt: new Date().toISOString(), award, state: "pending" });
+      setOfflineEvents(readOfflineEvents(localStorage, actorUserId));
+      setOfflineError(""); setStatus("pending"); setMessage("Offline-Vergabe vorgemerkt. Der Server hat noch nichts gebucht; der Kontostand bleibt unverändert.");
+      setCompletedTransaction(value => value + 1);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Offline-Vergabe konnte nicht gespeichert werden.";
+      setOfflineError(detail); setStatus("rejected"); setMessage(detail);
+    }
+  }
+
+  async function syncOffline() {
+    if (offlineBusy || !actorUserId) return;
+    setOfflineBusy(true); setOfflineError("");
+    try {
+      const deviceId = getOfflineDeviceId(localStorage);
+      let accepted = 0;
+      let rejected = 0;
+      for (const item of readOfflineEvents(localStorage, actorUserId).filter(event => event.state === "pending")) {
+        const result = await postJson<OfflineSyncResult>("/api/cashier/offline/sync", { leaseId: item.leaseId, deviceId, eventId: item.eventId, eventAt: item.eventAt, award: item.award });
+        resolveOfflineEvent(localStorage, item.eventId, result);
+        if (result.status === "accepted") accepted += 1;
+        else rejected += 1;
+        if (result.reason === "STAFF_REVOKED" || result.reason === "LEASE_EXPIRED" || result.reason === "LEASE_LIMIT") setOfflineLease(null);
+        if (result.status === "accepted" && result.balance !== undefined) {
+          setCard(current => current?.id === item.membershipId ? { ...current, balance: result.balance!, rewards: current.rewards.map(reward => ({ ...reward, eligible: result.balance! >= reward.cost })) } : current);
+        }
+        setOfflineEvents(readOfflineEvents(localStorage, actorUserId));
+      }
+      if (rejected) { setStatus("rejected"); setMessage(`${rejected} Offline-Vergabe(n) abgelehnt. Grund und Prüfaktion stehen unten; abgelehnte Mengen zählen nicht zum Guthaben.`); }
+      else if (accepted) { setStatus("success"); setMessage(`${accepted} Offline-Vergabe(n) vom Server bestätigt. Der angezeigte Kontostand ist aktualisiert, falls diese Karte offen ist.`); }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Synchronisierung fehlgeschlagen. Vorgänge bleiben ausstehend.";
+      setOfflineError(detail); setStatus("pending"); setMessage("Synchronisierung unterbrochen. Nicht bestätigte Vergaben bleiben ausstehend.");
+    }
+    finally { setOfflineBusy(false); }
+  }
+
+  function acknowledgeOffline(eventId: string) {
+    try { acknowledgeOfflineEvent(localStorage, eventId); setOfflineEvents(readOfflineEvents(localStorage, actorUserId)); setOfflineError(""); }
+    catch (error) { setOfflineError(error instanceof Error ? error.message : "Review failed"); }
+  }
 
   function operationFor(signature: string): PendingOperation {
     if (pendingRef.current?.signature === signature) return pendingRef.current;
@@ -82,5 +149,5 @@ export default function CashierPage() {
   }
 
   if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <a href="/login" className="button button--outline">Zur Anmeldung</a>}</div></main>;
-  return <><CashierView key={`${card?.id ?? "empty"}:${completedTransaction}`} locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onClear={() => { setCard(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} />{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
+  return <><CashierView key={`${card?.id ?? "empty"}:${completedTransaction}`} locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} />{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
 }

@@ -95,7 +95,7 @@ async function firstCheckout(tx: Transaction, rule: Rule, membershipId: string) 
   const result = await tx.execute(sql`
     SELECT e.id, e.created_at FROM ledger_entries e
     WHERE e.tenant_id = ${rule.tenantId}::uuid AND e.membership_id = ${membershipId}::uuid
-      AND e.kind = 'award' AND e.source = 'staff_online'
+      AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)
     ORDER BY e.created_at, e.id LIMIT 1
   `);
@@ -106,7 +106,7 @@ async function inactiveNow(tx: Transaction, rule: Rule, membershipId: string, no
   const result = await tx.execute(sql`
     SELECT max(e.created_at) AS last_at FROM ledger_entries e
     WHERE e.tenant_id = ${rule.tenantId}::uuid AND e.membership_id = ${membershipId}::uuid
-      AND e.kind = 'award' AND e.source = 'staff_online' AND e.created_at <= ${now}
+      AND e.kind = 'award' AND e.source in ('staff_online','staff_offline') AND e.created_at <= ${now}
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id AND undo.created_at <= ${now})
   `);
   const last = (result.rows[0] as { last_at: string | Date | null } | undefined)?.last_at;

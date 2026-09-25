@@ -234,7 +234,45 @@ export const ledgerEntries = pgTable("ledger_entries", {
   index("ledger_member_time_idx").on(t.membershipId, t.createdAt),
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
   check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus')`),
+]);
+
+// A lease is issued only while the cashier and card are online. It is scoped
+// to one staff member, browser device, location and membership.
+export const offlineAwardLeases = pgTable("offline_award_leases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  deviceHash: varchar("device_hash", { length: 64 }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("offline_lease_actor_expiry_idx").on(t.actorUserId, t.expiresAt),
+]);
+
+export const offlineAwardEvents = pgTable("offline_award_events", {
+  id: uuid("id").primaryKey(),
+  leaseId: uuid("lease_id").notNull().references(() => offlineAwardLeases.id),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  awardPayload: jsonb("award_payload").notNull().$type<{ quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string }>(),
+  eventAt: timestamp("event_at", { withTimezone: true }).notNull(),
+  status: varchar("status", { length: 12 }).notNull(),
+  reason: varchar("reason", { length: 48 }),
+  ledgerEntryId: uuid("ledger_entry_id"),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  foreignKey({ columns: [t.tenantId, t.ledgerEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  index("offline_event_lease_idx").on(t.leaseId, t.processedAt),
+  check("offline_event_status_valid", sql`${t.status} in ('accepted','rejected')`),
 ]);
 
 export const purchaseAwards = pgTable("purchase_awards", {

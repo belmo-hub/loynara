@@ -44,6 +44,10 @@ The current award ledger records actor, count, and time but has **no migration-s
 
 French staff reminder for this same local workflow: choisir le bon établissement, scanner le QR ou saisir le code, vérifier la carte et le solde, confirmer **un** tampon ou le montant d'achat, attendre la confirmation, puis choisir et confirmer la récompense en ligne. Faire rouvrir la carte pour vérifier le solde. This short reminder does not make the German merchant UI fully translated.
 
+### Offline award simulation (local browser only)
+
+While online, look up the card to obtain a staff/location/card/browser lease valid for 30 minutes. After a disconnect, explicitly choose **Offline-Vergabe vormerken** in the award review. Up to 20 events stay in that browser's localStorage; the card balance and rewards do not change. Reconnect and choose **Ausstehende Vergaben synchronisieren**. Server acceptance posts one idempotent ledger award; rejection shows a reason for staff review and never credits the card. Expired leases, revoked staff, changed rules and closed cards are rejected. Redemption stays online. Do not clear browser data, switch device/browser or sign out before all pending events are reviewed; browser storage is not a durable server backup. The simulated disconnect/reload/retry/revocation tests passed locally, but a physical cashier-device outage and recovery are **NOT RUN**.
+
 ### A. Immediate Mac camera smoke test — hardware camera only
 
 1. Run `npm run preview`; read only the synthetic `var/preview-access.json` locally. On the Mac, open its seeded customer card at `http://localhost:3001/card/<cardToken>` and show the QR on a phone by transferring **only a screenshot of the QR** locally (for example, AirDrop). Do not transfer the bearer card URL or recovery token.

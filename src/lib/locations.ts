@@ -94,7 +94,7 @@ export async function listMerchantLocations(actorUserId: string) {
     SELECT l.id, l.name, l.city, l.country, l.timezone, l.created_at AS "createdAt",
       p.slug AS "programSlug", p.name AS "programName", p.type AS "programType",
       (SELECT count(*)::int FROM memberships m JOIN programs card_program ON card_program.tenant_id = m.tenant_id AND card_program.id = m.program_id WHERE m.tenant_id = l.tenant_id AND card_program.location_id = l.id) AS cards,
-      (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'award' AND e.source = 'staff_online') AS awards,
+      (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')) AS awards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'redeem') AS redemptions,
       (SELECT count(*)::int FROM staff_roles s WHERE s.tenant_id = l.tenant_id AND s.location_id = l.id AND s.active = true) AS "activeStaff"
     FROM locations l

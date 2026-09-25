@@ -91,20 +91,20 @@ function memberView(row: MemberRow, eligibility: MerchantMember["eligibility"] =
   };
 }
 
-// One non-reversed staff award request represents one recorded checkout,
+// One non-reversed online or reconciled offline staff award request represents one recorded checkout,
 // independent of quantity. Purchase amounts and physical visits are not stored.
 const activitySummary = `
   SELECT
     count(e.id)::int AS "activityCount",
-    count(DISTINCT e.request_id) FILTER (WHERE e.kind = 'award' AND e.source = 'staff_online'
+    count(DISTINCT e.request_id) FILTER (WHERE e.kind = 'award' AND e.source in ('staff_online','staff_offline')
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id))::int AS "qualifyingCheckouts",
-    min(e.created_at) FILTER (WHERE e.kind = 'award' AND e.source = 'staff_online'
+    min(e.created_at) FILTER (WHERE e.kind = 'award' AND e.source in ('staff_online','staff_offline')
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)) AS "firstQualifyingAt",
-    max(e.created_at) FILTER (WHERE e.kind = 'award' AND e.source = 'staff_online'
+    max(e.created_at) FILTER (WHERE e.kind = 'award' AND e.source in ('staff_online','staff_offline')
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)) AS "lastQualifyingAt",
     count(e.id) FILTER (WHERE e.kind = 'redeem'
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id))::int AS "redemptionCount",
-    count(DISTINCT e.request_id) FILTER (WHERE pa.ledger_entry_id IS NOT NULL AND e.kind = 'award' AND e.source = 'staff_online'
+    count(DISTINCT e.request_id) FILTER (WHERE pa.ledger_entry_id IS NOT NULL AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id))::int AS "purchaseCount"
   FROM ledger_entries e LEFT JOIN purchase_awards pa ON pa.tenant_id = e.tenant_id AND pa.ledger_entry_id = e.id
   WHERE e.tenant_id = page.tenant_id AND e.membership_id = page.id
@@ -156,7 +156,7 @@ export async function listMerchantMembers(actorUserId: string, options: { status
         AND ($4::text IS NULL OR m.id::text LIKE $4)
         AND ($5::text = 'all' OR ($5 = 'recorded') = EXISTS (
           SELECT 1 FROM ledger_entries activity WHERE activity.tenant_id = m.tenant_id AND activity.membership_id = m.id
-            AND activity.kind = 'award' AND activity.source = 'staff_online'
+            AND activity.kind = 'award' AND activity.source in ('staff_online','staff_offline')
             AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = activity.tenant_id AND undo.reversal_of_id = activity.id)
         ))
         AND ($6::timestamptz IS NULL OR (m.created_at, m.id) < ($6, $7::uuid))

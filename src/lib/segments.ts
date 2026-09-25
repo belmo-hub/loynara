@@ -36,7 +36,7 @@ export type AudienceResult = {
 };
 
 const DAY_MS = 86_400_000;
-export const QUALIFYING_CHECKOUT_RULE = "One distinct request ID with at least one unreversed staff-online award counts as one recorded checkout; seed, redemption and reversal rows do not count. A recorded checkout does not prove a physical visit.";
+export const QUALIFYING_CHECKOUT_RULE = "One distinct request ID with at least one unreversed server-accepted online or reconciled offline staff award counts as one recorded checkout; pending offline events, seed, redemption and reversal rows do not count. A recorded checkout does not prove a physical visit.";
 
 type SegmentRow = { total: number; membershipId: string | null };
 
@@ -74,7 +74,7 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
         max(e.created_at) AS last_at
       FROM ledger_entries e
       WHERE e.tenant_id = m.tenant_id AND e.membership_id = m.id
-        AND e.kind = 'award' AND e.source = 'staff_online' AND e.created_at <= p.as_of
+        AND e.kind = 'award' AND e.source in ('staff_online','staff_offline') AND e.created_at <= p.as_of
         AND NOT EXISTS (
           SELECT 1 FROM ledger_entries undo
           WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id

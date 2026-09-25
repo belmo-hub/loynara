@@ -29,7 +29,7 @@ type TopTitle = { title: string; count: number };
 type AttemptCounts = { status: string; count: number };
 type BucketCount = { bucket: number; count: number };
 
-// A checkout is one distinct staff-award request on one card. All entries for a
+// A checkout is one distinct server-accepted staff-award request on one card. All entries for a
 // request must be reversed to stop that checkout counting; partial corrections
 // continue to count the accepted checkout. Seed/referral credits never count.
 const checkoutCte = `
@@ -39,7 +39,7 @@ const checkoutCte = `
     JOIN memberships m ON m.tenant_id = e.tenant_id AND m.id = e.membership_id
     JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
     WHERE e.tenant_id = $1 AND e.created_at >= $2 AND e.created_at < $3
-      AND e.kind = 'award' AND e.source = 'staff_online'
+      AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
       AND NOT EXISTS (
         SELECT 1 FROM ledger_entries undo
         WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id
@@ -155,7 +155,7 @@ export async function getMerchantAnalytics(
     rewards: { redemptions: redemption.rows[0].redemptions, topTitles: titles.rows },
     campaignAttempts: attemptCount,
     series,
-    countingRule: "Ein Kassenvorgang ist eine eindeutige Karten- und Anfragekennung mit mindestens einer nicht rückgängig gemachten Online-Gutschrift. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Kampagnenwerte zählen Zustellversuche, keine Öffnungen.",
+    countingRule: "Ein Kassenvorgang ist eine eindeutige Karten- und Anfragekennung mit mindestens einer nicht rückgängig gemachten, vom Server bestätigten Online- oder nachträglich synchronisierten Offline-Gutschrift. Ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Kampagnenwerte zählen Zustellversuche, keine Öffnungen.",
     limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
   };
 }

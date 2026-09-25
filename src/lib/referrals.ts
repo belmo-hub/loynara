@@ -128,7 +128,7 @@ export async function qualifyReferralOnAward(tx: Transaction, input: {
   if (!referral) return { referredBonus: 0 };
   const [prior] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
     eq(ledgerEntries.tenantId, input.tenantId), eq(ledgerEntries.membershipId, input.referredMembershipId),
-    eq(ledgerEntries.kind, "award"), eq(ledgerEntries.source, "staff_online"),
+    eq(ledgerEntries.kind, "award"), sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
     sql`${ledgerEntries.id} <> ${input.awardEntryId}`,
     sql`not exists (select 1 from ledger_entries correction where correction.tenant_id = ${ledgerEntries.tenantId} and correction.reversal_of_id = ${ledgerEntries.id})`,
   )).limit(1);
