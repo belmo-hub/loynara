@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiJson, postJson, type CardResponse } from "./client-api";
 import { BrandMark, CustomerCardView } from "./loyalty-ui";
+import { CardContact } from "./card-contact";
 
 type WalletStatus = {
   apple: { ready: boolean };
@@ -58,7 +59,7 @@ export function CardClient({ token }: { token: string }) {
   const firstReward = card.rewards[0];
   const french = card.locale === "fr";
   const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
-  return <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} rewards={card.rewards} cardCode={card.scanCode} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} appleWalletUrl={walletStatus?.apple.ready ? `/api/wallet/apple/${encodeURIComponent(token)}` : undefined} onGoogleWallet={walletStatus?.google.ready ? openGoogleWallet : undefined} googleWalletBusy={walletBusy} googlePublishingStatus={walletStatus?.google.publishingStatus} walletError={walletError} />;
+  return <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} rewards={card.rewards} cardCode={card.scanCode} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<CardContact token={token} locale={french ? "fr" : "de"} />} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} appleWalletUrl={walletStatus?.apple.ready ? `/api/wallet/apple/${encodeURIComponent(token)}` : undefined} onGoogleWallet={walletStatus?.google.ready ? openGoogleWallet : undefined} googleWalletBusy={walletBusy} googlePublishingStatus={walletStatus?.google.publishingStatus} walletError={walletError} />;
 }
 
 function CardState({ title, message }: { title: string; message: string }) {

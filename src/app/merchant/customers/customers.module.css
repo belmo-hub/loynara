@@ -1,4 +1,5 @@
 .main { padding-bottom: 84px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
 .filters { display: grid; grid-template-columns: minmax(190px, 1.5fr) repeat(2, minmax(150px, 1fr)) auto; gap: 14px; align-items: end; padding: 22px; margin-bottom: 24px; }
 .filters label { display: grid; gap: 8px; color: var(--ink); font-size: 13px; font-weight: 700; }
 .filters input, .filters select { width: 100%; min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); padding: 0 13px; font-weight: 500; }

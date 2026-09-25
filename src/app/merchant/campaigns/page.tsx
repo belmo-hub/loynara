@@ -189,8 +189,14 @@ export default function MerchantCampaignsPage() {
               <div className={styles.fields}>
                 <label>Titel<input value={editor.title} onChange={event => changeEditor("title", event.target.value)} maxLength={180} minLength={2} required /></label>
                 <label>Betreff<input value={editor.subject} onChange={event => changeEditor("subject", event.target.value)} maxLength={120} minLength={2} required /></label>
-                <label>Nachricht<textarea value={editor.body} onChange={event => changeEditor("body", event.target.value)} maxLength={5000} minLength={10} rows={5} required /></label>
+                <label>Nachricht<textarea value={editor.body} onChange={event => changeEditor("body", event.target.value)} maxLength={3000} minLength={5} rows={5} required /></label>
               </div>
+              <section className={styles.messagePreview} aria-label="Vorschau der Testnachricht">
+                <span className="tiny-label">NACHRICHTENVORSCHAU</span>
+                <h3>{editor.subject.trim() ? `[LOCAL TEST] ${editor.subject.trim()}` : "Betreff eingeben"}</h3>
+                <p>{editor.body.trim() || "Nachricht eingeben"}</p>
+                <small>Lokale Testnachricht. Keine externe Zustellung.</small>
+              </section>
               <div className={styles.audience}><h3>Zielgruppe</h3><label>Zielgruppe auswählen<select value={editor.kind} onChange={event => changeEditor("kind", event.target.value as AudienceKind)}><option value="new">Neu angemeldet</option><option value="recently_active">Kürzlich aktiv</option><option value="inactive">Länger inaktiv</option><option value="frequent_visitors">Häufige Kassenvorgänge</option><option value="close_to_reward">Kurz vor Prämie</option></select></label>
                 {(editor.kind === "new" || editor.kind === "recently_active" || editor.kind === "frequent_visitors") && <label>Zeitraum in Tagen<input type="number" min={1} max={3650} step={1} value={editor.withinDays} onChange={event => changeEditor("withinDays", Number(event.target.value))} required /></label>}
                 {editor.kind === "inactive" && <label>Inaktiv seit mindestens Tagen<input type="number" min={1} max={3650} step={1} value={editor.daysSinceLast} onChange={event => changeEditor("daysSinceLast", Number(event.target.value))} required /><small>Nur Karten mit einem früheren bestätigten Kassenvorgang.</small></label>}

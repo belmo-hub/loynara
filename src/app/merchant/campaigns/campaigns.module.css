@@ -11,6 +11,10 @@
 .fields label, .audience label, .schedule label { display: grid; gap: 7px; color: var(--ink); font-size: 12px; font-weight: 800; }
 .fields input, .fields textarea, .audience input, .audience select, .schedule input { width: 100%; min-height: 45px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); padding: 10px 12px; font-size: 13px; font-weight: 500; }
 .fields textarea { resize: vertical; line-height: 1.5; }
+.messagePreview { margin-top: 19px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #f8f8f4; }
+.messagePreview h3 { margin: 9px 0; font-size: 16px; overflow-wrap: anywhere; }
+.messagePreview p { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
+.messagePreview small { color: var(--muted); font-size: 11px; }
 .audience { margin-top: 22px; padding-top: 19px; border-top: 1px solid var(--line); }
 .audience h3 { margin: 0; font-size: 17px; letter-spacing: -.03em; }
 .audience small { color: var(--muted); font-weight: 500; line-height: 1.4; }
