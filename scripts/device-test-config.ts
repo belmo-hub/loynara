@@ -42,6 +42,7 @@ export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
   for (const name of ["PUBLIC_REGISTRATION_ENABLED", "EXTERNAL_EMAIL_ENABLED", "LIVE_BILLING_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
     if (env[name] !== "false") issues.push(`${name} must be false in the device test`);
   }
+  if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") issues.push("Google provider assets require separate routing approval");
   if (env.SMTP_HOST !== "disabled") issues.push("Device test must disable mail transport");
   if (env.DEMO_MODE === "true" || env.DEMO_SEED_ALLOWED === "true" || env.LOOPLOCAL_PREVIEW_SEED === "true") {
     issues.push("Other demo and preview runtime flags are forbidden");

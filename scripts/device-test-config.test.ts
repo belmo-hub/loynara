@@ -61,6 +61,7 @@ describe("separate synthetic device-test configuration", () => {
       expect(deviceTestRuntimeIssues({ ...runtime, [name]: "true" })).not.toEqual([]);
     }
     expect(deviceTestRuntimeIssues({ ...runtime, SMTP_HOST: "smtp.provider.example" })).not.toEqual([]);
+    expect(deviceTestRuntimeIssues({ ...runtime, GOOGLE_WALLET_ASSET_ENABLED: "true" })).not.toEqual([]);
     expect(deviceTestRuntimeIssues({ ...runtime, DEMO_MODE: "true" })).not.toEqual([]);
   });
 });

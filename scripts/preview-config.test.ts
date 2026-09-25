@@ -34,6 +34,7 @@ describe("compiled local preview configuration", () => {
     expect(previewConfigIssues({ ...preview, LIVE_BILLING_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, APPLE_WALLET_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, GOOGLE_WALLET_ENABLED: "true" })).not.toEqual([]);
+    expect(previewConfigIssues({ ...preview, GOOGLE_WALLET_ASSET_ENABLED: "true" })).not.toEqual([]);
     expect(previewConfigIssues({ ...preview, TRUST_PROXY_CLIENT_IP: "true" })).not.toEqual([]);
   });
 
