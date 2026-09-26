@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>LoopLocal | Kundenbindung für lokale Geschäfte | Produktvorschau</title>
+  <title>Loynara | Kundenbindung für lokale Geschäfte | Produktvorschau</title>
   <style>
     :root { color-scheme:light; --ink:#1d302a; --forest:#17372e; --green:#3b7155; --orange:#ec7954; --paper:#f7f5ef; --muted:#55685c; --line:#d4ded4; }
     * { box-sizing:border-box; }
@@ -12,9 +12,7 @@
     .sheet { width:210mm; min-height:297mm; margin:20px auto; padding:12mm 15mm 8mm; background:var(--paper); box-shadow:0 14px 42px #193b2d22; }
     header { display:flex; align-items:center; justify-content:space-between; gap:8mm; }
     .brand { display:flex; align-items:center; gap:8px; font-size:25px; font-weight:800; letter-spacing:-1.6px; }
-    .symbol { width:28px; height:28px; border-radius:8px; transform:rotate(-7deg); display:flex; align-items:center; justify-content:center; background:var(--orange); }
-    .symbol i { width:10px; height:14px; border:2.5px solid #1f3d32; border-radius:9px 9px 9px 3px; transform:rotate(-30deg); margin-right:-2px; }
-    .symbol i + i { transform:rotate(150deg); margin-left:-2px; margin-right:0; }
+    .symbol { width:28px; height:28px; display:block; flex:none; }
     .brand em { color:var(--orange); font-style:normal; }
     .edition { max-width:65mm; color:var(--green); font-size:9px; line-height:1.55; font-weight:700; text-align:right; letter-spacing:.07em; text-transform:uppercase; }
     .hero { margin-top:8mm; padding:7mm 8mm; border-radius:5mm; background:var(--forest); color:white; }
@@ -48,14 +46,14 @@
     footer strong { color:var(--ink); font-size:10px; }
     footer .evidence { text-align:right; max-width:64mm; }
     @page { size:A4 portrait; margin:0; }
-    @media print { body { background:#fff; print-color-adjust:exact; -webkit-print-color-adjust:exact; } .sheet { margin:0; box-shadow:none; } }
+    @media print { body { background:#fff; print-color-adjust:exact; -webkit-print-color-adjust:exact; } .sheet { margin:0; min-height:0; height:297mm; box-shadow:none; } }
     @media screen and (max-width:800px) { .sheet { margin:0; width:100%; min-height:0; padding:24px; } h1 { font-size:29px; } .features { gap:14px 22px; } }
   </style>
 </head>
 <body>
   <main class="sheet">
     <header>
-      <div class="brand"><span class="symbol" aria-hidden="true"><i></i><i></i></span><span>looplocal<em>.</em></span></div>
+      <div class="brand"><svg class="symbol" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="17" fill="#16473f"/><path d="M17 16v33h30" fill="none" stroke="#f5efdf" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="45" cy="21" r="6" fill="#f2a078"/></svg><span>Loynara</span></div>
       <div class="edition">Für lokale Geschäfte in Kassel<br>Produktvorschau · synthetische Demo</div>
     </header>
     <section class="hero">
@@ -84,7 +82,7 @@
     </section>
     <aside class="status" aria-labelledby="status-title">
       <h2 id="status-title">Transparent zum Stand der Vorführung</h2>
-      <p>Nur synthetische Daten: E-Mails werden lokal erfasst, kein externer Versand. Offline-Verhalten wurde im Browser simuliert; Einlösen bleibt online. Kamera auf echten Geräten sowie Google/Apple Wallet mit Installation und Kontostandsupdates sind noch ungeprüft. Wallet-Anbindungen sind vorbereitet, derzeit nicht freigeschaltet. Privaten Kartenlink aufbewahren: Ein verlorener Link lässt sich derzeit nicht unabhängig wiederherstellen.</p>
+      <p>Nur synthetische Daten: E-Mails werden lokal erfasst, kein externer Versand. Offline-Verhalten wurde im Browser simuliert; Einlösen bleibt online. Mac- und iPhone-Kamerascans wurden vom Eigentümer auf echter Hardware als erfolgreich berichtet; zwei Telefone, Android sowie Google/Apple Wallet mit Installation und Kontostandsupdates sind noch ungeprüft. Wallet-Anbindungen sind vorbereitet, derzeit nicht freigeschaltet. Privaten Kartenlink aufbewahren: Ein verlorener Link lässt sich derzeit nicht unabhängig wiederherstellen.</p>
     </aside>
     <section aria-labelledby="pricing-title">
       <div class="section-title"><h2 id="pricing-title">Vorgeschlagene Konditionen</h2><span>Keine aktive Abrechnung</span></div>
@@ -97,7 +95,7 @@
     </section>
     <footer>
       <div><strong>Dein bestehendes Treueprogramm als Ausgangspunkt.</strong><br>In der begleiteten Demo gemeinsam Programm, Karte und Kassenablauf ansehen.</div>
-      <div class="evidence">Stand: 26.09.2026 · lokale Evidenz bis 4e95aa7<br>Geräte- und Anbieterabnahme stehen aus.</div>
+      <div class="evidence">Stand: 27.09.2026 · synthetische Vorführung<br>Mac-/iPhone-Scan: Eigentümerbericht. Zwei Telefone und Wallet offen.</div>
     </footer>
   </main>
 </body>

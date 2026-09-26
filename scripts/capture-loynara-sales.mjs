@@ -1,0 +1,41 @@
+import "dotenv/config";
+import assert from "node:assert/strict";
+import { readFile, mkdir } from "node:fs/promises";
+import { chromium, request } from "@playwright/test";
+
+const origin = "http://localhost:3000";
+const db = new URL(process.env.DATABASE_URL ?? "http://invalid");
+assert.equal(process.env.PUBLIC_BASE_URL, origin);
+assert.equal(process.env.BETTER_AUTH_URL, origin);
+assert.equal(db.hostname, "localhost");
+assert.equal(db.pathname, "/looplocal");
+assert.equal(db.port, "54329");
+assert.notEqual(process.env.EXTERNAL_EMAIL_ENABLED, "true");
+assert.notEqual(process.env.GOOGLE_WALLET_ENABLED, "true");
+assert.notEqual(process.env.APPLE_WALLET_ENABLED, "true");
+const creds = JSON.parse(await readFile("var/demo-access.json", "utf8"));
+await mkdir("screenshots", { recursive: true });
+const session = await request.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
+let browser;
+try {
+  assert.equal((await session.post("/api/auth/sign-in/email", { data: { email: creds.ownerEmail, password: creds.ownerPassword } })).status(), 200);
+  browser = await chromium.launch({ channel: "chrome", headless: true });
+  const desktop = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, storageState: await session.storageState() });
+  const page = await desktop.newPage();
+  await page.goto("/merchant");
+  await page.getByRole("heading", { name: /Guten Tag/ }).waitFor();
+  await page.screenshot({ style: "nextjs-portal { display: none !important; }",  path: "screenshots/loynara-merchant-dashboard.png", clip: { x: 0, y: 0, width: 980, height: 850 } });
+  await page.goto("/merchant/program");
+  await page.getByRole("heading", { name: "Programmregeln" }).waitFor();
+  await page.screenshot({ style: "nextjs-portal { display: none !important; }",  path: "screenshots/loynara-programme.png", clip: { x: 0, y: 0, width: 980, height: 850 } });
+  await page.goto("/cashier");
+  await page.getByRole("button", { name: "Kamera öffnen" }).waitFor();
+  await page.screenshot({ style: "nextjs-portal { display: none !important; }",  path: "screenshots/loynara-cashier.png" });
+  const mobile = await browser.newContext({ baseURL: origin, viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+  const card = await mobile.newPage();
+  await card.goto(`/card/${encodeURIComponent(creds.cardToken)}`);
+  await card.locator(".customer-balance-line strong").waitFor();
+  await card.locator(".customer-qr img").evaluate(async image => { if (image.complete && image.naturalWidth) return; await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; }); });
+  await card.screenshot({ style: "nextjs-portal { display: none !important; }",  path: "screenshots/loynara-customer-card.png" });
+  console.log("Four real local application captures: merchant, programme, cashier, mobile card. No tokens or credentials printed.");
+} finally { await session.dispose(); if (browser) await browser.close(); }

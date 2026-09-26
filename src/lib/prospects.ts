@@ -230,11 +230,11 @@ export function generateRequestedInfoDraft(prospect: Prospect, locale: "de" | "f
     : "";
   if (locale === "de") {
     return {
-      subject: `Ihre Anfrage zu LoopLocal – ${business}`,
+      subject: `Ihre Anfrage zu Loynara – ${business}`,
       body: [
         "Guten Tag,",
         "",
-        `vielen Dank für Ihre Anfrage zu LoopLocal für ${business}.`,
+        `vielen Dank für Ihre Anfrage zu Loynara für ${business}.`,
         fact ? `Mir ist zu Ihrem Betrieb diese veröffentlichte Angabe aufgefallen: ${fact} (Quelle: ${prospect.fitFactSourceUrl}).` : "",
         "Gern zeige ich Ihnen in einer kurzen Demo, wie ein digitales Treueprogramm für Ihren Betrieb eingerichtet und am Tresen genutzt werden kann.",
         "Falls Sie möchten, schicken Sie mir einen passenden Termin.",
@@ -245,11 +245,11 @@ export function generateRequestedInfoDraft(prospect: Prospect, locale: "de" | "f
     };
   }
   return {
-    subject: `Votre demande d’informations sur LoopLocal – ${business}`,
+    subject: `Votre demande d’informations sur Loynara – ${business}`,
     body: [
       "Bonjour,",
       "",
-      `Merci pour votre demande d’informations sur LoopLocal pour ${business}.`,
+      `Merci pour votre demande d’informations sur Loynara pour ${business}.`,
       fact ? `J’ai relevé cette information publique sur votre activité : ${fact} (source : ${prospect.fitFactSourceUrl}).` : "",
       "Je peux vous montrer, lors d’une courte démonstration, comment configurer un programme de fidélité numérique et l’utiliser au comptoir.",
       "Si vous le souhaitez, indiquez-moi un créneau qui vous convient.",

@@ -100,7 +100,7 @@ test("HTTP sessions enforce tenant and staff boundaries, retries, redemption and
       const merchantDownloadEvent = page.waitForEvent("download");
       await page.locator('a[href="/api/merchant/export"]').click();
       const merchantDownload = await merchantDownloadEvent;
-      expect(merchantDownload.suggestedFilename()).toBe("looplocal-merchant-export.json");
+      expect(merchantDownload.suggestedFilename()).toBe("loynara-merchant-export.json");
       const downloadedMerchant = JSON.parse(await readFile(await merchantDownload.path(), "utf8")) as { tenant: { id: string } };
       expect(downloadedMerchant.tenant.id).toBe(merchantA.tenantId);
 
@@ -108,7 +108,7 @@ test("HTTP sessions enforce tenant and staff boundaries, retries, redemption and
       const cardDownloadEvent = page.waitForEvent("download");
       await page.locator(`a[href="/api/card/${encodeURIComponent(cardA.cardToken)}/export"]`).click();
       const cardDownload = await cardDownloadEvent;
-      expect(cardDownload.suggestedFilename()).toBe("looplocal-card-export.json");
+      expect(cardDownload.suggestedFilename()).toBe("loynara-card-export.json");
       const downloadedCard = JSON.parse(await readFile(await cardDownload.path(), "utf8")) as { membership: { id: string } };
       expect(downloadedCard.membership.id).toBe(cardA.membershipId);
     } finally { await ownerBrowser.close(); }

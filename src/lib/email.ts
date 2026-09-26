@@ -76,7 +76,7 @@ export async function sendLocalMailpit(message: LocalMessage) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      From: { Email: "looplocal@local.test", Name: "LoopLocal Local Test" },
+      From: { Email: "loynara@local.test", Name: "Loynara Local Test" },
       To: [{ Email: message.to }],
       Subject: `[LOCAL TEST] ${message.subject}`,
       Text: `${message.body}\n\nLokale Testnachricht. Keine externe Zustellung.`,

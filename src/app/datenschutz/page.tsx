@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function DatenschutzPage() {
   return <main className="legal-page">
-    <Link href="/">← LoopLocal</Link>
+    <Link href="/">← Loynara</Link>
     <h1>Datenschutzhinweise – Entwurf</h1>
     <p>Diese Seite beschreibt den aktuellen Teststand und ist keine freigegebene Datenschutzerklärung.</p>
     <h2>Verantwortliche Stelle</h2>

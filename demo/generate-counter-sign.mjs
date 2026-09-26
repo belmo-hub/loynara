@@ -32,7 +32,7 @@ if ((!localPreview && parsed.protocol !== "https:") || parsed.pathname !== `/joi
 const escape = (value) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 const qr = await QRCode.toString(joinUrl, { type: "svg", width: 720, margin: 2, errorCorrectionLevel: "H" });
 const accessNote = localPreview
-  ? "LOKALE TESTVORSCHAU · Dieser Link funktioniert nur auf dem Mac, auf dem LoopLocal unter localhost:3001 läuft. Für den Test mit zwei Geräten ist zuerst eine freigegebene HTTPS-Vorschau nötig."
+  ? "LOKALE TESTVORSCHAU · Dieser Link funktioniert nur auf dem Mac, auf dem Loynara unter localhost:3001 läuft. Für den Test mit zwei Geräten ist zuerst eine freigegebene HTTPS-Vorschau nötig."
   : "GESCHÜTZTE TESTVORSCHAU · Nur mit freigegebenem HTTPS-Zugang und synthetischen Daten verwenden.";
 const action = localPreview ? "Am Mac öffnen. Karte erstellen." : "QR scannen. Karte öffnen.";
 const merchantName = "Demo Kaffeebar Kassel";
@@ -75,7 +75,7 @@ const html = `<!doctype html>
     <ol class="steps"><li><b>1</b>Programm lesen</li><li><b>2</b>Karte erstellen</li><li><b>3</b>An der Kasse zeigen</li></ol>
     <p class="join-url">${escape(joinUrl)}</p>
     <p class="note">${escape(accessNote)} Es werden keine echten Kundendaten benötigt. Die Teilnahmebedingungen in der Vorschau sind ein Entwurf.</p>
-    <p class="attribution">Mit ${deviceTest ? "Loynara" : "LoopLocal"}</p>
+    <p class="attribution">Mit ${"Loynara"}</p>
   </main>
 </body>
 </html>

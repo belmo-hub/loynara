@@ -195,6 +195,6 @@ describe("outreach review", () => {
 
     expect(draft.body).not.toContain("Maybe uses no loyalty system");
     expect(draft.body).not.toContain("Offers a weekday lunch menu");
-    expect(draft.body).toContain("LoopLocal");
+    expect(draft.body).toContain("Loynara");
   });
 });

@@ -39,7 +39,7 @@ export async function deliverVerificationEmail(
     // the enclosing transaction commits. No external transport is enabled.
     await send({
       to: challenge.email,
-      subject: "E-Mail-Adresse für LoopLocal bestätigen",
+      subject: "E-Mail-Adresse für Loynara bestätigen",
       body: `Öffne diesen lokalen Testlink, um die E-Mail-Adresse deiner Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du diese Bestätigung nicht angefordert hast, ignoriere die Nachricht.`,
       jobId: job.id,
     });

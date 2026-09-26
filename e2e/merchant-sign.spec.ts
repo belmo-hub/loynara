@@ -21,7 +21,7 @@ test("merchant downloads a printable sign with its own identity and join QR", as
   expect(html).toContain(`<h1>${merchant.businessName}</h1>`);
   expect(html).toContain(new URL(`/join/${merchant.programSlug}`, merchant.publicBaseUrl).href);
   expect(html).toContain("<svg");
-  expect(html).toContain("Mit LoopLocal");
+  expect(html).toContain("Mit Loynara");
   expect(html).toContain("LOKALE TESTVORSCHAU");
   const sign = await page.context().newPage();
   await sign.setViewportSize({ width: 560, height: 830 });

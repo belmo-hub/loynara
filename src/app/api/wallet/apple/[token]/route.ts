@@ -16,6 +16,6 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     const buffer = await applePassArchive(pass, appleSigningConfig());
     await db.insert(walletPasses).values({ tenantId: pass.tenantId, membershipId: pass.membershipId, provider: "apple", providerObjectId: pass.membershipId, status: "downloaded" })
       .onConflictDoUpdate({ target: [walletPasses.membershipId, walletPasses.provider], set: { updatedAt: new Date() } });
-    return new Response(new Uint8Array(buffer), { headers: { "Content-Type": "application/vnd.apple.pkpass", "Content-Disposition": "attachment; filename=looplocal.pkpass", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+    return new Response(new Uint8Array(buffer), { headers: { "Content-Type": "application/vnd.apple.pkpass", "Content-Disposition": "attachment; filename=loynara.pkpass", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   } catch (error) { return respondError(error); }
 }

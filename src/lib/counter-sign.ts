@@ -49,6 +49,6 @@ export function counterSignHtml(input: CounterSignInput): string {
 </style></head><body><main class="sheet${dense ? " sheet--dense" : ""}">
 <p class="eyebrow">${input.programType === "points" ? "PUNKTEKARTE" : "STEMPELKARTE"}</p><h1>${escapeHtml(input.businessName)}</h1><p class="location">${escapeHtml(input.locationName)}</p><p class="sub">Deine digitale Treuekarte im Browser</p>
 <div class="qr" role="img" aria-label="QR-Code zur Anmeldung">${input.qrSvg}</div><p class="instruction">QR scannen. Karte erstellen.</p>${reward}
-<p class="join-url">${escapeHtml(input.joinUrl)}</p><p class="note">${local ? "LOKALE TESTVORSCHAU · Dieser Link funktioniert nur auf dem Rechner, auf dem LoopLocal unter localhost läuft. Für einen Test mit zwei Geräten ist eine freigegebene HTTPS-Vorschau nötig." : "Speichere nach der Anmeldung deinen privaten Kartenlink. Ohne ihn ist die Karte derzeit nicht wiederherstellbar."}</p><p class="attribution">Mit LoopLocal</p>
+<p class="join-url">${escapeHtml(input.joinUrl)}</p><p class="note">${local ? "LOKALE TESTVORSCHAU · Dieser Link funktioniert nur auf dem Rechner, auf dem Loynara unter localhost läuft. Für einen Test mit zwei Geräten ist eine freigegebene HTTPS-Vorschau nötig." : "Speichere nach der Anmeldung deinen privaten Kartenlink. Ohne ihn ist die Karte derzeit nicht wiederherstellbar."}</p><p class="attribution">Mit Loynara</p>
 </main></body></html>`;
 }

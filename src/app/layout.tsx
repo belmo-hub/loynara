@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LoopLocal – digitale Treuekarten für deinen Tresen",
+  title: "Loynara – digitale Treuekarten für deinen Tresen",
   description: "Ein digitales Stempel- oder Punkteprogramm für lokale Geschäfte. Produktvorschau mit Browserkarte und bewusst bestätigten Kassenbuchungen.",
   robots: { index: false, follow: false },
 };

@@ -1,4 +1,4 @@
-# Feature status — 2026-09-26
+# Feature status — 2026-09-27
 
 Status describes the strongest evidence available **in this installation**. `LOCAL_VERIFIED` means a local integration test or an exercised local browser path; `FIXTURE_VERIFIED` means a local cryptographic fixture or fake HTTP responder, not a live provider; `OWNER_VERIFIED_PHYSICAL` means a real-hardware result personally observed and reported by the owner, not observed or independently repeated by Codex. It applies only to the stated test direction; no overall `LIVE_DEVICE_VERIFIED` status is claimed. See [TEST_EVIDENCE.md](TEST_EVIDENCE.md) for exact checks and [LAUNCH_BLOCKERS.md](LAUNCH_BLOCKERS.md) before any public use.
 
@@ -6,6 +6,7 @@ Kassel demonstration pass: a new full-platform recording, 15 actual browser scen
 
 | Feature | Status | Evidence and boundary |
 | --- | --- | --- |
+| Loynara visible brand and separate sales site | LOCAL_VERIFIED, PUBLICATION_GATED | Product-facing app text, brand icon, signs, current video and sheet use Loynara. Static German marketing home and `/demo/` pass local desktop/mobile checks with actual synthetic screenshots. Root publication awaits operator-specific legal pages and separate Cloudflare Pages activation; protected preview remains separate. |
 | Merchant sign-up, first location, programme, reward, owner role | LOCAL_VERIFIED | PostgreSQL integration tests include simultaneous onboarding of one account. The assisted setup starts with six entries to transcribe the existing stamp/reward rule; advanced settings are collapsed and no stamp count is prefilled. A synthetic owner registered and completed this path in a local Chrome session; the form layout was also checked with an unconfigured-merchant browser response. Public registration is enabled only in the local demo configuration. |
 | Stamp/points programme editing and reward versioning | LOCAL_VERIFIED | Owner can edit a live merchant brand preview, versioned earning rules and an ordered, archivable catalogue of rewards. A second location gets its own programme and balance scope. |
 | Spend-based points calculation and rounding | LOCAL_VERIFIED | Cashier enters integer monetary minor units; currency-aware rate uses tested floor rounding, with rule/version and purchase amount recorded per award. Selected reward redemption and corrections use the existing ledger. |

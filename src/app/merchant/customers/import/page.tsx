@@ -38,7 +38,7 @@ export default function ImportPreviewPage() {
     }).catch(cause => {
       if (!active) return;
       if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-      setError(cause instanceof ClientApiError && cause.status === 404 ? "Diese Vorschau ist nur auf der lokalen LoopLocal-Instanz verfügbar." : "Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich.");
+      setError(cause instanceof ClientApiError && cause.status === 404 ? "Diese Vorschau ist nur auf der lokalen Loynara-Instanz verfügbar." : "Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich.");
       setLoading(false);
     });
     return () => { active = false; };

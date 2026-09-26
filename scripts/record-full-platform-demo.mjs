@@ -287,7 +287,11 @@ try {
   });
   await scene("13-team-locations", 7, async () => {
     await page.goto("/merchant/staff");
-    await page.getByRole("heading", { name: "Aktuelle Zugänge" }).waitFor();
+    try { await page.getByRole("heading", { name: "Aktuelle Zugänge" }).waitFor(); }
+    catch (error) {
+      const visible = (await page.locator("main").innerText()).replace(/(?:card_|sc_|v_|ref_)[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 450);
+      throw new Error(`Team screen not ready: ${visible}; ${String(error.message).split("\n")[0]}`);
+    }
     await caption("Eigene Teamzugänge, Standortrechte und Zugriffsverlauf");
     await hold(2500);
     await page.goto("/merchant/locations");
@@ -319,7 +323,7 @@ try {
     await recorded.addCookies((await owner.storageState()).cookies);
     await page.goto("/merchant/billing");
     await page.getByText("Entwurf ohne Zahlung", { exact: true }).waitFor();
-    await caption("Standortpläne und Nutzung sichtbar. Keine Live-Abrechnung.", "Nächster Nachweis: geschütztes HTTPS, zwei echte Telefone, reale Wallet-Karte");
+    await caption("Standortpläne und Nutzung sichtbar. Keine Live-Abrechnung.", "Geschütztes HTTPS aktiv · zwei Telefone und reale Wallet-Karte offen");
   });
   const video = page.video();
   await recorded.close(); recorded = null;
@@ -337,7 +341,7 @@ try {
     duration = Number(JSON.parse((await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "json", target])).stdout).format.duration);
     assert.ok(duration >= 90 && duration <= 120, "Demo must be 90–120 seconds");
     const revision = (await run("git", ["rev-parse", "HEAD"])).stdout.trim();
-    await writeFile("demo/full-platform-kassel-evidence.json", JSON.stringify({ revision, sourceChanges: "see containing commit; no app UI changes", recordedAt: new Date().toISOString(), result: "PASS", durationSeconds: duration, rawDurationSeconds: rawDuration, playbackRate: Number((1 / pace).toFixed(3)), scenes, syntheticOnly: true, camera: "canvas stream simulation; real ZXing decoder and HTTP lookup", actualHardware: "NOT RUN", realWalletProviders: "NOT RUN", externalMessages: 0, campaignLocalCaptured: 1, recentlyActiveAudienceBeforeAfter: [1, 2], mainCardBalances: [0, 1, 5, 0, 1], offlineBalanceBeforeAcceptance: 0, pendingAwardAcceptedOnce: true }, null, 2) + "\n");
+    await writeFile("demo/full-platform-kassel-evidence.json", JSON.stringify({ revision, sourceChanges: "Loynara merchant/customer UI rebrand; see containing commit", recordedAt: new Date().toISOString(), result: "PASS", durationSeconds: duration, rawDurationSeconds: rawDuration, playbackRate: Number((1 / pace).toFixed(3)), scenes, syntheticOnly: true, camera: "canvas stream simulation; real ZXing decoder and HTTP lookup", actualHardware: "NOT RUN", realWalletProviders: "NOT RUN", externalMessages: 0, campaignLocalCaptured: 1, recentlyActiveAudienceBeforeAfter: [1, 2], mainCardBalances: [0, 1, 5, 0, 1], offlineBalanceBeforeAcceptance: 0, pendingAwardAcceptedOnce: true }, null, 2) + "\n");
   }
   console.log(JSON.stringify({ result: "PASS", verifyOnly, scenes: scenes.length, durationSeconds: duration, camera: "SIMULATED", hardware: "NOT RUN", wallet: "NOT RUN", mail: "LOCAL MAILPIT ONLY" }));
 } catch (error) {

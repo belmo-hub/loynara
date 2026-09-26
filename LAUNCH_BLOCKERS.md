@@ -1,10 +1,14 @@
-# Launch blockers — 2026-09-26
+# Launch blockers — 2026-09-27
 
 The repository is a synthetic-data build with a **restricted, Access-protected HTTPS test instance**, not a public production deployment. It has not been used with real merchants or customers. External expenditure during this run: **€0**. The new sales sheet proposes €69/location/month standard, €49 founding rate and €99 assisted setup, plus VAT where applicable. These are proposals, not live charges, approved invoicing or a tax position; existing stored plan drafts are unchanged.
 
+## Public Loynara marketing site
+
+The static German home and `/demo/` bundle is complete locally at `marketing-site/site/` with a one-page sales sheet and rebranded synthetic recording. It is **READY-BUT-LEGAL-GATED**: no public root-domain deployment or Cloudflare Pages/DNS change was made. The operator must supply and approve the legal identity, serviceable postal address, contact email, any applicable register/VAT details, and final Impressum/privacy text. The exact list is in `marketing-site/LEGAL_LAUNCH_FIELDS.md`. The site has no lead form, tracker, live checkout or connection to the private preview database. Cloudflare Pages Direct Upload is the proposed static €0 path; the protected preview tunnel/Access route must remain separate.
+
 ## Next protected device-test gate
 
-The **separate** synthetic database, restricted secrets, compiled app and worker are running at `https://preview.getloynara.com`, through `loynara-device-test` to private `127.0.0.1:3002`. The owner activated Zero Trust Free and explicitly changed the approved session to **30 minutes**. One exact-email Allow policy protects the whole hostname; cloudflared requires the actual team/application JWT. Access preceded route publication. Authorized browser/app sign-in, unauthenticated blocking, health, actual origin headers, enrollment, card reopen after restart and QR-sign decoding passed. See [TEST_EVIDENCE.md](TEST_EVIDENCE.md) for the evidence boundary.
+The **separate** synthetic database, restricted secrets, rebuilt compiled app and worker are running at `https://preview.getloynara.com`, through `loynara-device-test` to private `127.0.0.1:3002`. The owner activated Zero Trust Free and explicitly changed the approved session to **30 minutes**. One exact-email Allow policy protects the whole hostname; cloudflared requires the actual team/application JWT. Access preceded route publication. Authorized browser/app sign-in, unauthenticated blocking, health, actual origin headers, enrollment, card reopen after restart and QR-sign decoding passed. See [TEST_EVIDENCE.md](TEST_EVIDENCE.md) for the evidence boundary.
 
 **Owner-reported physical results (26 September 2026, revision `6382aab`):** iPhone-displayed customer QR → Mac camera is **OWNER_VERIFIED_PHYSICAL**; Mac-displayed customer QR → iPhone camera is separately **OWNER_VERIFIED_PHYSICAL**. The owner reports correct synthetic membership identification and a working tested cashier/customer workflow in both directions. Codex did not observe or independently repeat these tests.
 

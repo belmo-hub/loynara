@@ -68,5 +68,5 @@ export default function MerchantPage() {
 }
 
 function StatePage({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void | Promise<void> }) {
-  return <main className="app-state-page"><div className="app-state-card"><span className="eyebrow"><span className="eyebrow-dot" /> LOOPLOCAL</span><h1>{title}</h1><p>{message}</p><div>{onRetry && <button type="button" className="button button--ink" onClick={() => void onRetry()}>Erneut versuchen</button>}<Link href="/">Zur Startseite</Link></div></div></main>;
+  return <main className="app-state-page"><div className="app-state-card"><span className="eyebrow"><span className="eyebrow-dot" /> LOYNARA</span><h1>{title}</h1><p>{message}</p><div>{onRetry && <button type="button" className="button button--ink" onClick={() => void onRetry()}>Erneut versuchen</button>}<Link href="/">Zur Startseite</Link></div></div></main>;
 }
