@@ -56,9 +56,9 @@ While online, look up the card to obtain a staff/location/card/browser lease val
 2. On the Mac, sign in as the seeded cashier at `http://localhost:3001/login`, open `/cashier`, select the camera action, and grant camera permission. Hold the phone's QR in front of the Mac camera. Confirm that the identified synthetic card and balance match the phone QR; do **not** award or redeem automatically.
 3. Deny permission once, retry, switch back to manual entry, leave/reopen the scanner, and confirm that the camera is released and can restart. Record the browser, Mac camera model, result, and any permission error. This test does **not** establish phone enrollment, phone camera operation, or phone-to-phone scanning.
 
-### B. Full device journey — **NOT RUN; approved destination awaits protected activation**
+### B. Full device journey — **NOT RUN; protected HTTPS is active**
 
-1. Obtain approval for the exact HTTPS hostname, access allowlist, proxy policy, and synthetic-only database. Configure `BETTER_AUTH_URL` and `PUBLIC_BASE_URL` to that **same approved HTTPS origin**. Confirm a newly generated enrollment link uses it, never `localhost`.
+1. Use the approved `https://preview.getloynara.com` instance and allowlist below. `BETTER_AUTH_URL` and `PUBLIC_BASE_URL` already match that origin; its newly generated enrollment sign was checked against it, without localhost.
 2. From an authorized customer phone, enroll without email, open the card, save/reopen its bearer link securely, and verify the QR and starting balance. From a separate authorized cashier device, sign in and scan the QR using its camera; verify the selected customer before any transaction.
 3. Explicitly award one stamp, reload the customer card and check persisted balance/activity. In this synthetic test, explicitly award the remaining amount to the configured reward threshold, select the reward and confirm redemption online. Reopen the customer card and compare balance/activity; check the owner's dashboard and customer timeline. Restart web/worker processes and reopen again. Repeat permission denial/retry, camera restart and manual fallback. Physical iPhone and Android checks remain **NOT RUN** until performed.
 
@@ -77,21 +77,49 @@ Record each actual run using this compact form; leave unperformed fields **NOT R
 | Google/Apple | Actual installation, Wallet QR scan, displayed balance after award and redemption, elapsed update times |
 | Outcome | PASS / FAIL / NOT RUN, observed defect and any repeat test |
 
-**Approved controlled HTTPS destination, not activated:** `https://preview.getloynara.com` through a Cloudflare Access-protected Tunnel to the separate device-test instance described below. The strict localhost `npm run preview` launcher is not an exposure switch. No account, domain, tunnel, DNS record or plan was created here.
+**Active controlled HTTPS destination:** `https://preview.getloynara.com` through the Cloudflare Access-protected `loynara-device-test` Tunnel. The strict localhost `npm run preview` launcher stays separate. The owner activated Zero Trust Free; this task created only the approved Access app/policy, named tunnel and preview CNAME route, at €0 additional spending.
 
-## Separate HTTPS device-test instance — local preparation only
+## Separate HTTPS device-test instance
 
 `npm run device-test:prepare` creates a **new, empty synthetic** PostgreSQL volume on `127.0.0.1:54331`, fresh ignored mode-0600 `var/device-test.env` secrets, applies auth/app migrations, and compiles into `.next-device-test`. It performs a one-pass worker check with external providers off. This build is **not runnable for device testing** until an approved HTTPS origin is supplied; no web port, tunnel, DNS record, or public address is started by preparation. The existing `npm run preview` database/build on port 3001 stays separate.
 
-**Owner approval received 26 September:** public brand Loynara; exact FQDN `preview.getloynara.com`; existing owner account and zone `getloynara.com`; initial tester is its UI-verified account email; one-hour whole-hostname self-hosted Access app, exact-email Allow policy without bypass; named tunnel `loynara-device-test`; only route to `http://127.0.0.1:3002`; origin JWT validation; **€0 additional spending**. Wallet/provider routes remain excluded. The three origin fields in ignored mode-0600 `var/device-test.env` are now `https://preview.getloynara.com`; existing secrets are preserved. Team/AUD must come from the actual Access app, never placeholders.
+**Owner approval received 26 September:** public brand Loynara; exact FQDN `preview.getloynara.com`; existing owner account and zone `getloynara.com`; initial tester is its UI-verified account email; whole-hostname self-hosted Access app and exact-email Allow policy without bypass; named tunnel `loynara-device-test`; only route to `http://127.0.0.1:3002`; origin JWT validation; **€0 additional spending**. The owner explicitly approved **30-minute sessions** after the dashboard omitted one hour. Wallet/provider routes remain excluded. The three origin fields in ignored mode-0600 `var/device-test.env` are `https://preview.getloynara.com`; secrets are preserved and actual Access team/AUD populated.
 
-**Single current owner action:** review/complete the existing account's new **Zero Trust Free activation**, if acceptable. The authenticated checkout shows **$0/month**, but requires accepting Terms/Privacy and authorizing monthly charges for usage beyond free limits. These checkboxes were left unchecked and Activate was not submitted because new contracts/overage authorization are outside the approval. The Chrome checkout is left open for the owner. Do not repeat the already granted destination approval after this prerequisite is resolved. [Cloudflare's current guide](https://developers.cloudflare.com/cloudflare-one/setup/) describes Free onboarding. `cloudflared 2026.9.1` is installed via Homebrew at no charge; no service, Access app, tunnel or DNS route was created. Future tunnel credentials stay in restricted local storage and must not be printed or committed.
+**Activation completed by the owner:** Zero Trust Free is active. Saved resources are one `Loynara device test` Access app, one exact-email Allow policy, and tunnel `loynara-device-test`; both app/policy sessions are 30 minutes. The app and policy existed before the only published route. Tunnel Protect with Access requires the actual team and app AUD. `cloudflared 2026.9.1` was installed via Homebrew at no charge and runs without a macOS service. Its token is in ignored mode-0600 `var/cloudflared-device-test.token`; never print or commit it. No additional paid plan or service was selected.
 
 After approval, set both app URLs to the **same exact approved HTTPS origin**, set the approved origin and Access team/AUD values in the restricted env file, then run `npm run device-test:start`. It rechecks all guards, seeds only synthetic accounts, rebuilds, starts a worker, and serves compiled Next on **127.0.0.1:3002**. It refuses localhost/placeholder origins, absent Access metadata, enabled marketing/billing/merchant registration, unapproved Wallet providers, or another database. A separate explicit Google Demo gate is described in [WALLET.md](WALLET.md); default remains off. Stop web/worker with Ctrl-C; `npm run device-test:stop` then stops only this instance's PostgreSQL container, preserving its isolated volume. Shutdown remains possible after a Wallet credential is removed. These commands do not publish a route. Production `npm start` and the old loopback preview retain their separate guards.
 
 Configure a Cloudflare **self-hosted Access application and exact-email Allow policy before** adding a Tunnel published route. Use [`config/cloudflared-device-test.yaml.example`](config/cloudflared-device-test.yaml.example) as a reviewed template: origin `http://127.0.0.1:3002`, required Access JWT validation at `cloudflared` via team name and app AUD, and a final 404 catch-all. Keep `cloudflared` at `info` logging or stricter; debug logs full URLs/headers. Inspect existing Cloudflare edge log exports because request-URI fields can retain card tokens and QR queries. Do not enable `TRUST_PROXY_CLIENT_IP` until the trusted proxy overwrites/validates the peer header. On the approved route, check Host, `X-Forwarded-Proto=https`, and Cloudflare peer headers, then test an authorized named tester and a fresh unauthorized browser session. Confirm enrollment links and auth redirects use the approved origin, never localhost. Only after these checks, run `node demo/generate-counter-sign.mjs --device-test` to create a new ignored HTML/A5 PDF sign for this synthetic programme. Never use a quick tunnel or expose a LAN listener.
 
 For a physical journey, record actual phone model, OS/browser, Access login, contact-free join, securely saved/reopened card, camera scan on a separate cashier device, confirmed one-stamp award, reward redemption, and card reload after each transaction. Browser emulation and the Mac-camera smoke test remain separate evidence. The protected browser route does **not** authorize Google asset access or Apple callbacks; those require a later minimal provider-specific routing approval. No Google or Apple provider test has run.
+
+### Active phone-test handoff
+
+The app/worker and tunnel are running on this Mac. Keep it awake and online. Restart from this repository using two terminals:
+
+```sh
+# Terminal 1: compiled app and worker, isolated database
+npm run device-test:start
+```
+
+```sh
+# Terminal 2: existing named tunnel; token stays out of command-line arguments
+cloudflared tunnel --no-autoupdate --loglevel fatal --metrics 127.0.0.1:0 --pidfile var/cloudflared-device-test.pid run --token-file var/cloudflared-device-test.token
+```
+
+Stop both foreground commands with Ctrl-C, then run `npm run device-test:stop` to stop only the device database and retain its volume. The reduced tunnel log level avoids request-error URLs; no debug/live log stream or external log export is enabled. No startup service was installed.
+
+For an authenticated health check, `cloudflared access login --quiet https://preview.getloynara.com` opens the approved identity flow without printing its JWT; then `cloudflared access curl https://preview.getloynara.com/api/health --silent --show-error --fail` returns healthy JSON. Unauthenticated health requests redirect to Access, which is expected.
+
+On both phones, use **Cloudflare** at the Access gate with the approved owner account. App credentials are a separate sign-in: open `var/device-test-access.json` privately on this Mac, using `cashierEmail`/`cashierPassword` on the cashier phone and `ownerEmail`/`ownerPassword` for the owner dashboard. Transfer credentials only using a private mechanism; do not paste them into chat. No password appears in the sign or documentation.
+
+1. **Customer phone:** open `https://preview.getloynara.com/join/demo-kaffeekarte-ojtamcc`, accept the synthetic programme rules and create a fresh card. Expect **0/8** stamps.
+2. Save its private card link/bookmark, leave and reopen it, then show the complete QR. Losing the link has no verified email/Wallet recovery in this test.
+3. **Cashier phone:** sign in at `https://preview.getloynara.com/login`, open `/cashier`, choose **Kamera öffnen**, allow the camera and scan the customer QR. Confirm the correct card; scanning must not change balance.
+4. Explicitly award **1**, then reload the customer card and confirm **1**. Award the remaining **7** to reach **8**, select **Gratiskaffee**, and confirm redemption. Reopen the card: expect **0** and the recorded activity.
+5. **Owner:** refresh `/merchant` and the customer timeline to confirm the same operations. Also try camera permission denial/retry and record both device models, OS/browser, scan failures, camera-ready-to-identification time and total checkout time. These physical results remain **NOT RUN** until reported from hardware.
+
+The printable enrollment sign is `var/device-test-counter-sign.pdf` (one A5 page), with editable HTML alongside it. Its rendered QR was decoded to the exact enrollment URL above. The isolated seed includes one sample card with three stamps and one browser-check card at zero; enrollment on the phone creates its own new card. Wallet, live billing, marketing mail and unrestricted merchant registration remain disabled. Some existing app labels still say LoopLocal; this pass did not perform a broad rebrand.
 
 ## Full-platform Kassel demonstration
 
