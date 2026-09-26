@@ -1,0 +1,90 @@
+{
+  "revision": "4e95aa71506683ccca066604884181b40f216728",
+  "sourceChanges": "see containing commit; no app UI changes",
+  "recordedAt": "2026-09-26T01:27:30.756Z",
+  "result": "PASS",
+  "durationSeconds": 116.44,
+  "rawDurationSeconds": 116.44,
+  "playbackRate": 1,
+  "scenes": [
+    {
+      "name": "01-dashboard",
+      "seconds": 6.06
+    },
+    {
+      "name": "02-programme",
+      "seconds": 9.06
+    },
+    {
+      "name": "03-enrollment",
+      "seconds": 7.04
+    },
+    {
+      "name": "04-reopen",
+      "seconds": 5.03
+    },
+    {
+      "name": "05-scan-award",
+      "seconds": 12.05
+    },
+    {
+      "name": "06-redeem",
+      "seconds": 10.05
+    },
+    {
+      "name": "07-card-activity",
+      "seconds": 6.04
+    },
+    {
+      "name": "08-dashboard-update",
+      "seconds": 5.05
+    },
+    {
+      "name": "09-customer-audience",
+      "seconds": 8.04
+    },
+    {
+      "name": "10-campaign",
+      "seconds": 12.03
+    },
+    {
+      "name": "11-mailpit",
+      "seconds": 4.06
+    },
+    {
+      "name": "12-referrals",
+      "seconds": 6.05
+    },
+    {
+      "name": "13-team-locations",
+      "seconds": 7.07
+    },
+    {
+      "name": "14-offline",
+      "seconds": 9.05
+    },
+    {
+      "name": "15-plan",
+      "seconds": 6.05
+    }
+  ],
+  "syntheticOnly": true,
+  "camera": "canvas stream simulation; real ZXing decoder and HTTP lookup",
+  "actualHardware": "NOT RUN",
+  "realWalletProviders": "NOT RUN",
+  "externalMessages": 0,
+  "campaignLocalCaptured": 1,
+  "recentlyActiveAudienceBeforeAfter": [
+    1,
+    2
+  ],
+  "mainCardBalances": [
+    0,
+    1,
+    5,
+    0,
+    1
+  ],
+  "offlineBalanceBeforeAcceptance": 0,
+  "pendingAwardAcceptedOnce": true
+}

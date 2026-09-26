@@ -1,4 +1,25 @@
-# LoopLocal: 80-Sekunden-Demonstration
+# LoopLocal: vollständige Kassel-Demonstration
+
+Aktuelle Aufnahme: [`full-platform-kassel-synthetic.mp4`](full-platform-kassel-synthetic.mp4), **116,44 Sekunden**, mit deutschen Bildschirmhinweisen. Alle dargestellten Geschäfts- und Kontaktdaten sind synthetisch. Die Aufnahme nutzt echte lokale App-Aktionen; das Kamerabild und die Offline-Verbindung sind ausdrücklich simuliert. Ihre Dauer ist kein Nachweis einer Kassen- oder Scan-Geschwindigkeit.
+
+| Bild / Aktion | Kurzer begleitender Sprechertext |
+| --- | --- |
+| Händlerübersicht und gespeicherte Aktivitäten | „Einfach für Gäste, leistungsstark für den Betrieb: Programm und erfasste Vorgänge im Überblick.“ |
+| Programm und zweite Prämie anlegen | „Der Betrieb übernimmt seine Stempelregel und verwaltet mehrere eigene Prämien.“ |
+| Beitritt, Browserkarte und erneutes Öffnen | „Gäste bestätigen die Teilnahme ohne Pflicht-E-Mail. Sie speichern ihren privaten Kartenlink und zeigen den vollständigen QR.“ |
+| Kamera-Simulation, ein Stempel, anschließend vier weitere Demo-Stempel | „Hier liest der echte Decoder ein simuliertes Kamerabild. Erst die ausdrückliche Bestätigung bucht. Für die Vorführung füllen wir bis zur Prämie auf.“ |
+| Kaffee einlösen und Karte erneut öffnen | „Die gewählte Prämie wird online bestätigt. Danach sind Saldo und Aktivität gespeichert.“ |
+| Dashboard, Kartenhistorie und aktive Zielgruppe | „Der Händler sieht die Buchungen. Die aktive Zielgruppe folgt den erfassten Kassenvorgängen.“ |
+| Kampagne erstellen, Zielgruppe prüfen, planen; Mailpit öffnen | „Eine verifizierte synthetische Adresse hat eingewilligt. Diese geplante Nachricht landet ausschließlich im lokalen Testpostfach.“ |
+| Empfehlungsereignisse, Team und Standorte | „Beitritte und Bonusqualifikationen werden getrennt gezählt. Teamzugänge und Standortguthaben bleiben zugeordnet.“ |
+| Offline vormerken und synchronisieren | „Die vorgemerkte Vergabe zählt erst nach Serverannahme. Einlösen bleibt online.“ |
+| Standortpläne und Nutzungsstand | „Das sind gespeicherte Tarifentwürfe, keine Zahlungen. Der nächste Nachweis sind zwei echte Telefone und eine tatsächlich installierte Wallet-Karte.“ |
+
+Der zweite Standort und eine qualifizierte Empfehlung wurden vor der Aufnahme über die echten lokalen App-Routen eingerichtet. Kontaktverifikation und ausdrückliche Einwilligung erfolgten ebenfalls lokal über die echte Oberfläche, außerhalb der aufgenommenen Seite. Verfügbare Wallet-Aktionen sind mangels freigegebener Anbieter verborgen. Es gab keine externen E-Mails, Live-Zahlungen, echten Kunden oder Geräteprüfung. Die gespeicherten €49-Standortentwürfe wurden nicht auf den neuen Standard-Preisvorschlag von €69 umgestellt.
+
+Die neue einseitige Verkaufsunterlage ist [`full-platform-product-sheet-de.pdf`](full-platform-product-sheet-de.pdf). Technische Wiederholung und Gerätetest-Protokoll stehen im [Runbook](../RUNBOOK.md).
+
+## Frühere enge Browserkarten-Demonstration (archiviert)
 
 **Nur synthetische Daten.** Diese Fassung zeigt den lokal geprüften Browserablauf. Kamera-Scan auf echter Hardware und Telefon-zu-Telefon-Zugriff gehören zur separaten Gerätetestliste.
 

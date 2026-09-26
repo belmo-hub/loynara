@@ -2,6 +2,8 @@
 
 Status describes the strongest evidence available **in this installation**. `LOCAL_VERIFIED` means a local integration test or an exercised local browser path; `FIXTURE_VERIFIED` means a local cryptographic fixture or fake HTTP responder, not a live provider; `LIVE_DEVICE_VERIFIED` has not been achieved. See [TEST_EVIDENCE.md](TEST_EVIDENCE.md) for exact checks and [LAUNCH_BLOCKERS.md](LAUNCH_BLOCKERS.md) before any public use.
 
+Kassel demonstration pass: a new full-platform recording, 15 actual browser scene captures, and one-page German sheet are under `demo/` and `screenshots/kassel-*`. The separate device-test setup now supports an explicitly approved **Google Demo only** configuration with actual programme/logo-path enforcement before provider calls; it remains disabled. Protected HTTPS, hardware checkout and real Wallet checks are still pending. French merchant work has not started and follows those gates plus the updated demo.
+
 | Feature | Status | Evidence and boundary |
 | --- | --- | --- |
 | Merchant sign-up, first location, programme, reward, owner role | LOCAL_VERIFIED | PostgreSQL integration tests include simultaneous onboarding of one account. The assisted setup starts with six entries to transcribe the existing stamp/reward rule; advanced settings are collapsed and no stamp count is prefilled. A synthetic owner registered and completed this path in a local Chrome session; the form layout was also checked with an unconfigured-merchant browser response. Public registration is enabled only in the local demo configuration. |

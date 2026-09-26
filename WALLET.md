@@ -27,6 +27,24 @@ An Access-gated browser preview does not automatically make Apple device callbac
 
 For the first approved Android test, keep Google in **Demo Mode** and authorize the designated Android Google account as an issuer tester. The current adapter has no inbound Google callback, but it still lacks a provider-fetchable HTTPS PNG logo; the Access-protected browser origin alone cannot supply that asset. The current custom Save button also needs Google's supplied artwork before public use. [Google logo guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/faq) and [brand guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/brand-guidelines) are separate from fixture success. Mark the device test passed only after a pass actually installs and its displayed balance updates after both an award and redemption; a generated Save URL or REST-created object is insufficient. Google notes that display updates may take up to 24 hours in [prelaunch testing](https://developers.google.com/wallet/retail/loyalty-cards/test-and-go-live/prelaunch-testing).
 
+### Separate device-test Google Demo gate
+
+The default device-test configuration still disables both providers. After a **separate specific approval** for the issuer, designated Google account, synthetic programme and narrow public logo route, set the following in the existing restricted `var/device-test.env` locally. Existing files are not automatically altered by preparation. Do not paste credential contents in chat.
+
+| Setting | Required value after approval |
+| --- | --- |
+| `DEVICE_TEST_APPROVED_WALLET_PROVIDER` | `google-demo` |
+| `DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID` | Exact approved numeric issuer; must match `GOOGLE_WALLET_ISSUER_ID` |
+| `DEVICE_TEST_GOOGLE_TESTER_EMAIL` | Designated tester also configured in Google Console; this declaration does not register that account |
+| `DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL` | Exact queryless `https://<separately-approved-asset-host>/api/wallet/assets/google-logo/<approved-program-uuid>.png` |
+| `GOOGLE_WALLET_PROGRAM_LOGO_URL`, `GOOGLE_WALLET_ASSET_ORIGIN` | Same exact approved URL and its separate origin, respectively |
+| `GOOGLE_WALLET_ENABLED`, `GOOGLE_WALLET_ASSET_ENABLED`, `GOOGLE_WALLET_PUBLISHING_STATUS` | `true`, `true`, `demo` |
+| `GOOGLE_WALLET_SERVICE_ACCOUNT_FILE` | Absolute regular owner-only file outside this repository; no symlink; valid RSA service-account JSON |
+
+The browser origin and Access checks remain mandatory. Approval covers only the selected programme PNG path and its optional sole `?v=<16 lowercase hexadecimal characters>` content-version query. The adapter now checks the **actual selected logo and programme before any OAuth/provider request**; another programme, origin, path or query is rejected. The approved asset ingress must deny every other path and retain the browser hostname's Access protection. Environment declarations record approval; they cannot prove owner permission, issuer authorization, Google tester registration or a working external route.
+
+Before provider enablement, save the synthetic merchant's PNG through the existing brand editor and check the exact asset locally. The seed has no uploaded logo. Google's current guidance recommends at least 660×660 with the required safe margin; use its supplied localized Add-to-Wallet artwork. Once the narrow route is separately approved and live, verify Google can fetch the merchant logo, then perform Save → Wallet QR scan → award → observed displayed update → redeem → observed displayed update. Record elapsed provider display times separately from the committed ledger time. Real provider and hardware results remain **NOT RUN**. Apple stays disabled in this launcher until its own certificate/callback/device setup is supplied and specifically reviewed.
+
 ## Apple configuration
 
 Set `APPLE_WALLET_ENABLED=true` only after placing credentials outside the repository and configuring:

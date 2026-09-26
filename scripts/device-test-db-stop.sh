@@ -9,6 +9,6 @@ fi
 set -a
 . ./var/device-test.env
 set +a
-./node_modules/.bin/tsx scripts/device-test-assert.ts --prepare
+./node_modules/.bin/tsx scripts/device-test-assert.ts --database
 docker compose -p looplocal-device-test -f compose.device-test.yaml stop postgres
 echo "Device-test PostgreSQL stopped; its isolated volume was retained. Stop the foreground web/worker launcher with Ctrl-C first."

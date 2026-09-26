@@ -2,7 +2,7 @@ import { createPrivateKey, createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { WalletPassData, WalletStatus } from "./types";
 
-export type GoogleConfig = { issuerId: string; logoUrl: string };
+export type GoogleConfig = { issuerId: string; logoUrl: string; approvedDeviceTestLogoUrl?: string };
 export type GoogleCredentials = { clientEmail: string; privateKey: string };
 const API = "https://walletobjects.googleapis.com/walletobjects/v1";
 const SCOPE = "https://www.googleapis.com/auth/wallet_object.issuer";
@@ -30,12 +30,29 @@ export function googleConfig(env: Record<string, string | undefined> = process.e
   const status = googleWalletStatus(env);
   if (!status.ready) throw new Error(status.reason ?? "Google Wallet nicht verfügbar");
   const json = JSON.parse(readFileSync(env.GOOGLE_WALLET_SERVICE_ACCOUNT_FILE!, "utf8"));
-  return { issuerId: env.GOOGLE_WALLET_ISSUER_ID!, logoUrl: env.GOOGLE_WALLET_PROGRAM_LOGO_URL!, clientEmail: json.client_email, privateKey: json.private_key };
+  return {
+    issuerId: env.GOOGLE_WALLET_ISSUER_ID!, logoUrl: env.GOOGLE_WALLET_PROGRAM_LOGO_URL!, clientEmail: json.client_email, privateKey: json.private_key,
+    ...(env.DEVICE_TEST_APPROVED_WALLET_PROVIDER === "google-demo"
+      ? { approvedDeviceTestLogoUrl: env.DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL ?? "" } : {}),
+  };
 }
 
 export function googleClass(pass: WalletPassData, config: GoogleConfig) {
   const logoUrl = pass.googleLogoUrl ?? config.logoUrl;
   if (new URL(logoUrl).protocol !== "https:") throw new Error("Google logo must use HTTPS");
+  if (config.approvedDeviceTestLogoUrl !== undefined) {
+    // Approval covers one program PNG path and its optional content revision,
+    // not arbitrary programs or query parameters on the same asset origin.
+    try {
+      const approved = new URL(config.approvedDeviceTestLogoUrl);
+      const selected = new URL(logoUrl);
+      const program = approved.pathname.match(/^\/api\/wallet\/assets\/google-logo\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.png$/i)?.[1];
+      if (!program || pass.programId !== program || approved.protocol !== "https:"
+        || config.approvedDeviceTestLogoUrl !== `${approved.origin}${approved.pathname}`
+        || (selected.search !== "" && !/^\?v=[0-9a-f]{16}$/.test(selected.search))
+        || logoUrl !== `${config.approvedDeviceTestLogoUrl}${selected.search}`) throw new Error("Unapproved logo");
+    } catch { throw new Error("Google device-test program or selected logo is outside the approved route"); }
+  }
   return {
     id: `${config.issuerId}.program_${pass.programId}`,
     issuerName: pass.merchantName,
@@ -95,9 +112,9 @@ export class GoogleWalletClient {
   }
 
   async upsert(pass: WalletPassData, config: GoogleConfig): Promise<string> {
-    const token = await this.token();
     const cls = googleClass(pass, config);
     const object = googleObject(pass, config);
+    const token = await this.token();
     const classGet = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`, token);
     if (classGet.status === 404) {
       const inserted = await this.request("POST", "/loyaltyClass", token, cls);
