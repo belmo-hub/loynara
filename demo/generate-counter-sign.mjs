@@ -75,7 +75,7 @@ const html = `<!doctype html>
     <ol class="steps"><li><b>1</b>Programm lesen</li><li><b>2</b>Karte erstellen</li><li><b>3</b>An der Kasse zeigen</li></ol>
     <p class="join-url">${escape(joinUrl)}</p>
     <p class="note">${escape(accessNote)} Es werden keine echten Kundendaten benötigt. Die Teilnahmebedingungen in der Vorschau sind ein Entwurf.</p>
-    <p class="attribution">Mit LoopLocal</p>
+    <p class="attribution">Mit ${deviceTest ? "Loynara" : "LoopLocal"}</p>
   </main>
 </body>
 </html>

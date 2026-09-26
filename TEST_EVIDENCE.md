@@ -2,6 +2,17 @@
 
 Run dates: **2026-09-25–26**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
 
+## Approved Loynara destination — activation blocked after `7a8bd30`
+
+On 26 September the owner approved only `https://preview.getloynara.com`, zone `getloynara.com`, tunnel `loynara-device-test`, exact-email Access with a one-hour session, origin JWT enforcement and private `127.0.0.1:3002`, at **€0 additional spending**. The authenticated Cloudflare Profile UI confirmed the account email is verified; no credential was extracted. This supersedes the missing-destination-approval entries in earlier historical checkpoints.
+
+- Installed `cloudflared 2026.9.1` through Homebrew, following Cloudflare's official downloads guidance. No service or tunnel was started. The existing mode-0600 ignored device env retains its secrets; only the three approved origin fields were set. Access team/AUD are still absent. Wallet, external marketing, live billing, unrestricted registration and proxy-IP trust remain off.
+- `npm run device-test:prepare` **PASS**: isolated migrations, compiled `.next-device-test` build and worker pass (`0` due jobs). `npm test -- scripts/device-test-config.test.ts scripts/device-test-google-config.test.ts scripts/device-test-seed.test.ts scripts/local-guard.test.ts` **PASS, 4 files / 18 tests**, repeated after the sign change. `npm run device-test:start` correctly refused the absent Access team/AUD. Port 3002 remained closed. `npm run device-test:stop` then stopped only its database, retaining the isolated volume. Results are in the task tool history; no persistent test log was created.
+- Cloudflare required **new Zero Trust Free activation**. The actual checkout showed **$0/month** and required both Terms/Privacy acceptance and authorization for monthly usage charges beyond free limits. Both were left unchecked and Activate was not submitted. The owner was asked to review this contractual/overage prerequisite directly; no paid amount or future overage rate is inferred from the $0 base price.
+- Device-only generated-sign attribution now says **Loynara**; the existing local sign keeps LoopLocal. `node --check demo/generate-counter-sign.mjs` and `git diff --check` passed. No final device sign or device credentials were generated because Access and runtime startup are still blocked.
+
+**External resources changed: none. New spending: €0.** Protected HTTPS, health through that route, authorized/unauthorized browser checks, proxy headers/redirects, phone checkout and Wallet provider/device checks are **NOT RUN**. The only next owner action is reviewing/completing Zero Trust Free activation if acceptable; the approved app/policy/tunnel/DNS work can then continue without repeating destination approval. No French or additional feature work was started.
+
 ## Kassel demonstration and device-test checkpoint — `f0103d8`
 
 Tested implementation: **`f0103d8485340860a7b7d98bca6d974fd78a3db1`**, continuing clean `4e95aa7` with local checkpoint tag `checkpoint/kassel-demo-4e95aa7`. The following documentation-only evidence commit does not change tested code. Existing merchant/customer UI, ledger, mobile layout and product scope were retained; French merchant work was not started.
