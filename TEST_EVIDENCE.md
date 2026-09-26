@@ -2,6 +2,32 @@
 
 Run dates: **2026-09-25–26**. This file records observed local results. It does not establish production, provider, or physical-device readiness.
 
+## Kassel demonstration and device-test checkpoint — `f0103d8`
+
+Tested implementation: **`f0103d8485340860a7b7d98bca6d974fd78a3db1`**, continuing clean `4e95aa7` with local checkpoint tag `checkpoint/kassel-demo-4e95aa7`. The following documentation-only evidence commit does not change tested code. Existing merchant/customer UI, ledger, mobile layout and product scope were retained; French merchant work was not started.
+
+- **Local regression:** `npm test` passed **42 files / 194 tests**, including the configuration → selected merchant logo → Google class path, rejected programme/origin/query before any provider transport, and isolated shutdown after a key is removed. Lint, typecheck, shell/script syntax and compiled builds passed. Secret scan of staged changes found no leaks. The prior full browser suite remains the baseline; this pass exercised the 15-scene integrated workflow and compiled browser journey below.
+- **Separate device preparation:** `npm run device-test:prepare` applied migrations, built `.next-device-test`, and ran a worker pass against the isolated synthetic database (`0` due jobs). The mode-0600 existing secret file was retained without printing or committing values. The build reports an unset Better Auth base URL because destination approval is deliberately absent; this artifact cannot run via the runtime gate. On the tested revision, `npm run device-test:start` exited 1 with the expected three requirements: approved HTTPS origin, Access team and Access audience. No device-test web listener, tunnel or DNS route started. `npm run device-test:stop` stopped only its database and retained its volume.
+- **Compiled loopback runtime:** `npm run preview` built and started the isolated web/worker on `127.0.0.1:3001`; `/api/health` returned `{"status":"ok","database":"reachable"}`. `npm run preview:browser-check` passed join, reopen, manual lookup, award one, reach threshold 8, redeem and final persisted balance **0**. Camera was **NOT RUN** in that check. Both web/worker launchers were stopped with Ctrl-C afterward; ports 3000, 3001 and 3002 had no listener.
+- **Recorded actual local app:** `node scripts/record-full-platform-demo.mjs --verify` passed its rehearsal; the final recording command passed all **15 scenes**. Fresh synthetic owner/cashier sessions exercised reward creation, join/reopen, the actual QR decoder with a canvas camera stream, explicit 1 then 4 stamp awards, selected reward redemption, customer activity and owner dashboard updates, active audience **1 → 2**, an owned/verified/opted-in `.test` contact, scheduled campaign and **one Mailpit capture**, qualified referral reporting, staff/location views, pending offline award and server acceptance, and saved draft plans. Scanning alone left balance unchanged. Main card: **0 → 1 → 5 → 0**, then simulated offline pending left it **0** until acceptance made it **1**. No API responses or success states were fabricated. Referral/second-location setup and contact verification happened through real local routes/UI outside the recorded page.
+- **Media:** [`full-platform-kassel-synthetic.mp4`](demo/full-platform-kassel-synthetic.mp4) is **116.44 seconds**, H.264, 1440×900, no playback-speed adjustment. Final decoding passed; sampled frames and representative scene captures were visually reviewed. Fifteen captures are saved under `screenshots/kassel-*`. Camera/offline simulation and local mail are labelled in captions; video runtime is not a real checkout measurement. [`full-platform-kassel-evidence.json`](demo/full-platform-kassel-evidence.json) records the run. [`full-platform-product-sheet-de.pdf`](demo/full-platform-product-sheet-de.pdf) is one A4 page with editable HTML and a visually checked render. Proposed €69/€49/€99 prices are separate from stored app plan drafts and live billing.
+
+Artifact SHA-256: video `b646c91e107fb115414be38660bc98b33ace1939f86bee1ef32ac5122acac822`; PDF `7e7f5db85d99177bd06988c8f8a82103f14e59c386d9d625514dfdf3ba43600c`.
+
+Observed setup issue: the first local start failed because the existing Colima Docker runtime was stopped; `colima start` resolved it, then `npm run local` succeeded. Review found and fixed a mismatch between the approved Google fallback path and the actual selected versioned merchant logo before any provider was enabled. No unresolved automated regression failure remains in this checkpoint.
+
+| Evidence class | Result |
+| --- | --- |
+| Local app / browser automation | PASS as described above; synthetic data only |
+| Simulated camera and disconnect | PASS; no physical camera or phone used |
+| Wallet signing/HTTP/configuration fixtures | PASS; generated local fixture keys/fake responders only |
+| Protected HTTPS / allowed tester / denied unauthorized tester / proxy header and edge-log checks | **NOT RUN**; no approved hostname/account/zone/testers/cost; `cloudflared` absent |
+| Real customer phone → real cashier phone; scan/permission/timing results | **NOT RUN** |
+| Real Google Save, Wallet QR, award and redemption display updates | **NOT RUN**; no approved issuer/test account/key/asset route/device |
+| Real Apple install, registration, scan, APNs/fetch and updates | **NOT RUN**; no Apple-issued signing material/approved callbacks/device |
+
+External changes: **none**. External messages/live charges/spending: **0 / 0 / €0**. The single next owner input is the completed approval package in [RUNBOOK.md](RUNBOOK.md#separate-https-device-test-instance--local-preparation-only), including exact destination/account/zone, testers and confirmed cost. Do not replace these pending results with the local recording.
+
 ## Referral reporting checkpoint after `151bde3`
 
 The owner analytics now counts referral link attribution at join, bonus qualification after the first eligible checkout, and completed bonus reversal at its own recorded time. The same referral may appear in multiple event counts; there is no claimed conversion rate or incremental revenue. A synthetic lifecycle and controlled 30/90-day date shift verified tenant isolation and the distinct event windows. The actual Chrome referral journey reached the updated owner analytics screen after a reversal; [`platform-after-referral-analytics.png`](screenshots/platform-after-referral-analytics.png) shows the 1/1/1 counts and counting explanation.
