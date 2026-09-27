@@ -4,11 +4,22 @@ import { demoScreens, escapeText, stamps } from './views.js';
 import { parseMoney, calculate, trafficScenario } from './economics.js';
 const $ = (id) => document.getElementById(id);
 const input = (id) => $(id);
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let ready = false;
+const panelAnimations = new WeakMap();
+function animatePanel(element) {
+    if (!element || !ready || reducedMotion.matches)
+        return;
+    panelAnimations.get(element)?.cancel();
+    panelAnimations.set(element, element.animate([{ opacity: .7, translate: '0 5px' }, { opacity: 1, translate: '0 0' }], { duration: 240, easing: 'cubic-bezier(.2,.7,.2,1)' }));
+}
+reducedMotion.addEventListener('change', () => { if (reducedMotion.matches)
+    document.getAnimations().forEach(animation => animation.cancel()); });
 let industry = (document.body.dataset.industry || 'cafe');
 let state = initialDemo(industries[industry].threshold);
 const storyState = { return: 0, referral: 0 };
 const say = (message) => { $('demo-announcement').textContent = message; };
-function changeView(next) { $('demo-screens').dataset.view = next; document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === next))); }
+function changeView(next) { $('demo-screens').dataset.view = next; document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === next))); animatePanel($('demo-screens')); }
 function renderDemo() {
     const x = industries[industry], n = balance(state), target = x.threshold;
     const titles = ['Dein Geschäft legt die Prämie fest.', 'Der Kunde öffnet seine Karte.', 'Bezahlt wird wie bisher.', 'Dein Team bestätigt den Einkauf.', 'Fortschritt und Aktivität sind sichtbar.'];
@@ -21,8 +32,7 @@ function renderDemo() {
     else
         li.removeAttribute('aria-current'); });
     $('demo-screens').innerHTML = demoScreens(state, industry, input('business-name').value.trim());
-    $('demo-screens').classList.remove('changed');
-    requestAnimationFrame(() => $('demo-screens').classList.add('changed'));
+    animatePanel($('demo-screens'));
     const next = $('demo-next');
     next.disabled = !canAdvance(state);
     next.textContent = state.step === 0 ? 'Start →' : state.step === 4 ? 'Rundgang abgeschlossen' : 'Weiter →';
@@ -34,8 +44,9 @@ function renderDemo() {
     say(`Schritt ${state.step + 1}: ${titles[state.step]} Kartenstand ${n} von ${target} Stempeln.`);
 }
 function resetDemo() { state = initialDemo(industries[industry].threshold); changeView('customer'); renderDemo(); storyState.return = 0; storyState.referral = 0; renderStories(); }
-$('demo-next').addEventListener('click', () => { state = transition(state, 'next'); changeView(state.step === 2 || state.step === 3 ? 'cashier' : 'customer'); renderDemo(); });
-$('demo-back').addEventListener('click', () => { state = transition(state, 'back'); changeView(state.step === 2 || state.step === 3 ? 'cashier' : 'customer'); renderDemo(); });
+function focusDemoStep(keyboard) { const action = state.step === 1 && !state.enrolled ? '[data-action="enroll"]' : state.step === 3 && !state.identified ? '[data-action="identify"]' : state.step === 3 && !state.confirmed ? '[data-action="award"]' : '#step-title'; document.querySelector(action)?.focus({ preventScroll: !keyboard }); }
+$('demo-next').addEventListener('click', e => { state = transition(state, 'next'); changeView(state.step === 2 || state.step === 3 ? 'cashier' : 'customer'); renderDemo(); focusDemoStep(e.detail === 0); });
+$('demo-back').addEventListener('click', e => { state = transition(state, 'back'); changeView(state.step === 2 || state.step === 3 ? 'cashier' : 'customer'); renderDemo(); focusDemoStep(e.detail === 0); });
 $('reset-demo').addEventListener('click', () => { resetDemo(); $('demo-next').focus(); });
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => changeView(b.dataset.view)));
 document.querySelector('.demo-shell').addEventListener('click', e => {
@@ -55,14 +66,17 @@ function updateIndustry() {
     $('industry-visit').textContent = x.visit;
     $('industry-reward').textContent = x.reward;
     input('business-name').placeholder = x.name;
+    $('industry-preview-name').textContent = input('business-name').value.trim() || x.name;
+    $('industry-preview-threshold').textContent = String(x.threshold);
+    $('industry-preview-reward').textContent = x.reward;
     document.querySelectorAll('[data-business]').forEach(el => el.textContent = input('business-name').value.trim() || x.name);
     document.querySelectorAll('[data-reward]').forEach(el => el.textContent = `${x.reward} · nach ${x.threshold} Stempeln`);
     document.querySelectorAll('[data-industry-choice]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.industryChoice === industry)));
     $('industry-variant').hidden = true;
     $('return-industry').textContent = x.offer;
     $('referral-industry').textContent = x.referral;
-    document.querySelector('.hero-card').classList.remove('changed');
-    requestAnimationFrame(() => document.querySelector('.hero-card').classList.add('changed'));
+    animatePanel(document.querySelector('.industry-context'));
+    animatePanel(document.querySelector('.hero-card'));
     heroStage = 0;
     renderHero();
     resetDemo();
@@ -70,7 +84,7 @@ function updateIndustry() {
 }
 document.querySelectorAll('[data-industry-choice]').forEach(b => b.addEventListener('click', () => { industry = b.dataset.industryChoice; updateIndustry(); }));
 $('variant').addEventListener('change', () => { industry = $('variant').value; updateIndustry(); });
-input('business-name').addEventListener('input', () => { document.querySelectorAll('[data-business]').forEach(el => el.textContent = input('business-name').value.trim() || industries[industry].name); renderDemo(); renderStories(); });
+input('business-name').addEventListener('input', () => { const name = input('business-name').value.trim() || industries[industry].name; document.querySelectorAll('[data-business],[data-demo-business]').forEach(el => el.textContent = name); $('industry-preview-name').textContent = name; renderStories(); });
 function renderStories() {
     const x = industries[industry];
     const stories = {
@@ -94,9 +108,11 @@ let examples = false;
 function recalculate() {
     const offer = $('offer').value, period = $('period').value;
     const fee = periodCost(offer, period);
+    document.querySelectorAll('[data-price],[data-traffic-price]').forEach(button => button.setAttribute('aria-pressed', String((button.dataset.price || button.dataset.trafficPrice) === offer)));
+    document.querySelectorAll('[data-offer]').forEach(article => article.classList.toggle('price-selected', article.dataset.offer === offer));
     $('fee').textContent = euro(fee);
     $('period-label').textContent = period === 'first' ? 'Erster Monat inklusive Einrichtung' : 'Monatliche Softwaregebühr';
-    recalculateTraffic();
+    recalculateTraffic(false);
     $('assumption-label').textContent = examples ? 'Beispielannahmen geladen. Änderungen sind deine Annahmen, keine Prognose. Alle Werte bleiben auf dieser Seite.' : 'Deine Eingaben bleiben auf dieser Seite und werden nicht übertragen.';
     $('calc-error').textContent = '';
     for (const id of ['contribution', 'rewards', 'effort', 'revenue', 'visits'])
@@ -146,6 +162,7 @@ function recalculate() {
         $('scenario').hidden = true;
         $('cost-caveat').textContent = 'Es wird kein Ergebnis aus ungültigen Eingaben angezeigt.';
     }
+    announceCalculation('calculator');
 }
 $('calculator').addEventListener('submit', e => e.preventDefault());
 $('calculator').addEventListener('input', recalculate);
@@ -155,7 +172,9 @@ $('load-example').addEventListener('click', () => { examples = true; for (const 
     input(id).value = v; $('calc-details').open = true; recalculate(); });
 $('use-draft').addEventListener('click', () => { $('offer').value = 'introDraft'; $('period').value = 'first'; recalculate(); $('rechner').scrollIntoView(); $('offer').focus({ preventScroll: true }); });
 const trafficIds = ['traffic-customers', 'traffic-basket', 'traffic-days', 'traffic-uplift'];
-function recalculateTraffic() {
+function recalculateTraffic(announce = true) { updateTrafficResults(); if (announce)
+    announceCalculation('traffic-form'); }
+function updateTrafficResults() {
     const offer = $('offer').value;
     $('traffic-fee').textContent = euro(offers[offer].monthly);
     document.querySelectorAll('[data-traffic-price]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.trafficPrice === offer)));
@@ -202,11 +221,8 @@ function recalculateTraffic() {
 function syncTrafficRange(id) {
     const numeric = id === 'traffic-basket' ? Number(input(id).value.replace(',', '.')) : Number(input(id).value);
     const range = input(`${id}-range`);
-    range.hidden = input(id).value.trim() === '' || !Number.isFinite(numeric) || numeric < Number(range.min) || numeric > Number(range.max);
-    if (!range.hidden) {
-        range.value = String(numeric);
-        range.style.setProperty('--range-fill', `${(numeric - Number(range.min)) / (Number(range.max) - Number(range.min)) * 100}%`);
-    }
+    range.value = String(Number.isFinite(numeric) ? Math.max(Number(range.min), Math.min(Number(range.max), numeric)) : Number(range.min));
+    range.style.setProperty('--range-fill', `${(Number(range.value) - Number(range.min)) / (Number(range.max) - Number(range.min)) * 100}%`);
 }
 for (const id of trafficIds) {
     input(id).addEventListener('input', () => { syncTrafficRange(id); $('traffic-assumption').textContent = 'Deine Annahmen, kein erwarteter Loynara-Effekt. Diese Werte bleiben auf dieser Seite.'; recalculateTraffic(); });
@@ -221,14 +237,45 @@ $('traffic-sample').addEventListener('click', () => { for (const [id, value] of 
     input(id).value = value;
     syncTrafficRange(id);
 } $('traffic-assumption').textContent = 'Beispielrechnung: 50 Kunden/Tag, 70 € Bon, 26 Tage, 10 % zusätzlich. Kein erwarteter Loynara-Effekt. Änderungen sind deine Annahmen.'; recalculateTraffic(); });
-document.querySelectorAll('[data-traffic-price]').forEach(button => button.addEventListener('click', () => { $('offer').value = button.dataset.trafficPrice; recalculate(); }));
+document.querySelectorAll('[data-traffic-price]').forEach(button => button.addEventListener('click', () => { $('offer').value = button.dataset.trafficPrice; recalculate(); announceCalculation('traffic-form'); }));
 const features = {
     growth: { src: 'referrals.webp', alt: 'Echter Empfehlungsbericht mit synthetischer Bonusqualifikation', caption: 'Empfehlungsbericht · echte Anwendung mit Beispieldaten', status: 'Lokal mit Beispieldaten geprüft', detail: 'Empfehlungen werden zugeordnet und erst nach dem qualifizierenden Besuch belohnt. Rollen und Standorte begrenzen Teamzugriffe. Anonyme Identitäten lassen sich nicht perfekt deduplizieren.' },
     programme: { src: 'rewards.webp', alt: 'Echte Prämienverwaltung mit zwei synthetischen Prämienstufen', caption: 'Prämienverwaltung · separates 5-/10-Stempel-Beispiel aus der Anwendung', status: 'Im geschützten Pilot', detail: 'Regeln, Markenauftritt und eine geordnete Auswahl an Prämien werden gespeichert. Guthaben bleibt im definierten Programm und Standort.' },
     activity: { src: 'merchant-dashboard.webp', alt: 'Echte Inhaberübersicht mit synthetischen Buchungen', caption: 'Aktivitätsübersicht · echte Anwendung mit Beispieldaten', status: 'Im geschützten Pilot', detail: 'Pseudonyme Karten und Buchungen machen erfasste Aktivität sichtbar. Berichte zeigen Datenfenster und Zählregeln. Erfasste Käufe allein beweisen keinen zusätzlichen Umsatz.' },
     offers: { src: 'campaign.webp', alt: 'Echter Kampagnenentwurf mit synthetischer Zielgruppe', caption: 'Kampagnenentwurf · echte Anwendung mit Beispieldaten', status: 'Vorbereitung lokal geprüft · externer Versand in Vorbereitung', detail: 'Zielgruppen, Entwürfe, Planung und Einwilligungsprüfung sind lokal getestet. Nachrichten wurden nur lokal aufgefangen. Empfehlungen belohnen erst ein konfiguriertes, bestätigtes Ereignis.' },
 };
-document.querySelectorAll('[data-feature]').forEach(b => b.addEventListener('click', () => { const f = features[b.dataset.feature]; document.querySelectorAll('[data-feature]').forEach(v => v.setAttribute('aria-pressed', String(v === b))); const img = $('feature-image'); img.src = `/assets/${f.src}`; img.alt = f.alt; $('feature-caption').textContent = f.caption; $('feature-detail').innerHTML = `<strong>${f.status}</strong><p>${f.detail}</p>`; }));
+let featureRequest = 0, loadedFeature = 'programme';
+document.querySelectorAll('[data-feature]').forEach(b => b.addEventListener('click', async () => {
+    const request = ++featureRequest, key = b.dataset.feature, f = features[key];
+    document.querySelectorAll('[data-feature]').forEach(v => v.setAttribute('aria-pressed', String(v === b)));
+    const panel = document.querySelector('.product-capture');
+    panel.setAttribute('aria-busy', 'true');
+    const prepared = new Image();
+    prepared.src = `/assets/${f.src}`;
+    try {
+        await prepared.decode();
+        if (request !== featureRequest)
+            return;
+        const img = $('feature-image');
+        img.src = prepared.src;
+        img.alt = f.alt;
+        loadedFeature = key;
+        $('feature-caption').textContent = f.caption;
+        $('feature-detail').innerHTML = `<strong>${f.status}</strong><p>${f.detail}</p>`;
+        animatePanel(img);
+        animatePanel($('feature-detail'));
+    }
+    catch {
+        if (request !== featureRequest)
+            return;
+        document.querySelectorAll('[data-feature]').forEach(v => v.setAttribute('aria-pressed', String(v.dataset.feature === loadedFeature)));
+        $('feature-caption').textContent = 'Diese Ansicht konnte nicht geladen werden. Bitte erneut auswählen.';
+    }
+    finally {
+        if (request === featureRequest)
+            panel.removeAttribute('aria-busy');
+    }
+}));
 $('contact-draft').addEventListener('submit', e => e.preventDefault());
 $('download-brief').addEventListener('click', () => { const business = input('contact-business').value.trim() || input('business-name').value.trim() || industries[industry].name; const content = `Loynara – Gesprächsnotiz (lokal erstellt, nicht gesendet)\n\nGeschäft: ${business}\nBereich: ${industries[industry].label}\nKontakt (optional): ${input('contact-email').value.trim()}\n\nMeine Fragen:\n${$('contact-question').value}\n\nPreisvorschläge und Vertragsbedingungen vor einer Bestellung abstimmen.\n`; const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' })); const a = document.createElement('a'); a.href = url; a.download = 'loynara-gespraechsnotiz.txt'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); $('brief-status').textContent = 'Notiz lokal heruntergeladen. Keine Anfrage versendet.'; });
 let heroStage = 0;
@@ -248,7 +295,7 @@ function renderHero() {
         el.removeAttribute('aria-current'); });
     document.querySelector('.hero-scene').dataset.stage = String(heroStage);
 }
-$('hero-play').addEventListener('click', () => { heroStage = (heroStage + 1) % 4; renderHero(); });
+$('hero-play').addEventListener('click', () => { heroStage = (heroStage + 1) % 4; renderHero(); animatePanel(document.querySelector('.hero-confirm')); animatePanel(document.querySelector('.hero-owner')); $('hero-announcement').textContent = `${$('hero-confirm-title').textContent} ${$('hero-balance').textContent}`; });
 const menu = $('menu-toggle');
 menu.addEventListener('click', () => { const open = menu.getAttribute('aria-expanded') !== 'true'; menu.setAttribute('aria-expanded', String(open)); $('main-nav').classList.toggle('open', open); });
 $('main-nav').addEventListener('click', e => { if (e.target.closest('a')) {
@@ -260,9 +307,47 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && menu.getAt
     $('main-nav').classList.remove('open');
     menu.focus();
 } });
-document.querySelectorAll('[data-price]').forEach(button => button.addEventListener('click', () => { const key = button.dataset.price; document.querySelectorAll('[data-price]').forEach(b => b.setAttribute('aria-pressed', String(b === button))); document.querySelectorAll('[data-offer]').forEach(article => article.classList.toggle('price-selected', article.dataset.offer === key)); $('offer').value = key; recalculate(); }));
+document.querySelectorAll('[data-price]').forEach(button => button.addEventListener('click', () => { $('offer').value = button.dataset.price; recalculate(); }));
+// Indicators follow the selected control without delaying its action or changing page position.
+for (const selector of ['.industry-options', '.view-options', '.price-switch']) {
+    const group = document.querySelector(selector);
+    const indicator = document.createElement('span');
+    indicator.className = 'selection-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    group.prepend(indicator);
+    group.dataset.indicator = 'true';
+    const position = () => { const selected = group.querySelector('button[aria-pressed="true"]'); indicator.hidden = !selected; if (!selected)
+        return; indicator.style.width = `${selected.offsetWidth}px`; indicator.style.height = `${selected.offsetHeight}px`; indicator.style.transform = `translate(${selected.offsetLeft}px,${selected.offsetTop}px)`; };
+    new MutationObserver(position).observe(group, { subtree: true, attributes: true, attributeFilter: ['aria-pressed'] });
+    new ResizeObserver(position).observe(group);
+    document.fonts.ready.then(position);
+    position();
+}
+let calculationAnnouncement;
+function announceCalculation(id) {
+    if (!ready)
+        return;
+    clearTimeout(calculationAnnouncement);
+    calculationAnnouncement = setTimeout(() => {
+        const error = $(id === 'traffic-form' ? 'traffic-error' : 'calc-error').textContent;
+        $('calculation-announcement').textContent = error || (id === 'traffic-form'
+            ? $('traffic-monthly-revenue').textContent === '–' ? 'Bitte alle vier Annahmen angeben.' : `${$('traffic-monthly-revenue').textContent} zusätzlicher Monatsumsatz im Rechenbeispiel. ${$('traffic-after-fee').textContent} nach Softwaregebühr, vor weiteren Kosten.`
+            : `${$('required').textContent} ${$('required-label').textContent}. ${$('result-explanation').textContent}${$('scenario').hidden ? '' : ` Szenario: ${$('scenario-revenue').textContent} zusätzlicher Umsatz. ${$('scenario-change').textContent} geschätzte Beitragsänderung nach angegebenen Kosten.`}`);
+    }, 300);
+}
+// Content is always visible. Entrances are brief enhancements, never a loading gate.
+if ('IntersectionObserver' in window) {
+    const reveal = new IntersectionObserver(entries => { for (const entry of entries)
+        if (entry.isIntersecting) {
+            animatePanel(entry.target);
+            reveal.unobserve(entry.target);
+        } }, { threshold: .12 });
+    document.querySelectorAll('.section-heading,.contrast-table,.industry-context,.demo-shell,.traffic-calculator,.value-layout,.setup-list,.offer-grid,.tap-object').forEach(el => reveal.observe(el));
+}
 // No cookies, persistence, analytics or outbound requests. All interactive state is page-local.
 document.querySelectorAll('button:disabled').forEach(b => { if (!b.matches('[type=submit]'))
     b.disabled = false; });
 updateIndustry();
 recalculate();
+trafficIds.forEach(syncTrafficRange);
+ready = true;

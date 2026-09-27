@@ -3,7 +3,8 @@
     "browser": "153.0.8010.53",
     "host": "Mac / loopback static server",
     "hardware": "Browser emulation only. No physical phone testing.",
-    "performance": "Single lab page load: 390×844, CPU 4× slowdown, 1.6 Mbps down / 750 Kbps up, 40 ms latency. Not field INP or real-user data."
+    "performance": "Single lab page load: 390×844, CPU 4× slowdown, 1.6 Mbps down / 750 Kbps up, 40 ms latency. Not field INP or real-user data.",
+    "screenshots": "Responsive screenshots use reduced motion; the interactive journeys above use normal motion."
   },
   "checks": [
     {
@@ -11,11 +12,15 @@
       "result": "PASS"
     },
     {
+      "name": "Calculator controls preserve layout and exact input values; price selections agree throughout the page",
+      "result": "PASS"
+    },
+    {
       "name": "Calculator: blanks, German decimals, 7/10 visits, €1/-€79 scenarios, invalid amounts and first-month pricing",
       "result": "PASS"
     },
     {
-      "name": "Four-input traffic scenario: observed arithmetic, zero uplift, German decimals, bounds and reset",
+      "name": "Four-input scenario arithmetic, zero, decimals, bounds, reset and concise announcements for programmatic changes",
       "result": "PASS"
     },
     {
@@ -87,6 +92,10 @@
       "result": "PASS"
     },
     {
+      "name": "Selected offer, hero confirmation, benefits and contact card retain readable contrast",
+      "result": "PASS"
+    },
+    {
       "name": "FAQ accordions and key touch targets ≥44px",
       "result": "PASS"
     },
@@ -104,10 +113,10 @@
     }
   ],
   "lab": {
-    "lcp": 1108,
+    "lcp": 1464,
     "cls": 0,
-    "longTasks": 96,
-    "resources": 129867
+    "longTasks": 121,
+    "resources": 194956
   },
   "screenshots": [
     "home-360.png",
@@ -116,10 +125,14 @@
     "home-1024.png",
     "home-1440.png"
   ],
-  "sourceHash": "f0094e0ab931e2552795cfacc70e879759738cf29a5fd87e65ab991688c347f1",
+  "sourceHash": "487e59b364fd5c630b67effc8a0ae5f625cc244ea18e1bedd76a4583b7e9a78c",
   "contrast": {
-    "primaryText": 6.6482045946770185,
-    "inputBoundary": 4.101200044000302,
-    "bodyText": 11.369520105220422
+    "primaryText": 6.661606798081813,
+    "inputBoundary": 3.888590493425904,
+    "bodyText": 11.490920442977298,
+    "priceText": 11.623709413168475,
+    "heroConfirmation": 6.410191552181969,
+    "benefitText": 9.698551600863194,
+    "contactText": 5.583448549174896
   }
 }
