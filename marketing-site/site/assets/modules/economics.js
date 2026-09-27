@@ -26,3 +26,10 @@ export function calculate(f, m, b, h, n, r) {
     const complete = b !== null && h !== null, cost = f + (b ?? 0) + (h ?? 0);
     return { complete, cost, required: m !== null && m > 0 ? Math.ceil(cost / m) : null, change: complete && m !== null && n !== null ? n * m - cost : null, revenue: n !== null && r !== null ? n * r : null };
 }
+export function trafficScenario(customersPerDay, basketCents, openDays, assumedUpliftPercent, monthlyFeeCents) {
+    if (!Number.isInteger(customersPerDay) || customersPerDay < 0 || customersPerDay > 500 || !Number.isSafeInteger(basketCents) || basketCents < 0 || basketCents > 50_000 || !Number.isInteger(openDays) || openDays < 1 || openDays > 31 || !Number.isInteger(assumedUpliftPercent) || assumedUpliftPercent < 0 || assumedUpliftPercent > 100 || !Number.isSafeInteger(monthlyFeeCents) || monthlyFeeCents <= 0)
+        throw new Error('Bitte gültige Werte für Kunden, Bon, Öffnungstage und Annahme eingeben.');
+    const monthlyRevenue = Math.round(customersPerDay * basketCents * openDays * assumedUpliftPercent / 100);
+    const revenueLessFee = monthlyRevenue - monthlyFeeCents;
+    return { monthlyRevenue, revenueLessFee, revenueToFee: Math.round(monthlyRevenue / monthlyFeeCents), annualRevenueLessFees: revenueLessFee * 12 };
+}

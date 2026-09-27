@@ -1,7 +1,7 @@
 import { industries, offers, periodCost, euro } from './config.js';
 import { initialDemo, transition, balance, canAdvance } from './demo.js';
 import { demoScreens, escapeText, stamps } from './views.js';
-import { parseMoney, calculate } from './economics.js';
+import { parseMoney, calculate, trafficScenario } from './economics.js';
 const $ = (id) => document.getElementById(id);
 const input = (id) => $(id);
 let industry = (document.body.dataset.industry || 'cafe');
@@ -96,6 +96,7 @@ function recalculate() {
     const fee = periodCost(offer, period);
     $('fee').textContent = euro(fee);
     $('period-label').textContent = period === 'first' ? 'Erster Monat inklusive Einrichtung' : 'Monatliche Softwaregebühr';
+    recalculateTraffic();
     $('assumption-label').textContent = examples ? 'Beispielannahmen geladen. Änderungen sind deine Annahmen, keine Prognose. Alle Werte bleiben auf dieser Seite.' : 'Deine Eingaben bleiben auf dieser Seite und werden nicht übertragen.';
     $('calc-error').textContent = '';
     for (const id of ['contribution', 'rewards', 'effort', 'revenue', 'visits'])
@@ -153,6 +154,68 @@ $('calculator').addEventListener('reset', () => { examples = false; requestAnima
 $('load-example').addEventListener('click', () => { examples = true; for (const [id, v] of Object.entries({ contribution: '8', rewards: '20', effort: '10', revenue: '18', visits: '10' }))
     input(id).value = v; $('calc-details').open = true; recalculate(); });
 $('use-draft').addEventListener('click', () => { $('offer').value = 'introDraft'; $('period').value = 'first'; recalculate(); $('rechner').scrollIntoView(); $('offer').focus({ preventScroll: true }); });
+const trafficIds = ['traffic-customers', 'traffic-basket', 'traffic-days', 'traffic-uplift'];
+function recalculateTraffic() {
+    const offer = $('offer').value;
+    $('traffic-fee').textContent = euro(offers[offer].monthly);
+    $('traffic-error').textContent = '';
+    for (const id of trafficIds)
+        input(id).removeAttribute('aria-invalid');
+    const clear = () => { for (const id of ['traffic-monthly-revenue', 'traffic-after-fee', 'traffic-ratio', 'traffic-annual'])
+        $(id).textContent = '–'; };
+    if (trafficIds.some(id => input(id).value.trim() === '')) {
+        clear();
+        return;
+    }
+    try {
+        const integer = (id, min, max) => { const raw = input(id).value.trim(); if (!/^\d+$/.test(raw) || Number(raw) < min || Number(raw) > max) {
+            input(id).setAttribute('aria-invalid', 'true');
+            throw new Error(`Bitte ${min} bis ${max} als ganze Zahl eingeben.`);
+        } return Number(raw); };
+        const customers = integer('traffic-customers', 0, 500), days = integer('traffic-days', 1, 31), uplift = integer('traffic-uplift', 0, 20);
+        let basket;
+        try {
+            basket = parseMoney(input('traffic-basket').value);
+        }
+        catch (e) {
+            input('traffic-basket').setAttribute('aria-invalid', 'true');
+            throw e;
+        }
+        if (basket === null || basket < 0 || basket > 50_000) {
+            input('traffic-basket').setAttribute('aria-invalid', 'true');
+            throw new Error('Bitte einen Bon von 0 bis 500 € eingeben.');
+        }
+        const result = trafficScenario(customers, basket, days, uplift, offers[offer].monthly);
+        $('traffic-monthly-revenue').textContent = euro(result.monthlyRevenue);
+        $('traffic-after-fee').textContent = euro(result.revenueLessFee);
+        $('traffic-ratio').textContent = `${result.revenueToFee}×`;
+        $('traffic-annual').textContent = euro(result.annualRevenueLessFees);
+        $('traffic-after-fee').classList.toggle('negative', result.revenueLessFee < 0);
+        $('traffic-annual').classList.toggle('negative', result.annualRevenueLessFees < 0);
+    }
+    catch (e) {
+        clear();
+        $('traffic-error').textContent = e instanceof Error ? e.message : 'Bitte die Eingaben prüfen.';
+    }
+}
+function syncTrafficRange(id) {
+    const numeric = id === 'traffic-basket' ? Number(input(id).value.replace(',', '.')) : Number(input(id).value);
+    const range = input(`${id}-range`);
+    range.hidden = input(id).value.trim() === '' || !Number.isFinite(numeric) || numeric < Number(range.min) || numeric > Number(range.max);
+    if (!range.hidden)
+        range.value = String(numeric);
+}
+for (const id of trafficIds) {
+    input(id).addEventListener('input', () => { syncTrafficRange(id); recalculateTraffic(); });
+    input(`${id}-range`).addEventListener('input', () => { input(id).value = input(`${id}-range`).value; recalculateTraffic(); });
+}
+$('traffic-form').addEventListener('submit', e => e.preventDefault());
+$('traffic-form').addEventListener('reset', () => { requestAnimationFrame(() => { for (const id of trafficIds)
+    syncTrafficRange(id); $('traffic-assumption').textContent = 'Keine Werte vorausgefüllt. Gib deine Annahmen ein oder lade ein sichtbar gekennzeichnetes Beispiel. 0 % ist möglich.'; recalculateTraffic(); }); });
+$('traffic-sample').addEventListener('click', () => { for (const [id, value] of Object.entries({ 'traffic-customers': '50', 'traffic-basket': '70', 'traffic-days': '26', 'traffic-uplift': '10' })) {
+    input(id).value = value;
+    syncTrafficRange(id);
+} $('traffic-assumption').textContent = 'Beispielannahmen: 50 Kunden/Tag, 70 € Bon, 26 Tage, 10 % zusätzlich. Kein erwarteter Loynara-Effekt. Änderungen sind deine Annahmen.'; recalculateTraffic(); });
 const features = {
     growth: { src: 'referrals.webp', alt: 'Echter Empfehlungsbericht mit synthetischer Bonusqualifikation', caption: 'Empfehlungsbericht · echte Anwendung mit Beispieldaten', status: 'Lokal mit Beispieldaten geprüft', detail: 'Empfehlungen werden zugeordnet und erst nach dem qualifizierenden Besuch belohnt. Rollen und Standorte begrenzen Teamzugriffe. Anonyme Identitäten lassen sich nicht perfekt deduplizieren.' },
     programme: { src: 'rewards.webp', alt: 'Echte Prämienverwaltung mit zwei synthetischen Prämienstufen', caption: 'Prämienverwaltung · separates 5-/10-Stempel-Beispiel aus der Anwendung', status: 'Im geschützten Pilot', detail: 'Regeln, Markenauftritt und eine geordnete Auswahl an Prämien werden gespeichert. Guthaben bleibt im definierten Programm und Standort.' },

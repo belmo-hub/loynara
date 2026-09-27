@@ -11,6 +11,10 @@
       "result": "PASS"
     },
     {
+      "name": "Four-input traffic scenario: observed arithmetic, zero uplift, German decimals, bounds and reset",
+      "result": "PASS"
+    },
+    {
       "name": "Industry changes reset demo, preserve economics, and safely display business names",
       "result": "PASS"
     },
@@ -96,10 +100,10 @@
     }
   ],
   "lab": {
-    "lcp": 996,
+    "lcp": 1052,
     "cls": 0,
     "longTasks": 0,
-    "resources": 117198
+    "resources": 125002
   },
   "screenshots": [
     "home-360.png",
@@ -108,7 +112,7 @@
     "home-1024.png",
     "home-1440.png"
   ],
-  "sourceHash": "3c1cbc6bbaee59e3f315509e9fca943934227f9db4a5d7d4fe3016a3d8e2a5c0",
+  "sourceHash": "450fe759b2e5b0ef561b148ba5166c055c1e20920526f4d9317653eb12c35841",
   "contrast": {
     "primaryText": 6.6482045946770185,
     "inputBoundary": 4.101200044000302,

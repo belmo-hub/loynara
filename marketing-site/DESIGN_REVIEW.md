@@ -32,8 +32,14 @@ Reworded the hero from selling primarily a browser card to a customer-retention 
 
 ## Verification and deployment
 
+### Four-input revenue scenario (27 September 2026)
+
+The live Fidelix calculator showed customers/day × basket × open days/month × assumed traffic gain. Its public default of 50 × 70 DH × 26 × 10% produced 9,100 DH in added monthly revenue; subtracting its 397 DH monthly fee produced 8,703 DH, a rounded revenue-to-fee multiple of 23 and 104,436 DH over 12 equal months. This is the observed arithmetic, not a verified effect of loyalty software.
+
+Loynara now runs that same calculation with its own EUR monthly price proposal and optional sample values. Inputs start blank; 0% is available; number fields supplement sliders. The resulting amount after fee is labelled as revenue after **only** the software fee, and the multiple as revenue divided by that fee. Neither is presented as net profit or ROI because direct and programme costs are absent. The existing contribution-based cost coverage calculator remains above it and can include setup and other costs. Browser checks cover arithmetic, sliders, German decimals, validation, zero, reset and responsive layout. The audit-site copy needs a separate deployment after this revision.
+
 `npm run typecheck -- --pretty false`, `npm run lint`, `npm run marketing:test`, `npm run marketing:build`, `npm run marketing:verify`; existing `node marketing-site/browser-check.mjs` extended for eight industries, hero states, price synchronization, five viewports, navigation, FAQ, recording and key target sizes. Browser evidence, source hash, contrast ratios and a single throttled lab load are in `browser-evidence.json`. Screenshots are local under `evidence/premium-pass/`; `INDEX.md` lists them. Browser emulation and zoom-equivalent reflow are not physical phone or assistive-technology evidence. No field INP or conversion measurement is claimed.
 
-Final results: typecheck/lint/build/static verification PASS; 8 marketing/calculator tests PASS; 22 browser checks PASS. One throttled lab run: LCP 996 ms, CLS 0, no observed long tasks. Output and staged secret scans passed. No physical-device, screen-reader, field-INP or conversion measurement.
+Final results for the four-input update: typecheck/lint/build/static verification PASS; 11 marketing/calculator tests PASS; 23 browser checks PASS. One throttled lab run: LCP 1052 ms, CLS 0, no observed long tasks. Output secret scans passed. No physical-device, screen-reader, field-INP or conversion measurement.
 
 Audit packaging: `node marketing-site/audit-build.mjs` creates only `var/loynara-audit-ready`, with the existing audit destination, explicit banner and noindex metadata/header. It publishes nothing. Root deployment remains blocked by `LEGAL_LAUNCH_FIELDS.md`; `MARKETING_PUBLIC=true` still refuses activation. Published after owner sign-in; see README deployment evidence. Web text-fetch compatibility remains unverified despite browser/anonymous HTTP success.
