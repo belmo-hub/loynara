@@ -15,6 +15,10 @@
       "result": "PASS"
     },
     {
+      "name": "Eight industries and explicit hero visit/activity/return/reset controls",
+      "result": "PASS"
+    },
+    {
       "name": "Journey: enrollment → separate payment → identify without award → explicit +1 → owner history → labelled time jump → redemption → reset",
       "result": "PASS"
     },
@@ -24,6 +28,10 @@
     },
     {
       "name": "Real captures load and conversation note downloads; contact submission stays disabled",
+      "result": "PASS"
+    },
+    {
+      "name": "Price controls synchronize the calculator without changing economics",
       "result": "PASS"
     },
     {
@@ -40,6 +48,10 @@
     },
     {
       "name": "768×1024: layout and readable demo view switching",
+      "result": "PASS"
+    },
+    {
+      "name": "1024×768: layout and readable demo view switching",
       "result": "PASS"
     },
     {
@@ -67,26 +79,39 @@
       "result": "PASS"
     },
     {
+      "name": "FAQ accordions and key touch targets ≥44px",
+      "result": "PASS"
+    },
+    {
+      "name": "Draft pricing CTA and on-demand genuine recording controls",
+      "result": "PASS"
+    },
+    {
+      "name": "Every visible internal navigation/CTA reaches its declared section",
+      "result": "PASS"
+    },
+    {
       "name": "No application errors or third-party requests in exercised marketing flows",
       "result": "PASS"
     }
   ],
   "lab": {
-    "lcp": 708,
+    "lcp": 996,
     "cls": 0,
     "longTasks": 0,
-    "resources": 88865
+    "resources": 117198
   },
   "screenshots": [
     "home-360.png",
     "home-390.png",
     "home-768.png",
+    "home-1024.png",
     "home-1440.png"
   ],
-  "sourceHash": "0ac868e1a00f5b9fb8e478c4c64ee35cb2a4b965b25a78df1f97e60dc1442661",
+  "sourceHash": "3c1cbc6bbaee59e3f315509e9fca943934227f9db4a5d7d4fe3016a3d8e2a5c0",
   "contrast": {
-    "primaryText": 7.084379513697871,
+    "primaryText": 6.6482045946770185,
     "inputBoundary": 4.101200044000302,
-    "bodyText": 13.070829332879834
+    "bodyText": 11.369520105220422
   }
 }
