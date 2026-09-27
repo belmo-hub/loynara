@@ -113,10 +113,10 @@
     }
   ],
   "lab": {
-    "lcp": 1464,
+    "lcp": 1756,
     "cls": 0,
-    "longTasks": 121,
-    "resources": 194956
+    "longTasks": 159,
+    "resources": 242482
   },
   "screenshots": [
     "home-360.png",
@@ -125,7 +125,7 @@
     "home-1024.png",
     "home-1440.png"
   ],
-  "sourceHash": "487e59b364fd5c630b67effc8a0ae5f625cc244ea18e1bedd76a4583b7e9a78c",
+  "sourceHash": "c5286e8e2d2c9ff9decd3abdb9e5b0e51b07ced0d123e14205754a2131556fc3",
   "contrast": {
     "primaryText": 6.661606798081813,
     "inputBoundary": 3.888590493425904,

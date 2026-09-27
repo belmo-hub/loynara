@@ -70,3 +70,40 @@ button,.button,summary,a{-webkit-tap-highlight-color:transparent}.button{border-
 .traffic-field input[type=range]::-webkit-slider-thumb{border-color:#a45c43}.traffic-field input[type=range]::-moz-range-thumb{border-color:#a45c43}
 @media(max-width:380px){.header .nav{gap:9px}.header .brand{font-size:1.27rem}.nav-cta{padding-inline:13px}.nav-cta span[aria-hidden]{display:none}.hero h1{font-size:2.5rem}}
 @media(prefers-reduced-motion:reduce){.selection-indicator,.hero-card,.hero-owner,.hero-confirm,.offer,.button,button,.button span,summary span{transition:none!important;animation:none!important}.hero-card,.hero-scene[data-stage] .hero-card,.hero-owner,.hero-scene[data-stage] .hero-owner{transform:none!important}}
+
+/* Three-language marketing navigation and Arabic reading direction. */
+@font-face{font-family:'Noto Sans Arabic';font-style:normal;font-weight:400 700;font-display:swap;src:url('/assets/fonts/noto-sans-arabic.woff2') format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+.language-switch,.nav nav.language-switch{display:flex;position:static;flex:none;align-items:center;gap:2px;direction:ltr;border:1px solid #d0ddcb55;border-radius:100px;padding:3px;margin:0;background:transparent;box-shadow:none;overflow:visible;width:auto;max-height:none;animation:none}
+.language-switch a,.nav nav.language-switch a{font-size:.73rem;min-width:39px;min-height:44px;display:flex;align-items:center;justify-content:center;text-decoration:none;padding:6px 8px;border-radius:100px;color:inherit;line-height:1.3}
+.language-switch a[lang=ar]{font-family:Arial,sans-serif;font-size:.7rem;letter-spacing:0}
+.language-switch a[aria-current=page],.nav nav.language-switch a[aria-current=page]{background:#e8b795;color:#173e34;font-weight:600}
+.language-switch a:hover{background:#d2dac630;color:inherit}.language-switch a:focus-visible{outline:3px solid #eda780;outline-offset:3px}
+.transcript{padding-inline-start:24px}.transcript li{margin-block:14px}main>.language-switch{width:max-content;margin-block-end:25px;color:#173e34;border-color:#a9b9a0}
+.nav{gap:18px}.nav nav{gap:6px}.nav nav a{padding-inline:9px;font-size:.78rem}
+[dir=rtl]{font-family:'Noto Sans Arabic',Geist,Arial,sans-serif;line-height:1.85}
+[dir=rtl] :is(h1,h2,h3,em,.hero-card h2,.offer h3){font-family:inherit;letter-spacing:0;font-style:normal;line-height:1.5}
+[dir=rtl] :is(.eyebrow,.card-top,.screen-label,.mini-label,.scene-caption,.preview-eyebrow,.traffic-kicker,.traffic-result-kicker){letter-spacing:0;line-height:1.8}
+[dir=rtl] .hero h1{font-size:clamp(2.7rem,4.6vw,4.2rem);line-height:1.45}
+[dir=rtl] :is(.hero .lead,p,summary){line-height:1.85}
+[dir=rtl] .hero-owner{right:auto;left:22px}[dir=rtl] .hero-confirm{right:auto;left:15px}
+[dir=rtl] .hero-card{margin-left:0;margin-right:0}
+[dir=rtl] .dot{margin-right:0;margin-left:8px}
+[dir=rtl] :is(.value-choices button,.traffic-field-head label,.step-copy,.name-preview){text-align:start}
+[dir=rtl] .value-choices button>span:last-child{margin-left:0;margin-right:auto}
+[dir=rtl] .screen-label>span:last-child{margin-left:0;margin-right:auto;text-align:end}
+[dir=rtl] :is(.card-total>span,.scene-footnote,.traffic-field-head input[type=text]){text-align:end}
+[dir=rtl] .result-caveat{border-left:0;border-right:3px solid var(--coral);padding-left:0;padding-right:16px}
+[dir=rtl] :is(label span,.name-preview label span){margin-left:0;margin-right:4px}
+[dir=rtl] .input-unit>span{padding:0 0 0 17px}
+[dir=rtl] .brand{direction:ltr;font-family:Geist,Arial,sans-serif;letter-spacing:-.055em}
+[dir=rtl] :is(input[type=range],input[inputmode=decimal],input[inputmode=numeric],input[type=email],.card-total>strong,.offer h3,.offer-first strong,.traffic-results strong,.required-number strong,.scenario strong,#fee){direction:ltr;unicode-bidi:isolate}
+[dir=rtl] :is(.hero-card h2,.demo-card h3,[data-demo-business],#industry-preview-name){unicode-bidi:plaintext;overflow-wrap:anywhere}
+[dir=rtl] .selection-indicator{left:0;right:auto}
+[dir=rtl] .journey-map i{transform:scaleX(-1)}
+[dir=rtl] .offer h3{line-height:1.2}
+[dir=rtl] .hero-card .card-total small{font-family:'Noto Sans Arabic',Geist,sans-serif}
+@media(max-width:1050px){.header .nav{position:relative;flex-wrap:nowrap;gap:12px}.menu-toggle{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;order:4}.nav #main-nav{display:none;position:absolute;top:calc(100% + 8px);inset-inline:0;background:#21493b;border:1px solid #637f6655;border-radius:16px;padding:10px;margin:0;box-shadow:0 15px 30px #07271c24;max-height:calc(100svh - 110px);overflow:auto}.nav #main-nav.open{display:flex;flex-direction:column;animation:menu-in .18s var(--ease)}.nav #main-nav a{min-height:48px;font-size:.9rem;padding:12px 17px;border-radius:8px}.nav .language-switch{margin-inline-start:auto;order:2}.nav-cta{order:3;margin:0}.header .brand{flex:none}}
+@media(max-width:600px){.header .nav{gap:8px}.header .nav-cta{display:none}.language-switch a,.nav nav.language-switch a{font-size:.66rem;min-width:34px;padding-inline:7px}.language-switch a[lang=ar]{font-size:.67rem}.nav .menu-toggle{font-size:.69rem}.header .brand{font-size:1.35rem}.header .brand img{width:27px;height:27px}[dir=rtl] .hero h1{font-size:2.25rem;line-height:1.55}[dir=rtl] .section-heading h2,[dir=rtl] h2{font-size:1.9rem;line-height:1.65}[dir=rtl] .hero-card h2{font-size:1.2rem}[dir=rtl] .hero-confirm,[dir=rtl] .hero-owner{inset:auto}[dir=rtl] .view-options button{font-size:.65rem;padding-inline:4px}[dir=rtl] .step-copy{min-height:150px}[dir=rtl] .demo-badge{font-size:.61rem}[dir=rtl] .industry-context h3{font-size:1.4rem}[dir=rtl] .price-switch button{font-size:.7rem}[dir=rtl] .value-choices button h3{font-size:1.1rem}}
+.nav nav.language-switch{flex-direction:row;flex-wrap:nowrap}
+html[lang=en] .hero h1{font-size:clamp(3.2rem,5vw,4.6rem)}
+@media(max-width:600px){html[lang=en] .hero h1{font-size:clamp(2.45rem,10.5vw,3rem)}.nav nav.language-switch a{min-width:40px}.header .brand{font-size:1.28rem}}

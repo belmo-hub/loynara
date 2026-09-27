@@ -84,6 +84,6 @@ try{
  await p.locator('.recording summary').click();await p.locator('video').focus();await p.locator('video').press('Space');await p.waitForFunction(()=>document.querySelector('video').readyState>=2);await p.locator('video').press('Space');check('Draft pricing CTA and on-demand genuine recording controls');
  for(const link of await p.locator('a[href^=\"#\"]').all()){if((await link.getAttribute('class'))?.includes('skip'))continue;if(await link.isVisible()){const href=await link.getAttribute('href');await link.click();assert.equal(new URL(p.url()).hash,href);}}check('Every visible internal navigation/CTA reaches its declared section');
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);check('No application errors or third-party requests in exercised marketing flows');
- const hash=createHash('sha256');for(const file of ['index.html','styles.css','assets/fonts/geist-latin.woff2',...['browser','config','demo','economics','views'].map(n=>`assets/modules/${n}.js`)])hash.update(await readFile(`marketing-site/site/${file}`));report.sourceHash=hash.digest('hex');
+ const hash=createHash('sha256');for(const file of ['index.html','styles.css','assets/fonts/geist-latin.woff2',...['browser','config','demo','economics','views','i18n','dynamic-copy'].map(n=>`assets/modules/${n}.js`)])hash.update(await readFile(`marketing-site/site/${file}`));report.sourceHash=hash.digest('hex');
  await writeFile('marketing-site/browser-evidence.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report.lab));
 }finally{await browser.close();}
