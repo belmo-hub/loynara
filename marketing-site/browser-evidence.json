@@ -4,7 +4,8 @@
     "host": "Mac / loopback static server",
     "hardware": "Browser emulation only. No physical phone testing.",
     "performance": "Single lab page load: 390×844, CPU 4× slowdown, 1.6 Mbps down / 750 Kbps up, 40 ms latency. Not field INP or real-user data.",
-    "screenshots": "Responsive screenshots use reduced motion; the interactive journeys above use normal motion."
+    "screenshots": "Responsive screenshots use reduced motion; the interactive journeys above use normal motion.",
+    "backgroundLoad": "The multilingual browser suite ran concurrently; these lab timings are not isolated."
   },
   "checks": [
     {
@@ -134,5 +135,6 @@
     "heroConfirmation": 6.410191552181969,
     "benefitText": 9.698551600863194,
     "contactText": 5.583448549174896
-  }
+  },
+  "runnerNote": "All 26 assertions passed and evidence was written. The test browser exited, but the Node runner lingered during cleanup and was terminated with SIGTERM (exit 143). This is separate from assertion results. The EN/AR suite exited normally."
 }
