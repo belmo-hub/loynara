@@ -94,6 +94,7 @@ const trafficIds=['traffic-customers','traffic-basket','traffic-days','traffic-u
 function recalculateTraffic(){
  const offer=($('offer') as HTMLSelectElement).value as OfferKey;
  $('traffic-fee').textContent=euro(offers[offer].monthly);
+ document.querySelectorAll<HTMLButtonElement>('[data-traffic-price]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.trafficPrice===offer)));
  $('traffic-error').textContent='';
  for(const id of trafficIds)input(id).removeAttribute('aria-invalid');
  const clear=()=>{for(const id of ['traffic-monthly-revenue','traffic-after-fee','traffic-ratio','traffic-annual'])$(id).textContent='–';};
@@ -116,15 +117,16 @@ function syncTrafficRange(id:string){
  const numeric=id==='traffic-basket'?Number(input(id).value.replace(',','.')):Number(input(id).value);
  const range=input(`${id}-range`);
  range.hidden=input(id).value.trim()===''||!Number.isFinite(numeric)||numeric<Number(range.min)||numeric>Number(range.max);
- if(!range.hidden)range.value=String(numeric);
+ if(!range.hidden){range.value=String(numeric);range.style.setProperty('--range-fill',`${(numeric-Number(range.min))/(Number(range.max)-Number(range.min))*100}%`);}
 }
 for(const id of trafficIds){
- input(id).addEventListener('input',()=>{syncTrafficRange(id);recalculateTraffic();});
- input(`${id}-range`).addEventListener('input',()=>{input(id).value=input(`${id}-range`).value;recalculateTraffic();});
+ input(id).addEventListener('input',()=>{syncTrafficRange(id);$('traffic-assumption').textContent='Deine Annahmen, kein erwarteter Loynara-Effekt. Diese Werte bleiben auf dieser Seite.';recalculateTraffic();});
+ input(`${id}-range`).addEventListener('input',()=>{input(id).value=input(`${id}-range`).value;syncTrafficRange(id);$('traffic-assumption').textContent='Deine Annahmen, kein erwarteter Loynara-Effekt. Diese Werte bleiben auf dieser Seite.';recalculateTraffic();});
 }
 $('traffic-form').addEventListener('submit',e=>e.preventDefault());
-$('traffic-form').addEventListener('reset',()=>{requestAnimationFrame(()=>{for(const id of trafficIds)syncTrafficRange(id);$('traffic-assumption').textContent='Keine Werte vorausgefüllt. Gib deine Annahmen ein oder lade ein sichtbar gekennzeichnetes Beispiel. 0 % ist möglich.';recalculateTraffic();});});
-$('traffic-sample').addEventListener('click',()=>{for(const [id,value] of Object.entries({'traffic-customers':'50','traffic-basket':'70','traffic-days':'26','traffic-uplift':'10'})){input(id).value=value;syncTrafficRange(id);} $('traffic-assumption').textContent='Beispielannahmen: 50 Kunden/Tag, 70 € Bon, 26 Tage, 10 % zusätzlich. Kein erwarteter Loynara-Effekt. Änderungen sind deine Annahmen.';recalculateTraffic();});
+$('traffic-form').addEventListener('reset',()=>{requestAnimationFrame(()=>{for(const id of trafficIds){input(id).value='';syncTrafficRange(id);}$('traffic-assumption').textContent='Keine Werte vorausgefüllt. Gib deine Annahmen ein oder stelle ein sichtbar gekennzeichnetes Beispiel wieder her. 0 % ist möglich.';recalculateTraffic();});});
+$('traffic-sample').addEventListener('click',()=>{for(const [id,value] of Object.entries({'traffic-customers':'50','traffic-basket':'70','traffic-days':'26','traffic-uplift':'10'})){input(id).value=value;syncTrafficRange(id);} $('traffic-assumption').textContent='Beispielrechnung: 50 Kunden/Tag, 70 € Bon, 26 Tage, 10 % zusätzlich. Kein erwarteter Loynara-Effekt. Änderungen sind deine Annahmen.';recalculateTraffic();});
+document.querySelectorAll<HTMLButtonElement>('[data-traffic-price]').forEach(button=>button.addEventListener('click',()=>{($('offer') as HTMLSelectElement).value=button.dataset.trafficPrice as OfferKey;recalculate();}));
 const features={
  growth:{src:'referrals.webp',alt:'Echter Empfehlungsbericht mit synthetischer Bonusqualifikation',caption:'Empfehlungsbericht · echte Anwendung mit Beispieldaten',status:'Lokal mit Beispieldaten geprüft',detail:'Empfehlungen werden zugeordnet und erst nach dem qualifizierenden Besuch belohnt. Rollen und Standorte begrenzen Teamzugriffe. Anonyme Identitäten lassen sich nicht perfekt deduplizieren.'},
  programme:{src:'rewards.webp',alt:'Echte Prämienverwaltung mit zwei synthetischen Prämienstufen',caption:'Prämienverwaltung · separates 5-/10-Stempel-Beispiel aus der Anwendung',status:'Im geschützten Pilot',detail:'Regeln, Markenauftritt und eine geordnete Auswahl an Prämien werden gespeichert. Guthaben bleibt im definierten Programm und Standort.'},
