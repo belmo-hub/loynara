@@ -1,30 +1,72 @@
-# Secure NFC physical test handoff — NOT RUN
+# Secure NFC physical test handoff
 
-Target: **one genuine NXP NTAG 424 DNA** development tag (SUN/SDM), plus a suitable authenticated provisioning tool. No tag or tool was bought or configured in this software pass. The software verifier follows [NXP AN12196 Rev 2.0](https://www.nxp.com/docs/en/application-note/AN12196.pdf) and the [NTAG 424 DNA data sheet](https://www.nxp.com/docs/en/data-sheet/NT4H2421Gx.pdf). The test vector is software evidence, not a physical tap.
+| Check | Current result |
+| --- | --- |
+| Local CLI, official command vectors, mock sequencing, existing SDM/ledger tests | **SOFTWARE_READY** |
+| Selected PC/SC reader with a real tag | **READER_COMPATIBILITY_NOT_RUN** |
+| Key and SDM personalization on a real tag | **TAG_PROVISIONING_NOT_RUN** |
+| iPhone physical NFC tap | **PHYSICAL_IPHONE_NOT_RUN** |
+| Android physical NFC tap | **PHYSICAL_ANDROID_NOT_RUN** |
 
-## Exact selected SDM profile
+No tag or reader was purchased or used in this software pass. `nfc:reader-check` found PC/SC on the Mac and **zero readers**. The ACR1252U is a reasonable low-cost *unverified candidate*: [ACS documents PC/SC and ISO 14443-4 APDUs](https://www.acs.com.hk/download-manual/6402/API-ACR1252U-1.17.pdf), but that does not establish compatibility with this workflow or NXP certification. NXP's reference workflow is RFIDDiscover with PEGODA. Command framing and this SDM profile follow the [NTAG 424 DNA data sheet, Rev 3.0](https://www.nxp.com/docs/en/data-sheet/NT4H2421Gx.pdf) and [AN12196, Rev 2.0](https://www.nxp.com/docs/en/application-note/AN12196.pdf).
 
-- One NFC Forum Type 4 NDEF URL: `https://<approved-app-origin>/tap/<24-character-random-public-ref>?e=<32-hex-encrypted-PICC>&c=<16-hex-SDMMAC>`. `e` and `c` are NXP SDM mirror output, not customer input or a card credential. Do not use this URL on the public marketing host or publish a new route without separate approval.
-- Enable SDM on the NDEF file. Mirror encrypted PICC data with UID and 24-bit read counter (`SDMENCFileData` **off**). Set `SDMMetaReadKey` to key slot **02** and `SDMFileReadKey` to key slot **01**. Set `SDMMACInputOffset = SDMMACOffset` so the authenticated SDM file input is empty; the session key still binds UID and counter. Configure the encrypted PICC-data offset at the first `e` character and MAC offset at the first `c` character. Calculate both offsets against the actual encoded NDEF file bytes with the provisioning tool; verify the resulting readback, rather than copying offsets from another URL length or NXP example.
-- Use independently generated AES-128 keys per tag, with controlled custody and a server-side `keyRef`. Never copy a key from another tag, use the all-zero documentation vector on real hardware, send keys in chat, or put keys in a URL/Git/log. The physical writer must support authenticated key changes, SDM file settings, dynamic NDEF write/readback and secure key custody. Keep the tag write/change permissions restricted to the custodian. Record UID, configuration version, key reference and custody outside public material.
-- The verifier decrypts the encrypted PICC block with the metadata key, requires PICC tag `C7`, derives the NXP SDM session key from UID and little-endian counter using the file-read key, checks odd-byte truncated AES-CMAC in constant time, then requires the UID to match the provisioned tag. The random route reference maps to one tenant, location and fixed-stamp programme. Strictly increasing counters, a per-card cooldown, and one database transaction for counter state plus ledger award limit repeated credit.
-- **Security limit:** NXP documents that an authenticated SDM URL may be pre-read and used later. A valid URL and increasing counter do not alone prove a contemporaneous purchase or physical presence. The merchant must approve the automatic one-stamp rule and cooldown, or choose `staff_confirmed`. No purchase-value points or redemption happen from a tap.
+## A. Minimum hardware and approved scope
 
-## Provision one development tag
+- One genuine, UID-visible **NXP NTAG 424 DNA** development tag in factory AES transport configuration. Other Type 2/3 tags, already personalized tags, Random ID tags and unknown key states are refused by this first-tag command.
+- One PC/SC reader/driver exposing **ISO/IEC 14443-4 (ISO-DEP) T=1 APDU exchange** to the Mac. It must pass ISO SELECT plus native-wrapped `GetVersion`, `AuthenticateEV2First`, `ReadData`, `WriteData`, `ChangeKey`, `GetFileSettings` and `ChangeFileSettings`, including `91AF` additional frames and short APDUs. Enumeration alone is insufficient. Use one tag in the field; PC/SC cannot prove that a second stacked physical tag is absent.
+- One synthetic active fixed-stamp programme at one location, with owner-approved `automatic_fixed` or `staff_confirmed` policy and positive cooldown. QR remains the fallback. No purchase-value points or redemption are awarded from a tap.
+- The isolated `looplocal_device_test` database and exact approved `https://preview.getloynara.com` public/auth origin. No real customer or production database may be selected.
 
-1. Owner approves the fixed-stamp programme, location, tap mode (`disabled`, `automatic_fixed`, or `staff_confirmed`) and cooldown in seconds. The default remains `disabled`; there is no production default cooldown. The owner-only `/api/merchant/tap` interface sets policy and records provisioning metadata. Keep it behind authenticated merchant access.
-2. Establish an approved **production-grade key provider** implementing `TapKeyProvider`; the only supplied file provider requires a mode-0600 synthetic file and explicitly refuses `NODE_ENV=production`. The physical test cannot be enabled on the compiled production-mode instance until this dependency is solved.
-3. Generate distinct keys in the approved custody system; provision them to tag slots 01/02. Call owner `provision` with UID, key reference, programme ID and config version; this returns the random public reference. Put the corresponding NDEF template into the tag, configure mirror offsets, then read it twice and check that the `e`/`c` values change and that the server verifies them. `provision` stores **metadata only**, never keys.
-4. Only after readback and server verification, call owner `activate`. Keep an unprovisioned QR/card checkout fallback. For replacement, use the owner `replace` action with a **new UID and new keys**; it marks the old tag replaced and creates a provisioned successor, which must be written/read back before activation.
+## B. Reader preflight
 
-## Phone and abuse checks
+```sh
+npm run nfc:reader-check
+npm run nfc:reader-check -- --reader "<exact PC/SC reader name from first command>"
+```
 
-Record tag UID/reference, configuration version, approved origin, test tenant/location/programme, approved mode/cooldown, device models, OS/browser, times, server revision and ledger IDs. Use designated synthetic identities only.
+The second command waits up to 30 seconds for a card and reports reader, PC/SC T=1/ATR, NXP `GetVersion` result and UID. A read-only preliminary pass does **not** establish reliable secure-write compatibility. If required exchanges repeatedly fail on actual hardware, record `UNSUPPORTED_FOR_LOYNARA_PROVISIONING` and use another reader/reference tool; do not bypass validation.
 
-1. **iPhone:** open the approved HTTPS app, enroll or reopen the test card on the same browser, tap the real tag, check merchant identity and either exactly one confirmed stamp or one pending staff request. In staff mode, confirm the purchase on cashier and check card/ledger balance. Repeat with the same NFC URL: no second award.
-2. **Android:** repeat on a physical Android device/browser and its own synthetic card. Verify the dynamic NDEF URL, enrollment continuation, card reopening, balance and merchant/location mapping.
-3. **Replay/cooldown:** send the exact captured URL twice and race two requests; one ledger award maximum. Tap again for a new counter inside cooldown: authenticated but no new award. After the configured interval, a genuinely new counter may award one. Try malformed MAC, old counter, wrong/closed card and another tenant: no award.
-4. **Lifecycle:** revoke tag and verify no further award. Replace using a different genuine tag and keys; old tag stays blocked, new tag starts from its own counter, and existing card balance is unchanged.
-5. **Failure/restart:** retry after an uncertain response and after a server restart; confirm one authoritative ledger entry. QR scan/award/redemption still works. No raw full tap URL, key or card bearer token should appear in avoidable application/proxy logs.
+## C–D. First tag, exact command and expected output
 
-Upgrade Gate 3 to `PHYSICAL_TAG_VERIFIED` evidence only after **both physical phone types**, real provisioning/readback, the abuse/restart checks, approved rule, secure key custody and ledger reconciliation pass. Gate 3 `PASS` also requires the production infrastructure/security requirements in its acceptance test. Until then it remains `PARTIAL`.
+Keep `var/device-test.env` and generated keys local and restricted. Obtain the **synthetic** owner user UUID and fixed-stamp programme UUID from the local device-test instance. Do not put passwords or AES keys in CLI arguments or chat.
+
+```sh
+NODE_ENV=development npm run nfc:provision -- --env-file var/device-test.env --reader "<exact PC/SC reader name>" --actor-user-id "<synthetic owner UUID>" --program-id "<synthetic fixed-stamp programme UUID>"
+```
+
+The CLI refuses production mode, non-loopback/wrong database, origin mismatch and enabled external marketing, billing, registration or Wallet. It checks owner/programme/location, selects the NDEF app, reads `GetVersion` twice across a reconnect, checks factory NDEF settings, prints **non-secret** UID/version/settings/mapping, then requires typing `PROVISION <UID>` before writes. It creates five independent random AES-128 **DEVELOPMENT_ONLY** keys, stores them in ignored `var/nfc-development-keys.json` with mode `0600`, reserves an inactive DB tag, writes NDEF, changes keys 01–04, restricts NDEF/settings writes, changes master key 00, and reads dynamic NDEF twice. It verifies UID, increasing read counter, changing URL, SDM MAC and wrong-key rejection before activation. It makes **no loyalty award** during provisioning.
+
+Expected successful final line: `PASS: tag <UUID> active ... counters <n> -> <n+>`. Treat this as a **software/readback result**, not an iPhone, Android or checkout result. Inspect the DB record with:
+
+```sh
+NODE_ENV=development npm run nfc:tag-status -- --env-file var/device-test.env --actor-user-id "<synthetic owner UUID>" --tag-id "<tag UUID>"
+```
+
+The URL is `https://preview.getloynara.com/tap/<24-character-random-public-ref>?e=<32 hex>&c=<16 hex>`. `e` is encrypted UID/read-counter data and `c` is the truncated MAC. No key or internal DB ID is in the URL. Offsets are calculated from the encoded NDEF bytes for that exact origin. Configuration: encrypted PICC, key 02 metadata, key 01 SDMMAC, `SDMMACInputOffset = SDMMACOffset`, no `SDMENCFileData`, no public counter retrieval, free read and key-00-restricted write/change.
+
+**Important runtime dependency:** the supplied local key provider rejects `NODE_ENV=production`. The protected compiled device-test web process runs in production mode. This CLI does not change that guard. A physical tag can pass reader verification while the protected web tap route still cannot verify it; Gate 3 cannot pass until an approved production-grade key provider and server route test exist.
+
+## E–F. Physical phones — NOT RUN
+
+After the runtime key-provider dependency is solved, use designated synthetic memberships only. Record tag reference, server revision, device model, OS, browser, times, policy/cooldown, ledger IDs and failures separately for each device.
+
+1. **iPhone:** open/reopen a synthetic card on the physical iPhone, tap the real tag, confirm the exact HTTPS URL opens, membership resolves, and the approved mode yields one confirmed stamp or one staff request. Confirm card/ledger balance.
+2. **Android:** repeat on a physical Android phone with its own synthetic card. Verify URL, enrollment continuation, card reopening, programme/location and balance. An iPhone result is not Android evidence.
+
+## G–I. Abuse, cooldown and lifecycle — NOT RUN on hardware
+
+1. Capture one full dynamic URL locally without logging it. Submit that exact URL twice and concurrently: at most one ledger award. Wrong MAC, wrong UID, stale counter, wrong/closed card and cross-location use must fail. Do not send it to third parties.
+2. Read a *new* counter within the configured cooldown: no new award. After cooldown, another authenticated tap may award one. Restart/retry must not duplicate ledger entries.
+3. Revoke a known tag locally:
+
+```sh
+NODE_ENV=development npm run nfc:tag-revoke -- --env-file var/device-test.env --actor-user-id "<synthetic owner UUID>" --tag-id "<tag UUID>"
+```
+
+The command shows mapping and requires `REVOKE <tag UUID>`. A revoked tag must never award again. For replacement, provision a **different genuine tag with new keys**, verify it, then revoke the old tag; do not attempt to rewrite a lost tag. Membership balances remain in the ledger. The old replacement helper is not exposed through HTTP because it could revoke the old tag before a new physical tag is ready.
+
+## J. Interrupted provisioning recovery
+
+The CLI keeps non-secret stage/UID/original-settings diagnostics under ignored `var/nfc-diagnostics/`, and key material only in the restricted local store. A caught failure revokes its reserved tag and never activates it. An abrupt process or power loss can leave an inactive `provisioned` DB record; inspect it with `nfc:tag-status` and revoke it with `nfc:tag-revoke` before proceeding. If a key change may have begun, **do not retry factory-key authentication blindly**: inspect the last stage, quarantine the tag, and use recorded development keys with a reviewed recovery procedure/reference NXP tool. If key state is uncertain or master-key authentication fails, keep the DB tag revoked and use a fresh tag. Never print/export keys, turn off the production key-provider guard or claim an uncertain tag usable.
+
+NXP notes that authenticated SDM URLs can be pre-read and used later. Counter/cooldown alone do not prove a contemporaneous purchase; the owner must explicitly approve the fixed-stamp rule and risk, or use `staff_confirmed`. Gate 3 remains **PARTIAL** until real provisioning, both phone types, abuse/restart checks, approved key custody and server/ledger reconciliation pass.

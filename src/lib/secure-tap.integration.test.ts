@@ -143,7 +143,7 @@ describe("secure tap ledger boundary", () => {
     expect((await processSecureTap(input)).state).toBe("pending_staff");
     expect((await processSecureTap({ ...input, fields: syntheticSdm("04de5f1eacc040", 62), now: new Date("2026-09-27T10:00:10Z") })).state).toBe("pending_staff");
     expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(0);
-    expect((await pendingTapRequests({ userId: f.userId, locationId: f.location.id })).map(row => row.id)).toContain(pending.requestId);
+    expect((await pendingTapRequests({ userId: f.userId, locationId: f.location.id, now: new Date("2026-09-27T10:01:00Z") })).map(row => row.id)).toContain(pending.requestId);
     const confirmed = await confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: pending.requestId!, now: new Date("2026-09-27T10:01:00Z") });
     expect(confirmed.state).toBe("confirmed");
     expect((await confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: pending.requestId!, now: new Date("2026-09-27T10:01:01Z") })).state).toBe("already_processed");

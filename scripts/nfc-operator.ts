@@ -1,0 +1,155 @@
+import { randomBytes } from "node:crypto";
+import { mkdir, open, readFile } from "node:fs/promises";
+import path from "node:path";
+import { createInterface } from "node:readline/promises";
+import { parse } from "dotenv";
+import { and, eq } from "drizzle-orm";
+import { PcscBridge } from "../src/lib/nfc-provision/pcsc";
+import { getVersion } from "../src/lib/nfc-provision/ntag";
+import { assertProvisioningEnvironment, DevelopmentKeyStore } from "../src/lib/nfc-provision/operator-safety";
+import { provisionPhysicalTag, type ProvisionRepository, type ProvisionStage } from "../src/lib/nfc-provision/flow";
+
+type Options = Record<string, string>;
+function options(args: string[]): Options {
+  const parsed: Options = {};
+  for (let i = 0; i < args.length; i += 2) {
+    if (!args[i]?.startsWith("--") || !args[i + 1] || args[i + 1].startsWith("--")) throw new Error("Options must be --name value pairs");
+    const name = args[i].slice(2);
+    if (!new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id"]).has(name) || parsed[name]) throw new Error("Unknown or duplicate operator option");
+    parsed[name] = args[i + 1];
+  }
+  return parsed;
+}
+function required(values: Options, name: string): string {
+  if (!values[name]) throw new Error(`--${name} is required`);
+  return values[name];
+}
+async function confirm(prompt: string, expected: string): Promise<boolean> {
+  if (!process.stdin.isTTY) throw new Error("Interactive operator terminal required");
+  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+  try { return (await terminal.question(prompt)).trim() === expected; }
+  finally { terminal.close(); }
+}
+async function loadEnvironment(filename: string): Promise<void> {
+  const env = parse(await readFile(filename));
+  for (const [key, value] of Object.entries(env)) process.env[key] = value;
+}
+async function selectCard(bridge: PcscBridge, readerName: string) {
+  const readers = await bridge.readers();
+  console.log(`PC/SC readers: ${readers.length}`);
+  for (const item of readers) console.log(`  ${item}`);
+  if (!readers.includes(readerName)) throw new Error("Selected reader is unavailable");
+  const deadline = Date.now() + 30_000;
+  while (true) {
+    try { return await bridge.connect(readerName); }
+    catch (error) { if (Date.now() > deadline) throw error; await new Promise(resolve => setTimeout(resolve, 1000)); }
+  }
+}
+async function databaseRepository(): Promise<{ repository: ProvisionRepository; status: (actor: string, id: string) => Promise<unknown>; revoke: (actor: string, id: string) => Promise<unknown>; close: () => Promise<void> }> {
+  const [{ db, pool }, schema, tap] = await Promise.all([import("../src/db"), import("../src/db/schema"), import("../src/lib/secure-tap")]);
+  const { programs, staffRoles, secureTags } = schema;
+  async function owner(actor: string, tenant: string) {
+    const [role] = await db.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, tenant), eq(staffRoles.userId, actor), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
+    if (!role) throw new Error("Active owner role required");
+  }
+  const repository: ProvisionRepository = {
+    async checkTarget({ actorUserId, programId }) {
+      const [program] = await db.select().from(programs).where(eq(programs.id, programId));
+      if (!program) throw new Error("Programme not found");
+      await owner(actorUserId, program.tenantId);
+      if (program.type !== "stamp" || program.earningMode !== "manual" || program.status !== "active" || program.tapMode === "disabled" || !program.tapCooldownSeconds) throw new Error("Approved active fixed-stamp tap policy and cooldown required");
+      return { tenantId: program.tenantId, locationId: program.locationId, programId: program.id, mode: program.tapMode, cooldownSeconds: program.tapCooldownSeconds };
+    },
+    async reserve({ actorUserId, programId, uid, keyRef }) {
+      return tap.provisionSecureTag({ actorUserId, programId, uid, keyRef, configVersion: 1 });
+    },
+    async verifyMapping(expected) {
+      const rows = await db.select({ id: secureTags.id, publicRef: secureTags.publicRef, uid: secureTags.uid, tenantId: secureTags.tenantId, locationId: secureTags.locationId, programId: secureTags.programId, status: secureTags.status }).from(secureTags).where(eq(secureTags.uid, expected.uid));
+      const tag = rows[0];
+      if (rows.length !== 1 || !tag || tag.id !== expected.tagId || tag.publicRef !== expected.publicRef || tag.tenantId !== expected.tenantId || tag.locationId !== expected.locationId || tag.programId !== expected.programId || tag.status !== "provisioned") throw new Error("Tag database mapping mismatch");
+    },
+    async activate({ actorUserId, tagId }) { await tap.activateSecureTag({ actorUserId, tagId }); },
+    async fail({ actorUserId, tagId }) { await tap.revokeSecureTag({ actorUserId, tagId }); },
+  };
+  async function status(actor: string, id: string) {
+      const [tag] = await db.select({ id: secureTags.id, publicRef: secureTags.publicRef, uid: secureTags.uid, tenantId: secureTags.tenantId, locationId: secureTags.locationId, programId: secureTags.programId, status: secureTags.status, lastCounter: secureTags.lastCounter }).from(secureTags).where(eq(secureTags.id, id));
+      if (!tag) throw new Error("Tag not found");
+      await owner(actor, tag.tenantId);
+      return tag;
+  }
+  return { repository, status, async revoke(actor: string, id: string) { await status(actor, id); return tap.revokeSecureTag({ actorUserId: actor, tagId: id }); }, async close() { await pool.end(); } };
+}
+async function diagnostic(ref: string, stage: ProvisionStage, note: Record<string, string>) {
+  const folder = path.resolve("var/nfc-diagnostics");
+  await mkdir(folder, { recursive: true, mode: 0o700 });
+  const filename = path.join(folder, `${ref}.json`);
+  const file = await open(filename, "w", 0o600);
+  try { await file.writeFile(JSON.stringify({ classification: "DEVELOPMENT_ONLY", stage, timestamp: new Date().toISOString(), ...note })); await file.sync(); }
+  finally { await file.close(); }
+}
+async function main() {
+  const command = process.argv[2];
+  const opts = options(process.argv.slice(3));
+  if (!new Set(["reader-check", "provision", "tag-status", "tag-revoke"]).has(command)) throw new Error("Use reader-check, provision, tag-status, or tag-revoke");
+  if (command === "reader-check") {
+    const bridge = new PcscBridge();
+    try {
+      const readers = await bridge.readers();
+      console.log(`PC/SC transport: available; readers: ${readers.length}`);
+      for (const item of readers) console.log(`  ${item}`);
+      if (!opts.reader) { console.log("CARD/NTAG APDU: NOT RUN (select --reader)"); return; }
+      const card = await selectCard(bridge, opts.reader);
+      const version = await getVersion(bridge);
+      console.log(`CARD: detected; protocol ${card.protocol}; ATR ${card.atr}; NTAG 424 DNA GetVersion PASS; UID ${version.uid}`);
+      console.log("READER COMPATIBILITY: PRELIMINARY READ-ONLY PASS; secure writes remain NOT RUN");
+    } finally { await bridge.close(); }
+    return;
+  }
+  await loadEnvironment(required(opts, "env-file"));
+  const origin = process.env.DEVICE_TEST_APPROVED_ORIGIN ?? "";
+  assertProvisioningEnvironment(process.env, origin);
+  const actor = required(opts, "actor-user-id");
+  if (!/^[0-9a-f-]{36}$/i.test(actor)) throw new Error("Invalid owner user ID");
+  if (command === "provision") { required(opts, "program-id"); required(opts, "reader"); }
+  const database = await databaseRepository();
+  if (command === "tag-status" || command === "tag-revoke") {
+    try {
+      const tagId = required(opts, "tag-id");
+      console.log(await database.status(actor, tagId));
+      if (command === "tag-revoke") {
+        if (!await confirm(`Type REVOKE ${tagId} to block future tap awards: `, `REVOKE ${tagId}`)) throw new Error("Revocation not confirmed");
+        console.log(await database.revoke(actor, tagId));
+      }
+    } finally { await database.close(); }
+    return;
+  }
+  const programId = required(opts, "program-id");
+  const readerName = required(opts, "reader");
+  const bridge = new PcscBridge();
+  const keyRef = `dev_${randomBytes(18).toString("base64url")}`;
+  let lastStage: ProvisionStage = "preflight";
+  let diagnosticNote: Record<string, string> = { programId, origin, reader: readerName };
+  try {
+    const card = await selectCard(bridge, readerName);
+    console.log(`PC/SC selected: ${readerName}; ${card.protocol}; ATR ${card.atr}`);
+    const result = await provisionPhysicalTag({
+      transport: bridge,
+      repository: database.repository,
+      keyStore: new DevelopmentKeyStore(),
+      actorUserId: actor, programId, origin, keyRef,
+      async confirm(summary) {
+        diagnosticNote = { ...diagnosticNote, uid: summary.uid, originalFileSettings: summary.originalFileSettings, tenantId: summary.mapping.tenantId, locationId: summary.mapping.locationId };
+        console.log(`NTAG 424 DNA UID: ${summary.uid}; original NDEF settings: ${summary.originalFileSettings}`);
+        console.log(`Mapping: tenant ${summary.mapping.tenantId}; location ${summary.mapping.locationId}; programme ${summary.mapping.programId}; mode ${summary.mapping.mode}; cooldown ${summary.mapping.cooldownSeconds}s`);
+        console.log("This will change five factory AES keys, write NDEF, and restrict NDEF/settings writes. Development keys stay in ignored mode-0600 var/ storage.");
+        return confirm(`Type PROVISION ${summary.uid} to continue: `, `PROVISION ${summary.uid}`);
+      },
+      async onStage(stage) { lastStage = stage; await diagnostic(keyRef, stage, diagnosticNote); },
+    });
+    console.log(`PASS: tag ${result.tagId} active for ${programId}; counters ${result.firstCounter} -> ${result.secondCounter}. Key material was not printed.`);
+  } catch (error) {
+    await diagnostic(keyRef, lastStage, { ...diagnosticNote, result: "FAILED_OR_INTERRUPTED" }).catch(() => undefined);
+    throw error;
+  } finally { await bridge.close(); await database.close(); }
+}
+main().catch(error => { console.error(`FAIL: ${error instanceof Error ? error.message : "operator command failed"}`); process.exitCode = 1; });

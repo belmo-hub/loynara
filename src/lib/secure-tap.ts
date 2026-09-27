@@ -171,10 +171,10 @@ export async function tapProgramId(ref: string): Promise<string> {
   return tag.programId;
 }
 
-export async function pendingTapRequests(input: { userId: string; locationId: string }) {
+export async function pendingTapRequests(input: { userId: string; locationId: string; now?: Date }) {
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
   if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
-  const now = new Date();
+  const now = input.now ?? new Date();
   return db.select({ id: tapRequests.id, createdAt: tapRequests.createdAt, expiresAt: tapRequests.expiresAt, balance: memberships.balance, scanCode: memberships.scanCode }).from(tapRequests)
     .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId)))
     .where(and(eq(tapRequests.tenantId, role.tenantId), eq(tapRequests.locationId, input.locationId), eq(tapRequests.status, "pending_staff"), gt(tapRequests.expiresAt, now), isNull(memberships.closedAt)))

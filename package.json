@@ -32,7 +32,11 @@
     "marketing:build": "tsx marketing-site/build.mts",
     "marketing:test": "tsx --test marketing-site/tests/*.test.ts",
     "marketing:verify": "node marketing-site/verify.mjs",
-    "marketing:preview": "node marketing-site/preview.mjs"
+    "marketing:preview": "node marketing-site/preview.mjs",
+    "nfc:reader-check": "tsx scripts/nfc-operator.ts reader-check",
+    "nfc:provision": "tsx scripts/nfc-operator.ts provision",
+    "nfc:tag-status": "tsx scripts/nfc-operator.ts tag-status",
+    "nfc:tag-revoke": "tsx scripts/nfc-operator.ts tag-revoke"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
