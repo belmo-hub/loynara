@@ -243,6 +243,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .customer-save-link { min-height: 44px; margin-top: 13px; }
 .customer-wallet p.customer-link-status { margin-top: 8px; color: #235e3a; font-weight: 700; }
 .card-contact-local { margin-top: 22px; padding: 18px; border: 1px solid #dce9da; border-radius: 14px; background: #fff; }
+.recovery-form { display: grid; gap: 10px; margin: 20px 0; }
+.recovery-form input { min-height: 48px; padding: 10px 12px; border: 1px solid #b8c9b7; border-radius: 8px; background: #fff; color: #17372d; font-size: 16px; }
+.recovery-form .button, .recovery-options .button { min-height: 44px; }
+.recovery-options { display: grid; gap: 12px; margin: 20px 0; }
+.recovery-options > div { display: grid; gap: 5px; padding: 14px; border: 1px solid #dce9da; border-radius: 10px; }
+.recovery-options span { color: #45614e; }
 .card-contact-local h3 { margin: 0 0 8px; font-size: 16px; }
 .card-contact-local form { display: grid; gap: 10px; margin-top: 14px; }
 .card-contact-local label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }

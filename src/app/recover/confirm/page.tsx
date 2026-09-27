@@ -1,0 +1,40 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { BrandMark } from "@/components/loyalty-ui";
+import { postJson } from "@/components/client-api";
+
+type Option = { membershipId: string; merchantName: string; programmeName: string };
+export default function RecoverConfirmPage() {
+  const token = useRef("");
+  const [cards, setCards] = useState<Option[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    token.current = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  async function showCards() {
+    setBusy(true); setError("");
+    try {
+      const result = await postJson<{ cards: Option[] }>("/api/recover/confirm", { action: "list", token: token.current });
+      setCards(result.cards);
+    } catch { setError("Der Link ist ungültig, abgelaufen oder wurde bereits verwendet."); }
+    finally { setBusy(false); }
+  }
+  async function recover(membershipId: string) {
+    setBusy(true); setError("");
+    try {
+      const result = await postJson<{ cardToken: string }>("/api/recover/confirm", { action: "rotate", token: token.current, membershipId });
+      token.current = "";
+      window.location.replace(`/card/${encodeURIComponent(result.cardToken)}`);
+    } catch { setError("Diese Karte konnte nicht wiederhergestellt werden. Fordere bei Bedarf einen neuen Link an."); setBusy(false); }
+  }
+  return <main className="card-state-page"><div><BrandMark /><h1>Karte wiederherstellen</h1>
+    <p>Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.</p>
+    {cards === null ? <button className="button" disabled={busy} onClick={() => void showCards()}>Meine Karten anzeigen</button>
+      : <div className="recovery-options">{cards.map(card => <div key={card.membershipId}><strong>{card.merchantName}</strong><span>{card.programmeName}</span><button className="button" disabled={busy} onClick={() => void recover(card.membershipId)}>Diese Karte wiederherstellen</button></div>)}</div>}
+    {error && <p role="alert">{error}</p>}<Link href="/recover">Neuen Link anfordern</Link>
+  </div></main>;
+}

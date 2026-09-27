@@ -3,16 +3,18 @@ import { z } from "zod";
 import { db } from "@/db";
 import { contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
-import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
+import { syntheticAddress, type LocalSender } from "./email";
+import { emailTransportMode, sendTransactional } from "./transactional-email";
 
 const payloadSchema = z.object({ membershipId: z.uuid(), challengeId: z.uuid() }).strict();
 
-/** This is a local synthetic transport. The outbox stores only IDs, never the link token. */
+/** The outbox stores only IDs, never the link token or address. */
 export async function deliverVerificationEmail(
   job: { id: string; tenantId: string; payload: Record<string, unknown> },
-  send: LocalSender = sendLocalMailpit,
+  send?: LocalSender,
 ): Promise<{ status: "complete" | "suppressed" | "blocked"; reason?: string }> {
-  if (!localMailAllowed()) return { status: "blocked", reason: "Local Mailpit verification unavailable" };
+  const mode = emailTransportMode();
+  if (mode === "disabled") return { status: "blocked", reason: "Transactional verification unavailable" };
   const parsed = payloadSchema.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked", reason: "Invalid verification job payload" };
   const origin = new URL(process.env.PUBLIC_BASE_URL!);
@@ -32,17 +34,20 @@ export async function deliverVerificationEmail(
     const [contact] = await tx.select().from(membershipContacts)
       .where(and(eq(membershipContacts.tenantId, job.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);
     if (!contact || contact.email !== challenge.email || contact.emailVerified) return finish("suppressed", "Contact changed or already verified");
-    if (!syntheticAddress(challenge.email)) return finish("suppressed", "Recipient is not synthetic");
+    if (mode === "mailpit" && !syntheticAddress(challenge.email)) return finish("suppressed", "Recipient is not synthetic");
     const link = new URL("/verify-email", origin);
     link.hash = `token=${token}`;
-    // Local Mailpit capture is at least once if the process crashes before
-    // the enclosing transaction commits. No external transport is enabled.
-    await send({
+    const message = {
       to: challenge.email,
       subject: "E-Mail-Adresse für Loynara bestätigen",
-      body: `Öffne diesen lokalen Testlink, um die E-Mail-Adresse deiner Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du diese Bestätigung nicht angefordert hast, ignoriere die Nachricht.`,
+      body: `Öffne diesen Link, um deine E-Mail-Adresse als Wiederherstellungsmethode für deine Loynara-Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du das nicht angefordert hast, ignoriere diese Nachricht. Mit der Bestätigung abonnierst du keine Werbung.`,
       jobId: job.id,
-    });
+    };
+    if (send) await send(message);
+    else {
+      const delivered = await sendTransactional(message);
+      if (delivered.status !== "complete") return delivered;
+    }
     return finish("complete");
   });
 }

@@ -217,6 +217,7 @@ try {
   try {
     const contactPage = await contactContext.newPage();
     await contactPage.goto(verificationUrl);
+    await contactPage.getByRole("button", { name: "E-Mail-Adresse bestätigen" }).click();
     await contactPage.getByRole("heading", { name: "E-Mail bestätigt." }).waitFor();
     await contactPage.goto(`/card/${cardToken}`);
     await contactPage.getByRole("button", { name: "Test-E-Mail-Marketing aktivieren" }).click();

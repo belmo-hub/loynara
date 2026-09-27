@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
+import { cardSecurityEvents, consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
 import { validCardToken } from "./card-lifecycle";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
 import { DomainError } from "./loyalty";
+import { emailTransportMode } from "./transactional-email";
 
 const emailSchema = z.email().max(320);
 const noticeVersion = "2026-09";
@@ -45,15 +46,16 @@ export async function contactStatus(cardToken: string): Promise<{ available: boo
     .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
   const verified = Boolean(contact?.email && contact.emailVerified);
   return {
-    available: localCaptureAllowed(), contactPresent: Boolean(contact?.email), emailVerified: verified,
+    available: emailTransportMode() !== "disabled", contactPresent: Boolean(contact?.email), emailVerified: verified,
     marketingEmail: verified && await latestMarketingConsent(member.tenantId, member.id),
   };
 }
 
 export async function requestContactVerification(cardToken: string, rawEmail: string): Promise<{ status: "queued" | "verified" }> {
-  const email = emailSchema.parse(rawEmail).toLowerCase();
-  if (!syntheticEmail(email)) throw new DomainError("LOCAL_TEST_ONLY", "Only synthetic .test contacts are supported");
-  if (!localCaptureAllowed()) throw new DomainError("CONTACT_DISABLED", "Contact verification is available only in the local synthetic test");
+  const email = emailSchema.parse(rawEmail.trim().normalize("NFC").toLowerCase());
+  const mode = emailTransportMode();
+  if (mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Contact verification is unavailable");
+  if (mode === "mailpit" && !syntheticEmail(email)) throw new DomainError("LOCAL_TEST_ONLY", "Only synthetic .test contacts are supported");
   return db.transaction(async tx => {
     const member = await cardInTransaction(tx, cardToken);
     const [contact] = await tx.select().from(membershipContacts)
@@ -64,13 +66,25 @@ export async function requestContactVerification(cardToken: string, rawEmail: st
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
     else await tx.insert(membershipContacts).values({ tenantId: member.tenantId, membershipId: member.id, email, emailVerified: false });
     if (changed) await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: false, noticeVersion, source: "contact_changed" });
-    await tx.update(contactVerificationChallenges).set({ consumedAt: new Date() })
-      .where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id), isNull(contactVerificationChallenges.consumedAt)));
+    await tx.delete(contactVerificationChallenges)
+      .where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
     const challengeId = randomUUID();
     const tokenHash = verificationTokenHash(verificationTokenForChallenge(challengeId));
     await tx.insert(contactVerificationChallenges).values({ id: challengeId, tenantId: member.tenantId, membershipId: member.id, email, tokenHash, expiresAt: new Date(Date.now() + 30 * 60_000) });
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.verify", payload: { membershipId: member.id, challengeId } });
     return { status: "queued" as const };
+  });
+}
+
+export async function removeRecoveryEmail(cardToken: string): Promise<{ removed: true }> {
+  return db.transaction(async tx => {
+    const member = await cardInTransaction(tx, cardToken);
+    await tx.delete(contactVerificationChallenges)
+      .where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
+    await tx.delete(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
+    await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: false, noticeVersion, source: "contact_removed" });
+    await tx.insert(cardSecurityEvents).values({ tenantId: member.tenantId, membershipId: member.id, action: "recovery_email_removed" });
+    return { removed: true as const };
   });
 }
 
@@ -89,7 +103,7 @@ export async function consumeContactVerification(token: string): Promise<{ verif
     const [contact] = await tx.select().from(membershipContacts)
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).for("update");
     if (!contact || contact.email !== challenge.email) throw new DomainError("INVALID_CHALLENGE", "Verification link is invalid or expired");
-    await tx.update(contactVerificationChallenges).set({ consumedAt: new Date() }).where(eq(contactVerificationChallenges.id, challenge.id));
+    await tx.delete(contactVerificationChallenges).where(eq(contactVerificationChallenges.id, challenge.id));
     await tx.update(membershipContacts).set({ emailVerified: true })
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
     return { verified: true as const };

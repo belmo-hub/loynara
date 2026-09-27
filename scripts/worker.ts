@@ -16,6 +16,7 @@ const pollMilliseconds = 5000;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let stopping = false;
+let recoveryPrunedAt = 0;
 process.on("SIGINT", () => { stopping = true; });
 process.on("SIGTERM", () => { stopping = true; });
 
@@ -55,14 +56,36 @@ async function processJob(job: Job) {
     try {
       const { deliverVerificationEmail } = await import("../src/lib/contact-verification-delivery");
       const result = await deliverVerificationEmail(job);
-      await mark(job, result.status, result.reason);
+      await mark(job, result.status, "reason" in result ? result.reason : undefined);
       return result.status;
     } catch (error) {
-      const permanent = job.attempts >= maxAttempts;
-      const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Local verification delivery failed", permanent ? 0 : delay);
-      console.error(`Local verification job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-      return permanent ? "failed" : "retry";
+      await mark(job, "blocked", "Verification outcome uncertain; operator review required");
+      console.error(`Verification job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
+      return "blocked";
+    }
+  }
+  if (job.kind === "email.recover") {
+    try {
+      const { deliverRecoveryEmail } = await import("../src/lib/card-recovery-delivery");
+      const result = await deliverRecoveryEmail(job);
+      await mark(job, result.status, "reason" in result ? result.reason : undefined);
+      return result.status;
+    } catch (error) {
+      await mark(job, "blocked", "Recovery delivery outcome uncertain; operator review required");
+      console.error(`Recovery job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
+      return "blocked";
+    }
+  }
+  if (job.kind === "email.recovery_notice") {
+    try {
+      const { deliverRecoveryNotice } = await import("../src/lib/card-recovery-delivery");
+      const result = await deliverRecoveryNotice(job);
+      await mark(job, result.status, "reason" in result ? result.reason : undefined);
+      return result.status;
+    } catch (error) {
+      await mark(job, "blocked", "Security notice outcome uncertain; operator review required");
+      console.error(`Security notice job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
+      return "blocked";
     }
   }
   if (job.kind === "campaign.dispatch") {
@@ -176,6 +199,11 @@ async function main() {
   if (args.length > 1 || (args.length === 1 && args[0] !== "--once")) throw new Error("Usage: npm run worker -- [--once | --replay <job-uuid>]");
   const once = args[0] === "--once";
   do {
+    if (Date.now() - recoveryPrunedAt >= 60 * 60_000) {
+      await pool.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+      await pool.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+      recoveryPrunedAt = Date.now();
+    }
     let processed = 0;
     const counts: Record<string, number> = {};
     while (!stopping && processed < 1000) {

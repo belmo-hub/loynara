@@ -94,7 +94,7 @@ try {
   await page.goto(`/card/${encodeURIComponent(cardToken)}`);
   await page.getByLabel("Test-E-Mail-Adresse (.test)").fill(address);
   await page.getByRole("button", { name: "Bestätigungslink senden" }).click();
-  await page.getByText("Bestätigungslink an lokales Mailpit gesendet.").waitFor();
+  await page.getByText("Bestätigungslink angefordert.", { exact: false }).waitFor();
   await page.waitForTimeout(6000);
   await run("./node_modules/.bin/tsx", ["scripts/worker.ts", "--once"], { cwd: process.cwd(), timeout: 30_000 });
   const messages = await inbox.get("/api/v1/messages");
@@ -107,6 +107,7 @@ try {
   const verificationUrl = verificationText.match(/http:\/\/localhost:3000\/verify-email#token=v_[A-Za-z0-9_-]{43}/)?.[0];
   assert.ok(verificationUrl, "Mailpit must contain a fragment-only verification link");
   await page.goto(verificationUrl);
+  await page.getByRole("button", { name: "E-Mail-Adresse bestätigen" }).click();
   await page.getByRole("heading", { name: "E-Mail bestätigt." }).waitFor();
   assert.equal(new URL(page.url()).hash, "");
   await page.waitForTimeout(4000);

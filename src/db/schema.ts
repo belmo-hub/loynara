@@ -215,6 +215,26 @@ export const contactVerificationChallenges = pgTable("contact_verification_chall
   index("contact_challenge_membership_idx").on(t.tenantId, t.membershipId, t.createdAt),
 ]);
 
+export const cardRecoveryChallenges = pgTable("card_recovery_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: varchar("email", { length: 320 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [index("card_recovery_email_idx").on(t.email, t.createdAt)]);
+
+export const cardSecurityEvents = pgTable("card_security_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  action: varchar("action", { length: 32 }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("card_security_membership_idx").on(t.tenantId, t.membershipId, t.createdAt),
+]);
+
 export const consentEvents = pgTable("consent_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
@@ -392,6 +412,29 @@ export const outboxJobs = pgTable("outbox_jobs", {
   index("outbox_due_idx").on(t.status, t.nextAttemptAt),
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
 ]);
+
+export const emailDeliveries = pgTable("email_deliveries", {
+  jobId: uuid("job_id").primaryKey().references(() => outboxJobs.id),
+  provider: varchar("provider", { length: 16 }).notNull(),
+  recipientHash: varchar("recipient_hash", { length: 64 }).notNull(),
+  providerMessageId: varchar("provider_message_id", { length: 255 }),
+  status: varchar("status", { length: 24 }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("email_deliveries_message_idx").on(t.providerMessageId)]);
+
+export const emailProviderEvents = pgTable("email_provider_events", {
+  id: varchar("id", { length: 128 }).primaryKey(),
+  signatureTokenHash: varchar("signature_token_hash", { length: 64 }).notNull().unique(),
+  jobId: uuid("job_id").references(() => outboxJobs.id),
+  event: varchar("event", { length: 32 }).notNull(),
+  createdAt: createdAt(),
+});
+
+export const emailSuppressions = pgTable("email_suppressions", {
+  recipientHash: varchar("recipient_hash", { length: 64 }).primaryKey(),
+  reason: varchar("reason", { length: 32 }).notNull(),
+  createdAt: createdAt(),
+});
 
 export const campaigns = pgTable("campaigns", {
   id: uuid("id").primaryKey().defaultRandom(),

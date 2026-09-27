@@ -6,22 +6,22 @@ import { postJson } from "@/components/client-api";
 import { BrandMark } from "@/components/loyalty-ui";
 
 export default function VerifyEmailPage() {
-  const [state, setState] = useState<"checking" | "verified" | "invalid">("checking");
-  const verification = useRef<Promise<boolean> | null>(null);
+  const [state, setState] = useState<"ready" | "checking" | "verified" | "invalid">("ready");
+  const token = useRef("");
 
   useEffect(() => {
-    let active = true;
-    if (!verification.current) {
-      const fragment = window.location.hash.slice(1);
-      const token = new URLSearchParams(fragment).get("token");
-      window.history.replaceState(null, "", window.location.pathname);
-      verification.current = token
-        ? postJson<{ verified: true }>("/api/contact/verify", { token }).then(() => true, () => false)
-        : Promise.resolve(false);
-    }
-    void verification.current.then(verified => { if (active) setState(verified ? "verified" : "invalid"); });
-    return () => { active = false; };
+    token.current = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!token.current) setState("invalid");
   }, []);
 
-  return <main className="card-state-page"><div><BrandMark /><h1>{state === "checking" ? "E-Mail wird bestätigt …" : state === "verified" ? "E-Mail bestätigt." : "Bestätigungslink ungültig."}</h1><p>{state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen." : state === "verified" ? "Deine synthetische Testadresse ist jetzt verifiziert. Marketing-E-Mails bleiben aus, bis du sie auf deiner Karte ausdrücklich aktivierst." : "Der Link ist abgelaufen, wurde bereits genutzt oder gehört nicht mehr zur aktuellen Adresse. Öffne deine Karte und fordere bei Bedarf einen neuen Link an."}</p><Link href="/">Zur Startseite</Link></div></main>;
+  async function confirm() {
+    if (!token.current) { setState("invalid"); return; }
+    setState("checking");
+    try { await postJson<{ verified: true }>("/api/contact/verify", { token: token.current }); setState("verified"); }
+    catch { setState("invalid"); }
+    finally { token.current = ""; }
+  }
+
+  return <main className="card-state-page"><div><BrandMark /><h1>{state === "checking" ? "E-Mail wird bestätigt …" : state === "verified" ? "E-Mail bestätigt." : state === "invalid" ? "Bestätigungslink ungültig." : "E-Mail-Adresse bestätigen"}</h1><p>{state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen." : state === "verified" ? "Deine E-Mail-Adresse ist jetzt als Wiederherstellungsmethode bestätigt. Marketing-E-Mails bleiben aus, bis du sie auf deiner Karte ausdrücklich aktivierst." : state === "invalid" ? "Der Link ist abgelaufen, wurde bereits genutzt oder gehört nicht mehr zur aktuellen Adresse. Öffne deine Karte und fordere bei Bedarf einen neuen Link an." : "Bestätige diese Adresse nur, wenn du sie selbst als Wiederherstellungsmethode für deine Loynara-Karte angefordert hast."}</p>{state === "ready" && <button className="button" onClick={() => void confirm()}>E-Mail-Adresse bestätigen</button>}<Link href="/">Zur Startseite</Link></div></main>;
 }
