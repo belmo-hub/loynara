@@ -1,4 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { automationRules, ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { PointsError, purchasePoints } from "./points";
@@ -34,6 +35,16 @@ export async function award(input: AwardInput): Promise<{ balance: number; dupli
 // Offline reconciliation holds its lease lock and books the ledger in the
 // same database transaction. The ordinary online path uses this same logic.
 export async function awardInTransaction(tx: Transaction, input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
+  return bookAwardInTransaction(tx, input, false);
+}
+
+// Only the authenticated SDM flow calls this after locking the provisioned tag.
+// It reuses the same member lock, balance, ledger and outbox as cashier awards.
+export async function awardTapInTransaction(tx: Transaction, input: { locationId: string; membershipId: string; tagId: string; counter: number }): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
+  return bookAwardInTransaction(tx, { userId: `nfc:${input.tagId}`, locationId: input.locationId, membershipId: input.membershipId, quantity: 1, idempotencyKey: `tap:${input.tagId}:${input.counter}`, requestId: randomUUID() }, true);
+}
+
+async function bookAwardInTransaction(tx: Transaction, input: AwardInput, trustedTap: boolean): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
   if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 100) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
@@ -41,7 +52,8 @@ export async function awardInTransaction(tx: Transaction, input: AwardInput): Pr
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
     if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
     const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
-    if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (trustedTap && (program.type !== "stamp" || program.earningMode !== "manual" || input.quantity !== 1)) throw new DomainError("INVALID_EARNING_MODE", "Tap supports one fixed stamp only");
     const purchaseMode = program.type === "points" && program.earningMode === "purchase";
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
@@ -67,9 +79,9 @@ export async function awardInTransaction(tx: Transaction, input: AwardInput): Pr
       if (!Number.isInteger(input.quantity) || input.quantity === undefined || input.quantity < 1) throw new DomainError("INVALID_QUANTITY", "Quantity must be a positive integer");
       quantity = input.quantity;
     }
-    const manualLimit = staff.role === "cashier" ? 10 : staff.role === "manager" ? 100 : 1000;
-    const purchaseAmountLimit = staff.role === "cashier" ? 50_000 : staff.role === "manager" ? 200_000 : 1_000_000;
-    const purchasePointsLimit = staff.role === "cashier" ? 500 : staff.role === "manager" ? 2_000 : 10_000;
+    const manualLimit = trustedTap ? 1 : staff?.role === "cashier" ? 10 : staff?.role === "manager" ? 100 : 1000;
+    const purchaseAmountLimit = staff?.role === "cashier" ? 50_000 : staff?.role === "manager" ? 200_000 : 1_000_000;
+    const purchasePointsLimit = staff?.role === "cashier" ? 500 : staff?.role === "manager" ? 2_000 : 10_000;
     if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
     if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
 
@@ -79,8 +91,8 @@ export async function awardInTransaction(tx: Transaction, input: AwardInput): Pr
       membershipId: member.id,
       delta: quantity,
       kind: "award",
-      source: input.source ?? "staff_online",
-      actorUserId: input.userId,
+      source: trustedTap ? "nfc_tap" : input.source ?? "staff_online",
+      actorUserId: trustedTap ? null : input.userId,
       requestId: input.requestId,
       idempotencyKey: input.idempotencyKey,
       deviceAt: input.deviceAt,

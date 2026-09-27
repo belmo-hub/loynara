@@ -45,7 +45,10 @@ export type MeResponse = {
   publicBaseUrl: string;
   locale?: "de" | "fr";
   programSlug: string;
+  programId?: string;
   programType: "stamp" | "points";
+  tapMode?: "disabled" | "automatic_fixed" | "staff_confirmed";
+  tapCooldownSeconds?: number | null;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };

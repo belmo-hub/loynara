@@ -51,7 +51,10 @@ export function JoinClient({ slug }: { slug: string }) {
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
       const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}) });
-      router.push(`/card/${encodeURIComponent(result.cardToken)}`);
+      const continuation = sessionStorage.getItem("loynara_tap_return");
+      sessionStorage.removeItem("loynara_tap_return");
+      if (continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation)) router.push(continuation);
+      else router.push(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : t.submitError); }
     finally { setBusy(false); }
   }

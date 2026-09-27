@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/card/:token", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      { source: "/tap/:ref", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },
     ];
   },
 };

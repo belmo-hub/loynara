@@ -24,7 +24,7 @@ export function CardClient({ token }: { token: string }) {
   const [closed, setClosed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); } }).catch(cause => { if (mounted) { setError(cause instanceof Error ? cause.message : "Karte nicht gefunden."); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); } void apiJson(`/api/card/${encodeURIComponent(token)}/tap-session`, { method: "POST" }).catch(() => {}); }).catch(cause => { if (mounted) { setError(cause instanceof Error ? cause.message : "Karte nicht gefunden."); setLoading(false); } });
     return () => { mounted = false; };
   }, [token]);
   useEffect(() => {

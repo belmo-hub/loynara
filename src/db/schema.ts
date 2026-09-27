@@ -104,6 +104,8 @@ export const programs = pgTable("programs", {
   type: varchar("type", { length: 8 }).notNull(),
   status: varchar("status", { length: 10 }).notNull().default("active"),
   earningMode: varchar("earning_mode", { length: 8 }).notNull().default("manual"),
+  tapMode: varchar("tap_mode", { length: 20 }).notNull().default("disabled"),
+  tapCooldownSeconds: integer("tap_cooldown_seconds"),
   // Retain the legacy physical column name; rates are per EUR or MAD major unit.
   pointsPerCurrencyUnit: integer("points_per_euro").notNull().default(1),
   rulesText: text("rules_text").notNull(),
@@ -116,6 +118,8 @@ export const programs = pgTable("programs", {
   check("program_type_valid", sql`${t.type} in ('stamp','points')`),
   check("program_status_valid", sql`${t.status} in ('active','archived')`),
   check("program_earning_mode_valid", sql`${t.earningMode} in ('manual','purchase')`),
+  check("program_tap_mode_valid", sql`${t.tapMode} in ('disabled','automatic_fixed','staff_confirmed')`),
+  check("program_tap_cooldown_valid", sql`${t.tapCooldownSeconds} is null or ${t.tapCooldownSeconds} between 1 and 86400`),
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
 ]);
 
@@ -234,7 +238,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   delta: integer("delta").notNull(),
   kind: varchar("kind", { length: 12 }).notNull(),
   source: varchar("source", { length: 24 }).notNull().default("staff_online"),
-  actorUserId: text("actor_user_id").notNull(),
+  actorUserId: text("actor_user_id"),
   requestId: uuid("request_id").notNull(),
   idempotencyKey: varchar("idempotency_key", { length: 100 }).notNull(),
   deviceAt: timestamp("device_at", { withTimezone: true }),
@@ -251,7 +255,53 @@ export const ledgerEntries = pgTable("ledger_entries", {
   index("ledger_member_time_idx").on(t.membershipId, t.createdAt),
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
   check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap')`),
+  check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
+]);
+
+export const secureTags = pgTable("secure_tags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  publicRef: varchar("public_ref", { length: 32 }).notNull().unique(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  uid: varchar("uid", { length: 14 }).notNull().unique(),
+  keyRef: varchar("key_ref", { length: 160 }).notNull(),
+  configVersion: integer("config_version").notNull(),
+  lastCounter: integer("last_counter").notNull().default(0),
+  status: varchar("status", { length: 12 }).notNull().default("provisioned"),
+  replacesTagId: uuid("replaces_tag_id"),
+  provisionedAt: timestamp("provisioned_at", { withTimezone: true }),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("secure_tag_status_valid", sql`${t.status} in ('provisioned','active','revoked','replaced')`),
+  check("secure_tag_counter_valid", sql`${t.lastCounter} between 0 and 16777215`),
+  check("secure_tag_version_valid", sql`${t.configVersion} > 0`),
+]);
+
+export const tapRequests = pgTable("tap_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tagId: uuid("tag_id").notNull().references(() => secureTags.id),
+  counter: integer("counter").notNull(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  locationId: uuid("location_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  membershipId: uuid("membership_id"),
+  status: varchar("status", { length: 20 }).notNull(),
+  ledgerEntryId: uuid("ledger_entry_id"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("tap_request_counter_uq").on(t.tagId, t.counter),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  check("tap_request_counter_valid", sql`${t.counter} between 1 and 16777215`),
+  check("tap_request_status_valid", sql`${t.status} in ('awarded','cooldown','pending_staff','confirmed','expired')`),
 ]);
 
 // A lease is issued only while the cashier and card are online. It is scoped

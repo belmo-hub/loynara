@@ -1,0 +1,2 @@
+ALTER TABLE "ledger_entries" ALTER COLUMN "actor_user_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "ledger_entries" ADD CONSTRAINT "ledger_nfc_actor_valid" CHECK (("ledger_entries"."source" = 'nfc_tap' and "ledger_entries"."actor_user_id" is null) or ("ledger_entries"."source" <> 'nfc_tap' and "ledger_entries"."actor_user_id" is not null));
