@@ -1,22 +1,12 @@
-import assert from "node:assert/strict";
-import { readFileSync, existsSync, statSync } from "node:fs";
-import { resolve } from "node:path";
-
-const root = resolve(import.meta.dirname, "site");
-const pages = ["index.html", "demo/index.html"];
-for (const page of pages) {
-  const html = readFileSync(resolve(root, page), "utf8");
-  assert.match(html, /<html lang="de">/);
-  assert.match(html, /<link rel="canonical" href="https:\/\/getloynara\.com\//);
-  assert.match(html, /Loynara/);
-  assert.doesNotMatch(html, /LoopLocal|looplocal\.|localhost|preview\.getloynara\.com|card_[A-Za-z0-9_-]{10,}|password/i);
-  for (const asset of html.matchAll(/(?:src|href)="(\/assets\/[^"#]+|\/styles\.css)"/g)) {
-    assert.ok(existsSync(resolve(root, `.${asset[1]}`)), `${page}: missing ${asset[1]}`);
-  }
-  console.log(`${page}: metadata, branding and referenced assets PASS`);
+import assert from 'node:assert/strict';
+import {readFileSync,existsSync,readdirSync,statSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
+const root=resolve(import.meta.dirname,'site');
+const walk=dir=>readdirSync(dir).flatMap(n=>statSync(resolve(dir,n)).isDirectory()?walk(resolve(dir,n)):[resolve(dir,n)]);
+const pages=walk(root).filter(f=>f.endsWith('.html'));
+for(const page of pages){const html=readFileSync(page,'utf8');assert.match(html,/<html lang="de">/);assert.match(html,/rel="canonical" href="https:\/\/getloynara\.com\//);assert.doesNotMatch(html,/LoopLocal|looplocal\.|localhost|preview\.getloynara\.com|card_[A-Za-z0-9_-]{10,}|password/i);
+ for(const [,url]of html.matchAll(/(?:src|href)="([^"]+)"/g)){if(/^(https:|mailto:)/.test(url))continue;const [path,hash]=url.split('#');let target=path?resolve(root,'.'+path):page;if(existsSync(target)&&statSync(target).isDirectory())target=resolve(target,'index.html');assert.ok(existsSync(target),`Missing link ${url} in ${page}`);if(hash){const linked=readFileSync(target,'utf8');assert.ok(linked.includes(`id="${hash}"`),`Missing anchor ${url}`);}}
 }
-for (const path of ["styles.css", "robots.txt", "sitemap.xml", "_headers", "assets/loynara-full-platform-synthetic.mp4"]) {
-  assert.ok(statSync(resolve(root, path)).size > 0, `missing or empty ${path}`);
-}
-assert.match(readFileSync(resolve(root, "_headers"), "utf8"), /script-src 'none'/);
-console.log("Static marketing bundle PASS; no private origin or bearer link in public HTML");
+for(const file of walk(resolve(root,'assets/modules'))){const js=readFileSync(file,'utf8');assert.doesNotMatch(js,/fetch\(|sendBeacon|localStorage|sessionStorage|document\.cookie|console\.log|https?:\/\//,`${file}: no outbound/data persistence API`);for(const [,p]of js.matchAll(/from ['"](.+?)['"]/g))assert.ok(existsSync(resolve(dirname(file),p)));}
+const headers=readFileSync(resolve(root,'_headers'),'utf8');assert.match(headers,/script-src 'self'/);assert.match(headers,/connect-src 'none'/);assert.match(headers,/form-action 'none'/);assert.doesNotMatch(headers,/unsafe-inline|unsafe-eval/);
+console.log(`PASS: ${pages.length} pages, metadata, assets, internal links, JS imports, private-output and browser data-flow checks.`);

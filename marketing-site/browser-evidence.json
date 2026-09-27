@@ -1,0 +1,92 @@
+{
+  "conditions": {
+    "browser": "153.0.8010.53",
+    "host": "Mac / loopback static server",
+    "hardware": "Browser emulation only. No physical phone testing.",
+    "performance": "Single lab page load: 390×844, CPU 4× slowdown, 1.6 Mbps down / 750 Kbps up, 40 ms latency. Not field INP or real-user data."
+  },
+  "checks": [
+    {
+      "name": "Calculator: blanks, German decimals, 7/10 visits, €1/-€79 scenarios, invalid amounts and first-month pricing",
+      "result": "PASS"
+    },
+    {
+      "name": "Industry changes reset demo, preserve economics, and safely display business names",
+      "result": "PASS"
+    },
+    {
+      "name": "Journey: enrollment → separate payment → identify without award → explicit +1 → owner history → labelled time jump → redemption → reset",
+      "result": "PASS"
+    },
+    {
+      "name": "Campaign/referral stories: no send, no click reward, explicit qualifying purchase, working rewind/reset",
+      "result": "PASS"
+    },
+    {
+      "name": "Real captures load and conversation note downloads; contact submission stays disabled",
+      "result": "PASS"
+    },
+    {
+      "name": "Keyboard: skip link, category choice, stepper and enrollment",
+      "result": "PASS"
+    },
+    {
+      "name": "360×800: layout and readable demo view switching",
+      "result": "PASS"
+    },
+    {
+      "name": "390×844: layout and readable demo view switching",
+      "result": "PASS"
+    },
+    {
+      "name": "768×1024: layout and readable demo view switching",
+      "result": "PASS"
+    },
+    {
+      "name": "1440×900: layout and readable demo view switching",
+      "result": "PASS"
+    },
+    {
+      "name": "Reduced motion retains calculator and demo actions, disables animation",
+      "result": "PASS"
+    },
+    {
+      "name": "200% zoom-equivalent reflow: 1440×900 reduced to 720×450 CSS pixels, no clipping; browser UI zoom not exercised",
+      "result": "PASS"
+    },
+    {
+      "name": "No JavaScript: navigation, prices, explanations and recording remain available",
+      "result": "PASS"
+    },
+    {
+      "name": "All eight industry routes, demo and transcript load",
+      "result": "PASS"
+    },
+    {
+      "name": "Computed core contrast: body and CTA text ≥4.5:1, input boundary ≥3:1",
+      "result": "PASS"
+    },
+    {
+      "name": "No application errors or third-party requests in exercised marketing flows",
+      "result": "PASS"
+    }
+  ],
+  "lab": {
+    "lcp": 708,
+    "cls": 0,
+    "longTasks": 0,
+    "resources": 88865
+  },
+  "screenshots": [
+    "home-360.png",
+    "home-390.png",
+    "home-768.png",
+    "home-1440.png"
+  ],
+  "sourceHash": "0ac868e1a00f5b9fb8e478c4c64ee35cb2a4b965b25a78df1f97e60dc1442661",
+  "contrast": {
+    "primaryText": 7.084379513697871,
+    "inputBoundary": 4.101200044000302,
+    "bodyText": 13.070829332879834
+  }
+}

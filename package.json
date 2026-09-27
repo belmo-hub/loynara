@@ -28,7 +28,11 @@
     "device-test:stop": "sh scripts/device-test-db-stop.sh",
     "device-test:worker": "sh scripts/device-test-worker.sh",
     "backup": "sh scripts/backup.sh",
-    "restore-check": "sh scripts/restore-check.sh"
+    "restore-check": "sh scripts/restore-check.sh",
+    "marketing:build": "tsx marketing-site/build.mts",
+    "marketing:test": "tsx --test marketing-site/tests/*.test.ts",
+    "marketing:verify": "node marketing-site/verify.mjs",
+    "marketing:preview": "node marketing-site/preview.mjs"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
