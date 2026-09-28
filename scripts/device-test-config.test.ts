@@ -64,4 +64,27 @@ describe("separate synthetic device-test configuration", () => {
     expect(deviceTestRuntimeIssues({ ...runtime, GOOGLE_WALLET_ASSET_ENABLED: "true" })).not.toEqual([]);
     expect(deviceTestRuntimeIssues({ ...runtime, DEMO_MODE: "true" })).not.toEqual([]);
   });
+
+  it("allows only the explicitly approved EU transactional recovery sender in the device test", () => {
+    const email = {
+      ...runtime,
+      EXTERNAL_EMAIL_ENABLED: "true",
+      DEVICE_TEST_APPROVED_EMAIL_PROVIDER: "mailgun-eu",
+      MAILGUN_SEND_APPROVED: "true",
+      MAILGUN_EU_DOMAIN: "mail.getloynara.com",
+      MAILGUN_FROM_EMAIL: "karten@mail.getloynara.com",
+      MAILGUN_EU_API_KEY: "a".repeat(32),
+      MAILGUN_EU_WEBHOOK_SIGNING_KEY: "b".repeat(32),
+    };
+    expect(deviceTestRuntimeIssues(email)).toEqual([]);
+    for (const change of [
+      { DEVICE_TEST_APPROVED_EMAIL_PROVIDER: "" },
+      { MAILGUN_SEND_APPROVED: "false" },
+      { MAILGUN_EU_DOMAIN: "mail.other.example" },
+      { MAILGUN_FROM_EMAIL: "newsletter@mail.getloynara.com" },
+      { MAILGUN_EU_API_KEY: "" },
+      { MAILGUN_EU_WEBHOOK_SIGNING_KEY: "" },
+      { SMTP_HOST: "smtp.example.com" },
+    ]) expect(deviceTestRuntimeIssues({ ...email, ...change })).not.toEqual([]);
+  });
 });

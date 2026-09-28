@@ -1,12 +1,23 @@
-# Controlled Mailgun EU email test — not yet run
+# Controlled Mailgun EU email test — real send not yet run
 
-This is a Gate 6 handoff, not permission to create an account, edit DNS, send mail or enable campaigns. Local Mailpit and provider fixtures do not prove external delivery.
+This is a Gate 6 handoff. The owner approved the domain, DNS and narrow webhook route for a €0 controlled setup. No real email or campaign send has been approved yet. Local Mailpit and provider fixtures do not prove external delivery.
 
-1. **Account/region:** owner approves an EU-region Mailgun account and exact nonzero cost, if any. Create the sending domain in the EU region; the adapter uses only `https://api.eu.mailgun.net/v3/{domain}/messages`.
-2. **Sending subdomain:** propose `mail.getloynara.com`, subject to owner review. Keep the marketing/root and protected preview routes unchanged.
-3. **DNS:** obtain the exact SPF and DKIM records from Mailgun's *Domain Verification & DNS* screen for that EU domain; owner approves each Cloudflare edit. Add receiving MX only if inbound handling is selected. Tracking CNAME/unsubscribe configuration belongs to Gate 5 review, not this transactional test. Verify the domain before enabling sends.
+## Configured on 28 September 2026
+
+- Mailgun EU sending domain: `mail.getloynara.com`. Mailgun displays SPF **Verified** and DKIM **Active**; the domain-wide sending status and real delivery still need the controlled send test.
+- Cloudflare DNS: TXT SPF at `mail.getloynara.com`, TXT DKIM at `mta._domainkey.mail.getloynara.com`. No receiving MX or tracking CNAME was added because inbound mail and tracking are outside this transactional test.
+- Existing named tunnel: `mail-events.getloynara.com` routes only `^/api/email/mailgun/webhook$` to the private device-test origin. Application host guard returns 404 for other paths or methods. The existing `preview.getloynara.com` Access policy was not changed.
+- Mailgun domain-level callback: `https://mail-events.getloynara.com/api/email/mailgun/webhook` for accepted, delivered, temporary failure, permanent failure, complained and unsubscribed. Open/click tracking remains off.
+- The webhook signing key is in ignored mode-0600 `var/device-test.env`. The domain-level sending key is pending owner creation. `EXTERNAL_EMAIL_ENABLED=false` and `MAILGUN_SEND_APPROVED=false`; the transactional external provider and promotional sending remain disabled.
+- Synthetic public-route check: unrelated path and GET returned 404, invalid signature 406, valid signed fixture 200, duplicate fixture 200 with one stored event. Unauthenticated `preview.getloynara.com/api/health` redirected to Access. No real message was sent.
+
+**Next controlled step:** owner creates and copies a domain-level Mailgun EU Sending Key without posting it in chat. After secure local configuration and provider readiness checks, owner must designate one controlled recipient before any real verification or recovery email.
+
+1. **Account/region:** the owner provided an EU-region Mailgun account; no plan upgrade was selected. The adapter uses only `https://api.eu.mailgun.net/v3/{domain}/messages`. Confirm that the approved controlled send remains within the account's €0 allowance before sending.
+2. **Sending subdomain:** owner-approved `mail.getloynara.com`. Keep the marketing/root and protected preview routes unchanged.
+3. **DNS:** the account-specific SPF and DKIM records were copied from Mailgun's *Domain Verification & DNS* screen and verified there. Add receiving MX only if inbound handling is separately selected. Tracking CNAME/unsubscribe configuration belongs to Gate 5 review, not this transactional test.
 4. **Server-only configuration:** `EXTERNAL_EMAIL_ENABLED=true`, `MAILGUN_SEND_APPROVED=true`, `MAILGUN_EU_DOMAIN`, `MAILGUN_FROM_EMAIL`, `MAILGUN_EU_API_KEY`, `MAILGUN_EU_WEBHOOK_SIGNING_KEY`, plus existing `PUBLIC_BASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `DATABASE_URL`. Load credentials from restricted secret storage, never chat, Git, client assets or logs. Keep local/device-test flags off for a production environment.
-5. **Webhook:** approve and expose only `https://<approved-app-origin>/api/email/mailgun/webhook` to Mailgun. The app verifies the HMAC-SHA256 signing key, timestamp and event ID, rejects invalid signatures and records duplicates once. Do not route the customer/staff browser application around its access policy. Confirm delivery webhooks can reach this narrow endpoint.
+5. **Webhook:** the approved provider-facing URL is `https://mail-events.getloynara.com/api/email/mailgun/webhook`. The app verifies the HMAC-SHA256 signing key, timestamp and event ID, rejects invalid signatures and records duplicates once. The customer/staff browser application keeps its separate Access policy. Confirm a real Mailgun delivery webhook during the approved send.
 6. **Events:** enable `accepted`, `delivered`, `temporary_fail`, `permanent_fail`, `unsubscribed`, `complained` for the EU sending domain. Verify event correlation to an actual queued message and suppression after permanent failure/complaint.
 7. **Recipient:** owner designates one controlled real mailbox and specifically approves transactional test messages. Do not import customer contacts.
 8. **Verification:** join contact-free, request verification from the card, receive the one-time email, confirm once, prove replay/expiry rejection and that marketing consent remains off.

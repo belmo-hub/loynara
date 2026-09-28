@@ -41,8 +41,20 @@ export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
     issues.push("Device test requires its generated auth secret");
   }
   if (env.LOOPLOCAL_NEXT_DIST_DIR !== ".next-device-test") issues.push("Device test requires its separate compiled build directory");
-  for (const name of ["PUBLIC_REGISTRATION_ENABLED", "EXTERNAL_EMAIL_ENABLED", "LIVE_BILLING_ENABLED", "APPLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
+  for (const name of ["PUBLIC_REGISTRATION_ENABLED", "LIVE_BILLING_ENABLED", "APPLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
     if (env[name] !== "false") issues.push(`${name} must be false in the device test`);
+  }
+  if (env.EXTERNAL_EMAIL_ENABLED === "true") {
+    if (env.DEVICE_TEST_APPROVED_EMAIL_PROVIDER !== "mailgun-eu"
+      || env.MAILGUN_SEND_APPROVED !== "true"
+      || env.MAILGUN_EU_DOMAIN !== "mail.getloynara.com"
+      || env.MAILGUN_FROM_EMAIL !== "karten@mail.getloynara.com"
+      || (env.MAILGUN_EU_API_KEY?.length ?? 0) < 32
+      || (env.MAILGUN_EU_WEBHOOK_SIGNING_KEY?.length ?? 0) < 32) {
+      issues.push("Device-test external email requires the approved Mailgun EU recovery-only sender and complete credentials");
+    }
+  } else if (env.EXTERNAL_EMAIL_ENABLED !== "false" || env.DEVICE_TEST_APPROVED_EMAIL_PROVIDER) {
+    issues.push("Device-test external email must remain disabled without the approved provider");
   }
   if (env.DEVICE_TEST_APPROVED_WALLET_PROVIDER === "google-demo") {
     // Approval values record a reviewed owner decision; they do not grant it.
