@@ -1,0 +1,14 @@
+.git
+.env*
+var
+.next
+.next-device-test
+node_modules
+coverage
+out
+build
+marketing-site/evidence
+*.pem
+*.age
+*.dump
+*.sql.gz
