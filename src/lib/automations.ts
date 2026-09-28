@@ -1,10 +1,13 @@
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { automationRules, automationRuns, consentEvents, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
-import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
+import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
+import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
+import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
+import { unsubscribeUrl } from "./unsubscribe";
+import { hasRecentPromotion, monthlyLocationUsage, promotionalLimits } from "./promotion-policy";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
@@ -46,7 +49,7 @@ async function activeOwner(rule: Rule, query: Pick<typeof db, "select">) {
 export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now?: Date) {
   now ??= await databaseAudienceNow();
   const input = ruleInput.parse(raw);
-  if (input.enabled && !localMailAllowed()) throw new DomainError("EMAIL_DISABLED", "Automations require local Mailpit and synthetic .test contacts");
+  if (input.enabled && promotionalEmailMode() === "disabled") throw new DomainError("EMAIL_DISABLED", "Promotional email delivery is disabled");
   return db.transaction(async tx => {
     const program = await ownerProgram(input.actorUserId, input.programSlug, tx);
     const [existing] = await tx.select().from(automationRules)
@@ -69,7 +72,7 @@ export async function listAutomations(raw: { actorUserId: string; programSlug: s
   const ids = rows.map(row => row.id);
   const runs = ids.length ? await db.select({ id: automationRuns.id, ruleId: automationRuns.ruleId, membershipId: automationRuns.membershipId, triggerKey: automationRuns.triggerKey, status: automationRuns.status, reason: automationRuns.reason, attempts: automationRuns.attempts, createdAt: automationRuns.createdAt, sentAt: automationRuns.sentAt })
     .from(automationRuns).where(and(eq(automationRuns.tenantId, program.tenantId), inArray(automationRuns.ruleId, ids))).orderBy(desc(automationRuns.createdAt)).limit(100) : [];
-  return { rules: rows, runs, localOnly: true as const };
+  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode() };
 }
 
 async function latestConsent(tx: Transaction, tenantId: string, membershipId: string) {
@@ -86,8 +89,10 @@ async function eligibleContact(tx: Transaction, rule: Rule, membershipId: string
   const [contact] = await tx.select().from(membershipContacts)
     .where(and(eq(membershipContacts.tenantId, rule.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);
   if (!contact?.email || !contact.emailVerified) return { reason: "Contact unavailable or unverified" };
-  if (!syntheticAddress(contact.email)) return { reason: "Recipient is not synthetic" };
+  if (promotionalEmailMode() === "mailpit" && !syntheticAddress(contact.email)) return { reason: "Recipient is not synthetic" };
   if (!await latestConsent(tx, rule.tenantId, member.id)) return { reason: "Marketing consent absent or withdrawn" };
+  const [suppression] = await tx.select({ reason: emailSuppressions.reason }).from(emailSuppressions).where(eq(emailSuppressions.recipientHash, recipientHash(contact.email))).limit(1);
+  if (suppression) return { reason: suppression.reason === "unsubscribed" ? "Unsubscribed" : "Address suppressed by provider" };
   return { email: contact.email };
 }
 
@@ -120,9 +125,17 @@ async function queueRun(tx: Transaction, rule: Rule, membershipId: string, trigg
   const contact = await eligibleContact(tx, rule, membershipId);
   let reason = contact.reason;
   if (!reason) {
+    if (await hasRecentPromotion(tx, rule.tenantId, membershipId, now)) reason = "Customer frequency limit";
+  }
+  if (!reason) {
     const [recent] = await tx.select({ id: automationRuns.id }).from(automationRuns)
       .where(and(eq(automationRuns.tenantId, rule.tenantId), eq(automationRuns.membershipId, membershipId), inArray(automationRuns.status, ["queued", "complete"]), gte(automationRuns.createdAt, new Date(now.getTime() - rule.cooldownDays * DAY)))).limit(1);
     if (recent) reason = "Member frequency limit";
+  }
+  if (!reason) {
+    const [program] = await tx.select({ locationId: programs.locationId }).from(programs).where(and(eq(programs.id, rule.programId), eq(programs.tenantId, rule.tenantId))).limit(1);
+    if (!program) return "quota";
+    if (await monthlyLocationUsage(tx, rule.tenantId, program.locationId, now, true) >= promotionalLimits().monthly) return "quota";
   }
   if (!reason) {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -144,7 +157,7 @@ export async function processAutomationEvent(job: Job, now?: Date): Promise<Outc
   return db.transaction(async tx => {
     const [rule] = await tx.select().from(automationRules).where(and(eq(automationRules.id, payload.data.ruleId), eq(automationRules.tenantId, job.tenantId))).for("update").limit(1);
     if (!rule || !rule.enabled || rule.triggerKind !== "first_checkout" || rule.revision !== Number(payload.data.ruleRevision)) return { status: "suppressed", reason: "Rule disabled or changed" };
-    if (!localMailAllowed()) return { status: "blocked", reason: "Local Mailpit unavailable" };
+    if (promotionalEmailMode() === "disabled") return { status: "blocked", reason: "Promotional email unavailable" };
     if (!await activeOwner(rule, tx)) return { status: "suppressed", reason: "Owner or programme unavailable" };
     const first = await firstCheckout(tx, rule, payload.data.membershipId);
     // The checkout transaction writes this pointer only for the enabled rule
@@ -164,7 +177,7 @@ export async function processAutomationScan(job: Job, now?: Date): Promise<Outco
   const [initial] = await db.select().from(automationRules).where(and(eq(automationRules.id, payload.data.ruleId), eq(automationRules.tenantId, job.tenantId))).limit(1);
   if (!initial || !initial.enabled || initial.triggerKind !== "inactive" || initial.revision !== Number(payload.data.ruleRevision) || initial.nextScanAt?.toISOString() !== payload.data.scanAt) return { status: "suppressed", reason: "Scan changed" };
   if (initial.nextScanAt > now) return { status: "blocked", reason: "Scan not due" };
-  if (!localMailAllowed()) return { status: "blocked", reason: "Local Mailpit unavailable" };
+  if (promotionalEmailMode() === "disabled") return { status: "blocked", reason: "Promotional email unavailable" };
   let selection: Awaited<ReturnType<typeof selectAudience>>;
   try { selection = await selectAudience({ actorUserId: initial.createdByUserId, programId: initial.programId, definition: { kind: "inactive", daysSinceLast: initial.inactivityDays! }, asOf: now, limit: 500 }); }
   catch { return { status: "blocked", reason: "Audience selection unavailable" }; }
@@ -188,7 +201,7 @@ export async function processAutomationScan(job: Job, now?: Date): Promise<Outco
   });
 }
 
-export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender = sendLocalMailpit, now?: Date): Promise<Outcome> {
+export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender = sendLocalMailpit, now?: Date, provider: TransactionalEmailProvider | null = promotionalProvider()): Promise<Outcome> {
   now ??= await databaseAudienceNow();
   const payload = deliveryPayload.safeParse(job.payload);
   if (!payload.success || !Number.isInteger(job.attempts) || job.attempts < 1) return { status: "blocked", reason: "Invalid automation delivery payload" };
@@ -209,21 +222,33 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
       return { status: "suppressed", reason };
     };
     if (!rule.enabled || rule.revision !== run.ruleRevision) return suppress("Rule disabled or changed");
-    if (!localMailAllowed()) return { status: "blocked", reason: "Local Mailpit unavailable" };
+    const mode = promotionalEmailMode();
+    if (mode === "disabled") return { status: "blocked", reason: "Promotional email unavailable" };
     if (!await activeOwner(rule, tx)) return suppress("Owner or programme unavailable");
     if (!contact.email) return suppress(contact.reason ?? "Contact ineligible");
+    if (await hasRecentPromotion(tx, rule.tenantId, run.membershipId, now)) return suppress("Customer frequency limit");
     if (rule.triggerKind === "first_checkout") {
       const first = await firstCheckout(tx, rule, run.membershipId);
       if (!first || first.id !== run.sourceEntryId) return suppress("First checkout changed");
     } else if (!await inactiveNow(tx, rule, run.membershipId, now)) return suppress("Member no longer inactive");
+    const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, rule.tenantId)).limit(1);
+    if (!tenant) return suppress("Merchant unavailable");
+    const link = unsubscribeUrl({ tenantId: rule.tenantId, membershipId: run.membershipId, email: contact.email });
+    const message = { to: contact.email, subject: rule.subject, body: `${rule.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
     try {
-      // Mailpit can accept a message before the transaction commits. A crash in
-      // that interval may duplicate a local test on retry; no external sender is enabled.
-      await send({ to: contact.email, subject: rule.subject, body: rule.body, jobId: job.id });
+      if (mode === "mailpit") await send(message);
+      else {
+        const result = await sendPromotional(message, provider);
+        if (result.status === "suppressed") return suppress(result.reason);
+        if (result.status === "blocked") {
+          await tx.update(automationRuns).set({ reason: result.reason, attempts: job.attempts }).where(eq(automationRuns.id, run.id));
+          return { status: "blocked", reason: result.reason };
+        }
+      }
     } catch {
       const final = job.attempts >= MAX_ATTEMPTS;
-      await tx.update(automationRuns).set({ status: final ? "failed" : "queued", reason: "Local Mailpit delivery failed", attempts: job.attempts }).where(eq(automationRuns.id, run.id));
-      return { status: final ? "failed" : "retry", reason: "Local Mailpit delivery failed" };
+      await tx.update(automationRuns).set({ status: final ? "failed" : "queued", reason: "Automation delivery failed or is uncertain", attempts: job.attempts }).where(eq(automationRuns.id, run.id));
+      return { status: final ? "failed" : "retry", reason: "Automation delivery failed or is uncertain" };
     }
     await tx.update(automationRuns).set({ status: "complete", reason: null, attempts: job.attempts, sentAt: now }).where(eq(automationRuns.id, run.id));
     return { status: "complete" };

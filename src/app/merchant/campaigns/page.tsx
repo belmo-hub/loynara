@@ -19,15 +19,15 @@ type Campaign = {
   id: string; title: string; subject: string; status: CampaignStatus; scheduledAt: string | null;
   audienceCount: number; queuedCount: number; createdAt: string; body?: string; audienceDefinition?: AudienceDefinition;
 };
-type CampaignList = { campaigns: Campaign[] };
+type CampaignList = { campaigns: Campaign[]; deliveryMode: "disabled" | "mailpit" | "mailgun_eu" };
 type CampaignDetail = {
   campaign: Campaign & { body: string; audienceDefinition: AudienceDefinition };
-  summary: { queued: number; sent: number; suppressed: number; failed: number };
-  attempts: Array<{ recipientId: string; status: string; reason: string | null; createdAt: string }>;
+  summary: { queued: number; sent: number; delivered: number; providerFailed: number; suppressed: number; failed: number };
+  attempts: Array<{ recipientId: string; status: string; reason: string | null; createdAt: string; providerStatus: string | null }>;
 };
 type CampaignPreview = {
-  total: number; eligibleCount: number; excludedCountsByReason: { unverified: number; noConsent: number; closed: number; nonSynthetic: number; quota: number };
-  asOf: string; countingRule: string; localOnly: true; dailyQuota: number; quotaRemaining: number;
+  total: number; eligibleCount: number; excludedCountsByReason: { unverified: number; noConsent: number; unsubscribed: number; suppressed: number; frequency: number; closed: number; nonSynthetic: number; quota: number };
+  asOf: string; countingRule: string; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; dailyQuota: number; monthlyLocationQuota: number; quotaRemaining: number;
 };
 
 function definitionOf(editor: Editor): AudienceDefinition {
@@ -79,6 +79,7 @@ export default function MerchantCampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [deliveryMode, setDeliveryMode] = useState<CampaignList["deliveryMode"]>("disabled");
   const [editor, setEditor] = useState<Editor>(emptyEditor);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [preview, setPreview] = useState<CampaignPreview | null>(null);
@@ -99,7 +100,7 @@ export default function MerchantCampaignsPage() {
         apiJson<PublicProgram>(`/api/program/${encodeURIComponent(account.programSlug)}`),
       ]);
       if (!active) return;
-      setMe(account); setCampaigns(list.campaigns); setProgram(publicProgram); setLoading(false);
+      setMe(account); setCampaigns(list.campaigns); setDeliveryMode(list.deliveryMode); setProgram(publicProgram); setLoading(false);
     }).catch(cause => {
       if (!active) return;
       if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
@@ -113,6 +114,7 @@ export default function MerchantCampaignsPage() {
     if (!me?.programSlug) return;
     const result = await apiJson<CampaignList>(`/api/merchant/campaigns?programSlug=${encodeURIComponent(me.programSlug)}`);
     setCampaigns(result.campaigns);
+    setDeliveryMode(result.deliveryMode);
   }
 
   function changeEditor<K extends keyof Editor>(key: K, value: Editor[K]) {
@@ -177,8 +179,8 @@ export default function MerchantCampaignsPage() {
   return <div className="app-page">
     <header className={`app-header ${styles.header}`}><div className="app-header-inner"><Link href="/merchant"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/program">Programm</Link><Link href="/merchant/customers">Kundenkarten</Link><Link href="/merchant/campaigns" aria-current="page">Kampagnen</Link><Link href="/cashier">Kasse</Link></nav><span className="app-header-location">Kampagnen</span></div></header>
     <main className={`app-container ${styles.main}`}>
-      <div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> LOKALE TESTKAMPAGNEN</span><h1>Kampagnen</h1><p>Entwürfe erstellen, Zielgruppen prüfen und lokale Testzustellung nachvollziehen.</p></div>
-      <p className={styles.notice}>Dieser Durchlauf nutzt nur synthetische Kontakte und den lokalen Mailpit-Testkanal. Die Vorschau zählt mögliche Empfänger, versendet aber nichts. Externe Zustellung ist hier nicht aktiviert.</p>
+      <div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> E-MAIL-KAMPAGNEN</span><h1>Kampagnen</h1><p>Entwürfe erstellen, Zielgruppen prüfen und Zustellversuche nachvollziehen.</p></div>
+      <p className={styles.notice}>{deliveryMode === "mailpit" ? "Lokaler Mailpit-Testkanal: nur synthetische .test-Adressen." : deliveryMode === "mailgun_eu" ? "Freigeschalteter Mailgun-EU-Kanal. Vor jeder Zustellung werden Einwilligung, Adresse, Zielgruppe und Versandgrenzen erneut geprüft." : "Promotionaler Versand ist deaktiviert. Entwürfe und Zielgruppenvorschauen sind möglich; Planung benötigt eine gesonderte Freigabe."} Die Zielgruppenvorschau versendet keine Nachricht.</p>
       {loading ? <section className="app-panel"><p>Kampagnen werden geladen …</p></section> : forbidden ? <section className="app-panel"><p role="alert">Nur Inhaberinnen und Inhaber können Kampagnen verwalten.</p></section> : !me ? <section className="app-panel"><p role="alert">{error || "Kampagnen konnten nicht geladen werden."}</p></section> : <>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {message && <p role="status" className={styles.success}>{message}</p>}
@@ -193,9 +195,9 @@ export default function MerchantCampaignsPage() {
               </div>
               <section className={styles.messagePreview} aria-label="Vorschau der Testnachricht">
                 <span className="tiny-label">NACHRICHTENVORSCHAU</span>
-                <h3>{editor.subject.trim() ? `[LOCAL TEST] ${editor.subject.trim()}` : "Betreff eingeben"}</h3>
+                <h3>{editor.subject.trim() ? `${deliveryMode === "mailpit" ? "[LOCAL TEST] " : ""}${editor.subject.trim()}` : "Betreff eingeben"}</h3>
                 <p>{editor.body.trim() || "Nachricht eingeben"}</p>
-                <small>Lokale Testnachricht. Keine externe Zustellung.</small>
+                <small>{deliveryMode === "mailgun_eu" ? "Bei Zustellung ergänzt Loynara Geschäftsname und Abmeldelink." : deliveryMode === "mailpit" ? "Lokale Testnachricht. Keine externe Zustellung." : "Versand derzeit deaktiviert."}</small>
               </section>
               <div className={styles.audience}><h3>Zielgruppe</h3><label>Zielgruppe auswählen<select value={editor.kind} onChange={event => changeEditor("kind", event.target.value as AudienceKind)}><option value="new">Neu angemeldet</option><option value="recently_active">Kürzlich aktiv</option><option value="inactive">Länger inaktiv</option><option value="frequent_visitors">Häufige Kassenvorgänge</option><option value="close_to_reward">Kurz vor Prämie</option></select></label>
                 {(editor.kind === "new" || editor.kind === "recently_active" || editor.kind === "frequent_visitors") && <label>Zeitraum in Tagen<input type="number" min={1} max={3650} step={1} value={editor.withinDays} onChange={event => changeEditor("withinDays", Number(event.target.value))} required /></label>}
@@ -205,11 +207,11 @@ export default function MerchantCampaignsPage() {
               </div>
               <div className={styles.actions}><button type="button" className="button button--outline" disabled={busy} onClick={() => void inspectAudience()}>Zielgruppe prüfen</button><button type="submit" className="button button--ink" disabled={busy}>{editingId ? "Änderungen speichern" : "Entwurf speichern"}</button></div>
             </fieldset></form>
-            {preview && <section className={`app-panel ${styles.preview}`} aria-labelledby="audience-preview-heading"><div className={styles.sectionHead}><div><span className="tiny-label">AKTUELLER STAND</span><h2 id="audience-preview-heading">Zielgruppenvorschau</h2></div></div><div className={styles.previewStats}><strong>{preview.total} {preview.total === 1 ? "Karte" : "Karten"} in der Zielgruppe</strong><strong>{preview.eligibleCount} kontaktierbar</strong></div><p>Stand: {when(preview.asOf)}. Diese Zahl ist eine Vorschau und keine Zusage für die spätere Zustellung.</p><dl className={styles.exclusions}><div><dt>Unverifizierte Adresse</dt><dd>{preview.excludedCountsByReason.unverified}</dd></div><div><dt>Keine Einwilligung</dt><dd>{preview.excludedCountsByReason.noConsent}</dd></div><div><dt>Geschlossene Karte</dt><dd>{preview.excludedCountsByReason.closed}</dd></div><div><dt>Nicht synthetisch</dt><dd>{preview.excludedCountsByReason.nonSynthetic}</dd></div><div><dt>Tageslimit</dt><dd>{preview.excludedCountsByReason.quota}</dd></div></dl><p>Tageslimit: {preview.dailyQuota}; derzeit verfügbar: {preview.quotaRemaining}. Kanal: {preview.localOnly ? "nur lokal" : "nicht bestätigt"}.</p><small>{preview.countingRule}</small></section>}
+            {preview && <section className={`app-panel ${styles.preview}`} aria-labelledby="audience-preview-heading"><div className={styles.sectionHead}><div><span className="tiny-label">AKTUELLER STAND</span><h2 id="audience-preview-heading">Zielgruppenvorschau</h2></div></div><div className={styles.previewStats}><strong>{preview.total} {preview.total === 1 ? "Karte" : "Karten"} in der Zielgruppe</strong><strong>{preview.eligibleCount} kontaktierbar</strong></div><p>Stand: {when(preview.asOf)}. Diese Zahl ist eine Vorschau und keine Zusage für die spätere Zustellung.</p><dl className={styles.exclusions}><div><dt>Unverifizierte Adresse</dt><dd>{preview.excludedCountsByReason.unverified}</dd></div><div><dt>Keine Einwilligung</dt><dd>{preview.excludedCountsByReason.noConsent}</dd></div><div><dt>Abgemeldet</dt><dd>{preview.excludedCountsByReason.unsubscribed}</dd></div><div><dt>Provider-Sperre</dt><dd>{preview.excludedCountsByReason.suppressed}</dd></div><div><dt>Zu häufig kontaktiert</dt><dd>{preview.excludedCountsByReason.frequency}</dd></div><div><dt>Geschlossene Karte</dt><dd>{preview.excludedCountsByReason.closed}</dd></div>{preview.deliveryMode === "mailpit" && <div><dt>Nicht synthetisch</dt><dd>{preview.excludedCountsByReason.nonSynthetic}</dd></div>}<div><dt>Versandlimit</dt><dd>{preview.excludedCountsByReason.quota}</dd></div></dl><p>Tageslimit: {preview.dailyQuota}; Monatslimit je Standort: {preview.monthlyLocationQuota}; derzeit verfügbar: {preview.quotaRemaining}. Kanal: {preview.deliveryMode === "mailgun_eu" ? "Mailgun EU" : preview.deliveryMode === "mailpit" ? "lokaler Test" : "deaktiviert"}.</p><small>{preview.countingRule}</small></section>}
           </div>
           <div className={styles.column}>
             <section className={`app-panel ${styles.list}`} aria-labelledby="campaign-list-heading"><div className={styles.sectionHead}><div><span className="tiny-label">GESPEICHERT</span><h2 id="campaign-list-heading">Deine Kampagnen</h2></div></div>{campaigns.length === 0 ? <p className={styles.muted}>Noch keine Kampagnen. Speichere zuerst einen Entwurf.</p> : <ul>{campaigns.map(campaign => <li key={campaign.id} className={styles.campaign}><div className={styles.campaignHead}><strong>{campaign.title}</strong><span>{statusLabel(campaign.status)}</span></div><p>{campaign.subject}</p><dl><div><dt>Zielgruppe bei Planung</dt><dd>{campaign.audienceCount}</dd></div><div><dt>Eingereiht</dt><dd>{campaign.queuedCount}</dd></div><div><dt>Termin</dt><dd>{when(campaign.scheduledAt)}</dd></div></dl><div className={styles.campaignActions}><button type="button" className="button button--outline button--small" disabled={busy} onClick={() => void openDetail(campaign.id)}>Details</button>{campaign.status === "draft" && <button type="button" className="button button--outline button--small" disabled={busy} onClick={() => void openDetail(campaign.id, true)}>Bearbeiten</button>}{campaign.status === "scheduled" && <button type="button" className="button button--outline button--small" disabled={busy} onClick={() => void act(campaign.id, "pause")}>Pausieren</button>}{["draft", "scheduled", "paused"].includes(campaign.status) && <button type="button" className="button button--outline button--small" disabled={busy} onClick={() => void act(campaign.id, "cancel")}>Abbrechen</button>}</div>{["draft", "paused"].includes(campaign.status) && <div className={styles.schedule}><label>{campaign.status === "paused" ? "Neuer Termin für Fortsetzung" : "Termin für Planung"}<input type="datetime-local" value={scheduleValues[campaign.id] ?? ""} onChange={event => setScheduleValues(current => ({ ...current, [campaign.id]: event.target.value }))} /></label><button type="button" className="button button--ink button--small" disabled={busy || !scheduleValues[campaign.id]} onClick={() => void act(campaign.id, "schedule")}>{campaign.status === "paused" ? "Erneut planen" : "Planen"}</button></div>}</li>)}</ul>}</section>
-            {detail && <section className={`app-panel ${styles.details}`} aria-labelledby="campaign-details-heading"><div className={styles.sectionHead}><div><span className="tiny-label">TATSÄCHLICHE VORGÄNGE</span><h2 id="campaign-details-heading">{detail.campaign.title}</h2></div><span>{statusLabel(detail.campaign.status)}</span></div><dl className={styles.summary}><div><dt>Wartend</dt><dd>{detail.summary.queued}</dd></div><div><dt>Gesendet</dt><dd>{detail.summary.sent}</dd></div><div><dt>Unterdrückt</dt><dd>{detail.summary.suppressed}</dd></div><div><dt>Fehlgeschlagen</dt><dd>{detail.summary.failed}</dd></div></dl><h3>Letzte Zustellversuche</h3>{detail.attempts.length === 0 ? <p className={styles.muted}>Noch keine Zustellversuche.</p> : <ol>{detail.attempts.map((attempt, index) => <li key={`${attempt.recipientId}-${attempt.createdAt}-${index}`}><strong>{attemptStatus(attempt.status)}</strong><time dateTime={attempt.createdAt}>{when(attempt.createdAt)}</time>{attempt.reason && <small>{attempt.reason}</small>}</li>)}</ol>}</section>}
+            {detail && <section className={`app-panel ${styles.details}`} aria-labelledby="campaign-details-heading"><div className={styles.sectionHead}><div><span className="tiny-label">TATSÄCHLICHE VORGÄNGE</span><h2 id="campaign-details-heading">{detail.campaign.title}</h2></div><span>{statusLabel(detail.campaign.status)}</span></div><dl className={styles.summary}><div><dt>Wartend</dt><dd>{detail.summary.queued}</dd></div><div><dt>Vom Versand angenommen</dt><dd>{detail.summary.sent}</dd></div><div><dt>Zugestellt laut Provider</dt><dd>{detail.summary.delivered}</dd></div><div><dt>Provider-Fehler</dt><dd>{detail.summary.providerFailed}</dd></div><div><dt>Unterdrückt</dt><dd>{detail.summary.suppressed}</dd></div><div><dt>Fehlgeschlagen</dt><dd>{detail.summary.failed}</dd></div></dl><h3>Letzte Zustellversuche</h3>{detail.attempts.length === 0 ? <p className={styles.muted}>Noch keine Zustellversuche.</p> : <ol>{detail.attempts.map((attempt, index) => <li key={`${attempt.recipientId}-${attempt.createdAt}-${index}`}><strong>{attemptStatus(attempt.status)}</strong><time dateTime={attempt.createdAt}>{when(attempt.createdAt)}</time>{attempt.providerStatus && <small>Provider: {providerStatusLabel(attempt.providerStatus)}</small>}{attempt.reason && <small>{attempt.reason}</small>}</li>)}</ol>}</section>}
           </div>
         </div>
       </>}
@@ -224,6 +226,19 @@ function attemptStatus(value: string) {
     case "retry": return "Erneuter Versuch geplant";
     case "failed": return "Fehlgeschlagen";
     case "blocked": return "Blockiert";
+    default: return value;
+  }
+}
+
+function providerStatusLabel(value: string) {
+  switch (value) {
+    case "accepted": return "angenommen";
+    case "delivered": return "zugestellt";
+    case "temporary_failure": return "vorübergehendes Zustellproblem";
+    case "permanent_failure": return "dauerhaft fehlgeschlagen";
+    case "complained": return "Beschwerde";
+    case "unsubscribed": return "abgemeldet";
+    case "ambiguous": case "sending": return "unklar, manuelle Prüfung nötig";
     default: return value;
   }
 }

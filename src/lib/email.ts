@@ -11,11 +11,11 @@ const messageInput = z.object({
   body: z.string().trim().min(5).max(3000),
 });
 const payloadInput = messageInput.pick({ membershipId: true, subject: true, body: true }).extend({ actorUserId: z.string().min(1) });
-export type LocalMessage = { to: string; subject: string; body: string; jobId: string };
+export type LocalMessage = { to: string; subject: string; body: string; jobId: string; unsubscribeUrl?: string };
 export type LocalSender = (message: LocalMessage) => Promise<void>;
 
 export function localMailAllowed() {
-  if (process.env.NODE_ENV === "production" || process.env.EXTERNAL_EMAIL_ENABLED === "true") return false;
+  if (process.env.NODE_ENV === "production" || process.env.EXTERNAL_EMAIL_ENABLED === "true" || process.env.TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED === "true") return false;
   if (!["localhost", "127.0.0.1"].includes(process.env.SMTP_HOST ?? "")) return false;
   try {
     const database = new URL(process.env.DATABASE_URL ?? "");

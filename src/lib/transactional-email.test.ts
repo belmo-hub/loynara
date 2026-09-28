@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { emailDeliveries, emailProviderEvents, emailSuppressions, outboxJobs, tenants } from "@/db/schema";
-import { emailTransportMode, mailgunEuProvider, recordMailgunWebhook, recipientHash, sendTransactional, verifyMailgunWebhook } from "./transactional-email";
+import { emailTransportMode, mailgunEuProvider, promotionalEmailMode, promotionalProvider, recordMailgunWebhook, recipientHash, sendPromotional, sendTransactional, verifyMailgunWebhook } from "./transactional-email";
 import { productionConfigIssues } from "../../scripts/config-check";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Email adapter tests require looplocal_test");
@@ -37,6 +37,47 @@ function signed(event: string, jobId: string, id = randomUUID()) {
 }
 
 describe("disabled by default Mailgun EU transactional adapter", () => {
+  it("keeps promotional sending independent of a working transactional provider", async () => {
+    expect(emailTransportMode(config)).toBe("mailgun_eu");
+    expect(promotionalEmailMode(config)).toBe("disabled");
+    const approved = { ...config, PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true", PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "100", PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24", PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.example.test", PROMOTIONAL_UNSUBSCRIBE_SECRET: "synthetic-unsubscribe-secret-long-enough" };
+    expect(promotionalEmailMode({ ...approved, PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "" })).toBe("disabled");
+    expect(promotionalEmailMode({ ...approved, PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "" })).toBe("disabled");
+    expect(promotionalEmailMode(approved)).toBe("mailgun_eu");
+    const saved = { external: process.env.EXTERNAL_EMAIL_ENABLED, base: process.env.PUBLIC_BASE_URL, smtp: process.env.SMTP_HOST };
+    try {
+      process.env.EXTERNAL_EMAIL_ENABLED = "false";
+      process.env.PUBLIC_BASE_URL = "http://localhost:3000";
+      process.env.SMTP_HOST = "localhost";
+      process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "true";
+      delete process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN;
+      expect(promotionalEmailMode()).toBe("disabled");
+    } finally {
+      process.env.EXTERNAL_EMAIL_ENABLED = saved.external;
+      process.env.PUBLIC_BASE_URL = saved.base;
+      if (saved.smtp === undefined) delete process.env.SMTP_HOST; else process.env.SMTP_HOST = saved.smtp;
+      delete process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED;
+    }
+    const production = { ...approved, DATABASE_URL: "postgresql://real:unique@db.example.test/app", BETTER_AUTH_URL: "https://test.example.test", BETTER_AUTH_SECRET: "a".repeat(40) };
+    expect(productionConfigIssues({ ...production, MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" })).toContain("Promotional email requires separate approval, public unsubscribe origin and configured location/customer safety limits");
+    const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => {
+      const body = options?.body as FormData;
+      expect(body.get("o:tracking")).toBe("no");
+      expect(body.get("h:List-Unsubscribe")).toContain("/unsubscribe#token=");
+      return Response.json({ id: "<promo@example.test>" });
+    });
+    expect(await promotionalProvider(approved, request as typeof fetch)?.send({ to: "holder@example.test", subject: "Synthetic offer", body: "Synthetic message", jobId: randomUUID(), unsubscribeUrl: "https://test.example.test/unsubscribe#token=synthetic" })).toEqual({ state: "accepted", messageId: "<promo@example.test>" });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not resend a promotional job after accepted or ambiguous provider outcome", async () => {
+    const queued = await job();
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "ambiguous" as const })) };
+    const message = { to: "holder@example.test", subject: "Synthetic offer", body: "Synthetic message", jobId: queued.id };
+    expect(await sendPromotional(message, provider)).toMatchObject({ status: "blocked" });
+    expect(await sendPromotional(message, provider)).toMatchObject({ status: "blocked" });
+    expect(provider.send).toHaveBeenCalledTimes(1);
+  });
   it("requires explicit approval and complete EU configuration", () => {
     expect(emailTransportMode({ ...config, MAILGUN_SEND_APPROVED: "false" })).toBe("disabled");
     expect(mailgunEuProvider({ ...config, MAILGUN_EU_API_KEY: "" })).toBeNull();

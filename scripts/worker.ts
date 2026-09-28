@@ -97,7 +97,7 @@ async function processJob(job: Job) {
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Local campaign dispatch failed", permanent ? 0 : delay);
+      await mark(job, permanent ? "failed" : "retry", "Campaign dispatch failed", permanent ? 0 : delay);
       console.error(`Campaign dispatch job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return permanent ? "failed" : "retry";
     }
@@ -112,8 +112,8 @@ async function processJob(job: Job) {
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Local campaign delivery failed", permanent ? 0 : delay);
-      console.error(`Local campaign job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      await mark(job, permanent ? "failed" : "retry", "Campaign delivery failed or is uncertain", permanent ? 0 : delay);
+      console.error(`Campaign job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return permanent ? "failed" : "retry";
     }
   }
@@ -129,7 +129,7 @@ async function processJob(job: Job) {
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Local automation processing failed", permanent ? 0 : delay);
+      await mark(job, permanent ? "failed" : "retry", "Automation processing failed", permanent ? 0 : delay);
       console.error(`Automation job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return permanent ? "failed" : "retry";
     }

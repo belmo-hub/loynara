@@ -21,10 +21,18 @@ function externalOrigin(value?: string) {
       && url.pathname === "/" && !url.username && !url.password && !url.search && !url.hash;
   } catch { return false; }
 }
-function mailgunConfig(env = process.env) {
+function mailgunConfig(env = process.env, purpose: "transactional" | "promotional" = "transactional") {
   const domain = env.MAILGUN_EU_DOMAIN?.toLowerCase();
   const from = env.MAILGUN_FROM_EMAIL?.toLowerCase();
-  if (env.EXTERNAL_EMAIL_ENABLED !== "true" || env.MAILGUN_SEND_APPROVED !== "true"
+  const enabled = purpose === "transactional"
+    ? (env.TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED ?? env.EXTERNAL_EMAIL_ENABLED) === "true"
+    : env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED === "true" && env.MAILGUN_PROMOTIONAL_SEND_APPROVED === "true";
+  const monthly = Number(env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT);
+  const frequency = Number(env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS);
+  const promotionalSafety = purpose === "transactional" || (env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT !== "" && env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS !== "" && externalOrigin(env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN)
+    && (env.PROMOTIONAL_UNSUBSCRIBE_SECRET?.length ?? 0) >= 32
+    && Number.isSafeInteger(monthly) && monthly >= 1 && monthly <= 100_000 && Number.isSafeInteger(frequency) && frequency >= 1 && frequency <= 24 * 365);
+  if (!enabled || !promotionalSafety || env.MAILGUN_SEND_APPROVED !== "true"
     || !domain || !domainPattern.test(domain) || !from || !z.email().safeParse(from).success || !from.endsWith(`@${domain}`)
     || !env.MAILGUN_EU_API_KEY || !env.MAILGUN_EU_WEBHOOK_SIGNING_KEY
     || !externalOrigin(env.PUBLIC_BASE_URL)) return null;
@@ -37,14 +45,21 @@ export function emailTransportMode(env = process.env): EmailMode {
   return "disabled";
 }
 
+export function promotionalEmailMode(env = process.env): EmailMode {
+  if (mailgunConfig(env, "promotional")) return "mailgun_eu";
+  if (env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED === "true") return "disabled";
+  if (env === process.env && localMailAllowed()) return "mailpit";
+  return "disabled";
+}
+
 export function recipientHash(email: string) {
   const secret = process.env.BETTER_AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("Recipient hash secret unavailable");
   return createHmac("sha256", secret).update("email-recipient-v1:\0").update(email.trim().toLowerCase()).digest("hex");
 }
 
-export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch): TransactionalEmailProvider | null {
-  const config = mailgunConfig(env);
+export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch, purpose: "transactional" | "promotional" = "transactional"): TransactionalEmailProvider | null {
+  const config = mailgunConfig(env, purpose);
   if (!config) return null;
   return { name: "mailgun_eu", async send(message) {
     const body = new FormData();
@@ -54,6 +69,10 @@ export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch)
     body.set("text", message.body);
     body.set("v:job_id", message.jobId);
     body.set("o:tracking", "no");
+    if (purpose === "promotional") {
+      if (!message.unsubscribeUrl) return { state: "permanent_failure" };
+      body.set("h:List-Unsubscribe", `<${message.unsubscribeUrl}>`);
+    }
     let response: Response;
     try {
       response = await http(`https://api.eu.mailgun.net/v3/${config.domain}/messages`, {
@@ -79,13 +98,22 @@ export function transactionalProvider(): TransactionalEmailProvider | null {
   return mailgunEuProvider();
 }
 
+export function promotionalProvider(env = process.env, http: typeof fetch = fetch): TransactionalEmailProvider | null {
+  if (env === process.env && promotionalEmailMode() === "mailpit") return { name: "mailpit", async send(message) {
+    if (!syntheticAddress(message.to)) return { state: "permanent_failure" };
+    await sendLocalMailpit(message);
+    return { state: "accepted", messageId: `local:${message.jobId}` };
+  } };
+  return mailgunEuProvider(env, http, "promotional");
+}
+
 /** Reserve before network I/O. A lost response remains ambiguous and never auto-retries. */
-export async function sendTransactional(message: TransactionalMessage, provider = transactionalProvider()) {
-  if (!provider) return { status: "blocked" as const, reason: "Transactional email unavailable" };
+async function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional" | "promotional") {
+  if (!provider) return { status: "blocked" as const, reason: "Email provider unavailable" };
   const hash = recipientHash(message.to);
   const [suppression] = await db.select().from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash));
   // Promotional unsubscribe is not a withdrawal of requested recovery mail.
-  if (suppression && suppression.reason !== "unsubscribed") return { status: "suppressed" as const, reason: "Recipient suppressed" };
+  if (suppression && (purpose === "promotional" || suppression.reason !== "unsubscribed")) return { status: "suppressed" as const, reason: "Recipient suppressed" };
   const reserved = await db.insert(emailDeliveries).values({ jobId: message.jobId, provider: provider.name, recipientHash: hash, status: "sending" })
     .onConflictDoNothing().returning({ jobId: emailDeliveries.jobId });
   if (!reserved.length) return { status: "blocked" as const, reason: "Previous delivery attempt requires review" };
@@ -99,6 +127,14 @@ export async function sendTransactional(message: TransactionalMessage, provider 
   return result.state === "accepted" || result.state === "delivered"
     ? { status: "complete" as const }
     : { status: "blocked" as const, reason: result.state === "ambiguous" ? "Provider outcome uncertain; reconcile before replay" : "Provider rejected delivery" };
+}
+
+export async function sendTransactional(message: TransactionalMessage, provider = transactionalProvider()) {
+  return sendManaged(message, provider, "transactional");
+}
+
+export async function sendPromotional(message: TransactionalMessage, provider = promotionalProvider()) {
+  return sendManaged(message, provider, "promotional");
 }
 
 const webhookSchema = z.object({

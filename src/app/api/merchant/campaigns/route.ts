@@ -3,6 +3,7 @@ import { cancelCampaign, createDraftCampaign, editDraftCampaign, listCampaigns, 
 import { audienceDefinitionSchema } from "@/lib/segments";
 import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
+import { promotionalEmailMode } from "@/lib/transactional-email";
 
 const content = { title: z.string().trim().min(2).max(180), subject: z.string().trim().min(2).max(120), body: z.string().trim().min(5).max(3000), audienceDefinition: audienceDefinitionSchema };
 const action = z.discriminatedUnion("action", [
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     await enforceRateLimit({ scope: "merchant_campaign_list_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const programSlug = new URL(request.url).searchParams.get("programSlug");
     if (!programSlug) return Response.json({ error: "Missing programme" }, { status: 400 });
-    return Response.json({ campaigns: await listCampaigns({ actorUserId: user.id, programSlug }) }, { headers: noStore });
+    return Response.json({ campaigns: await listCampaigns({ actorUserId: user.id, programSlug }), deliveryMode: promotionalEmailMode() }, { headers: noStore });
   } catch (error) { return respondError(error); }
 }
 

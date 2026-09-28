@@ -1,14 +1,17 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
 import { createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
 import { award } from "./loyalty";
+import { closeCard } from "./card-lifecycle";
+import { unsubscribeMarketing } from "./unsubscribe";
+import { recordMailgunWebhook } from "./transactional-email";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Campaign tests require looplocal_test");
 const run = promisify(execFile);
@@ -17,6 +20,13 @@ beforeEach(async () => {
   process.env.SMTP_HOST = "localhost";
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
+  process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "false";
+  process.env.MAILGUN_PROMOTIONAL_SEND_APPROVED = "false";
+  process.env.BETTER_AUTH_SECRET = "synthetic-campaign-secret-long-enough-for-tests";
+  delete process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT;
+  delete process.env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS;
+  delete process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN;
+  delete process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET;
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
 });
 afterAll(async () => { await pool.end(); });
@@ -38,6 +48,109 @@ const audienceDefinition = { kind: "new" as const, withinDays: 7 };
 const draftFields = { title: "Synthetic autumn note", subject: "Local test offer", body: "A short synthetic message for a local test.", audienceDefinition };
 
 describe("local campaign core", () => {
+  it("sends one approved external fixture message with merchant identity and unsubscribe, then suppresses the next campaign", async () => {
+    const f = await fixture();
+    const card = await member(f.merchant.programSlug, "owner-controlled@example.test", true, true);
+    process.env.PUBLIC_BASE_URL = "https://test.example.test";
+    process.env.EXTERNAL_EMAIL_ENABLED = "true";
+    process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "true";
+    process.env.MAILGUN_PROMOTIONAL_SEND_APPROVED = "true";
+    process.env.MAILGUN_SEND_APPROVED = "true";
+    process.env.MAILGUN_EU_DOMAIN = "mail.example.test";
+    process.env.MAILGUN_FROM_EMAIL = "service@mail.example.test";
+    process.env.MAILGUN_EU_API_KEY = "synthetic-key";
+    process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY = "synthetic-signing-key-long-enough";
+    process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT = "100";
+    process.env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS = "24";
+    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://test.example.test";
+    process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
+      expect(message.to).toBe("owner-controlled@example.test");
+      expect(message.body).toContain("Synthetic Café");
+      expect(message.body).toContain("Angebote abbestellen:");
+      expect(message.unsubscribeUrl).toContain("https://test.example.test/unsubscribe#token=");
+      return { state: "accepted" as const, messageId: "<synthetic-promo@example.test>" };
+    }) };
+    const first = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: first.id, scheduledAt: when });
+    const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ queuedCount: 1 });
+    const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+    expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, undefined, provider)).toMatchObject({ status: "complete" });
+    expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 2 }, undefined, provider)).toMatchObject({ status: "complete" });
+    expect(provider.send).toHaveBeenCalledTimes(1);
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const webhookToken = randomBytes(25).toString("hex");
+    const event = { signature: { timestamp, token: webhookToken, signature: createHmac("sha256", process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY!).update(timestamp + webhookToken).digest("hex") }, "event-data": { id: randomUUID(), event: "delivered", recipient: "owner-controlled@example.test", "user-variables": { job_id: job.id } } };
+    expect(await recordMailgunWebhook(event)).toEqual({ accepted: true });
+    expect(await recordMailgunWebhook(event)).toEqual({ accepted: true });
+    expect(await db.select().from(emailProviderEvents)).toHaveLength(1);
+    expect(await getCampaign({ actorUserId: f.ownerId, campaignId: first.id })).toMatchObject({ summary: { delivered: 1 }, attempts: [{ providerStatus: "delivered" }] });
+    const link = provider.send.mock.calls[0][0].unsubscribeUrl!;
+    await unsubscribeMarketing(new URLSearchParams(new URL(link).hash.slice(1)).get("token")!);
+    const second = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: second.id, scheduledAt: when });
+    const jobs = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    const next = jobs.at(-1)!;
+    expect(await dispatchCampaign({ id: next.id, tenantId: next.tenantId, payload: next.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ queuedCount: 0 });
+    expect(provider.send).toHaveBeenCalledTimes(1);
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: first.id })).summary.sent).toBe(1);
+    expect(card.cardToken.startsWith("card_")).toBe(true);
+  });
+
+  it("suppresses a second promotional message within the customer frequency window", async () => {
+    const f = await fixture();
+    await member(f.merchant.programSlug, "repeat@example.test", true, true);
+    const send = vi.fn(async (message: LocalMessage) => { expect(message.to).toBe("repeat@example.test"); });
+    for (let index = 0; index < 2; index++) {
+      const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+      const when = new Date(Date.now() + 1_000);
+      await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+      const dispatch = (await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"))).at(-1)!;
+      await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000));
+      const jobs = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+      const queued = jobs.at(-1);
+      if (queued && (index === 0 || jobs.length > 1)) {
+        const result = await deliverCampaignRecipient({ id: queued.id, tenantId: queued.tenantId, payload: queued.payload, attempts: 1 }, send);
+        expect(result.status).toBe(index === 0 ? "complete" : "suppressed");
+      }
+    }
+    expect(send).toHaveBeenCalledTimes(1);
+    const previews = await previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition });
+    expect(previews.excludedCountsByReason.frequency).toBe(1);
+  });
+
+  it("enforces a configured location monthly reservation limit before queueing", async () => {
+    const f = await fixture();
+    await member(f.merchant.programSlug, "first@example.test", true, true);
+    await member(f.merchant.programSlug, "second@example.test", true, true);
+    process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT = "1";
+    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+    const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    expect(await dispatchCampaign({ id: job.id, tenantId: job.tenantId, payload: job.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "blocked", reason: "Monthly location promotional quota exceeded" });
+    expect(await db.select().from(campaignRecipients)).toHaveLength(0);
+  });
+
+  it("suppresses cross-tenant, revoked-owner and closed-card delivery attempts", async () => {
+    const f = await fixture();
+    const card = await member(f.merchant.programSlug, "limited@example.test", true, true);
+    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+    const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000));
+    const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverCampaignRecipient({ id: job.id, tenantId: randomUUID(), payload: job.payload, attempts: 1 }, send)).toMatchObject({ status: "suppressed" });
+    await db.update(staffRoles).set({ active: false }).where(eq(staffRoles.userId, f.ownerId));
+    expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, send)).toMatchObject({ status: "suppressed", reason: "Queueing owner no longer authorized" });
+    expect(send).not.toHaveBeenCalled();
+    await closeCard(card.cardToken);
+    expect((await db.select().from(campaignRecipients))[0].status).toBe("suppressed");
+  });
   it("previews only verified, consented synthetic contacts and enforces owner scope", async () => {
     const f = await fixture();
     await member(f.merchant.programSlug, "eligible@example.test", true, true);
@@ -93,6 +206,7 @@ describe("local campaign core", () => {
     }
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ to: "first@example.test" });
+    expect(send.mock.calls[0][0].body).toContain("Angebote abbestellen:");
     expect((await db.select().from(campaignRecipients)).map(row => row.status).sort()).toEqual(["complete", "suppressed"]);
     expect(await db.select().from(campaignAttempts)).toHaveLength(2);
     expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).summary).toMatchObject({ sent: 1, suppressed: 1, queued: 0 });

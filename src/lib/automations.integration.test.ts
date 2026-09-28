@@ -17,6 +17,13 @@ beforeEach(async () => {
   process.env.SMTP_HOST = "localhost";
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
+  process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "false";
+  process.env.MAILGUN_PROMOTIONAL_SEND_APPROVED = "false";
+  process.env.BETTER_AUTH_SECRET = "synthetic-automation-secret-long-enough-for-tests";
+  delete process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT;
+  delete process.env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS;
+  delete process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN;
+  delete process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET;
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
 });
 afterAll(async () => { await pool.end(); });
@@ -38,6 +45,36 @@ const firstRule = { triggerKind: "first_checkout" as const, enabled: true, subje
 const inactiveRule = { triggerKind: "inactive" as const, enabled: true, subject: "Wir vermissen dich", body: "Deine digitale Karte ist weiter verfügbar.", inactivityDays: 30, cooldownDays: 7, dailyCap: 20 };
 
 describe("bounded local automations", () => {
+  it("sends one consented external automation fixture with a scoped unsubscribe link", async () => {
+    const f = await fixture();
+    const card = await member(f.merchant.programSlug, "owner-controlled@example.test");
+    process.env.PUBLIC_BASE_URL = "https://test.example.test";
+    process.env.EXTERNAL_EMAIL_ENABLED = "true";
+    process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "true";
+    process.env.MAILGUN_PROMOTIONAL_SEND_APPROVED = "true";
+    process.env.MAILGUN_SEND_APPROVED = "true";
+    process.env.MAILGUN_EU_DOMAIN = "mail.example.test";
+    process.env.MAILGUN_FROM_EMAIL = "service@mail.example.test";
+    process.env.MAILGUN_EU_API_KEY = "synthetic-key";
+    process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY = "synthetic-signing-key-long-enough";
+    process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT = "100";
+    process.env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS = "24";
+    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://test.example.test";
+    process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
+      expect(message.body).toContain("Synthetic Automation Café");
+      expect(message.unsubscribeUrl).toContain("/unsubscribe#token=");
+      return { state: "accepted" as const, messageId: "<automation@example.test>" };
+    }) };
+    await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
+    expect((await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload })).queuedCount).toBe(1);
+    const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
+    expect((await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, undefined, undefined, provider)).status).toBe("complete");
+    expect((await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 2 }, undefined, undefined, provider)).status).toBe("complete");
+    expect(provider.send).toHaveBeenCalledTimes(1);
+  });
   it("allows only the active owner to configure rules and exposes aggregate run history", async () => {
     const f = await fixture();
     const cashier = randomUUID();
@@ -85,6 +122,7 @@ describe("bounded local automations", () => {
     expect((await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 2 }, send)).status).toBe("complete");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ to: "member@example.test", subject: firstRule.subject });
+    expect(send.mock.calls[0][0].body).toContain("Angebote abbestellen:");
     expect((await db.select().from(automationRuns))[0]).toMatchObject({ status: "complete", attempts: 1 });
   });
 
