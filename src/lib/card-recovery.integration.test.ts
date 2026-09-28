@@ -2,14 +2,14 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { cardRecoveryChallenges, cardSecurityEvents, contactVerificationChallenges, memberships, outboxJobs } from "@/db/schema";
+import { cardRecoveryChallenges, cardSecurityEvents, consentEvents, contactVerificationChallenges, memberships, outboxJobs } from "@/db/schema";
 import { createMerchant, enroll, getCard } from "./product";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
 import { consumeContactVerification, removeRecoveryEmail, requestContactVerification } from "./contact-verification";
 import { recoveryTokenForChallenge, verificationTokenForChallenge } from "./contact-token";
 import { completeCardRecovery, recoveryGenericMessage, recoveryOptions, requestCardRecovery } from "./card-recovery";
-import { deliverRecoveryEmail } from "./card-recovery-delivery";
+import { deliverRecoveryEmail, deliverRecoveryNotice } from "./card-recovery-delivery";
 import { POST as requestRoute } from "@/app/api/recover/route";
 import { POST as confirmRoute } from "@/app/api/recover/confirm/route";
 
@@ -41,6 +41,39 @@ async function recovery(email = "holder@example.test") {
 }
 
 describe("lost browser-card recovery", () => {
+  it("queues one credential-safe security notice after committed rotation and keeps recovery successful if delivery fails", async () => {
+    const f = await fixture();
+    const token = await recovery();
+    const consentBefore = await db.select().from(consentEvents);
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toHaveLength(0);
+    const restored = await completeCardRecovery(token, f.card.id);
+    const notices = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"));
+    expect(notices).toHaveLength(1);
+    await expect(completeCardRecovery(token, f.card.id)).rejects.toMatchObject({ code: "INVALID_RECOVERY" });
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toHaveLength(1);
+    const message = vi.fn(async (notice: { to: string; subject: string; body: string; jobId: string }) => { expect(notice.jobId).toBe(notices[0].id); });
+    expect(await deliverRecoveryNotice({ id: notices[0].id, tenantId: notices[0].tenantId, payload: notices[0].payload }, message)).toEqual({ status: "complete" });
+    const sent = message.mock.calls[0][0];
+    expect(sent.to).toBe("holder@example.test");
+    expect(sent.subject).toBe("Deine Loynara-Karte wurde wiederhergestellt");
+    expect(sent.body).toMatch(/\d{2}\.\d{2}\.\d{4}.*\d{2}:\d{2} UTC wiederhergestellt/);
+    expect(sent.body).toMatch(/bisherige private Kartenlink.*nicht mehr gültig/);
+    expect(sent.body).toMatch(/Falls du das nicht selbst veranlasst hast/);
+    expect(`${sent.subject}\n${sent.body}`).not.toContain(f.card.cardToken);
+    expect(`${sent.subject}\n${sent.body}`).not.toContain(restored.cardToken);
+    expect(`${sent.subject}\n${sent.body}`).not.toContain(token);
+    expect(`${sent.subject}\n${sent.body}`).not.toMatch(/https?:\/\/|Kontostand|Angebot|Rabatt/i);
+    expect(await db.select().from(consentEvents)).toEqual(consentBefore);
+    await expect(deliverRecoveryNotice({ id: notices[0].id, tenantId: notices[0].tenantId, payload: notices[0].payload }, async () => { throw new Error("synthetic provider failure"); })).rejects.toThrow("synthetic provider failure");
+    expect((await getCard(restored.cardToken)).scanCode).toBe(f.card.scanCode);
+  });
+
+  it("does not queue a security notice for a failed recovery", async () => {
+    const f = await fixture();
+    const token = await recovery();
+    await expect(completeCardRecovery(`${token}tampered`, f.card.id)).rejects.toMatchObject({ code: "INVALID_RECOVERY" });
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toHaveLength(0);
+  });
   it("keeps the same membership, ledger balance and scan identity while rotating the only browser bearer", async () => {
     const f = await fixture();
     await award({ userId: f.userId, locationId: f.merchant.locationId, membershipId: f.card.id, quantity: 2, requestId: randomUUID(), idempotencyKey: randomUUID() });

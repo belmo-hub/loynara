@@ -1,7 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { cardRecoveryChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
+import { cardRecoveryChallenges, cardSecurityEvents, membershipContacts, memberships, outboxJobs } from "@/db/schema";
 import { recoveryTokenForChallenge, recoveryTokenHash } from "./contact-token";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
 import type { LocalSender } from "./email";
@@ -40,7 +40,12 @@ export async function deliverRecoveryNotice(job: { id: string; tenantId: string;
     .from(memberships).innerJoin(membershipContacts, and(eq(membershipContacts.tenantId, memberships.tenantId), eq(membershipContacts.membershipId, memberships.id)))
     .where(and(eq(memberships.tenantId, job.tenantId), eq(memberships.id, parsed.data.membershipId))).limit(1);
   if (!contact?.email || !contact.emailVerified || contact.closedAt) return { status: "suppressed" as const, reason: "Recovery method unavailable" };
-  const message = { to: contact.email, subject: "Loynara-Kartenlink wurde ersetzt", body: "Der private Link zu einer deiner Loynara-Karten wurde ersetzt. Der bisherige Link funktioniert nicht mehr. Falls du das nicht selbst getan hast, kontaktiere den zuständigen Händler über einen bekannten Kontaktweg. Diese Nachricht enthält keinen Kartenlink und keine Kontostände.", jobId: job.id };
+  const [rotation] = await db.select({ createdAt: cardSecurityEvents.createdAt }).from(cardSecurityEvents)
+    .where(and(eq(cardSecurityEvents.tenantId, job.tenantId), eq(cardSecurityEvents.membershipId, parsed.data.membershipId), eq(cardSecurityEvents.action, "card_credential_rotated")))
+    .orderBy(desc(cardSecurityEvents.createdAt)).limit(1);
+  if (!rotation) return { status: "suppressed" as const, reason: "Recovery rotation unavailable" };
+  const occurredAt = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(rotation.createdAt);
+  const message = { to: contact.email, subject: "Deine Loynara-Karte wurde wiederhergestellt", body: `Der Zugang zu deiner Loynara-Karte wurde am ${occurredAt} UTC wiederhergestellt.\nDer bisherige private Kartenlink ist nicht mehr gültig.\n\nFalls du das nicht selbst veranlasst hast, kläre den Vorgang direkt mit dem Geschäft.`, jobId: job.id };
   if (send) await send(message);
   else {
     const result = await sendTransactional(message);
