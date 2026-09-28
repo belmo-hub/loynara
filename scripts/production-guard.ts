@@ -6,7 +6,7 @@ import { googleWalletStatus } from "../src/lib/wallet/google";
 import { productionConfigIssues } from "./config-check";
 
 const issues = productionConfigIssues({ ...process.env, NODE_ENV: "production" });
-if (["var/demo-access.json", "var/preview-access.json", "var/preview.env", "var/device-test-access.json", "var/device-test.env"].some((file) => existsSync(path.resolve(file)))) {
+if (["var/demo-access.json", "var/preview-access.json", "var/preview.env", "var/device-test-access.json", "var/device-test.env", "var/nfc-development-keys.json"].some((file) => existsSync(path.resolve(file)))) {
   issues.push("Local demo, preview or device-test credentials exist in this application directory");
 }
 const apple = appleWalletStatus();

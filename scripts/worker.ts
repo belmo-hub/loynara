@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { pool } from "../src/db";
 import { productionConfigIssues } from "./config-check";
+import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 
 type Job = {
   id: string;
@@ -17,6 +18,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 let stopping = false;
 let recoveryPrunedAt = 0;
+let heartbeatSentAt = 0;
 process.on("SIGINT", () => { stopping = true; });
 process.on("SIGTERM", () => { stopping = true; });
 
@@ -189,6 +191,9 @@ async function replay(jobId: string) {
 
 async function main() {
   const configurationIssues = productionConfigIssues(process.env);
+  if (process.env.NODE_ENV === "production" && !validHeartbeatUrl(process.env.WORKER_HEARTBEAT_URL)) {
+    configurationIssues.push("Production worker requires a reviewed HTTPS heartbeat monitor URL");
+  }
   if (configurationIssues.length) throw new Error(`Worker configuration rejected: ${configurationIssues.join("; ")}`);
   const args = process.argv.slice(2);
   if (args[0] === "--replay") {
@@ -212,6 +217,11 @@ async function main() {
       const outcome = await processJob(job);
       counts[outcome] = (counts[outcome] ?? 0) + 1;
       processed += 1;
+    }
+    if (!once && process.env.NODE_ENV === "production" && Date.now() - heartbeatSentAt >= 60_000) {
+      await pool.query("select 1");
+      await sendWorkerHeartbeat(process.env.WORKER_HEARTBEAT_URL);
+      heartbeatSentAt = Date.now();
     }
     if (once) {
       console.log(`Worker examined ${processed} due job(s): ${JSON.stringify(counts)}`);
