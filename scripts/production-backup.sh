@@ -6,8 +6,8 @@ if [[ "${PRODUCTION_ENVIRONMENT:-}" != "loynara-production" || "${PGHOST:-}" != 
   echo "Production backup refused: private production PostgreSQL configuration required." >&2
   exit 1
 fi
-if [[ "${BACKUP_S3_ENDPOINT:-}" != https://*.storageapi.dev || -z "${BACKUP_S3_BUCKET:-}" || "${BACKUP_AGE_RECIPIENT:-}" != age1* ]]; then
-  echo "Production backup refused: HTTPS bucket and public age recipient required." >&2
+if [[ ! "${BACKUP_S3_ENDPOINT:-}" =~ ^https://[0-9a-f]{32}\.eu\.r2\.cloudflarestorage\.com$ || -z "${BACKUP_S3_BUCKET:-}" || "${BACKUP_AGE_RECIPIENT:-}" != age1* || -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" || "${AWS_DEFAULT_REGION:-}" != auto ]]; then
+  echo "Production backup refused: private EU R2 endpoint, scoped credentials and public age recipient required." >&2
   exit 1
 fi
 for tool in pg_dump age aws openssl; do command -v "$tool" >/dev/null || { echo "Missing backup tool: $tool" >&2; exit 1; }; done

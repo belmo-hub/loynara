@@ -6,7 +6,7 @@ if [[ "${RESTORE_TARGET_CONFIRMED:-}" != "isolated" || -z "${RESTORE_PGHOST:-}" 
   echo "Restore refused: explicitly confirmed isolated target and production host reference required." >&2
   exit 1
 fi
-if [[ "$RESTORE_PGHOST" == "$PRODUCTION_PGHOST" || "$RESTORE_PGHOST" != *.railway.internal || "$RESTORE_PGDATABASE" != loynara_restore_* || "${BACKUP_S3_ENDPOINT:-}" != https://*.storageapi.dev || -z "${BACKUP_S3_BUCKET:-}" || -z "${BACKUP_OBJECT_KEY:-}" || ! -f "${BACKUP_AGE_IDENTITY_FILE:-}" ]]; then
+if [[ "$RESTORE_PGHOST" == "$PRODUCTION_PGHOST" || "$RESTORE_PGHOST" != *.railway.internal || "$RESTORE_PGDATABASE" != loynara_restore_* || ! "${BACKUP_S3_ENDPOINT:-}" =~ ^https://[0-9a-f]{32}\.eu\.r2\.cloudflarestorage\.com$ || -z "${BACKUP_S3_BUCKET:-}" || -z "${BACKUP_OBJECT_KEY:-}" || -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" || "${AWS_DEFAULT_REGION:-}" != auto || ! -f "${BACKUP_AGE_IDENTITY_FILE:-}" ]]; then
   echo "Restore refused: target must be a separate database host with an encrypted backup and local age identity." >&2
   exit 1
 fi
@@ -27,7 +27,7 @@ aws --endpoint-url "$BACKUP_S3_ENDPOINT" s3 cp "s3://$BACKUP_S3_BUCKET/$BACKUP_O
 age -d -i "$BACKUP_AGE_IDENTITY_FILE" "$encrypted" > "$decrypted"
 pg_restore --list "$decrypted" >/dev/null
 pg_restore --exit-on-error --no-owner --no-acl --dbname="$PGDATABASE" "$decrypted"
-schema="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT CASE WHEN to_regclass('public.user') IS NOT NULL AND to_regclass('public.tenants') IS NOT NULL AND to_regclass('public.memberships') IS NOT NULL AND to_regclass('public.ledger_entries') IS NOT NULL AND (SELECT count(*) FROM pg_trigger WHERE tgname = 'ledger_append_only' AND NOT tgisinternal) = 1 THEN 'ok' ELSE 'incomplete' END")"
+schema="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT CASE WHEN to_regclass('public.user') IS NOT NULL AND to_regclass('public.tenants') IS NOT NULL AND to_regclass('public.locations') IS NOT NULL AND to_regclass('public.memberships') IS NOT NULL AND to_regclass('public.ledger_entries') IS NOT NULL AND to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AND (SELECT count(*) FROM pg_trigger WHERE tgname = 'ledger_append_only' AND NOT tgisinternal) = 1 AND (SELECT count(*) FROM pg_constraint WHERE conname IN ('ledger_entries_tenant_id_membership_id_memberships_tenant_id_id_fk','memberships_tenant_id_program_id_programs_tenant_id_id_fk')) = 2 THEN 'ok' ELSE 'incomplete' END")"
 [[ "$schema" == "ok" ]] || { echo "Restore schema/append-only trigger check failed." >&2; exit 1; }
-counts="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT 'tenants=' || (SELECT count(*) FROM tenants) || ', memberships=' || (SELECT count(*) FROM memberships) || ', ledger_entries=' || (SELECT count(*) FROM ledger_entries)")"
+counts="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT 'tenants=' || (SELECT count(*) FROM tenants) || ', locations=' || (SELECT count(*) FROM locations) || ', memberships=' || (SELECT count(*) FROM memberships) || ', ledger_entries=' || (SELECT count(*) FROM ledger_entries) || ', migrations=' || (SELECT count(*) FROM drizzle.__drizzle_migrations)")"
 echo "Isolated restore PASS: $counts"

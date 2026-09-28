@@ -1,0 +1,10 @@
+# Railway go-live upgrade — Gate 1
+
+Use only after Stage A in [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) has passed its release drill and the owner separately approves the recurring Pro cost. **This checklist does not authorize an upgrade.**
+
+- [ ] Upgrade the existing Railway Hobby workspace/project to **Pro** before onboarding the first paying merchant. Verify the current Pro **$20/month minimum including $20 usage credit**, measured extra resource charges, tax and the new owner-approved monthly ceiling. Do not create a second app/database architecture.
+- [ ] Confirm `loynara-web`, `loynara-worker`, `loynara-postgres`, the production tunnel connector and cron jobs continued running; inspect outbox leases and queued work for gaps during upgrade.
+- [ ] Re-check `app.getloynara.com`, restricted Mailgun webhook and unsubscribe hosts, HTTPS/Host/auth redirects and protected `preview.getloynara.com`. No unplanned public Railway domain or DB TCP proxy.
+- [ ] Review the new resource limits, PostgreSQL volume headroom, per-service measured RAM/CPU and budget controls. Railway currently advertises Pro's **99.99% availability target**, Railway Support, **30-day logs** and **120-hour** removed-image retention, versus Hobby's **99.9% target**, community support, **7-day logs** and **72-hour** image retention. These targets are **not contractual SLAs** for either base plan. [Railway plan comparison](https://railway.com/pricing), [logs](https://docs.railway.com/observability/logs), [image retention](https://docs.railway.com/pricing/plans).
+- [ ] Repeat `/api/health`, web/worker restart with a queued job, forced external alert, backup-age alert and an isolated R2 restore/reconciliation check. Verify no bearer path or provider secret in exported logs.
+- [ ] Record cost estimate, actual Pro billing settings, named operator, test evidence and revision. Mark commercial go-live **infrastructure ready** only when Gate 1's frozen acceptance test and all required operational checks pass. Do not infer the other seven v1 gates passed.
