@@ -6,21 +6,10 @@ import { cardSecurityEvents, consentEvents, contactVerificationChallenges, membe
 import { validCardToken } from "./card-lifecycle";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
 import { DomainError } from "./loyalty";
-import { emailTransportMode } from "./transactional-email";
+import { emailTransportMode, promotionalEmailMode } from "./transactional-email";
 
 const emailSchema = z.email().max(320);
 const noticeVersion = "2026-09";
-
-function localCaptureAllowed() {
-  if (process.env.NODE_ENV === "production" || process.env.EXTERNAL_EMAIL_ENABLED === "true") return false;
-  if (!["localhost", "127.0.0.1"].includes(process.env.SMTP_HOST ?? "")) return false;
-  try {
-    const publicUrl = new URL(process.env.PUBLIC_BASE_URL ?? "");
-    const database = new URL(process.env.DATABASE_URL ?? "");
-    return publicUrl.protocol === "http:" && ["localhost", "127.0.0.1"].includes(publicUrl.hostname)
-      && ["localhost", "127.0.0.1"].includes(database.hostname);
-  } catch { return false; }
-}
 
 function syntheticEmail(email: string) { return email.toLowerCase().endsWith(".test"); }
 
@@ -38,15 +27,16 @@ async function latestMarketingConsent(tenantId: string, membershipId: string) {
   return event?.granted === true;
 }
 
-export async function contactStatus(cardToken: string): Promise<{ available: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean }> {
+export async function contactStatus(cardToken: string): Promise<{ available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean }> {
   if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
   const [member] = await db.select({ id: memberships.id, tenantId: memberships.tenantId, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.cardToken, cardToken));
   if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
   const [contact] = await db.select({ email: membershipContacts.email, emailVerified: membershipContacts.emailVerified }).from(membershipContacts)
     .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
   const verified = Boolean(contact?.email && contact.emailVerified);
+  const marketingMode = promotionalEmailMode();
   return {
-    available: emailTransportMode() !== "disabled", contactPresent: Boolean(contact?.email), emailVerified: verified,
+    available: emailTransportMode() !== "disabled", marketingAvailable: marketingMode !== "disabled", marketingExternal: marketingMode === "mailgun_eu", contactPresent: Boolean(contact?.email), emailVerified: verified,
     marketingEmail: verified && await latestMarketingConsent(member.tenantId, member.id),
   };
 }
@@ -111,12 +101,13 @@ export async function consumeContactVerification(token: string): Promise<{ verif
 }
 
 export async function setEmailMarketingPreference(cardToken: string, granted: boolean): Promise<{ marketingEmail: boolean }> {
-  if (granted && !localCaptureAllowed()) throw new DomainError("CONTACT_DISABLED", "Marketing email is available only in the local synthetic test");
+  const mode = promotionalEmailMode();
+  if (granted && mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Marketing email is unavailable");
   return db.transaction(async tx => {
     const member = await cardInTransaction(tx, cardToken);
     const [contact] = await tx.select().from(membershipContacts)
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).for("update");
-    if (granted && (!contact?.email || !contact.emailVerified || !syntheticEmail(contact.email))) throw new DomainError("EMAIL_UNVERIFIED", "Verify a synthetic email address before opting in");
+    if (granted && (!contact?.email || !contact.emailVerified || (mode === "mailpit" && !syntheticEmail(contact.email)))) throw new DomainError("EMAIL_UNVERIFIED", "Verify the email address before opting in");
     const [latest] = await tx.select({ granted: consentEvents.granted }).from(consentEvents)
       .where(and(eq(consentEvents.tenantId, member.tenantId), eq(consentEvents.membershipId, member.id), eq(consentEvents.channel, "email"), eq(consentEvents.purpose, "marketing")))
       .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id)).limit(1);

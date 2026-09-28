@@ -44,17 +44,32 @@ export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
   for (const name of ["PUBLIC_REGISTRATION_ENABLED", "LIVE_BILLING_ENABLED", "APPLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
     if (env[name] !== "false") issues.push(`${name} must be false in the device test`);
   }
-  if (env.EXTERNAL_EMAIL_ENABLED === "true") {
+  const transactionalEmail = env.EXTERNAL_EMAIL_ENABLED === "true";
+  const promotionalEmail = env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED === "true";
+  if (transactionalEmail || promotionalEmail) {
     if (env.DEVICE_TEST_APPROVED_EMAIL_PROVIDER !== "mailgun-eu"
       || env.MAILGUN_SEND_APPROVED !== "true"
       || env.MAILGUN_EU_DOMAIN !== "mail.getloynara.com"
       || env.MAILGUN_FROM_EMAIL !== "karten@mail.getloynara.com"
       || (env.MAILGUN_EU_API_KEY?.length ?? 0) < 32
       || (env.MAILGUN_EU_WEBHOOK_SIGNING_KEY?.length ?? 0) < 32) {
-      issues.push("Device-test external email requires the approved Mailgun EU recovery-only sender and complete credentials");
+      issues.push("Device-test external email requires the approved Mailgun EU sender and complete credentials");
     }
   } else if (env.EXTERNAL_EMAIL_ENABLED !== "false" || env.DEVICE_TEST_APPROVED_EMAIL_PROVIDER) {
     issues.push("Device-test external email must remain disabled without the approved provider");
+  }
+  if (promotionalEmail) {
+    if (env.DEVICE_TEST_APPROVED_PROMOTIONAL_EMAIL_TEST !== "true"
+      || env.MAILGUN_PROMOTIONAL_SEND_APPROVED !== "true"
+      || env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN !== "https://unsubscribe.getloynara.com"
+      || !env.PROMOTIONAL_UNSUBSCRIBE_SECRET || !/^[0-9a-f]{64}$/.test(env.PROMOTIONAL_UNSUBSCRIBE_SECRET)
+      || env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT !== "2"
+      || env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS !== "24"
+      || env.TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED === "true") {
+      issues.push("Device-test promotional email requires the separately approved bounded Mailgun EU test and public unsubscribe origin");
+    }
+  } else if (env.DEVICE_TEST_APPROVED_PROMOTIONAL_EMAIL_TEST === "true" || env.MAILGUN_PROMOTIONAL_SEND_APPROVED === "true") {
+    issues.push("Device-test promotional approval flags must be off when promotional sending is disabled");
   }
   if (env.DEVICE_TEST_APPROVED_WALLET_PROVIDER === "google-demo") {
     // Approval values record a reviewed owner decision; they do not grant it.

@@ -87,4 +87,33 @@ describe("separate synthetic device-test configuration", () => {
       { SMTP_HOST: "smtp.example.com" },
     ]) expect(deviceTestRuntimeIssues({ ...email, ...change })).not.toEqual([]);
   });
+
+  it("allows a separately approved, bounded promotional test while transactional email stays off", () => {
+    const promotion = {
+      ...runtime,
+      EXTERNAL_EMAIL_ENABLED: "false",
+      PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true",
+      MAILGUN_PROMOTIONAL_SEND_APPROVED: "true",
+      DEVICE_TEST_APPROVED_PROMOTIONAL_EMAIL_TEST: "true",
+      DEVICE_TEST_APPROVED_EMAIL_PROVIDER: "mailgun-eu",
+      MAILGUN_SEND_APPROVED: "true",
+      MAILGUN_EU_DOMAIN: "mail.getloynara.com",
+      MAILGUN_FROM_EMAIL: "karten@mail.getloynara.com",
+      MAILGUN_EU_API_KEY: "a".repeat(32),
+      MAILGUN_EU_WEBHOOK_SIGNING_KEY: "b".repeat(32),
+      PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.getloynara.com",
+      PROMOTIONAL_UNSUBSCRIBE_SECRET: "c".repeat(64),
+      PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "2",
+      PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24",
+    };
+    expect(deviceTestRuntimeIssues(promotion)).toEqual([]);
+    for (const change of [
+      { DEVICE_TEST_APPROVED_PROMOTIONAL_EMAIL_TEST: "false" },
+      { PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://preview.getloynara.com" },
+      { PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "0" },
+      { PROMOTIONAL_UNSUBSCRIBE_SECRET: "short" },
+      { MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" },
+      { MAILGUN_SEND_APPROVED: "false" },
+    ]) expect(deviceTestRuntimeIssues({ ...promotion, ...change })).not.toEqual([]);
+  });
 });

@@ -41,7 +41,7 @@ async function card() {
 describe("local contact ownership and separate marketing preference", () => {
   it("queues only a challenge reference, verifies once, then permits explicit email-marketing consent", async () => {
     const { member } = await card();
-    expect(await contactStatus(member.cardToken)).toEqual({ available: true, contactPresent: false, emailVerified: false, marketingEmail: false });
+    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: false, emailVerified: false, marketingEmail: false });
     await expect(setEmailMarketingPreference(member.cardToken, true)).rejects.toMatchObject({ code: "EMAIL_UNVERIFIED" });
     expect(await requestContactVerification(member.cardToken, "Recipient@Example.Test")).toEqual({ status: "queued" });
     const [challenge] = await db.select().from(contactVerificationChallenges);
@@ -51,16 +51,40 @@ describe("local contact ownership and separate marketing preference", () => {
     expect(job.payload).toEqual({ membershipId: member.id, challengeId: challenge.id });
     expect(JSON.stringify(job.payload)).not.toContain("recipient@example.test");
     expect(JSON.stringify(job.payload)).not.toContain(verificationTokenForChallenge(challenge.id));
-    expect(await contactStatus(member.cardToken)).toEqual({ available: true, contactPresent: true, emailVerified: false, marketingEmail: false });
+    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: false, marketingEmail: false });
 
     const token = verificationTokenForChallenge(challenge.id);
     expect(await consumeContactVerification(token)).toEqual({ verified: true });
     await expect(consumeContactVerification(token)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" });
-    expect(await contactStatus(member.cardToken)).toEqual({ available: true, contactPresent: true, emailVerified: true, marketingEmail: false });
+    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: true, marketingEmail: false });
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     expect(await setEmailMarketingPreference(member.cardToken, true)).toEqual({ marketingEmail: true });
     expect(await setEmailMarketingPreference(member.cardToken, false)).toEqual({ marketingEmail: false });
     expect((await db.select().from(consentEvents)).map(event => event.granted)).toEqual([true, false]);
+  });
+
+  it("allows separate consent for a verified real address only when the promotional provider is approved", async () => {
+    const { merchant, member } = await card();
+    await db.insert(membershipContacts).values({ tenantId: merchant.tenantId, membershipId: member.id, email: "controlled@example.com", emailVerified: true });
+    await expect(setEmailMarketingPreference(member.cardToken, true)).rejects.toMatchObject({ code: "EMAIL_UNVERIFIED" });
+    const values: Record<string, string> = {
+      PUBLIC_BASE_URL: "https://preview.getloynara.com", SMTP_HOST: "disabled",
+      PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true", MAILGUN_SEND_APPROVED: "true",
+      MAILGUN_EU_DOMAIN: "mail.getloynara.com", MAILGUN_FROM_EMAIL: "karten@mail.getloynara.com",
+      MAILGUN_EU_API_KEY: "synthetic-key", MAILGUN_EU_WEBHOOK_SIGNING_KEY: "synthetic-signing-key",
+      PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.getloynara.com", PROMOTIONAL_UNSUBSCRIBE_SECRET: "a".repeat(64),
+      PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "2", PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24",
+    };
+    const saved = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
+    try {
+      Object.assign(process.env, values);
+      expect(await contactStatus(member.cardToken)).toMatchObject({ available: false, marketingAvailable: true, marketingExternal: true, emailVerified: true, marketingEmail: false });
+      expect(await setEmailMarketingPreference(member.cardToken, true)).toEqual({ marketingEmail: true });
+      expect(await setEmailMarketingPreference(member.cardToken, false)).toEqual({ marketingEmail: false });
+      expect((await db.select().from(consentEvents)).map(event => event.granted)).toEqual([true, false]);
+    } finally {
+      for (const [key, value] of Object.entries(saved)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
   });
 
   it("invalidates marketing eligibility when the cardholder changes address", async () => {
