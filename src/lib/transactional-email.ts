@@ -21,6 +21,10 @@ function externalOrigin(value?: string) {
       && url.pathname === "/" && !url.username && !url.password && !url.search && !url.hash;
   } catch { return false; }
 }
+function distinctOrigins(first?: string, second?: string) {
+  try { return new URL(first ?? "").origin !== new URL(second ?? "").origin; }
+  catch { return false; }
+}
 function mailgunConfig(env = process.env, purpose: "transactional" | "promotional" = "transactional") {
   const domain = env.MAILGUN_EU_DOMAIN?.toLowerCase();
   const from = env.MAILGUN_FROM_EMAIL?.toLowerCase();
@@ -30,6 +34,7 @@ function mailgunConfig(env = process.env, purpose: "transactional" | "promotiona
   const monthly = Number(env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT);
   const frequency = Number(env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS);
   const promotionalSafety = purpose === "transactional" || (env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT !== "" && env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS !== "" && externalOrigin(env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN)
+    && distinctOrigins(env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN, env.PUBLIC_BASE_URL)
     && (env.PROMOTIONAL_UNSUBSCRIBE_SECRET?.length ?? 0) >= 32
     && Number.isSafeInteger(monthly) && monthly >= 1 && monthly <= 100_000 && Number.isSafeInteger(frequency) && frequency >= 1 && frequency <= 24 * 365);
   if (!enabled || !promotionalSafety || env.MAILGUN_SEND_APPROVED !== "true"

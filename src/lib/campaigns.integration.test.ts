@@ -62,13 +62,13 @@ describe("local campaign core", () => {
     process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY = "synthetic-signing-key-long-enough";
     process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT = "100";
     process.env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS = "24";
-    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://test.example.test";
+    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://unsubscribe.example.test";
     process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
       expect(message.to).toBe("owner-controlled@example.test");
       expect(message.body).toContain("Synthetic Café");
       expect(message.body).toContain("Angebote abbestellen:");
-      expect(message.unsubscribeUrl).toContain("https://test.example.test/unsubscribe#token=");
+      expect(message.unsubscribeUrl).toContain("https://unsubscribe.example.test/unsubscribe#token=");
       return { state: "accepted" as const, messageId: "<synthetic-promo@example.test>" };
     }) };
     const first = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });

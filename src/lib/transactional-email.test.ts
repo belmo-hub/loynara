@@ -43,6 +43,7 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
     const approved = { ...config, PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true", PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "100", PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24", PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.example.test", PROMOTIONAL_UNSUBSCRIBE_SECRET: "synthetic-unsubscribe-secret-long-enough" };
     expect(promotionalEmailMode({ ...approved, PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "" })).toBe("disabled");
     expect(promotionalEmailMode({ ...approved, PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "" })).toBe("disabled");
+    expect(promotionalEmailMode({ ...approved, PROMOTIONAL_UNSUBSCRIBE_ORIGIN: config.PUBLIC_BASE_URL })).toBe("disabled");
     expect(promotionalEmailMode(approved)).toBe("mailgun_eu");
     const saved = { external: process.env.EXTERNAL_EMAIL_ENABLED, base: process.env.PUBLIC_BASE_URL, smtp: process.env.SMTP_HOST };
     try {
@@ -60,6 +61,7 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
     }
     const production = { ...approved, DATABASE_URL: "postgresql://real:unique@db.example.test/app", BETTER_AUTH_URL: "https://test.example.test", BETTER_AUTH_SECRET: "a".repeat(40) };
     expect(productionConfigIssues({ ...production, MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" })).toContain("Promotional email requires separate approval, public unsubscribe origin and configured location/customer safety limits");
+    expect(productionConfigIssues({ ...production, PROMOTIONAL_UNSUBSCRIBE_ORIGIN: config.PUBLIC_BASE_URL })).toContain("Promotional email requires separate approval, public unsubscribe origin and configured location/customer safety limits");
     const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => {
       const body = options?.body as FormData;
       expect(body.get("o:tracking")).toBe("no");

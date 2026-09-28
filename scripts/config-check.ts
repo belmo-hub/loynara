@@ -38,7 +38,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     const frequency = Number(env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS);
     const unsubscribe = parsedUrl(env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN);
     if (env.MAILGUN_PROMOTIONAL_SEND_APPROVED !== "true" || !env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT || !env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS || (env.PROMOTIONAL_UNSUBSCRIBE_SECRET?.length ?? 0) < 32
-      || !unsubscribe || unsubscribe.protocol !== "https:" || localHosts.has(unsubscribe.hostname) || unsubscribe.pathname !== "/" || unsubscribe.search || unsubscribe.hash || unsubscribe.username || unsubscribe.password
+      || !unsubscribe || unsubscribe.protocol !== "https:" || localHosts.has(unsubscribe.hostname) || unsubscribe.origin === base?.origin || unsubscribe.pathname !== "/" || unsubscribe.search || unsubscribe.hash || unsubscribe.username || unsubscribe.password
       || !Number.isSafeInteger(monthly) || monthly < 1 || monthly > 100_000 || !Number.isSafeInteger(frequency) || frequency < 1 || frequency > 24 * 365) {
       issues.push("Promotional email requires separate approval, public unsubscribe origin and configured location/customer safety limits");
     }

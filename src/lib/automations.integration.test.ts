@@ -59,7 +59,7 @@ describe("bounded local automations", () => {
     process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY = "synthetic-signing-key-long-enough";
     process.env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT = "100";
     process.env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS = "24";
-    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://test.example.test";
+    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://unsubscribe.example.test";
     process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
       expect(message.body).toContain("Synthetic Automation Café");

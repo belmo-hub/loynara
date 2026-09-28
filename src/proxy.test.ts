@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "./proxy";
 
@@ -17,5 +17,21 @@ describe("Mailgun callback hostname isolation", () => {
 
   it("leaves the Access-protected preview hostname on its existing route", () => {
     expect(proxy(request("/merchant", "GET", "preview.getloynara.com")).status).toBe(200);
+  });
+});
+
+describe("public unsubscribe hostname isolation", () => {
+  afterEach(() => { delete process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN; });
+  it("allows only the confirmation page, POST endpoint and required static assets", () => {
+    process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://unsubscribe.getloynara.com";
+    const host = "unsubscribe.getloynara.com";
+    expect(proxy(request("/unsubscribe", "GET", host)).status).toBe(200);
+    expect(proxy(request("/api/unsubscribe", "POST", host)).status).toBe(200);
+    expect(proxy(request("/_next/static/chunks/example.js", "GET", host)).status).toBe(200);
+    for (const path of ["/", "/merchant", "/api/health", "/card/private-token", "/api/unsubscribe/extra"]) {
+      expect(proxy(request(path, "GET", host)).status).toBe(404);
+    }
+    expect(proxy(request("/api/unsubscribe", "GET", host)).status).toBe(404);
+    expect(proxy(request("/unsubscribe", "POST", host)).status).toBe(404);
   });
 });
