@@ -2,8 +2,10 @@ export function validHeartbeatUrl(value: string | undefined): boolean {
   if (!value) return false;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && url.hostname === "heartbeat.uptimerobot.com"
-      && !url.username && !url.password && !url.search && !url.hash && /^\/m[A-Za-z0-9-]+$/.test(url.pathname);
+    const supportedPath = (url.hostname === "heartbeat.uptimerobot.com" && /^\/m[A-Za-z0-9-]+$/.test(url.pathname))
+      || (url.hostname === "hc-ping.com" && /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(url.pathname));
+    return url.protocol === "https:" && !url.port && !url.username && !url.password
+      && !url.search && !url.hash && supportedPath;
   } catch { return false; }
 }
 
