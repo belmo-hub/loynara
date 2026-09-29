@@ -120,3 +120,51 @@ Owner amendment after this checkpoint: Railway native backup is **DEFERRED_TO_ST
 - The private web has no configured Railway domain/TCP proxy. Railway reported **SUCCESS** for worker deployment `fbc5ac5a-90d7-4337-b4e3-1c192adc5569` at the exact reviewed `e94fd5c` SHA. The production tunnel has no connector or route, so app DNS/HTTPS, public ingress, sensitive-path logs, callback cutovers, full recovery and Mac-off tests remain open. Gate 1 is **PARTIAL**.
 
 Further bounded operations: Railway reported **SUCCESS** at `e94fd5c` for web, worker and migration deployments. The private web and worker containers were restarted through their active deployment controls; both returned to **Online**, and the external worker heartbeat subsequently showed a current ping. Public `/api/health`, database reconnect under a database restart, queued/leased outbox recovery and a Mac-off test are still unverified. At the Railway workspace usage checkpoint, Hobby showed **$0.03 current compute usage**, **$0.00 current bill** after included usage/credits, $16 Compute and $0 Agent limits. No defensible monthly projection is available from this short idle window.
+
+
+## Stage-A public ingress and backup TLS checkpoint — 30 September 2026 (Berlin)
+
+This checkpoint supersedes earlier statements that the app is unpublished or the connector/backup is absent. Gate 1 remains **PARTIAL**; no other gate changed.
+
+### Reviewed release and backup result
+
+- Clean local `railway-rc` and GitHub were matched at `558524848d1373d1d050f2227d74630f88b314f4` before deploying the backup. Web, worker, migration and backup autodeploy were verified OFF. No new web/worker release or migration was triggered by the push; their reviewed runtime remains `e94fd5c1fa20da5b4fbdcb086ad01034947bcea0`.
+- Backup uses the exact approved `5585248` source. Production `BACKUP_HEARTBEAT_URL` was configured without disclosing it; private PostgreSQL, private EU R2 and age configuration verified. Daily schedule remains `0 3 * * *`, restart NEVER. Latest normal-command deployment: `c8041fd4-b4bd-481d-9e09-f0763096031b`.
+- Manual run at **29 September 21:46:33 UTC** completed pg_dump → age → R2 upload → HEAD: `loynara/2026/09/29/20260929T214633Z-04da796793c5.dump.age`, **141669 bytes**. The script streams encryption and removes its temporary encrypted artifact; no plaintext dump file is created. The overall run FAILED at the success heartbeat. It also could not send the start signal.
+- A temporary diagnostic command, using no database or monitor secret, confirmed the deployed image has no `/etc/ssl/certs/ca-certificates.crt`; curl exits **77**. Diagnostic start command was restored to the normal image entrypoint. This is a new deployment defect, not one of the accepted review observations.
+- Local-only fix: add `ca-certificates` to `Dockerfile.backup`. No backup shell implementation changed. The old image's HTTPS request to the public Healthchecks homepage fails 77; the rebuilt candidate succeeds 0 with certificate verification enabled. `python3 scripts/production-backup.test.py` passes upload/HEAD-before-success and failure-signal fixtures, including no secret output. No actual monitor ping was used for this local check. The candidate is NOT pushed or deployed pending review of this new diff.
+- `SCHEDULE_CONFIGURED=YES`; `SCHEDULED_03_00_UTC_RUN_OBSERVED=NOT_YET`. Actual backup `/fail` delivery, alert receipt and recovery-to-healthy remain blocked by the missing CA bundle. Do not substitute a manually sent ping for backup evidence. The previously recorded isolated restore remains valid historical evidence; no new restore was claimed.
+
+### Public ingress
+
+- Official connector remains `cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c`. It runs on Railway, token only in restricted variables, warn-level logs, loopback metrics, no public domain/TCP proxy. Production tunnel: `f8ae7570-6b6a-4ca1-a8c5-93fe888e3344`.
+- Actual Railway inventory is only the controlled PostgreSQL, web, worker, migration, backup and connector services. API inspection returned no public domains or TCP proxies on these services. Web/worker/migration use `TRUSTED_INGRESS=cloudflare_tunnel`, legacy generic trust false. Future ops/diagnose services must use the same guard before execution; they are not deployed standalone yet.
+- Cloudflare Pseudo IPv4 OFF; Remove visitor IP headers disabled; no configured zone Worker routes or conflicting request-header rules observed. Dedicated production route targets **http://loynara-web.railway.internal:8080**, the actual deployed listener. Cloudflare created a proxied app CNAME to the production tunnel. No PostgreSQL or worker listener was published.
+- Normal DNS and certificate-verified HTTPS work: `/api/health` 200, database reachable; `/api/qr?value=sc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` 200. Bounded repeated IPv4 requests succeed. This does not expose or directly observe HMAC bucket identity. IPv6 was unavailable from the test network; /64 equivalence remains local regression evidence, not a live test. No unsafe missing-header test or exhaustion was attempted. Preview still responds with the Cloudflare Access redirect (302).
+- Free UptimeRobot monitors **804123991** (health) and **804127485** (synthetic ingress-sensitive QR) both report UP, 5-minute interval, approved email alert contact. No paid SSL/domain-expiry feature enabled. Worker Healthchecks heartbeat resumed after restart (15-second-old ping observed). Ops check has never pinged; backup check has never successfully pinged. Actual forced alert receipt is NOT VERIFIED.
+- Controlled existing web restart completed: public health returned 200 with DB reachable. Controlled worker restart completed and heartbeat resumed. No synthetic leased/queued job recovery claim; that acceptance exercise remains open.
+
+### Logs, callbacks and Mac independence
+
+- Synthetic-only card/recovery/unsubscribe/QR/tap/Wallet probes were made. Their canary was absent from inspected web (25 entries) and connector (3 entries) logs. Configured backup secret values were absent from inspected backup logs. There is no public Railway HTTP edge. Cloudflare Logpush shows a paid-plan offering; Log Explorer shows purchase onboarding, not an enabled exported log store. No paid logging was enabled.
+- This does not establish absence/retention of all Cloudflare internal/security-event URI telemetry. Full provider-held telemetry review remains open; do not claim a complete privacy/log PASS.
+- RC web is missing Mailgun API/signing credentials and promotional unsubscribe secret/origin. Therefore **mail-events and unsubscribe were NOT cut over**: doing so would break existing signature/token flows. Existing protected synthetic preview and both callback routes remain unchanged. Promotional external sending stays OFF; no real email was sent.
+- The production connector/web/worker/database/backup run on Railway. A physical Mac-power-off test was NOT performed; existing callback hosts still depend on the separate Mac tunnel. Architectural independence of the new app does not substitute for the frozen complete Mac-off acceptance exercise.
+
+### Cost snapshot
+
+Railway Hobby unchanged; $10 Compute warning, $16 Compute hard limit, $0 Agent. Workspace usage **$0.04**, project cost **$0.0398**, current/estimated bill **$0.00** after included usage/credits. No add-on or plan purchase. Incremental final charge cannot be isolated from rounded live usage; do not claim runtime is free.
+
+Railway labels these **minutely accumulated**, not resident RAM or reserved capacity:
+
+| Service | CPU vCPU-min | RAM GB-min | Storage GB-min | Cost shown |
+| --- | ---: | ---: | ---: | ---: |
+| Postgres | 0.26 | 55.16 | 204.95 | $0.0136 |
+| worker | 0.48 | 54.82 | 0 | $0.0130 |
+| web | 0.13 | 55.32 | 0 | $0.0129 |
+| cloudflared | 0.11 | 1.42 | 0 | $0.0004 |
+| backup | 0.00 rounded | 0.00 rounded | 0 | $0.0000 rounded |
+
+Egress rounds to 0.00 GB per service. This short idle window supplies no defensible monthly forecast. No limits changed.
+
+**Remaining acceptance:** reviewed CA-image fix deployment; successful heartbeat plus failed-run alert receipt and restored health; naturally scheduled run/missed-run detection; ops monitor and forced alerts; provider-held URI telemetry; production callback credential/lifecycle readiness and restricted cutovers; queued-job recovery and real session/tenant checks; root marketing readiness and actual Mac-off test. Next bounded action is independent review of the one-line CA-image fix before another push.
