@@ -17,12 +17,39 @@ function rateKey(scope: string, identity: string): string {
   return createHmac("sha256", secret).update(scope).update("\0").update(identity).digest("hex");
 }
 
-// Only enable proxy IP trust when an approved proxy overwrites this header.
-// Direct client-provided X-Forwarded-For values are ignored by default.
+export class InvalidIngressError extends DomainError {
+  constructor() { super("INVALID_INGRESS", "Invalid ingress metadata"); }
+}
+
+// This setting asserts a DEPLOYMENT boundary, not header authentication. The
+// Railway origin must be private and Cloudflare Tunnel its sole public ingress.
+// Local/compiled synthetic previews deliberately retain their conservative bucket.
 export function peerIdentity(request: Request): string {
-  if (process.env.TRUST_PROXY_CLIENT_IP !== "true") return "untrusted-peer";
-  const candidate = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim();
-  return candidate && isIP(candidate) ? candidate : "untrusted-peer";
+  const mode = process.env.TRUSTED_INGRESS;
+  const legacy = process.env.TRUST_PROXY_CLIENT_IP;
+  if (legacy !== undefined && legacy !== "false") throw new InvalidIngressError();
+  if (mode === undefined || mode === "local") {
+    if (process.env.PRODUCTION_ENVIRONMENT === "loynara-production") throw new InvalidIngressError();
+    return "untrusted-peer";
+  }
+  if (mode !== "cloudflare_tunnel") throw new InvalidIngressError();
+  const address = request.headers.get("cf-connecting-ip");
+  // isIP rejects ports, lists, brackets and non-canonical IPv4 forms. Reject
+  // scoped IPv6 explicitly: a public visitor address cannot have a zone suffix.
+  if (!address || address.length > 45 || address.includes("%") || !isIP(address)) throw new InvalidIngressError();
+  let canonical = address;
+  if (isIP(address) === 6) {
+    // WHATWG URL serialization canonicalizes valid IPv6 case/compression and
+    // embedded IPv4; validation above prevents URL parser leniency for inputs.
+    canonical = new URL(`http://[${address}]/`).hostname.slice(1, -1);
+    const mapped = /^::ffff:([a-f0-9]+):([a-f0-9]+)$/.exec(canonical);
+    if (mapped) {
+      const high = parseInt(mapped[1], 16), low = parseInt(mapped[2], 16);
+      canonical = [high >>> 8, high & 255, low >>> 8, low & 255].join(".");
+    }
+  }
+  // Raw addresses never become persisted rate-limit keys or ordinary log data.
+  return `peer:${rateKey("trusted_peer_identity", canonical)}`;
 }
 
 export async function enforceRateLimit({ scope, identity, max, windowSeconds }: Limit): Promise<void> {

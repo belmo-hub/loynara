@@ -14,7 +14,7 @@ function post(path: string, payload: object, clientIp?: string) {
     headers: {
       origin: base,
       "content-type": "application/json",
-      ...(clientIp ? { "x-forwarded-for": clientIp } : {}),
+      ...(clientIp ? { "cf-connecting-ip": clientIp } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -25,9 +25,9 @@ afterAll(async () => { await pool.end(); });
 describe("public route abuse controls", () => {
   it("throttles demo requests from one trusted proxy client across distinct addresses", async () => {
     const previousBase = process.env.PUBLIC_BASE_URL;
-    const previousProxy = process.env.TRUST_PROXY_CLIENT_IP;
+    const previousProxy = process.env.TRUSTED_INGRESS;
     process.env.PUBLIC_BASE_URL = base;
-    process.env.TRUST_PROXY_CLIENT_IP = "true";
+    process.env.TRUSTED_INGRESS = "cloudflare_tunnel";
     const runId = randomUUID();
     const clientIp = `2001:db8:${runId.slice(0, 4)}:${runId.slice(9, 13)}::1`;
     const addresses: string[] = [];
@@ -48,7 +48,7 @@ describe("public route abuse controls", () => {
     } finally {
       await pool.query("delete from demo_requests where email = any($1::text[])", [addresses]);
       if (previousBase === undefined) delete process.env.PUBLIC_BASE_URL; else process.env.PUBLIC_BASE_URL = previousBase;
-      if (previousProxy === undefined) delete process.env.TRUST_PROXY_CLIENT_IP; else process.env.TRUST_PROXY_CLIENT_IP = previousProxy;
+      if (previousProxy === undefined) delete process.env.TRUSTED_INGRESS; else process.env.TRUSTED_INGRESS = previousProxy;
     }
   });
 

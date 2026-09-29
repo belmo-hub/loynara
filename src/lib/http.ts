@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { DomainError } from "@/lib/loyalty";
 import { ZodError } from "zod";
-import { RateLimitError } from "./rate-limit";
+import { InvalidIngressError, RateLimitError } from "./rate-limit";
 
 export async function sessionUser(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -41,7 +41,7 @@ export function respondError(error: unknown) {
   if (error instanceof ZodError) return Response.json({ error: "Invalid input", issues: error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
   if (error instanceof DomainError) {
     const status = error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" ? 404 : ["INSUFFICIENT_BALANCE", "KEY_REUSED", "ALREADY_ONBOARDED", "PLAN_MEMBER_LIMIT", "BILLING_STATE"].includes(error.code) ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
-    const headers = error instanceof RateLimitError ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined;
+    const headers: HeadersInit | undefined = error instanceof RateLimitError ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : error instanceof InvalidIngressError ? { "Cache-Control": "no-store" } : undefined;
     return Response.json({ error: error.message, code: error.code }, { status, headers });
   }
   console.error("Request failed", error instanceof Error ? error.name : "unknown");

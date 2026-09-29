@@ -23,3 +23,21 @@ describe("provider-facing Mailgun webhook route", () => {
     expect(recordMailgunWebhook).not.toHaveBeenCalled();
   });
 });
+
+// Peer limiting is only the pre-auth resource bound; provider signatures remain authoritative.
+it("valid ingress never substitutes for provider authentication", async () => {
+  recordMailgunWebhook.mockResolvedValue({ accepted: false });
+  const response = await POST(new Request("https://mail-events.getloynara.com/api/email/mailgun/webhook", {
+    method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "192.0.2.1" }, body: "{}",
+  }));
+  expect(response.status).toBe(406);
+  expect(recordMailgunWebhook).toHaveBeenCalledOnce();
+});
+it("missing ingress identity cannot reach provider processing", async () => {
+  enforcePeerLimit.mockRejectedValue(new Error("Invalid ingress metadata"));
+  const response = await POST(new Request("https://mail-events.getloynara.com/api/email/mailgun/webhook", {
+    method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+  }));
+  expect(response.status).toBe(503);
+  expect(recordMailgunWebhook).not.toHaveBeenCalled();
+});

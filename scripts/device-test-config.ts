@@ -37,6 +37,7 @@ export function approvedDeviceTestOrigin(value?: string): boolean {
 
 export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
   const issues = deviceTestDatabaseIssues(env);
+  if (env.TRUSTED_INGRESS !== undefined && env.TRUSTED_INGRESS !== "local") issues.push("Synthetic preview requires local ingress policy");
   if (!env.BETTER_AUTH_SECRET || !/^[0-9a-f]{64}$/.test(env.BETTER_AUTH_SECRET)) {
     issues.push("Device test requires its generated auth secret");
   }

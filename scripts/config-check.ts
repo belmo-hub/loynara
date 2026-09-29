@@ -38,7 +38,8 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   const poolMax = Number(env.PG_POOL_MAX);
   if (!Number.isSafeInteger(poolMax) || poolMax < 1 || poolMax > 10) issues.push("Production PostgreSQL pool limit must be an integer from 1 to 10 per pool");
   if (env.SMTP_HOST !== "disabled") issues.push("Local Mailpit/SMTP transport must be disabled in production");
-  if (env.TRUST_PROXY_CLIENT_IP === "true") issues.push("Proxy client-IP trust requires a separately reviewed trusted-header policy");
+  if (env.TRUST_PROXY_CLIENT_IP !== undefined && env.TRUST_PROXY_CLIENT_IP !== "false") issues.push("Generic proxy client-IP trust is forbidden; use the reviewed ingress policy");
+  if (env.TRUSTED_INGRESS !== "cloudflare_tunnel") issues.push("Production requires TRUSTED_INGRESS=cloudflare_tunnel and a private origin with no public bypass");
   if (env.BILLING_FIXTURE_SECRET) issues.push("Billing fixture secret is forbidden in production");
   if ([env.MAILGUN_EU_API_KEY, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET]
     .some(value => value && /replace|placeholder|example|test-secret/i.test(value))) {

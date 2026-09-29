@@ -8,7 +8,7 @@ const valid: NodeJS.ProcessEnv = {
   MIGRATION_DATABASE_URL: "postgresql://migrator:other-secret@db.railway.internal:5432/loynara",
   BETTER_AUTH_URL: "https://app.getloynara.com", PUBLIC_BASE_URL: "https://app.getloynara.com",
   BETTER_AUTH_SECRET: "a".repeat(64), SMTP_HOST: "disabled", PRODUCTION_MIGRATION_APPROVED: "true",
-  PG_POOL_MAX: "5",
+  PG_POOL_MAX: "5", TRUSTED_INGRESS: "cloudflare_tunnel",
 };
 
 describe("production migration gate", () => {

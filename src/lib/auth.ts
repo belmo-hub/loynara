@@ -6,6 +6,9 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: Number(
 
 export const auth = betterAuth({
   database: pool,
+  // Avoid Better Auth's default X-Forwarded-For trust. Its existing rate/session
+  // controls use the same deployment-approved source as our outer peer limits.
+  advanced: { ipAddress: { ipAddressHeaders: process.env.TRUSTED_INGRESS === "cloudflare_tunnel" ? ["cf-connecting-ip"] : [] } },
   emailAndPassword: { enabled: true, minPasswordLength: 12 },
   session: { expiresIn: 60 * 60 * 24 * 7 },
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],

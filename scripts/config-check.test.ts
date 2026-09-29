@@ -14,8 +14,12 @@ describe("production configuration gate", () => {
     SMTP_HOST: "disabled",
     BILLING_FIXTURE_MODE: "false",
     PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false",
-    PG_POOL_MAX: "5",
+    PG_POOL_MAX: "5", TRUSTED_INGRESS: "cloudflare_tunnel",
   };
+
+  it.each([undefined, "", "local", "cloudflare", "true", " cloudflare_tunnel", "CLOUDFLARE_TUNNEL"])("rejects ambiguous production ingress mode %s", mode => {
+    expect(productionConfigIssues({ ...safe, TRUSTED_INGRESS: mode })).toEqual(expect.arrayContaining([expect.stringMatching(/ingress/i)]));
+  });
 
   it("accepts a distinct HTTPS production origin with disabled local services", () => {
     expect(productionConfigIssues(safe)).toEqual([]);

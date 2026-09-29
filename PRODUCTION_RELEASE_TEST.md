@@ -23,3 +23,54 @@ Stage-A preparation update (28 September 2026): local `Dockerfile` production bu
 Stage-A live checkpoint (29 September 2026, commit `0f6bbff8186ef795822ecaa7844f5a7ff316cf62`): Railway Hobby in EU West built the private GitHub `railway-rc` source. One-shot migration deployment `46ae14d0-ad5c-454e-a8e7-7173f3166d80` completed with auth/app schema and append-only trigger present and no seed. Web deployment `e38600d2-9016-42dc-a603-9dd7ea5b45d4` passed the production configuration gate and Railway health check. Worker image built, but its production guard rejected startup because the reviewed external `WORKER_HEARTBEAT_URL` is not configured; its two failed deployments were stopped. No public app route or external monitoring exists yet. A 15:11 UTC Railway metrics snapshot showed web 114 MB RAM, PostgreSQL 88 MB RAM and 135 MB PostgreSQL volume; this is an idle snapshot, not a monthly usage estimate. All remaining Gate-1 rows above are pending.
 
 Pre-exposure checkpoint (29 September 2026, source `200cdb3b7609a540c8afe5fc744c012ce71be403`): worker deployment `d47a109c-afaa-45e3-8d89-2a132b54c0e5` showed active startup logs and Healthchecks.io received current worker pings; GitHub autodeploy was verified OFF. The Railway deployment list still showed Deploying at the preceding observation, so final deployment completion is not asserted. The current source peer-identity concern is **CONFIRMED / UNRESOLVED by static review**: the fallback identity is shared within each scope, while the production guard refuses the existing proxy-trust switch. Existing identity-test assertions corroborate the fallback behavior; that integration test was inspected, not re-run. `vitest run scripts/config-check.test.ts` passed **12/12** locally. No external traffic/exhaustion test was used. Public tunnel/DNS, external log probes, backup/restore, forced alert, restart/Mac-off and callback cutovers were not attempted in this checkpoint because the owner requires stopping on this unresolved finding. No infrastructure or spending configuration changed.
+
+## Local trusted-ingress fix — 29 September 2026
+
+Base: clean `d0d74268521531ed36724af4ab64ed5ff2356898`. Software remediation is local only; independent review and the private-origin/header checks in `PRODUCTION_DEPLOYMENT.md` still block public exposure. No external configuration, push, deployment or message send occurred; new spending €0. Existing Railway usage is not remeasured or claimed zero.
+
+- Before implementation: `vitest run src/lib/peer-identity.test.ts` reported **15 failed / 3 passed**. The positive distinct-visitor assertion received the same fallback for both synthetic addresses; missing/invalid metadata and unsupported mode rejection were absent. No network reproduction or live exhaustion was used.
+- Final targeted regressions: **23 files passed; 138 tests passed, 1 skipped** on isolated local `looplocal_test`. The skipped test is the opt-in Mailpit recovery capture (`MAILPIT_SMOKE` not enabled); provider/email fixtures passed. Local Docker startup initially needed a readiness retry. A new preview-mode test caught a misplaced preparation check, corrected before the final pass.
+- Coverage: opaque distinct/stable peers, IPv4/IPv6/mapped normalization, untrusted forwarding headers, strict malformed/missing fields and unsupported configuration; real PostgreSQL per-peer counters and concurrent atomic decisions; handler-level enrollment/sign-in/card/recovery checks with mocked business/auth handlers plus real rate storage; unchanged programme/token/destination limits; internal health without visitor metadata; Better Auth's actual IP parser with application options; provider signature/event regressions; card lifecycle, roles/tenant boundaries and ledger regression. This is local automated evidence, not physical device or live ingress evidence.
+- Privacy review: no logging added in peer/auth handlers. `respondError` returns a generic non-cacheable ingress error and only logs error class names for unexpected failures. Peer and database rate keys are HMAC-derived. Better Auth's existing session IP field remains; no new IP analytics or customer export is introduced. Platform logs require separate deployment review.
+
+Reproduce the affected set with `npm test --` followed by these files (local runner only):
+
+```text
+src/lib/peer-identity.test.ts
+src/lib/auth-ingress.test.ts
+src/app/api/trusted-ingress.integration.test.ts
+src/lib/rate-limit.integration.test.ts
+src/app/api/public-abuse.integration.test.ts
+src/app/api/email/mailgun/webhook/route.test.ts
+src/lib/transactional-email.test.ts
+src/lib/card-recovery.integration.test.ts
+src/lib/card-lifecycle.integration.test.ts
+src/lib/product.integration.test.ts
+src/lib/staff.integration.test.ts
+src/lib/loyalty.integration.test.ts
+src/lib/http.test.ts
+src/lib/email.integration.test.ts
+src/lib/contact-verification.integration.test.ts
+src/lib/contact-verification-delivery.integration.test.ts
+src/lib/unsubscribe.integration.test.ts
+scripts/config-check.test.ts
+scripts/production-migrate-config.test.ts
+scripts/preview-config.test.ts
+scripts/device-test-config.test.ts
+scripts/device-test-google-config.test.ts
+src/proxy.test.ts
+```
+
+Validation of this local fix:
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` (also after build) | PASS |
+| `npm run lint` | BLOCKED by 11 pre-existing `no-require-imports` errors in three ignored `work/*.cjs` scripts; unrelated files preserved |
+| `npm run lint -- --ignore-pattern 'work/**'` | PASS for application/repository code outside ignored supporting work |
+| Default `npm run build` | Environment BLOCKED: Turbopack local subprocess port binding denied, including after scoped permission attempts |
+| `DATABASE_URL=<isolated looplocal_test URL> NEXT_TELEMETRY_DISABLED=1 npm run build -- --webpack` | PASS, 74 pages generated; no build configuration changed. An earlier webpack run needed font-fetch permission and used an unmigrated default local DB; the final migrated-test-DB build completed without those errors. |
+| `git diff --check` | PASS |
+| `gitleaks git --staged --redact` | PASS; no leaks found in the staged fix/evidence |
+
+No tests used real customer data, live rate-limit exhaustion, public Cloudflare/Railway traffic, or external email. Network access for existing build fonts/documentation is not a deployment. The fix changes peer keys once on adoption; old rate counters retain their normal expiry/pruning, with no database reset or migration. Shared public IPs/NAT still intentionally share peer limits; this is not a unique-person identifier.

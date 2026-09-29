@@ -117,3 +117,7 @@ describe("separate synthetic device-test configuration", () => {
     ]) expect(deviceTestRuntimeIssues({ ...promotion, ...change })).not.toEqual([]);
   });
 });
+
+it("rejects trusted production ingress in the synthetic preview", () => {
+  expect(deviceTestPreparationIssues({ ...prepared, TRUSTED_INGRESS: "cloudflare_tunnel" })).toEqual(expect.arrayContaining([expect.stringMatching(/ingress/i)]));
+});

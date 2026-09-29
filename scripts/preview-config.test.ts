@@ -44,3 +44,7 @@ describe("compiled local preview configuration", () => {
     expect(previewConfigIssues({ ...preview, SMTP_HOST: "smtp.example.com" })).not.toEqual([]);
   });
 });
+
+it("rejects trusted production ingress in the synthetic preview", () => {
+  expect(previewConfigIssues({ ...preview, TRUSTED_INGRESS: "cloudflare_tunnel" })).toEqual(expect.arrayContaining([expect.stringMatching(/ingress/i)]));
+});

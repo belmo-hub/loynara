@@ -8,6 +8,7 @@ function isPreviewDatabase(value?: string): boolean {
 
 export function previewConfigIssues(env: Record<string, string | undefined>): string[] {
   const issues: string[] = [];
+  if (env.TRUSTED_INGRESS !== undefined && env.TRUSTED_INGRESS !== "local") issues.push("Synthetic preview requires local ingress policy");
   if (!isPreviewDatabase(env.DATABASE_URL)) issues.push("Preview requires its isolated loopback PostgreSQL database");
   if (env.BETTER_AUTH_URL !== "http://localhost:3001" || env.PUBLIC_BASE_URL !== "http://localhost:3001") {
     issues.push("Preview requires the exact localhost:3001 application origin");
