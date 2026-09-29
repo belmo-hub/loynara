@@ -19,3 +19,15 @@ it("the auth library does not trust visitor headers in local mode", async () => 
   expect(getIP(headers, auth.options)).not.toBe("192.0.2.1");
   expect(getIP(headers, auth.options)).not.toBe("192.0.2.2");
 });
+
+it("keeps synthetic production-style previews on the shared no-trusted-IP fallback", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("TRUSTED_INGRESS", "local");
+  const { auth } = await import("./auth");
+  const a = new Headers({ "cf-connecting-ip": "192.0.2.1", "x-forwarded-for": "192.0.2.1" });
+  const b = new Headers({ "cf-connecting-ip": "192.0.2.2", "x-forwarded-for": "192.0.2.2" });
+  expect(auth.options.advanced?.ipAddress?.ipAddressHeaders).toEqual([]);
+  // Test runtimes may return the library's localhost fallback; production returns
+  // null and its limiter uses one per-path bucket. Neither trusts these headers.
+  expect(getIP(a, auth.options)).toBe(getIP(b, auth.options));
+});

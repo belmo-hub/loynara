@@ -39,5 +39,6 @@ it("missing ingress identity cannot reach provider processing", async () => {
     method: "POST", headers: { "content-type": "application/json" }, body: "{}",
   }));
   expect(response.status).toBe(503);
+  expect(response.headers.get("cache-control")).toBe("no-store");
   expect(recordMailgunWebhook).not.toHaveBeenCalled();
 });

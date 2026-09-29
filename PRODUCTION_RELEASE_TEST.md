@@ -74,3 +74,19 @@ Validation of this local fix:
 | `gitleaks git --staged --redact` | PASS; no leaks found in the staged fix/evidence |
 
 No tests used real customer data, live rate-limit exhaustion, public Cloudflare/Railway traffic, or external email. Network access for existing build fonts/documentation is not a deployment. The fix changes peer keys once on adoption; old rate counters retain their normal expiry/pruning, with no database reset or migration. Shared public IPs/NAT still intentionally share peer limits; this is not a unique-person identifier.
+
+## Bounded review follow-up F-1–F-5 — 29 September 2026
+
+Base: clean `0946c81b23ab03caefb004ebccb64f53de3733c4`. Native IPv6 is masked to /64 before the existing HMAC; IPv4 and IPv4-mapped IPv6 retain the exact previous IPv4 identity. Thresholds and programme/member/destination limits are unchanged. The earlier 400 ingress-response evidence is superseded: public ingress failures now return generic HTTP 503 with no-store, and the constant `invalid_ingress` operational event is capped at one per minute per process across route-module reloads. Mailgun retains retryable 503/signature checks; health remains independent.
+
+Before implementation, the focused unit run had **6 failed / 19 passed** (four /64 expectations, the 503 response and bounded signal expectations). After implementation, **16 targeted files passed: 106 tests passed, 1 optional Mailpit smoke skipped**. Fixtures only; no live rate-limit or provider test. Database tests exercise the explicit `2001:db8:1234:5678::1`/`::abcd` pair in one atomic bucket and `2001:db8:1234:9999::1` independently. Unit tests cover compressed/full forms, exact unchanged IPv4 HMAC, mapped IPv4, generic non-leaking responses, unchanged domain errors, and the log throttle at 59,999/60,000ms including module reload. Handler tests cover enrollment/sign-in/card/recovery and header-independent health. Auth ingress, public abuse, webhook/signature, config, lifecycle and recovery regressions passed.
+
+F-3: every applicable production process/job (web, worker, production-ops-check, diagnose, production migration) requires `TRUSTED_INGRESS=cloudflare_tunnel` before restart/deploy; shared guard architecture unchanged. F-4: synthetic production-style preview may share Better Auth's no-trusted-IP per-path bucket; explicit regression/documentation accepts this only as synthetic behavior, never production isolation evidence. F-5: session IP storage remains unchanged; the Gate-7 privacy TODO now requires Datenschutz/retention/deletion review without inventing a period.
+
+Targeted command: `npm test --` with `src/lib/{peer-identity,ingress-error,auth-ingress,rate-limit.integration,transactional-email,card-recovery.integration,card-lifecycle.integration,product.integration,http}.test.ts`, `src/app/api/{trusted-ingress.integration,public-abuse.integration}.test.ts`, `src/app/api/email/mailgun/webhook/route.test.ts`, and `scripts/{config-check,production-migrate-config,preview-config,device-test-config}.test.ts` (shell brace expansion or individual filenames).
+
+No push, deployment, infrastructure/cost-limit change, email send or new spending. Gate 1 remains **PARTIAL**, pending independent re-review and the previously documented deployment verification.
+
+Follow-up build checks: `npm run typecheck` PASS (also after build); `npm run lint -- --ignore-pattern 'work/**'` PASS, with known ignored/pre-existing scripts left unchanged. Default Turbopack build remains environment-blocked by local port binding (`Operation not permitted`), not an application compilation error. `DATABASE_URL=<isolated looplocal_test URL> NEXT_TELEMETRY_DISABLED=1 npm run build -- --webpack` PASS with 74 pages generated and no project build-configuration change. `git diff --check` PASS.
+
+Follow-up secret check: `gitleaks git --staged --redact` PASS, no leaks in the staged bounded fix/evidence.

@@ -27,7 +27,8 @@ const req = (path: string, ip?: string, data?: object) => new Request(`${base}${
 });
 const ips = () => {
   const id = randomUUID().replaceAll("-", "");
-  return [`2001:db8:${id.slice(0,4)}:${id.slice(4,8)}::1`, `2001:db8:${id.slice(0,4)}:${id.slice(4,8)}::2`];
+  const otherSubnet = ((parseInt(id.slice(4,8), 16) + 1) & 0xffff).toString(16);
+  return [`2001:db8:${id.slice(0,4)}:${id.slice(4,8)}::1`, `2001:db8:${id.slice(0,4)}:${otherSubnet}::2`];
 };
 beforeEach(() => {
   vi.stubEnv("TRUSTED_INGRESS", "cloudflare_tunnel"); vi.stubEnv("TRUST_PROXY_CLIENT_IP", "false");
@@ -59,6 +60,20 @@ describe("trusted ingress through application handlers (isolated PostgreSQL)", (
     await expect(enforcePeerLimit(b, scope, 2, 60)).resolves.toBeUndefined();
     expect(await hits(scope, peerIdentity(a))).toBe(4);
     expect(await hits(scope, peerIdentity(b))).toBe(1);
+  });
+  it("shares one /64 database bucket across concurrent host addresses", async () => {
+    const addresses = ["2001:db8:1234:5678::1", "2001:db8:1234:5678::abcd", "2001:db8:1234:9999::1"];
+    const [a, b, c] = addresses.map(ip => req("/", ip));
+    const scope = "test_ingress_prefix";
+    const keys = addresses.map(ip => key(scope, peerIdentity(req("/", ip))));
+    await pool.query("delete from rate_limits where key_hash = any($1::text[])", [keys]);
+    const results = await Promise.allSettled([a,b,a,b].map(request => enforcePeerLimit(request, scope, 2, 60)));
+    expect(results.filter(r => r.status === "fulfilled")).toHaveLength(2);
+    expect(results.filter(r => r.status === "rejected" && r.reason instanceof RateLimitError)).toHaveLength(2);
+    expect(await hits(scope, peerIdentity(a))).toBe(4);
+    expect(await hits(scope, peerIdentity(b))).toBe(4);
+    await expect(enforcePeerLimit(c, scope, 2, 60)).resolves.toBeUndefined();
+    expect(await hits(scope, peerIdentity(c))).toBe(1);
   });
   it("enrollment separates peers while retaining the shared programme limit", async () => {
     const slug = `synthetic-${randomUUID()}`;
@@ -92,9 +107,9 @@ describe("trusted ingress through application handlers (isolated PostgreSQL)", (
       await authGet(req("/api/auth/get-session")), await recover(req("/api/recover", undefined, {})),
       await card(req("/api/card/synthetic"), { params: Promise.resolve({ token: "synthetic" }) })];
     for (const response of responses) {
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(503);
       expect(response.headers.get("cache-control")).toBe("no-store");
-      expect(await response.json()).toEqual({ error: "Invalid ingress metadata", code: "INVALID_INGRESS" });
+      expect(await response.json()).toEqual({ error: "Service unavailable" });
     }
     for (const fn of Object.values(business)) expect(fn).not.toHaveBeenCalled();
     const response = await health();

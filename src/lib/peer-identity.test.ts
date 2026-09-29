@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { peerIdentity } from "./rate-limit";
 
@@ -48,5 +49,26 @@ describe("explicit trusted ingress identity", () => {
   it("rejects the old generic proxy-trust switch", () => {
     vi.stubEnv("TRUST_PROXY_CLIENT_IP", "true");
     expect(() => peerIdentity(request("192.0.2.1"))).toThrow("Invalid ingress metadata");
+  });
+});
+
+describe("IPv6 prefix policy", () => {
+  it("groups addresses in one /64 and separates different /64s", () => {
+    const a = peerIdentity(request("2001:db8:1234:5678::1"));
+    expect(a).toBe(peerIdentity(request("2001:db8:1234:5678::abcd")));
+    expect(a).not.toBe(peerIdentity(request("2001:db8:1234:9999::1")));
+    expect(a).toBe(peerIdentity(request("2001:0DB8:1234:5678:0000:0000:0000:ABCD")));
+  });
+  it.each([["::1", "::abcd"], ["2001:db8::1", "2001:db8:0:0:ffff:ffff:ffff:ffff"],
+    ["2001:db8:1:2:3:4:5:6", "2001:db8:1:2::9"]])("masks compressed and full forms %s", (a, b) => {
+    expect(peerIdentity(request(a))).toBe(peerIdentity(request(b)));
+  });
+  it("preserves the exact IPv4 hash and maps only IPv4-mapped IPv6 to IPv4", () => {
+    const expected = `peer:${createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update("trusted_peer_identity").update("\0").update("192.0.2.1").digest("hex")}`;
+    expect(peerIdentity(request("192.0.2.1"))).toBe(expected);
+    expect(peerIdentity(request("::ffff:192.0.2.1"))).toBe(expected);
+    expect(peerIdentity(request("::ffff:c000:201"))).toBe(expected);
+    expect(peerIdentity(request("192.0.2.2"))).not.toBe(expected);
+    expect(peerIdentity(request("::ffff:192.0.2.2"))).not.toBe(expected);
   });
 });

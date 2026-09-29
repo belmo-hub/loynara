@@ -17,8 +17,19 @@ function rateKey(scope: string, identity: string): string {
   return createHmac("sha256", secret).update(scope).update("\0").update(identity).digest("hex");
 }
 
+// One fixed event per minute per process, independent of peer/header values.
+// Monotonic time avoids clock adjustments; no request-keyed map or DB dependency.
+const ingressSignalKey = Symbol.for("loynara.invalid-ingress.next-signal-at");
+const ingressSignalState = globalThis as typeof globalThis & { [ingressSignalKey]?: number };
 export class InvalidIngressError extends DomainError {
-  constructor() { super("INVALID_INGRESS", "Invalid ingress metadata"); }
+  constructor() {
+    super("INVALID_INGRESS", "Invalid ingress metadata");
+    const now = performance.now();
+    if (now >= (ingressSignalState[ingressSignalKey] ?? 0)) {
+      ingressSignalState[ingressSignalKey] = now + 60_000;
+      console.warn('{"event":"invalid_ingress"}');
+    }
+  }
 }
 
 // This setting asserts a DEPLOYMENT boundary, not header authentication. The
@@ -46,6 +57,14 @@ export function peerIdentity(request: Request): string {
     if (mapped) {
       const high = parseInt(mapped[1], 16), low = parseInt(mapped[2], 16);
       canonical = [high >>> 8, high & 255, low >>> 8, low & 255].join(".");
+    } else {
+      // Native IPv6 uses /64, matching Better Auth's default subnet granularity.
+      // Expand only a strictly validated canonical address, then discard host bits.
+      const [left, right] = canonical.split("::");
+      const head = left ? left.split(":") : [];
+      const tail = right ? right.split(":") : [];
+      const words = right === undefined ? head : [...head, ...Array<string>(8 - head.length - tail.length).fill("0"), ...tail];
+      canonical = `${words.slice(0, 4).join(":")}::/64`;
     }
   }
   // Raw addresses never become persisted rate-limit keys or ordinary log data.
