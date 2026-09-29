@@ -6,11 +6,19 @@ if [[ "${RESTORE_TARGET_CONFIRMED:-}" != "isolated" || -z "${RESTORE_PGHOST:-}" 
   echo "Restore refused: explicitly confirmed isolated target and production host reference required." >&2
   exit 1
 fi
-if [[ "$RESTORE_PGHOST" == "$PRODUCTION_PGHOST" || "$RESTORE_PGHOST" != *.railway.internal || "$RESTORE_PGDATABASE" != loynara_restore_* || ! "${BACKUP_S3_ENDPOINT:-}" =~ ^https://[0-9a-f]{32}\.eu\.r2\.cloudflarestorage\.com$ || -z "${BACKUP_S3_BUCKET:-}" || -z "${BACKUP_OBJECT_KEY:-}" || -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" || "${AWS_DEFAULT_REGION:-}" != auto || ! -f "${BACKUP_AGE_IDENTITY_FILE:-}" ]]; then
+isolated_local=false
+if [[ "$RESTORE_PGHOST" == "127.0.0.1" && "${RESTORE_ALLOW_LOCAL_ISOLATED:-}" == "true" && "${RESTORE_PGPORT:-}" =~ ^[0-9]+$ && "${RESTORE_PGPORT:-}" != "5432" && "$PRODUCTION_PGHOST" == *.railway.internal ]]; then
+  isolated_local=true
+fi
+if [[ "$RESTORE_PGHOST" == "$PRODUCTION_PGHOST" || ( "$RESTORE_PGHOST" != *.railway.internal && "$isolated_local" != true ) || "$RESTORE_PGDATABASE" != loynara_restore_* || ! "${BACKUP_S3_ENDPOINT:-}" =~ ^https://[0-9a-f]{32}\.eu\.r2\.cloudflarestorage\.com$ || -z "${BACKUP_S3_BUCKET:-}" || -z "${BACKUP_OBJECT_KEY:-}" || -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" || "${AWS_DEFAULT_REGION:-}" != auto || ! -f "${BACKUP_AGE_IDENTITY_FILE:-}" ]]; then
   echo "Restore refused: target must be a separate database host with an encrypted backup and local age identity." >&2
   exit 1
 fi
-identity_mode="$(stat -c %a "$BACKUP_AGE_IDENTITY_FILE")"
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  identity_mode="$(stat -f %Lp "$BACKUP_AGE_IDENTITY_FILE")"
+else
+  identity_mode="$(stat -c %a "$BACKUP_AGE_IDENTITY_FILE")"
+fi
 if [[ "$identity_mode" != "400" && "$identity_mode" != "600" ]]; then
   echo "Restore refused: age identity must be readable only by its owner." >&2
   exit 1
