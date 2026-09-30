@@ -58,10 +58,7 @@ function NewBusiness({ me }: { me: MeResponse }) {
             </ol>
             {brand.state === "error" && <div style={{ marginTop: 12 }}><Notice tone="warn" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadBrand}>Erneut laden</button>}>Der Status der Kundenkarte konnte nicht geladen werden.</Notice></div>}
           </section>
-          <section className="ow-card ow-card--flat" aria-labelledby="ow-ready-title">
-            <h2 id="ow-ready-title" style={{ fontSize: 16 }}>Wallet, NFC und E-Mail</h2>
-            <p className="ow-muted" style={{ marginTop: 6, fontSize: 14 }}>Für den Start reicht die Browserkarte. Wallet-Karten, NFC-Tap und E-Mail-Versand sind getrennte, optionale Einrichtungen und keine Voraussetzung für diese Checkliste.</p>
-          </section>
+          <p className="ow-hint" style={{ paddingInline: 4 }}>Für den Start reicht die Browserkarte. Wallet-Karten, NFC-Tap und E-Mail-Versand richtest du später und getrennt ein.</p>
         </div>
         <aside className="ow-stack" aria-label="Vorschau und Einladung">
           <section className="ow-card ow-stack" aria-labelledby="ow-prev-title">
@@ -104,7 +101,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         <div>
           <p className="ow-eyebrow">{me.locationName}</p>
           <h1>Übersicht</h1>
-          <p>{periodMode ? `Zeitraum: letzte ${windowDays} Tage.` : "Zahlen dieses Standorts seit Programmstart."}{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}</p>
+          <p>{periodMode ? `Zeitraum: letzte ${windowDays} Tage.` : "Zahlen dieses Standorts seit Programmstart."}{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{isOwner && !periodMode && owner.locations.length > 1 && <> Zeiträume für alle Standorte findest du unter <Link className="ow-link" href="/merchant/analytics">Ergebnisse</Link>.</>}</p>
         </div>
         <div className="ow-row">
           {periodMode && <div className="ow-seg" role="group" aria-label="Zeitraum">{([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}</div>}
@@ -113,7 +110,6 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       </header>
 
       {periodMode ? <PeriodMetrics analytics={analytics} days={windowDays} reload={reloadAnalytics} /> : <LifetimeMetrics me={me} />}
-      {isOwner && !periodMode && owner.locations.length > 1 && <Notice>Der Zeitraumvergleich gilt für alle Standorte gemeinsam. Du findest ihn unter <Link className="ow-link" href="/merchant/analytics">Ergebnisse</Link>.</Notice>}
       {periodMode && analytics.state === "ok" && (
         <details className="ow-muted" style={{ fontSize: 13 }}><summary style={{ cursor: "pointer", minHeight: 24 }}>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{analytics.data.countingRule}</p></details>
       )}
@@ -158,9 +154,9 @@ function LifetimeMetrics({ me }: { me: MeResponse }) {
   const stats = me.stats;
   const ok = (n: number | undefined): Loadable<number> => n === undefined ? { state: "error", message: "" } : { state: "ok", data: n, at: 0 };
   return (
-    <dl className="ow-metrics" aria-label="Kennzahlen seit Programmstart" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
-      <Metric label="Karten" note="Angemeldet seit Programmstart">{value(ok(stats?.members))}</Metric>
-      <Metric label="Gutschrift-Buchungen" note="Stempel- oder Punktebuchungen. Kein Besuch, kein Umsatz.">{value(ok(stats?.awards))}</Metric>
+    <dl className="ow-metrics ow-metrics--auto" aria-label="Kennzahlen seit Programmstart">
+      <Metric label="Karten" note="Seit Programmstart">{value(ok(stats?.members))}</Metric>
+      <Metric label="Gutschrift-Buchungen" note="Stempel- oder Punktebuchungen, kein Umsatz.">{value(ok(stats?.awards))}</Metric>
       <Metric label="Eingelöste Prämien" note="Seit Programmstart">{value(ok(stats?.redemptions))}</Metric>
     </dl>
   );
@@ -215,7 +211,7 @@ function RecentActivity({ me }: { me: MeResponse }) {
 function ProgrammeCard({ me }: { me: MeResponse }) {
   const tap = me.tapMode === "automatic_fixed" ? "Automatisch" : me.tapMode === "staff_confirmed" ? "Mit Bestätigung" : me.tapMode === "disabled" ? "Aus" : null;
   return (
-    <section className="ow-card ow-stack" aria-labelledby="ow-prog-title">
+    <section className="ow-card ow-card--flat ow-stack" aria-labelledby="ow-prog-title">
       <div className="ow-card-head" style={{ marginBottom: 0 }}><h2 id="ow-prog-title">Programm</h2><span className="ow-chip ow-chip--ok"><span className="ow-dot" aria-hidden="true" />Aktiv</span></div>
       <dl className="ow-dl">
         <dt>Art</dt><dd>{me.programType === "stamp" ? "Stempelkarte" : "Punktekarte"}</dd>

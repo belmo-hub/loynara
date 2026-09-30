@@ -99,10 +99,10 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
               {colorValid && appleContrast >= 4.5 && readableInk(draft.brandColor) === "#000000" && <span className="ow-hint">Browserkarte und Google Wallet wählen automatisch dunkle Schrift.</span>}
             </div>
             <div className="ow-field">
-              <label htmlFor="cs-logo">Logo</label>
+              <span className="ow-label">Logo</span>
               <div className="ow-logo-row">
                 {draft.logoData && <Image unoptimized className="ow-logo-thumb" src={draft.logoData} width={56} height={56} alt="Ausgewähltes Logo" />}
-                <input id="cs-logo" className="ow-input" style={{ minWidth: 0, flex: 1, paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void pickLogo(event.target.files?.[0])} />
+                <label htmlFor="cs-logo" className="ow-btn ow-btn--secondary ow-filebtn">{draft.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="cs-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void pickLogo(event.target.files?.[0])} /></label>
                 {draft.logoData && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => edit({ logoData: null })}>Logo entfernen</button>}
               </div>
               <span className="ow-hint">PNG, JPG oder WebP bis 2 MB.</span>
