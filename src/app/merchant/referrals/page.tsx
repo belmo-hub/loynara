@@ -1,27 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
-import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
-import { BrandMark } from "@/components/loyalty-ui";
+import { useState, type FormEvent } from "react";
+import { postJson } from "@/components/client-api";
+import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
+import { ErrorNotice, germanDate, LoadingBlock, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { ReferralSummary } from "@/components/owner/referral-summary";
-import styles from "./referrals.module.css";
+import { useLoad } from "@/components/owner/use-load";
 
 type Settings = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
 type Referral = { id: string; status: string; referrerCard: string; referredCard: string; referrerBonus: number; referredBonus: number; reviewReason: string | null; hasCreditedBonus: boolean; createdAt: string; qualifiedAt: string | null };
 
-function status(value: string) {
-  switch (value) {
-    case "pending": return "Wartet auf ersten Kassenauftrag";
-    case "qualified": return "Bonus gebucht";
-    case "review": return "Prüfung nötig";
-    case "rejected": return "Abgelehnt";
-    case "reversed": return "Bonus korrigiert";
-    default: return value;
-  }
-}
-
+const STATUS: Record<string, string> = { pending: "Wartet auf ersten Kassenauftrag", qualified: "Bonus gebucht", review: "Prüfung nötig", rejected: "Abgelehnt", reversed: "Bonus korrigiert" };
+const status = (value: string) => STATUS[value] ?? value;
 function reviewReason(value: string | null) {
   switch (value) {
     case "same_verified_email": return "Beide Karten haben dieselbe verifizierte E-Mail-Adresse.";
@@ -34,91 +24,104 @@ function reviewReason(value: string | null) {
 }
 
 export default function MerchantReferralsPage() {
-  const router = useRouter();
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [enabled, setEnabled] = useState(false);
-  const [referrerBonus, setReferrerBonus] = useState("1");
-  const [referredBonus, setReferredBonus] = useState("0");
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [reviewing, setReviewing] = useState<string | null>(null);
-  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const { me } = useOwner();
+  const slug = me?.programSlug ? encodeURIComponent(me.programSlug) : null;
+  const owner = me?.role === "owner";
+  const [rule, reloadRule] = useLoad<Settings>(owner && slug ? `/api/merchant/referrals/settings?programSlug=${slug}` : null);
+  const [list, reloadList] = useLoad<{ referrals: Referral[] }>(owner && slug ? `/api/merchant/referrals?programSlug=${slug}` : null);
+  if (!me) return null;
+  const head = <PageHead eyebrow="Treueprogramm · Empfehlungen" title="Empfehlungen" lead="Eine Empfehlung wird erst nach dem ersten bestätigten Kassenauftrag der neuen Karte gutgeschrieben." />;
+  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Empfehlungen können nur von Inhaber:innen verwaltet werden.</Notice></div>;
+  if (rule.state === "error") return <div className="ow-page">{head}<ErrorNotice message={rule.message} onRetry={reloadRule} /></div>;
+  if (rule.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={2} /></div>;
+  return <Loaded slug={me.programSlug} businessName={me.businessName} locationName={me.locationName} head={head} settings={rule.data} list={list} reloadList={reloadList} />;
+}
 
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const account = await apiJson<MeResponse>("/api/me");
-        if (!active) return;
-        if (account.role !== "owner") { router.replace(account.role === "cashier" ? "/cashier" : "/merchant"); return; }
-        if (!account.programSlug) throw new Error("Für diesen Standort ist kein aktives Programm vorhanden.");
-        const slug = encodeURIComponent(account.programSlug);
-        const [rule, list] = await Promise.all([
-          apiJson<Settings>(`/api/merchant/referrals/settings?programSlug=${slug}`),
-          apiJson<{ referrals: Referral[] }>(`/api/merchant/referrals?programSlug=${slug}`),
-        ]);
-        if (!active) return;
-        setMe(account); setSettings(rule); setEnabled(rule.enabled);
-        setReferrerBonus(String(rule.referrerBonus)); setReferredBonus(String(rule.referredBonus)); setReferrals(list.referrals);
-      } catch (cause) {
-        if (!active) return;
-        if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-        setError(cause instanceof Error ? cause.message : "Empfehlungen konnten nicht geladen werden.");
-      } finally { if (active) setLoading(false); }
-    })();
-    return () => { active = false; };
-  }, [router]);
+function Loaded({ slug, businessName, locationName, head, settings, list, reloadList }: { slug: string; businessName: string; locationName: string; head: React.ReactNode; settings: Settings; list: ReturnType<typeof useLoad<{ referrals: Referral[] }>>[0]; reloadList: () => void }) {
+  const [saved, setSaved] = useState(settings);
+  const [enabled, setEnabled] = useState(settings.enabled);
+  const [referrerBonus, setReferrerBonus] = useState(String(settings.referrerBonus));
+  const [referredBonus, setReferredBonus] = useState(String(settings.referredBonus));
+  const [state, setState] = useState<SaveState>("clean");
+  const [error, setError] = useState("");
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState("");
+  const unit = saved.programType === "points" ? "Punkte" : "Stempel";
+  const a = Number(referrerBonus), b = Number(referredBonus);
+  const numbersOk = Number.isInteger(a) && Number.isInteger(b) && a >= 0 && b >= 0 && a <= 1000 && b <= 1000 && referrerBonus !== "" && referredBonus !== "";
+  const ruleOk = numbersOk && (!enabled || a > 0 || b > 0);
+  const changed = enabled !== saved.enabled || a !== saved.referrerBonus || b !== saved.referredBonus;
+  const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
+  useDirtyGuard("referral-rule", changed);
+  const touch = () => { if (state === "saved" || state === "error") { setState("clean"); setError(""); } };
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!me?.programSlug) return;
-    setBusy(true); setError(""); setNotice("");
+    if (state === "saving" || !ruleOk) return;
+    setState("saving"); setError(""); setNotice("");
     try {
-      const rule = await postJson<Settings>("/api/merchant/referrals/settings", {
-        programSlug: me.programSlug, enabled, referrerBonus: Number(referrerBonus), referredBonus: Number(referredBonus),
-      });
-      setSettings(rule); setNotice("Empfehlungsregel gespeichert. Änderungen gelten für neue Anmeldungen mit Empfehlungslink.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Regel konnte nicht gespeichert werden."); }
-    finally { setBusy(false); }
+      const next = await postJson<Settings>("/api/merchant/referrals/settings", { programSlug: slug, enabled, referrerBonus: a, referredBonus: b });
+      setSaved(next); setEnabled(next.enabled); setReferrerBonus(String(next.referrerBonus)); setReferredBonus(String(next.referredBonus)); setState("saved");
+    } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Regel konnte nicht gespeichert werden."); }
   }
-
   async function review(referral: Referral, action: "reject" | "retry_reversal") {
     setReviewing(referral.id); setError(""); setNotice("");
     try {
-      const outcome = await postJson<{ status: string }>(`/api/merchant/referrals/${encodeURIComponent(referral.id)}/review`, action === "reject" ? { action, reason: (reviewNotes[referral.id] ?? "").trim() } : { action });
-      const list = await apiJson<{ referrals: Referral[] }>(`/api/merchant/referrals?programSlug=${encodeURIComponent(me!.programSlug)}`);
-      setReferrals(list.referrals);
-      setReviewNotes(current => { const next = { ...current }; delete next[referral.id]; return next; });
+      const outcome = await postJson<{ status: string }>(`/api/merchant/referrals/${encodeURIComponent(referral.id)}/review`, action === "reject" ? { action, reason: (notes[referral.id] ?? "").trim() } : { action });
+      reloadList();
+      setNotes(current => { const next = { ...current }; delete next[referral.id]; return next; });
       setNotice(outcome.status === "review" ? "Die Bonus-Korrektur ist noch nicht möglich. Der Vorgang bleibt zur Prüfung offen." : "Prüfentscheidung gespeichert.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Prüfung konnte nicht gespeichert werden."); }
     finally { setReviewing(null); }
   }
 
-  const unit = settings?.programType === "points" ? "Punkte" : "Stempel";
-  return <div className="app-page"><header className="app-header"><div className="app-header-inner"><Link href="/merchant" aria-label="Zur Übersicht"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/program">Programm</Link><Link href="/merchant/customers">Kundenkarten</Link><Link href="/merchant/referrals" aria-current="page">Empfehlungen</Link><Link href="/merchant/staff">Team</Link><Link href="/cashier">Kasse</Link></nav><span className="app-header-location">Empfehlungen</span></div></header>
-    <main className={`app-container ${styles.main}`}>
-      <div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> WEITEREMPFEHLEN</span><h1>Empfehlungen</h1><p>Eine Empfehlung wird erst nach dem ersten bestätigten Kassenauftrag der neuen Karte gutgeschrieben.</p></div>
-      {loading ? <p role="status">Empfehlungen werden geladen …</p> : !me || !settings ? <p role="alert" className={styles.error}>{error || "Empfehlungen nicht verfügbar."}</p> : <>
-        {error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p role="status" className={styles.notice}>{notice}</p>}
-        <ReferralSummary enabled={settings.enabled} referrerBonus={settings.referrerBonus} referredBonus={settings.referredBonus} programType={settings.programType} referrals={referrals} truncated={referrals.length >= 100} />
-        <div className={styles.grid}>
-          <form className={`app-panel ${styles.panel}`} onSubmit={save}>
-            <span className="tiny-label">{me.businessName} · {me.locationName}</span><h2>Bonusregel</h2>
-            <label className={styles.check}><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} /> Empfehlungen für neue Anmeldungen aktivieren</label>
-            <div className={styles.fields}><label>Bonus für empfehlende Karte ({unit})<input type="number" min="0" max="1000" required value={referrerBonus} onChange={event => setReferrerBonus(event.target.value)} /></label><label>Bonus für neue Karte ({unit})<input type="number" min="0" max="1000" required value={referredBonus} onChange={event => setReferredBonus(event.target.value)} /></label></div>
-            <p>Wenn die Regel aktiv ist, muss mindestens ein Bonus größer als null sein. Die Beträge werden bei der Anmeldung festgehalten; spätere Änderungen schreiben vorhandene Empfehlungen nicht um.</p>
-            <button className="button button--ink" type="submit" disabled={busy}>{busy ? "Speichert …" : "Regel speichern"}</button>
-          </form>
-          <section className={`app-panel ${styles.panel}`}><span className="tiny-label">ABLAUF</span><h2>So funktioniert es</h2><ol><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Ein berechtigter erster Kassenauftrag wird bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol><p>Gleiche verifizierte E-Mail-Adressen werden zur Prüfung angehalten. Pseudonyme Karten lassen sich nicht zuverlässig derselben Person zuordnen; Missbrauch kann daher nicht vollständig ausgeschlossen werden.</p></section>
-        </div>
-        <section className={`app-panel ${styles.history}`}><div className={styles.head}><div><span className="tiny-label">LETZTE 100 EMPFEHLUNGEN</span><h2>Vorgänge und Prüfung</h2></div><span>{referrals.length} angezeigt</span></div>
-          {referrals.length === 0 ? <p>Noch keine Anmeldungen über Empfehlungslinks.</p> : <ul>{referrals.map(referral => <li key={referral.id}><div className={styles.row}><div><strong>{status(referral.status)}</strong><small>Karte {referral.referrerCard} → Karte {referral.referredCard}</small><small>Angemeldet: {new Date(referral.createdAt).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}</small></div><div className={styles.bonus}>+{referral.referrerBonus} / +{referral.referredBonus} {unit}</div></div>{referral.reviewReason && <p className={styles.reviewReason}>{reviewReason(referral.reviewReason)}</p>}{referral.status === "review" && <div className={styles.actions}>{referral.hasCreditedBonus ? <button type="button" className="button button--outline" disabled={reviewing === referral.id} onClick={() => void review(referral, "retry_reversal")}>{reviewing === referral.id ? "Prüft …" : "Bonus-Korrektur erneut prüfen"}</button> : <><label>Prüfvermerk<input value={reviewNotes[referral.id] ?? ""} onChange={event => setReviewNotes(current => ({ ...current, [referral.id]: event.target.value }))} minLength={10} maxLength={240} placeholder="Grund für die Ablehnung" /></label><button type="button" className="button button--outline" disabled={reviewing === referral.id || (reviewNotes[referral.id] ?? "").trim().length < 10} onClick={() => void review(referral, "reject")}>{reviewing === referral.id ? "Speichert …" : "Empfehlung ablehnen"}</button></>}</div>}</li>)}</ul>}
-        </section>
-      </>}
-    </main>
-  </div>;
+  const referrals = list.state === "ok" ? list.data.referrals : [];
+  return (
+    <div className="ow-page">
+      {head}
+      {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
+      {list.state === "ok" && <ReferralSummary enabled={saved.enabled} referrerBonus={saved.referrerBonus} referredBonus={saved.referredBonus} programType={saved.programType} referrals={referrals} truncated={referrals.length >= 100} />}
+      <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
+        <form className="ow-card ow-stack" onSubmit={save}>
+          <div><p className="ow-eyebrow">{businessName} · {locationName}</p><h2>Bonusregel</h2></div>
+          <label className="ow-check"><input type="checkbox" checked={enabled} onChange={event => { setEnabled(event.target.checked); touch(); }} /> Empfehlungen für neue Anmeldungen aktivieren</label>
+          <div className="ow-grid-2">
+            <div className="ow-field"><label htmlFor="rf-a">Bonus für empfehlende Karte ({unit})</label><input id="rf-a" className="ow-input" type="number" min="0" max="1000" required value={referrerBonus} onChange={event => { setReferrerBonus(event.target.value); touch(); }} /></div>
+            <div className="ow-field"><label htmlFor="rf-b">Bonus für neue Karte ({unit})</label><input id="rf-b" className="ow-input" type="number" min="0" max="1000" required value={referredBonus} onChange={event => { setReferredBonus(event.target.value); touch(); }} /></div>
+          </div>
+          <p className="ow-hint">Wenn die Regel aktiv ist, muss mindestens ein Bonus größer als null sein. Die Beträge werden bei der Anmeldung festgehalten; spätere Änderungen schreiben vorhandene Empfehlungen nicht um.</p>
+          <SaveBar asSubmit state={shown} onDiscard={() => { setEnabled(saved.enabled); setReferrerBonus(String(saved.referrerBonus)); setReferredBonus(String(saved.referredBonus)); setState("clean"); setError(""); }} canSave={changed && ruleOk} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Empfehlungsregel gespeichert. Änderungen gelten für neue Anmeldungen mit Empfehlungslink." : shown === "dirty" && !ruleOk ? "Bei aktiver Regel muss ein Bonus größer als null sein." : undefined} />
+        </form>
+        <section className="ow-card ow-stack" aria-labelledby="rf-how"><h2 id="rf-how">So funktioniert es</h2>
+          <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Ein berechtigter erster Kassenauftrag wird bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol>
+          <p className="ow-hint">Gleiche verifizierte E-Mail-Adressen werden zur Prüfung angehalten. Pseudonyme Karten lassen sich nicht zuverlässig derselben Person zuordnen; Missbrauch kann daher nicht vollständig ausgeschlossen werden.</p></section>
+      </div>
+      <section className="ow-card ow-stack" aria-labelledby="rf-hist">
+        <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="rf-hist">Vorgänge und Prüfung</h2><p>Letzte 100 Empfehlungen</p></div><span className="ow-muted">{referrals.length} angezeigt</span></div>
+        {list.state === "loading" && <LoadingBlock rows={1} height={56} />}
+        {list.state === "error" && <ErrorNotice message={list.message} onRetry={reloadList} />}
+        {list.state === "ok" && (referrals.length === 0 ? <p className="ow-muted">Noch keine Anmeldungen über Empfehlungslinks.</p> : (
+          <ul className="ow-feed">{referrals.map(referral => (
+            <li key={referral.id} style={{ display: "block" }}>
+              <div className="ow-row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div><strong>{status(referral.status)}</strong><br /><small className="ow-muted">Karte {referral.referrerCard} → Karte {referral.referredCard}</small><br /><small className="ow-muted">Angemeldet: {germanDate(referral.createdAt, true)}</small></div>
+                <span className="ow-chip ow-num">+{referral.referrerBonus} / +{referral.referredBonus} {unit}</span>
+              </div>
+              {referral.reviewReason && <p className="ow-hint" style={{ marginTop: 6 }}>{reviewReason(referral.reviewReason)}</p>}
+              {referral.status === "review" && (
+                <div className="ow-row" style={{ marginTop: 8, alignItems: "flex-end" }}>
+                  {referral.hasCreditedBonus
+                    ? <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={reviewing === referral.id} onClick={() => void review(referral, "retry_reversal")}>{reviewing === referral.id ? "Prüft …" : "Bonus-Korrektur erneut prüfen"}</button>
+                    : <>
+                      <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor={`note-${referral.id}`}>Prüfvermerk</label><input id={`note-${referral.id}`} className="ow-input" value={notes[referral.id] ?? ""} onChange={event => setNotes(current => ({ ...current, [referral.id]: event.target.value }))} minLength={10} maxLength={240} placeholder="Grund für die Ablehnung" /></div>
+                      <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={reviewing === referral.id || (notes[referral.id] ?? "").trim().length < 10} onClick={() => void review(referral, "reject")}>{reviewing === referral.id ? "Speichert …" : "Empfehlung ablehnen"}</button>
+                    </>}
+                </div>
+              )}
+            </li>))}</ul>
+        ))}
+      </section>
+    </div>
+  );
 }

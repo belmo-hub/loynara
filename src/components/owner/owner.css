@@ -355,3 +355,43 @@
 .owner-app h1 { font-weight: 700; }
 .owner-app h2, .owner-app h3 { font-weight: 650; }
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* Tables with an intentional mobile treatment: rows become labelled blocks */
+.ow-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ow-table th { text-align: left; font-size: 12.5px; font-weight: 700; color: var(--ow-muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--ow-line-strong); white-space: nowrap; }
+.ow-table td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--ow-line); vertical-align: top; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .ow-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ow-table, .ow-table tbody, .ow-table tr, .ow-table td { display: block; width: 100%; }
+  .ow-table tr { padding: 10px 0; border-bottom: 1px solid var(--ow-line); }
+  .ow-table td { border: 0; padding: 2px 0; display: flex; gap: var(--ow-s3); justify-content: space-between; }
+  .ow-table td::before { content: attr(data-label); color: var(--ow-muted); font-weight: 600; flex: none; }
+}
+.ow-check { display: flex; align-items: center; gap: var(--ow-s3); min-height: 44px; font-weight: 700; cursor: pointer; }
+.ow-check input { width: 20px; height: 20px; accent-color: var(--ow-accent); }
+
+/* Trend bars */
+.ow-trend { display: flex; flex-direction: column; gap: var(--ow-s3); }
+.ow-trend-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr); gap: var(--ow-s4); align-items: center; font-size: 13.5px; }
+.ow-trend-row small { color: var(--ow-muted); }
+.ow-bar { height: 8px; border-radius: 99px; background: var(--ow-surface-2); overflow: hidden; margin-bottom: 2px; }
+.ow-bar span { display: block; height: 100%; background: var(--ow-accent); border-radius: 99px; transition: width var(--ow-preview) var(--ow-ease); }
+.ow-bar--alt span { background: var(--ow-spark); }
+@media (max-width: 720px) { .ow-trend-row { grid-template-columns: minmax(0, 1fr); gap: var(--ow-s1); } }
+
+/* Two-column layouts always stack on narrow screens, even when a page sets its own column ratio inline */
+@media (max-width: 900px) { .ow-two { grid-template-columns: minmax(0, 1fr) !important; } }
+.ow-feed li { flex-wrap: wrap; }
+
+/* Final polish: group legends must not sit on a border line; compact radio rows; file button; auto metrics */
+.ow-group { border: 0; }
+.ow-group > legend { float: left; width: 100%; padding: 0; margin: 0 0 var(--ow-s2); }
+.ow-group > legend + * { clear: both; }
+.ow-group + .ow-group { border-top: 0; margin-top: var(--ow-s4); padding-top: var(--ow-s4); box-shadow: 0 -1px 0 var(--ow-line); }
+@media (min-width: 640px) { .ow-radio-cards--row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ow-metrics--auto { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.ow-filebtn { cursor: pointer; }
+.ow-filebtn:focus-within { box-shadow: var(--ow-focus); }
+.ow-swatches + .ow-colorrow { margin-top: var(--ow-s2); }
+@media (max-width: 640px) { .ow-pagehead .ow-btn { min-height: 40px; } }
+@media (max-width: 560px) { .ow-step .ow-btn--ghost { padding-inline: 0; justify-self: start; } }

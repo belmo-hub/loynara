@@ -1,77 +1,63 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { apiJson, ClientApiError, type MeResponse } from "@/components/client-api";
-import { BrandMark } from "@/components/loyalty-ui";
+import { useState } from "react";
+import { useOwner } from "@/components/owner/owner-context";
+import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { ALL_LOCATIONS_NOTE, PeriodBar } from "@/components/owner/period-bar";
+import { useLoad } from "@/components/owner/use-load";
 import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-analytics";
-import styles from "./analytics.module.css";
 
-function date(value: string) {
-  return new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-}
-
-function timestamp(value: string) {
-  return new Date(value).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
-}
+const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+const timestamp = (value: string) => new Date(value).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
 export default function MerchantAnalyticsPage() {
-  const router = useRouter();
+  const { me } = useOwner();
   const [windowDays, setWindowDays] = useState<AnalyticsWindowDays>(30);
-  const [report, setReport] = useState<MerchantAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    void apiJson<MeResponse>("/api/me").then(account => {
-      if (!active) return null;
-      if (account.role !== "owner") { setForbidden(true); setLoading(false); return null; }
-      if (!account.programSlug) { router.replace("/merchant/program"); return null; }
-      setForbidden(false);
-      return apiJson<MerchantAnalytics>(`/api/merchant/analytics?window=${windowDays}`);
-    }).then(result => {
-      if (!active || !result) return;
-      setReport(result); setLoading(false);
-    }).catch(cause => {
-      if (!active) return;
-      if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-      if (cause instanceof ClientApiError && cause.status === 403) { setForbidden(true); setLoading(false); return; }
-      setError(cause instanceof Error ? cause.message : "Die Auswertung konnte nicht geladen werden.");
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [router, windowDays]);
-
-  const maxSeries = Math.max(1, ...(report?.series.map(bucket => Math.max(bucket.newCards, bucket.checkouts)) ?? []));
-
-  return <div className="app-page">
-    <header className={`app-header ${styles.header}`}><div className="app-header-inner"><Link href="/merchant"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/program">Programm</Link><Link href="/merchant/customers">Kundenkarten</Link><Link href="/merchant/campaigns">Kampagnen</Link><Link href="/merchant/analytics" aria-current="page">Auswertung</Link><Link href="/cashier">Kasse</Link></nav><span className="app-header-location">Auswertung</span></div></header>
-    <main className={`app-container ${styles.main}`}>
-      <div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> BESTÄTIGTE APP-VORGÄNGE</span><h1>Auswertung</h1><p>Anmeldungen, bestätigte Kassenvorgänge, Prämien, Empfehlungen und lokale Zustellversuche im gewählten Zeitraum.</p></div>
-      <div className={styles.toolbar}><label htmlFor="analytics-window">Zeitraum</label><select id="analytics-window" value={windowDays} onChange={event => { setLoading(true); setError(""); setWindowDays(Number(event.target.value) as AnalyticsWindowDays); }}><option value={30}>Letzte 30 Tage</option><option value={90}>Letzte 90 Tage</option></select>{report && !loading && <span>{date(report.from)} bis {date(report.asOf)} · Stand {timestamp(report.asOf)} UTC</span>}</div>
-      {loading ? <section className="app-panel"><p role="status">Auswertung wird geladen …</p></section> : forbidden ? <section className="app-panel"><p role="alert">Nur Inhaberinnen und Inhaber können die Auswertung sehen.</p></section> : error ? <section className="app-panel"><p role="alert">{error}</p></section> : report && <>
-        <section aria-labelledby="analytics-overview-heading"><h2 id="analytics-overview-heading" className={styles.sectionTitle}>Karten und Kassenvorgänge</h2><div className={styles.metrics}>
-          <Metric label="Aktive Karten aktuell" value={report.currentActiveCards} note="Bestand zum angegebenen Stand; nicht auf den Zeitraum begrenzt." />
-          <Metric label="Neue Karten" value={report.newCards} note="Im Zeitraum angelegte Karten, einschließlich später geschlossener Karten." />
-          <Metric label="Bestätigte Kassenvorgänge" value={report.qualifyingCheckouts} note="Eindeutige Karten- und Anfragekennungen, ohne vollständig rückgängig gemachte Gutschriften." />
-          <Metric label="Wiederkehrende Karten" value={report.repeatCards} note={`Von ${report.participatingCards} Karten mit mindestens einem bestätigten Kassenvorgang; mindestens zwei im Zeitraum.`} />
-        </div></section>
-        <section className={styles.twoColumns} aria-label="Prämien und Gutschriften">
-          <div className="app-panel"><span className="tiny-label">GUTSCHRIFTEN</span><h2>Vergebene Einheiten</h2><dl className={styles.facts}><div><dt>Stempel</dt><dd>{report.issued.stampUnits}</dd></div><div><dt>Punkte</dt><dd>{report.issued.pointUnits}</dd></div><div><dt>Gutschrift-Einträge</dt><dd>{report.issued.awardActions}</dd></div></dl><p>Stempel und Punkte sind verschiedene Einheiten. Korrekturen werden abgezogen, wenn die ursprüngliche Gutschrift vollständig rückgängig gemacht wurde.</p></div>
-          <div className="app-panel"><span className="tiny-label">PRÄMIEN</span><h2>Einlösungen</h2><strong className={styles.largeNumber}>{report.rewards.redemptions}</strong>{report.rewards.topTitles.length ? <><h3>Häufigste eingelöste Prämien</h3><ol className={styles.topTitles}>{report.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong>{item.count}</strong></li>)}</ol></> : <p>Im Zeitraum wurde keine Prämie eingelöst.</p>}</div>
+  const [report, reload] = useLoad<MerchantAnalytics>(me?.role === "owner" ? `/api/merchant/analytics?window=${windowDays}` : null);
+  if (!me) return null;
+  const head = <PageHead eyebrow="Aktionen · Ergebnisse" title="Auswertung" lead="Anmeldungen, bestätigte Kassenvorgänge, Prämien, Empfehlungen und lokale Zustellversuche im gewählten Zeitraum." />;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Auswertung sehen.</Notice></div>;
+  const r = report.state === "ok" ? report.data : null;
+  const maxSeries = Math.max(1, ...(r?.series.map(bucket => Math.max(bucket.newCards, bucket.checkouts)) ?? []));
+  return (
+    <div className="ow-page">
+      {head}
+      <Notice>{ALL_LOCATIONS_NOTE}</Notice>
+      <PeriodBar id="analytics-window" value={windowDays} onChange={setWindowDays} meta={r ? `${date(r.from)} bis ${date(r.asOf)} · Stand ${timestamp(r.asOf)} UTC` : undefined} />
+      {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
+      {report.state === "loading" && <LoadingBlock rows={3} />}
+      {r && <>
+        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: 17 }}>Karten und Kassenvorgänge</h2>
+          <div className="ow-metrics">
+            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Bestand zum angegebenen Stand; nicht auf den Zeitraum begrenzt." />
+            <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angelegte Karten, einschließlich später geschlossener Karten." />
+            <Metric label="Bestätigte Kassenvorgänge" value={r.qualifyingCheckouts} note="Eindeutige Karten- und Anfragekennungen, ohne vollständig rückgängig gemachte Gutschriften." />
+            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={`Von ${r.participatingCards} Karten mit mindestens einem bestätigten Kassenvorgang; mindestens zwei im Zeitraum.`} />
+          </div>
         </section>
-        <section className="app-panel" aria-labelledby="analytics-referral-heading"><span className="tiny-label">EMPFEHLUNGEN</span><h2 id="analytics-referral-heading">Empfehlungsereignisse</h2><dl className={styles.referralFacts}><div><dt>Zugeordnete Beitritte</dt><dd>{report.referrals.attributed}</dd></div><div><dt>Bonusqualifikationen</dt><dd>{report.referrals.qualified}</dd></div><div><dt>Korrigierte Empfehlungen</dt><dd>{report.referrals.reversed}</dd></div></dl><p>Ein bestätigter Beitritt ist noch keine Bonusqualifikation. Jede Zahl folgt dem Datum ihres eigenen Ereignisses; dieselbe Empfehlung kann hier mehrfach erscheinen. Daraus lässt sich kein zusätzlicher Umsatz ableiten.</p></section>
-        <section className={`app-panel ${styles.trend}`} aria-labelledby="analytics-trend-heading"><span className="tiny-label">VERLAUF</span><h2 id="analytics-trend-heading">Wochenabschnitte</h2><p>Je Abschnitt: neu angelegte Karten und bestätigte Kassenvorgänge. Der letzte Abschnitt kann kürzer als sieben Tage sein.</p><div className={styles.trendRows}>{report.series.map(bucket => <div className={styles.trendRow} key={bucket.from}><span>{date(bucket.from)}–{date(bucket.to)}</span><div className={styles.barGroup}><div className={styles.barTrack}><div className={styles.cardBar} style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} Karten</small><div className={styles.barTrack}><div className={styles.checkoutBar} style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} Kassen</small></div></div>)}</div></section>
-        <section className="app-panel" aria-labelledby="analytics-campaign-heading"><span className="tiny-label">LOKALE TESTZUSTELLUNG</span><h2 id="analytics-campaign-heading">Kampagnenversuche</h2><dl className={styles.attempts}><div><dt>Insgesamt</dt><dd>{report.campaignAttempts.total}</dd></div><div><dt>Vom lokalen Testkanal angenommen</dt><dd>{report.campaignAttempts.complete}</dd></div><div><dt>Unterdrückt</dt><dd>{report.campaignAttempts.suppressed}</dd></div><div><dt>Erneut geplant</dt><dd>{report.campaignAttempts.retry}</dd></div><div><dt>Fehlgeschlagen</dt><dd>{report.campaignAttempts.failed}</dd></div><div><dt>Blockiert</dt><dd>{report.campaignAttempts.blocked}</dd></div></dl><p>Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme durch Mailpit bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
-        <aside className={styles.rules}><h2>Zählregeln und Grenzen</h2><p>{report.countingRule}</p><p>Zeitzone: {report.timezone}. Verfügbare Zeiträume: {report.limits.availableWindowsDays.join(" und ")} Tage. Abschnitte: {report.limits.bucketDays} Tage. Die Prämienliste zeigt höchstens {report.limits.topRewardTitles} Titel. Diese Daten messen weder tatsächliche Besuche noch Umsatzsteigerungen oder zusätzliche Verkäufe.</p></aside>
+        <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }} aria-label="Prämien und Gutschriften">
+          <section className="ow-card ow-stack"><h2>Vergebene Einheiten</h2>
+            <dl className="ow-dl"><dt>Stempel</dt><dd className="ow-num">{r.issued.stampUnits}</dd><dt>Punkte</dt><dd className="ow-num">{r.issued.pointUnits}</dd><dt>Gutschrift-Einträge</dt><dd className="ow-num">{r.issued.awardActions}</dd></dl>
+            <p className="ow-hint">Stempel und Punkte sind verschiedene Einheiten. Korrekturen werden abgezogen, wenn die ursprüngliche Gutschrift vollständig rückgängig gemacht wurde.</p></section>
+          <section className="ow-card ow-stack"><h2>Einlösungen</h2><strong className="ow-metric-value">{r.rewards.redemptions}</strong>
+            {r.rewards.topTitles.length ? <><h3 style={{ fontSize: 15 }}>Häufigste eingelöste Prämien</h3><ol className="ow-feed">{r.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong className="ow-num">{item.count}</strong></li>)}</ol></> : <p className="ow-muted">Im Zeitraum wurde keine Prämie eingelöst.</p>}</section>
+        </div>
+        <section className="ow-card ow-stack" aria-labelledby="an-ref"><h2 id="an-ref">Empfehlungsereignisse</h2>
+          <dl className="ow-dl"><dt>Zugeordnete Beitritte</dt><dd className="ow-num">{r.referrals.attributed}</dd><dt>Bonusqualifikationen</dt><dd className="ow-num">{r.referrals.qualified}</dd><dt>Korrigierte Empfehlungen</dt><dd className="ow-num">{r.referrals.reversed}</dd></dl>
+          <p className="ow-hint">Ein bestätigter Beitritt ist noch keine Bonusqualifikation. Jede Zahl folgt dem Datum ihres eigenen Ereignisses; dieselbe Empfehlung kann hier mehrfach erscheinen. Daraus lässt sich kein zusätzlicher Umsatz ableiten.</p></section>
+        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Wochenabschnitte</h2><p className="ow-muted" style={{ fontSize: 14 }}>Je Abschnitt: neu angelegte Karten und bestätigte Kassenvorgänge. Der letzte Abschnitt kann kürzer als sieben Tage sein.</p></div>
+          <div className="ow-trend">{r.series.map(bucket => <div className="ow-trend-row" key={bucket.from}><span className="ow-num">{date(bucket.from)}–{date(bucket.to)}</span>
+            <div><div className="ow-bar"><span style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} Karten</small></div>
+            <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} Kassenvorgänge</small></div></div>)}</div></section>
+        <section className="ow-card ow-stack" aria-labelledby="an-camp"><h2 id="an-camp">Kampagnenversuche</h2>
+          <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Vom lokalen Testkanal angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
+          <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme durch Mailpit bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
+        <Notice><div><strong>Zählregeln und Grenzen</strong><p style={{ marginTop: 4 }}>{r.countingRule}</p><p style={{ marginTop: 4 }}>Zeitzone: {r.timezone}. Verfügbare Zeiträume: {r.limits.availableWindowsDays.join(" und ")} Tage. Abschnitte: {r.limits.bucketDays} Tage. Die Prämienliste zeigt höchstens {r.limits.topRewardTitles} Titel. Diese Daten messen weder tatsächliche Besuche noch Umsatzsteigerungen oder zusätzliche Verkäufe.</p></div></Notice>
       </>}
-    </main>
-  </div>;
+    </div>
+  );
 }
 
 function Metric({ label, value, note }: { label: string; value: number; note: string }) {
-  return <div className={`app-panel ${styles.metric}`}><h3>{label}</h3><strong>{value}</strong><p>{note}</p></div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: 13, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
 }
