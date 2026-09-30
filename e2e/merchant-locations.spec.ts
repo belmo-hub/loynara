@@ -64,7 +64,7 @@ test("owner creates and selects a second location without crossing card or staff
       const page = await ownerBrowser.newPage();
       await page.goto("/merchant/locations");
       await expect(page.getByRole("heading", { name: "Standorte", exact: true })).toBeVisible();
-      await expect(page.getByText("Synthetic Multi A", { exact: true })).toBeVisible();
+      await expect(page.locator("main").getByText("Synthetic Multi A", { exact: true })).toBeVisible();
       await page.getByLabel("Standortname").fill("Synthetic Berlin Counter");
       await page.getByLabel("Stadt").fill("Berlin");
       await page.getByLabel("Programmname").fill("Synthetic Berlin card");
@@ -72,8 +72,8 @@ test("owner creates and selects a second location without crossing card or staff
       await page.getByLabel("Erste Prämie").fill("Berlin coffee");
       await page.getByRole("button", { name: "Standort und Programm anlegen" }).click();
       await expect(page.getByRole("status").filter({ hasText: "Standort mit eigenem Programm" })).toBeVisible();
-      await expect(page.getByText("Synthetic Berlin Counter", { exact: true })).toBeVisible();
-      await expect(page.getByText("Aktiver Standort", { exact: true })).toBeVisible();
+      await expect(page.locator("main").getByText("Synthetic Berlin Counter", { exact: true })).toBeVisible();
+      await expect(page.locator("main").getByText("Aktiver Standort", { exact: true })).toBeVisible();
       ownerSelected = await apiRequest.newContext({ baseURL: url, storageState: await ownerBrowser.storageState(), extraHTTPHeaders: { Origin: new URL(url).origin } });
     } finally { await ownerBrowser.close(); }
 

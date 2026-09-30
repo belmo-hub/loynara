@@ -14,7 +14,7 @@ test("merchant downloads a printable sign with its own identity and join QR", as
   expect(response.ok()).toBe(true);
   const merchant = await response.json() as { businessName: string; programSlug: string; publicBaseUrl: string };
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Anmeldeschild laden" }).click();
+  await page.getByRole("button", { name: "Tresenschild laden" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("anmeldeschild.html");
   const html = readFileSync(await download.path(), "utf8");

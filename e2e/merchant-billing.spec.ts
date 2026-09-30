@@ -24,7 +24,7 @@ test("owner sees priced location plans and actual card usage without a live char
       await page.goto("/merchant/billing");
       await expect(page.getByRole("heading", { name: "Tarif und Abrechnung" })).toBeVisible();
       await expect(page.getByText("98,00 €", { exact: false })).toBeVisible();
-      await expect(page.getByText("Synthetic second counter")).toBeVisible();
+      await expect(page.locator("main").getByText("Synthetic second counter")).toBeVisible();
       await expect(page.getByText("1 von 10000 aktiven Karten")).toBeVisible();
       await page.screenshot({ path: "screenshots/platform-after-billing.png", fullPage: true });
     } finally { await context.close(); }
