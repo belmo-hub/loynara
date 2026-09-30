@@ -347,3 +347,4 @@
 .ow-mail small { color: var(--ow-muted); font-weight: 700; }
 .ow-mail h3 { font-size: 16px; margin: 4px 0 8px; }
 .ow-mail p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.owner-app .app-container > .app-intro:first-child, .owner-app main.app-container { padding-top: var(--ow-s5); }

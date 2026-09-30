@@ -1,16 +1,7 @@
 "use client";
 
 import { BrandIcon } from "@/components/loyalty-ui";
-
-export function readableInk(hex: string) {
-  const normalized = hex.replace("#", "");
-  if (!/^[0-9a-f]{6}$/i.test(normalized)) return "#ffffff";
-  const [r, g, b] = [0, 2, 4].map(index => {
-    const channel = parseInt(normalized.slice(index, index + 2), 16) / 255;
-    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05) >= 4.5 ? "#ffffff" : "#000000";
-}
+import { readableInk } from "./color";
 
 export type CardPreviewProps = {
   businessName: string;
