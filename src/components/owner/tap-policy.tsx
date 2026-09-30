@@ -37,17 +37,26 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die NFC-Regel konnte nicht gespeichert werden."); }
   }
 
+  if (!stamp) {
+    return <p className="ow-hint" style={{ paddingInline: 4 }}>NFC-Tap ist nur für Stempelprogramme verfügbar, denn ein Tag kennt keinen Einkaufswert.</p>;
+  }
+  const label = MODES.find(item => item.id === saved.mode)?.label ?? "Aus";
   return (
-    <section className="ow-card ow-stack" aria-labelledby="tap-title">
-      <div><h2 id="tap-title">NFC-Tap (optional)</h2><p className="ow-muted" style={{ fontSize: 14, marginTop: 2 }}>{stamp ? "Für feste Stempelvergabe. Ein NFC-Tag muss separat mit eigenen Schlüsseln eingerichtet werden; diese Einstellung aktiviert noch keinen Tag. QR an der Kasse bleibt immer verfügbar." : "NFC-Tap ist nur für Stempelprogramme verfügbar, denn ein Tag kennt keinen Einkaufswert."}</p></div>
-      <fieldset className="ow-group" disabled={!stamp}>
-        <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>
-        <div className="ow-radio-cards">
-          {MODES.map(item => <label key={item.id} className="ow-radio-card"><input type="radio" name="tap-mode" checked={mode === item.id} onChange={() => { setMode(item.id); if (state === "saved" || state === "error") setState("clean"); }} /><div><strong>{item.label}</strong><span>{item.text}</span></div></label>)}
+    <section className="ow-card ow-card--flat" aria-labelledby="tap-title">
+      <details open={saved.mode !== "disabled" || changed || undefined}>
+        <summary style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 700 }}><span id="tap-title">NFC-Tap (optional)</span><span className="ow-chip">{label}</span></summary>
+        <div className="ow-stack" style={{ marginTop: 12 }}>
+          <p className="ow-muted" style={{ fontSize: 14 }}>Für feste Stempelvergabe. Ein NFC-Tag muss separat mit eigenen Schlüsseln eingerichtet werden; diese Einstellung aktiviert noch keinen Tag. QR an der Kasse bleibt immer verfügbar.</p>
+          <fieldset className="ow-group">
+            <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>
+            <div className="ow-radio-cards">
+              {MODES.map(item => <label key={item.id} className="ow-radio-card"><input type="radio" name="tap-mode" checked={mode === item.id} onChange={() => { setMode(item.id); if (state === "saved" || state === "error") setState("clean"); }} /><div><strong>{item.label}</strong><span>{item.text}</span></div></label>)}
+            </div>
+            {needsCooldown && <div className="ow-field"><label htmlFor="tap-cooldown">Wartezeit zwischen zwei Taps (Sekunden)</label><input id="tap-cooldown" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={cooldown} onChange={event => setCooldown(event.target.value.replace(/[^0-9]/g, ""))} aria-invalid={!cooldownValid} /></div>}
+          </fieldset>
+          <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setMode(saved.mode); setCooldown(saved.cooldown); setState("clean"); }} canSave={changed && cooldownValid} saveLabel="NFC-Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
         </div>
-        {needsCooldown && <div className="ow-field"><label htmlFor="tap-cooldown">Wartezeit zwischen zwei Taps (Sekunden)</label><input id="tap-cooldown" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={cooldown} onChange={event => setCooldown(event.target.value.replace(/[^0-9]/g, ""))} aria-invalid={!cooldownValid} /></div>}
-      </fieldset>
-      {stamp && <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setMode(saved.mode); setCooldown(saved.cooldown); setState("clean"); }} canSave={changed && cooldownValid} saveLabel="NFC-Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />}
+      </details>
     </section>
   );
 }

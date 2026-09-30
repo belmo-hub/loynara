@@ -212,7 +212,12 @@ export function CampaignsView() {
             {preview.state === "error" && <p className="ow-error" role="alert">{preview.message}</p>}
             {p && <>
               <p style={{ marginTop: 8 }}><strong className="ow-num">{p.total}</strong> {p.total === 1 ? "Karte" : "Karten"} in der Zielgruppe, <strong className="ow-num">{p.eligibleCount}</strong> kontaktierbar. Stand {germanDate(p.asOf, true)}. Das ist eine Vorschau, keine Zusage für die Zustellung.</p>
-              <ul className="ow-feed">{EXCLUSION.filter(([key]) => key !== "nonSynthetic" || p.deliveryMode === "mailpit").map(([key, label]) => <li key={key}><span>{label}</span><span className="ow-num">{p.excludedCountsByReason[key]} ausgeschlossen</span></li>)}</ul>
+              {(() => {
+                const shown = EXCLUSION.filter(([key]) => (key !== "nonSynthetic" || p.deliveryMode === "mailpit") && p.excludedCountsByReason[key] > 0);
+                return shown.length
+                  ? <ul className="ow-feed">{shown.map(([key, label]) => <li key={key}><span>{label}</span><span className="ow-num">{p.excludedCountsByReason[key]} ausgeschlossen</span></li>)}</ul>
+                  : <p className="ow-hint">Keine Ausschlüsse. Geprüft wurden Bestätigung, Werbeeinwilligung, Abmeldung, Sperren, Kontakthäufigkeit, Kartenstatus und Versandgrenze.</p>;
+              })()}
               <p className="ow-hint">Tageslimit {p.dailyQuota}, Monatslimit je Standort {p.monthlyLocationQuota}, derzeit verfügbar {p.quotaRemaining}.</p>
             </>}
             {preview.state === "idle" && <p className="ow-muted" style={{ marginTop: 8 }}>Berechne die Zielgruppe, um Ausschlüsse mit Gründen zu sehen.</p>}

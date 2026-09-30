@@ -17,6 +17,8 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
   const [error, setError] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [amount, setAmount] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const typeLocked = Boolean(me.stats && me.stats.awards + me.stats.redemptions > 0);
 
   const rate = Number(draft.rate);
@@ -34,7 +36,7 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
   const example = draft.type === "points" && mode === "purchase" ? purchaseExample(amount, rate) : null;
   const minSpend = draft.type === "points" && mode === "purchase" && cheapest && rateValid ? minimumSpendMinor(cheapest.cost, rate) : null;
 
-  function edit(patch: Partial<Draft>) { setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
+  function edit(patch: Partial<Draft>) { setDraft(current => ({ ...current, ...patch })); setJustSaved(false); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
 
   const changes: Array<{ label: string; from: string; to: string }> = [];
   if (draft.name !== baseline.name) changes.push({ label: "Programmname", from: baseline.name, to: draft.name.trim() });
@@ -52,7 +54,7 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
       await postJson("/api/merchant/program/update", { programSlug: me.programSlug, name: draft.name.trim(), programType: draft.type, earningMode: mode, pointsPerCurrencyUnit: draft.type === "points" && mode === "purchase" ? rate : (program.pointsPerCurrencyUnit ?? 1), rulesText: draft.rulesText.trim() });
       const updated = await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(me.programSlug)}`);
       const next = fromProgram(updated);
-      setBaseline(next); setDraft(next); setState("saved"); onSaved(updated);
+      setBaseline(next); setDraft(next); setState("saved"); setEditing(false); setJustSaved(true); onSaved(updated);
       owner.announce("Neue Regelversion gespeichert."); void owner.refresh();
     } catch (cause) {
       setState("error"); setError(cause instanceof Error ? cause.message : "Die Regel konnte nicht gespeichert werden."); owner.announce("Speichern fehlgeschlagen.");
@@ -66,13 +68,20 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
         <span className="ow-chip ow-chip--ok"><span className="ow-dot" aria-hidden="true" />Aktiv</span>
       </div>
       <div className="ow-readonly"><strong style={{ display: "block", marginBottom: 2 }}>Wer bestätigt?</strong>{confirmSentence(baseline.type, baseline.mode)}</div>
-
+      {!editing && (
+        <div className="ow-stack" style={{ gap: 12 }}>
+          <div><span className="ow-label">Regeltext für Kunden</span><p className="ow-muted" style={{ marginTop: 2 }}>{baseline.rulesText.length > 280 ? `${baseline.rulesText.slice(0, 280)} …` : baseline.rulesText}</p></div>
+          {justSaved && <div role="status"><Notice tone="ok">Neue Regelversion gespeichert. Sie gilt für neue Buchungen.</Notice></div>}
+          <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setEditing(true); setJustSaved(false); }}>Regel ändern</button></div>
+        </div>
+      )}
+      {editing && <>
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
         <div className="ow-stack">
           <div className="ow-field"><label htmlFor="rule-name">Programmname</label><input id="rule-name" className="ow-input" value={draft.name} maxLength={180} onChange={event => edit({ name: event.target.value })} aria-invalid={!nameValid} /></div>
           <fieldset className="ow-group">
             <legend>Programmart</legend>
-            <div className="ow-radio-cards">
+            <div className="ow-radio-cards ow-radio-cards--row">
               {(["stamp", "points"] as const).map(type => (
                 <label key={type} className="ow-radio-card"><input type="radio" name="rule-type" checked={draft.type === type} disabled={typeLocked && draft.type !== type} onChange={() => edit({ type, mode: type === "stamp" ? "manual" : draft.mode })} /><div><strong>{type === "stamp" ? "Stempelkarte" : "Punktekarte"}</strong><span>{type === "stamp" ? "Ganze Stempel, vergeben an der Kasse." : "Punkte nach Betrag oder manuell."}</span></div></label>
               ))}
@@ -82,7 +91,7 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
           {draft.type === "points" && (
             <fieldset className="ow-group">
               <legend>So entstehen Punkte</legend>
-              <div className="ow-radio-cards">
+              <div className="ow-radio-cards ow-radio-cards--row">
                 <label className="ow-radio-card"><input type="radio" name="rule-mode" checked={mode === "purchase"} onChange={() => edit({ mode: "purchase" })} /><div><strong>Nach Einkaufswert</strong><span>Das Team gibt den Betrag ein, das System rechnet und rundet ab.</span></div></label>
                 <label className="ow-radio-card"><input type="radio" name="rule-mode" checked={mode === "manual"} onChange={() => edit({ mode: "manual" })} /><div><strong>Manuell</strong><span>Das Team gibt die Punktmenge direkt ein.</span></div></label>
               </div>
@@ -110,7 +119,8 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
         </aside>
       </div>
       {shown === "dirty" && <Notice tone="info">Die Änderung gilt ab dem Speichern als neue Regelversion für neue Buchungen. Bestehende Kartenstände werden nicht neu berechnet.</Notice>}
-      <SaveBar state={shown} onSave={() => setReviewing(true)} onDiscard={() => { setDraft(baseline); setState("clean"); setError(""); }} canSave={valid && changed} saveLabel="Änderungen prüfen" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "dirty" && !valid ? "Bitte Eingaben prüfen." : undefined} />
+      <SaveBar state={shown} onSave={() => setReviewing(true)} onDiscard={() => { setDraft(baseline); setState("clean"); setError(""); setEditing(false); }} alwaysDiscard discardLabel={changed ? "Verwerfen" : "Schließen"} canSave={valid && changed} saveLabel="Änderungen prüfen" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "dirty" && !valid ? "Bitte Eingaben prüfen." : undefined} />
+      </>}
       {reviewing && (
         <OwnerDialog title="Regeländerung prüfen" onClose={() => setReviewing(false)} actions={<><button type="button" className="ow-btn ow-btn--secondary" onClick={() => setReviewing(false)} data-autofocus>Zurück</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()}>Neue Regelversion speichern</button></>}>
           <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 8 }}>{changes.map(change => <li key={change.label}><strong>{change.label}:</strong> {change.from} → {change.to}</li>)}</ul>
