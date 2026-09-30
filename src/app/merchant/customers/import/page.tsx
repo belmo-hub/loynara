@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
-import { apiJson, ClientApiError, postJson } from "@/components/client-api";
-import { BrandMark } from "@/components/loyalty-ui";
+import { type ChangeEvent, type FormEvent, useState } from "react";
+import { postJson } from "@/components/client-api";
+import { useOwner } from "@/components/owner/owner-context";
+import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { useLoad } from "@/components/owner/use-load";
 import type { ImportMapping, ImportPreview } from "@/lib/customer-import-preview";
-import styles from "./import.module.css";
 
 const sample = "id,email,balance,marketing_consent,consent_source,consent_date\nSYN-001,guest@example.test,3,no,,\n";
 const initialMapping: ImportMapping = { externalId: "id", email: "email", balance: "balance", marketingConsent: "marketing_consent", consentSource: "consent_source", consentDate: "consent_date" };
@@ -18,81 +18,62 @@ const fields: Array<{ key: keyof ImportMapping; label: string; required?: boolea
   { key: "consentSource", label: "Angegebene Quelle" },
   { key: "consentDate", label: "Angegebenes Datum (YYYY-MM-DD)" },
 ];
+const consentText = (value: ImportPreview["rows"][number]["consentClaim"]) => value === "not_granted" ? "Nein" : value === "claimed_with_provenance" ? "Ja, Quelle und Datum angegeben" : value === "missing_provenance" ? "Ja, Nachweisangaben fehlen" : "Unbekannt";
 
 export default function ImportPreviewPage() {
-  const router = useRouter();
-  const [available, setAvailable] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { me } = useOwner();
+  const [access, reload] = useLoad<{ available: boolean }>(me?.role === "owner" ? "/api/merchant/customers/import-preview" : null);
   const [csv, setCsv] = useState(sample);
   const [mapping, setMapping] = useState<ImportMapping>(initialMapping);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void apiJson<{ available: boolean }>("/api/merchant/customers/import-preview").then(result => {
-      if (!active) return;
-      setAvailable(result.available);
-      setLoading(false);
-    }).catch(cause => {
-      if (!active) return;
-      if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-      setError(cause instanceof ClientApiError && cause.status === 404 ? "Diese Vorschau ist nur auf der lokalen Loynara-Instanz verfügbar." : "Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich.");
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [router]);
+  if (!me) return null;
+  const head = <PageHead eyebrow="Kunden · Nur lokal & synthetisch" title="Synthetische CSV-Vorschau" lead="Prüfe eine kleine Testdatei, bevor ein Datenübernahmeprozess geplant wird." />;
+  const back = <Link href="/merchant/customers" className="ow-btn ow-btn--secondary">Zurück zu Kundenkarten</Link>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich.</Notice><div>{back}</div></div>;
 
   async function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setPreview(null);
     if (file.size > 64_000) { setError("Die CSV-Datei darf höchstens 64 KB groß sein."); return; }
-    try { setCsv(await file.text()); setError(""); }
-    catch { setError("Die Datei konnte nicht gelesen werden."); }
+    try { setCsv(await file.text()); setError(""); } catch { setError("Die Datei konnte nicht gelesen werden."); }
   }
-
   async function inspect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
-    setError("");
-    setPreview(null);
+    setBusy(true); setError(""); setPreview(null);
     try { setPreview(await postJson<ImportPreview>("/api/merchant/customers/import-preview", { csv, mapping })); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Die Vorschau konnte nicht geprüft werden."); }
     finally { setBusy(false); }
   }
 
-  return <div className="app-page">
-    <header className="app-header"><div className="app-header-inner"><Link href="/merchant"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/customers">Kundenkarten</Link><Link href="/merchant/customers/import" aria-current="page">CSV-Vorschau</Link></nav><span className="app-header-location">Lokale Vorschau</span></div></header>
-    <main className={`app-container ${styles.main}`}>
-      <div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> NUR LOKAL &amp; SYNTHETISCH</span><h1>Synthetische CSV-Vorschau</h1><p>Prüfe eine kleine Testdatei, bevor ein Datenübernahmeprozess geplant wird.</p></div>
-      <div className={styles.notice}><strong>Vorschau ohne Import.</strong> Es werden keine Karten, Kontakte, Einwilligungen oder Einladungen angelegt. Nur IDs mit <code>SYN-</code> und Testadressen auf <code>example.test</code> sind zulässig. Duplikate werden nur innerhalb dieser Datei erkannt; bestehende Karten werden nicht abgeglichen.</div>
-      {loading ? <section className="app-panel"><p>Lokale Berechtigung wird geprüft …</p></section> : !available ? <section className="app-panel"><p role="alert">{error}</p><Link href="/merchant/customers" className="button button--outline">Zurück zu Kundenkarten</Link></section> : <>
-        <form className={`app-panel ${styles.form}`} onSubmit={inspect}>
-          <div className={styles.formHead}><h2>Testdatei und Spalten</h2><p>Trage für jedes Feld genau den Spaltennamen aus der ersten CSV-Zeile ein. Nur die synthetische ID ist Pflicht. Nicht zugeordnete Spalten müssen leer sein. Zulässige Quellbezeichnungen: paper_form, legacy_platform, customer_form.</p></div>
-          <label className={styles.file}>CSV-Datei auswählen<input type="file" accept=".csv,text/csv" onChange={event => void chooseFile(event)} /></label>
-          <label className={styles.csv}>CSV-Inhalt<textarea value={csv} onChange={event => { setCsv(event.target.value); setPreview(null); }} rows={7} spellCheck={false} required /></label>
-          <div className={styles.mapping}>{fields.map(field => <label key={field.key}>{field.label}<input value={mapping[field.key] ?? ""} onChange={event => setMapping(current => ({ ...current, [field.key]: event.target.value }))} placeholder={field.required ? "Pflichtfeld" : "Leer lassen, falls nicht vorhanden"} required={field.required} /></label>)}</div>
-          <button type="submit" className="button button--ink" disabled={busy}>{busy ? "Wird geprüft …" : "Vorschau prüfen"}</button>
-          {error && <p role="alert" className={styles.error}>{error}</p>}
+  return (
+    <div className="ow-page">
+      {head}
+      <Notice><div><strong>Vorschau ohne Import.</strong> Es werden keine Karten, Kontakte, Einwilligungen oder Einladungen angelegt. Nur IDs mit <code>SYN-</code> und Testadressen auf <code>example.test</code> sind zulässig. Duplikate werden nur innerhalb dieser Datei erkannt; bestehende Karten werden nicht abgeglichen.</div></Notice>
+      {access.state === "loading" && <LoadingBlock rows={1} />}
+      {access.state === "error" && <div className="ow-stack"><ErrorNotice message={access.status === 404 ? "Diese Vorschau ist nur auf der lokalen Loynara-Instanz verfügbar." : access.status === 401 || access.status === 403 ? "Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich." : access.message} onRetry={access.status === 404 || access.status === 403 ? undefined : reload} /><div>{back}</div></div>}
+      {access.state === "ok" && !access.data.available && <div className="ow-stack"><Notice tone="warn" role="alert">Diese Vorschau ist auf dieser Instanz nicht verfügbar.</Notice><div>{back}</div></div>}
+      {access.state === "ok" && access.data.available && <>
+        <form className="ow-card ow-stack" onSubmit={inspect}>
+          <div><h2>Testdatei und Spalten</h2><p className="ow-muted" style={{ fontSize: 14 }}>Trage für jedes Feld genau den Spaltennamen aus der ersten CSV-Zeile ein. Nur die synthetische ID ist Pflicht. Nicht zugeordnete Spalten müssen leer sein. Zulässige Quellbezeichnungen: paper_form, legacy_platform, customer_form.</p></div>
+          <div className="ow-field"><label htmlFor="im-file">CSV-Datei auswählen</label><input id="im-file" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept=".csv,text/csv" onChange={event => void chooseFile(event)} /></div>
+          <div className="ow-field"><label htmlFor="im-csv">CSV-Inhalt</label><textarea id="im-csv" className="ow-textarea" value={csv} onChange={event => { setCsv(event.target.value); setPreview(null); }} rows={7} spellCheck={false} required style={{ fontFamily: "var(--font-geist-mono), monospace", fontSize: 13 }} /></div>
+          <div className="ow-grid-2">{fields.map(field => <div className="ow-field" key={field.key}><label htmlFor={`im-${field.key}`}>{field.label}</label><input id={`im-${field.key}`} className="ow-input" value={mapping[field.key] ?? ""} onChange={event => setMapping(current => ({ ...current, [field.key]: event.target.value }))} placeholder={field.required ? "Pflichtfeld" : "Leer lassen, falls nicht vorhanden"} required={field.required} /></div>)}</div>
+          <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy}>{busy ? "Wird geprüft …" : "Vorschau prüfen"}</button></div>
+          {error && <ErrorNotice message={error} />}
         </form>
-        {preview && <section className={`app-panel ${styles.results}`} aria-labelledby="preview-results-heading">
-          <h2 id="preview-results-heading">Prüfergebnis</h2>
-          <p className={styles.summary}>{preview.total} Zeilen · {preview.ready} formal gültig · {preview.duplicates} Duplikate · {preview.invalid} ungültig</p>
-          <p>Auch formal gültige Zeilen wurden nicht importiert. Eine angegebene Marketing-Einwilligung wird hier nur als unbestätigte Behauptung mit Quelle und Datum angezeigt.</p>
-          <div className={styles.tableWrap}><table><thead><tr><th>Zeile</th><th>Synthetische ID</th><th>Saldo</th><th>E-Mail</th><th>Einwilligungsangabe</th><th>Prüfung</th></tr></thead><tbody>{preview.rows.map(row => <tr key={row.line}><td>{row.line}</td><td>{row.externalId ?? "Ungültige ID"}</td><td>{row.balance ?? "Nicht erfasst"}</td><td>{row.emailPresent ? "Testadresse vorhanden" : "Keine"}</td><td>{consentText(row.consentClaim)}{row.consentSource && row.consentDate ? <small>Quelle: {row.consentSource} · {row.consentDate}</small> : null}</td><td><strong>{row.status === "ready" ? "Formal gültig" : row.status === "duplicate" ? "Duplikat" : "Ungültig"}</strong>{row.errors.map(message => <small key={message}>{message}</small>)}</td></tr>)}</tbody></table></div>
-        </section>}
+        {preview && (
+          <section className="ow-card ow-stack" aria-labelledby="preview-results-heading">
+            <h2 id="preview-results-heading">Prüfergebnis</h2>
+            <p><strong>{preview.total} Zeilen · {preview.ready} formal gültig · {preview.duplicates} Duplikate · {preview.invalid} ungültig</strong></p>
+            <p className="ow-muted">Auch formal gültige Zeilen wurden nicht importiert. Eine angegebene Marketing-Einwilligung wird hier nur als unbestätigte Behauptung mit Quelle und Datum angezeigt.</p>
+            <table className="ow-table"><thead><tr><th>Zeile</th><th>Synthetische ID</th><th>Saldo</th><th>E-Mail</th><th>Einwilligungsangabe</th><th>Prüfung</th></tr></thead>
+              <tbody>{preview.rows.map(row => <tr key={row.line}><td data-label="Zeile">{row.line}</td><td data-label="Synthetische ID">{row.externalId ?? "Ungültige ID"}</td><td data-label="Saldo">{row.balance ?? "Nicht erfasst"}</td><td data-label="E-Mail">{row.emailPresent ? "Testadresse vorhanden" : "Keine"}</td><td data-label="Einwilligungsangabe"><span>{consentText(row.consentClaim)}{row.consentSource && row.consentDate ? <><br /><small className="ow-muted">Quelle: {row.consentSource} · {row.consentDate}</small></> : null}</span></td><td data-label="Prüfung"><span><strong>{row.status === "ready" ? "Formal gültig" : row.status === "duplicate" ? "Duplikat" : "Ungültig"}</strong>{row.errors.map(message => <span key={message}><br /><small className="ow-muted">{message}</small></span>)}</span></td></tr>)}</tbody></table>
+          </section>
+        )}
       </>}
-    </main>
-  </div>;
-}
-
-function consentText(value: ImportPreview["rows"][number]["consentClaim"]) {
-  switch (value) {
-    case "not_granted": return "Nein";
-    case "claimed_with_provenance": return "Ja, Quelle und Datum angegeben";
-    case "missing_provenance": return "Ja, Nachweisangaben fehlen";
-    default: return "Unbekannt";
-  }
+    </div>
+  );
 }

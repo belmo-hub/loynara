@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { apiJson, ClientApiError, postJson } from "@/components/client-api";
-import { BrandMark } from "@/components/loyalty-ui";
-import styles from "./billing.module.css";
+import { useState } from "react";
+import { postJson } from "@/components/client-api";
+import { useOwner } from "@/components/owner/owner-context";
+import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { useLoad } from "@/components/owner/use-load";
 
 type Overview = {
   status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
@@ -14,43 +13,22 @@ type Overview = {
   locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
   invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
 };
-
-function money(minor: number, currency: "EUR" | "MAD") { return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(minor / 100); }
-function date(value: string) { return new Date(value).toLocaleDateString("de-DE"); }
-function statusLabel(value: string) {
-  const labels: Record<string, string> = { manual_pending: "Entwurf ohne Zahlung", pending_checkout: "Lokaler Testvorgang offen", active_fixture: "Lokale Testperiode aktiv", grace_fixture: "Lokale Test-Nachfrist", suspended_fixture: "Lokale Testperiode ausgesetzt", cancelled: "Lokale Testperiode beendet" };
-  return labels[value] ?? value;
-}
+const money = (minor: number, currency: "EUR" | "MAD") => new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(minor / 100);
+const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
+const STATUS: Record<string, string> = { manual_pending: "Entwurf ohne Zahlung", pending_checkout: "Lokaler Testvorgang offen", active_fixture: "Lokale Testperiode aktiv", grace_fixture: "Lokale Test-Nachfrist", suspended_fixture: "Lokale Testperiode ausgesetzt", cancelled: "Lokale Testperiode beendet" };
 
 export default function MerchantBillingPage() {
-  const router = useRouter();
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
-  const [error, setError] = useState("");
+  const { me } = useOwner();
+  const [data, reload] = useLoad<Overview>(me?.role === "owner" ? "/api/merchant/billing" : null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
-
-  const load = useCallback(async () => {
-    try { setOverview(await apiJson<Overview>("/api/merchant/billing")); setError(""); setForbidden(false); }
-    catch (cause) {
-      if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-      if (cause instanceof ClientApiError && cause.status === 403) { setForbidden(true); return; }
-      setError(cause instanceof Error ? cause.message : "Abrechnung konnte nicht geladen werden.");
-    } finally { setLoading(false); }
-  }, [router]);
-  useEffect(() => {
-    let active = true;
-    void apiJson<Overview>("/api/merchant/billing").then(result => {
-      if (active) { setOverview(result); setError(""); setForbidden(false); setLoading(false); }
-    }).catch(cause => {
-      if (!active) return;
-      if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-      if (cause instanceof ClientApiError && cause.status === 403) { setForbidden(true); setLoading(false); return; }
-      setError(cause instanceof Error ? cause.message : "Abrechnung konnte nicht geladen werden."); setLoading(false);
-    });
-    return () => { active = false; };
-  }, [router]);
+  if (!me) return null;
+  const head = <PageHead eyebrow="Einstellungen · Abrechnung" title="Tarif und Abrechnung" lead="Preise und Nutzung pro Standort. Diese Vorschau löst keine Zahlung aus." />;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Abrechnungsdaten sehen.</Notice></div>;
+  if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
+  if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
+  const o = data.data;
 
   async function startFixture() {
     setBusy(true); setError("");
@@ -61,23 +39,37 @@ export default function MerchantBillingPage() {
       window.location.assign(target.pathname);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Testvorgang konnte nicht gestartet werden."); setBusy(false); }
   }
-
   async function cancelFixture() {
     setBusy(true); setError("");
-    try { await postJson("/api/merchant/billing/cancel", {}); setConfirmCancel(false); await load(); }
+    try { await postJson("/api/merchant/billing/cancel", {}); setConfirmCancel(false); reload(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Kündigung konnte nicht vorgemerkt werden."); }
     finally { setBusy(false); }
   }
 
-  return <div className="app-page"><header className="app-header"><div className="app-header-inner"><Link href="/merchant"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/locations">Standorte</Link><Link href="/merchant/billing" aria-current="page">Abrechnung</Link><Link href="/cashier">Kasse</Link></nav><span className="app-header-location">Abrechnung</span></div></header>
-    <main className={`app-container ${styles.main}`}><div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> TARIFENTWURF · SYNTHETISCHE DATEN</span><h1>Tarif und Abrechnung</h1><p>Preise und Nutzung pro Standort. Diese Vorschau löst keine Zahlung aus.</p></div>
-      {loading ? <section className="app-panel"><p role="status">Tarif wird geladen …</p></section> : forbidden ? <section className="app-panel"><p role="alert">Nur Inhaberinnen und Inhaber können Abrechnungsdaten sehen.</p></section> : overview ? <>
-        {error && <p role="alert" className="inline-message inline-message--error">{error}</p>}
-        <section className={`app-panel ${styles.summary}`}><div><span className="tiny-label">STATUS</span><h2>{statusLabel(overview.status)}</h2><p>{overview.cancelAtPeriodEnd && overview.currentPeriodEnd ? `Beendigung zum ${date(overview.currentPeriodEnd)} vorgemerkt.` : overview.graceUntil ? `Test-Nachfrist bis ${date(overview.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."}</p></div><div><span className="tiny-label">MONATLICHER ENTWURF</span><strong className={styles.total}>{money(overview.monthlySubtotalMinor, overview.currency)}</strong><p>{overview.locationCount} Standort{overview.locationCount === 1 ? "" : "e"} · zzgl. gegebenenfalls anfallender Steuer; keine Rechnung.</p></div></section>
-        <section className="app-panel"><h2>Standortpläne und Nutzung</h2><div className={styles.planList}>{overview.locations.map(location => <article className={styles.plan} key={location.locationId}><div><strong>{location.locationName}</strong><small>Standard · {money(location.priceMinor, overview.currency)} / Monat als Entwurf</small></div><p>{location.activeMembers} von {location.memberLimit} aktiven Karten</p></article>)}</div><p className={styles.note}>Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></section>
-        <section className="app-panel"><h2>Belege aus lokalen Tests</h2>{overview.invoices.length ? <div className={styles.invoiceList}>{overview.invoices.map(invoice => <article key={invoice.id}><strong>{money(invoice.amountMinor, invoice.currency)} · Testbuchung</strong><span>Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}</span><small>Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</small></article>)}</div> : <p>Keine Testbelege vorhanden. Es wurde keine Zahlung erfasst.</p>}</section>
-        <section className="app-panel"><h2>Test und nächste Schritte</h2><p>Ein echter gehosteter Checkout, Portalzugang, Steuerberechnung und Rechnungsversand sind nicht eingerichtet.</p>{overview.fixtureAvailable && ["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(overview.status) && <button type="button" className="button button--outline" onClick={() => void startFixture()} disabled={busy}>Lokalen Zahlungstest öffnen</button>}{overview.fixtureAvailable && ["active_fixture", "grace_fixture"].includes(overview.status) && !overview.cancelAtPeriodEnd && <>{!confirmCancel ? <button type="button" className="button button--outline" onClick={() => setConfirmCancel(true)}>Testperiode zum Ende beenden</button> : <div className={styles.confirm}><p>Die Testperiode endet zum angezeigten Periodenende. Bestehende Karten und Buchungen bleiben erhalten.</p><button type="button" className="button button--outline" disabled={busy} onClick={() => void cancelFixture()}>Beendigung bestätigen</button><button type="button" className="text-button" onClick={() => setConfirmCancel(false)}>Zurück</button></div>}</>}</section>
-        <aside className={styles.note}>{overview.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</aside>
-      </> : <section className="app-panel"><p role="alert">{error || "Tarif konnte nicht geladen werden."}</p><button type="button" className="button button--outline" onClick={() => void load()}>Erneut versuchen</button></section>}
-    </main></div>;
+  return (
+    <div className="ow-page">
+      {head}
+      <Notice tone="warn">Nur ein Tarifentwurf mit synthetischen Daten. Es gibt keine Live-Zahlung, keine geprüfte Steuerberechnung und keinen Rechnungsversand.</Notice>
+      {error && <ErrorNotice message={error} />}
+      <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
+        <div><p className="ow-eyebrow">Status</p><h2>{STATUS[o.status] ?? o.status}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."}</p></div>
+        <div><p className="ow-eyebrow">Monatlicher Entwurf</p><strong className="ow-metric-value" style={{ fontSize: 36 }}>{money(o.monthlySubtotalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{o.locationCount} Standort{o.locationCount === 1 ? "" : "e"} · zzgl. gegebenenfalls anfallender Steuer; keine Rechnung.</p></div>
+      </section>
+      <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standortpläne und Nutzung</h2>
+        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">Standard · {money(location.priceMinor, o.currency)} / Monat als Entwurf</small></span><span className="ow-num">{location.activeMembers} von {location.memberLimit} aktiven Karten</span></li>)}</ul>
+        <p className="ow-hint">Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></section>
+      <section className="ow-card ow-stack" aria-labelledby="bi-inv"><h2 id="bi-inv">Belege aus lokalen Tests</h2>
+        {o.invoices.length ? <ul className="ow-feed">{o.invoices.map(invoice => <li key={invoice.id} style={{ display: "block" }}><strong>{money(invoice.amountMinor, invoice.currency)} · Testbuchung</strong><br /><span className="ow-muted">Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}</span><br /><small className="ow-muted">Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</small></li>)}</ul> : <p className="ow-muted">Keine Testbelege vorhanden. Es wurde keine Zahlung erfasst.</p>}</section>
+      <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Test und nächste Schritte</h2>
+        <p>Ein echter gehosteter Checkout, Portalzugang, Steuerberechnung und Rechnungsversand sind nicht eingerichtet.</p>
+        <div className="ow-row">
+          {o.fixtureAvailable && ["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(o.status) && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void startFixture()} disabled={busy}>Lokalen Zahlungstest öffnen</button>}
+          {o.fixtureAvailable && ["active_fixture", "grace_fixture"].includes(o.status) && !o.cancelAtPeriodEnd && (!confirmCancel
+            ? <button type="button" className="ow-btn ow-btn--secondary" onClick={() => setConfirmCancel(true)}>Testperiode zum Ende beenden</button>
+            : <div className="ow-readonly ow-stack"><p>Die Testperiode endet zum angezeigten Periodenende. Bestehende Karten und Buchungen bleiben erhalten.</p><div className="ow-row"><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelFixture()}>Beendigung bestätigen</button><button type="button" className="ow-btn ow-btn--ghost" onClick={() => setConfirmCancel(false)}>Zurück</button></div></div>)}
+        </div>
+      </section>
+      <Notice>{o.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</Notice>
+    </div>
+  );
 }

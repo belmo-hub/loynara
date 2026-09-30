@@ -1,87 +1,93 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
-import { BrandMark } from "@/components/loyalty-ui";
-import styles from "./locations.module.css";
+import { postJson } from "@/components/client-api";
+import { clearFlash, peekFlash, setFlash } from "@/components/owner/flash";
+import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
+import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { useLoad } from "@/components/owner/use-load";
 
 type Location = {
   id: string; name: string; city: string; country: string; timezone: string; createdAt: string;
   programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null;
   cards: number; awards: number; redemptions: number; activeStaff: number;
 };
-type LocationList = {
-  scope: "all_merchant_locations"; currency: "EUR" | "MAD";
-  totals: { locations: number; cards: number; awards: number; redemptions: number };
-  locations: Location[]; countingRule: string;
-};
+type LocationList = { scope: "all_merchant_locations"; currency: "EUR" | "MAD"; totals: { locations: number; cards: number; awards: number; redemptions: number }; locations: Location[]; countingRule: string };
 type Draft = { name: string; city: string; timezone: string; programName: string; programType: "stamp" | "points"; pointsPerCurrencyUnit: number; rulesText: string; rewardTitle: string; rewardCost: number };
 const emptyDraft: Draft = { name: "", city: "", timezone: "Europe/Berlin", programName: "", programType: "stamp", pointsPerCurrencyUnit: 1, rulesText: "", rewardTitle: "", rewardCost: 5 };
 
 export default function MerchantLocationsPage() {
-  const router = useRouter();
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [list, setList] = useState<LocationList | null>(null);
+  const owner = useOwner();
+  const me = owner.me;
+  const [list, reload] = useLoad<LocationList>(me?.role === "owner" ? "/api/merchant/locations" : null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    void apiJson<MeResponse>("/api/me").then(async account => {
-      if (!active) return;
-      if (account.role !== "owner") { setForbidden(true); setLoading(false); return; }
-      if (!account.programSlug) { router.replace("/merchant/program"); return; }
-      const locations = await apiJson<LocationList>("/api/merchant/locations");
-      if (active) { setMe(account); setList(locations); setLoading(false); }
-    }).catch(cause => {
-      if (!active) return;
-      if (cause instanceof ClientApiError && cause.status === 401) { router.replace("/login"); return; }
-      if (cause instanceof ClientApiError && cause.status === 403) { setForbidden(true); setLoading(false); return; }
-      setError(cause instanceof Error ? cause.message : "Standorte konnten nicht geladen werden."); setLoading(false);
-    });
-    return () => { active = false; };
-  }, [router]);
-
-  async function select(id: string) {
-    setBusy(true); setError(""); setMessage("");
-    try {
-      await postJson("/api/merchant/locations/select", { locationId: id });
-      setMe(await apiJson<MeResponse>("/api/me"));
-      setMessage("Aktiver Standort gewechselt. Die Kasse und die Programmseite verwenden jetzt diesen Standort.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Standort konnte nicht gewechselt werden."); }
-    finally { setBusy(false); }
-  }
+  const [message] = useState(() => peekFlash());
+  useEffect(() => { clearFlash(); }, []);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(emptyDraft);
+  useDirtyGuard("location-draft", dirty);
+  if (!me) return null;
+  const head = <PageHead eyebrow="Einstellungen · Standorte" title="Standorte" lead="Jeder Standort hat sein eigenes Programm, seine eigenen Karten und seinen eigenen Kassenkontext." />;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Standorte verwalten.</Notice></div>;
+  if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
+  if (list.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
+  const l = list.data;
+  const set = (patch: Partial<Draft>) => setDraft(current => ({ ...current, ...patch }));
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!list) return;
-    setBusy(true); setError(""); setMessage("");
+    if (busy) return;
+    setBusy(true); setError("");
     try {
-      const created = await postJson<{ locationId: string }>("/api/merchant/locations", {
-        ...draft, country: list.currency === "EUR" ? "DE" : "MA",
-        earningMode: draft.programType === "points" ? "purchase" : "manual",
-      });
+      const created = await postJson<{ locationId: string }>("/api/merchant/locations", { ...draft, country: l.currency === "EUR" ? "DE" : "MA", earningMode: draft.programType === "points" ? "purchase" : "manual" });
       await postJson("/api/merchant/locations/select", { locationId: created.locationId });
-      const [account, locations] = await Promise.all([apiJson<MeResponse>("/api/me"), apiJson<LocationList>("/api/merchant/locations")]);
-      setMe(account); setList(locations); setDraft(emptyDraft);
-      setMessage("Standort mit eigenem Programm und eigener Prämie angelegt und ausgewählt. Bestehende Karten und Guthaben blieben am bisherigen Standort.");
+      setFlash("Standort mit eigenem Programm und eigener Prämie angelegt und ausgewählt. Bestehende Karten und Guthaben blieben am bisherigen Standort.");
+      owner.setDirty("location-draft", false);
+      await owner.refresh(); // the shell remounts this page for the new location and shows the message
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Standort konnte nicht angelegt werden."); }
     finally { setBusy(false); }
   }
 
-  return <div className="app-page"><header className={`app-header ${styles.header}`}><div className="app-header-inner"><Link href="/merchant"><BrandMark /></Link><nav aria-label="Hauptnavigation"><Link href="/merchant">Übersicht</Link><Link href="/merchant/program">Programm</Link><Link href="/merchant/locations" aria-current="page">Standorte</Link><Link href="/merchant/staff">Team</Link><Link href="/cashier">Kasse</Link></nav><span className="app-header-location">Standorte</span></div></header>
-    <main className={`app-container ${styles.main}`}><div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> EIN BETRIEB · MEHRERE STANDORTE</span><h1>Standorte</h1><p>Jeder Standort hat sein eigenes Programm, seine eigenen Karten und seinen eigenen Kassenkontext.</p></div>
-      {loading ? <section className="app-panel"><p role="status">Standorte werden geladen …</p></section> : forbidden ? <section className="app-panel"><p role="alert">Nur Inhaberinnen und Inhaber können Standorte verwalten.</p></section> : !list || !me ? <section className="app-panel"><p role="alert">{error || "Standorte konnten nicht geladen werden."}</p></section> : <>
-        {error && <p role="alert" className={styles.error}>{error}</p>}{message && <p role="status" className={styles.success}>{message}</p>}
-        <section className={`app-panel ${styles.overview}`} aria-labelledby="location-overview-title"><span className="tiny-label">ALLE STANDORTE DIESES BETRIEBS</span><h2 id="location-overview-title">Gesamtübersicht</h2><dl><div><dt>Standorte</dt><dd>{list.totals.locations}</dd></div><div><dt>Karten insgesamt</dt><dd>{list.totals.cards}</dd></div><div><dt>Gutschrift-Einträge</dt><dd>{list.totals.awards}</dd></div><div><dt>Einlösungen</dt><dd>{list.totals.redemptions}</dd></div></dl><p>{list.countingRule}</p></section>
-        <div className={styles.columns}><section aria-labelledby="location-list-title"><h2 id="location-list-title">Deine Standorte</h2><div className={styles.locations}>{list.locations.map(location => <article className="app-panel" key={location.id}><div className={styles.locationHead}><div><h3>{location.name}</h3><p>{location.city} · {location.country}</p></div>{location.id === me.locationId && <span className={styles.active}>Aktiver Standort</span>}</div><p>{location.programName || "Kein aktives Programm"} {location.programType ? `· ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}</p><dl><div><dt>Karten</dt><dd>{location.cards}</dd></div><div><dt>Gutschriften</dt><dd>{location.awards}</dd></div><div><dt>Einlösungen</dt><dd>{location.redemptions}</dd></div><div><dt>Aktive Teamzugänge</dt><dd>{location.activeStaff}</dd></div></dl>{location.id !== me.locationId ? <button type="button" className="button button--outline" disabled={busy} onClick={() => void select(location.id)}>Als aktiven Standort wählen</button> : <Link href="/merchant/program" className="button button--outline">Programm ansehen</Link>}</article>)}</div></section>
-          <section className={`app-panel ${styles.creator}`} aria-labelledby="location-create-title"><span className="tiny-label">NUR FÜR INHABER/INNEN</span><h2 id="location-create-title">Standort hinzufügen</h2><p>Ein neues Standortprogramm beginnt mit null Karten und null Guthaben. Währung und Land bleiben beim bestehenden Betrieb: {list.currency} · {list.currency === "EUR" ? "Deutschland" : "Marokko"}.</p><form onSubmit={create}><fieldset disabled={busy}><label>Standortname<input value={draft.name} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} minLength={2} maxLength={180} required /></label><label>Stadt<input value={draft.city} onChange={event => setDraft(current => ({ ...current, city: event.target.value }))} minLength={2} maxLength={120} required /></label><label>Zeitzone<input value={draft.timezone} onChange={event => setDraft(current => ({ ...current, timezone: event.target.value }))} minLength={3} maxLength={80} required /></label><label>Programmname<input value={draft.programName} onChange={event => setDraft(current => ({ ...current, programName: event.target.value }))} minLength={2} maxLength={180} required /></label><label>Programmtyp<select value={draft.programType} onChange={event => setDraft(current => ({ ...current, programType: event.target.value as Draft["programType"] }))}><option value="stamp">Stempel, manuelle Vergabe</option><option value="points">Punkte je Kaufbetrag</option></select></label>{draft.programType === "points" && <label>Punkte pro 1 {list.currency}<input type="number" value={draft.pointsPerCurrencyUnit} onChange={event => setDraft(current => ({ ...current, pointsPerCurrencyUnit: Number(event.target.value) }))} min={1} max={1000} step={1} required /></label>}<label>Teilnahmebedingungen<textarea value={draft.rulesText} onChange={event => setDraft(current => ({ ...current, rulesText: event.target.value }))} minLength={10} maxLength={3000} rows={4} required /></label><label>Erste Prämie<input value={draft.rewardTitle} onChange={event => setDraft(current => ({ ...current, rewardTitle: event.target.value }))} minLength={2} maxLength={180} required /></label><label>Kosten in {draft.programType === "stamp" ? "Stempeln" : "Punkten"}<input type="number" value={draft.rewardCost} onChange={event => setDraft(current => ({ ...current, rewardCost: Number(event.target.value) }))} min={1} max={100000} step={1} required /></label><button type="submit" className="button button--ink">Standort und Programm anlegen</button></fieldset></form></section></div>
-      </>}
-    </main></div>;
+  return (
+    <div className="ow-page">
+      {head}
+      {message && <div role="status"><Notice tone="ok">{message}</Notice></div>}
+      {error && <ErrorNotice message={error} />}
+      <section className="ow-card ow-stack" aria-labelledby="loc-overview"><h2 id="loc-overview">Gesamtübersicht</h2>
+        <dl className="ow-metrics"><Stat label="Standorte" value={l.totals.locations} /><Stat label="Karten insgesamt" value={l.totals.cards} /><Stat label="Gutschrift-Einträge" value={l.totals.awards} /><Stat label="Einlösungen" value={l.totals.redemptions} /></dl>
+        <p className="ow-hint">{l.countingRule}</p></section>
+      <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
+        <section aria-labelledby="loc-list" className="ow-stack"><h2 id="loc-list" style={{ fontSize: 17 }}>Deine Standorte</h2>
+          {l.locations.map(location => (
+            <article className="ow-card ow-stack" key={location.id}>
+              <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h3 style={{ fontSize: 17 }}>{location.name}</h3><p>{location.city} · {location.country}</p></div>{location.id === me.locationId && <span className="ow-chip ow-chip--ok">Aktiver Standort</span>}</div>
+              <p>{location.programName || "Kein aktives Programm"}{location.programType ? ` · ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}</p>
+              <dl className="ow-dl"><dt>Karten</dt><dd className="ow-num">{location.cards}</dd><dt>Gutschriften</dt><dd className="ow-num">{location.awards}</dd><dt>Einlösungen</dt><dd className="ow-num">{location.redemptions}</dd><dt>Aktive Teamzugänge</dt><dd className="ow-num">{location.activeStaff}</dd></dl>
+              <div>{location.id !== me.locationId ? <button type="button" className="ow-btn ow-btn--secondary" disabled={busy || owner.switching} onClick={() => owner.switchLocation(location.id)}>Als aktiven Standort wählen</button> : <Link href="/merchant/program" className="ow-btn ow-btn--secondary">Programm ansehen</Link>}</div>
+            </article>
+          ))}
+        </section>
+        <section className="ow-card ow-stack" aria-labelledby="loc-create" style={{ alignSelf: "start" }}>
+          <div><h2 id="loc-create">Standort hinzufügen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Ein neues Standortprogramm beginnt mit null Karten und null Guthaben. Währung und Land bleiben beim bestehenden Betrieb: {l.currency} · {l.currency === "EUR" ? "Deutschland" : "Marokko"}.</p></div>
+          <form onSubmit={create} className="ow-stack">
+            <Field id="lc-name" label="Standortname"><input id="lc-name" className="ow-input" value={draft.name} onChange={event => set({ name: event.target.value })} minLength={2} maxLength={180} required /></Field>
+            <Field id="lc-city" label="Stadt"><input id="lc-city" className="ow-input" value={draft.city} onChange={event => set({ city: event.target.value })} minLength={2} maxLength={120} required /></Field>
+            <Field id="lc-tz" label="Zeitzone"><input id="lc-tz" className="ow-input" value={draft.timezone} onChange={event => set({ timezone: event.target.value })} minLength={3} maxLength={80} required /></Field>
+            <Field id="lc-prog" label="Programmname"><input id="lc-prog" className="ow-input" value={draft.programName} onChange={event => set({ programName: event.target.value })} minLength={2} maxLength={180} required /></Field>
+            <Field id="lc-type" label="Programmtyp"><select id="lc-type" className="ow-select" value={draft.programType} onChange={event => set({ programType: event.target.value as Draft["programType"] })}><option value="stamp">Stempel, manuelle Vergabe</option><option value="points">Punkte je Kaufbetrag</option></select></Field>
+            {draft.programType === "points" && <Field id="lc-rate" label={`Punkte pro 1 ${l.currency}`}><input id="lc-rate" className="ow-input" type="number" value={draft.pointsPerCurrencyUnit} onChange={event => set({ pointsPerCurrencyUnit: Number(event.target.value) })} min={1} max={1000} step={1} required /></Field>}
+            <Field id="lc-rules" label="Teilnahmebedingungen"><textarea id="lc-rules" className="ow-textarea" value={draft.rulesText} onChange={event => set({ rulesText: event.target.value })} minLength={10} maxLength={3000} rows={4} required /></Field>
+            <Field id="lc-reward" label="Erste Prämie"><input id="lc-reward" className="ow-input" value={draft.rewardTitle} onChange={event => set({ rewardTitle: event.target.value })} minLength={2} maxLength={180} required /></Field>
+            <Field id="lc-cost" label={`Kosten in ${draft.programType === "stamp" ? "Stempeln" : "Punkten"}`}><input id="lc-cost" className="ow-input" style={{ maxWidth: 200 }} type="number" value={draft.rewardCost} onChange={event => set({ rewardCost: Number(event.target.value) })} min={1} max={100000} step={1} required /></Field>
+            <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy}>{busy ? "Wird angelegt …" : "Standort und Programm anlegen"}</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+  );
 }
+
+function Stat({ label, value }: { label: string; value: number }) { return <div className="ow-metric"><dt>{label}</dt><dd><span className="ow-metric-value">{value}</span></dd></div>; }
+function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) { return <div className="ow-field"><label htmlFor={id}>{label}</label>{children}</div>; }

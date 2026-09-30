@@ -62,7 +62,7 @@ export type SaveState = "clean" | "dirty" | "saving" | "saved" | "error";
 const SAVE_LABEL: Record<SaveState, string> = { clean: "", dirty: "Ungespeicherte Änderungen", saving: "Speichern …", saved: "Gespeichert", error: "Speichern fehlgeschlagen" };
 
 /** Consistent save pattern: nothing material is saved silently, the state is always visible and announced. */
-export function SaveBar({ state, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail }: { state: SaveState; onSave: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string }) {
+export function SaveBar({ state, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail, asSubmit = false, alwaysDiscard = false, discardLabel = "Verwerfen" }: { state: SaveState; onSave?: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string; asSubmit?: boolean; alwaysDiscard?: boolean; discardLabel?: string }) {
   const busy = state === "saving";
   return (
     <div className="ow-savebar" data-idle={state === "clean" || undefined}>
@@ -72,8 +72,8 @@ export function SaveBar({ state, onSave, onDiscard, canSave = true, saveLabel = 
         {detail && state !== "clean" && <span className="ow-muted" style={{ fontWeight: 500 }} role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>
       <span className="ow-row">
-        {onDiscard && <button type="button" className="ow-btn ow-btn--ghost" onClick={onDiscard} disabled={busy || state === "clean" || state === "saved"}>Verwerfen</button>}
-        <button type="button" className="ow-btn ow-btn--primary" onClick={onSave} disabled={busy || !canSave || state === "clean" || state === "saved"} aria-busy={busy}>{busy ? "Speichern …" : saveLabel}</button>
+        {onDiscard && <button type="button" className="ow-btn ow-btn--ghost" onClick={onDiscard} disabled={busy || (!alwaysDiscard && (state === "clean" || state === "saved"))}>{discardLabel}</button>}
+        <button type={asSubmit ? "submit" : "button"} className="ow-btn ow-btn--primary" onClick={asSubmit ? undefined : onSave} disabled={busy || !canSave || state === "clean" || state === "saved"} aria-busy={busy}>{busy ? "Speichern …" : saveLabel}</button>
       </span>
     </div>
   );
@@ -91,4 +91,17 @@ export function germanDate(value: string, withTime = false) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("de-DE", withTime ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
+export function PageHead({ eyebrow, title, lead, actions }: { eyebrow?: string; title: string; lead?: string; actions?: ReactNode }) {
+  return <header className="ow-pagehead"><div>{eyebrow && <p className="ow-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{lead && <p>{lead}</p>}</div>{actions && <div className="ow-row">{actions}</div>}</header>;
+}
+
+/** Shared read-failure block: says what failed, keeps the page usable and offers one retry. */
+export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return <Notice tone="danger" role="alert" actions={onRetry ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={onRetry}>Erneut laden</button> : undefined}>{message}</Notice>;
+}
+
+export function LoadingBlock({ rows = 2, height = 96 }: { rows?: number; height?: number }) {
+  return <div className="ow-stack" role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
 }
