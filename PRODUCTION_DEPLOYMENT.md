@@ -106,3 +106,10 @@ Earlier preparation/provisioning checkpoints above are historical. The app is no
 
 
 **30 September backup correction:** Exact fix SHA `90ad26a0f3553c89f17ce5d07e8246591240b852` added Debian CA certificates and passed trusted/self-signed TLS checks. The Railway backup image now sends real success and failure heartbeats. A controlled failed upload produced a DOWN state; a normal encrypted upload restored UP. The approved inbox received both DOWN and UP alert emails. The next naturally scheduled run remains unverified. The daily cron remains 03:00 UTC. See [drill evidence](PRODUCTION_RELEASE_TEST.md#backup-ca-fix-and-real-alert-drill--30-september-2026).
+
+
+### Current logging and callback checkpoint — 30 September 2026
+
+[URI logging evidence](PRODUCTION_URI_LOGGING.md) records the actual Free-plan configuration, controlled-layer canaries and the owner-clarified proxy processing boundary. No optional raw HTTP logging/custom export was enabled. Cloudflare processor/privacy review remains in Gate 7; persistent URL card bearers are a separate pre-commercial hardening item, not redesigned here.
+
+`mail-events.getloynara.com` and `unsubscribe.getloynara.com` now point to the dedicated Railway-hosted production tunnel and its private web:8080 listener, retaining their exact restricted paths. Signed/idempotent Mailgun and valid/repeated unsubscribe synthetic checks passed; unrelated paths 404; preview Access redirect remains. No real email or runtime source deployment occurred. The ops cron is deployed/healthy at `90ad26a` with autodeploy OFF, superseding the earlier undeployed checkpoint. Physical Mac-off and the successful natural 03:00 UTC repaired-image run remain pending. See the current [release evidence](PRODUCTION_RELEASE_TEST.md).
