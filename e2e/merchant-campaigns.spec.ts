@@ -21,35 +21,45 @@ test("owner previews an audience and saves a campaign draft without claiming del
     try {
       const page = await ownerBrowser.newPage();
       await page.goto("/merchant/campaigns");
-      await expect(page.getByRole("heading", { name: "Kampagnen" })).toBeVisible();
-      await page.getByLabel("Titel").fill("Synthetische Testaktion");
-      await page.getByLabel("Betreff").fill("Nur ein Test");
-      await page.getByRole("textbox", { name: "Nachricht", exact: true }).fill("Dies ist eine lokale synthetische Kampagnenvorschau.");
+      await expect(page.getByRole("heading", { name: "Kampagnen", level: 1 })).toBeVisible();
+      // Goal shortcuts feed the same builder; nothing is sent or scheduled automatically.
+      await expect(page.getByRole("button", { name: /Kunden zurückholen/ })).toBeVisible();
+      await page.getByRole("button", { name: "Eigene Kampagne" }).click();
+
+      await page.getByLabel("Zielgruppe", { exact: true }).selectOption("new");
       await page.getByRole("button", { name: "Zielgruppe prüfen" }).click();
-      await expect(page.getByText("1 Karte in der Zielgruppe")).toBeVisible();
-      await expect(page.getByText("0 kontaktierbar")).toBeVisible();
-      await expect(page.getByText("Unverifizierte Adresse")).toBeVisible();
+      await expect(page.getByText(/1 Karte, davon 0 per E-Mail erreichbar/)).toBeVisible();
+      await page.getByRole("button", { name: "Weiter" }).click();
+
+      await page.getByLabel("Interner Titel").fill("Synthetische Testaktion");
+      await page.getByLabel("Betreff").fill("Nur ein Test");
+      await page.getByLabel("Nachricht", { exact: true }).fill("Dies ist eine lokale synthetische Kampagnenvorschau.");
+      await page.getByRole("button", { name: "Weiter" }).click();
+
+      await expect(page.getByRole("heading", { name: "Vorschau & prüfen" })).toBeVisible();
+      await expect(page.getByText("E-Mail-Adresse nicht bestätigt")).toBeVisible();
       await page.getByRole("button", { name: "Entwurf speichern" }).click();
+      await expect(page.getByText("Entwurf gespeichert. Es wurde nichts versendet.")).toBeVisible();
+      await page.getByRole("button", { name: "Zur Kampagnenliste" }).click();
       await expect(page.getByText("Synthetische Testaktion")).toBeVisible();
       await expect(page.getByText("Entwurf", { exact: true })).toBeVisible();
       await expect(page.getByText("Gesendet", { exact: true })).toHaveCount(0);
-      await page.route("**/api/merchant/campaigns/*", async route => {
-        if (route.request().method() === "GET") await new Promise(resolve => setTimeout(resolve, 300));
-        await route.continue();
-      });
+
       await page.getByRole("button", { name: "Bearbeiten" }).click();
-      await expect(page.getByLabel("Titel")).toBeDisabled();
-      await expect(page.getByRole("heading", { name: "Entwurf bearbeiten" })).toBeVisible();
-      await page.getByLabel("Titel").fill("Bearbeitete Testaktion");
-      await page.getByRole("button", { name: "Änderungen speichern" }).click();
-      await expect(page.getByText("Bearbeitete Testaktion")).toBeVisible();
+      await page.getByRole("button", { name: "Zurück" }).click();
+      await page.getByLabel("Interner Titel").fill("Bearbeitete Testaktion");
+      await page.getByRole("button", { name: "Weiter" }).click();
+      await page.getByRole("button", { name: "Entwurf aktualisieren" }).click();
+      await expect(page.getByText("Entwurf gespeichert. Es wurde nichts versendet.")).toBeVisible();
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
-      await page.getByLabel("Termin für Planung").fill(tomorrow);
+      await page.getByLabel("Termin für den Versand").fill(tomorrow);
       await page.getByRole("button", { name: "Planen", exact: true }).click();
+      await expect(page.getByText("Bearbeitete Testaktion")).toBeVisible();
       await expect(page.getByText("Geplant", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Pausieren" }).click();
       await expect(page.getByText("Pausiert", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Abbrechen" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Kampagne abbrechen" }).click();
       await expect(page.getByText("Abgebrochen", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Details" }).click();
       await expect(page.getByText("Noch keine Zustellversuche.")).toBeVisible();

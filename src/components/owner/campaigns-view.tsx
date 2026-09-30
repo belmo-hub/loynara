@@ -219,20 +219,21 @@ export function CampaignsView() {
           </div>
           <div className="ow-readonly"><strong>Bereitschaft</strong>
             <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-              <li>{mode === "disabled" ? "Kanal nicht freigegeben: Planen ist derzeit nicht möglich." : "Kanal bereit."}</li>
+              <li>{mode === "disabled" ? "Promotionaler Versand ist nicht freigegeben. Planung benötigt eine gesonderte Freigabe." : "Kanal bereit."}</li>
               <li>{p ? (p.eligibleCount > 0 ? `${p.eligibleCount} Karten kontaktierbar.` : "Aktuell ist niemand kontaktierbar.") : "Zielgruppe noch nicht berechnet."}</li>
               <li>{p && p.eligibleCount > p.quotaRemaining ? "Die Zielgruppe übersteigt das verfügbare Versandlimit." : "Versandlimit: kein Konflikt bekannt."}</li>
             </ul>
           </div>
-          {builder.savedId && mode !== "disabled" && (
+          {builder.savedId && (
             <div className="ow-field"><label htmlFor="c-when">Termin für den Versand</label><input id="c-when" className="ow-input" style={{ maxWidth: 260 }} type="datetime-local" value={when[builder.savedId] ?? ""} onChange={event => setWhen(current => ({ ...current, [builder.savedId!]: event.target.value }))} aria-describedby="c-when-hint" /><span id="c-when-hint" className="ow-hint">Der Termin gilt in deiner Browser-Zeitzone{browserZone ? ` (${browserZone})` : ""}{timezone && browserZone && timezone !== browserZone ? `. Der Standort nutzt ${timezone}, bitte achte auf den Unterschied.` : "."} Es wird nichts gesendet, bevor du hier plan­st.</span></div>
           )}
         </>}
         <div className="ow-row" style={{ justifyContent: "space-between" }}>
           <span className="ow-row"><button type="button" className="ow-btn ow-btn--ghost" onClick={() => { if (builder.step === 0) { setBuilder(null); setDirty(false); } else setBuilder({ ...builder, step: builder.step - 1 }); }}>{builder.step === 0 ? "Abbrechen" : "Zurück"}</button></span>
           <span className="ow-row">
+            {builder.step === 2 && builder.savedId && !dirty && <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { setBuilder(null); reloadList(); }}>Zur Kampagnenliste</button>}
             {builder.step === 2 && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void saveDraft()} disabled={busy || !okStep1} aria-busy={busy}>{busy ? "Speichern …" : builder.savedId ? "Entwurf aktualisieren" : "Entwurf speichern"}</button>}
-            {builder.step === 2 && builder.savedId && mode !== "disabled" && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
+            {builder.step === 2 && builder.savedId && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
             {builder.step < 2 && <button type="button" className="ow-btn ow-btn--primary" disabled={builder.step === 0 ? !okStep0 : !okStep1} onClick={() => { const next = builder.step + 1; setBuilder({ ...builder, step: next }); if (next === 2 && preview.state === "idle") void inspect(); }}>Weiter</button>}
           </span>
         </div>
