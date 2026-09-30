@@ -29,12 +29,12 @@ test("owner previews an audience and saves a campaign draft without claiming del
       await page.getByLabel("Zielgruppe", { exact: true }).selectOption("new");
       await page.getByRole("button", { name: "Zielgruppe prüfen" }).click();
       await expect(page.getByText(/1 Karte, davon 0 per E-Mail erreichbar/)).toBeVisible();
-      await page.getByRole("button", { name: "Weiter" }).click();
+      await page.getByRole("button", { name: "Weiter", exact: true }).click();
 
       await page.getByLabel("Interner Titel").fill("Synthetische Testaktion");
       await page.getByLabel("Betreff").fill("Nur ein Test");
       await page.getByLabel("Nachricht", { exact: true }).fill("Dies ist eine lokale synthetische Kampagnenvorschau.");
-      await page.getByRole("button", { name: "Weiter" }).click();
+      await page.getByRole("button", { name: "Weiter", exact: true }).click();
 
       await expect(page.getByRole("heading", { name: "Vorschau & prüfen" })).toBeVisible();
       await expect(page.getByText("E-Mail-Adresse nicht bestätigt")).toBeVisible();
@@ -46,9 +46,9 @@ test("owner previews an audience and saves a campaign draft without claiming del
       await expect(page.getByText("Gesendet", { exact: true })).toHaveCount(0);
 
       await page.getByRole("button", { name: "Bearbeiten" }).click();
-      await page.getByRole("button", { name: "Zurück" }).click();
+      await page.getByRole("button", { name: "Zurück", exact: true }).click();
       await page.getByLabel("Interner Titel").fill("Bearbeitete Testaktion");
-      await page.getByRole("button", { name: "Weiter" }).click();
+      await page.getByRole("button", { name: "Weiter", exact: true }).click();
       await page.getByRole("button", { name: "Entwurf aktualisieren" }).click();
       await expect(page.getByText("Entwurf gespeichert. Es wurde nichts versendet.")).toBeVisible();
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
