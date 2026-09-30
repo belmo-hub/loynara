@@ -54,6 +54,12 @@ Tests: e2e `merchant-customers`, `merchant-campaigns`, `merchant-referrals`, `me
 Expected conflicts: the seven legacy pages and their deleted CSS modules; `src/components/owner/owner.css` is one file shared by all slices, so cherry-pick in order.
 Tests: full dashboard e2e list below.
 
+### Trailing commits (apply last)
+| SHA | Purpose | Depends on |
+|---|---|---|
+| `09747f8` | e2e: exact button names (`Zurück`, `Weiter`) so the goal shortcut "Kunden zurückholen" cannot be matched | `c92c48c` |
+| `a375b79` (this doc set) | surface status, Back decision, integration plan, verification record | – |
+
 ## Dashboard e2e list (run against a warmed dev server, per spec with the local peer rate-limit reset used by `scripts/test-e2e-local.mjs`)
 merchant-adviser, merchant-analytics, merchant-audiences, merchant-automations, merchant-billing, merchant-brand, merchant-campaigns, merchant-customers, merchant-locations, merchant-navigation, merchant-program-browser, merchant-referrals, merchant-setup, merchant-sign, merchant-sign-error, owner-dashboard, http-boundaries (team audit UI).
 
