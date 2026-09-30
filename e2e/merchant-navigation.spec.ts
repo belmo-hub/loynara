@@ -10,7 +10,7 @@ test("owner can open customer activity from the dashboard", async ({ page }) => 
   await page.getByLabel("Passwort").fill(access.ownerPassword);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await page.waitForURL("/merchant");
-  await page.getByRole("link", { name: "Kundenkarten", exact: true }).click();
+  await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Kunden", exact: true }).click();
   await expect(page).toHaveURL(/\/merchant\/customers$/);
-  await expect(page.getByRole("heading", { name: "Kundenkarten" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kundenkarten", level: 1 })).toBeVisible();
 });

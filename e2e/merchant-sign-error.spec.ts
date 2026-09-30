@@ -10,7 +10,7 @@ test("failed sign download leaves the merchant dashboard usable and can be retri
   await page.getByLabel("Passwort").fill(access.ownerPassword);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await page.waitForURL("/merchant");
-  await expect(page.getByRole("heading", { name: /Übersicht|Willkommen|Guten/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Übersicht|Dein Treueprogramm einrichten/ })).toBeVisible();
 
   let failNext = true;
   await page.route("**/api/qr?*", async route => {
@@ -21,12 +21,12 @@ test("failed sign download leaves the merchant dashboard usable and can be retri
       await route.continue();
     }
   });
-  await page.getByRole("button", { name: "Anmeldeschild laden" }).click();
-  await expect(page.locator(".sign-download-error")).toContainText("QR-Code konnte nicht geladen werden");
-  await expect(page.getByRole("button", { name: "Anmeldeschild laden" })).toBeVisible();
+  await page.getByRole("button", { name: "Tresenschild laden" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "QR-Code konnte nicht geladen werden" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tresenschild laden" })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Anmeldeschild laden" }).click();
+  await page.getByRole("button", { name: "Tresenschild laden" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("anmeldeschild.html");
-  await expect(page.locator(".sign-download-error")).toHaveCount(0);
+  await expect(page.getByRole("alert").filter({ hasText: "QR-Code konnte nicht geladen werden" })).toHaveCount(0);
 });

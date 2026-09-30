@@ -21,16 +21,16 @@ test("owner edits merchant identity with a live preview and customer card sees t
     const context = await browser.newContext({ baseURL: url, storageState: await owner.storageState() });
     try {
       const page = await context.newPage();
-      await page.goto("/merchant/program");
-      const editor = page.locator('section[aria-labelledby="brand-heading"]');
-      await expect(editor.getByRole("heading", { name: "Markenauftritt" })).toBeVisible();
-      await editor.getByLabel("Geschäftsname").fill("After Café");
-      await editor.getByLabel("Standortname").fill("After Mitte");
-      await editor.getByLabel("Markenfarbe").fill("#1f4d3f");
-      await expect(editor.getByText("After Café", { exact: true })).toBeVisible();
-      await expect(editor.getByText("After Café", { exact: true }).locator("..")).toHaveCSS("background-color", "rgb(31, 77, 63)");
-      await editor.getByRole("button", { name: "Markenauftritt speichern" }).click();
-      await expect(editor.getByRole("status")).toContainText("Markenauftritt gespeichert");
+      await page.goto("/merchant/program/card");
+      await expect(page.getByRole("heading", { name: "Kundenkarte", level: 1 })).toBeVisible();
+      await page.getByLabel("Geschäftsname").fill("After Café");
+      await page.getByLabel("Standortname").fill("After Mitte");
+      await page.getByLabel("Farbwert (Hex)").fill("#1f4d3f");
+      await expect(page.locator(".ow-cardprev-face").getByText("After Café", { exact: true })).toBeVisible();
+      await expect(page.locator(".ow-cardprev-face")).toHaveCSS("background-color", "rgb(31, 77, 63)");
+      await expect(page.getByText("Ungespeicherte Änderungen")).toBeVisible();
+      await page.getByRole("button", { name: "Kundenkarte speichern" }).click();
+      await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
       const programme = await guest.get(`/api/program/${programSlug}`);
       expect(programme.status()).toBe(200);
       expect(await programme.json()).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f" });
