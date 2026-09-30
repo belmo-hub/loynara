@@ -348,3 +348,10 @@
 .ow-mail h3 { font-size: 16px; margin: 4px 0 8px; }
 .ow-mail p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .owner-app .app-container > .app-intro:first-child, .owner-app main.app-container { padding-top: var(--ow-s5); }
+.ow-seg { max-width: 100%; flex-wrap: wrap; }
+.ow-studio-preview > * { max-width: 100%; }
+
+/* Refinement pass 1: heading weight (Tailwind preflight resets it) and icon+label segmented buttons */
+.owner-app h1 { font-weight: 700; }
+.owner-app h2, .owner-app h3 { font-weight: 650; }
+.ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
