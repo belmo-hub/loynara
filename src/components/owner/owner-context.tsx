@@ -49,6 +49,7 @@ type AccountResult =
 async function fetchAccount(): Promise<AccountResult> {
   try {
     const me = await apiJson<MeResponse>("/api/me");
+    if (!me.locationId) return { kind: "unprovisioned" }; // signed-in account without a merchant yet
     if (me.role === "cashier") return { kind: "cashier" };
     let locations: OwnerLocation[] = [];
     if (me.role === "owner") {

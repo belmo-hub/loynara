@@ -33,7 +33,7 @@ function NewBusiness({ me }: { me: MeResponse }) {
   const steps = [
     { id: "rule", title: "Sammelregel festlegen", done: true as boolean | null, note: me.programType === "stamp" ? "Stempelkarte: Dein Team bestätigt jeden Stempel an der Kasse." : "Punktekarte: Dein Team bestätigt jede Gutschrift an der Kasse.", href: "/merchant/program", cta: "Regel ansehen" },
     { id: "reward", title: "Erste Prämie erstellen", done: me.rewardTitle ? true : false, note: me.rewardTitle ? `${me.rewardCost} ${unit} → ${me.rewardTitle}` : "Lege fest, wofür Kunden sammeln.", href: "/merchant/program", cta: "Prämie bearbeiten" },
-    { id: "card", title: "Kundenkarte gestalten", done: logoState, note: logoState === null ? (isOwner ? "Status wird geprüft …" : "Nur Inhaber:innen sehen diesen Status.") : logoState ? "Logo und Farbe sind hinterlegt." : "Farbe und Logo deiner Karte festlegen.", href: "/merchant/program", cta: "Karte gestalten" },
+    { id: "card", title: "Kundenkarte gestalten", done: logoState, note: logoState === null ? (isOwner ? "Status wird geprüft …" : "Nur Inhaber:innen sehen diesen Status.") : logoState ? "Logo und Farbe sind hinterlegt." : "Farbe und Logo deiner Karte festlegen.", href: "/merchant/program/card", cta: "Karte gestalten" },
     { id: "test", title: "Ablauf testen", done: hasStamp, note: hasStamp ? "Die erste Gutschrift wurde an der Kasse bestätigt." : "Melde dich mit dem Anmeldelink selbst an und bestätige an der Kasse einen ersten Stempel.", href: "/cashier", cta: "Kasse öffnen" },
   ];
   const doneCount = steps.filter(step => step.done === true).length;
