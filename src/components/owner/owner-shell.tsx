@@ -77,7 +77,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>
             <div className="ow-subnav-inner">
               {subItems.map(item => {
-                const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const current = item.exactMatch ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return <GuardedLink key={item.href} href={item.href} aria-current={current ? "page" : undefined}>{item.label}</GuardedLink>;
               })}
             </div>

@@ -65,11 +65,11 @@ const SAVE_LABEL: Record<SaveState, string> = { clean: "", dirty: "Ungespeichert
 export function SaveBar({ state, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail }: { state: SaveState; onSave: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string }) {
   const busy = state === "saving";
   return (
-    <div className="ow-savebar">
+    <div className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
         {state !== "clean" && <><span className="ow-dot" aria-hidden="true" />{SAVE_LABEL[state]}</>}
         {state === "clean" && <span className="ow-muted">Keine Änderungen</span>}
-        {detail && state !== "clean" && <span className="ow-muted" style={{ fontWeight: 500 }}>{detail}</span>}
+        {detail && state !== "clean" && <span className="ow-muted" style={{ fontWeight: 500 }} role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>
       <span className="ow-row">
         {onDiscard && <button type="button" className="ow-btn ow-btn--ghost" onClick={onDiscard} disabled={busy || state === "clean" || state === "saved"}>Verwerfen</button>}

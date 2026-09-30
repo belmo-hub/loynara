@@ -246,3 +246,61 @@
 .ow-cardprev-reward { display: flex; justify-content: space-between; gap: var(--ow-s3); font-size: 14px; }
 .ow-cardprev-track { height: 8px; border-radius: 99px; background: var(--ow-surface-2); overflow: hidden; }
 .ow-cardprev-track span { display: block; height: 100%; border-radius: 99px; transition: width var(--ow-preview) var(--ow-ease); }
+
+/* Wallet pass mocks */
+.ow-pass { width: 100%; max-width: 340px; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--ow-shadow-2); transition: background-color var(--ow-preview) var(--ow-ease), color var(--ow-preview) var(--ow-ease); }
+.ow-pass-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ow-pass-title { font-size: 17px; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.ow-pass-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ow-pass-field small { font-size: 10px; letter-spacing: .08em; font-weight: 600; }
+.ow-pass-field b { font-size: 15px; overflow-wrap: anywhere; }
+.ow-pass--apple .ow-pass-row:first-child .ow-pass-field { text-align: right; }
+.ow-pass--apple .ow-pass-row:first-child .ow-pass-field b { font-size: 34px; line-height: 1; letter-spacing: -.02em; }
+.ow-pass-row--sec { padding-top: 6px; }
+.ow-pass-codewrap { align-self: center; margin-top: 4px; padding: 10px; border-radius: 10px; background: #fff; }
+.ow-pass-code { display: block; width: 96px; height: 96px; fill: #111; }
+.ow-pass--google { border-radius: 22px; min-height: 300px; }
+.ow-pass-issuer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; }
+.ow-pass-initial { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .85); color: #1a2b25; font-weight: 700; }
+.ow-pass-program { font-size: 13px; opacity: .9; }
+.ow-pass-big { display: flex; flex-direction: column; }
+.ow-pass-big small { font-size: 12px; opacity: .85; }
+.ow-pass-big b { font-size: 40px; line-height: 1.05; letter-spacing: -.02em; }
+
+/* Card studio */
+.ow-studio { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: var(--ow-s5); align-items: start; }
+.ow-studio-preview { position: sticky; top: 72px; display: flex; flex-direction: column; gap: var(--ow-s4); align-items: flex-start; }
+.ow-stage { width: 100%; min-height: 360px; display: flex; align-items: center; justify-content: center; padding: var(--ow-s5); border-radius: var(--ow-r3); background: var(--ow-surface-2); border: 1px dashed var(--ow-line-strong); }
+.ow-group { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--ow-s3); }
+.ow-group + .ow-group { border-top: 1px solid var(--ow-line); padding-top: var(--ow-s5); margin-top: var(--ow-s5); }
+.ow-group > legend { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--ow-muted); padding: 0; margin-bottom: var(--ow-s3); }
+.ow-swatches { display: flex; flex-wrap: wrap; gap: var(--ow-s2); }
+.ow-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--ow-surface); box-shadow: 0 0 0 1px var(--ow-line-strong); cursor: pointer; transition: transform var(--ow-fast) var(--ow-ease); }
+.ow-swatch:hover { transform: scale(1.06); }
+.ow-swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--ow-ink); }
+.ow-colorrow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--ow-s3); align-items: end; }
+.ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--ow-line-strong); border-radius: var(--ow-r1); background: var(--ow-surface); cursor: pointer; }
+.ow-logo-row { display: flex; align-items: center; gap: var(--ow-s3); flex-wrap: wrap; }
+.ow-logo-thumb { width: 56px; height: 56px; border-radius: 12px; border: 1px solid var(--ow-line); object-fit: cover; background: #fff; }
+.ow-mobile-switch { display: none; }
+.ow-readonly { padding: var(--ow-s3) var(--ow-s4); border-radius: var(--ow-r2); background: var(--ow-surface-2); font-size: 14px; }
+.ow-readonly dl { margin: 0; }
+@media (max-width: 900px) {
+  .ow-studio { grid-template-columns: minmax(0, 1fr); }
+  .ow-mobile-switch { display: inline-flex; }
+  .ow-studio[data-pane="edit"] .ow-studio-preview { display: none; }
+  .ow-studio[data-pane="preview"] .ow-studio-controls { display: none; }
+  .ow-studio-preview { position: static; }
+  .ow-stage { min-height: 0; padding: var(--ow-s4); }
+}
+.ow-savestate { flex-wrap: wrap; min-width: 0; }
+
+/* Rewards list */
+.ow-rewards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ow-reward { display: flex; align-items: center; justify-content: space-between; gap: var(--ow-s4); padding: var(--ow-s3) 0; border-top: 1px solid var(--ow-line); flex-wrap: wrap; }
+.ow-reward:first-child { border-top: 0; }
+.ow-reward-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.ow-reward-main > strong { font-size: 16px; }
+.ow-reward-actions { display: flex; gap: var(--ow-s1); flex-wrap: wrap; }
+.ow-savebar[data-idle] { position: static; box-shadow: none; border-top: 1px solid var(--ow-line); background: transparent; margin-inline: 0; padding-inline: 0; }
