@@ -6,6 +6,8 @@ import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components
 import { OwnerDialog } from "./owner-ui";
 
 export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
+type NavigateEventLike = { navigationType: string; cancelable: boolean; destination: { key: string }; preventDefault: () => void };
+type NavigationLike = { addEventListener: (type: string, listener: EventListener) => void; removeEventListener?: (type: string, listener: EventListener) => void; traverseTo?: (key: string) => { committed?: Promise<unknown> } };
 type Status = "loading" | "ready" | "unprovisioned" | "error";
 
 type OwnerValue = {
@@ -104,6 +106,30 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
+  }, [dirtyCount]);
+
+  // Browser Back/Forward: Next's router offers no supported way to veto a history traversal, and history
+  // sentinel hacks fight its own history bookkeeping. Where the Navigation API exists (Chromium), a cancelable
+  // "traverse" event is intercepted while edits are unsaved; elsewhere Back is not guarded (see docs).
+  const traversalBypass = useRef(false);
+  useEffect(() => {
+    if (dirtyCount === 0) return;
+    const nav = (window as unknown as { navigation?: NavigationLike }).navigation;
+    if (!nav?.addEventListener) return;
+    const onNavigate = ((event: NavigateEventLike) => {
+      if (traversalBypass.current || event.navigationType !== "traverse" || !event.cancelable) return;
+      event.preventDefault();
+      const key = event.destination.key;
+      setPending(() => () => {
+        dirtyKeys.current.clear(); setDirtyCount(0);
+        traversalBypass.current = true;
+        const result = nav.traverseTo?.(key);
+        const release = () => { traversalBypass.current = false; };
+        if (result?.committed) void result.committed.then(release, release); else release();
+      });
+    }) as unknown as EventListener;
+    nav.addEventListener("navigate", onNavigate);
+    return () => nav.removeEventListener?.("navigate", onNavigate);
   }, [dirtyCount]);
 
   const guard = useCallback((action: () => void) => {
