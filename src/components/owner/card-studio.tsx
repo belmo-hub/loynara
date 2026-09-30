@@ -4,13 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
-import { readableInk } from "./card-preview";
+import { HEX_COLOR as HEX, readableInk, whiteContrast } from "./color";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
 import { SurfacePreview, type Surface } from "./wallet-previews";
 
 export type Brand = { businessName: string; locationName: string; brandColor: string; logoData: string | null };
-const HEX = /^#[0-9a-fA-F]{6}$/;
 const SWATCHES: Array<{ name: string; hex: string }> = [
   { name: "Waldgrün", hex: "#1F4A3A" }, { name: "Salbei", hex: "#2F6B58" }, { name: "Terrakotta", hex: "#A8492C" },
   { name: "Nachtblau", hex: "#2B4A66" }, { name: "Pflaume", hex: "#6B3A6F" }, { name: "Graphit", hex: "#23282B" }, { name: "Senf", hex: "#C99A2E" },
@@ -18,13 +17,6 @@ const SWATCHES: Array<{ name: string; hex: string }> = [
 const SURFACES: Array<{ id: Surface; label: string }> = [{ id: "browser", label: "Browserkarte" }, { id: "apple", label: "Apple Wallet" }, { id: "google", label: "Google Wallet" }];
 type Demo = "new" | "close" | "ready";
 const DEMOS: Array<{ id: Demo; label: string }> = [{ id: "new", label: "Neue Karte" }, { id: "close", label: "Kurz vor Prämie" }, { id: "ready", label: "Prämie verfügbar" }];
-
-function luminance(hex: string) {
-  const [r, g, b] = [1, 3, 5].map(index => { const c = parseInt(hex.slice(index, index + 2), 16) / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-/** WCAG contrast of white text on the colour, which is what the Apple pass generator always uses. */
-export function whiteContrast(hex: string) { return HEX.test(hex) ? 1.05 / (luminance(hex) + 0.05) : 21; }
 
 export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; program: PublicProgram; initial: Brand; onSaved: (brand: Brand) => void }) {
   const owner = useOwner();

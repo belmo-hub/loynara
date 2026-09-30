@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { BrowserCardPreview, readableInk, type CardPreviewProps } from "./card-preview";
+import { BrowserCardPreview, type CardPreviewProps } from "./card-preview";
+import { readableInk } from "./color";
 
 export type Surface = "browser" | "apple" | "google";
 export type PreviewData = CardPreviewProps & { programName: string; logoData: string | null };

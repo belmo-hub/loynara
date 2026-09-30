@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
 import { BrandMark } from "@/components/loyalty-ui";
+import { ReferralSummary } from "@/components/owner/referral-summary";
 import styles from "./referrals.module.css";
 
 type Settings = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
@@ -103,6 +104,7 @@ export default function MerchantReferralsPage() {
       <div className="app-intro"><span className="eyebrow"><span className="eyebrow-dot" /> WEITEREMPFEHLEN</span><h1>Empfehlungen</h1><p>Eine Empfehlung wird erst nach dem ersten bestätigten Kassenauftrag der neuen Karte gutgeschrieben.</p></div>
       {loading ? <p role="status">Empfehlungen werden geladen …</p> : !me || !settings ? <p role="alert" className={styles.error}>{error || "Empfehlungen nicht verfügbar."}</p> : <>
         {error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p role="status" className={styles.notice}>{notice}</p>}
+        <ReferralSummary enabled={settings.enabled} referrerBonus={settings.referrerBonus} referredBonus={settings.referredBonus} programType={settings.programType} referrals={referrals} truncated={referrals.length >= 100} />
         <div className={styles.grid}>
           <form className={`app-panel ${styles.panel}`} onSubmit={save}>
             <span className="tiny-label">{me.businessName} · {me.locationName}</span><h2>Bonusregel</h2>
