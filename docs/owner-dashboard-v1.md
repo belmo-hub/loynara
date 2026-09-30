@@ -30,3 +30,15 @@ Branch `claude/owner-dashboard-v1`, base `5c51d992d18095211e169eeb9e5e9ebf8c565b
 - No persisted "setup step tested" flag – the checklist derives it from real awards.
 - Analytics is owner-only; audience previews owner/manager; no all-locations aggregate metrics.
 - Billing is fixture-only; there is no integrations status endpoint.
+
+## Verification record (local, synthetic data only)
+- Typecheck, scoped ESLint, 13 presentation unit tests, isolated production build (`next build --webpack`, separate dist dir): pass.
+- Playwright walkthroughs via the local browser: create programme and first reward, brand change persisted after reload, preview surfaces switched without losing edits, inactive-audience campaign draft, reward-edit effect before saving, location switch without mixed rows, simulated failed save with edits preserved, keyboard (skip link, dialog focus trap and restore).
+- Overflow check for 14 merchant pages at 1440×900, 1024×768, 390×844, 360×800 for an active and a new merchant: no horizontal overflow. Also 200 % and 300 % zoom, and reduced motion.
+- Existing e2e specs that asserted the old markup were updated. In dev mode a few specs need warm route compilation to stay inside their timeouts; sign-up based specs need the runner's per-shard rate-limit reset.
+
+## Known limits
+- Customers list is tenant-wide for owners and exposes only the location name; the view narrows by name only when it is unique.
+- Analytics is tenant-wide; the Overview uses period metrics only for single-location owners.
+- Legacy pages (audiences, automations, results, adviser, locations, team, billing) keep their own body markup inside the new shell.
+- Unused after this change: `MerchantSetupView`, `RewardManager`, `MerchantBrandEditor`, `MerchantDashboardView` in shared components (left in place on purpose).
