@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
 import { OwnerDialog } from "./owner-ui";
 
-export type OwnerLocation = { id: string; name: string; city: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
+export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
 type Status = "loading" | "ready" | "unprovisioned" | "error";
 
 type OwnerValue = {
