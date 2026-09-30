@@ -2,7 +2,7 @@ import type { MeResponse } from "@/components/client-api";
 
 export type OwnerRole = MeResponse["role"];
 export type NavIconName = "home" | "loyalty" | "users" | "megaphone" | "gear";
-export type SubItem = { label: string; href: string; roles: OwnerRole[]; match?: string[] };
+export type SubItem = { label: string; href: string; roles: OwnerRole[]; exactMatch?: boolean };
 export type NavGroup = { id: string; label: string; icon: NavIconName; roles: OwnerRole[]; prefixes: string[]; exact?: boolean; items: SubItem[] };
 
 const OWNER: OwnerRole[] = ["owner"];
@@ -12,7 +12,8 @@ const BOTH: OwnerRole[] = ["owner", "manager"];
 export const NAV_GROUPS: NavGroup[] = [
   { id: "overview", label: "Übersicht", icon: "home", roles: BOTH, prefixes: ["/merchant"], exact: true, items: [{ label: "Übersicht", href: "/merchant", roles: BOTH }] },
   { id: "program", label: "Treueprogramm", icon: "loyalty", roles: BOTH, prefixes: ["/merchant/program", "/merchant/referrals"], items: [
-    { label: "Sammelregeln & Prämien", href: "/merchant/program", roles: BOTH },
+    { label: "Sammelregeln & Prämien", href: "/merchant/program", roles: BOTH, exactMatch: true },
+    { label: "Kundenkarte", href: "/merchant/program/card", roles: OWNER },
     { label: "Empfehlungen", href: "/merchant/referrals", roles: OWNER },
   ] },
   { id: "customers", label: "Kunden", icon: "users", roles: BOTH, prefixes: ["/merchant/customers", "/merchant/audiences"], items: [
