@@ -35,6 +35,8 @@ const merchantInput = z.object({
 });
 
 function randomCode(bytes: number) { return randomBytes(bytes).toString("base64url"); }
+const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
+const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
 function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
 function checkedLogo(value?: string) {
   if (!value) return null;
@@ -57,14 +59,33 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
   const logoData = checkedLogo(input.logoData);
   return db.transaction(async (tx) => {
-    const [existing] = await tx.select().from(staffRoles).where(eq(staffRoles.userId, input.userId)).limit(1);
-    if (existing) throw new DomainError("ALREADY_ONBOARDED", "User already belongs to a merchant");
+    // Serialize retries for this authenticated identity, including the first
+    // request before a staff row exists. No provisioning happens in auth hooks.
+    await tx.execute(sql`select id from "user" where id = ${input.userId} for update`);
+    const [existing] = await tx.select().from(staffRoles).where(eq(staffRoles.userId, input.userId)).limit(1).for("update");
+    if (existing) {
+      if (!existing.active) throw new DomainError("FORBIDDEN", ACCESS_REVOKED);
+      if (existing.role !== "owner") throw new DomainError("FORBIDDEN", "Nur Inhaber:innen dürfen ein Geschäft einrichten. Dein Konto hat bereits einen Teamzugang.");
+      const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, existing.tenantId)).for("update");
+      const ownedLocations = await tx.select().from(locations).where(eq(locations.tenantId, existing.tenantId)).limit(2);
+      if (ownedLocations.length > 1) throw new DomainError("ALREADY_ONBOARDED", "Dein Geschäft ist bereits eingerichtet. Öffne die Übersicht und wähle dort den gewünschten Standort.");
+      const [location] = ownedLocations;
+      if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
+      const [completed] = await tx.select({ program: programs }).from(programs)
+        .innerJoin(programRuleVersions, and(eq(programRuleVersions.tenantId, existing.tenantId), eq(programRuleVersions.programId, programs.id)))
+        .innerJoin(billingLocationPlans, and(eq(billingLocationPlans.tenantId, existing.tenantId), eq(billingLocationPlans.locationId, location.id)))
+        .innerJoin(subscriptions, eq(subscriptions.tenantId, existing.tenantId))
+        .where(and(eq(programs.tenantId, existing.tenantId), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
+      if (!completed) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
+      const program = completed.program;
+      return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
+    }
     const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
     const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
     const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
-    if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "User already belongs to a merchant");
+    if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
     const [program] = await tx.insert(programs).values({ tenantId: tenant.id, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, earningMode, pointsPerCurrencyUnit: input.pointsPerCurrencyUnit ?? 1, rulesText: input.rulesText, effectiveAt: input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined }).returning();
     await tx.insert(programRuleVersions).values({ tenantId: tenant.id, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, effectiveAt: program.effectiveAt });
     const [reward] = await tx.insert(rewards).values({ tenantId: tenant.id, programId: program.id }).returning();
@@ -268,18 +289,20 @@ export async function getPublicProgram(slug: string) {
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {
-  const [staff] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, userId), eq(staffRoles.active, true))).limit(1);
+  const [staff] = await db.select().from(staffRoles).where(eq(staffRoles.userId, userId)).limit(1);
   if (!staff) return null;
+  if (!staff.active) throw new DomainError("FORBIDDEN", ACCESS_REVOKED);
   // Staff have one assigned location. Only an owner can use a selected-location
   // cookie, and every request checks that selection against the owner tenant.
   if (staff.role === "owner" && selectedLocationId && !z.uuid().safeParse(selectedLocationId).success) throw new DomainError("INVALID_LOCATION", "Invalid selected location");
-  if (staff.role !== "owner" && !staff.locationId) throw new DomainError("FORBIDDEN", "Staff location is missing");
+  if (staff.role !== "owner" && !staff.locationId) throw new DomainError("FORBIDDEN", "Deinem Teamzugang fehlt ein Standort. Bitte wende dich an die Inhaberin oder den Inhaber.");
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
   const targetLocationId = staff.role === "owner" ? selectedLocationId : staff.locationId;
   const [location] = await db.select().from(locations).where(and(eq(locations.tenantId, staff.tenantId), targetLocationId ? eq(locations.id, targetLocationId) : sql`true`)).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
-  if (staff.role === "owner" && selectedLocationId && !location) throw new DomainError("NOT_FOUND", "Selected location not found");
-  if (!tenant || !location) return null;
+  if (staff.role === "owner" && selectedLocationId && !location) throw new DomainError("NOT_FOUND", "Der gewählte Standort ist nicht verfügbar. Bitte wende dich an den Support.");
+  if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
   const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
+  if (!program) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
   const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapCooldownSeconds: program?.tapCooldownSeconds, rewardTitle: reward?.title, rewardCost: reward?.cost };
   if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };

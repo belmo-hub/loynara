@@ -42,12 +42,11 @@ describe("merchant and customer journey", () => {
     }
   });
 
-  it("allows only one concurrent merchant onboarding for an account", async () => {
+  it("returns one completed merchant for concurrent onboarding retries", async () => {
     const userId = await createUser();
     const input = { userId, businessName: "Synthetic Café", city: "Kassel", country: "DE" as const, timezone: "Europe/Berlin", locale: "de" as const, currency: "EUR" as const, programName: "Kaffeekarte", programType: "stamp" as const, rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 };
-    const outcomes = await Promise.allSettled([createMerchant(input), createMerchant(input)]);
-    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
-    expect(outcomes.filter((outcome) => outcome.status === "rejected")).toMatchObject([{ reason: { code: "ALREADY_ONBOARDED" } }]);
+    const outcomes = await Promise.all([createMerchant(input), createMerchant(input)]);
+    expect(outcomes[1]).toEqual(outcomes[0]);
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toHaveLength(1);
   });
 

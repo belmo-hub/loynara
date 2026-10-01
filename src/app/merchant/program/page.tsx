@@ -6,7 +6,7 @@ import { useOwner } from "@/components/owner/owner-context";
 
 export default function ProgramPage() {
   const { me, status } = useOwner();
-  if (status === "unprovisioned" || (me && !me.programSlug)) return <ProgramSetup />;
+  if (status === "unprovisioned") return <ProgramSetup />;
   if (!me) return null;
   return <ProgramView me={me} />;
 }

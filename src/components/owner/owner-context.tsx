@@ -50,8 +50,11 @@ type AccountResult =
 
 async function fetchAccount(): Promise<AccountResult> {
   try {
-    const me = await apiJson<MeResponse>("/api/me");
-    if (!me.locationId) return { kind: "unprovisioned" }; // signed-in account without a merchant yet
+    const me = await apiJson<MeResponse | { userId: string; tenantId: null; publicBaseUrl: string }>("/api/me");
+    if (me.tenantId === null) return { kind: "unprovisioned" }; // identity-only account, explicitly confirmed by the server
+    if (!me.locationId || !me.programSlug || !["owner", "manager", "cashier"].includes(me.role)) {
+      return { kind: "error", message: "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung." };
+    }
     if (me.role === "cashier") return { kind: "cashier" };
     let locations: OwnerLocation[] = [];
     if (me.role === "owner") {
@@ -60,7 +63,6 @@ async function fetchAccount(): Promise<AccountResult> {
     return { kind: "ok", me, locations };
   } catch (cause) {
     if (cause instanceof ClientApiError && cause.status === 401) return { kind: "login" };
-    if (cause instanceof ClientApiError && cause.status === 404) return { kind: "unprovisioned" };
     return { kind: "error", message: cause instanceof Error ? cause.message : "Dein Konto konnte nicht geladen werden." };
   }
 }

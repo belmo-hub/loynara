@@ -1,5 +1,61 @@
 # Owner dashboard – integration plan for Codex (after Gate 1)
 
+## RC integration — 1 October 2026
+
+Accepted release baseline: `a96fc12313fc6f8153cc7d21472bf9fe06877a01`.
+Integration branch: `integration/owner-dashboard-v1`.
+Frozen source: `652d214f2f572a6f82a6591d3e9641e791ad1d83`.
+The baseline and frozen ref were clean and unchanged. The path intersection from
+`5c51d992d18095211e169eeb9e5e9ebf8c565b8a` was empty; merge-tree completed without
+conflicts. Release changes since the earlier forecast were documentation only.
+No dependency or API-contract drift was found before integration.
+
+Actual pick order: A `ddf8569`; B `b06dfba e841bb3`; C
+`05ae27b 4c42053 30803a1 4c6bde0 c92c48c da6be7a`; D
+`5e26930 7ab1c25 383a7fb 2f29edd 26edaab 09747f8 a375b79 652d214`.
+The historical grouping below is superseded by this order: `4c6bde0` depends on
+earlier C changes and was applied in C, never immediately after A.
+
+### Temporary onboarding procedure
+
+The supported temporary starting state is an **operator-provisioned authentication
+identity only**: user and credential account, with no tenant, location, programme,
+or staff assignment. Provision it through the separately authorized private
+operator process; this integration does not execute that process, enable public
+registration, or add a provisioning endpoint. Do not use the demo seed as an
+onboarding procedure. The owner signs in and completes `/merchant/program`;
+the existing atomic `createMerchant` flow creates the business and programme.
+
+Retries for a completed single-location active owner return the same merchant
+identifiers without changing business data, rewards, or billing. Concurrent
+onboarding requests serialize on the existing authentication identity. A retry
+does not reactivate revoked staff or promote managers/cashiers. Owners with
+multiple locations are directed to their existing overview instead of selecting
+an arbitrary location as an onboarding result.
+
+An account already assigned to a tenant but missing a location or active programme
+is an incomplete setup, not a new wizard candidate. It receives a German setup
+error directing it to support. Revoked staff receive a German access error.
+Only the explicit `/api/me` response with `tenantId: null` opens the wizard;
+a generic 404 does not. Partial records are not repaired automatically.
+
+This compatibility change is confined to the existing product service, owner
+context/pages, and regression tests. No migration, auth-hook change, or signup
+architecture change is involved. The user-reported absence of production tenant
+data was not rechecked against production.
+
+The release-relevant `scripts/record-full-platform-demo.mjs` still uses old
+campaign labels and flow (for example `Titel`, `Zielgruppe auswählen`, and
+`Termin für Planung`). `scripts/capture-merchant-screens.mjs` still expects
+`.reward-manager-row`. Both were inspected and left unchanged: neither is needed
+for regression. Demo re-recording remains a later publication task.
+
+Gate 1 operations were not reopened. Historical redeploy provenance remains
+**ACCEPTED-RISK — contained and superseded**. No deployment is authorized by this
+integration record.
+
+## Frozen branch handoff (historical)
+
 Branch `claude/owner-dashboard-v1`, base `5c51d992d18095211e169eeb9e5e9ebf8c565b8a`. Nothing is merged or pushed.
 Frontend-only: no change to `src/lib`, `src/db`, `src/app/api`, migrations, Docker/deploy, package files, `globals.css`,
 cashier or customer pages, or `src/components/loyalty-ui.tsx`.

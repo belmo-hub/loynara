@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("guided setup walks four steps, validates inline and previews the card before anything is saved", async ({ page }) => {
   let onboardCalls = 0;
-  await page.route("**/api/me", route => route.fulfill({ status: 404, contentType: "application/json", body: "{}" }));
+  await page.route("**/api/me", route => route.fulfill({ json: { userId: "synthetic-owner", tenantId: null, publicBaseUrl: "http://localhost:3000" } }));
   await page.route("**/api/merchant/onboard", route => { onboardCalls++; return route.abort(); });
   await page.goto("/merchant/program");
   await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", level: 1 })).toBeVisible();
