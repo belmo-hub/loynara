@@ -1,6 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
 
+for (const occurredAt of ["1.10.2026, 18:14:46", "13.10.2026, 18:14:46"]) {
+  test(`overview preserves the localized activity date ${occurredAt}`, async ({ page }) => {
+    await page.route("**/api/me", route => route.fulfill({ json: {
+      userId: "synthetic-owner", tenantId: "synthetic-tenant", locationId: "synthetic-location", role: "owner",
+      businessName: "Synthetic Date Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
+      programSlug: "synthetic-date-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
+      stats: { members: 1, awards: 1, redemptions: 0 },
+      activity: [{ id: "synthetic-entry", kind: "award", occurredAt, amount: 1 }],
+    } }));
+    await page.route("**/api/merchant/locations", route => route.fulfill({ json: { locations: [] } }));
+    await page.route("**/api/merchant/audiences/preview?**", route => route.fulfill({ json: { total: 0 } }));
+    await page.goto("/merchant");
+    await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeVisible();
+    const time = page.locator('[aria-labelledby="ow-act-title"] time');
+    await expect(time).toHaveText(occurredAt);
+    await expect(time).not.toHaveAttribute("datetime");
+  });
+}
+
 async function ownerWithProgramme(baseURL: string, businessName: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   expect((await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic dashboard owner", email: `dash-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);

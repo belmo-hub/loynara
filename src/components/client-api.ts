@@ -52,6 +52,7 @@ export type MeResponse = {
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
+  /** occurredAt is localized display text in the merchant's timezone; only createdAt is a raw timestamp. */
   activity?: Array<{ id: string; kind: "award" | "redeem" | "redemption" | "reversal"; occurredAt?: string; createdAt?: string; amount?: number; delta?: number; unit?: string; reference?: string }>;
 };
 

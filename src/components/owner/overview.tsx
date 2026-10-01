@@ -198,9 +198,9 @@ function RecentActivity({ me }: { me: MeResponse }) {
       {items.length === 0 ? <div className="ow-empty"><strong>Noch keine Vorgänge.</strong>Sobald deine Kasse etwas bestätigt, erscheint es hier.</div> : (
         <ul className="ow-feed">
           {items.map(item => {
-            const when = item.occurredAt || item.createdAt || "";
+            const when = item.createdAt;
             const delta = item.delta ?? item.amount;
-            return <li key={item.id}><span><strong>{label(item.kind)}</strong>{item.kind === "award" && typeof delta === "number" && <span className="ow-muted ow-num"> · +{Math.abs(delta)} {unit}</span>}</span><time dateTime={when}>{germanDate(when, true)}</time></li>;
+            return <li key={item.id}><span><strong>{label(item.kind)}</strong>{item.kind === "award" && typeof delta === "number" && <span className="ow-muted ow-num"> · +{Math.abs(delta)} {unit}</span>}</span><time dateTime={when}>{item.occurredAt || germanDate(when || "", true)}</time></li>;
           })}
         </ul>
       )}
