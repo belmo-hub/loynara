@@ -67,6 +67,9 @@ export function CustomersView() {
     return { members: collected, next: cursor ?? null };
   }, [fetchPage]);
   const narrowName = narrow ? me.locationName : null;
+  // The shell remounts this view when the active location changes. Scope buttons
+  // run their own filtered request; they must not trigger this initial load again.
+  const initialScope = useRef(narrowName);
 
   const run = useCallback(async (chosen: Filters, override?: string | null) => {
     const mine = ++token.current;
@@ -82,10 +85,10 @@ export function CustomersView() {
   useEffect(() => {
     let live = true;
     const mine = ++token.current;
-    void fetchVisible(INITIAL, undefined, narrowName).then(page => { if (live && token.current === mine) { setMembers(page.members); setNext(page.next); setLoading(false); } })
+    void fetchVisible(INITIAL, undefined, initialScope.current).then(page => { if (live && token.current === mine) { setMembers(page.members); setNext(page.next); setLoading(false); } })
       .catch(cause => { if (live && token.current === mine) { setError(reason(cause)); setLoading(false); } });
     return () => { live = false; };
-  }, [fetchVisible, narrowName]);
+  }, [fetchVisible]);
 
   async function loadMore() {
     if (!next || more) return;

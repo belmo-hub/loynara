@@ -143,18 +143,21 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     if (switching || locationId === me?.locationId) return;
     guard(() => {
       dirtyKeys.current.clear(); setDirtyCount(0);
-      setSwitching(true); setSwitchError("");
+      setSwitching(true); setSwitchError(""); setMessage("");
       void postJson("/api/merchant/locations/select", { locationId }).then(async () => {
         setMe(null); // drop the previous location's identity immediately; nothing of it may stay on screen
-        await load("silent");
-        setEpoch(value => value + 1);
-        setMessage("Standort gewechselt.");
+        const result = await fetchAccount();
+        apply(result, "initial"); // selection has no valid old context to preserve on failure
+        if (result.kind === "ok") {
+          setEpoch(value => value + 1);
+          setMessage("Standort gewechselt.");
+        }
       }).catch(cause => {
         setSwitchError(cause instanceof Error ? cause.message : "Der Standort konnte nicht gewechselt werden.");
         void load("silent");
       }).finally(() => setSwitching(false));
     });
-  }, [guard, load, me?.locationId, switching]);
+  }, [apply, guard, load, me?.locationId, switching]);
 
   const value = useMemo<OwnerValue>(() => ({
     status, me, error, locations, switching, switchError, epoch,

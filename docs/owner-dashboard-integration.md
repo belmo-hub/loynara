@@ -54,6 +54,63 @@ Gate 1 operations were not reopened. Historical redeploy provenance remains
 **ACCEPTED-RISK — contained and superseded**. No deployment is authorized by this
 integration record.
 
+### Verification and final review
+
+All 17 frozen commits were applied in the specified order without conflicts;
+their patch IDs match the source commits. Slice A passed typecheck, scoped lint,
+6 affected unit tests and 4 browser checks. B passed typecheck, full lint and
+5 setup/brand/programme/owner-role checks. C passed typecheck, full lint,
+324 unit/integration tests (the opt-in local email smoke was skipped at that
+stage), and customers/campaigns/referrals/audiences browser checks. Its campaign
+test needed the already-frozen exact-button selector correction from D in a
+scratch test copy; the D commit was still applied only in its specified order.
+D passed typecheck, full lint, build and 20 dashboard browser tests. Its opt-in
+local billing fixture test was covered in the final supplemental run below.
+
+The independent review found three dashboard defects: location-switch refresh
+failure could leave a loading screen, three content links bypassed the edit
+guard, and changing customer scope could reset the applied filters. Five new
+browser regressions failed against the imported implementation and passed after
+bounded fixes in owner components and the locations page. All findings were
+addressed; there was no second independent review. Production operations and
+the documented backend/provider and browser-Back limitations remained outside
+the review's integration scope.
+
+Final verification after these fixes:
+
+| Command/check | Result |
+|---|---|
+| `npm run typecheck` | Exit 0 |
+| `npm run lint` | Exit 0 |
+| `MAILPIT_SMOKE=true COMPOSE_PROJECT_NAME=loynara npm test` | 62 files, 334 tests passed, 0 skipped; 41.02s |
+| `node var/owner-integration/run-specs.mjs e2e/*.spec.ts` | All 27 files; 45 passed, 1 conditional local-billing skip |
+| `BILLING_FIXTURE_BROWSER=true node var/owner-integration/run-specs.mjs e2e/merchant-billing.spec.ts` | 2 passed, 0 skipped with the guarded local fixture server; covers the skipped test, giving 46 distinct browser tests passed |
+| `npx playwright test --config var/owner-integration/playwright.config.ts var/owner-integration/specs/responsive-accessibility.spec.ts` | 8 passed |
+| `LOOPLOCAL_NEXT_DIST_DIR=.next-device-test npm run build` | Production Turbopack build, exit 0 |
+
+Browser coverage includes dashboard navigation, setup, customers, campaigns,
+referrals, audiences, analytics, cashier, HTTP/security boundaries and tenant
+isolation. Layout checks visit 15 merchant routes at 1440/1024/390/360px and
+200%/300% zoom-equivalent viewport widths; they verify reflow, not the browser's
+native zoom control. The wizard's four steps were checked at all six widths.
+Keyboard checks cover the skip link, dialog focus cycling, Escape and focus
+restoration. Reduced-motion media behavior was checked in Chromium. Back
+interception still depends on the Navigation API as documented in the frozen
+dashboard handoff; this is not a cross-browser accessibility certification.
+
+Tests ran against a byte-verified source snapshot under
+`/tmp/loynara-owner-integration-20261001` because Desktop filesystem reads stalled.
+Existing dependencies were reused with the identical lockfile. Databases and
+email were local synthetic fixtures; the optional billing run used only the
+existing loopback fixture and moved no money. Logs and scratch runners are
+retained in the checkout's ignored `var/owner-integration/` directory.
+
+Outside the dashboard UI/tests/docs and expected legacy-component removal, only
+`src/lib/product.ts`, `src/lib/product.integration.test.ts`, and
+`src/lib/onboarding-compat.integration.test.ts` changed for the authorized bridge.
+There are no outstanding integration blockers. Deployment remains subject to
+explicit approval; `railway-rc` and the frozen Claude branch remain unchanged.
+
 ## Frozen branch handoff (historical)
 
 Branch `claude/owner-dashboard-v1`, base `5c51d992d18095211e169eeb9e5e9ebf8c565b8a`. Nothing is merged or pushed.

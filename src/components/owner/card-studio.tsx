@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { GuardedLink } from "./owner-shell";
 import { useMemo, useRef, useState } from "react";
 import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
 import { HEX_COLOR as HEX, readableInk, whiteContrast } from "./color";
@@ -113,7 +113,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
           <fieldset className="ow-group">
             <legend>Inhalt</legend>
             <div className="ow-readonly"><dl className="ow-dl"><dt>Programm</dt><dd>{program.programName}</dd><dt>Prämie</dt><dd>{program.rewardCost} {program.programType === "stamp" ? "Stempel" : "Punkte"} → {program.rewardTitle}</dd></dl></div>
-            <p className="ow-hint">Programmname, Prämien und Regeln pflegst du unter <Link className="ow-link" href="/merchant/program">Sammelregeln &amp; Prämien</Link>.</p>
+            <p className="ow-hint">Programmname, Prämien und Regeln pflegst du unter <GuardedLink className="ow-link" href="/merchant/program">Sammelregeln &amp; Prämien</GuardedLink>.</p>
           </fieldset>
         </div>
 
