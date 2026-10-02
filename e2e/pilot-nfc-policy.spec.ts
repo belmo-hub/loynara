@@ -69,3 +69,37 @@ test("manager sees an accurate read-only programme action while the owner keeps 
     }
   } finally { await manager.dispose(); await owner.dispose(); }
 });
+
+test("cashier screen shows the NFC confirmation panel only for staff-confirmed programmes", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const { api: owner, me } = await ownerWithProgramme(url);
+  const cashier = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...(productionLike ? { "cf-connecting-ip": "203.0.113.10" } : {}) } });
+  try {
+    const email = `cashier-${randomUUID()}@example.test`;
+    expect((await cashier.post("/api/auth/sign-up/email", { data: { name: "Pilot cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    const { locationId } = await (await owner.get("/api/me")).json() as { locationId: string };
+    const invite = await owner.post("/api/staff/invite", { data: { locationId, email, role: "cashier" } });
+    expect(invite.status()).toBe(201);
+    expect((await cashier.post("/api/staff/accept", { data: { token: (await invite.json() as { token: string }).token } })).status()).toBe(200);
+
+    const ctx = await browser.newContext({ baseURL: url, storageState: await cashier.storageState(), extraHTTPHeaders: productionLike ? { "cf-connecting-ip": "203.0.113.10" } : {} });
+    try {
+      const page = await ctx.newPage();
+      await page.goto("/cashier");
+      await expect(page.getByRole("heading", { name: /Karte scannen/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Offene NFC-Bestätigungen" })).toHaveCount(0);
+      expect((await owner.post("/api/merchant/tap", { data: { action: "policy", programId: me.programId, mode: "staff_confirmed", cooldownSeconds: 60 } })).status()).toBe(200);
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "Offene NFC-Bestätigungen" })).toBeVisible();
+    } finally { await ctx.close(); }
+  } finally { await cashier.dispose(); await owner.dispose(); }
+});
+
+test("login page carries no internal wording and offers registration only where it is enabled", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Gut, dass du da bist." })).toBeVisible();
+  await expect(page.getByText(/Produktvorschau|synthet|Demo/i)).toHaveCount(0);
+  // This suite's server has registration enabled (see PUBLIC_REGISTRATION_ENABLED); production keeps it disabled and shows the "Zugang wird eingerichtet" line instead.
+  await expect(page.getByRole("link", { name: "Konto erstellen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toBeEnabled();
+});

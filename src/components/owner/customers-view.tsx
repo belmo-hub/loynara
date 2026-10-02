@@ -24,6 +24,11 @@ function referralLabel(value: MerchantMember["referralStatus"]) {
   return ({ none: "Keine Zuordnung", pending: "Wartet auf den ersten bestätigten Vorgang", qualified: "Bonus gutgeschrieben", review: "In Prüfung", rejected: "Abgelehnt", reversed: "Nach Korrektur zurückgenommen" } as const)[value];
 }
 
+/** The CSV preview exists only on a local instance (its API answers 404 elsewhere), so the link is not offered anywhere else. */
+function isLocalOrigin(url?: string) {
+  try { return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url ?? "").hostname); } catch { return false; }
+}
+
 export function CustomersView() {
   const owner = useOwner();
   const me = owner.me!;
@@ -129,7 +134,7 @@ export function CustomersView() {
     <div className="ow-page">
       <header className="ow-pagehead">
         <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Pseudonyme Karten mit bestätigten Kassenvorgängen und aktuellem Stand. Namen und Kontaktdaten zeigt Loynara hier nicht.</p></div>
-        <div className="ow-row"><Link className="ow-btn ow-btn--secondary" href="/merchant/audiences">Zielgruppen</Link>{me.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
+        <div className="ow-row"><Link className="ow-btn ow-btn--secondary" href="/merchant/audiences">Zielgruppen</Link>{me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
       </header>
 
       <form className="ow-card ow-filters" onSubmit={submit} role="search" aria-label="Karten filtern">

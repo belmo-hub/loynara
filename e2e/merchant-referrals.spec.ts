@@ -18,7 +18,9 @@ test("synthetic referral link earns once after checkout and reverses with its qu
     const joined = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true } });
     expect(joined.status()).toBe(201);
     const { cardToken: referrerToken } = await joined.json() as { cardToken: string };
-    expect((await guest.get(`/api/card/${encodeURIComponent(referrerToken)}/referral`)).status()).toBe(400);
+    const disabled = await guest.get(`/api/card/${encodeURIComponent(referrerToken)}/referral`);
+    expect(disabled.status()).toBe(200);
+    expect(await disabled.json()).toEqual({ enabled: false });
     expect((await guest.get(`/api/merchant/referrals/settings?programSlug=${encodeURIComponent(programSlug)}`)).status()).toBe(401);
 
     const ownerBrowser = await browser.newContext({ baseURL: url, storageState: await owner.storageState() });

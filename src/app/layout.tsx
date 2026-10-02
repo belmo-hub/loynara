@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Loynara – digitale Treuekarten für deinen Tresen",
-  description: "Ein digitales Stempel- oder Punkteprogramm für lokale Geschäfte. Produktvorschau mit Browserkarte und bewusst bestätigten Kassenbuchungen.",
+  description: "Ein digitales Stempel- oder Punkteprogramm für lokale Geschäfte. Browserkarte mit bewusst bestätigten Kassenbuchungen.",
   robots: { index: false, follow: false },
 };
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./card-referral.module.css";
 
-type ReferralShare = { shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
+type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
 
 export function CardReferral({ token, locale }: { token: string; locale: "de" | "fr" }) {
   const [share, setShare] = useState<ReferralShare | null>(null);
@@ -12,7 +12,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     let active = true;
-    void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(result => { if (active) setShare(result); }).catch(cause => {
+    void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(result => { if (active && (result as { enabled?: boolean }).enabled !== false) setShare(result); }).catch(cause => {
       if (!active || cause instanceof ClientApiError && cause.code === "REFERRAL_DISABLED") return;
       setError(cause instanceof Error ? cause.message : "Empfehlungslink nicht verfügbar.");
     });

@@ -94,7 +94,7 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       locations: locationUsage, invoices, provider: subscription.provider, currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, graceUntil: subscription.graceUntil,
       liveBilling: false as const, fixtureAvailable: billingFixtureAvailable(),
-      countingRule: "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist die Summe der gespeicherten Standortpreise; Steuer ist nicht berechnet und es wird nichts abgebucht. Fixture-Belege sind keine Steuerrechnungen.",
+      countingRule: "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist die Summe der gespeicherten Standortpreise; Steuer ist nicht berechnet und es wird nichts abgebucht." + (billingFixtureAvailable() ? " Fixture-Belege sind keine Steuerrechnungen." : ""),
     };
   });
 }
