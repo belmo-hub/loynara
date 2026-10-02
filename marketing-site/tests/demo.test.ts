@@ -1,66 +1,77 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialDemo, transition, balance, canAdvance, visits, type DemoAction, type DemoState } from '../src/demo.js';
-import { industries, industryKeys } from '../src/site.js';
-import { demoScreens, stepDescription, STEP_TITLES } from '../src/views.js';
+import { initialDemo, transition, viewOf, type DemoAction, type DemoState } from '../src/demo.js';
+import { DEMO, industries, industryKeys } from '../src/site.js';
+import { demoStage, MOMENTS, momentBody, GUIDE } from '../src/views.js';
 
 const run = (s: DemoState, ...actions: DemoAction[]) => actions.reduce(transition, s);
+const A = { nfc: { type: 'entry', entry: 'nfc' }, qr: { type: 'entry', entry: 'qr' }, open: { type: 'open' }, enroll: { type: 'enroll' }, confirm: { type: 'confirm' }, next: { type: 'nextVisit' }, redeem: { type: 'redeem' }, reset: { type: 'reset' }, isNew: { type: 'identity', identity: 'new' } } as const satisfies Record<string, DemoAction>;
 
-test('NFC path: tap raises the request, only the team confirmation awards, and it is idempotent', () => {
-  let s = initialDemo();
-  assert.equal(canAdvance(s), false, 'an entry must be chosen first');
-  s = run(s, 'nfc', 'next');
-  assert.equal(s.step, 1);
-  assert.equal(canAdvance(s), false, 'the card must exist before the visit');
-  s = run(s, 'enroll', 'next');
-  assert.equal(s.step, 2); assert.equal(s.requested, true, 'the tap itself raised the request');
-  assert.equal(balance(s), 0, 'a request alone awards nothing');
-  s = run(s, 'confirm'); assert.equal(balance(s), 1);
-  assert.equal(balance(transition(s, 'confirm')), 1, 'confirming twice never awards twice');
+test('fixture: eight of ten stamps, no demo visits or redemptions at reset', () => {
+  const v = viewOf(initialDemo());
+  assert.deepEqual([v.balance, v.threshold, v.confirmedVisits, v.redemptions, v.pendingRequest], [DEMO.startBalance, 10, 0, 0, false]);
+  assert.deepEqual([DEMO.startBalance, DEMO.threshold], [8, 10]);
 });
 
-test('QR path: the team has to find the card before it can confirm', () => {
-  let s = run(initialDemo(), 'qr', 'next', 'enroll', 'next');
-  assert.equal(s.requested, false);
-  assert.equal(balance(transition(s, 'confirm')), 0);
-  s = run(s, 'scan', 'confirm'); assert.equal(balance(s), 1);
-  assert.equal(transition(initialDemo(), 'scan').requested, false, 'scan only works at the cashier step');
+test('no stamp exists before staff confirmation; confirming gives exactly one and is idempotent', () => {
+  let s = run(initialDemo(), A.open);
+  assert.equal(s.phase, 'request'); assert.equal(viewOf(s).balance, 8); assert.equal(viewOf(s).pendingRequest, true);
+  s = run(s, A.confirm); assert.equal(viewOf(s).balance, 9); assert.equal(viewOf(s).confirmedVisits, 1);
+  const again = transition(s, A.confirm); assert.equal(again, s, 'second confirm changes nothing');
+  assert.equal(viewOf(s).remaining, 1);
 });
 
-test('owner step: simulation reaches the reward once, redemption resets the balance, reset restores the start', () => {
-  let s = run(initialDemo(5), 'nfc', 'next', 'enroll', 'next', 'confirm', 'next');
-  assert.equal(s.step, 3);
-  assert.equal(transition(s, 'redeem').redeemed, false, 'no reward before the threshold');
-  s = run(s, 'more'); assert.equal(balance(s), 5); assert.equal(visits(s), 5);
-  assert.equal(balance(transition(s, 'more')), 5, 'simulating twice does not overshoot');
-  s = run(s, 'redeem'); assert.equal(balance(s), 0);
-  assert.equal(transition(s, 'redeem'), s);
-  assert.deepEqual(transition(s, 'reset'), initialDemo(5));
+test('second visit reaches ten, redemption resets the card, owner counts two visits and one redemption', () => {
+  let s = run(initialDemo(), A.open, A.confirm, A.next);
+  assert.equal(s.phase, 'request2'); assert.equal(viewOf(s).balance, 9);
+  s = run(s, A.confirm); assert.equal(s.phase, 'reward'); assert.equal(viewOf(s).balance, 10); assert.equal(viewOf(s).rewardReady, true);
+  assert.equal(transition(s, A.next), s, 'no third visit before redeeming');
+  s = run(s, A.redeem); const v = viewOf(s);
+  assert.deepEqual([v.balance, v.confirmedVisits, v.redemptions], [0, 2, 1]);
+  assert.equal(transition(s, A.redeem), s); assert.equal(transition(s, A.confirm), s);
+  assert.deepEqual(transition(s, A.reset), initialDemo());
 });
 
-test('back keeps confirmed history and the entry choice is locked after enrolment', () => {
-  let s = run(initialDemo(), 'nfc', 'next', 'enroll', 'next', 'confirm', 'back');
-  assert.equal(balance(s), 1);
-  s = run(initialDemo(), 'nfc', 'next', 'enroll', 'back', 'back');
-  assert.equal(transition(s, 'qr').entry, 'nfc');
+test('repeated rapid actions never duplicate a business effect', () => {
+  const s = run(initialDemo(), A.open, A.open, A.open, A.confirm, A.confirm, A.confirm, A.next, A.next, A.next, A.confirm, A.confirm, A.redeem, A.redeem, A.redeem);
+  const v = viewOf(s); assert.deepEqual([v.balance, v.confirmedVisits, v.redemptions], [0, 2, 1]);
 });
 
-test('every industry is complete and its demo runs to the reward and redemption', () => {
-  assert.equal(industryKeys.length, 8);
-  const seen = new Set<string>();
+test('first-time customer enrols once, without creating a second identity', () => {
+  let s = run(initialDemo(), A.isNew, A.qr, A.open);
+  assert.equal(s.phase, 'enroll'); assert.equal(s.entry, 'qr');
+  assert.equal(transition(s, A.confirm), s, 'cannot confirm before the card exists');
+  s = run(s, A.enroll); assert.equal(s.phase, 'request'); assert.equal(s.enrolled, true);
+  assert.equal(transition(s, A.enroll), s); assert.equal(viewOf(s).balance, 8);
+  assert.equal(transition(s, { type: 'entry', entry: 'nfc' }), s, 'entry is fixed once the visit has started');
+});
+
+test('every number in customer, cashier and owner views comes from one state', () => {
   for (const key of industryKeys) {
-    const x = industries[key];
-    for (const field of ['label', 'name', 'reward', 'visit', 'intro', 'referral'] as const) assert.ok(x[field].trim().length > 8 || field === 'label', `${key}.${field}`);
-    assert.ok(x.threshold >= 3 && x.threshold <= 10);
-    assert.ok(!seen.has(x.reward), 'rewards differ between industries'); seen.add(x.reward);
-    for (const entry of ['nfc', 'qr'] as const) {
-      let s = initialDemo(x.threshold);
-      s = run(s, entry, 'next', 'enroll', 'next', ...(entry === 'qr' ? ['scan' as const] : []), 'confirm', 'next', 'more');
-      assert.equal(balance(s), x.threshold);
-      assert.match(demoScreens(s, key), /Prämie einlösen/);
-      s = run(s, 'redeem');
-      assert.match(demoScreens(s, key), new RegExp(`−${x.threshold} Stempel`));
-      for (const step of [0, 1, 2, 3]) assert.ok(stepDescription({ ...s, step }, key).length > 20 && STEP_TITLES[step]);
+    let s = initialDemo();
+    for (const a of [A.open, A.confirm, A.next, A.confirm, A.redeem]) {
+      s = transition(s, a); const v = viewOf(s), html = demoStage(s, key, true);
+      assert.match(html, new RegExp(`data-balance>${v.balance}<small> / ${v.threshold}`));
+      assert.match(html, new RegExp(`data-visits>${v.confirmedVisits}<`)); assert.match(html, new RegExp(`data-redemptions>${v.redemptions}<`));
+      assert.match(html, new RegExp(`<strong data-owner-balance>${v.balance} / ${v.threshold}<`));
     }
   }
+});
+
+test('each industry changes reward and nouns; every scene is complete', () => {
+  const rewards = new Set<string>();
+  for (const key of industryKeys) {
+    const x = industries[key]; rewards.add(x.reward);
+    for (const f of [x.name, x.reward, x.visit, x.intro, x.referral, x.quiet.message, x.quiet.when, x.regular.who, x.regular.rhythm]) assert.ok(f.length > 6, `${key}`);
+    const html = demoStage(run(initialDemo(), A.open, A.confirm), key, true);
+    assert.ok(html.includes(x.name) && html.toLowerCase().includes(x.reward.slice(0, 12).toLowerCase()));
+    for (const m of MOMENTS) for (const revealed of [false, true]) assert.ok(momentBody(m.id, key, revealed).length > 100);
+    assert.ok(momentBody('quiet', key, true).includes(x.quiet.message.slice(0, 20)));
+    assert.match(momentBody('missing', key, false), new RegExp(x.regular.who));
+  }
+  assert.equal(rewards.size, 8); assert.equal(GUIDE.length, 4);
+});
+
+test('previews are never presented as sent: no send control, explicit "nicht versendet" label', () => {
+  for (const m of MOMENTS) { const html = momentBody(m.id, 'cafe', true); assert.match(html, /nicht versendet/); assert.doesNotMatch(html, /Jetzt senden|gesendet|Zugestellt/i); }
 });

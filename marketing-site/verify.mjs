@@ -26,15 +26,16 @@ for (const page of pages) {
   }
   if (html.includes('data-legal-placeholder')) blockers.push(`${rel} holds a legal placeholder (operator-approved text missing)`);
 }
-for (const file of walk(resolve(root, 'assets/modules'))) {
+for (const file of walk(resolve(root, 'assets')).filter(f => f.endsWith('.js'))) {
   const js = readFileSync(file, 'utf8');
-  assert.doesNotMatch(js, /fetch\(|sendBeacon|XMLHttpRequest|localStorage|sessionStorage|document\.cookie|console\.log/, `${file}: no outbound or persistent data API`);
-  for (const [, p] of js.matchAll(/from ['"](.+?)['"]/g)) assert.ok(existsSync(resolve(dirname(file), p)), `${file}: import ${p}`);
+  assert.doesNotMatch(js, /\bfetch\(|sendBeacon|XMLHttpRequest|WebSocket|localStorage|sessionStorage|document\.cookie|console\.log|eval\(|new Function/, `${file}: no outbound or persistent data API`);
+  assert.doesNotMatch(js, /https?:\/\/(?!getloynara\.com|app\.getloynara\.com|www\.w3\.org|motion\.dev|github\.com|developer\.mozilla\.org)/, `${file}: unexpected URL`);
+  for (const [, p] of js.matchAll(/from\s*['"](\.[^'"]+)['"]/g)) assert.ok(existsSync(resolve(dirname(file), p)), `${file}: import ${p}`);
 }
 const headers = readFileSync(resolve(root, '_headers'), 'utf8');
 assert.match(headers, /script-src 'self'/); assert.match(headers, /connect-src 'none'/); assert.match(headers, /form-action 'none'/); assert.doesNotMatch(headers, /unsafe-inline|unsafe-eval/);
 const robots = readFileSync(resolve(root, 'robots.txt'), 'utf8'); assert.match(robots, /Sitemap: https:\/\/getloynara\.com\/sitemap\.xml/); assert.doesNotMatch(robots, /Disallow: \//);
-for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/fonts/geist-latin.woff2', 'styles.css']) assert.ok(existsSync(resolve(root, asset)), asset);
+for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/app.js', 'assets/fonts/manrope-latin.woff2', 'assets/fonts/fraunces-latin.woff2', 'assets/fonts/fraunces-latin-italic.woff2', 'assets/fonts/Manrope-OFL.txt', 'assets/fonts/Fraunces-OFL.txt', 'styles.css']) assert.ok(existsSync(resolve(root, asset)), asset);
 console.log(`PASS: ${pages.length} pages, ${links} links/anchors/assets, metadata, private-output and browser data-flow checks.`);
 for (const b of blockers) console.log(`PUBLICATION BLOCKER: ${b}`);
 

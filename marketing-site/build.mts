@@ -14,6 +14,7 @@ if (process.env.MARKETING_PUBLIC === 'true' && missing.length) {
 }
 
 await rm(resolve(root, 'assets/modules'), { recursive: true, force: true });
+await rm(resolve(root, 'assets/app.js'), { force: true });
 for (const dir of ['', 'impressum', 'datenschutz']) await mkdir(resolve(root, dir), { recursive: true });
 await writeFile(resolve(root, 'index.html'), homePage());
 await writeFile(resolve(root, 'impressum/index.html'), legalPage('impressum', legal));
@@ -30,6 +31,9 @@ await writeFile(resolve(root, '_headers'), `/*
 `);
 await writeFile(resolve(root, 'styles.css'), await readFile(resolve(here, 'styles.css')));
 
-const result = spawnSync(resolve('node_modules/.bin/tsc'), ['-p', 'marketing-site/tsconfig.json'], { stdio: 'inherit' });
-if (result.status) process.exit(result.status);
+const typecheck = spawnSync(resolve('node_modules/.bin/tsc'), ['-p', 'marketing-site/tsconfig.json'], { stdio: 'inherit' });
+if (typecheck.status) process.exit(typecheck.status);
+// One self-contained, minified browser file (Motion is bundled; the CSP allows only same-origin scripts).
+const { build } = await import(resolve(here, 'node_modules/esbuild/lib/main.js'));
+await build({ entryPoints: [resolve(here, 'src/browser.ts')], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: resolve(root, 'assets/app.js'), legalComments: 'none', logLevel: 'warning' });
 console.log(`Marketing build PASS: ${missing.length ? `3 static pages (legal text pending: ${missing.join(', ')})` : '3 static pages'}, no application/database dependency. Public mode: ${process.env.MARKETING_PUBLIC === 'true' ? 'enabled' : 'disabled'}.`);

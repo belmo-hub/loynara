@@ -1,32 +1,29 @@
 # Loynara marketing site
 
-Static, German-only single page for **https://getloynara.com**. It has no database, application or runtime dependency; the generated `site/` bundle is committed so it can be uploaded as-is.
+Static, German-only single page for **https://getloynara.com** (plus Impressum and Datenschutz). No database, application or runtime dependency; the generated `site/` bundle is committed so it can be uploaded as-is.
 
 ```sh
-npm run marketing:build      # regenerates site/ (3 pages, CSS, browser modules)
-npm run marketing:test       # unit tests: demo flow, request builder, copy/claims guards
-npm run marketing:verify     # static checks on site/: links, anchors, metadata, CSP, private/old content
-npm run marketing:preview    # loopback server on http://127.0.0.1:8765
-node marketing-site/browser-check.mjs   # real-browser checks (preview must be running)
+npm ci --prefix marketing-site        # once: Motion, esbuild, font packages, axe-core (marketing-site only)
+npm run marketing:build               # typecheck + regenerate site/ (HTML, CSS, one minified app.js with Motion bundled)
+npm run marketing:test                # unit tests: calculator maths, demo state machine, request builder, copy/claim guards
+npm run marketing:verify              # static checks on site/: links, anchors, metadata, CSP, private/old content
+PORT=8780 npm run marketing:preview   # loopback server (default port 8765)
+BASE=http://127.0.0.1:8780 node marketing-site/browser-check.mjs   # real-browser checks (preview running)
+BASE=http://127.0.0.1:8780 node marketing-site/a11y-check.mjs      # axe-core WCAG A/AA scan
+BASE=http://127.0.0.1:8780 node marketing-site/perf-check.mjs      # lab metrics, 4x CPU throttle
 ```
 
 ## Structure
-- `src/site.ts` – the single source for the support address, app/login URLs, the €39 offer and the eight industry examples.
-- `src/demo.ts`, `src/views.ts`, `src/browser.ts` – the in-page product demo (customer → cashier → owner; NFC tap or QR entry). Runs only in page memory: no network, no storage.
+- `src/site.ts` – single source for support address, app/login URLs, the €39 offer and the eight industry examples (reward, nouns, scene copy).
+- `src/calc.ts` – calculator maths (integer cents), German input parsing/validation, formatting, axis scale. `src/chart.ts` – SVG chart (two geometries), tooltip and table markup.
+- `src/demo.ts` – the counter demo as one deterministic state machine; `src/views.ts` derives the customer, cashier and owner views from it and renders the business-moment scenes.
+- `src/browser.ts` – wiring and motion (Motion's `animate`/`inView`; CSS for simple states). Everything lives in page memory: no network, no storage.
 - `src/request.ts` – builds the demo-request e-mail. The page never sends anything; it opens a `mailto:` draft to `support@getloynara.com`.
-- `template.ts` – page markup and metadata. `styles.css` – styling (functional pass; the visual redesign is a separate step).
-- `legal/impressum.html`, `legal/datenschutz.html` – factual marketing-only legal content supplied for publication. Without them the legal pages hold a neutral placeholder and are `noindex`.
+- `template.ts` – page markup and metadata. `styles.css` – design tokens and layout. `build.mts` – build.
+- `legal/impressum.html`, `legal/datenschutz.html` – operator-approved legal fragments (published). `MARKETING_PUBLIC=true` fails the build if they are missing.
 
-## Publication gate
-`MARKETING_PUBLIC=true npm run marketing:build` fails while the approved Impressum/Datenschutz fragments are missing. See `LEGAL_LAUNCH_FIELDS.md`. Nothing in this directory deploys anything.
-
-## Routing
-- `getloynara.com` → this site (Cloudflare Pages custom domain)
-- `www.getloynara.com` → redirect to `getloynara.com` (Cloudflare redirect rule; Pages `_redirects` cannot match hosts)
-- `app.getloynara.com` → the Loynara application (unchanged by this site)
-The site links to the application only through `https://app.getloynara.com/login`. The draft application terms are not linked.
+## Delivery
+`getloynara.com` → this site (Cloudflare Pages); `www` → redirect to the apex; `app.getloynara.com` → the application (untouched). `site/_headers` carries the CSP (no inline script or style, no third-party origins) and the cache header required by the Cloudflare delivery setup.
 
 ## Claims boundary
-The copy states only what the application does today: browser cards, stamps or points, NFC-tap and QR entry, staff-confirmed visits, customer list, results, team roles, locations, referrals and brand colours. It does not advertise campaigns/e-mail sending, Wallet, billing automation or logo upload (all withheld in production), automatic stamping, NFC payment, Apple VAS/Google Smart Tap, customer numbers or revenue/ROI figures. Physical NFC tags are not yet hardware-verified; the copy describes the flow without claiming deployment or device results. `tests/site.test.ts` guards these boundaries.
-
-The previous audit-copy site (three languages, €49/€69 proposals, calculators, stale screenshots, internal wording) was removed; it remains in git history.
+The page shows what the pilot offer includes today (cards, stamps/points, rewards, NFC and QR entry, staff confirmation, roles, customer overview, results, referrals, locations) and marks campaigns, messaging, automated reminders and Wallet as a platform outlook that is not part of the offer. Message previews are labelled as not sent. The calculator is a labelled scenario, not a forecast. No testimonials, logos, customer counts, uplift percentages or device-compatibility claims. Physical NFC tags are not described as verified. `tests/site.test.ts` guards these boundaries.

@@ -1,36 +1,48 @@
 /**
- * The visitor-facing walkthrough. A pure state machine: nothing here touches a network, storage or a real account.
- * Flow: the customer arrives by NFC tap or QR scan -> opens/creates a card -> the team confirms -> the owner sees it.
+ * The counter demonstration as one deterministic state machine. Customer, cashier and owner views are all derived from it.
+ * Nothing here touches a network, storage or a real account; scrolling and "view" steps never call transition().
  */
-export type Entry = 'nfc' | 'qr';
-export type DemoState = { threshold: number; step: number; entry: Entry | null; enrolled: boolean; requested: boolean; confirmed: boolean; extra: number; redeemed: boolean };
-export const STEPS = 4;
-export const initialDemo = (threshold = 8): DemoState => ({ threshold, step: 0, entry: null, enrolled: false, requested: false, confirmed: false, extra: 0, redeemed: false });
-export type DemoAction = 'nfc' | 'qr' | 'next' | 'back' | 'enroll' | 'scan' | 'confirm' | 'more' | 'redeem' | 'reset';
+import { DEMO } from './site.js';
 
-export const visits = (s: DemoState) => (s.confirmed ? 1 : 0) + s.extra;
-export const balance = (s: DemoState) => (s.redeemed ? 0 : visits(s));
-export function canAdvance(s: DemoState): boolean {
-  if (s.step >= STEPS - 1) return false;
-  if (s.step === 0) return s.entry !== null;
-  if (s.step === 1) return s.enrolled;
-  return s.confirmed;
-}
-export function transition(s: DemoState, action: DemoAction): DemoState {
-  switch (action) {
-    case 'reset': return initialDemo(s.threshold);
-    case 'nfc': case 'qr': return s.step === 0 && !s.enrolled ? { ...s, entry: action } : s;
-    case 'enroll': return s.step === 1 && s.entry ? { ...s, enrolled: true } : s;
-    case 'next': {
-      if (!canAdvance(s)) return s;
-      // An NFC tap itself raises the request; a QR card has to be found by the team first.
-      const step = s.step + 1;
-      return { ...s, step, requested: s.requested || (step === 2 && s.entry === 'nfc') };
-    }
-    case 'back': return { ...s, step: Math.max(0, s.step - 1) };
-    case 'scan': return s.step === 2 && s.entry === 'qr' && s.enrolled ? { ...s, requested: true } : s;
-    case 'confirm': return s.step === 2 && s.requested && !s.confirmed ? { ...s, confirmed: true } : s;
-    case 'more': return s.step === 3 && s.confirmed && s.extra === 0 && !s.redeemed ? { ...s, extra: s.threshold - 1 } : s;
-    case 'redeem': return s.step === 3 && balance(s) === s.threshold ? { ...s, redeemed: true } : s;
+export type Entry = 'nfc' | 'qr';
+export type Identity = 'returning' | 'new';
+export type Phase = 'start' | 'enroll' | 'request' | 'confirmed' | 'request2' | 'reward' | 'redeemed';
+export type DemoState = { phase: Phase; entry: Entry; identity: Identity; enrolled: boolean };
+export const initialDemo = (): DemoState => ({ phase: 'start', entry: 'nfc', identity: 'returning', enrolled: false });
+
+export type DemoAction =
+  | { type: 'entry'; entry: Entry } | { type: 'identity'; identity: Identity }
+  | { type: 'open' } | { type: 'enroll' } | { type: 'confirm' } | { type: 'nextVisit' } | { type: 'redeem' } | { type: 'reset' };
+
+/** Returns the same object when an action does not apply, so repeated clicks are idempotent. */
+export function transition(s: DemoState, a: DemoAction): DemoState {
+  switch (a.type) {
+    case 'reset': return initialDemo();
+    case 'entry': return s.phase === 'start' && s.entry !== a.entry ? { ...s, entry: a.entry } : s;
+    case 'identity': return s.phase === 'start' && s.identity !== a.identity ? { ...s, identity: a.identity } : s;
+    case 'open': return s.phase !== 'start' ? s : { ...s, phase: s.identity === 'new' && !s.enrolled ? 'enroll' : 'request' };
+    case 'enroll': return s.phase === 'enroll' && !s.enrolled ? { ...s, enrolled: true, phase: 'request' } : s;
+    case 'confirm': return s.phase === 'request' ? { ...s, phase: 'confirmed' } : s.phase === 'request2' ? { ...s, phase: 'reward' } : s;
+    case 'nextVisit': return s.phase === 'confirmed' ? { ...s, phase: 'request2' } : s;
+    case 'redeem': return s.phase === 'reward' ? { ...s, phase: 'redeemed' } : s;
   }
+}
+
+export type DemoView = {
+  balance: number; threshold: number; confirmedVisits: number; redemptions: number;
+  pendingRequest: boolean; rewardReady: boolean; remaining: number;
+  /** which of the four explanatory steps the current state belongs to (0…3) */
+  guideStep: number;
+};
+export const GUIDE_STEPS = 4;
+/** Every number any of the three views shows comes from here. */
+export function viewOf(s: DemoState): DemoView {
+  const visitsConfirmed = { start: 0, enroll: 0, request: 0, confirmed: 1, request2: 1, reward: 2, redeemed: 2 }[s.phase];
+  const redemptions = s.phase === 'redeemed' ? 1 : 0;
+  const balance = s.phase === 'redeemed' ? 0 : DEMO.startBalance + visitsConfirmed;
+  const guideStep = { start: 0, enroll: 0, request: 1, confirmed: 2, request2: 2, reward: 3, redeemed: 3 }[s.phase];
+  return {
+    balance, threshold: DEMO.threshold, confirmedVisits: visitsConfirmed, redemptions,
+    pendingRequest: s.phase === 'request' || s.phase === 'request2', rewardReady: s.phase === 'reward', remaining: Math.max(0, DEMO.threshold - balance), guideStep,
+  };
 }
