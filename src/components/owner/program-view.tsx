@@ -25,7 +25,7 @@ export function ProgramView({ me }: { me: MeResponse }) {
         <>
           <RuleCard me={me} program={data} onSaved={reloadProgram} />
           <RewardsCard me={me} program={data} onChanged={() => { reloadProgram(); }} />
-          <TapPolicyCard me={owner.me ?? me} />
+          {!owner.hiddenSurfaces.includes("nfc") && <TapPolicyCard me={owner.me ?? me} />}
         </>
       ) : (
         <>

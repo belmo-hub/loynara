@@ -1,0 +1,65 @@
+import { existsSync } from "node:fs";
+import { createElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
+
+const PROD = { PRODUCTION_ENVIRONMENT: "loynara-production" };
+const digestOf = (fn: () => unknown) => { try { fn(); } catch (error) { return String((error as { digest?: string }).digest ?? "OTHER"); } return "NONE"; };
+
+describe("pilot surfaces follow the canonical production definition", () => {
+  it("hides billing, campaigns, automations, audiences, wallet previews, the logo upload and the NFC card only on real production", () => {
+    expect(hiddenSurfaces(PROD).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cardLogo", "nfc", "walletPreviews"]);
+    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(7);
+    // device-test / preview (NODE_ENV=production without the marker) and development keep every surface
+    expect(hiddenSurfaces({ NODE_ENV: "production" })).toEqual([]);
+    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "device-test" })).toEqual([]);
+    expect(hiddenSurfaces({ NODE_ENV: "development" })).toEqual([]);
+    expect(surfaceHidden("billing", PROD)).toBe(true);
+    expect(surfaceHidden("billing", {})).toBe(false);
+  });
+});
+
+describe("direct routes for withheld surfaces", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  const layouts = { billing: "@/app/merchant/billing/layout", campaigns: "@/app/merchant/campaigns/layout", automations: "@/app/merchant/automations/layout", audiences: "@/app/merchant/audiences/layout" };
+  for (const [surface, path] of Object.entries(layouts)) {
+    it(`${surface}: 404 on real production, available in development and on a device-test process`, async () => {
+      const { default: Layout } = await import(path);
+      const render = () => Layout({ children: "content" });
+      vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
+      expect(digestOf(render)).toContain("404");
+      vi.stubEnv("PRODUCTION_ENVIRONMENT", "device-test"); vi.stubEnv("NODE_ENV", "production");
+      expect(render()).toBe("content");
+      vi.stubEnv("PRODUCTION_ENVIRONMENT", ""); vi.stubEnv("NODE_ENV", "development");
+      expect(render()).toBe("content");
+    });
+  }
+});
+
+describe("app root and registration page in the pilot", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("the production root redirects to the login page (no draft pricing is ever rendered)", async () => {
+    const { default: Home } = await import("@/app/page");
+    vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
+    const digest = digestOf(() => Home());
+    expect(digest).toContain("NEXT_REDIRECT");
+    expect(digest).toContain("/login");
+  });
+  it("outside production the root still renders the marketing page", async () => {
+    const { default: Home } = await import("@/app/page");
+    vi.stubEnv("PRODUCTION_ENVIRONMENT", ""); vi.stubEnv("NODE_ENV", "development");
+    expect(createElement(() => Home()).type).toBeTruthy();
+    expect(digestOf(() => Home())).toBe("NONE");
+  });
+  it("the sign-up page is offered only while registration is enabled", async () => {
+    const { default: Layout } = await import("@/app/register/layout");
+    vi.stubEnv("PUBLIC_REGISTRATION_ENABLED", "false");
+    expect(digestOf(() => Layout({ children: "x" }))).toContain("/login");
+    vi.stubEnv("PUBLIC_REGISTRATION_ENABLED", "true");
+    expect(Layout({ children: "x" })).toBe("x");
+  });
+  it("the not-found pages exist", () => {
+    expect(existsSync("src/app/not-found.tsx")).toBe(true);
+    expect(existsSync("src/app/merchant/not-found.tsx")).toBe(true);
+  });
+});

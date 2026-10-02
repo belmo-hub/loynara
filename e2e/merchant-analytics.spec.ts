@@ -58,9 +58,11 @@ test("owner sees tenant-scoped checkout analytics while cashier and guest cannot
       await expect(page.getByRole("heading", { name: "Einlösungen" })).toBeVisible();
       await expect(page.getByText("Kaffee", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Coffee", { exact: true })).toBeVisible();
-      await expect(page.getByText("Diese Daten messen weder tatsächliche Besuche noch Umsatzsteigerungen oder zusätzliche Verkäufe.")).toBeVisible();
+      await page.getByText("So zählen wir").click();
+      await expect(page.getByText("nicht alle Besuche, und sagen nichts über Umsatz", { exact: false })).toBeVisible();
+      // Finished-looking pilot page: no future-development or test wording, no empty sections for features that are off.
+      await expect(page.getByText(/Kampagnenversuche|Empfehlungsereignisse|Zustellversuche|Mailpit|noch nicht/i)).toHaveCount(0);
       await page.getByLabel("Zeitraum").selectOption("90");
-      await expect(page.getByText("Verfügbare Zeiträume: 30 und 90 Tage", { exact: false })).toBeVisible();
       await expect(page.getByLabel("Zeitraum")).toHaveValue("90");
     } finally { await ownerBrowser.close(); }
   } finally { await Promise.all([owner.dispose(), cashier.dispose(), guest.dispose()]); }

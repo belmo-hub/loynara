@@ -1,11 +1,18 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import Image from "next/image";
 import { BrandIcon, BrandMark, DemoRequestForm, Icon, SectionHeading } from "@/components/loyalty-ui";
 import { draftPriceMinor } from "@/lib/pricing";
+import { isProductionDeployment } from "@/lib/pilot-policy";
+
+// Pilot: the production app origin has no public marketing page (it would show draft pricing and unapproved claims).
+// Read per request so the decision follows the live deployment. The public website is a separate workstream.
+export const dynamic = "force-dynamic";
 
 const monthlyPrice = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(draftPriceMinor("EUR") / 100);
 
 export default function Home() {
+  if (isProductionDeployment()) redirect("/login");
   return <div className="site-page">
     <header className="site-header"><div className="site-container site-header-inner"><Link href="/" aria-label="Loynara Startseite"><BrandMark /></Link><nav aria-label="Seitennavigation"><a href="#so-gehts">So funktioniert’s</a><a href="#funktionen">Funktionen</a><a href="#preise">Preis</a></nav><div className="site-header-actions"><Link href="/login" className="header-login">Anmelden</Link><Link href="/register" className="button button--small button--ink">Jetzt starten <Icon name="arrow" size={16} /></Link></div></div></header>
 

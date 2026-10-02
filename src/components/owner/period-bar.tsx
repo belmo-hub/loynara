@@ -15,4 +15,5 @@ export function PeriodBar({ id, value, onChange, meta }: { id: string; value: 30
   );
 }
 
-export const ALL_LOCATIONS_NOTE = "Diese Auswertung gilt für dein gesamtes Geschäft, also alle Standorte zusammen. Eine Aufteilung nach Standort gibt es hier noch nicht.";
+/** Shown only when the business has more than one location; with one location it would be noise. */
+export const ALL_LOCATIONS_NOTE = "Diese Auswertung gilt für alle Standorte zusammen.";

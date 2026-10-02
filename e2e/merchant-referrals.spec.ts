@@ -75,7 +75,7 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       await merchantPage.goto("/merchant/analytics");
       await expect(merchantPage.getByRole("heading", { name: "Empfehlungsereignisse" })).toBeVisible();
       await expect(merchantPage.getByText("Korrigierte Empfehlungen")).toBeVisible();
-      await expect(merchantPage.getByText("Ein bestätigter Beitritt ist noch keine Bonusqualifikation.")).toBeVisible();
+      await expect(merchantPage.getByText("Zugeordnete Beitritte")).toBeVisible();
       await merchantPage.screenshot({ path: "screenshots/platform-after-referral-analytics.png", fullPage: true });
     } finally { await ownerBrowser.close(); await guestBrowser.close(); }
   } finally { await owner.dispose(); await guest.dispose(); }

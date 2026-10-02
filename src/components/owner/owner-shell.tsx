@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BrandMark } from "@/components/loyalty-ui";
 import { LogoutButton } from "@/components/logout-button";
-import { activeGroup, groupHref, visibleGroups } from "./nav";
+import { activeGroup, groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 import { useOwner } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 
@@ -40,7 +40,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   }, [open]);
 
   if (owner.status === "unprovisioned") {
-    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex" }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
+    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
   }
   if (owner.status === "error") {
     return <div className="ow-page" style={{ maxWidth: 560, paddingTop: 96 }} role="alert"><div className="ow-card ow-stack"><h1 style={{ fontSize: 22 }}>Dein Bereich ist nicht erreichbar</h1><p className="ow-muted">{owner.error}</p><div><button type="button" className="ow-btn ow-btn--primary" onClick={owner.reload}>Erneut versuchen</button></div><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div></div>;
@@ -48,8 +48,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
 
   const me = owner.me;
   const role = me?.role ?? "owner";
-  const group = activeGroup(pathname, role);
-  const subItems = group ? group.items.filter(item => item.roles.includes(role)) : [];
+  const hidden = me?.hiddenSurfaces ?? [];
+  const group = activeGroup(pathname, role, hidden);
+  const subItems = group ? visibleItems(group, role, hidden) : [];
   const many = owner.locations.length > 1;
 
   return (
@@ -59,8 +60,8 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <div className="ow-brand"><GuardedLink href="/merchant" aria-label="Loynara – zur Übersicht"><BrandMark /></GuardedLink></div>
         <LocationBox />
         <nav className="ow-nav" aria-label="Hauptnavigation">
-          {visibleGroups(role).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
+          {visibleGroups(role, hidden).map(item => (
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{groupLabel(item, hidden)}</GuardedLink>
           ))}
         </nav>
         <div className="ow-side-foot">

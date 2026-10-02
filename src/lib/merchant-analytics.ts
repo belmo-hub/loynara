@@ -165,7 +165,7 @@ export async function getMerchantAnalytics(
     referrals: referralCounts.rows[0],
     campaignAttempts: attemptCount,
     series,
-    countingRule: "Ein Kassenvorgang ist eine eindeutige Karten- und Anfragekennung mit mindestens einer nicht rückgängig gemachten, vom Server bestätigten Online- oder nachträglich synchronisierten Offline-Gutschrift. Ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen zugeordneten Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum; dieselbe Empfehlung kann in mehreren Werten stehen. Kampagnenwerte zählen Zustellversuche, keine Öffnungen.",
+    countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
     limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
   };
 }

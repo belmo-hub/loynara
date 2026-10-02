@@ -20,6 +20,10 @@ const DEMOS: Array<{ id: Demo; label: string }> = [{ id: "new", label: "Neue Kar
 
 export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; program: PublicProgram; initial: Brand; onSaved: (brand: Brand) => void }) {
   const owner = useOwner();
+  const hidden = me.hiddenSurfaces ?? [];
+  const walletsHidden = hidden.includes("walletPreviews");
+  const logoHidden = hidden.includes("cardLogo");
+  const surfaces = walletsHidden ? SURFACES.filter(item => item.id === "browser") : SURFACES;
   const [saved, setSaved] = useState<Brand>(initial);
   const [draft, setDraft] = useState<Brand>(initial);
   const [state, setState] = useState<SaveState>("clean");
@@ -95,9 +99,10 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
                 <div className="ow-field"><label htmlFor="cs-hex" className="ow-hint">Farbwert (Hex)</label><input id="cs-hex" className="ow-input" value={draft.brandColor} maxLength={7} spellCheck={false} onChange={event => edit({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} aria-invalid={!colorValid} aria-describedby={colorValid ? undefined : "cs-hex-err"} /></div>
               </div>
               {!colorValid && <span id="cs-hex-err" className="ow-error">Bitte einen Farbwert wie #1F4A3A eingeben.</span>}
-              {colorValid && appleContrast < 4.5 && <Notice tone="warn">Apple Wallet setzt weiße Schrift. Auf dieser Farbe ist sie schwer lesbar (Kontrast {appleContrast.toFixed(1).replace(".", ",")} : 1). Eine dunklere Farbe liest sich besser.</Notice>}
-              {colorValid && appleContrast >= 4.5 && readableInk(draft.brandColor) === "#000000" && <span className="ow-hint">Browserkarte und Google Wallet wählen automatisch dunkle Schrift.</span>}
+              {!walletsHidden && colorValid && appleContrast < 4.5 && <Notice tone="warn">Apple Wallet setzt weiße Schrift. Auf dieser Farbe ist sie schwer lesbar (Kontrast {appleContrast.toFixed(1).replace(".", ",")} : 1). Eine dunklere Farbe liest sich besser.</Notice>}
+              {!walletsHidden && colorValid && appleContrast >= 4.5 && readableInk(draft.brandColor) === "#000000" && <span className="ow-hint">Browserkarte und Google Wallet wählen automatisch dunkle Schrift.</span>}
             </div>
+            {!logoHidden && (
             <div className="ow-field">
               <span className="ow-label">Logo</span>
               <div className="ow-logo-row">
@@ -109,6 +114,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
               {logoError && <span className="ow-error" role="alert">{logoError}</span>}
               {draft.logoData && <span className="ow-hint">Das Logo wird auf der Browserkarte und im Apple-Pass derzeit nicht angezeigt. Google Wallet nutzt nur PNG-Logos und nur, wenn die Bildfreigabe für Google eingerichtet ist{logoIsPng ? "" : ". Dieses Bild ist kein PNG"}.</span>}
             </div>
+            )}
           </fieldset>
           <fieldset className="ow-group">
             <legend>Inhalt</legend>
@@ -118,9 +124,9 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
         </div>
 
         <div className="ow-studio-preview">
-          <div className="ow-seg" role="tablist" aria-label="Darstellung">
-            {SURFACES.map(item => <button key={item.id} type="button" role="tab" aria-selected={surface === item.id} onClick={() => setSurface(item.id)}>{item.label}</button>)}
-          </div>
+          {surfaces.length > 1 && <div className="ow-seg" role="tablist" aria-label="Darstellung">
+            {surfaces.map(item => <button key={item.id} type="button" role="tab" aria-selected={surface === item.id} onClick={() => setSurface(item.id)}>{item.label}</button>)}
+          </div>}
           <div className="ow-stage" role="tabpanel" aria-label={`Vorschau ${SURFACES.find(item => item.id === surface)?.label}`}><SurfacePreview surface={surface} data={previewData} /></div>
           <div className="ow-seg" role="group" aria-label="Beispielzustand">
             {DEMOS.map(item => <button key={item.id} type="button" aria-pressed={demo === item.id} onClick={() => setDemo(item.id)}>{item.label}</button>)}

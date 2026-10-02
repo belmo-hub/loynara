@@ -50,6 +50,8 @@ export type MeResponse = {
   tapMode?: "disabled" | "automatic_fixed" | "staff_confirmed";
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
+  /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc">;
   tapCooldownSeconds?: number | null;
   rewardTitle: string;
   rewardCost: number;

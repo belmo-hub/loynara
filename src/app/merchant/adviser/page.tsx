@@ -11,22 +11,22 @@ import type { MerchantAdvice } from "@/lib/adviser";
 const day = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
 export default function MerchantAdviserPage() {
-  const { me } = useOwner();
+  const { me, locations } = useOwner();
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [report, reload] = useLoad<MerchantAdvice>(me?.role === "owner" ? `/api/merchant/adviser?window=${windowDays}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Aktionen · Beratung" title="Beratung" lead="Prüfbare Hinweise aus den bestätigten Vorgängen deines Betriebs. Jede Änderung bleibt deine Entscheidung." />;
+  const head = <PageHead eyebrow="Ergebnisse" title="Beratung" lead="Prüfbare Hinweise aus den bestätigten Vorgängen deines Betriebs. Jede Änderung bleibt deine Entscheidung." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können diese Hinweise sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   return (
     <div className="ow-page">
       {head}
-      <Notice>{ALL_LOCATIONS_NOTE}</Notice>
-      <PeriodBar id="adviser-window" value={windowDays} onChange={setWindowDays} meta={r ? `${day(r.from)} bis ${day(r.asOf)} · UTC` : undefined} />
+      {locations.length > 1 && <Notice>{ALL_LOCATIONS_NOTE}</Notice>}
+      <PeriodBar id="adviser-window" value={windowDays} onChange={setWindowDays} meta={r ? `${day(r.from)} bis ${day(r.asOf)}` : undefined} />
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <div className="ow-notice ow-notice--ok"><span><strong>Regelbasiert</strong></span><span>Diese Hinweise folgen festen, sichtbaren Regeln. Eine Modellanbindung ist nicht aktiv.</span></div>
+        <div className="ow-notice ow-notice--ok"><span><strong>Nach festen Regeln</strong></span><span>Diese Hinweise folgen festen, sichtbaren Regeln und beruhen nur auf deinen bestätigten Vorgängen.</span></div>
         <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
           <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Kassenvorgänge" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
         </dl>

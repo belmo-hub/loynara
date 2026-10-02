@@ -6,7 +6,7 @@ import { useOwner } from "@/components/owner/owner-context";
 import { Notice } from "@/components/owner/owner-ui";
 
 export default function MerchantSettingsPage() {
-  const { me, locations } = useOwner();
+  const { me, locations, hiddenSurfaces } = useOwner();
   if (!me) return null;
   if (me.role !== "owner") return <div className="ow-page"><Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
   return (
@@ -22,7 +22,7 @@ export default function MerchantSettingsPage() {
             <dt>Programm</dt><dd>{me.programType === "stamp" ? "Stempelkarte" : "Punktekarte"}</dd>
           </dl>
           <div className="ow-row">
-            <Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program">Name, Farbe und Logo ändern</Link>
+            <Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program/card">{hiddenSurfaces.includes("cardLogo") ? "Name und Farbe ändern" : "Name, Farbe und Logo ändern"}</Link>
             <Link className="ow-btn ow-btn--ghost ow-btn--sm" href="/merchant/locations">Standorte verwalten</Link>
           </div>
         </section>

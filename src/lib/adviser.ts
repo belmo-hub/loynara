@@ -96,8 +96,8 @@ export async function getMerchantAdvice(actorUserId: string, options: { windowDa
     metrics: metrics(report), recommendations: buildRuleBasedAdvice(report),
     limitations: [
       "Die Vorschläge beruhen nur auf bestätigten Vorgängen dieses Händlers und dem gewählten Zeitraum.",
-      "Erfasste Aktivität nach einer Kampagne beweist keine zusätzlichen Verkäufe.",
-      "Es werden keine Kampagnen versendet, Prämien geändert oder Kosten ausgelöst.",
+      "Erfasste Aktivität beweist keine zusätzlichen Verkäufe.",
+      "Die Beratung ändert nichts an deinem Programm, deinen Prämien oder deinen Kosten.",
     ],
   };
 }

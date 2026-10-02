@@ -89,7 +89,7 @@ export default function StaffPage() {
         </section>
       </div>
       <section className="ow-card ow-stack" aria-labelledby="staff-audit-title">
-        <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die letzten 50 Teamereignisse dieses Betriebs. Ältere Einträge stehen im Inhaberexport; eine Aufbewahrungsfrist ist noch nicht festgelegt.</p></div>
+        <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die letzten 50 Teamereignisse dieses Betriebs. Ältere Einträge stehen im Inhaberexport.</p></div>
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length

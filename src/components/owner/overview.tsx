@@ -35,13 +35,13 @@ function NewBusiness({ me }: { me: MeResponse }) {
     { id: "reward", title: "Erste Prämie erstellen", done: me.rewardTitle ? true : false, note: me.rewardTitle ? `${me.rewardCost} ${unit} → ${me.rewardTitle}` : "Lege fest, wofür Kunden sammeln.", href: "/merchant/program", cta: "Prämie bearbeiten" },
     { id: "card", title: "Kundenkarte gestalten", done: logoState, note: logoState === null ? (isOwner ? "Status wird geprüft …" : "Nur Inhaber:innen sehen diesen Status.") : logoState ? "Logo und Farbe sind hinterlegt." : "Farbe und Logo deiner Karte festlegen.", href: "/merchant/program/card", cta: "Karte gestalten" },
     { id: "test", title: "Ablauf testen", done: hasStamp, note: hasStamp ? "Die erste Gutschrift wurde an der Kasse bestätigt." : "Melde dich mit dem Anmeldelink selbst an und bestätige an der Kasse einen ersten Stempel.", href: "/cashier", cta: "Kasse öffnen" },
-  ];
+  ].filter(step => !(step.id === "card" && (me.hiddenSurfaces ?? []).includes("cardLogo")));
   const doneCount = steps.filter(step => step.done === true).length;
   const next = steps.find(step => step.done !== true);
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">{me.locationName}</p><h1>Dein Treueprogramm einrichten</h1><p>Vier Schritte bis zur ersten bestätigten Gutschrift. Alles lässt sich später ändern.</p></div>
+        <div><p className="ow-eyebrow">{me.locationName}</p><h1>Dein Treueprogramm einrichten</h1><p>{steps.length === 4 ? "Vier" : "Drei"} Schritte bis zur ersten bestätigten Gutschrift. Alles lässt sich später ändern.</p></div>
       </header>
       <div className="ow-two">
         <div className="ow-stack">
@@ -58,7 +58,6 @@ function NewBusiness({ me }: { me: MeResponse }) {
             </ol>
             {brand.state === "error" && <div style={{ marginTop: 12 }}><Notice tone="warn" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadBrand}>Erneut laden</button>}>Der Status der Kundenkarte konnte nicht geladen werden.</Notice></div>}
           </section>
-          <p className="ow-hint" style={{ paddingInline: 4 }}>Für den Start reicht die Browserkarte. Wallet-Karten, NFC-Tap und E-Mail-Versand richtest du später und getrennt ein.</p>
         </div>
         <aside className="ow-stack" aria-label="Vorschau und Einladung">
           <section className="ow-card ow-stack" aria-labelledby="ow-prev-title">
@@ -81,8 +80,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [analytics, reloadAnalytics] = useLoad<Analytics>(periodMode ? `/api/merchant/analytics?window=${windowDays}` : null);
   const slug = encodeURIComponent(me.programSlug);
-  const [inactive, reloadInactive] = useLoad<AudienceCount>(`/api/merchant/audiences/preview?programSlug=${slug}&kind=inactive&daysSinceLast=30`);
-  const [close, reloadClose] = useLoad<AudienceCount>(`/api/merchant/audiences/preview?programSlug=${slug}&kind=close_to_reward&maxRemaining=2`);
+  // "Als Nächstes" proposes campaigns and audiences; where those surfaces are withheld (pilot production) the card and its requests are omitted.
+  const showNext = !(me.hiddenSurfaces ?? []).some(surface => surface === "campaigns" || surface === "audiences");
+  const [inactive, reloadInactive] = useLoad<AudienceCount>(showNext ? `/api/merchant/audiences/preview?programSlug=${slug}&kind=inactive&daysSinceLast=30` : null);
+  const [close, reloadClose] = useLoad<AudienceCount>(showNext ? `/api/merchant/audiences/preview?programSlug=${slug}&kind=close_to_reward&maxRemaining=2` : null);
   const [refreshing, setRefreshing] = useState(false);
   const unit = unitOf(me);
 
@@ -116,7 +117,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
       <div className="ow-two">
         <div className="ow-stack">
-          <NextActions me={me} inactive={inactive} close={close} reloadInactive={reloadInactive} reloadClose={reloadClose} unit={unit} />
+          {showNext && <NextActions me={me} inactive={inactive} close={close} reloadInactive={reloadInactive} reloadClose={reloadClose} unit={unit} />}
           <RecentActivity me={me} />
         </div>
         <aside className="ow-stack" aria-label="Programm und Einladung">
@@ -216,7 +217,7 @@ function ProgrammeCard({ me }: { me: MeResponse }) {
       <dl className="ow-dl">
         <dt>Art</dt><dd>{me.programType === "stamp" ? "Stempelkarte" : "Punktekarte"}</dd>
         <dt>Prämie</dt><dd>{me.rewardCost} {unitOf(me)} → {me.rewardTitle}</dd>
-        {tap && <><dt>NFC-Tap</dt><dd>{tap}</dd></>}
+        {tap && !(me.hiddenSurfaces ?? []).includes("nfc") && <><dt>NFC-Tap</dt><dd>{tap}</dd></>}
       </dl>
       <div><Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program">{me.role === "owner" ? "Programm bearbeiten" : "Programm ansehen"}</Link></div>
     </section>

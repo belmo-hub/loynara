@@ -1,5 +1,6 @@
 "use client";
 
+import type { PilotSurface } from "@/lib/pilot-surfaces";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
@@ -11,6 +12,8 @@ type NavigationLike = { addEventListener: (type: string, listener: EventListener
 type Status = "loading" | "ready" | "unprovisioned" | "error";
 
 type OwnerValue = {
+  /** Surfaces withheld on this deployment, known even before an account has a merchant (see lib/pilot-surfaces). */
+  hiddenSurfaces: readonly PilotSurface[];
   status: Status;
   me: MeResponse | null;
   error: string;
@@ -68,7 +71,7 @@ async function fetchAccount(): Promise<AccountResult> {
   }
 }
 
-export function OwnerProvider({ children }: { children: ReactNode }) {
+export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: ReactNode; hiddenSurfaces?: readonly PilotSurface[] }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -166,9 +169,9 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
   }, [apply, guard, load, me?.locationId, switching]);
 
   const value = useMemo<OwnerValue>(() => ({
-    status, me, error, locations, switching, switchError, epoch,
+    hiddenSurfaces, status, me, error, locations, switching, switchError, epoch,
     refresh: () => load("silent"), reload: () => { setStatus("loading"); setError(""); void load("initial"); }, resetAfterSignOut, setDirty, guard, switchLocation, announce: setMessage,
-  }), [status, me, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
+  }), [hiddenSurfaces, status, me, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
 
   return (
     <OwnerContext.Provider value={value}>

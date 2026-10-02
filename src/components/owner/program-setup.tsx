@@ -30,6 +30,8 @@ function draftRules(type: ProgramKind, mode: EarningMode, rate: number, reward: 
 export function ProgramSetup() {
   const router = useRouter();
   const owner = useOwner();
+  const logoHidden = owner.hiddenSurfaces.includes("cardLogo");
+  const walletsHidden = owner.hiddenSurfaces.includes("walletPreviews");
   const heading = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState(0);
   const [tried, setTried] = useState(false);
@@ -148,20 +150,22 @@ export function ProgramSetup() {
             <div className="ow-readonly" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${NO_MIN_SPEND_LABEL}.`}</div>
           </>}
           {step === 3 && <>
-            <div><h2>Karte gestalten und prüfen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Farbe und Logo lassen sich später im Kartenstudio ändern.</p></div>
+            <div><h2>Karte gestalten und prüfen</h2><p className="ow-muted" style={{ fontSize: 14 }}>{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p></div>
             <div className="ow-field"><span className="ow-label" id="su-color-l">Markenfarbe</span>
               <div className="ow-swatches" role="group" aria-labelledby="su-color-l">{SWATCHES.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={`Farbe ${hex}`} aria-pressed={f.brandColor.toLowerCase() === hex.toLowerCase()} onClick={() => set({ brandColor: hex })} />)}</div>
               <input id="su-brandColor" className="ow-input" style={{ maxWidth: 200 }} value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} aria-invalid={Boolean(err("brandColor"))} aria-label="Farbwert (Hex)" />
               {err("brandColor") && <span className="ow-error">{err("brandColor")}</span>}
             </div>
-            <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB."><input id="su-logo" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => set({ logo: event.target.files?.[0] ?? null })} /></Field>
+            {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB."><input id="su-logo" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => set({ logo: event.target.files?.[0] ?? null })} /></Field>}
             <Field id="su-programName" label="Programmname"><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} onChange={event => set({ programName: event.target.value })} /></Field>
             <details><summary style={{ cursor: "pointer", minHeight: 32, fontWeight: 700 }}>Weitere Einstellungen</summary>
               <div className="ow-stack" style={{ marginTop: 12 }}>
                 <Field id="su-date" label="Gültig ab"><input id="su-date" className="ow-input" type="date" value={f.date} onChange={event => set({ date: event.target.value })} style={{ maxWidth: 220 }} /></Field>
+                {!walletsHidden && <>
                 <div className="ow-grid-2"><Field id="su-latitude" label="Breitengrad (optional)"><input id="su-latitude" className="ow-input" inputMode="decimal" value={f.latitude} onChange={event => set({ latitude: event.target.value })} /></Field><Field id="su-longitude" label="Längengrad (optional)"><input id="su-longitude" className="ow-input" inputMode="decimal" value={f.longitude} onChange={event => set({ longitude: event.target.value })} /></Field></div>
                 <span className="ow-hint">Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert.</span>
                 {err("coords") && <span className="ow-error">{err("coords")}</span>}
+                </>}
               </div>
             </details>
             <div className="ow-card ow-card--flat" style={{ background: "var(--ow-surface-2)" }}>
@@ -170,7 +174,6 @@ export function ProgramSetup() {
               <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: 14 }} className="ow-muted">
                 <li>Das Programm startet mit dem Speichern (gültig ab {f.date}). Kunden können sich dann anmelden.</li>
                 <li>Papierstempel werden nicht automatisch übernommen. Dein Team prüft und bestätigt jede Übertragung einzeln.</li>
-                <li>Wallet-Karten, NFC-Tap und E-Mail-Versand sind getrennte, optionale Einrichtungen und noch nicht aktiv.</li>
               </ul>
             </div>
             {error && <Notice tone="danger" role="alert">{error} Deine Eingaben sind noch da.</Notice>}

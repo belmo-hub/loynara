@@ -26,13 +26,15 @@ test(`NFC policy: server and UI follow the pilot policy (${productionLike ? "pro
     try {
       const page = await ctx.newPage();
       await page.goto("/merchant/program");
-      await page.getByText("NFC-Tap (optional)").click();
-      await expect(page.getByRole("radio", { name: /Aus/ })).toBeVisible();
-      await expect(page.getByRole("radio", { name: /Mit Bestätigung/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Sammelregeln & Prämien" })).toBeVisible();
       if (productionLike) {
-        await expect(page.getByRole("radio", { name: /Automatisch/ })).toHaveCount(0);
+        // Real pilot production: the NFC card is withheld entirely (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
+        await expect(page.getByText("NFC-Tap (optional)")).toHaveCount(0);
         expect((await policy("automatic_fixed")).status()).toBe(400);
       } else {
+        await page.getByText("NFC-Tap (optional)").click();
+        await expect(page.getByRole("radio", { name: /Aus/ })).toBeVisible();
+        await expect(page.getByRole("radio", { name: /Mit Bestätigung/ })).toBeVisible();
         await expect(page.getByRole("radio", { name: /Automatisch/ })).toBeEnabled();
       }
     } finally { await ctx.close(); }
@@ -102,4 +104,51 @@ test("login page carries no internal wording and offers registration only where 
   // This suite's server has registration enabled (see PUBLIC_REGISTRATION_ENABLED); production keeps it disabled and shows the "Zugang wird eingerichtet" line instead.
   await expect(page.getByRole("link", { name: "Konto erstellen" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toBeEnabled();
+});
+
+const HIDDEN_ROUTES = ["/merchant/billing", "/merchant/billing/fixture/x", "/merchant/campaigns", "/merchant/automations", "/merchant/audiences"];
+
+test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all available outside production"}`, async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const { api, me } = await ownerWithProgramme(url);
+  const headers: Record<string, string> = productionLike ? { "cf-connecting-ip": "203.0.113.11" } : {};
+  const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...headers } });
+  try {
+    expect((await guest.post("/api/enroll", { data: { slug: me.programSlug, acceptedTerms: true, marketingOptIn: false } })).status()).toBe(201); // a first card, so the overview is the active-business view
+    const ctx = await browser.newContext({ baseURL: url, storageState: await api.storageState(), extraHTTPHeaders: headers });
+    try {
+      const page = await ctx.newPage();
+      const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
+      await page.goto("/merchant");
+      await expect(page.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
+      if (productionLike) {
+        await expect(nav.getByRole("link", { name: "Auswertung" })).toBeVisible();
+        await expect(nav.getByRole("link", { name: "Aktionen" })).toHaveCount(0);
+        await expect(page.getByText("Als Nächstes")).toHaveCount(0);
+        for (const path of HIDDEN_ROUTES) {
+          await page.goto(path);
+          await expect(page.getByRole("heading", { name: "Diese Seite gibt es nicht." }), path).toBeVisible();
+          await expect(page.getByText(/Tarif|Abrechnung bestätigen|€|Kampagne|Segmente/)).toHaveCount(0);
+        }
+        await page.goto("/merchant/settings");
+        await expect(page.getByRole("link", { name: "Abrechnung" })).toHaveCount(0);
+        await page.goto("/merchant/analytics");
+        await expect(page.getByRole("heading", { name: "Auswertung", exact: true })).toBeVisible();
+        await expect(page.getByText(/Zustellversuche|Kampagnenversuche|noch nicht/i)).toHaveCount(0);
+        await page.goto("/merchant/program/card");
+        await expect(page.getByText(/Apple Wallet|Google Wallet|Logo/)).toHaveCount(0);
+        // The app root is the login page, without draft pricing. (The sign-up page redirect follows PUBLIC_REGISTRATION_ENABLED and is covered by a unit test; this suite needs registration on to create its accounts.)
+        await page.goto("/");
+        await expect(page).toHaveURL(`${url}/login`);
+        await expect(page.getByText(/€|Preis|FAIR PRO STANDORT/)).toHaveCount(0);
+      } else {
+        await page.goto("/merchant/billing");
+        await expect(page.getByRole("heading", { name: "Tarif und Abrechnung" })).toBeVisible();
+        await page.goto("/merchant/campaigns");
+        await expect(page.getByRole("heading", { name: "Kampagnen", exact: true })).toBeVisible();
+        await page.goto("/merchant");
+        await expect(nav.getByRole("link", { name: "Aktionen" })).toBeVisible();
+      }
+    } finally { await ctx.close(); }
+  } finally { await guest.dispose(); await api.dispose(); }
 });

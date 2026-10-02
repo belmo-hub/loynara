@@ -15,7 +15,7 @@ export default function CardStudioPage() {
   const [program, reloadProgram] = useLoad<PublicProgram>(isOwner && slug ? `/api/program/${slug}` : null);
   const [, setVersion] = useState(0);
   if (!me) return null;
-  const head = <header className="ow-pagehead"><div><p className="ow-eyebrow">Treueprogramm</p><h1>Kundenkarte</h1><p>Gestalte, wie deine Karte im Browser und in den Wallets aussieht. Nichts wird gespeichert, bis du es bestätigst.</p></div></header>;
+  const head = <header className="ow-pagehead"><div><p className="ow-eyebrow">Treueprogramm</p><h1>Kundenkarte</h1><p>{me.hiddenSurfaces?.includes("walletPreviews") ? "Gestalte, wie deine Karte im Browser aussieht." : "Gestalte, wie deine Karte im Browser und in den Wallets aussieht."} Nichts wird gespeichert, bis du es bestätigst.</p></div></header>;
   if (!isOwner) return <div className="ow-page">{head}<Notice tone="warn">Die Kundenkarte kann nur von Inhaber:innen gestaltet werden.</Notice></div>;
   if (brand.state === "error" || program.state === "error") {
     return <div className="ow-page">{head}<Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { reloadBrand(); reloadProgram(); }}>Erneut laden</button>}>{brand.state === "error" ? brand.message : program.state === "error" ? program.message : ""}</Notice></div>;

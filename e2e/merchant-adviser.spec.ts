@@ -29,7 +29,7 @@ test("synthetic merchant adviser changes after a confirmed checkout", async ({ b
       const page = await ownerBrowser.newPage();
       await page.goto("/merchant/adviser");
       await expect(page.getByRole("heading", { name: "Beratung", exact: true })).toBeVisible();
-      await expect(page.getByText("Regelbasiert", { exact: true })).toBeVisible();
+      await expect(page.getByText("Nach festen Regeln", { exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Ersten Kassenvorgang prüfen" })).toBeVisible();
       expect((await owner.get("/api/merchant/adviser?window=30")).status()).toBe(200);
       const award = await owner.post("/api/cashier/award", { data: { membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() } });

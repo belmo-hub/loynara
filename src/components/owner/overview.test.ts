@@ -71,3 +71,22 @@ describe("Overview programme call to action follows the role", () => {
     expect(html).toContain("Programm ansehen");
   });
 });
+
+describe("Overview next-actions card follows the withheld surfaces", () => {
+  const render = (hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences">) => {
+    state.me = {
+      userId: "u", tenantId: "tenant", locationId: "location", role: "owner",
+      businessName: "Test Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
+      programSlug: "test-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
+      stats: { members: 1, awards: 1, redemptions: 0 }, activity: [], hiddenSurfaces,
+    };
+    return renderToStaticMarkup(createElement(Overview));
+  };
+  it("is shown where campaigns exist", () => { expect(render()).toContain("Als Nächstes"); });
+  it("is omitted where campaigns and audiences are withheld (pilot production)", () => {
+    const html = render(["billing", "campaigns", "automations", "audiences"]);
+    expect(html).not.toContain("Als Nächstes");
+    expect(html).not.toContain("/merchant/campaigns");
+    expect(html).not.toContain("/merchant/audiences");
+  });
+});
