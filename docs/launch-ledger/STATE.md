@@ -75,9 +75,9 @@ The owner decided that Wallet and secure NFC do **not** block the *first real me
 
 | Level | Meaning | Includes | Current readiness |
 |---|---|---|---|
-| **First real merchant pilot** | One real merchant, browser/QR loyalty, operator-provisioned accounts, supervised | Owner dashboard, QR card, cashier, ledger, monitoring, backups. Wallet, NFC, billing and external e-mail off unless separately approved. | **NOT READY** — owner/legal inputs and pilot-hygiene work open ([O-001](OPEN-ITEMS.md#o-001)–[O-009](OPEN-ITEMS.md#o-009)). |
+| **First real merchant pilot** | One real merchant, browser/QR loyalty, operator-provisioned accounts, supervised | Owner dashboard, QR card, cashier, ledger, monitoring, backups. Wallet, NFC, billing and external e-mail off unless separately approved. | **NOT READY** — owner/legal inputs and pilot-hygiene work open ([O-001](OPEN-ITEMS.md#o-001)–[O-010](OPEN-ITEMS.md#o-010)). |
 | **Public / sellable launch** | Commercial sales, public root site, billing, legal documents | Pilot scope plus Gates 7 and 8 work | **NOT READY** ([O-011](OPEN-ITEMS.md#o-011)–[O-019](OPEN-ITEMS.md#o-019)). |
-| **Wallet-enabled launch** | Real Apple/Google passes | Provider choice, adapter, diligence, P0 hardening | **NOT STARTED** in code; PoC only ([O-020](OPEN-ITEMS.md#o-020)–[O-026](OPEN-ITEMS.md#o-026)). |
+| **Wallet-enabled launch** | Real Apple/Google passes | Provider choice, adapter, diligence, P0 hardening | **NOT READY** — native Apple/Google adapters exist and are fixture/automated-tested ([T-060](TEST-EVIDENCE.md#t-060)); **no production provider is enabled**; real provider/device test NOT RUN; PassFast is a synthetic PoC only and **no PassFast production adapter has been implemented** ([O-020](OPEN-ITEMS.md#o-020)–[O-026](OPEN-ITEMS.md#o-026)). |
 | **Secure-NFC-enabled launch** | Real tag taps | Key provider, production CLI, physical tests | **NOT STARTED** physically ([O-030](OPEN-ITEMS.md#o-030)–[O-037](OPEN-ITEMS.md#o-037)). |
 | **Full frozen V1** | All eight frozen gates incl. Wallet and NFC | [V1_RELEASE_GATES.md](../../V1_RELEASE_GATES.md) | **Not redefined.** A formal amendment, if wanted, is an open decision ([O-018](OPEN-ITEMS.md#o-018)). |
 

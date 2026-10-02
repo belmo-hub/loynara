@@ -213,7 +213,7 @@ anything beyond the words themselves). Evidence IDs point to [EVIDENCE-INDEX.md]
 
 <a id="d-029"></a>
 ### D-029 — NFC reader: REINER SCT cyberJack RFID basis
-- **Date:** not recorded (reported 2026-10-02). **State:** DECIDED. **Status:** OWNER-REPORTED.
+- **Date:** purchase date not recorded (first reported 2026-10-01 22:36Z). **State:** DECIDED. **Status:** OWNER-REPORTED.
 - **Why / notes:** Compatibility is *expected* from the generic PC/SC architecture (the CLI uses transparent ISO-DEP APDUs through the OS PC/SC library and no reader-specific commands); **not** physically verified. Earlier candidates (Identiv uTrust 3700 F "most likely" on 2026-09-30; ACS ACR1252U in the docs) are superseded by this purchase. The Mac saw zero readers on 2026-09-30.
 - **Evidence:** [E-034](EVIDENCE-INDEX.md#e-034), [E-032](EVIDENCE-INDEX.md#e-032). **Reversible:** Yes. See [O-030](OPEN-ITEMS.md#o-030).
 

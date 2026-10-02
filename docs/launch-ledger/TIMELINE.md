@@ -165,10 +165,10 @@ Checkpoint 001.
 - **Status:** DEPLOYED (monitors); hazard VERIFIED then fixed ([TL-021](TIMELINE.md#tl-021)) · **Evidence:** [E-005](EVIDENCE-INDEX.md#e-005), [E-002](EVIDENCE-INDEX.md#e-002).
 
 <a id="tl-021"></a>
-### TL-021 — 2026-09-29 17:02–19:24Z — Peer-identity fix with two independent Claude reviews
-- **Agent:** Codex gpt-6-astra/medium; Claude claude-sonnet-5-5 (18:53Z) and claude-opus-5-5 (19:24Z).
+### TL-021 — 2026-09-29 17:02–19:44Z — Peer-identity fix with two independent Claude reviews
+- **Agent:** Codex gpt-6-astra/medium; Claude claude-sonnet-5-5 (first review, 18:53Z); Claude final review requested on **Claude Opus 5.5** (task 19:24Z), but the owner switched the session back to Sonnet within about a minute and the approving verdict (~19:44Z) was produced by **claude-sonnet-5-5** (transcript metadata; corrected after independent review).
 - **Branch · SHA:** `railway-rc` · `d0d7426` (16:41Z hold) → `0946c81` (17:02:36Z) → `e94fd5c` (19:16:02Z).
-- **Result:** `0946c81` added explicit trusted Cloudflare ingress, validated visitor identity, hashed peer keys. Claude review (18:53Z): **CHANGES_REQUIRED** — IPv6 clients could bypass per-peer limits (F-1). `e94fd5c` groups IPv6 by /64 and signals ingress failures. Claude final review (19:24Z): **APPROVE_FOR_DEPLOYMENT_VERIFICATION**, F-1/F-2 resolved. `e94fd5c` became the reviewed web/worker/migrate runtime.
+- **Result:** `0946c81` added explicit trusted Cloudflare ingress, validated visitor identity, hashed peer keys. Claude review (18:53Z): **CHANGES_REQUIRED** — IPv6 clients could bypass per-peer limits (F-1). `e94fd5c` groups IPv6 by /64 and signals ingress failures. Claude final review (task 19:24Z, verdict ~19:44Z, Sonnet): **APPROVE_FOR_DEPLOYMENT_VERIFICATION**, F-1/F-2 resolved. `e94fd5c` became the reviewed web/worker/migrate runtime.
 - **Status:** TESTED; later DEPLOYED ([TL-025](TIMELINE.md#tl-025)) · **Evidence:** [E-005](EVIDENCE-INDEX.md#e-005), [E-009](EVIDENCE-INDEX.md#e-009), [E-032](EVIDENCE-INDEX.md#e-032). See [D-026](DECISIONS.md#d-026).
 
 <a id="tl-022"></a>
@@ -267,13 +267,13 @@ Checkpoint 001.
 <a id="tl-036"></a>
 ### TL-036 — dates not recorded — NFC hardware purchased (owner-reported)
 - **Agent:** owner (Tier 3) · **Requested/actual model:** n/a.
-- **Result:** The owner reports purchasing **ten NTAG 424 DNA 28×28 mm on-metal tags** for Loynara physical testing (an order is mentioned on 2026-09-30 21:52Z) and a **REINER SCT cyberJack RFID basis** reader (purchase date not recorded). Compatibility is expected from the generic PC/SC architecture; physical NTAG 424 provisioning is **not yet verified**. Purchase cost, supplier, delivery date and serial numbers are **UNKNOWN** and deliberately not recorded.
+- **Result:** The owner reports purchasing **ten NTAG 424 DNA 28×28 mm on-metal tags** for Loynara physical testing (an order is mentioned on 2026-09-30 21:52Z; the purchase is stated in the 2026-10-01 22:36Z task prompt) and a **REINER SCT cyberJack RFID basis** reader (purchase date not recorded; first reported 2026-10-01 22:36Z). Compatibility is expected from the generic PC/SC architecture; physical NTAG 424 provisioning is **not yet verified**. Purchase cost, supplier, delivery date and serial numbers are **UNKNOWN** and deliberately not recorded.
 - **Status:** OWNER-REPORTED · **Evidence:** [E-034](EVIDENCE-INDEX.md#e-034). See [D-028](DECISIONS.md#d-028), [D-029](DECISIONS.md#d-029), [O-030](OPEN-ITEMS.md#o-030).
 
 <a id="tl-037"></a>
-### TL-037 — date not recorded (reported 2026-10-02) — Apple Developer enrollment cannot be completed (owner-reported)
+### TL-037 — 2026-09-30 22:21Z (first owner report; restated 2026-10-01 22:36Z) — Apple Developer enrollment cannot be completed (owner-reported)
 - **Agent:** owner (Tier 3) · **Requested/actual model:** n/a.
-- **Result:** The owner reports currently being **unable to complete Apple Developer Program enrollment**; this is why managed-signing providers were investigated as a temporary bridge. The reason is not recorded (UNKNOWN). Apple Developer enrollment is not on the critical path for the first pilot ([D-024](DECISIONS.md#d-024)).
+- **Result:** The owner reports currently being **unable to complete Apple Developer Program enrollment**; this is why managed-signing providers were investigated as a temporary bridge. First stated by the owner on 2026-09-30 22:21Z in the WalletWallet/PassFast research task ("I currently cannot enroll in the Apple Developer Program"); restated in the 2026-10-01 22:36Z task prompt (00:36 CEST on Oct 2). The reason is not recorded (UNKNOWN). Apple Developer enrollment is not on the critical path for the first pilot ([D-024](DECISIONS.md#d-024)).
 - **Status:** OWNER-REPORTED · **Evidence:** [E-034](EVIDENCE-INDEX.md#e-034). See [D-018](DECISIONS.md#d-018), [O-025](OPEN-ITEMS.md#o-025).
 
 ---
@@ -442,3 +442,22 @@ Checkpoint 001.
 - **Branch · SHA:** `docs/launch-ledger-checkpoint-001` from `5c580be` (documentation only; the ledger commit SHA is intentionally not embedded here).
 - **Result:** This ledger. No application code, infrastructure or database was touched.
 - **Status:** IMPLEMENTED (documentation); **not deployed** ([REL-013](RELEASES.md#rel-013)) · **Evidence:** [E-001](EVIDENCE-INDEX.md#e-001).
+
+---
+
+## Post-checkpoint housekeeping (2026-10-02)
+
+Recorded with Checkpoint 001 because they close its own open items; they do not change the release.
+
+<a id="tl-063"></a>
+### TL-063 — 2026-10-02, completed 07:57:48Z — Evidence preservation checkpoint #1
+- **Agent:** as recorded in the preservation record (not re-checked in the correction pass).
+- **Result:** Preservation of the Checkpoint-001 evidence completed: an archive outside the repository (636 files; 635 checksum files verified; three age-encrypted parts for secret-bearing material; plain-text sensitive scan PASS), bound to release `5c580be` and ledger commit `d73f1f1`. The record's final remote-ref listing shows `claude/owner-dashboard-v1` and the four `checkpoint/*` tags on `origin`.
+- **Status:** VERIFIED (Tier 2, preservation record) · **Evidence:** [E-045](EVIDENCE-INDEX.md#e-045). Closes [O-050](OPEN-ITEMS.md#o-050) for Checkpoint 001.
+
+<a id="tl-064"></a>
+### TL-064 — 2026-10-02 — Independent review of Checkpoint 001 and required corrections
+- **Agent:** Claude · actual claude-opus-5-5 · requested Claude Opus 5.5 / High (review) and Claude Sonnet 5.5 / Medium (corrections; performed in the same Opus session).
+- **Branch · SHA:** `docs/launch-ledger-checkpoint-001` · `d73f1f1` → one documentation-only correction commit.
+- **Result:** Strictly read-only review: structure, a 15-item risk-based factual sample, status semantics, secret scan, release tuple and open items. Verdict **LEDGER REVIEW = PASS WITH MINOR CORRECTIONS**; no major discrepancy; release tuple confirmed. The six required corrections were applied ([CHECKPOINT-001](checkpoints/CHECKPOINT-001.md#post-review-corrections)); optional suggestions were not.
+- **Status:** VERIFIED (activity); IMPLEMENTED (documentation); **not deployed** ([REL-013](RELEASES.md#rel-013)) · **Evidence:** [E-044](EVIDENCE-INDEX.md#e-044). Closes [O-054](OPEN-ITEMS.md#o-054).

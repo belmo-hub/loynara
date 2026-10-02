@@ -6,7 +6,7 @@
 | Authored | 2026-10-02 (CEST), by Claude (actual `claude-sonnet-5-5`; requested Claude Sonnet 5.5, effort Extra) |
 | Base | `railway-rc` = `5c580be9b1887327cc456e672d2f25f29fc25830` |
 | Branch | `docs/launch-ledger-checkpoint-001` — documentation only, **not deployed code** ([REL-013](../RELEASES.md#rel-013)) |
-| Independent review | **Not yet done** ([O-054](../OPEN-ITEMS.md#o-054)) |
+| Independent review | **COMPLETE** — Claude Opus 5.5, verdict *PASS WITH MINOR CORRECTIONS*; the six required corrections are applied ([Post-review corrections](#post-review-corrections), [O-054](../OPEN-ITEMS.md#o-054), [E-044](../EVIDENCE-INDEX.md#e-044)) |
 
 Read first: [README](../README.md) (vocabulary and tiers) → [STATE](../STATE.md) (current snapshot).
 
@@ -40,13 +40,15 @@ Read first: [README](../README.md) (vocabulary and tiers) → [STATE](../STATE.m
 
 | Capability | Status | Tests |
 |---|---|---|
-| Owner onboarding wizard from an identity-only account; idempotent retry | VERIFIED | [T-038](../TEST-EVIDENCE.md#t-038) |
-| All 15 dashboard routes reachable and behaving; manager and cashier scopes enforced | VERIFIED | [T-037](../TEST-EVIDENCE.md#t-037), [T-039](../TEST-EVIDENCE.md#t-039) |
-| Two-tenant isolation in both directions | VERIFIED | [T-006](../TEST-EVIDENCE.md#t-006), [T-040](../TEST-EVIDENCE.md#t-040) |
-| Customer → cashier → owner with idempotent awards/redemptions; analytics reconcile | VERIFIED | [T-041](../TEST-EVIDENCE.md#t-041), [T-043](../TEST-EVIDENCE.md#t-043) |
-| Billing, Wallet and NFC are inert in production (flags off; routes disabled) | VERIFIED | [T-045](../TEST-EVIDENCE.md#t-045) |
+| Owner onboarding wizard from an identity-only account; idempotent retry | VERIFIED (on RC `7b26de48`) | [T-038](../TEST-EVIDENCE.md#t-038) |
+| All 15 dashboard routes reachable and behaving; manager and cashier scopes enforced — functional suite run on **RC `7b26de48` (source `6f80c72`)**; the official release `c87f2b50` (source `5c580be`) received only the 20/20 GET promotion smoke, and the functional suite was **not** rerun after promotion ([X-007](../RISKS-AND-EXCEPTIONS.md#x-007)) | VERIFIED (on the RC) | [T-037](../TEST-EVIDENCE.md#t-037), [T-039](../TEST-EVIDENCE.md#t-039), [T-048](../TEST-EVIDENCE.md#t-048) |
+| Two-tenant isolation in both directions | VERIFIED (on RC `7b26de48`) | [T-006](../TEST-EVIDENCE.md#t-006), [T-040](../TEST-EVIDENCE.md#t-040) |
+| Customer → cashier → owner with idempotent awards/redemptions; analytics reconcile | VERIFIED (on RC `7b26de48`) | [T-041](../TEST-EVIDENCE.md#t-041), [T-043](../TEST-EVIDENCE.md#t-043) |
+| Billing, Wallet and NFC are inert in production (flags off; routes disabled) | VERIFIED (on RC `7b26de48`) | [T-045](../TEST-EVIDENCE.md#t-045) |
 | Operations: monitors and alerts, backup and restore (empty schema), restart/interruption recovery | VERIFIED | [T-009](../TEST-EVIDENCE.md#t-009)–[T-022](../TEST-EVIDENCE.md#t-022) |
-| Deployment and rollback mechanism with auto-deploy off | VERIFIED | [T-035](../TEST-EVIDENCE.md#t-035), [T-048](../TEST-EVIDENCE.md#t-048) |
+| Manual exact-commit deployment with auto-deploy off | VERIFIED | [T-035](../TEST-EVIDENCE.md#t-035), [T-048](../TEST-EVIDENCE.md#t-048) |
+| Rollback-target **availability** (`canRollback=true`, `canRedeploy=true` read back for `b588220e`) | VERIFIED (availability only) | [REL-012](../RELEASES.md#rel-012) |
+| Actual rollback / redeploy of a previous image | **NOT RUN** — never exercised | [O-010](../OPEN-ITEMS.md#o-010) |
 | Synthetic cleanup procedure and clean baseline | VERIFIED | [T-049](../TEST-EVIDENCE.md#t-049), [T-050](../TEST-EVIDENCE.md#t-050) |
 
 Local-only (TESTED, not production): 340/340 tests, 46 browser tests, responsive/accessibility checks, NFC verifier and Wallet fixtures ([T-031](../TEST-EVIDENCE.md#t-031)–[T-034](../TEST-EVIDENCE.md#t-034), [T-060](../TEST-EVIDENCE.md#t-060), [T-070](../TEST-EVIDENCE.md#t-070)–[T-072](../TEST-EVIDENCE.md#t-072)).
@@ -69,11 +71,12 @@ and evidence fragility ([R-004](../RISKS-AND-EXCEPTIONS.md#r-004)–[R-008](../R
 
 ## 6. Remaining first-pilot blockers
 
-Hard: owner launch inputs ([O-001](../OPEN-ITEMS.md#o-001)) and operator-specific privacy/participation text ([O-002](../OPEN-ITEMS.md#o-002)).
+Hard: owner launch inputs ([O-001](../OPEN-ITEMS.md#o-001)), operator-specific privacy/participation text ([O-002](../OPEN-ITEMS.md#o-002)) and the supervised two-phone
+production dry run ([O-007](../OPEN-ITEMS.md#o-007), [T-042](../TEST-EVIDENCE.md#t-042)).
 Should fix before a pilot: pilot-hygiene slice ([O-003](../OPEN-ITEMS.md#o-003)), credential-lifecycle decision ([O-004](../OPEN-ITEMS.md#o-004)), repeatable provisioning
-([O-005](../OPEN-ITEMS.md#o-005)), customer recovery on production ([O-006](../OPEN-ITEMS.md#o-006)), supervised two-phone dry run ([O-007](../OPEN-ITEMS.md#o-007)), backup-key custody
-([O-008](../OPEN-ITEMS.md#o-008)), pilot operating arrangements ([O-009](../OPEN-ITEMS.md#o-009)), access review ([O-044](../OPEN-ITEMS.md#o-044)), evidence preservation ([O-050](../OPEN-ITEMS.md#o-050)),
-stale-docs supersession ([O-051](../OPEN-ITEMS.md#o-051)), independent ledger cross-check ([O-054](../OPEN-ITEMS.md#o-054)).
+([O-005](../OPEN-ITEMS.md#o-005)), customer recovery on production ([O-006](../OPEN-ITEMS.md#o-006)), backup-key custody
+([O-008](../OPEN-ITEMS.md#o-008)), pilot operating arrangements ([O-009](../OPEN-ITEMS.md#o-009)), rollback/redeploy-previous-image drill ([O-010](../OPEN-ITEMS.md#o-010)), access review ([O-044](../OPEN-ITEMS.md#o-044)),
+stale-docs supersession ([O-051](../OPEN-ITEMS.md#o-051)). Evidence preservation ([O-050](../OPEN-ITEMS.md#o-050)) and the independent ledger cross-check ([O-054](../OPEN-ITEMS.md#o-054)) are **DONE**.
 
 ## 7. Remaining public-launch blockers
 
@@ -83,7 +86,7 @@ Pricing and offer ([O-012](../OPEN-ITEMS.md#o-012)), legal documents ([O-013](..
 
 ## 8. Evidence summary
 
-The proof for this checkpoint is mostly **outside Git** (Tier 2 handoff records with Tier-1 readbacks, session logs, provider consoles). [EVIDENCE-INDEX](../EVIDENCE-INDEX.md) indexes 43 items
+The proof for this checkpoint is mostly **outside Git** (Tier 2 handoff records with Tier-1 readbacks, session logs, provider consoles). [EVIDENCE-INDEX](../EVIDENCE-INDEX.md) indexes 45 items (E-044 and E-045 added after the review)
 with SHA-256 values and the [preservation plan](../EVIDENCE-INDEX.md#preservation-plan). Key anchors: promotion [E-031](../EVIDENCE-INDEX.md#e-031), revised RC [E-030](../EVIDENCE-INDEX.md#e-030),
 corrected cleanup [E-028](../EVIDENCE-INDEX.md#e-028), Gate-1 completion [E-012](../EVIDENCE-INDEX.md#e-012), containment record [E-013](../EVIDENCE-INDEX.md#e-013), integration [E-017](../EVIDENCE-INDEX.md#e-017),
 frozen dashboard [E-004](../EVIDENCE-INDEX.md#e-004), sessions [E-005](../EVIDENCE-INDEX.md#e-005)–[E-010](../EVIDENCE-INDEX.md#e-010).
@@ -143,11 +146,31 @@ Run on the final files in the documentation worktree before committing (read-onl
 | Sensitive-pattern scan (e-mail addresses, ping URLs, age/private-key markers, JWT-like strings, bearer headers, vendor key prefixes, password/token assignments, Cloudflare account URLs) | PASS — no hits (a pattern scan is not proof of absence; secret-bearing files were never opened) |
 | Every `Status` field in the timeline, decisions and test matrix uses the README vocabulary | PASS (one descriptive word, "INCONCLUSIVE", appears inside a parenthesis and is not a status) |
 | Scope of the commit: only `docs/launch-ledger/**` | checked at commit time (see the final handoff) |
-| Contradiction reconciliation (section 10) | done by the author; **not yet independently reviewed** ([O-054](../OPEN-ITEMS.md#o-054)) |
+| Contradiction reconciliation (section 10) | done by the author; **independently reviewed** (Claude Opus 5.5, PASS WITH MINOR CORRECTIONS; [O-054](../OPEN-ITEMS.md#o-054)) |
 
 ## Exact next workstream
 
 Next workstream will be selected after pilot-hygiene planning and owner launch inputs; Wallet/NFC remain parallel/non-critical for the first pilot unless the scope decision changes.
 
-Immediate follow-ups that are not a "workstream": execute the evidence-preservation plan ([O-050](../OPEN-ITEMS.md#o-050)), decide how this documentation branch lands ([O-052](../OPEN-ITEMS.md#o-052)),
-and have a second agent cross-check this ledger ([O-054](../OPEN-ITEMS.md#o-054)).
+Immediate follow-up that is not a "workstream": decide how this documentation branch lands ([O-052](../OPEN-ITEMS.md#o-052)). Evidence preservation
+([O-050](../OPEN-ITEMS.md#o-050)) and the independent cross-check ([O-054](../OPEN-ITEMS.md#o-054)) are done.
+
+<a id="post-review-corrections"></a>
+## Post-review corrections
+
+An independent read-only review by Claude (actual `claude-opus-5-5`) on 2026-10-02 returned **LEDGER REVIEW = PASS WITH MINOR CORRECTIONS**
+([E-044](../EVIDENCE-INDEX.md#e-044)). It found no major discrepancy and confirmed the release tuple. Its six required corrections were applied in one
+documentation-only follow-up commit on this branch; optional review suggestions were **not** applied.
+
+| # | Correction | Where |
+|---|---|---|
+| 1 | Rollback: only target **availability** (`canRollback=true`) is verified; an actual rollback was never exercised; drill added as [O-010](../OPEN-ITEMS.md#o-010) | §3, [OPEN-ITEMS](../OPEN-ITEMS.md#o-010) |
+| 2 | Dashboard capabilities were verified on RC `7b26de48` (`6f80c72`); the official `c87f2b50` (`5c580be`) received only the GET promotion smoke | §3 |
+| 3 | Wallet-enabled launch: native adapters exist and are fixture-tested, no production provider enabled, PassFast production adapter not implemented (was "NOT STARTED in code") | [STATE §5](../STATE.md#5-pilot-versus-public-launch-they-are-different) |
+| 4 | Final review of `e94fd5c`: requested Claude Opus 5.5; the approving verdict (~19:44Z) came from Claude Sonnet 5.5 | [TL-021](../TIMELINE.md#tl-021), [E-032](../EVIDENCE-INDEX.md#e-032) |
+| 5 | Apple enrollment inability first owner-reported 2026-09-30 22:21Z; later owner hardware/Apple statements dated 2026-10-01 22:36Z (UTC) | [TL-037](../TIMELINE.md#tl-037), [D-029](../DECISIONS.md#d-029), [E-034](../EVIDENCE-INDEX.md#e-034) |
+| 6 | Two-phone production dry run is a HARD BLOCKER for the first pilot; any cleanup after it needs a new explicit approval | [O-007](../OPEN-ITEMS.md#o-007), §6 |
+
+Housekeeping in the same commit: [O-003](../OPEN-ITEMS.md#o-003) stale dependency removed; [O-050](../OPEN-ITEMS.md#o-050) (evidence preservation checkpoint #1) and
+[O-054](../OPEN-ITEMS.md#o-054) marked DONE; evidence [E-044](../EVIDENCE-INDEX.md#e-044) and [E-045](../EVIDENCE-INDEX.md#e-045) added; timeline [TL-063](../TIMELINE.md#tl-063) and [TL-064](../TIMELINE.md#tl-064) added.
+The official release is unchanged: `railway-rc` @ `5c580be9b1887327cc456e672d2f25f29fc25830`, deployment `c87f2b50-783b-45d6-9d2a-6c880b0aa14f`.

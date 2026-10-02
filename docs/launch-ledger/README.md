@@ -13,7 +13,7 @@ It is the intended source for the later detailed build-and-launch dossier.
   knows something newer, it says so explicitly and links back. It never silently rewrites history.
 - It is **documentation only**. It contains no application code and no secrets.
 - It was authored from preserved sources (Git, tracked docs, agent handoff records, agent session logs, owner statements). Checkpoint 001
-  has **not yet been independently cross-checked** by a second agent ([O-054](OPEN-ITEMS.md#o-054)).
+  was **independently cross-checked** by a second agent (Claude Opus 5.5: PASS WITH MINOR CORRECTIONS; required corrections applied; [O-054](OPEN-ITEMS.md#o-054)).
 
 ## File map
 
@@ -126,5 +126,5 @@ that grant access, personal e-mail addresses, customer data, raw logs containing
 ## Preservation
 
 Most Oct 2026 evidence lives **outside Git** (ignored `var/`, agent session stores, `/tmp`, owner mailbox, provider consoles). The
-[preservation plan](EVIDENCE-INDEX.md#preservation-plan) says what to archive, hash, push or discard. Nothing has been archived yet
-([O-050](OPEN-ITEMS.md#o-050)).
+[preservation plan](EVIDENCE-INDEX.md#preservation-plan) says what to archive, hash, push or discard. It was executed for Checkpoint 001 on 2026-10-02
+([O-050](OPEN-ITEMS.md#o-050), [E-045](EVIDENCE-INDEX.md#e-045)).
