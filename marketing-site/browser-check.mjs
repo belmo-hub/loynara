@@ -1,89 +1,104 @@
 import assert from 'node:assert/strict';
-import {mkdir,writeFile,readFile} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
-import {chromium} from '@playwright/test';
-const base='http://127.0.0.1:8765';
-const out='marketing-site/evidence/premium-pass';await mkdir(out,{recursive:true});
-const browser=await chromium.launch({channel:'chrome',headless:true});
-const errors=[],external=[];const report={conditions:{browser:browser.version(),host:'Mac / loopback static server',hardware:'Browser emulation only. No physical phone testing.',performance:'Single lab page load: 390×844, CPU 4× slowdown, 1.6 Mbps down / 750 Kbps up, 40 ms latency. Not field INP or real-user data.'},checks:[],lab:{},screenshots:[],sourceHash:'',contrast:{}};
-const check=(name)=>{report.checks.push({name,result:'PASS'});console.log(`PASS ${name}`)};
-try{
- const context=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
- const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(!r.url().startsWith(base)&&!r.url().startsWith('blob:'))external.push(r.url())});
- await p.goto(base);await p.locator('#demo-next').waitFor({state:'visible'});await p.waitForFunction(()=>!document.querySelector('#demo-next').disabled);
- assert.ok(await p.locator('.traffic-calculator').evaluate(e=>e.getBoundingClientRect().top<document.querySelector('.calculator').getBoundingClientRect().top),'Visit scenario must be the first calculator');
- assert.equal(await p.locator('#traffic-customers').inputValue(),'50');assert.equal(await p.locator('#traffic-basket').inputValue(),'70');assert.equal(await p.locator('#traffic-days').inputValue(),'26');assert.equal(await p.locator('#traffic-uplift').inputValue(),'10');
- assert.equal(await p.locator('#traffic-uplift-range').isVisible(),true);assert.match(await p.locator('#traffic-assumption').innerText(),/Beispielrechnung/);assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^9\.100,00/);
- await p.locator('[data-traffic-price=standard]').click();assert.equal(await p.locator('#offer').inputValue(),'standard');assert.match(await p.locator('#traffic-fee').innerText(),/^69,00/);assert.equal(await p.locator('[data-traffic-price=standard]').getAttribute('aria-pressed'),'true');await p.locator('[data-traffic-price=founding]').click();assert.equal(await p.locator('#offer').inputValue(),'founding');
- assert.equal(await p.locator('#traffic-days-range').evaluate(e=>getComputedStyle(e).backgroundImage.includes('linear-gradient')),true);
- check('Visit scenario appears first with four visible sliders and clearly labelled sample assumptions');
- await p.locator('[data-traffic-price=standard]').click();assert.equal(await p.locator('[data-price=standard]').getAttribute('aria-pressed'),'true','Price selection must agree across sections');await p.locator('[data-traffic-price=founding]').click();
- await p.locator('#traffic-customers').fill('51');assert.equal(await p.locator('#traffic-customers-range').inputValue(),'51');await p.locator('#traffic-basket').fill('70,50');assert.equal(await p.locator('#traffic-basket-range').inputValue(),'70.5');await p.locator('#traffic-basket').fill('');assert.equal(await p.locator('#traffic-basket-range').isVisible(),true,'Editing a value must not remove its slider');await p.locator('#traffic-sample').click();
- check('Calculator controls preserve layout and exact input values; price selections agree throughout the page');
- await p.locator('#contribution').fill('8');assert.equal(await p.locator('#required').innerText(),'7');assert.match(await p.locator('#cost-caveat').innerText(),/nur die monatliche Softwaregebühr/);
- await p.locator('#calc-details').evaluate(e=>e.open=true);
- await p.locator('#rewards').fill('0');await p.locator('#effort').fill('0');assert.equal(await p.locator('#required').innerText(),'7');
- await p.locator('#rewards').fill('20');await p.locator('#effort').fill('10');await p.locator('#visits').fill('10');assert.equal(await p.locator('#required').innerText(),'10');assert.match(await p.locator('#scenario-change').innerText(),/^1,00/);
- await p.locator('#visits').fill('0');assert.match(await p.locator('#scenario-change').innerText(),/-79,00/);
- await p.locator('#contribution').fill('0');assert.match(await p.locator('#result-explanation').innerText(),/Kein endlicher/);
- await p.locator('#contribution').fill('-1');assert.equal(await p.locator('#required').innerText(),'–');
- await p.locator('#contribution').fill('8,50');assert.equal(await p.locator('#required').innerText(),'10');
- await p.locator('#rewards').fill('-2');assert.match(await p.locator('#calc-error').innerText(),/nicht negativ/);
- await p.locator('#rewards').fill('1000001');assert.match(await p.locator('#calc-error').innerText(),/höchstens/);
- await p.locator('#rewards').fill('1000000');await p.locator('#effort').fill('1000000');await p.locator('#contribution').fill('0,01');await p.locator('#revenue').fill('1000000');await p.locator('#visits').fill('100000');await p.setViewportSize({width:360,height:800});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Large valid input must not overflow');await p.setViewportSize({width:1440,height:900});
- await p.locator('#load-example').click();await p.locator('#offer').selectOption('introDraft');await p.locator('#period').selectOption('first');assert.match(await p.locator('#fee').innerText(),/^99,00/);assert.match(await p.locator('#cost-caveat').innerText(),/nicht freigegeben/);
- await p.locator('#period').selectOption('recurring');assert.match(await p.locator('#fee').innerText(),/^49,00/);
- await p.locator('#offer').selectOption('founding');await p.locator('#period').selectOption('first');assert.match(await p.locator('#fee').innerText(),/^148,00/);
- await p.locator('#period').selectOption('recurring');check('Calculator: blanks, German decimals, 7/10 visits, €1/-€79 scenarios, invalid amounts and first-month pricing');
- await p.locator('#traffic-sample').click();assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^9\.100,00/);assert.match(await p.locator('#traffic-after-fee').innerText(),/^9\.051,00/);assert.equal(await p.locator('#traffic-ratio').innerText(),'186×');assert.match(await p.locator('#traffic-annual').innerText(),/^108\.612,00/);
- await p.locator('#traffic-uplift').fill('0');assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^0,00/);assert.match(await p.locator('#traffic-after-fee').innerText(),/^-49,00/);assert.equal(await p.locator('#traffic-ratio').innerText(),'0×');
- await p.locator('#traffic-uplift').fill('10');await p.locator('#traffic-basket').fill('70,50');assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^9\.165,00/);
- await p.locator('#traffic-basket').fill('70');await p.locator('#traffic-uplift-range').focus();await p.locator('#traffic-uplift-range').press('End');assert.equal(await p.locator('#traffic-uplift').inputValue(),'20');assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^18\.200,00/);
- await p.locator('#traffic-uplift-range').press('Home');await p.locator('#offer').selectOption('standard');assert.match(await p.locator('#traffic-after-fee').innerText(),/^-69,00/);await p.locator('#offer').selectOption('founding');
- await p.locator('#traffic-customers').fill('999');assert.match(await p.locator('#traffic-error').innerText(),/500/);
- await p.locator('#traffic-customers').fill('50');await p.locator('#traffic-reset').click();await p.waitForFunction(()=>document.querySelector('#traffic-monthly-revenue')?.textContent==='–');await p.waitForFunction(()=>document.querySelector('#calculation-announcement').textContent.includes('vier Annahmen'));await p.locator('#traffic-sample').click();await p.waitForFunction(()=>document.querySelector('#calculation-announcement').textContent.includes('9.100,00'));await p.locator('#load-example').click();await p.waitForFunction(()=>document.querySelector('#calculation-announcement').textContent.includes('1,00')&&document.querySelector('#calculation-announcement').textContent.includes('Beitragsänderung'));check('Four-input scenario arithmetic, zero, decimals, bounds, reset and concise announcements for programmatic changes');
- await p.locator('[data-industry-choice=barber]').click();assert.equal(await p.locator('#contribution').inputValue(),'8');await p.locator('[data-industry-choice=friseur]').click();assert.match(await p.locator('#industry-intro').innerText(),/Haarschnitten/);
- await p.locator('#business-name').fill('<img src=x onerror=alert(1)>');assert.equal(await p.locator('[data-business]').innerText(),'<img src=x onerror=alert(1)>');assert.equal(await p.locator('[data-business] img').count(),0);
- await p.locator('#business-name').fill('Café Nora');assert.equal(await p.locator('#industry-preview-name').innerText(),'Café Nora');assert.equal(await p.locator('.customer-screen [data-demo-business]').innerText(),'Café Nora');await p.locator('[data-industry-choice=cafe]').click();check('Industry changes reset demo, preserve economics, and safely display business names');
- for(const key of ['barber','friseur','nagelstudio','gastro','autopflege','wellness','fitness','cafe']){await p.locator('[data-industry-choice='+key+']').click();assert.equal(await p.locator('[data-industry-choice='+key+']').getAttribute('aria-pressed'),'true');assert.equal(await p.locator('#contribution').inputValue(),'8');}
- await p.locator('#hero-play').click();assert.match(await p.locator('#hero-balance').innerText(),/^1/);await p.locator('#hero-play').click();assert.equal(await p.locator('#hero-owner-count').innerText(),'1');await p.locator('#hero-play').click();assert.match(await p.locator('#hero-balance').innerText(),/^2/);await p.locator('#hero-play').click();assert.match(await p.locator('#hero-balance').innerText(),/^0/);check('Eight industries and explicit hero visit/activity/return/reset controls');
- await p.locator('#demo-next').click();assert.equal(await p.locator('#demo-next').isDisabled(),true);assert.equal(await p.evaluate(()=>document.activeElement?.getAttribute('data-action')),'enroll');await p.locator('[data-action=enroll]').click();await p.locator('#demo-next').click();assert.match(await p.locator('#step-title').innerText(),/Bezahlt/);await p.locator('#demo-next').click();assert.match(await p.locator('[data-cashier-balance]').innerText(),/^0/);
- await p.locator('[data-action=identify]').click();assert.match(await p.locator('[data-cashier-balance]').innerText(),/^0/);await p.locator('[data-action=award]').click();assert.match(await p.locator('[data-cashier-balance]').innerText(),/^1/);
- await p.locator('#demo-next').click();await p.locator('.demo-shell').screenshot({path:`${out}/demo-confirmed-desktop.png`,animations:'disabled'});await p.setViewportSize({width:390,height:844});await p.locator('.demo-shell').screenshot({path:`${out}/demo-confirmed-mobile.png`,animations:'disabled'});await p.setViewportSize({width:1440,height:900});await p.locator('[data-view=owner]').click();assert.match(await p.locator('.activity').innerText(),/\+1 Stempel/);await p.locator('[data-action=jump]').click();await p.locator('[data-action=last]').click();await p.locator('[data-action=redeem]').click();assert.match(await p.locator('.activity').innerText(),/−8 Stempel/);assert.equal(await p.locator('.owner-metrics strong').nth(2).innerText(),'0');
- await p.locator('#reset-demo').click();assert.equal(await p.locator('.owner-metrics strong').nth(0).innerText(),'0');check('Journey: enrollment → separate payment → identify without award → explicit +1 → owner history → labelled time jump → redemption → reset');
- await p.locator('#referral-story summary').click();await p.locator('[data-story-next=referral]').click();assert.match(await p.locator('#referral-flow').innerText(),/0 Bonusstempel/);await p.locator('[data-story-next=referral]').click();assert.match(await p.locator('#referral-flow').innerText(),/0 Bonusstempel/);await p.locator('[data-story-next=referral]').click();assert.match(await p.locator('#referral-flow').innerText(),/einmalig \+1/);assert.equal(await p.locator('[data-story-next=referral]').isDisabled(),true);await p.locator('[data-story-reset=referral]').click();
- await p.locator('#return-story summary').click();for(let i=0;i<3;i++)await p.locator('[data-story-next=return]').click();assert.match(await p.locator('#return-flow').innerText(),/Versand in dieser Demo simuliert/);await p.locator('[data-story-next=return]').click();assert.match(await p.locator('#return-flow').innerText(),/kein gemessener/);await p.locator('[data-story-reset=return]').click();check('Campaign/referral stories: no send, no click reward, explicit qualifying purchase, working rewind/reset');
- for(const [f,src] of [['activity','merchant-dashboard.webp'],['offers','campaign.webp'],['growth','referrals.webp'],['programme','rewards.webp']]){await p.locator(`[data-feature=${f}]`).click();await p.waitForFunction(src=>document.querySelector('#feature-image').src.endsWith(src)&&!document.querySelector('.product-capture').hasAttribute('aria-busy'),src);assert.equal(await p.locator(`[data-feature=${f}]`).getAttribute('aria-pressed'),'true');}
- await p.locator('#contact-business').fill('Synthetisches Café');await p.locator('#contact-email').fill('demo@example.test');await p.locator('#contact-question').fill('Wie richten wir unsere acht Stempel ein?');const download=p.waitForEvent('download');await p.locator('#download-brief').click();assert.equal((await download).suggestedFilename(),'loynara-gespraechsnotiz.txt');assert.equal(await p.locator('#contact-draft button[type=submit]').isDisabled(),true);check('Real captures load and conversation note downloads; contact submission stays disabled');
- await p.locator('[data-price=standard]').click();assert.equal(await p.locator('#offer').inputValue(),'standard');await p.locator('[data-price=founding]').click();assert.equal(await p.locator('#offer').inputValue(),'founding');check('Price controls synchronize the calculator without changing economics');
- await p.goto(base);await p.keyboard.press('Tab');assert.equal(await p.evaluate(()=>document.activeElement?.textContent),'Zum Inhalt springen');await p.keyboard.press('Enter');await p.locator('[data-industry-choice=barber]').focus();await p.keyboard.press('Enter');assert.match(await p.locator('#industry-intro').innerText(),/Schnitt/);await p.locator('#demo-next').focus();await p.keyboard.press('Enter');await p.locator('[data-action=enroll]').focus();await p.keyboard.press('Enter');assert.equal(await p.locator('#demo-next').isDisabled(),false);check('Keyboard: skip link, category choice, stepper and enrollment');
- // Static evidence uses reduced motion so section entry effects cannot tint a capture.
- await p.emulateMedia({reducedMotion:'reduce'});report.conditions.screenshots='Responsive screenshots use reduced motion; the interactive journeys above use normal motion.';
- for(const size of [{width:360,height:800},{width:390,height:844},{width:768,height:1024},{width:1024,height:768},{width:1440,height:900}]){
-  await p.setViewportSize(size);await p.goto(base);await p.waitForFunction(()=>!document.querySelector('#demo-next').disabled);const dims=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));assert.ok(dims.scroll<=dims.viewport,`Horizontal overflow at ${size.width}`);
-  const name=`home-${size.width}.png`;await p.screenshot({animations:'disabled',path:`${out}/${name}`});report.screenshots.push(name);
-  await p.locator('#ablauf').scrollIntoViewIfNeeded();await p.screenshot({animations:'disabled',path:`${out}/demo-${size.width}.png`});
-  if(size.width<760){assert.equal(await p.locator('.cashier-screen').isVisible(),false);await p.locator('[data-view=cashier]').click();assert.equal(await p.locator('.customer-screen').isVisible(),false);assert.equal(await p.locator('.cashier-screen').isVisible(),true);await p.locator('[data-view=owner]').click();assert.equal(await p.locator('.owner-screen').isVisible(),true);}
-  if(size.width===390||size.width===1440){await p.locator('#load-example').click();await p.locator('#rechner').screenshot({path:`${out}/calculator-${size.width}.png`,animations:'disabled'});await p.locator('#traffic-sample').click();await p.locator('.traffic-calculator').screenshot({path:`${out}/traffic-scenario-${size.width}.png`,animations:'disabled'});await p.locator('#preise').screenshot({path:`${out}/pricing-${size.width}.png`,animations:'disabled'});}
-  if(size.width===390){await p.locator('#menu-toggle').click();assert.equal(await p.locator('#main-nav').isVisible(),true);await p.keyboard.press('Escape');assert.equal(await p.locator('#main-nav').isVisible(),false);await p.locator('#menu-toggle').click();await p.locator('#main-nav a[href=\"#rechner\"]').click();assert.equal(await p.locator('#main-nav').isVisible(),false);await p.waitForFunction(()=>{const target=document.querySelector('#rechner').getBoundingClientRect(),header=document.querySelector('.header').getBoundingClientRect();return target.top>=header.bottom-8&&target.top<header.bottom+55;});}
-  if(size.width===390||size.width===1440){for(const [id,name] of [['wiederkehr','problem-solution'],['geschaeft','industry'],['ablauf','workflow'],['plattform','platform'],['tap','nfc'],['anfrage','final-cta']]){await p.locator('#'+id).screenshot({path:`${out}/${name}-${size.width}.png`,animations:'disabled'});}}
-  check(`${size.width}×${size.height}: layout and readable demo view switching`);
- }
- await p.emulateMedia({reducedMotion:'reduce'});await p.setViewportSize({width:390,height:844});await p.goto(base);await p.locator('#load-example').click();assert.equal(await p.locator('#required').innerText(),'10');await p.locator('#demo-next').click();assert.equal(await p.locator('#demo-screens').evaluate(e=>getComputedStyle(e).animationName),'none');check('Reduced motion retains calculator and demo actions, disables animation');
- await p.setViewportSize({width:720,height:450});await p.goto(base);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'200% equivalent reflow overflow');await p.screenshot({animations:'disabled',path:`${out}/zoom-200.png`});check('200% zoom-equivalent reflow: 1440×900 reduced to 720×450 CSS pixels, no clipping; browser UI zoom not exercised');
- const nojs=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:844}});const plain=await nojs.newPage();await plain.goto(base);assert.equal(await plain.getByRole('heading',{level:1}).count(),1);assert.equal(await plain.locator('#ablauf noscript').isVisible(),true);assert.ok(await plain.locator('#preise').innerText());await nojs.close();check('No JavaScript: navigation, prices, explanations and recording remain available');
- for(const route of ['cafe','barber','friseur','nagelstudio','gastro','autopflege','fitness','wellness','demo','demo-transcript']){assert.equal((await p.goto(`${base}/${route}/`)).status(),200);}check('All eight industry routes, demo and transcript load');
- await p.goto(base);
- const contrast=await p.evaluate(()=>{const lum=c=>{const a=c.match(/\d+(?:\.\d+)?/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return a[0]*.2126+a[1]*.7152+a[2]*.0722};const ratio=(a,b)=>{a=lum(a);b=lum(b);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)};const button=getComputedStyle(document.querySelector('.hero .primary'));const field=getComputedStyle(document.querySelector('#business-name'));const body=getComputedStyle(document.body);const offer=getComputedStyle(document.querySelector('.offer-featured')),price=getComputedStyle(document.querySelector('.offer-featured h3'));const confirmation=getComputedStyle(document.querySelector('.hero-confirm'));const benefit=getComputedStyle(document.querySelector('.contrast-row p:last-child'));const contact=getComputedStyle(document.querySelector('.contact-preview')),contactText=getComputedStyle(document.querySelector('.contact-preview>p:not(.eyebrow)'));return {primaryText:ratio(button.color,button.backgroundColor),inputBoundary:ratio(field.borderTopColor,field.backgroundColor),bodyText:ratio(body.color,getComputedStyle(document.documentElement).backgroundColor),priceText:ratio(price.color,offer.backgroundColor),heroConfirmation:ratio(confirmation.color,confirmation.backgroundColor),benefitText:ratio(benefit.color,benefit.backgroundColor),contactText:ratio(contactText.color,contact.backgroundColor)};});
- assert.ok(contrast.primaryText>=4.5);assert.ok(contrast.bodyText>=4.5);assert.ok(contrast.inputBoundary>=3);report.contrast=contrast;check('Computed core contrast: body and CTA text ≥4.5:1, input boundary ≥3:1');
- assert.ok(contrast.priceText>=4.5);assert.ok(contrast.heroConfirmation>=4.5);assert.ok(contrast.benefitText>=4.5);assert.ok(contrast.contactText>=4.5);check('Selected offer, hero confirmation, benefits and contact card retain readable contrast');
- const lab=await browser.newContext({viewport:{width:390,height:844}});const lp=await lab.newPage();const cdp=await lab.newCDPSession(lp);await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});await cdp.send('Network.enable');await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:40,downloadThroughput:200000,uploadThroughput:93750});await lp.addInitScript(()=>{window.__lab={lcp:0,cls:0,longTasks:0};new PerformanceObserver(l=>{for(const e of l.getEntries())window.__lab.lcp=e.startTime}).observe({type:'largest-contentful-paint',buffered:true});new PerformanceObserver(l=>{for(const e of l.getEntries())if(!e.hadRecentInput)window.__lab.cls+=e.value}).observe({type:'layout-shift',buffered:true});new PerformanceObserver(l=>{for(const e of l.getEntries())window.__lab.longTasks+=Math.max(0,e.duration-50)}).observe({type:'longtask',buffered:true});});await lp.goto(base);await lp.waitForTimeout(2000);report.lab=await lp.evaluate(()=>({...window.__lab,resources:performance.getEntriesByType('resource').reduce((n,e)=>n+e.transferSize,0)}));await lab.close();
- for(const summary of await p.locator('.faq summary').all()){await summary.click();assert.equal(await summary.evaluate(e=>e.parentElement.open),true);await summary.click();}
- const essential=await p.locator('.hero .button,.nav-cta,#menu-toggle,.view-options button,.industry-options button').evaluateAll(es=>es.filter(e=>e.getBoundingClientRect().width>0).map(e=>({label:e.textContent,height:e.getBoundingClientRect().height})));assert.ok(essential.every(e=>e.height>=44));check('FAQ accordions and key touch targets ≥44px');
- await p.locator('.draft-offer summary').click();await p.locator('#use-draft').click();assert.equal(await p.locator('#offer').inputValue(),'introDraft');assert.match(await p.locator('#fee').innerText(),/^99,00/);
- await p.locator('.recording summary').click();await p.locator('video').focus();await p.locator('video').press('Space');await p.waitForFunction(()=>document.querySelector('video').readyState>=2);await p.locator('video').press('Space');check('Draft pricing CTA and on-demand genuine recording controls');
- for(const link of await p.locator('a[href^=\"#\"]').all()){if((await link.getAttribute('class'))?.includes('skip'))continue;if(await link.isVisible()){const href=await link.getAttribute('href');await link.click();assert.equal(new URL(p.url()).hash,href);}}check('Every visible internal navigation/CTA reaches its declared section');
- assert.deepEqual(errors,[]);assert.deepEqual(external,[]);check('No application errors or third-party requests in exercised marketing flows');
- const hash=createHash('sha256');for(const file of ['index.html','styles.css','assets/fonts/geist-latin.woff2',...['browser','config','demo','economics','views','i18n','dynamic-copy'].map(n=>`assets/modules/${n}.js`)])hash.update(await readFile(`marketing-site/site/${file}`));report.sourceHash=hash.digest('hex');
- await writeFile('marketing-site/browser-evidence.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report.lab));
-}finally{await browser.close();}
+import { mkdir } from 'node:fs/promises';
+import { chromium } from '@playwright/test';
+
+// Needs `npm run marketing:preview` running (loopback, port 8765). Local Chromium emulation only: no physical phone, no screen reader.
+const base = 'http://127.0.0.1:8765', out = 'marketing-site/evidence/functional';
+await mkdir(out, { recursive: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const results = [];
+const check = (name, ok = true) => { assert.ok(ok, name); results.push(name); };
+const inView = async (page, selector, height) => { for (let i = 0; i < 30; i++) { const box = await page.locator(selector).boundingBox(); if (box && box.y < height && box.y + box.height > 0) return true; await page.waitForTimeout(100); } return false; };
+const industries = ['cafe', 'barber', 'friseur', 'nagelstudio', 'gastro', 'autopflege', 'fitness', 'wellness'];
+
+for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 }, false], ['mobile', { width: 390, height: 844 }, true]]) {
+  const context = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
+  const page = await context.newPage();
+  const problems = [], external = [], mails = [];
+  page.on('console', m => { if (['error', 'warning'].includes(m.type())) problems.push(`${m.type()}: ${m.text()}`); });
+  page.on('pageerror', e => problems.push(`pageerror: ${e.message}`));
+  page.on('request', r => { if (r.url().startsWith('mailto:')) mails.push(r.url()); else if (!r.url().startsWith(base) && !r.url().startsWith('data:')) external.push(r.url()); });
+  await page.goto(base + '/');
+  check(`${label}: title and h1`, (await page.title()).startsWith('Loynara') && (await page.locator('h1').innerText()).includes('Stammkunden'));
+  check(`${label}: no horizontal overflow`, await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+
+  // navigation: every header link lands on a visible section
+  for (const [name, id] of [['So funktioniert’s', 'ablauf'], ['NFC', 'nfc'], ['Funktionen', 'funktionen'], ['Demo', 'demo'], ['Preis', 'preis'], ['Fragen', 'faq']]) {
+    if (mobile) await page.getByRole('button', { name: /Menü/ }).click();
+    await page.locator('#main-nav').getByRole('link', { name, exact: true }).click();
+    check(`${label}: nav "${name}" reaches #${id}`, await inView(page, `#${id}`, viewport.height));
+    check(`${label}: menu closes after navigation`, !mobile || (await page.locator('#menu-toggle').getAttribute('aria-expanded')) === 'false');
+  }
+  // CTAs
+  if (mobile) await page.getByRole('button', { name: /Menü/ }).click();
+  check(`${label}: Anmelden → app login`, (await page.locator('#main-nav').getByRole('link', { name: 'Anmelden' }).getAttribute('href')) === 'https://app.getloynara.com/login');
+  if (mobile) await page.getByRole('button', { name: /Menü/ }).click();
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.getByRole('link', { name: /Demo ansehen/ }).first().click(); 
+  check(`${label}: hero "Demo ansehen" → demo`, await inView(page, '#demo', viewport.height));
+  await page.evaluate(() => scrollTo(0, 0));
+  check(`${label}: hero Anmelden`, (await page.locator('.hero').getByRole('link', { name: 'Anmelden' }).getAttribute('href')) === 'https://app.getloynara.com/login');
+  await page.locator('#preis').getByRole('link', { name: /Demo anfragen/ }).click(); 
+  check(`${label}: price CTA → request form`, await inView(page, '#anfrage', viewport.height));
+  check(`${label}: price shown as €39 per location per month`, /39 €\s*\/ Monat \/ Standort/.test(await page.locator('#preis').innerText()) && /Pilotangebot – Details im persönlichen Gespräch/.test(await page.locator('#preis').innerText()));
+
+  // demo: every industry, both entry paths
+  await page.locator('#demo').scrollIntoViewIfNeeded();
+  for (const key of industries) {
+    const choice = page.locator(`[data-industry-choice="${key}"]`);
+    check(`${label}: ${key} selector enabled`, await choice.isEnabled());
+    await choice.click();
+    const name = await page.locator('#industry-panel h3').innerText();
+    check(`${label}: ${key} panel and demo card agree`, name.length > 3 && (await page.locator('#demo-screens .demo-card .card-top span').first().innerText()) === name);
+    const th = await page.locator('#demo-screens .customer .stamp').count();
+    for (const entry of key === 'cafe' ? ['nfc', 'qr'] : ['nfc']) {
+      await page.locator('#demo-reset').click();
+      await page.locator(`#demo-screens [data-action="${entry}"]`).click();
+      await page.locator('#demo-next').click();
+      await page.locator('#demo-screens [data-action="enroll"]').click();
+      await page.locator('#demo-next').click();
+      if (entry === 'qr') { check(`${label}: qr cannot confirm before scan`, await page.locator('[data-action="confirm"]').count() === 0); await page.locator('[data-action="scan"]').click(); }
+      await page.locator('[data-action="confirm"]').click();
+      check(`${label}: ${key}/${entry} confirm gives 1 stamp`, (await page.locator('#demo-screens .customer .card-total strong').innerText()).startsWith('1'));
+      check(`${label}: confirm cannot be repeated`, await page.locator('[data-action="confirm"]').count() === 0);
+      await page.locator('#demo-next').click();
+      await page.locator('[data-action="more"]').click();
+      check(`${label}: ${key} reaches ${th}/${th}`, (await page.locator('#demo-screens .customer .card-total strong').innerText()).startsWith(String(th)));
+      await page.locator('[data-action="redeem"]').click();
+      check(`${label}: ${key}/${entry} redeem resets to 0`, (await page.locator('#demo-screens .customer .card-total strong').innerText()).startsWith('0') && /eingelöst/.test(await page.locator('#demo-screens .owner').innerText()));
+    }
+  }
+  await page.screenshot({ path: `${out}/${label}-demo.png`, fullPage: false });
+
+  // request form: refuses empty, prepares mail, no silent success
+  await page.locator('#anfrage').scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click();
+  check(`${label}: empty request is refused visibly`, /Namen deines Geschäfts/.test(await page.locator('#request-status').innerText()) && (await page.locator('#request-status').getAttribute('role')) === 'alert');
+  await page.locator('#req-business').fill('Café Beispiel');
+  await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click();
+  check(`${label}: request states that nothing is sent yet`, /Gesendet ist noch nichts/.test(await page.locator('#request-status').innerText()) && await page.locator('#request-copy').isVisible());
+  check(`${label}: direct mail link`, (await page.locator('.request-card a[href^="mailto:"]').last().getAttribute('href')).startsWith('mailto:support@getloynara.com'));
+
+  check(`${label}: the page opens exactly one mail draft to support@getloynara.com`, mails.length === 1 && mails[0].startsWith('mailto:support@getloynara.com?subject=Demo-Anfrage') && decodeURIComponent(mails[0]).includes('Geschäft: Café Beispiel'));
+
+  // footer + legal slots
+  for (const [name, href] of [['Impressum', '/impressum/'], ['Datenschutz', '/datenschutz/'], ['Teilnahmebedingungen', 'https://app.getloynara.com/teilnahmebedingungen']]) check(`${label}: footer ${name}`, (await page.locator('footer').getByRole('link', { name }).getAttribute('href')) === href);
+  for (const path of ['/impressum/', '/datenschutz/']) { const r = await page.goto(base + path); check(`${label}: ${path} loads`, r.status() === 200 && (await page.locator('h1').count()) === 1); }
+  await page.goto(base + '/');
+  await page.screenshot({ path: `${out}/${label}-home.png`, fullPage: true });
+  // dead controls: after JS has run, nothing but the first demo step's Back/Next may be disabled
+  const disabled = await page.evaluate(() => [...document.querySelectorAll('button:disabled')].map(b => b.id || b.textContent.trim()));
+  check(`${label}: no dead controls (disabled: ${disabled.join(',') || 'none'})`, disabled.every(id => ['demo-back', 'demo-next'].includes(id)));
+  if (problems.length) console.log(problems);
+  check(`${label}: no console errors/warnings`, problems.length === 0);
+  if (external.length) console.log(external);
+  check(`${label}: no external requests`, external.length === 0);
+  await context.close();
+}
+// reduced motion + keyboard
+const kb = await (await browser.newContext({ reducedMotion: 'reduce' })).newPage();
+await kb.goto(base + '/#demo');
+await kb.locator('[data-industry-choice="friseur"]').focus(); await kb.keyboard.press('Enter');
+check('keyboard: industry selectable', (await kb.locator('[data-industry-choice="friseur"]').getAttribute('aria-pressed')) === 'true');
+await browser.close();
+console.log(`PASS: ${results.length} browser checks (desktop 1440x900, mobile 390x844 emulation).`);

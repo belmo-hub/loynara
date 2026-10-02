@@ -1,16 +1,33 @@
-export const initialDemo = (threshold = 8) => ({ threshold, step: 0, enrolled: false, identified: false, confirmed: false, later: 0, redeemed: false });
-export function balance(s) { return s.redeemed ? 0 : (s.confirmed ? 1 : 0) + s.later; }
-export function canAdvance(s) { return s.step < 4 && (s.step !== 1 || s.enrolled) && (s.step !== 3 || s.confirmed); }
-export function transition(s, a) {
-    switch (a) {
+export const STEPS = 4;
+export const initialDemo = (threshold = 8) => ({ threshold, step: 0, entry: null, enrolled: false, requested: false, confirmed: false, extra: 0, redeemed: false });
+export const visits = (s) => (s.confirmed ? 1 : 0) + s.extra;
+export const balance = (s) => (s.redeemed ? 0 : visits(s));
+export function canAdvance(s) {
+    if (s.step >= STEPS - 1)
+        return false;
+    if (s.step === 0)
+        return s.entry !== null;
+    if (s.step === 1)
+        return s.enrolled;
+    return s.confirmed;
+}
+export function transition(s, action) {
+    switch (action) {
         case 'reset': return initialDemo(s.threshold);
-        case 'next': return canAdvance(s) ? { ...s, step: s.step + 1 } : s;
+        case 'nfc':
+        case 'qr': return s.step === 0 && !s.enrolled ? { ...s, entry: action } : s;
+        case 'enroll': return s.step === 1 && s.entry ? { ...s, enrolled: true } : s;
+        case 'next': {
+            if (!canAdvance(s))
+                return s;
+            // An NFC tap itself raises the request; a QR card has to be found by the team first.
+            const step = s.step + 1;
+            return { ...s, step, requested: s.requested || (step === 2 && s.entry === 'nfc') };
+        }
         case 'back': return { ...s, step: Math.max(0, s.step - 1) };
-        case 'enroll': return s.step === 1 ? { ...s, enrolled: true } : s;
-        case 'identify': return s.step === 3 && s.enrolled ? { ...s, identified: true } : s;
-        case 'award': return s.step === 3 && s.identified && !s.confirmed ? { ...s, confirmed: true } : s;
-        case 'jump': return s.step === 4 && s.confirmed && !s.later ? { ...s, later: s.threshold - 2 } : s;
-        case 'last': return s.step === 4 && s.later === s.threshold - 2 && !s.redeemed ? { ...s, later: s.threshold - 1 } : s;
-        case 'redeem': return s.step === 4 && balance(s) === s.threshold ? { ...s, redeemed: true } : s;
+        case 'scan': return s.step === 2 && s.entry === 'qr' && s.enrolled ? { ...s, requested: true } : s;
+        case 'confirm': return s.step === 2 && s.requested && !s.confirmed ? { ...s, confirmed: true } : s;
+        case 'more': return s.step === 3 && s.confirmed && s.extra === 0 && !s.redeemed ? { ...s, extra: s.threshold - 1 } : s;
+        case 'redeem': return s.step === 3 && balance(s) === s.threshold ? { ...s, redeemed: true } : s;
     }
 }

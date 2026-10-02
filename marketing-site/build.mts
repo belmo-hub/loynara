@@ -1,21 +1,34 @@
-import {mkdir,writeFile,copyFile} from 'node:fs/promises';
-import {spawnSync} from 'node:child_process';
-import {resolve} from 'node:path';
-import QRCode from 'qrcode';
-import {page} from './template.js';
-import {industries,type IndustryKey} from './src/config.js';
-import {locales,localePath} from './src/i18n.js';
-import {transcript} from './transcript.js';
-const root=resolve(import.meta.dirname,'site');
-if(process.env.MARKETING_PUBLIC==='true')throw new Error('Public activation blocked: approved operator legal pages, contact destination and final commercial terms are required.');
-await mkdir(resolve(root,'assets/modules'),{recursive:true});
-const routes=['','demo',...Object.keys(industries)];
-for(const locale of locales){
- for(const route of routes){const dir=resolve(root,'.'+localePath(locale,route?`/${route}/`:'/'));await mkdir(dir,{recursive:true});await writeFile(resolve(dir,'index.html'),page(route in industries?route as IndustryKey:'cafe',route,locale));}
- const dir=resolve(root,'.'+localePath(locale,'/demo-transcript/'));await mkdir(dir,{recursive:true});await writeFile(resolve(dir,'index.html'),transcript(locale));
+import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { homePage, legalPage, type LegalFragments } from './template.js';
+import { SITE } from './src/site.js';
+
+const here = import.meta.dirname, root = resolve(here, 'site');
+const read = async (name: string) => { const file = resolve(here, 'legal', name); return existsSync(file) ? (await readFile(file, 'utf8')).trim() || null : null; };
+const legal: LegalFragments = { impressum: await read('impressum.html'), datenschutz: await read('datenschutz.html') };
+const missing = (['impressum', 'datenschutz'] as const).filter(k => !legal[k]);
+if (process.env.MARKETING_PUBLIC === 'true' && missing.length) {
+  throw new Error(`Public build blocked: approved legal text missing for ${missing.join(', ')} (marketing-site/legal/<name>.html, see LEGAL_LAUNCH_FIELDS.md).`);
 }
-await writeFile(resolve(root,'assets/demo-code.svg'),await QRCode.toString('LOY NARA DEMO - KEINE ECHTE KUNDENKARTE',{type:'svg',margin:1,color:{dark:'#163e35',light:'#ffffff'}}));
-await copyFile(resolve(import.meta.dirname,'styles.css'),resolve(root,'styles.css'));
-await writeFile(resolve(root,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${locales.flatMap(locale=>[...routes,'demo-transcript'].map(r=>`<url><loc>https://getloynara.com${localePath(locale,r?`/${r}/`:'/')}</loc></url>`)).join('')}</urlset>`);
-const result=spawnSync(resolve('node_modules/.bin/tsc'),['-p','marketing-site/tsconfig.json'],{stdio:'inherit'});if(result.status)process.exit(result.status);
-console.log(`Marketing build PASS: ${(routes.length+1)*locales.length} static pages in three languages, no application/database dependency. Publication remains gated.`);
+
+await rm(resolve(root, 'assets/modules'), { recursive: true, force: true });
+for (const dir of ['', 'impressum', 'datenschutz']) await mkdir(resolve(root, dir), { recursive: true });
+await writeFile(resolve(root, 'index.html'), homePage());
+await writeFile(resolve(root, 'impressum/index.html'), legalPage('impressum', legal));
+await writeFile(resolve(root, 'datenschutz/index.html'), legalPage('datenschutz', legal));
+await writeFile(resolve(root, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE.origin}/sitemap.xml\n`);
+await writeFile(resolve(root, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`+`<url><loc>${SITE.origin}/</loc></url>${missing.includes('impressum') ? '' : `<url><loc>${SITE.origin}/impressum/</loc></url>`}${missing.includes('datenschutz') ? '' : `<url><loc>${SITE.origin}/datenschutz/</loc></url>`}</urlset>`);
+await writeFile(resolve(root, '_headers'), `/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+`);
+await writeFile(resolve(root, 'styles.css'), await readFile(resolve(here, 'styles.css')));
+
+const result = spawnSync(resolve('node_modules/.bin/tsc'), ['-p', 'marketing-site/tsconfig.json'], { stdio: 'inherit' });
+if (result.status) process.exit(result.status);
+console.log(`Marketing build PASS: ${missing.length ? `3 static pages (legal text pending: ${missing.join(', ')})` : '3 static pages'}, no application/database dependency. Publication remains gated.`);
