@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
 // Needs `npm run marketing:preview` running (loopback, port 8765). Local Chromium emulation only: no physical phone, no screen reader.
-const base = 'http://127.0.0.1:8765', out = 'marketing-site/evidence/functional';
+const base = (process.env.MARKETING_BASE_URL || 'http://127.0.0.1:8765').replace(/\/$/, ''), out = process.env.MARKETING_EVIDENCE_DIR || 'marketing-site/evidence/functional';
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const results = [];
@@ -82,7 +82,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   check(`${label}: the page opens exactly one mail draft to support@getloynara.com`, mails.length === 1 && mails[0].startsWith('mailto:support@getloynara.com?subject=Demo-Anfrage') && decodeURIComponent(mails[0]).includes('Geschäft: Café Beispiel'));
 
   // footer + legal slots
-  for (const [name, href] of [['Impressum', '/impressum/'], ['Datenschutz', '/datenschutz/'], ['Teilnahmebedingungen', 'https://app.getloynara.com/teilnahmebedingungen']]) check(`${label}: footer ${name}`, (await page.locator('footer').getByRole('link', { name }).getAttribute('href')) === href);
+  for (const [name, href] of [['Impressum', '/impressum/'], ['Datenschutz', '/datenschutz/']]) check(`${label}: footer ${name}`, (await page.locator('footer').getByRole('link', { name }).getAttribute('href')) === href);
   for (const path of ['/impressum/', '/datenschutz/']) { const r = await page.goto(base + path); check(`${label}: ${path} loads`, r.status() === 200 && (await page.locator('h1').count()) === 1); }
   await page.goto(base + '/');
   await page.screenshot({ path: `${out}/${label}-home.png`, fullPage: true });
@@ -95,10 +95,25 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   check(`${label}: no external requests`, external.length === 0);
   await context.close();
 }
+// Tablet navigation must not squeeze the wordmark or collide with its visible contents.
+const tablet = await (await browser.newContext({ viewport: { width: 891, height: 984 } })).newPage();
+await tablet.goto(base + '/');
+check('tablet: compact navigation available', await tablet.locator('#menu-toggle').isVisible());
+await tablet.locator('#menu-toggle').click();
+check('tablet: menu opens', await tablet.locator('#main-nav').isVisible());
+await tablet.locator('#main-nav').getByRole('link', { name: 'Preis', exact: true }).click();
+check('tablet: menu closes and pricing reachable', !(await tablet.locator('#main-nav').isVisible()) && await inView(tablet, '#preis', 984));
+await tablet.screenshot({ path: `${out}/tablet-pricing.png` });
 // reduced motion + keyboard
 const kb = await (await browser.newContext({ reducedMotion: 'reduce' })).newPage();
 await kb.goto(base + '/#demo');
 await kb.locator('[data-industry-choice="friseur"]').focus(); await kb.keyboard.press('Enter');
 check('keyboard: industry selectable', (await kb.locator('[data-industry-choice="friseur"]').getAttribute('aria-pressed')) === 'true');
+await kb.goto(base + '/#anfrage');
+await kb.locator('#req-business').fill('Synthetische Vorschau');
+await kb.getByRole('button', { name: /E-Mail vorbereiten/ }).click();
+await kb.locator('#request-copy').click();
+await kb.waitForFunction(() => /Text kopiert|Kopieren war nicht möglich/.test(document.querySelector('#request-status').textContent));
+check('request: copy action provides accurate success or fallback', /Text kopiert|Kopieren war nicht möglich/.test(await kb.locator('#request-status').innerText()));
 await browser.close();
 console.log(`PASS: ${results.length} browser checks (desktop 1440x900, mobile 390x844 emulation).`);

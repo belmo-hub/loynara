@@ -31,4 +31,4 @@ await writeFile(resolve(root, 'styles.css'), await readFile(resolve(here, 'style
 
 const result = spawnSync(resolve('node_modules/.bin/tsc'), ['-p', 'marketing-site/tsconfig.json'], { stdio: 'inherit' });
 if (result.status) process.exit(result.status);
-console.log(`Marketing build PASS: ${missing.length ? `3 static pages (legal text pending: ${missing.join(', ')})` : '3 static pages'}, no application/database dependency. Publication remains gated.`);
+console.log(`Marketing build PASS: ${missing.length ? `3 static pages (legal text pending: ${missing.join(', ')})` : '3 static pages'}, no application/database dependency. Public mode: ${process.env.MARKETING_PUBLIC === 'true' ? 'enabled' : 'disabled'}.`);

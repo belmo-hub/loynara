@@ -16,7 +16,7 @@ for (const page of pages) {
   for (const [, url] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     links++;
     if (/^mailto:/.test(url)) { assert.match(url, /^mailto:support@getloynara\.com(\?|$)/, `unexpected mail target ${url}`); continue; }
-    if (/^https:/.test(url)) { assert.match(url, /^https:\/\/(getloynara\.com|app\.getloynara\.com)(\/|$)/, `unexpected external ${url} in ${rel}`); continue; }
+    if (/^https:/.test(url)) { assert.ok(/^https:\/\/(getloynara\.com|app\.getloynara\.com)(\/|$)/.test(url) || (rel === '/datenschutz/index.html' && url === 'https://www.cloudflare.com/privacypolicy/'), `unexpected external ${url} in ${rel}`); continue; }
     assert.ok(!/^(http:|javascript:|#$)/.test(url), `bad link ${url} in ${rel}`);
     const [path, hash] = url.split('#');
     let target = path ? resolve(root, '.' + path) : page;
@@ -37,3 +37,8 @@ const robots = readFileSync(resolve(root, 'robots.txt'), 'utf8'); assert.match(r
 for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/fonts/geist-latin.woff2', 'styles.css']) assert.ok(existsSync(resolve(root, asset)), asset);
 console.log(`PASS: ${pages.length} pages, ${links} links/anchors/assets, metadata, private-output and browser data-flow checks.`);
 for (const b of blockers) console.log(`PUBLICATION BLOCKER: ${b}`);
+
+if (process.env.MARKETING_PUBLIC === 'true') {
+  assert.equal(blockers.length, 0, 'Public verification requires legal content');
+  for (const page of pages) assert.doesNotMatch(readFileSync(page, 'utf8'), /data-legal-placeholder|Entwurf|Teilnahmebedingungen|teilnahmebedingungen|49\s*€|€\s*49/i, 'No draft legal or retired offer in public output');
+}

@@ -29,7 +29,8 @@ test('metadata is complete and indexable on the home page', () => {
   for (const marker of ['name="description"', 'rel="canonical" href="https://getloynara.com/"', 'property="og:title"', 'property="og:description"', 'property="og:image"', 'name="twitter:card"', 'rel="icon"', 'name="robots" content="index,follow"']) assert.ok(home.includes(marker), marker);
 });
 test('legal slots exist; unapproved legal pages are kept out of search results', () => {
-  for (const href of ['/impressum/', '/datenschutz/', SITE.termsUrl]) assert.ok(home.includes(`href="${href}"`), href);
+  for (const href of ['/impressum/', '/datenschutz/']) assert.ok(home.includes(`href="${href}"`), href);
+  assert.doesNotMatch(home, /Teilnahmebedingungen|teilnahmebedingungen/);
   const placeholder = legalPage('impressum', { impressum: null, datenschutz: null });
   assert.match(placeholder, /noindex,nofollow/);
   assert.match(placeholder, /data-legal-placeholder/);

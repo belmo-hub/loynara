@@ -15,7 +15,7 @@ node marketing-site/browser-check.mjs   # real-browser checks (preview must be r
 - `src/demo.ts`, `src/views.ts`, `src/browser.ts` – the in-page product demo (customer → cashier → owner; NFC tap or QR entry). Runs only in page memory: no network, no storage.
 - `src/request.ts` – builds the demo-request e-mail. The page never sends anything; it opens a `mailto:` draft to `support@getloynara.com`.
 - `template.ts` – page markup and metadata. `styles.css` – styling (functional pass; the visual redesign is a separate step).
-- `legal/impressum.html`, `legal/datenschutz.html` – **operator-approved legal text goes here** (not present yet). Without them the legal pages hold a neutral placeholder and are `noindex`.
+- `legal/impressum.html`, `legal/datenschutz.html` – factual marketing-only legal content supplied for publication. Without them the legal pages hold a neutral placeholder and are `noindex`.
 
 ## Publication gate
 `MARKETING_PUBLIC=true npm run marketing:build` fails while the approved Impressum/Datenschutz fragments are missing. See `LEGAL_LAUNCH_FIELDS.md`. Nothing in this directory deploys anything.
@@ -24,7 +24,7 @@ node marketing-site/browser-check.mjs   # real-browser checks (preview must be r
 - `getloynara.com` → this site (Cloudflare Pages custom domain)
 - `www.getloynara.com` → redirect to `getloynara.com` (Cloudflare redirect rule; Pages `_redirects` cannot match hosts)
 - `app.getloynara.com` → the Loynara application (unchanged by this site)
-The site links to the application only through `https://app.getloynara.com/login` and `/teilnahmebedingungen`.
+The site links to the application only through `https://app.getloynara.com/login`. The draft application terms are not linked.
 
 ## Claims boundary
 The copy states only what the application does today: browser cards, stamps or points, NFC-tap and QR entry, staff-confirmed visits, customer list, results, team roles, locations, referrals and brand colours. It does not advertise campaigns/e-mail sending, Wallet, billing automation or logo upload (all withheld in production), automatic stamping, NFC payment, Apple VAS/Google Smart Tap, customer numbers or revenue/ROI figures. Physical NFC tags are not yet hardware-verified; the copy describes the flow without claiming deployment or device results. `tests/site.test.ts` guards these boundaries.

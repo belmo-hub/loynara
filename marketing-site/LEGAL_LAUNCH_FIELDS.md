@@ -1,13 +1,11 @@
-# Required before public activation
+# Marketing publication scope — 2 October 2026
 
-The site must not be published until the operator supplies and approves the following. None of it is inferred or invented here.
+The operator explicitly authorized this prelaunch lead-generation publication and supplied the name, address and contact details in `legal/impressum.html` and `legal/datenschutz.html`.
 
-1. **Impressum** – approved HTML fragment at `marketing-site/legal/impressum.html` (operator's full legal name and form, serviceable address, contact e-mail, register/VAT details where applicable, responsible person where applicable).
-2. **Datenschutzerklärung** – approved fragment at `marketing-site/legal/datenschutz.html`, covering the actual static hosting (Cloudflare), the support mailbox as the contact channel, and server logs. The page itself sets no cookies, loads no third-party scripts and sends no form data.
-3. **Teilnahmebedingungen** – linked to `https://app.getloynara.com/teilnahmebedingungen`. That page is currently an unapproved draft ("Entwurf") inside the application and must be finalised there.
-4. **Application privacy page** – `https://app.getloynara.com/datenschutz` currently reads "Entwurf" and "Vor öffentlichem Start ergänzen"; it needs approved text before customers are sent to it.
-5. **Support mailbox** – `support@getloynara.com` must receive and be monitored; the demo request is an e-mail to it.
-6. **Commercial terms** – the €39 / location / month figure is a provisional pilot offer. Setup fees, contract term, cancellation and VAT treatment are intentionally not stated.
-7. **Approval** – Cloudflare Pages project, apex assignment and the `www` redirect, after review of the finished site.
-
-`MARKETING_PUBLIC=true` makes the build fail while items 1–2 are missing.
+- Static marketing site only: Cloudflare Pages delivery, local interactive demo, and mailto contact; no backend form, tracking, analytics, payments or contract acceptance.
+- No incorporated entity, commercial register, VAT registration or chamber membership is asserted.
+- The €39 per month/location offer remains provisional, with details discussed personally.
+- Application terms are not linked. Application/customer legal readiness remains a separate unresolved gate.
+- The privacy notice is factual interim marketing-site information, not approval of the application's legal documentation.
+- Public build and verification require `MARKETING_PUBLIC=true`; both fragments must exist and public output must contain no placeholder/draft terms.
+- The operator's existing support mailbox and mail DNS must be preserved. Mailbox monitoring remains an operator responsibility; this deployment does not send a test email.
