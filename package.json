@@ -18,6 +18,7 @@
     "production:ops-check": "tsx scripts/production-ops-check.ts",
     "operator:provision-identity": "tsx scripts/operator-provision-identity.ts",
     "operator:reset-credential": "tsx scripts/operator-reset-credential.ts",
+    "operator:register-tag": "tsx scripts/operator-register-tag.ts",
     "production:backup": "bash scripts/production-backup.sh",
     "production:restore-check": "bash scripts/production-restore-check.sh",
     "production:local-dry-run": "bash scripts/production-local-dry-run.sh",

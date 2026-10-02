@@ -7,6 +7,7 @@ import { BrandMark, CashierView, type CashierAward, type CashierCard, type Cashi
 import { QrScanner } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
+import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupResult = { membershipId: string; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
@@ -14,7 +15,6 @@ type TransactionResult = { balance: number; duplicate: boolean; entryId: string;
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
 type OfflineSyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: number; duplicate?: boolean };
-type TapPending = { id: string; createdAt: string; expiresAt: string; scanCode: string; balance: number };
 
 export default function CashierPage() {
   const router = useRouter();
@@ -34,17 +34,14 @@ export default function CashierPage() {
   const [offlineEvents, setOfflineEvents] = useState<OfflineQueuedEvent[]>([]);
   const [offlineError, setOfflineError] = useState("");
   const [offlineBusy, setOfflineBusy] = useState(false);
-  const [tapPending, setTapPending] = useState<TapPending[]>([]);
   // The NFC confirmation panel only means something where the programme uses staff-confirmed NFC taps; otherwise it is dead weight on the counter screen.
   const [staffTapEnabled, setStaffTapEnabled] = useState(false);
-  const [tapMessage, setTapMessage] = useState("");
-  const [tapBusy, setTapBusy] = useState(false);
   const pendingRef = useRef<PendingOperation | null>(null);
 
   useEffect(() => {
     void apiJson<MeResponse>("/api/me").then(me => {
       if (!me.tenantId || !me.locationId || !me.role) { setAccessState("blocked"); setAccessMessage("Dieses Konto hat keinen aktiven Standortzugang. Eine Inhaberin oder ein Inhaber kann den Teamzugang prüfen."); return; }
-      setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed");
+      setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
       try { setOfflineEvents(readOfflineEvents(localStorage, me.userId)); }
       catch (error) { setOfflineError(error instanceof Error ? error.message : "Offline queue unavailable"); }
       setAccessState("ready");
@@ -123,22 +120,6 @@ export default function CashierPage() {
     catch (error) { setOfflineError(error instanceof Error ? error.message : "Review failed"); }
   }
 
-  async function refreshTapPending() {
-    setTapBusy(true); setTapMessage("");
-    try { setTapPending(await apiJson<TapPending[]>("/api/cashier/tap/pending")); }
-    catch (error) { setTapMessage(error instanceof Error ? error.message : "NFC-Anfragen konnten nicht geladen werden."); }
-    finally { setTapBusy(false); }
-  }
-  async function confirmTap(id: string) {
-    setTapBusy(true); setTapMessage("Server prüft die Bestätigung …");
-    try {
-      const result = await apiJson<{ state: string; balance?: number }>(`/api/cashier/tap/${encodeURIComponent(id)}/confirm`, { method: "POST" });
-      setTapMessage(result.state === "confirmed" ? `Ein Stempel bestätigt. Neuer Stand: ${result.balance}.` : "Diese NFC-Anfrage war bereits bestätigt.");
-      setTapPending(current => current.filter(item => item.id !== id));
-    } catch (error) { setTapMessage(error instanceof Error ? error.message : "Bestätigung fehlgeschlagen."); }
-    finally { setTapBusy(false); }
-  }
-
   function operationFor(signature: string): PendingOperation {
     if (pendingRef.current?.signature === signature) return pendingRef.current;
     if (pendingRef.current) throw new Error(locale === "fr" ? "Une opération a un résultat incertain. Réessayez la même action avant de saisir un autre montant ou une autre récompense." : "Ein Vorgang hat ein unklares Ergebnis. Wiederhole dieselbe Aktion, bevor du einen anderen Betrag oder eine andere Prämie eingibst.");
@@ -172,5 +153,5 @@ export default function CashierPage() {
   }
 
   if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <><a href="/login" className="button button--outline">Zur Anmeldung</a><LogoutButton className="button button--outline" /></>}</div></main>;
-  return <><CashierView key={`${card?.id ?? "empty"}:${completedTransaction}`} locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <section aria-labelledby="tap-pending-heading" style={{ maxWidth: 760, margin: "24px auto", padding: 24 }}><h2 id="tap-pending-heading">Offene NFC-Bestätigungen</h2><p>Nur bei Programmen mit Team-Bestätigung. Prüfe den Einkauf an der Kasse, bevor du einen Stempel vergibst.</p><button className="button button--outline" type="button" disabled={tapBusy} onClick={() => void refreshTapPending()}>Anfragen aktualisieren</button>{tapPending.map(item => <div key={item.id} style={{ padding: 16, marginTop: 12, border: "1px solid #c6d5ca", borderRadius: 12 }}><strong>Karte {item.scanCode}</strong><p>Stand: {item.balance} · Gültig bis {new Date(item.expiresAt).toLocaleTimeString("de-DE")}</p><button className="button button--accent" type="button" disabled={tapBusy} onClick={() => void confirmTap(item.id)}>Einen Stempel bestätigen</button></div>)}{tapMessage && <p role="status">{tapMessage}</p>}</section>}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
+  return <><CashierView key={`${card?.id ?? "empty"}:${completedTransaction}`} locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <CashierTapPanel />}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
 }

@@ -1,3 +1,4 @@
+import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -63,6 +64,19 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
       || !Number.isSafeInteger(monthly) || monthly < 1 || monthly > 100_000 || !Number.isSafeInteger(frequency) || frequency < 1 || frequency > 24 * 365) {
       issues.push("Promotional email requires separate approval, public unsubscribe origin and configured location/customer safety limits");
     }
+  }
+  // NFC. Enabled only with the derived verification-key provider; development keys and the administrative master never reach production.
+  if (env.TAP_SYNTHETIC_KEY_FILE) issues.push("Synthetic NFC development keys are forbidden in production");
+  if (env.NFC_ADMIN_MASTER_KEY) issues.push("The NFC administrative master key must stay on the operator machine and is forbidden in the production environment");
+  if (env.NFC_ENABLED === "true") {
+    let masterValid = env.NFC_KEY_PROVIDER === DERIVED_KEY_PROVIDER;
+    try { parseMaster(env.NFC_VERIFY_MASTER_KEY); } catch { masterValid = false; }
+    if (!masterValid) issues.push("NFC requires NFC_KEY_PROVIDER=derived_v1 and a valid 64-hex NFC_VERIFY_MASTER_KEY");
+    if (env.NFC_VERIFY_MASTER_KEY && [env.BETTER_AUTH_SECRET, env.BILLING_FIXTURE_SECRET, env.PROMOTIONAL_UNSUBSCRIBE_SECRET].some(value => value === env.NFC_VERIFY_MASTER_KEY)) issues.push("The NFC verification master key must not be reused as another secret");
+  } else if (env.NFC_ENABLED !== undefined && env.NFC_ENABLED !== "false") {
+    issues.push("NFC_ENABLED must be exactly true or false");
+  } else if (env.NFC_VERIFY_MASTER_KEY || env.NFC_KEY_PROVIDER) {
+    issues.push("NFC key settings are present while NFC is not enabled");
   }
   if (env.LIVE_BILLING_ENABLED === "true") issues.push("Live billing is not configured and approved for production");
   if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");

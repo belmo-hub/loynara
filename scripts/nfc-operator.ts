@@ -7,16 +7,23 @@ import { and, eq } from "drizzle-orm";
 import { PcscBridge } from "../src/lib/nfc-provision/pcsc";
 import { getVersion } from "../src/lib/nfc-provision/ntag";
 import { assertProvisioningEnvironment, DevelopmentKeyStore } from "../src/lib/nfc-provision/operator-safety";
+import { EvidenceJournal } from "../src/lib/nfc-provision/evidence";
+import { inspectChip, resumeProductionProvisioning, runProductionProvisioning } from "../src/lib/nfc-provision/production-run";
+import { NfcOperatorRefusal } from "../src/lib/nfc-provision/production";
 import { provisionPhysicalTag, type ProvisionRepository, type ProvisionStage } from "../src/lib/nfc-provision/flow";
 
 type Options = Record<string, string>;
 function options(args: string[]): Options {
   const parsed: Options = {};
-  for (let i = 0; i < args.length; i += 2) {
-    if (!args[i]?.startsWith("--") || !args[i + 1] || args[i + 1].startsWith("--")) throw new Error("Options must be --name value pairs");
+  for (let i = 0; i < args.length; i += 1) {
+    if (!args[i]?.startsWith("--")) throw new Error("Options must be --name value pairs");
     const name = args[i].slice(2);
-    if (!new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id"]).has(name) || parsed[name]) throw new Error("Unknown or duplicate operator option");
+    if (!new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id", "target", "tenant-id", "location-id", "cooldown-seconds", "execute"]).has(name) || parsed[name]) throw new Error("Unknown or duplicate operator option");
+    // --execute is a flag; every other option is a --name value pair.
+    if (name === "execute") { parsed[name] = "true"; continue; }
+    if (!args[i + 1] || args[i + 1].startsWith("--")) throw new Error("Options must be --name value pairs");
     parsed[name] = args[i + 1];
+    i += 1;
   }
   return parsed;
 }
@@ -90,7 +97,7 @@ async function diagnostic(ref: string, stage: ProvisionStage, note: Record<strin
 async function main() {
   const command = process.argv[2];
   const opts = options(process.argv.slice(3));
-  if (!new Set(["reader-check", "provision", "tag-status", "tag-revoke"]).has(command)) throw new Error("Use reader-check, provision, tag-status, or tag-revoke");
+  if (!new Set(["reader-check", "tag-inspect", "provision", "resume", "tag-status", "tag-revoke"]).has(command)) throw new Error("Use reader-check, tag-inspect, provision, resume, tag-status, or tag-revoke");
   if (command === "reader-check") {
     const bridge = new PcscBridge();
     try {
@@ -105,6 +112,49 @@ async function main() {
     } finally { await bridge.close(); }
     return;
   }
+  if (command === "tag-inspect") {
+    // READ-ONLY: identity, classification from unauthenticated reads, and the evidence journal. No keys, no writes.
+    const bridge = new PcscBridge();
+    try {
+      await selectCard(bridge, required(opts, "reader"));
+      const found = await inspectChip({ transport: bridge, journal: new EvidenceJournal() });
+      console.log(`UID ${found.uid}; file settings ${found.fileSettings}; condition ${found.condition}; evidence ${found.evidence} (${found.evidenceDetail})`);
+    } finally { await bridge.close(); }
+    return;
+  }
+  const target = required(opts, "target");
+  if (target !== "preview" && target !== "production") throw new Error("--target must be preview or production");
+  if (target === "production") {
+    if (command !== "provision" && command !== "resume") throw new Error("Production supports provision (dry run unless --execute) and resume");
+    await loadEnvironment(required(opts, "env-file"));
+    const origin = process.env.PRODUCTION_APPROVED_ORIGIN ?? "";
+    const cooldown = Number(required(opts, "cooldown-seconds"));
+    if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 86400) throw new Error("Invalid cooldown");
+    const bridge = new PcscBridge();
+    try {
+      await selectCard(bridge, required(opts, "reader"));
+      const common = {
+        transport: bridge, journal: new EvidenceJournal(), env: process.env, origin,
+        binding: { tenantId: required(opts, "tenant-id"), locationId: required(opts, "location-id"), programId: required(opts, "program-id"), cooldownSeconds: cooldown },
+        async confirm(summary: { uid: string; text: string }) { console.log(summary.text); return confirm(`Type ${command === "resume" ? "PROBE" : "PROVISION"} ${summary.uid} to continue: `, `${command === "resume" ? "PROBE" : "PROVISION"} ${summary.uid}`); },
+      };
+      const outcome = command === "resume" ? await resumeProductionProvisioning(common) : await runProductionProvisioning({ ...common, execute: opts.execute === "true" });
+      console.log(`Chip ${outcome.inspection.uid}: ${outcome.inspection.condition}; evidence ${outcome.inspection.evidence} (${outcome.inspection.evidenceDetail})`);
+      if (outcome.mode === "dry_run") {
+        console.log(`DRY RUN: nothing was changed. Origin ${origin}.`);
+        if (outcome.blockedBy) console.log(`BLOCKED: ${outcome.blockedBy}`);
+        else { console.log("Would: " + outcome.wouldChange.join("; ")); console.log("Run again with --execute to proceed (typed confirmation required)."); }
+        return;
+      }
+      const file = path.resolve("var/nfc-evidence", `${outcome.bundle.publicRef}.registration.json`);
+      await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+      const handle = await open(file, "wx", 0o600);
+      try { await handle.writeFile(JSON.stringify(outcome.bundle, null, 2)); } finally { await handle.close(); }
+      console.log(`PASS: tag provisioned for ${origin}. Registration bundle (no secrets): ${file}. Key material was not printed. The tag stays unusable until it is registered on production.`);
+    } finally { await bridge.close(); }
+    return;
+  }
+  if (command === "resume") throw new Error("resume is a production command");
   await loadEnvironment(required(opts, "env-file"));
   const origin = process.env.DEVICE_TEST_APPROVED_ORIGIN ?? "";
   assertProvisioningEnvironment(process.env, origin);
@@ -152,4 +202,4 @@ async function main() {
     throw error;
   } finally { await bridge.close(); await database.close(); }
 }
-main().catch(error => { console.error(`FAIL: ${error instanceof Error ? error.message : "operator command failed"}`); process.exitCode = 1; });
+main().catch(error => { console.error(`FAIL: ${error instanceof NfcOperatorRefusal ? error.code : error instanceof Error ? error.message : "operator command failed"}`); process.exitCode = 1; });

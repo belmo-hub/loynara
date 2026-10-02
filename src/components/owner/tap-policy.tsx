@@ -4,6 +4,7 @@ import { useState } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
 import { useDirtyGuard } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
+import { useLoad } from "./use-load";
 import { tapModesFor, type TapMode as Mode } from "./tap-modes";
 
 const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
@@ -11,6 +12,19 @@ const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
   { id: "staff_confirmed", label: "Mit Bestätigung", text: "Ein NFC-Tag öffnet die Karte, das Team bestätigt die Vergabe." },
   { id: "automatic_fixed", label: "Automatisch", text: "Ein Tap vergibt automatisch die feste Menge, mit Wartezeit zwischen zwei Taps." },
 ];
+
+type TagStatus = { capability: { available: boolean; reason?: string }; tags: Array<{ id: string; status: string; activatedAt: string | null; everTapped: boolean }> };
+
+/** What is actually in place for this programme, so the setting never promises more than the shop can do today. */
+function Readiness({ status, mode }: { status: TagStatus; mode: Mode }) {
+  const active = status.tags.filter(tag => tag.status === "active");
+  const provisioned = status.tags.filter(tag => tag.status === "provisioned");
+  const line = active.length > 0
+    ? `${active.length} aktive${active.length === 1 ? "s" : ""} NFC-Schild${active.length === 1 ? "" : "er"}${active.some(tag => tag.everTapped) ? ", bereits benutzt" : ", noch nicht berührt"}.`
+    : provisioned.length > 0 ? "Ein Schild ist angelegt, aber noch nicht freigeschaltet." : "Noch kein NFC-Schild eingerichtet. Loynara richtet das Schild gemeinsam mit dir ein.";
+  const note = active.length > 0 && mode === "disabled" ? "Berührungen werden ignoriert, solange NFC aus ist." : active.length === 0 && mode !== "disabled" ? "Kundinnen und Kunden können erst berühren, wenn ein aktives Schild vorhanden ist." : null;
+  return <div className="ow-readonly" role="status"><strong>Bereitschaft</strong><br />{line}{note && <><br /><span className="ow-muted">{note}</span></>}</div>;
+}
 
 const AUTOMATIC_NOTE = "Im Pilotbetrieb nicht verfügbar.";
 
@@ -23,6 +37,7 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
   const stamp = me.programType === "stamp";
+  const [tagStatus, reloadTags] = useLoad<TagStatus>(me.programId ? `/api/merchant/tap?programId=${me.programId}` : null);
   // Pilot policy: automatic awards are offered only where the server allows them (never on production).
   // A missing flag counts as "not allowed". The server enforces this independently.
   const automaticAllowed = me.tapAutomaticAllowed === true;
@@ -39,7 +54,7 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
     setState("saving"); setError("");
     try {
       await postJson("/api/merchant/tap", { action: "policy", programId: me.programId, mode, cooldownSeconds: mode === "disabled" ? null : cooldownNumber });
-      setSaved({ mode, cooldown: mode === "disabled" ? "" : cooldown }); setState("saved");
+      setSaved({ mode, cooldown: mode === "disabled" ? "" : cooldown }); setState("saved"); reloadTags();
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die NFC-Regel konnte nicht gespeichert werden."); }
   }
 
@@ -52,7 +67,8 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
       <details open={saved.mode !== "disabled" || changed || undefined}>
         <summary style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 700 }}><span id="tap-title">NFC-Tap (optional)</span><span className="ow-chip">{label}</span></summary>
         <div className="ow-stack" style={{ marginTop: 12 }}>
-          <p className="ow-muted" style={{ fontSize: 14 }}>Für feste Stempelvergabe. Ein NFC-Tag muss separat mit eigenen Schlüsseln eingerichtet werden; diese Einstellung aktiviert noch keinen Tag. QR an der Kasse bleibt immer verfügbar.</p>
+          <p className="ow-muted" style={{ fontSize: 14 }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, das Team bestätigt jeden Stempel an der Kasse. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
+          {tagStatus.state === "ok" && <Readiness status={tagStatus.data} mode={saved.mode} />}
           <fieldset className="ow-group">
             <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>
             <div className="ow-radio-cards">

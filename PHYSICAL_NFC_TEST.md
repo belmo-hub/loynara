@@ -1,5 +1,7 @@
 # Secure NFC physical test handoff
 
+> Superseded for first release by [docs/nfc-v1-runbook.md](docs/nfc-v1-runbook.md) (production provider, two-phase provisioning, Tag #1 procedure). This file still describes the preview/device-test CLI. The "runtime dependency" paragraph in section C–D is closed in software by the derived key provider; it is still unverified on hardware.
+
 | Check | Current result |
 | --- | --- |
 | Local CLI, official command vectors, mock sequencing, existing SDM/ledger tests | **SOFTWARE_READY** |

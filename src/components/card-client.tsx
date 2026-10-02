@@ -12,6 +12,14 @@ type WalletStatus = {
   google: { ready: boolean; publishingStatus: "demo" | "published" };
 };
 
+// A tap that found no card binding stored its path in this tab; once the card has bound this browser, continue it.
+function continueTap() {
+  const path = sessionStorage.getItem("loynara_tap_return");
+  if (!path || !/^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(path)) return;
+  sessionStorage.removeItem("loynara_tap_return");
+  window.location.assign(path);
+}
+
 export function CardClient({ token }: { token: string }) {
   const [card, setCard] = useState<CardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +32,7 @@ export function CardClient({ token }: { token: string }) {
   const [closed, setClosed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); } void apiJson(`/api/card/${encodeURIComponent(token)}/tap-session`, { method: "POST" }).catch(() => {}); }).catch(cause => { if (mounted) { setError(cause instanceof Error ? cause.message : "Karte nicht gefunden."); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); } void apiJson(`/api/card/${encodeURIComponent(token)}/tap-session`, { method: "POST" }).then(() => continueTap()).catch(() => {}); }).catch(cause => { if (mounted) { setError(cause instanceof Error ? cause.message : "Karte nicht gefunden."); setLoading(false); } });
     return () => { mounted = false; };
   }, [token]);
   useEffect(() => {

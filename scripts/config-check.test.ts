@@ -114,4 +114,31 @@ describe("production configuration gate", () => {
     const issues = productionConfigIssues({ NODE_ENV: "production", DATABASE_URL: "postgresql://merchant:unique-value@db.example.com/loyalty", BETTER_AUTH_URL: "https://app.example.com", PUBLIC_BASE_URL: "https://app.example.com", BETTER_AUTH_SECRET: "a".repeat(64), BILLING_FIXTURE_MODE: "true" });
     expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/fixture/i)]));
   });
+
+  describe("NFC", () => {
+    const master = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
+    const on: NodeJS.ProcessEnv = { ...safe, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: master };
+    it("is accepted when off, and when on with the derived provider", () => {
+      expect(productionConfigIssues({ ...safe, NFC_ENABLED: "false" })).toEqual([]);
+      expect(productionConfigIssues(on)).toEqual([]);
+    });
+    it.each([
+      ["no provider", { NFC_KEY_PROVIDER: undefined }],
+      ["wrong provider", { NFC_KEY_PROVIDER: "file" }],
+      ["no master", { NFC_VERIFY_MASTER_KEY: undefined }],
+      ["short master", { NFC_VERIFY_MASTER_KEY: "abcd" }],
+      ["placeholder master", { NFC_VERIFY_MASTER_KEY: "a".repeat(64) }],
+      ["master reused as auth secret", { BETTER_AUTH_SECRET: master }],
+    ])("refuses NFC with %s", (_name, override) => {
+      expect(productionConfigIssues({ ...on, ...override })).toEqual(expect.arrayContaining([expect.stringMatching(/NFC|reused/)]));
+    });
+    it("refuses development keys and the administrative master in production", () => {
+      expect(productionConfigIssues({ ...on, TAP_SYNTHETIC_KEY_FILE: "/tmp/keys.json" })).toEqual(expect.arrayContaining([expect.stringMatching(/development keys/)]));
+      expect(productionConfigIssues({ ...on, NFC_ADMIN_MASTER_KEY: "b".repeat(64) })).toEqual(expect.arrayContaining([expect.stringMatching(/administrative master/)]));
+    });
+    it("refuses key settings while NFC is not enabled, and ambiguous flag values", () => {
+      expect(productionConfigIssues({ ...safe, NFC_VERIFY_MASTER_KEY: master })).toEqual(expect.arrayContaining([expect.stringMatching(/not enabled/)]));
+      expect(productionConfigIssues({ ...safe, NFC_ENABLED: "TRUE" })).toEqual(expect.arrayContaining([expect.stringMatching(/exactly true or false/)]));
+    });
+  });
 });

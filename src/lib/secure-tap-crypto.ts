@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, timingSafeEqual } from "node:crypto";
 
 // NXP AN12196 Rev 2.0, sections 3.3, 3.4.2.2 and 3.4.4.2.1.
 // This verifier supports only encrypted PICC data plus an empty SDMMAC input.
-function aesBlock(key: Buffer, block: Buffer, decrypt = false): Buffer {
+export function aesBlock(key: Buffer, block: Buffer, decrypt = false): Buffer {
   const cipher = decrypt ? createDecipheriv("aes-128-ecb", key, null) : createCipheriv("aes-128-ecb", key, null);
   cipher.setAutoPadding(false);
   return Buffer.concat([cipher.update(block), cipher.final()]);
@@ -15,7 +15,7 @@ function doubled(block: Buffer): Buffer {
   return next;
 }
 
-function cmac(key: Buffer, message: Buffer): Buffer {
+export function cmac(key: Buffer, message: Buffer): Buffer {
   const l = aesBlock(key, Buffer.alloc(16));
   const k1 = doubled(l);
   const k2 = doubled(k1);

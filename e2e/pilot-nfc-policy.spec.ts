@@ -28,7 +28,7 @@ test(`NFC policy: server and UI follow the pilot policy (${productionLike ? "pro
       await page.goto("/merchant/program");
       await expect(page.getByRole("heading", { name: "Sammelregeln & Prämien" })).toBeVisible();
       if (productionLike) {
-        // Real pilot production: the NFC card is withheld entirely (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
+        // Production-like without an NFC key provider configured: the NFC card is withheld (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
         await expect(page.getByText("NFC-Tap (optional)")).toHaveCount(0);
         expect((await policy("automatic_fixed")).status()).toBe(400);
       } else {
@@ -89,10 +89,10 @@ test("cashier screen shows the NFC confirmation panel only for staff-confirmed p
       const page = await ctx.newPage();
       await page.goto("/cashier");
       await expect(page.getByRole("heading", { name: /Karte scannen/ })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Offene NFC-Bestätigungen" })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "NFC-Anfragen" })).toHaveCount(0);
       expect((await owner.post("/api/merchant/tap", { data: { action: "policy", programId: me.programId, mode: "staff_confirmed", cooldownSeconds: 60 } })).status()).toBe(200);
       await page.reload();
-      await expect(page.getByRole("heading", { name: "Offene NFC-Bestätigungen" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "NFC-Anfragen" })).toBeVisible();
     } finally { await ctx.close(); }
   } finally { await cashier.dispose(); await owner.dispose(); }
 });

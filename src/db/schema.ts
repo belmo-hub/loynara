@@ -285,7 +285,7 @@ export const secureTags = pgTable("secure_tags", {
   tenantId: uuid("tenant_id").notNull(),
   locationId: uuid("location_id").notNull(),
   programId: uuid("program_id").notNull(),
-  uid: varchar("uid", { length: 14 }).notNull().unique(),
+  uid: varchar("uid", { length: 14 }).notNull(),
   keyRef: varchar("key_ref", { length: 160 }).notNull(),
   configVersion: integer("config_version").notNull(),
   lastCounter: integer("last_counter").notNull().default(0),
@@ -298,6 +298,8 @@ export const secureTags = pgTable("secure_tags", {
 }, (t) => [
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  // One live tag per chip. A revoked or replaced row keeps its history, and the same chip can be registered again.
+  uniqueIndex("secure_tag_uid_live_uq").on(t.uid).where(sql`${t.status} in ('provisioned','active')`),
   check("secure_tag_status_valid", sql`${t.status} in ('provisioned','active','revoked','replaced')`),
   check("secure_tag_counter_valid", sql`${t.lastCounter} between 0 and 16777215`),
   check("secure_tag_version_valid", sql`${t.configVersion} > 0`),
@@ -321,7 +323,7 @@ export const tapRequests = pgTable("tap_requests", {
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
   check("tap_request_counter_valid", sql`${t.counter} between 1 and 16777215`),
-  check("tap_request_status_valid", sql`${t.status} in ('awarded','cooldown','pending_staff','confirmed','expired')`),
+  check("tap_request_status_valid", sql`${t.status} in ('awarded','cooldown','pending_staff','confirmed','expired','cancelled')`),
 ]);
 
 // A lease is issued only while the cashier and card are online. It is scoped

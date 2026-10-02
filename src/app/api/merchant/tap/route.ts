@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { setTapPolicy } from "@/lib/secure-tap";
+import { programTagStatus, setTapPolicy } from "@/lib/secure-tap";
+import { nfcCapability } from "@/lib/nfc-keys";
 import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/http";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
@@ -12,5 +13,14 @@ export async function POST(request: Request) {
     const input = body.parse(await jsonBody(request, 1000));
     const result = await setTapPolicy({ actorUserId: user.id, programId: input.programId, mode: input.mode, cooldownSeconds: input.cooldownSeconds });
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) { return respondError(error); }
+}
+
+/** Owner view: what this deployment can do with NFC, plus the programme's tags (non-secret fields only). */
+export async function GET(request: Request) {
+  try {
+    const user = await sessionUser(request);
+    const programId = z.uuid().parse(new URL(request.url).searchParams.get("programId"));
+    return Response.json({ capability: nfcCapability(), ...(await programTagStatus({ actorUserId: user.id, programId })) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

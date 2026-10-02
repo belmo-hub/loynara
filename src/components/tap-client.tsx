@@ -2,48 +2,94 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiJson, type CardResponse } from "./client-api";
+import { apiJson, ClientApiError, type CardResponse } from "./client-api";
 import { BrandMark } from "./loyalty-ui";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardPath?: string };
-type Result = { state: "awarded" | "already_processed" | "cooldown" | "pending_staff" | "needs_enrollment" | "disabled"; balance?: number };
+export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
+type Result = { state: TapState; balance?: number; expiresAt?: string };
+
+const POLL_MS = 4000;
+export const TAP_RETURN_KEY = "loynara_tap_return";
+const TAP_URL = /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/;
+
+/** What the customer is told for each state of the same tap. Reloading never produces an error for a request that exists. */
+export function tapCopy(state: TapState | "loading" | "error", error?: ClientApiError | Error): { title: string; detail: string } {
+  switch (state) {
+    case "loading": return { title: "NFC-Berührung wird geprüft", detail: "Einen Moment bitte." };
+    case "needs_enrollment": return { title: "Deine Karte erstellen", detail: "Mit einer kostenlosen Karte im Browser sammelst du Stempel. Du brauchst keine App." };
+    case "pending_staff": return { title: "Warte auf das Team", detail: "Das Team an der Kasse bestätigt deinen Stempel. Du musst nichts weiter tun." };
+    case "confirmed": return { title: "Stempel erhalten", detail: "Das Team hat deinen Stempel bestätigt und deinem Konto gutgeschrieben." };
+    case "awarded": return { title: "Stempel erhalten", detail: "Ein Stempel wurde bestätigt und deinem Konto gutgeschrieben." };
+    case "already_processed": return { title: "Schon erledigt", detail: "Diese Berührung wurde bereits verarbeitet. Es wurde nichts doppelt gebucht." };
+    case "cooldown": return { title: "Bitte noch einen Moment", detail: "Für diese Karte gab es gerade erst einen Stempel. Berühre das Schild beim nächsten Besuch erneut." };
+    case "expired": return { title: "Anfrage abgelaufen", detail: "Das Team hat diese Anfrage nicht rechtzeitig bestätigt. Berühre das Schild erneut." };
+    case "cancelled": return { title: "Nicht bestätigt", detail: "Das Team hat diese Anfrage nicht bestätigt. Frage bitte an der Kasse nach." };
+    case "disabled": return { title: "NFC ist hier aus", detail: "Für dieses Programm ist die NFC-Berührung gerade ausgeschaltet. Zeige stattdessen deinen Kartencode an der Kasse." };
+    case "error":
+      if (error instanceof ClientApiError && error.status === 404) return { title: "Dieses Schild ist gerade nicht aktiv", detail: "Bitte nutze den QR-Code an der Kasse oder frage das Team." };
+      if (error instanceof ClientApiError && error.status === 429) return { title: "Zu viele Versuche", detail: "Bitte warte einen Moment und berühre das Schild erneut." };
+      if (error instanceof ClientApiError && error.status === 0) return { title: "Keine Verbindung", detail: error.message };
+      return { title: "Berührung nicht bestätigt", detail: "Die Berührung konnte nicht geprüft werden. Bitte berühre das Schild erneut." };
+  }
+}
 
 export function TapClient({ refId }: { refId: string }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [card, setCard] = useState<CardResponse | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Error | undefined>();
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const path = `/api/tap/${encodeURIComponent(refId)}${window.location.search}`;
+    // Posting the same tap again is idempotent on the server: it reports the request's current state and books nothing.
+    async function process(info: Preview) {
+      const processed = await apiJson<Result>(path, { method: "POST" });
+      if (!active) return;
+      setResult(processed);
+      if (processed.state === "pending_staff") {
+        const left = processed.expiresAt ? new Date(processed.expiresAt).getTime() - Date.now() : POLL_MS;
+        timer = setTimeout(() => { void process(info).catch(() => undefined); }, Math.min(POLL_MS, Math.max(1000, left + 500)));
+      } else if (info.cardPath) {
+        void apiJson<CardResponse>(`/api${info.cardPath}`).then(value => { if (active) setCard(value); }).catch(() => {});
+      }
+    }
     void apiJson<Preview>(path).then(async info => {
       if (!active) return;
       setPreview(info);
-      if (!info.hasMembership || info.mode === "disabled") return;
-      const processed = await apiJson<Result>(path, { method: "POST" });
-      if (active) setResult(processed);
-      if (info.cardPath) void apiJson<CardResponse>(`/api${info.cardPath}`).then(value => { if (active) setCard(value); }).catch(() => {});
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Der NFC-Link konnte nicht geprüft werden."); })
+      if (!info.hasMembership) { setResult({ state: "needs_enrollment" }); return; }
+      if (info.mode === "disabled") { setResult({ state: "disabled" }); return; }
+      await process(info);
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause : new Error("Berührung nicht bestätigt")); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    return () => { active = false; if (timer) clearTimeout(timer); };
   }, [refId]);
 
-  function join() {
-    // Only a relative tap URL can be restored after normal enrollment.
-    if (preview) sessionStorage.setItem("loynara_tap_return", `${window.location.pathname}${window.location.search}`);
-  }
+  const state: TapState | "loading" | "error" = loading ? "loading" : error ? "error" : (result?.state ?? "loading");
+  // A card created or opened later in this tab continues this tap (the join page and the card page read the stored path).
+  useEffect(() => {
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (state === "needs_enrollment" && TAP_URL.test(here)) sessionStorage.setItem(TAP_RETURN_KEY, here);
+  }, [state]);
 
-  const title = loading ? "NFC-Berührung wird geprüft" : error ? "NFC-Link nicht verfügbar" : !preview?.hasMembership || result?.state === "needs_enrollment" ? "Deine Karte erstellen" : result?.state === "awarded" ? "Stempel erhalten" : result?.state === "already_processed" ? "Stempel bereits gebucht" : result?.state === "pending_staff" ? "Bestätigung an der Kasse offen" : result?.state === "cooldown" ? "Karte erkannt" : preview?.mode === "disabled" ? "NFC derzeit nicht aktiv" : "Karte erkannt";
-  const detail = error || (loading ? "Einen Moment bitte." : result?.state === "awarded" ? "Ein Stempel wurde bestätigt und deinem Konto gutgeschrieben." : result?.state === "already_processed" ? "Dieser NFC-Vorgang wurde bereits verarbeitet. Es wurde nichts doppelt gebucht." : result?.state === "pending_staff" ? "Zeige dem Team deine Karte. Dein Kontostand ändert sich erst nach der Bestätigung." : result?.state === "cooldown" ? "Deine Karte wurde erkannt. Für diesen Besuch kann noch kein neuer Stempel gebucht werden." : preview?.mode === "disabled" ? "Bitte nutze deine Karte und den QR-Code an der Kasse." : "Nach der Anmeldung wird dieser NFC-Vorgang erneut geprüft. Bewahre deinen Kartenlink auf.");
+  const { title, detail } = tapCopy(state, error);
   const nextReward = card && typeof result?.balance === "number" ? [...card.rewards].sort((a, b) => a.cost - b.cost).find(reward => reward.cost > result.balance!) : undefined;
+  const waiting = state === "pending_staff";
   return <main className="card-state-page" style={{ minHeight: "100vh", background: "#f7f4ec", padding: "24px" }}><div style={{ maxWidth: 480, margin: "auto", padding: "28px", borderRadius: 20, background: "white", color: "#17372c" }}><BrandMark />
     {preview && <p style={{ borderLeft: `4px solid ${preview.brandColor || "#214739"}`, paddingLeft: 12 }}><strong>{preview.merchantName}</strong><br />{preview.locationName} · {preview.programName}</p>}
-    <h1>{title}</h1><p role={error ? "alert" : "status"}>{detail}</p>
-    {typeof result?.balance === "number" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
-    {nextReward && typeof result?.balance === "number" && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
-    {!nextReward && card?.rewards.length && typeof result?.balance === "number" && <p>Eine Prämie ist verfügbar. Sieh deine Karte für alle Möglichkeiten an.</p>}
-    {preview && (!preview.hasMembership || result?.state === "needs_enrollment") && <Link className="button button--accent" href={`/join/${encodeURIComponent(preview.programSlug)}`} onClick={join}>Karte erstellen</Link>}
-    {preview?.cardPath && <p><Link className="button button--outline" href={preview.cardPath}>Karte und Prämien ansehen</Link></p>}
+    <h1>{title}</h1><p role={state === "error" ? "alert" : "status"} aria-live="polite">{detail}</p>
+    {waiting && <p className="ow-muted" style={{ fontSize: 14 }}>Diese Seite aktualisiert sich selbst, sobald das Team bestätigt hat.</p>}
+    {typeof result?.balance === "number" && state !== "needs_enrollment" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
+    {nextReward && typeof result?.balance === "number" && (state === "confirmed" || state === "awarded" || state === "already_processed") && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
+    {preview && state === "needs_enrollment" && <>
+      <Link className="button button--accent" href={`/join/${encodeURIComponent(preview.programSlug)}`}>Karte erstellen</Link>
+      <p style={{ fontSize: 14, marginTop: 16 }}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter.</p>
+    </>}
+    {preview?.cardPath && state !== "needs_enrollment" && <p><Link className="button button--outline" href={preview.cardPath}>Karte und Prämien ansehen</Link></p>}
+    {state === "error" && <p style={{ fontSize: 14 }}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
   </div></main>;
 }
+
