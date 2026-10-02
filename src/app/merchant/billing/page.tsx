@@ -49,7 +49,7 @@ export default function MerchantBillingPage() {
   return (
     <div className="ow-page">
       {head}
-      <Notice tone="warn">Nur ein Tarifentwurf mit synthetischen Daten. Es gibt keine Live-Zahlung, keine geprüfte Steuerberechnung und keinen Rechnungsversand.</Notice>
+      <Notice tone="warn">Nur ein Tarifentwurf. Es gibt keine Live-Zahlung, keine geprüfte Steuerberechnung und keinen Rechnungsversand.</Notice>
       {error && <ErrorNotice message={error} />}
       <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
         <div><p className="ow-eyebrow">Status</p><h2>{STATUS[o.status] ?? o.status}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."}</p></div>
@@ -58,9 +58,9 @@ export default function MerchantBillingPage() {
       <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standortpläne und Nutzung</h2>
         <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">Standard · {money(location.priceMinor, o.currency)} / Monat als Entwurf</small></span><span className="ow-num">{location.activeMembers} von {location.memberLimit} aktiven Karten</span></li>)}</ul>
         <p className="ow-hint">Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-inv"><h2 id="bi-inv">Belege aus lokalen Tests</h2>
-        {o.invoices.length ? <ul className="ow-feed">{o.invoices.map(invoice => <li key={invoice.id} style={{ display: "block" }}><strong>{money(invoice.amountMinor, invoice.currency)} · Testbuchung</strong><br /><span className="ow-muted">Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}</span><br /><small className="ow-muted">Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</small></li>)}</ul> : <p className="ow-muted">Keine Testbelege vorhanden. Es wurde keine Zahlung erfasst.</p>}</section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Test und nächste Schritte</h2>
+      <section className="ow-card ow-stack" aria-labelledby="bi-inv"><h2 id="bi-inv">Belege</h2>
+        {o.invoices.length ? <ul className="ow-feed">{o.invoices.map(invoice => <li key={invoice.id} style={{ display: "block" }}><strong>{money(invoice.amountMinor, invoice.currency)} · Testbuchung</strong><br /><span className="ow-muted">Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}</span><br /><small className="ow-muted">Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</small></li>)}</ul> : <p className="ow-muted">Keine Belege vorhanden. Es wurde keine Zahlung erfasst.</p>}</section>
+      <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Nächste Schritte</h2>
         <p>Ein echter gehosteter Checkout, Portalzugang, Steuerberechnung und Rechnungsversand sind nicht eingerichtet.</p>
         <div className="ow-row">
           {o.fixtureAvailable && ["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(o.status) && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void startFixture()} disabled={busy}>Lokalen Zahlungstest öffnen</button>}

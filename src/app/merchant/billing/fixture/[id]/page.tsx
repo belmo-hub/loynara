@@ -25,13 +25,13 @@ export default function BillingFixturePage() {
   const amount = h ? new Intl.NumberFormat("de-DE", { style: "currency", currency: h.currency }).format(h.amountMinor / 100) : "";
   return (
     <div className="ow-page" style={{ maxWidth: 760 }}>
-      <PageHead eyebrow="Einstellungen · Lokale Fixture" title="Test einer gehosteten Übergabe" lead="Nur ein lokaler Test. Es wird kein Geld bewegt." />
+      <PageHead eyebrow="Einstellungen · Abrechnung" title="Zahlungsübergabe prüfen" lead="Nur eine Vorschau. Es wird kein Geld bewegt." />
       {handoff.state === "loading" && <LoadingBlock rows={1} />}
       {handoff.state === "error" && <ErrorNotice message={handoff.message} onRetry={reload} />}
       {h && (
         <section className="ow-card ow-stack">
           <h2>{done ? "Lokale Testbuchung erfasst." : h.status === "complete" ? "Bereits als Test erfasst" : "Testbetrag bestätigen"}</h2>
-          <p><strong>{amount}</strong> als synthetische Monatsperiode. Steuerberechnung, externe Zahlung und gültige Rechnung sind nicht Teil dieser Fixture.</p>
+          <p><strong>{amount}</strong> für eine Monatsperiode. Steuerberechnung, externe Zahlung und gültige Rechnung sind nicht Teil dieser Vorschau.</p>
           {error && <ErrorNotice message={error} />}
           <div className="ow-row">
             {h.status === "pending" && !done && <button type="button" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy} onClick={() => void complete()}>{busy ? "Wird geprüft …" : "Testbuchung bestätigen"}</button>}

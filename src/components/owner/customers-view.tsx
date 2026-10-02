@@ -129,7 +129,7 @@ export function CustomersView() {
     <div className="ow-page">
       <header className="ow-pagehead">
         <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Pseudonyme Karten mit bestätigten Kassenvorgängen und aktuellem Stand. Namen und Kontaktdaten zeigt Loynara hier nicht.</p></div>
-        <div className="ow-row"><Link className="ow-btn ow-btn--secondary" href="/merchant/audiences">Zielgruppen</Link>{me.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">Synthetische CSV-Vorschau</Link>}</div>
+        <div className="ow-row"><Link className="ow-btn ow-btn--secondary" href="/merchant/audiences">Zielgruppen</Link>{me.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
       </header>
 
       <form className="ow-card ow-filters" onSubmit={submit} role="search" aria-label="Karten filtern">

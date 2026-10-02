@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
 import { DomainError, awardTapInTransaction, awardInTransaction } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
+import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed } from "./pilot-policy";
 
 export type TapKeys = { metaReadKey: Buffer; fileReadKey: Buffer };
 export interface TapKeyProvider { getKeys(ref: string): Promise<TapKeys> }
@@ -49,6 +50,7 @@ async function owner(tx: Transaction, actorUserId: string, tenantId: string) {
 }
 
 export async function setTapPolicy(input: { actorUserId: string; programId: string; mode: TapMode; cooldownSeconds: number | null }) {
+  if (input.mode === "automatic_fixed" && !automaticTapAllowed()) throw new DomainError("TAP_AUTOMATIC_NOT_ALLOWED", AUTOMATIC_TAP_REFUSAL);
   if (!["disabled", "automatic_fixed", "staff_confirmed"].includes(input.mode) || (input.mode !== "disabled" && (!Number.isInteger(input.cooldownSeconds) || input.cooldownSeconds === null || input.cooldownSeconds < 1 || input.cooldownSeconds > 86400))) throw new DomainError("INVALID_TAP_POLICY", "An approved cooldown is required");
   return db.transaction(async tx => {
     const [program] = await tx.select().from(programs).where(eq(programs.id, input.programId)).for("update");
@@ -151,7 +153,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     if (pending && pending.expiresAt > now) return { ...base, state: "pending_staff", balance: member.balance, requestId: pending.id };
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, tag.tenantId), eq(tapRequests.programId, tag.programId), eq(tapRequests.membershipId, member.id), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     const onCooldown = Boolean(recent && now.getTime() - recent.createdAt.getTime() < program.tapCooldownSeconds * 1000);
-    if (onCooldown || program.tapMode === "staff_confirmed") {
+    if (onCooldown || program.tapMode === "staff_confirmed" || !automaticTapAllowed()) { // pilot policy: never award automatically on the production deployment
       const status = onCooldown ? "cooldown" : "pending_staff";
       const [request] = await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now }).returning();
       await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));

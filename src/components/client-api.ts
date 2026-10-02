@@ -48,6 +48,8 @@ export type MeResponse = {
   programId?: string;
   programType: "stamp" | "points";
   tapMode?: "disabled" | "automatic_fixed" | "staff_confirmed";
+  /** False on the production deployment (pilot policy); absent is treated as false. */
+  tapAutomaticAllowed?: boolean;
   tapCooldownSeconds?: number | null;
   rewardTitle: string;
   rewardCost: number;

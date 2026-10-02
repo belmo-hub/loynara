@@ -4,13 +4,15 @@ import { useState } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
 import { useDirtyGuard } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
+import { tapModesFor, type TapMode as Mode } from "./tap-modes";
 
-type Mode = "disabled" | "automatic_fixed" | "staff_confirmed";
-const MODES: Array<{ id: Mode; label: string; text: string }> = [
+const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
   { id: "disabled", label: "Aus", text: "Nur QR-Scan oder Kartencode an der Kasse." },
   { id: "staff_confirmed", label: "Mit Bestätigung", text: "Ein NFC-Tag öffnet die Karte, das Team bestätigt die Vergabe." },
   { id: "automatic_fixed", label: "Automatisch", text: "Ein Tap vergibt automatisch die feste Menge, mit Wartezeit zwischen zwei Taps." },
 ];
+
+const AUTOMATIC_NOTE = "Im Pilotbetrieb nicht verfügbar.";
 
 /** NFC policy for stamp programmes. A physical tag still needs separate, secure provisioning. */
 export function TapPolicyCard({ me }: { me: MeResponse }) {
@@ -21,6 +23,10 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
   const stamp = me.programType === "stamp";
+  // Pilot policy: automatic awards are offered only where the server allows them (never on production).
+  // A missing flag counts as "not allowed". The server enforces this independently.
+  const automaticAllowed = me.tapAutomaticAllowed === true;
+  const MODES = tapModesFor(ALL_MODES, saved.mode, automaticAllowed);
   const needsCooldown = mode !== "disabled";
   const cooldownNumber = Number(cooldown);
   const cooldownValid = !needsCooldown || (/^\d+$/.test(cooldown) && cooldownNumber >= 1);
@@ -50,7 +56,7 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
           <fieldset className="ow-group">
             <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>
             <div className="ow-radio-cards">
-              {MODES.map(item => <label key={item.id} className="ow-radio-card"><input type="radio" name="tap-mode" checked={mode === item.id} onChange={() => { setMode(item.id); if (state === "saved" || state === "error") setState("clean"); }} /><div><strong>{item.label}</strong><span>{item.text}</span></div></label>)}
+              {MODES.map(item => <label key={item.id} className="ow-radio-card"><input type="radio" name="tap-mode" checked={mode === item.id} disabled={item.id === "automatic_fixed" && !automaticAllowed} onChange={() => { setMode(item.id); if (state === "saved" || state === "error") setState("clean"); }} /><div><strong>{item.label}</strong><span>{item.id === "automatic_fixed" && !automaticAllowed ? AUTOMATIC_NOTE : item.text}</span></div></label>)}
             </div>
             {needsCooldown && <div className="ow-field"><label htmlFor="tap-cooldown">Wartezeit zwischen zwei Taps (Sekunden)</label><input id="tap-cooldown" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={cooldown} onChange={event => setCooldown(event.target.value.replace(/[^0-9]/g, ""))} aria-invalid={!cooldownValid} /></div>}
           </fieldset>

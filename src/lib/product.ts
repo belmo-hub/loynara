@@ -8,6 +8,7 @@ import { validCardToken } from "./card-lifecycle";
 import { draftPriceMinor } from "./pricing";
 import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
+import { automaticTapAllowed } from "./pilot-policy";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -304,7 +305,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
   const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
   if (!program) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
-  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapCooldownSeconds: program?.tapCooldownSeconds, rewardTitle: reward?.title, rewardCost: reward?.cost };
+  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), tapCooldownSeconds: program?.tapCooldownSeconds, rewardTitle: reward?.title, rewardCost: reward?.cost };
   if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)

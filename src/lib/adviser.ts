@@ -49,20 +49,20 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics): AdviceRecommend
     observed: [{ label: "Aktive Karten", value: 0 }, { label: "Neue Karten", value: m.newCards }],
     reasoning: "Ohne aktive Karte lässt sich noch kein digitaler Kassenablauf auswerten.",
     missingInformation: ["Papierkarten und nicht erfasste Besuche sind hier nicht enthalten."],
-    nextAction: "Mit einer synthetischen Karte die Anmeldung und den Kassenablauf im Team durchgehen.",
+    nextAction: "Mit einer eigenen Karte die Anmeldung und den Kassenablauf im Team durchgehen.",
   });
   else if (m.qualifyingCheckouts === 0) suggestions.push({
     id: "checkout_flow", title: "Ersten Kassenvorgang prüfen",
     observed: [{ label: "Aktive Karten", value: m.currentActiveCards }, { label: "Bestätigte Kassenvorgänge", value: 0 }],
     reasoning: "Bei vorhandenen Karten und 0 bestätigten Kassenvorgängen ist der digitale Ablauf noch nicht belegt.",
     missingInformation: ["Papierkäufe und nicht erfasste Besuche sind unbekannt."],
-    nextAction: "Mit einer synthetischen Karte einen bestätigten Kassenvorgang und den neuen Saldo prüfen.",
+    nextAction: "Mit einer eigenen Karte einen bestätigten Kassenvorgang und den neuen Saldo prüfen.",
   });
   if (m.failedOrBlockedAttempts > 0) suggestions.push({
     id: "delivery_failures", title: "Zustellfehler prüfen",
-    observed: [{ label: "Lokale Zustellversuche", value: m.campaignAttempts }, { label: "Fehlgeschlagen oder blockiert", value: m.failedOrBlockedAttempts }],
+    observed: [{ label: "Zustellversuche", value: m.campaignAttempts }, { label: "Fehlgeschlagen oder blockiert", value: m.failedOrBlockedAttempts }],
     reasoning: "Mindestens ein erfasster Zustellversuch ist fehlgeschlagen oder blockiert.",
-    missingInformation: ["Ein lokaler Annahmestatus beweist keine Zustellung in ein echtes Postfach."],
+    missingInformation: ["Ein Annahmestatus beweist keine Zustellung in ein echtes Postfach."],
     nextAction: "Die betroffenen Kampagnenversuche und Unterdrückungsgründe prüfen, bevor ein weiterer Test geplant wird.",
   });
   if (m.participatingCards >= 5 && m.repeatCards * 4 < m.participatingCards) suggestions.push({

@@ -47,7 +47,7 @@ test("local fixture handoff records a test period and owner cancellation in the 
       await page.goto("/merchant/billing");
       await page.getByRole("button", { name: "Lokalen Zahlungstest öffnen" }).click();
       await expect(page).toHaveURL(/\/merchant\/billing\/fixture\/[a-f0-9-]+$/);
-      await expect(page.getByText("Nur ein lokaler Test. Es wird kein Geld bewegt.")).toBeVisible();
+      await expect(page.getByText("Nur eine Vorschau. Es wird kein Geld bewegt.")).toBeVisible();
       await page.getByRole("button", { name: "Testbuchung bestätigen" }).click();
       await expect(page.getByText("Lokale Testbuchung erfasst.")).toBeVisible();
       await page.getByRole("link", { name: "Zur Abrechnung" }).click();

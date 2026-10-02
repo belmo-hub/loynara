@@ -15,7 +15,7 @@ export default function MerchantAnalyticsPage() {
   const [windowDays, setWindowDays] = useState<AnalyticsWindowDays>(30);
   const [report, reload] = useLoad<MerchantAnalytics>(me?.role === "owner" ? `/api/merchant/analytics?window=${windowDays}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Aktionen · Ergebnisse" title="Auswertung" lead="Anmeldungen, bestätigte Kassenvorgänge, Prämien, Empfehlungen und lokale Zustellversuche im gewählten Zeitraum." />;
+  const head = <PageHead eyebrow="Aktionen · Ergebnisse" title="Auswertung" lead="Anmeldungen, bestätigte Kassenvorgänge, Prämien, Empfehlungen und Zustellversuche im gewählten Zeitraum." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Auswertung sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   const maxSeries = Math.max(1, ...(r?.series.map(bucket => Math.max(bucket.newCards, bucket.checkouts)) ?? []));
@@ -50,8 +50,8 @@ export default function MerchantAnalyticsPage() {
             <div><div className="ow-bar"><span style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} Karten</small></div>
             <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} Kassenvorgänge</small></div></div>)}</div></section>
         <section className="ow-card ow-stack" aria-labelledby="an-camp"><h2 id="an-camp">Kampagnenversuche</h2>
-          <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Vom lokalen Testkanal angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
-          <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme durch Mailpit bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
+          <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
+          <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
         <Notice><div><strong>Zählregeln und Grenzen</strong><p style={{ marginTop: 4 }}>{r.countingRule}</p><p style={{ marginTop: 4 }}>Zeitzone: {r.timezone}. Verfügbare Zeiträume: {r.limits.availableWindowsDays.join(" und ")} Tage. Abschnitte: {r.limits.bucketDays} Tage. Die Prämienliste zeigt höchstens {r.limits.topRewardTitles} Titel. Diese Daten messen weder tatsächliche Besuche noch Umsatzsteigerungen oder zusätzliche Verkäufe.</p></div></Notice>
       </>}
     </div>

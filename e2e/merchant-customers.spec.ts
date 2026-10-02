@@ -102,8 +102,8 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
       await page.getByRole("button", { name: new RegExp(membershipId.slice(0, 12)) }).click();
       await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
       await expect(page.getByText("+3 Stempel")).toBeVisible();
-      await page.getByRole("link", { name: "Synthetische CSV-Vorschau" }).click();
-      await expect(page.getByRole("heading", { name: "Synthetische CSV-Vorschau" })).toBeVisible();
+      await page.getByRole("link", { name: "CSV-Vorschau" }).click();
+      await expect(page.getByRole("heading", { name: "CSV-Vorschau" })).toBeVisible();
       await page.getByRole("button", { name: "Vorschau prüfen" }).click();
       await expect(page.getByRole("heading", { name: "Prüfergebnis" })).toBeVisible();
     } finally { await ownerBrowser.close(); }
