@@ -10,10 +10,19 @@ const visible = (html: string) => html.replace(/<script[\s\S]*?<\/script>|<style
 const text = visible(home);
 const section = (id: string, next: string) => visible(home.slice(home.indexOf(`id="${id}"`), home.indexOf(`id="${next}"`)));
 
-test('the page follows the specified narrative order', () => {
-  const ids = ['papier', 'ablauf', 'momente', 'rechner', 'plattform', 'start', 'preis', 'faq', 'anfrage'].map(id => home.indexOf(`id="${id}"`));
+test('the page has exactly seven main scenes in the specified order and carries the central idea and headline', () => {
+  const ids = ['hero', 'ablauf', 'inhaber', 'gestaltung', 'rechner', 'angebot', 'anfrage'].map(id => home.indexOf(`id="${id}"`));
   assert.ok(ids.every(i => i > 0)); assert.deepEqual([...ids].sort((a, b) => a - b), ids);
-  assert.match(text, /Ein guter Besuch\. Ein Grund, wiederzukommen\./);
+  assert.equal((home.match(/<section class="(?:hero|section )/g) ?? []).length, 7, 'seven scenes; header and footer are not scenes');
+  assert.match(text, /Ein guter Besuch\. Ein Grund, wiederzukommen\./); assert.match(text, /Wiederkommen belohnen\. Weiterempfehlen leicht machen\./);
+  assert.match(text, /Digitale Treuekarten, Prämien und Empfehlungen – verbunden in einem System für dein Geschäft\./);
+  assert.match(text, /Kunden öffnen ihre Karte\. Dein Team bestätigt\. Du siehst, was passiert\./);
+  assert.match(text, /Nicht nur Stempel sammeln\. Den nächsten Besuch mitdenken\./);
+  for (const h of ['Aus einem Besuch wird eine Beziehung.', 'Nicht nur sehen, wer kommt. Einen Anlass zum Wiederkommen schaffen.', 'Dein Geschäft. Wiedererkennbar bis zur nächsten Prämie.', 'Was würde ein zusätzlicher Anlass zum Wiederkommen bedeuten?', 'Ein System für den Tresen, dein Team und deine Kunden.', 'Gib dem nächsten Besuch einen Grund. Und der nächsten Empfehlung einen Weg.', 'Wir zeigen dir Loynara am Beispiel deines Geschäfts.']) assert.ok(text.includes(h), h);
+});
+test('zero-click test: the default page states staff confirmation, rewards, referrals, owner visibility, branding, the counter touchpoint, price and CTA', () => {
+  for (const re of [/Dein Team bestätigt jeden Besuch/, /Voller Stand, Prämie, Einlösung/, /Freund bringt Freund/, /Empfehlung/, /Überblick/, /Markenstil/, /Aufsteller|Tresen/, /39 € \/ Monat \/ Standort/, /Demo anfragen/, /Plattform-Ausblick/]) assert.match(text, re, String(re));
+  assert.match(visible(home.slice(home.indexOf('id="ablauf"'), home.indexOf('id="inhaber"'))), /Besuch → Fortschritt → Prämie → Empfehlung → neuer Besuch|Besuch\s+Fortschritt\s+Prämie\s+Empfehlung\s+neuer Besuch/);
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
   assert.equal(SITE.price.amount, 39);
@@ -32,23 +41,24 @@ test('no fabricated proof, outcomes or unsupported availability claims', () => {
   assert.doesNotMatch(text, /iPhone|Android|alle Handys|jedes Smartphone|Apple Pay|Google Pay|Smart Tap|Apple VAS|automatische Vergabe|Bezahlen per NFC/i);
   assert.doesNotMatch(home, /<img[^>]+(?:logo-wall|partner|kunden-logo)/i);
 });
-test('platform previews are marked as previews and kept out of the offer', () => {
-  const pricing = section('preis', 'faq');
-  assert.match(pricing, /Im aktuellen Pilotangebot/); assert.match(pricing, /Plattform-Ausblick – nicht Teil des Angebots/);
-  const inOffer = pricing.slice(pricing.indexOf('Im aktuellen Pilotangebot'), pricing.indexOf('Plattform-Ausblick'));
-  assert.doesNotMatch(inOffer, /Kampagn|Nachricht|Automat|Wallet/);
-  assert.match(section('momente', 'rechner'), /Plattform-Ausblick – nicht im aktuellen Pilotangebot/); assert.match(section('plattform', 'start'), /Ausblick – nicht im aktuellen Pilotangebot/);
-  assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten/);
+test('platform previews are marked as previews and kept out of the offer, near the point of demonstration', () => {
+  const pricing = section('angebot', 'anfrage');
+  assert.match(pricing, /Aktuelles Pilotangebot/); assert.match(pricing, /Gezeigter Ausblick · gesondert zu vereinbaren/i);
+  const inOffer = pricing.slice(pricing.indexOf('Aktuelles Pilotangebot'), pricing.toLowerCase().indexOf('gezeigter ausblick'));
+  assert.doesNotMatch(inOffer, /Kampagn|Nachricht|Automat|Wallet|Aufsteller|Logo-Darstellung/);
+  const outlook = pricing.slice(pricing.toLowerCase().indexOf('gezeigter ausblick'));
+  for (const w of ['Aufsteller', 'Wallet-Karte', 'Logo-Darstellung', 'Kampagnen']) assert.ok(outlook.includes(w), w);
+  assert.match(section('inhaber', 'gestaltung'), /Ausblick/); assert.match(section('gestaltung', 'rechner'), /Gestaltungsbeispiel/); assert.match(section('gestaltung', 'rechner'), /Ausblick/);
+  assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten|Zu Wallet hinzufügen|Add to Wallet/);
 });
 test('calculator copy: scope, disclaimer next to the result, no profit/ROI wording', () => {
-  const calc = section('rechner', 'plattform');
-  assert.match(calc, /Für einen Standort/); assert.match(calc, /Rechenbeispiel, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
+  const calc = section('rechner', 'angebot');
+  assert.match(calc, /Für einen Standort/); assert.match(calc, /Deine Zahlen\. Deine Annahme\. Ein nachvollziehbares Rechenbeispiel\./); assert.match(calc, /Rechenbeispiel, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
   assert.match(calc, /910 € zusätzlicher Monatsumsatz im Beispiel/); assert.match(calc, /871 €/); assert.match(calc, /10\.452 €/); assert.match(calc, /23,3×/);
-  assert.match(calc, /Differenz nach Abogebühr/);
+  assert.match(calc, /Nach Abzug der Gebühr \( ?39 € \/ Monat ?\): \+871 € im Monat, 10\.452 € auf zwölf Monate hochgerechnet/);
   // finding 16: primary ratio removed; preserved in the expanded calculation details, labelled as a comparison
   const primary = calc.slice(calc.indexOf('zusätzlicher Monatsumsatz im Beispiel'), calc.indexOf('Berechnung und Annahmen im Detail'));
-  assert.doesNotMatch(primary, /23,3×|Verhältnis/); const breakdown = home.slice(home.indexOf('id="calc-breakdown"'), home.indexOf('class="calc-cta"'));
-  assert.doesNotMatch(visible(breakdown), /×|Verhältnis/);
+  assert.doesNotMatch(primary, /23,3×|Verhältnis/); const detailsStart = home.indexOf('<details class="calc-assumptions">'); assert.ok(detailsStart > 0 && home.indexOf('23,3×') > detailsStart, 'ratio appears only inside the expanded details');
   assert.match(visible(home.slice(home.indexOf('<details class="calc-assumptions">'), home.indexOf('id="calc-empty"'))), /Zusatzumsatz im Vergleich zur Monatsgebühr 23,3× .*kein Gewinn und keine garantierte Rendite/);
   assert.doesNotMatch(calc, /Nettogewinn|Netto-Nutzen|Return on|Ihr Geld|verdienst du/i);
   const i = calc.indexOf('zusätzlicher Monatsumsatz im Beispiel'), j = calc.indexOf('Rechenbeispiel, keine Umsatzprognose'), k = calc.indexOf('Berechnung und Annahmen im Detail');

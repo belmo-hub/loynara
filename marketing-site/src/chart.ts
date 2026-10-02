@@ -2,8 +2,8 @@ import { compactEuro, euro, formatNumber, niceScale, type Point } from './calc.j
 
 export type Geometry = { width: number; height: number; left: number; right: number; top: number; bottom: number; xStep: number };
 /** Two layouts of the same chart so axis text stays about 12 px wherever the chart is shown. */
-export const WIDE: Geometry = { width: 640, height: 340, left: 82, right: 18, top: 32, bottom: 44, xStep: 2 };
-export const COMPACT: Geometry = { width: 360, height: 300, left: 72, right: 14, top: 30, bottom: 46, xStep: 3 };
+export const WIDE: Geometry = { width: 640, height: 290, left: 82, right: 18, top: 32, bottom: 44, xStep: 2 };
+export const COMPACT: Geometry = { width: 360, height: 250, left: 72, right: 14, top: 30, bottom: 46, xStep: 3 };
 export const CHART = WIDE;
 const plotW = (g: Geometry) => g.width - g.left - g.right, plotH = (g: Geometry) => g.height - g.top - g.bottom;
 export const xAt = (month: number, months = 12, g: Geometry = WIDE) => g.left + (month / months) * plotW(g);
@@ -35,7 +35,7 @@ export function plot({ points, top, tickStep, active, geometry: g = WIDE }: Plot
   const last = points[months];
   if (last && last.gap > 0) {
     const x = X(months), y1 = Y(last.scenario), y2 = Y(last.baseline);
-    gapLabel = `<line class="gapmark" x1="${f(x)}" x2="${f(x)}" y1="${f(y1)}" y2="${f(y2)}"/><text class="gaplabel" x="${f(x)}" y="${f(Math.min(y1, y2) - 10)}" text-anchor="end">+${euro(last.gap)} im Jahr</text>`;
+    gapLabel = `<line class="gapmark" x1="${f(x)}" x2="${f(x)}" y1="${f(y1)}" y2="${f(y2)}"/><text class="gaplabel" x="${f(x)}" y="${f(Math.min(y1, y2) - 10)}" text-anchor="end">+${euro(last.gap)} Zusatzumsatz</text>`;
   }
   return `${grid}${xs}<path class="gap" d="${area}"/><path class="line base" d="${line('baseline')}"/><path class="line scen" d="${line('scenario')}"/>${gapLabel}${marker}`;
 }

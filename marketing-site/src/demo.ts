@@ -53,3 +53,20 @@ export function viewOf(s: DemoState): DemoView {
     pendingRequest: s.phase === 'request' || s.phase === 'request2', rewardReady: s.phase === 'reward', remaining: Math.max(0, DEMO.threshold - balance), guideStep,
   };
 }
+
+/** The four journey chapters. Chapters 1-3 share the loyalty demo state; "refer" has its own referral state (src/ref.ts). */
+export type Chapter = 'start' | 'collect' | 'reward' | 'refer';
+export const CHAPTER_PHASES: Record<Exclude<Chapter, 'refer'>, Phase[]> = { start: ['start', 'enroll'], collect: ['request', 'confirmed'], reward: ['request2', 'reward', 'redeemed'] };
+/**
+ * Selecting a chapter is a view change, never a business event. If the current example state already belongs to the chapter it is kept;
+ * otherwise the chapter's defined snapshot is loaded (collect: a visit waiting for confirmation; reward: the second visit of the returning
+ * example). A new card has no reward path: it keeps its own state, and the UI offers the returning fixture.
+ */
+export function enterChapter(s: DemoState, chapter: Chapter): DemoState {
+  if (chapter === 'refer') return s;
+  if (CHAPTER_PHASES[chapter].includes(s.phase)) return s;
+  if (chapter === 'start') return initialDemo(s.identity);
+  if (chapter === 'collect') return { phase: 'request', entry: s.entry, identity: s.identity, enrolled: s.identity === 'new' };
+  return s.identity === 'returning' ? { phase: 'request2', entry: s.entry, identity: 'returning', enrolled: false } : s;
+}
+export const chapterOf = (s: DemoState): Exclude<Chapter, 'refer'> => (Object.keys(CHAPTER_PHASES) as Array<keyof typeof CHAPTER_PHASES>).find(k => CHAPTER_PHASES[k].includes(s.phase))!;

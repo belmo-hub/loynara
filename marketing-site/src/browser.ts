@@ -1,7 +1,9 @@
 import { animate, inView } from 'motion';
 import { SITE, DEMO, industries, isIndustryKey, type IndustryKey } from './site.js';
-import { initialDemo, transition, viewOf, GUIDE_STEPS, type DemoAction, type DemoState } from './demo.js';
-import { GUIDE_TITLES, MOMENTS, demoStage, guideHtml, momentBody, type MomentId } from './views.js';
+import { initialDemo, transition, viewOf, enterChapter, type Chapter, type DemoAction, type DemoState } from './demo.js';
+import { initialRef, refTransition, type RefAction, type RefState } from './ref.js';
+import { initialBrand, isLogo, isReward, isStyle, rewardText, LOGOS, STYLES, type BrandState } from './brand.js';
+import { OWNER_VIEWS, growthStrip, journeyStage, journeyStrip, loyCard, ownerBody, standSvg, studioComposition, type OwnerView } from './views.js';
 import { EXAMPLE, LIMITS, SLIDER_RANGE, compute, series, parseField, euro, signedEuro, ratioText, formatNumber, niceScale, type FieldKey, type Inputs, type Scenario } from './calc.js';
 import { plot, tableHtml, readoutHtml, monthAtX, WIDE, COMPACT, type Geometry } from './chart.js';
 import { buildRequest } from './request.js';
@@ -34,7 +36,7 @@ if (toggle && nav) {
 function entrance() {
   const scene = $('.hero-scene');
   if (!scene || reduced()) return;
-  const parts = [['.hero-phone', 0], ['.hero-cashier', 0.16], ['.hero-owner', 0.3]] as const;
+  const parts = [['.hero-stand', 0], ['.hero-phone', 0.1], ['.hero-cashier', 0.22], ['.hero-owner', 0.34]] as const;
   for (const [selector, delay] of parts) motion($(selector, scene), { opacity: [0, 1], transform: ['translateY(18px) scale(0.98)', 'translateY(0px) scale(1)'] }, 0.5, EASE_OUT, delay);
 }
 function reveals() {
@@ -55,25 +57,22 @@ entrance(); reveals();
 /** Printing must never hide content that has not been scrolled into view yet. */
 addEventListener('beforeprint', () => { for (const el of $$('[data-reveal]')) { el.style.opacity = ''; el.style.transform = ''; } });
 
-// ---- industry (drives the demo and the business-moment scene; the calculator stays independent) -----------------------
+// ---- state: view selection, loyalty example, referral example, owner view, branding are separate ---------------------------------
 let industry: IndustryKey = 'cafe';
 let demo: DemoState = initialDemo();
+let ref: RefState = initialRef();
+let brand: BrandState = initialBrand();
+let chapter: Chapter = 'start';
+let ownerView: OwnerView = 'overview';
+let ownerRevealed = false;
 const stageEl = $('#demo-screens');
-const guideEl = $('#guide');
-
-const panelToHighlight = (s: DemoState) => ({ start: 'customer', enroll: 'customer', confirmed: 'customer', request: 'cashier', request2: 'cashier', reward: 'cashier', redeemed: 'owner' }[s.phase]);
 const MESSAGES: Record<string, string> = {
-  entry: '', identity: '', open: 'Karte geöffnet. Die Anfrage liegt an der Kasse.', enroll: 'Karte erstellt. Die Anfrage liegt an der Kasse.', confirm: 'Besuch bestätigt, ein Stempel vergeben.',
-  nextVisit: 'Zweiter Besuch gemeldet. Dein Team bestätigt ihn an der Kasse.', fixture: 'Bestandskarte geladen: 8 von 10.', redeem: 'Prämie eingelöst. Neuer Stand: 0 von 10.', reset: 'Demo zurückgesetzt.',
+  open: 'Karte geöffnet. Die Anfrage liegt an der Kasse.', enroll: 'Karte erstellt. Die Anfrage liegt an der Kasse.', confirm: 'Besuch bestätigt, ein Stempel vergeben.',
+  redeem: 'Prämie eingelöst. Neuer Stand: 0 von 10.', reset: 'Beispiel zurückgesetzt.', fixture: 'Bestandskarte geladen: 8 von 10.',
+  'ref-share': 'Empfehlungslink geteilt – Beispiel, nichts wurde versendet.', 'ref-open': 'Der Freund hat den Link geöffnet. Es wurde noch nichts verbucht.',
+  'ref-join': 'Der Freund hat sich angemeldet: Karte mit 0 von 10, Teilnahme offen.', 'ref-confirm': 'Erster Besuch des Freundes bestätigt. Der Bonus wurde einmal verbucht.',
 };
-
-/** The guide mirrors the demo state. It never reads scroll position and never changes business state. */
-function renderGuide() {
-  if (guideEl) guideEl.innerHTML = guideHtml(demo);
-  const step = viewOf(demo).guideStep, label = `Schritt ${step + 1} von ${GUIDE_STEPS}`;
-  const count = $('#guide-count'); if (count) count.textContent = label;
-  const inline = $('#stage-step'); if (inline) inline.textContent = `${label} · ${GUIDE_TITLES[step]}`;
-}
+const panelToHighlight = (s: DemoState) => ({ start: 'customer', enroll: 'customer', confirmed: 'customer', request: 'cashier', request2: 'cashier', reward: 'cashier', redeemed: 'owner' }[s.phase]);
 
 function flyMarker(from: DOMRect | null, toEl: Element | null) {
   const marker = $<HTMLElement>('.marker'), stage = $('#stage');
@@ -81,98 +80,157 @@ function flyMarker(from: DOMRect | null, toEl: Element | null) {
   const s = stage.getBoundingClientRect(), t = toEl.getBoundingClientRect();
   const x0 = from.left + from.width / 2 - s.left, y0 = from.top + from.height / 2 - s.top, x1 = t.left + t.width / 2 - s.left, y1 = t.top + t.height / 2 - s.top;
   marker.style.left = '0'; marker.style.top = '0';
-  animate(marker, { opacity: [1, 1, 0], transform: [`translate(${x0}px, ${y0}px) scale(1)`, `translate(${x1}px, ${y1}px) scale(1.15)`, `translate(${x1}px, ${y1}px) scale(0.6)`] }, { duration: 0.42, ease: EASE_STATE as never, times: [0, 0.8, 1] });
+  animate(marker, { opacity: [1, 1, 0], transform: [`translate(${x0}px, ${y0}px) scale(1)`, `translate(${x1}px, ${y1}px) scale(1.15)`, `translate(${x1}px, ${y1}px) scale(0.6)`] }, { duration: 0.4, ease: EASE_STATE as never, times: [0, 0.8, 1] });
 }
 
-function renderDemo(prev?: DemoState, fromRect: DOMRect | null = null) {
-  if (!stageEl) return;
-  const focusedAction = (document.activeElement as HTMLElement | null)?.closest?.('#demo-screens [data-action]')?.getAttribute('data-action') ?? null;
-  const hadFocus = stageEl.contains(document.activeElement);
-  stageEl.innerHTML = demoStage(demo, industry, true);
-  const v = viewOf(demo), before = prev ? viewOf(prev) : v;
-  $$('.panel', stageEl).forEach(p => p.classList.toggle('is-active', p.dataset.panel === panelToHighlight(demo)));
-  if (v.balance !== before.balance) {
-    const el = $('[data-balance]', stageEl);
-    if (el && el.firstChild && !reduced() && v.balance > before.balance) {
-      const node = el.firstChild;
-      animate(before.balance, v.balance, { duration: 0.32, ease: EASE_STATE as never, onUpdate: (n: number) => { node.nodeValue = String(Math.round(n)); } });
-    }
-    const fresh = $$('.stamp', stageEl)[v.balance - 1];
-    if (fresh && v.balance > before.balance) motion(fresh, { transform: ['scale(0.4)', 'scale(1.08)', 'scale(1)'], opacity: [0, 1] }, 0.36, EASE_OUT);
-  }
-  if (prev && prev.phase !== demo.phase) {
-    if (demo.phase === 'confirmed' || demo.phase === 'reward') flyMarker(fromRect, $(demo.phase === 'confirmed' ? '.panel-customer .loy-card' : '.panel-owner', stageEl));
-    $$('.panel.is-active', stageEl).forEach(p => motion(p, { transform: ['translateY(6px)', 'translateY(0px)'] }, 0.28, EASE_OUT));
-  }
-  if (hadFocus) {                                  // keep keyboard focus on a meaningful control
-    const target = (focusedAction && $<HTMLElement>(`[data-action="${focusedAction}"]`, stageEl)) || $<HTMLElement>('[data-next]', stageEl) || $<HTMLElement>('#demo-reset');
-    target?.focus({ preventScroll: true });
-  }
-  renderGuide();
+function renderTabs() {
+  $$('[data-chapter]').forEach(t => { const on = t.dataset.chapter === chapter; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+  $('#journey-panel')?.setAttribute('aria-labelledby', `tab-${chapter}`);
+  const g = $('#growth'); if (g) g.innerHTML = growthStrip(chapter, ref.phase === 'qualified');
 }
-function act(action: DemoAction, fromEl?: Element | null) {
+function renderStrip() {
+  const s = journeyStrip(chapter, demo, ref);
+  const i = $('#strip-instruction'), r = $('#strip-result'); if (i) i.textContent = s.instruction; if (r) r.textContent = s.result;
+}
+function renderJourney(prevDemo?: DemoState, fromRect: DOMRect | null = null) {
+  if (!stageEl) return;
+  const focused = (document.activeElement as HTMLElement | null)?.closest?.('#demo-screens [data-action]')?.getAttribute('data-action') ?? null;
+  const hadFocus = stageEl.contains(document.activeElement);
+  stageEl.innerHTML = journeyStage(chapter, demo, ref, industry, brand, true);
+  renderTabs(); renderStrip();
+  if (chapter !== 'refer') {
+    $$('.panel', stageEl).forEach(p => p.classList.toggle('is-active', p.dataset.panel === panelToHighlight(demo)));
+    const v = viewOf(demo), before = prevDemo ? viewOf(prevDemo) : v;
+    if (v.balance > before.balance) {
+      const el = $('[data-balance]', stageEl);
+      if (el && el.firstChild && !reduced()) { const node = el.firstChild; animate(before.balance, v.balance, { duration: 0.3, ease: EASE_STATE as never, onUpdate: (n: number) => { node.nodeValue = String(Math.round(n)); } }); }
+      const fresh = $$('.stamp', stageEl)[v.balance - 1]; if (fresh) motion(fresh, { transform: ['scale(0.4)', 'scale(1.08)', 'scale(1)'], opacity: [0, 1] }, 0.34, EASE_OUT);
+    }
+    if (prevDemo && prevDemo.phase !== demo.phase) {
+      if (demo.phase === 'confirmed' || demo.phase === 'reward') flyMarker(fromRect, $(demo.phase === 'confirmed' ? '.panel-customer .loy-card' : '.panel-owner', stageEl));
+      $$('.panel.is-active', stageEl).forEach(p => motion(p, { transform: ['translateY(6px)', 'translateY(0px)'] }, 0.26, EASE_OUT));
+    }
+  } else { $$('.panel.is-active', stageEl).forEach(p => motion(p, { transform: ['translateY(6px)', 'translateY(0px)'] }, 0.26, EASE_OUT)); }
+  if (hadFocus) ((focused && $<HTMLElement>(`[data-action="${focused}"]`, stageEl)) || $<HTMLElement>('[data-next]', stageEl) || $<HTMLElement>('#demo-reset'))?.focus({ preventScroll: true });
+}
+/** After an explicit action, scroll only as far as needed so the next control (or the result) is fully visible below the sticky header. */
+function keepNextVisible() {
+  if (!stageEl) return;
+  const target = $('[data-next]', stageEl) ?? $('.panel.is-active', stageEl);
+  if (!target) return;
+  const header = ($('.header')?.getBoundingClientRect().height ?? 72) + 16, r = target.getBoundingClientRect();
+  const delta = r.top < header ? r.top - header - 8 : r.bottom > innerHeight - 16 ? Math.min(r.bottom - innerHeight + 28, r.top - header - 8) : 0;
+  if (Math.abs(delta) > 1) scrollBy({ top: delta, behavior: reduced() ? 'auto' : 'smooth' });
+}
+function actDemo(action: DemoAction, fromEl?: Element | null, key = action.type) {
   const prev = demo, fromRect = fromEl?.getBoundingClientRect() ?? null;
   demo = transition(demo, action);
   if (demo === prev) return;
-  renderDemo(prev, fromRect);
-  keepNextVisible(action);
-  const message = MESSAGES[action.type]; if (message) announce('demo-announcement', message);
+  renderJourney(prev, fromRect); keepNextVisible();
+  const m = MESSAGES[key]; if (m) announce('demo-announcement', m);
 }
-/** After an explicit action, scroll only as far as needed so the next control (or the result) is fully visible below the sticky header. */
-function keepNextVisible(action: DemoAction) {
-  if (!['open', 'enroll', 'confirm', 'nextVisit', 'redeem', 'fixture'].includes(action.type) || !stageEl) return;
-  const target = $('[data-next]', stageEl) ?? $('.panel.is-active', stageEl);
-  if (!target) return;
-  const stepLine = $('#stage-step'), sticky = !!stepLine && getComputedStyle(stepLine).position === 'sticky';
-  const header = ($('.header')?.getBoundingClientRect().height ?? 72) + (sticky ? stepLine!.getBoundingClientRect().height + 8 : 0) + 8, r = target.getBoundingClientRect();
-  const delta = r.top < header ? r.top - header - 8 : r.bottom > innerHeight - 16 ? Math.min(r.bottom - innerHeight + 28, r.top - header - 8) : 0;
-  if (Math.abs(delta) > 1) scrollBy({ top: delta, behavior: reduced() ? 'auto' : 'smooth' });
+function actRef(action: RefAction, fromEl?: Element | null) {
+  const prev = ref; ref = refTransition(ref, action);
+  if (ref === prev) return;
+  renderJourney(undefined, fromEl?.getBoundingClientRect() ?? null); keepNextVisible();
+  announce('demo-announcement', MESSAGES[`ref-${action}`] ?? '');
+}
+/** Chapter selection is a view change: it never executes a visit, a redemption or a referral. */
+function selectChapter(c: Chapter) {
+  if (c === chapter) return;
+  chapter = c;
+  if (c !== 'refer') demo = enterChapter(demo, c);
+  renderJourney();
 }
 stageEl?.addEventListener('click', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
   if (!button) return;
-  const name = button.dataset.action;
-  switch (name) {
-    case 'identity-returning': return act({ type: 'identity', identity: 'returning' });
-    case 'identity-new': return act({ type: 'identity', identity: 'new' });
-    case 'open-nfc': act({ type: 'entry', entry: 'nfc' }); return act({ type: 'open' }, button);
-    case 'open-qr': act({ type: 'entry', entry: 'qr' }); return act({ type: 'open' }, button);
-    case 'enroll': return act({ type: 'enroll' }, button);
-    case 'confirm': return act({ type: 'confirm' }, button);
-    case 'nextVisit': return act({ type: 'nextVisit' }, button);
-    case 'redeem': return act({ type: 'redeem' }, button);
-    case 'use-returning': return act({ type: 'fixture', identity: 'returning' }, button);
+  switch (button.dataset.action) {
+    case 'identity-returning': return actDemo({ type: 'identity', identity: 'returning' });
+    case 'identity-new': return actDemo({ type: 'identity', identity: 'new' });
+    case 'open-nfc': actDemo({ type: 'entry', entry: 'nfc' }); return actDemo({ type: 'open' }, button);
+    case 'open-qr': actDemo({ type: 'entry', entry: 'qr' }); return actDemo({ type: 'open' }, button);
+    case 'enroll': return actDemo({ type: 'enroll' }, button);
+    case 'confirm': return actDemo({ type: 'confirm' }, button);
+    case 'redeem': return actDemo({ type: 'redeem' }, button);
+    case 'use-returning': { const prev = demo; demo = enterChapter(initialDemo('returning'), chapter); if (demo !== prev) { renderJourney(prev); keepNextVisible(); announce('demo-announcement', MESSAGES.fixture); } return; }
+    case 'ref-share': return actRef('share', button);
+    case 'ref-open': return actRef('open', button);
+    case 'ref-join': return actRef('join', button);
+    case 'ref-confirm': return actRef('confirm', button);
   }
 });
-$('#demo-reset')?.addEventListener('click', () => { demo = initialDemo(demo.identity); renderDemo(); announce('demo-announcement', MESSAGES.reset); });
+$('#demo-reset')?.addEventListener('click', () => {
+  if (chapter === 'refer') ref = refTransition(ref, 'reset'); else demo = enterChapter(initialDemo(demo.identity), chapter);
+  renderJourney(); announce('demo-announcement', MESSAGES.reset);
+});
+/** Tabs: roving tabindex, arrow/Home/End keys; focus stays on the selected tab and is never moved into the panel. */
+function tabKeys(selector: string, ids: string[], select: (id: string) => void) {
+  const tabs = $$(selector);
+  tabs.forEach(t => t.addEventListener('keydown', e => {
+    const i = tabs.indexOf(t); let n = -1;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = (i + 1) % tabs.length; else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = (i - 1 + tabs.length) % tabs.length; else if (e.key === 'Home') n = 0; else if (e.key === 'End') n = tabs.length - 1; else return;
+    e.preventDefault(); select(ids[n]); tabs[n].focus();
+  }));
+}
+const chapterIds = ['start', 'collect', 'reward', 'refer'];
+$$('[data-chapter]').forEach(t => t.addEventListener('click', () => selectChapter(t.dataset.chapter as Chapter)));
+tabKeys('[data-chapter]', chapterIds, id => selectChapter(id as Chapter));
 
 // ---- industry selection --------------------------------------------------------------------------------------------
 const select = $<HTMLSelectElement>('#industry-select');
 function setIndustry(key: IndustryKey, speak = true) {
-  industry = key;
+  const changed = key !== industry; industry = key;
   document.body.dataset.industry = key;
   $$('[data-industry-choice]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.industryChoice === key)));
   if (select) select.value = key;
-  demo = initialDemo(demo.identity);
-  renderDemo(); renderMoment(false);
-  if (speak) announce('demo-announcement', `${industries[key].label} gewählt. Die Demo beginnt von vorn.`);
+  if (changed) {
+    demo = enterChapter(initialDemo(demo.identity), chapter === 'refer' ? 'start' : chapter);   // the loyalty example is industry-specific; the referral and branding states are kept
+    const note = $('#industry-note'); if (note) { note.hidden = !speak; note.textContent = `Branche gewechselt: Name, Prämie und Beispielkarte passen sich an, der Karten-Beispielstand beginnt von vorn. Dein Rechenbeispiel bleibt unverändert.`; }
+  }
+  renderJourney(); renderOwner(false); renderBrand();
+  if (speak) announce('demo-announcement', `${industries[key].label} gewählt. Das Karten-Beispiel beginnt von vorn.`);
 }
 $$('[data-industry-choice]').forEach(b => b.addEventListener('click', () => { const key = b.dataset.industryChoice; if (isIndustryKey(key) && key !== industry) setIndustry(key); }));
 select?.addEventListener('change', () => { if (isIndustryKey(select.value) && select.value !== industry) setIndustry(select.value); });
 
-// ---- merchant moments ------------------------------------------------------------------------------------------------
-let momentId: MomentId = 'quiet', momentRevealed = false;
-function renderMoment(animateIt = true) {
-  const m = MOMENTS.find(x => x.id === momentId)!;
-  $$('.moment-tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.moment === momentId)));
-  const heading = $('#moment-heading'), body = $('#moment-body'), action = $<HTMLButtonElement>('#moment-action');
-  if (heading) heading.textContent = m.heading(industry);
-  if (body) body.innerHTML = momentBody(momentId, industry, momentRevealed);
-  if (action) { action.textContent = momentRevealed ? 'Vorschau ausblenden' : m.cta; action.setAttribute('aria-expanded', String(momentRevealed)); }
-  if (animateIt) { motion(body, { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0px)'] }, 0.3, EASE_OUT); }
+// ---- owner workspace ---------------------------------------------------------------------------------------------------
+function renderOwner(animateIt = true) {
+  const v = OWNER_VIEWS.find(x => x.id === ownerView)!;
+  $$('[data-owner-view]').forEach(t => { const on = t.dataset.ownerView === ownerView; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+  $('#owner-panel')?.setAttribute('aria-labelledby', `otab-${ownerView}`);
+  const body = $('#owner-body'), actions = $('#owner-actions'), action = $<HTMLButtonElement>('#owner-action');
+  if (body) body.innerHTML = ownerBody(ownerView, industry, ownerRevealed);
+  if (actions) actions.hidden = !v.outlook;
+  if (action) { action.textContent = ownerRevealed ? 'Vorschau ausblenden' : v.cta; action.setAttribute('aria-expanded', String(ownerRevealed)); }
+  const name = $('.owner-merchant b'); if (name) name.textContent = industries[industry].name;
+  if (animateIt) motion(body, { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0px)'] }, 0.26, EASE_OUT);
 }
-$$('.moment-tab').forEach(b => b.addEventListener('click', () => { const id = b.dataset.moment as MomentId; if (id !== momentId) { momentId = id; momentRevealed = false; renderMoment(); } }));
-$('#moment-action')?.addEventListener('click', () => { momentRevealed = !momentRevealed; renderMoment(false); if (momentRevealed) motion($('.message', $('#moment-body')!), { opacity: [0, 1], transform: ['translateY(10px)', 'translateY(0px)'] }, 0.34, EASE_OUT); });
+const ownerIds = ['overview', 'quiet', 'win'];
+function selectOwner(id: string) { if (id === ownerView) return; ownerView = id as OwnerView; ownerRevealed = false; renderOwner(); }
+$$('[data-owner-view]').forEach(t => t.addEventListener('click', () => selectOwner(t.dataset.ownerView!)));
+tabKeys('[data-owner-view]', ownerIds, selectOwner);
+$('#owner-action')?.addEventListener('click', () => { ownerRevealed = !ownerRevealed; renderOwner(false); if (ownerRevealed) motion($('.message', $('#owner-body')!), { opacity: [0, 1], transform: ['translateY(10px)', 'translateY(0px)'] }, 0.3, EASE_OUT); });
+
+// ---- branding studio (page memory only; independent of loyalty, referral and calculator state) -------------------------------
+function renderBrand() {
+  document.documentElement.dataset.brandStyle = brand.style;
+  $$('button[data-brand-style]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.brandStyle === brand.style)));
+  $$('button[data-brand-logo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.brandLogo === brand.logo)));
+  $$('button[data-brand-reward]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.brandReward === brand.reward)));
+  const ls = $('#lbl-style'), ll = $('#lbl-logo'); if (ls) ls.textContent = STYLES[brand.style].label; if (ll) ll.textContent = LOGOS[brand.logo].label;
+  const comp = $('#studio-comp'); if (comp) comp.innerHTML = studioComposition(brand, industry);
+  const mini = $('.sm-visual'); if (mini) mini.innerHTML = standSvg(brand, industries[industry].name, 'sm') + loyCard({ balance: 8, threshold: 10, status: 'Noch 2 bis zur Prämie', name: industries[industry].name, reward: rewardText(brand, industry), brand, mini: true });
+  renderJourney();
+}
+$('#studio')?.addEventListener('click', e => {
+  const t = (e.target as HTMLElement).closest<HTMLElement>('[data-brand-style],[data-brand-logo],[data-brand-reward]'); if (!t) return;
+  const next = { ...brand };
+  if (isStyle(t.dataset.brandStyle)) next.style = t.dataset.brandStyle; if (isLogo(t.dataset.brandLogo)) next.logo = t.dataset.brandLogo; if (isReward(t.dataset.brandReward)) next.reward = t.dataset.brandReward;
+  if (next.style === brand.style && next.logo === brand.logo && next.reward === brand.reward) return;
+  brand = next; renderBrand();
+  const comp = $('#studio-comp'); if (comp) motion(comp, { opacity: [0.6, 1] }, 0.24, EASE_STATE);
+});
 
 // ---- calculator --------------------------------------------------------------------------------------------------------
 const FEE = SITE.price.amount;
@@ -357,6 +415,6 @@ if (form) {
   });
 }
 void DEMO; void EXAMPLE;
-setIndustry('cafe', false);
+renderTabs(); renderOwner(false); renderBrand();
 applyGeometry();
 update(true);
