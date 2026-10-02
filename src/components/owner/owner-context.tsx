@@ -21,6 +21,7 @@ type OwnerValue = {
   epoch: number;
   refresh: () => Promise<void>;
   reload: () => void;
+  resetAfterSignOut: () => void;
   setDirty: (key: string, dirty: boolean) => void;
   /** Runs `action` now, or after the merchant confirms discarding unsaved edits. */
   guard: (action: () => void) => void;
@@ -90,6 +91,11 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     setError(result.message); setStatus("error");
   }, [router]);
   const load = useCallback((kind: "initial" | "silent") => fetchAccount().then(result => apply(result, kind)), [apply]);
+
+  const resetAfterSignOut = useCallback(() => {
+    dirtyKeys.current.clear(); setDirtyCount(0); setPending(null);
+    setMe(null); setLocations([]); setStatus("loading");
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -161,8 +167,8 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<OwnerValue>(() => ({
     status, me, error, locations, switching, switchError, epoch,
-    refresh: () => load("silent"), reload: () => { setStatus("loading"); setError(""); void load("initial"); }, setDirty, guard, switchLocation, announce: setMessage,
-  }), [status, me, error, locations, switching, switchError, epoch, load, setDirty, guard, switchLocation]);
+    refresh: () => load("silent"), reload: () => { setStatus("loading"); setError(""); void load("initial"); }, resetAfterSignOut, setDirty, guard, switchLocation, announce: setMessage,
+  }), [status, me, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
 
   return (
     <OwnerContext.Provider value={value}>

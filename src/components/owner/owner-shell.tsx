@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BrandMark } from "@/components/loyalty-ui";
+import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, visibleGroups } from "./nav";
 import { useOwner } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
@@ -39,10 +40,10 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   }, [open]);
 
   if (owner.status === "unprovisioned") {
-    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex" }}><BrandMark /></div><main id="ow-main">{children}</main></div>;
+    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex" }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
   }
   if (owner.status === "error") {
-    return <div className="ow-page" style={{ maxWidth: 560, paddingTop: 96 }} role="alert"><div className="ow-card ow-stack"><h1 style={{ fontSize: 22 }}>Dein Bereich ist nicht erreichbar</h1><p className="ow-muted">{owner.error}</p><div><button type="button" className="ow-btn ow-btn--primary" onClick={owner.reload}>Erneut versuchen</button></div></div></div>;
+    return <div className="ow-page" style={{ maxWidth: 560, paddingTop: 96 }} role="alert"><div className="ow-card ow-stack"><h1 style={{ fontSize: 22 }}>Dein Bereich ist nicht erreichbar</h1><p className="ow-muted">{owner.error}</p><div><button type="button" className="ow-btn ow-btn--primary" onClick={owner.reload}>Erneut versuchen</button></div><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div></div>;
   }
 
   const me = owner.me;
@@ -65,6 +66,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <div className="ow-side-foot">
           <Link href="/cashier" className="ow-utility" onClick={event => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => router.push("/cashier")); } }}><OwnerIcon name="till" size={18} />Kasse öffnen</Link>
           {me && <p className="ow-who">{me.businessName}<br />{me.role === "owner" ? "Inhaber:in" : "Manager:in"}</p>}
+          <LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} />
         </div>
       </aside>
       {open && <div className="ow-scrim" onClick={() => { setOpen(false); menuButton.current?.focus(); }} aria-hidden="true" />}
