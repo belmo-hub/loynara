@@ -21,6 +21,7 @@ await writeFile(resolve(root, 'datenschutz/index.html'), legalPage('datenschutz'
 await writeFile(resolve(root, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE.origin}/sitemap.xml\n`);
 await writeFile(resolve(root, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`+`<url><loc>${SITE.origin}/</loc></url>${missing.includes('impressum') ? '' : `<url><loc>${SITE.origin}/impressum/</loc></url>`}${missing.includes('datenschutz') ? '' : `<url><loc>${SITE.origin}/datenschutz/</loc></url>`}</urlset>`);
 await writeFile(resolve(root, '_headers'), `/*
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
