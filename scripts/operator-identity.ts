@@ -125,3 +125,66 @@ export async function provisionIdentity(input: {
     return { status: "created" as const, userId: user.id, envelope, audit: audit("created", user.id) };
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Operator-assisted credential reset (owner or staff forgot their password).
+//
+// Uses exactly the steps of Better Auth's own reset-password route: hash with the auth context's
+// password hasher, `internalAdapter.updatePassword`, then `internalAdapter.deleteUserSessions`.
+// It only ever changes the one credential account of an EXISTING user; it never creates users,
+// links accounts or touches merchant state. The new temporary password leaves the process only as
+// the same sealed envelope the provisioning tool uses.
+// ---------------------------------------------------------------------------------------------
+
+export type ResetAuditRecord = { at: string; status: "reset"; userId: string; emailSha256Prefix: string; emailDomain: string; credentialAccounts: 1; passwordChanged: true; sessionsRevoked: number; sessionsRemaining: 0; usersCreated: 0; merchantStateTouched: false; emailsSent: 0 };
+export type ResetResult = { status: "reset"; userId: string; envelope: string; audit: ResetAuditRecord };
+
+export type ResetContextLike = Omit<AuthContextLike, "internalAdapter"> & {
+  internalAdapter: AuthContextLike["internalAdapter"] & {
+    findAccounts(userId: string): Promise<Array<{ providerId: string; accountId: string; password?: string | null }>>;
+    listSessions(userId: string): Promise<unknown[]>;
+    updatePassword(userId: string, passwordHash: string): Promise<unknown>;
+    deleteUserSessions(userId: string): Promise<unknown>;
+  };
+};
+
+export async function resetCredential(input: {
+  ctx: ResetContextLike;
+  inTransaction: <T>(fn: () => Promise<T>) => Promise<T>;
+  email: string;
+  transportKey: ReturnType<typeof loadTransportKey>;
+  now?: () => Date;
+}): Promise<ResetResult> {
+  const { ctx } = input;
+  const email = normalizeIdentity({ email: input.email, name: "-" }).email;
+  const now = input.now ?? (() => new Date());
+  if (ctx.options.databaseHooks || ctx.options.emailVerification?.sendVerificationEmail) refuse("UNEXPECTED_AUTH_HOOK");
+  return input.inTransaction(async () => {
+    const found = await ctx.internalAdapter.findUserByEmail(email, { includeAccounts: true });
+    if (!found) return refuse("USER_NOT_FOUND");
+    const userId = found.user.id;
+    // Exactly one credential account, and it must be the one Better Auth's own updatePassword targets
+    // (accountId = userId). Anything else is ambiguous or malformed and is refused, not repaired.
+    const accounts = await ctx.internalAdapter.findAccounts(userId);
+    const credential = accounts.filter(account => account.providerId === "credential");
+    if (credential.length !== 1 || credential[0].accountId !== userId || !credential[0].password) refuse("CREDENTIAL_ACCOUNT_AMBIGUOUS_OR_MALFORMED");
+    const oldHash = credential[0].password as string;
+    const sessionsBefore = (await ctx.internalAdapter.listSessions(userId)).length;
+
+    const password = generateTemporaryPassword();
+    const hash = await ctx.password.hash(password);
+    if (!(await ctx.password.verify({ hash, password }))) refuse("HASH_VERIFY_FAILED");
+    await ctx.internalAdapter.updatePassword(userId, hash);
+    await ctx.internalAdapter.deleteUserSessions(userId);
+
+    // Read back inside the transaction: the new password must verify, the old one must be gone, no session may remain.
+    const after = (await ctx.internalAdapter.findAccounts(userId)).filter(account => account.providerId === "credential");
+    if (after.length !== 1 || !after[0].password || after[0].password === oldHash || !(await ctx.password.verify({ hash: after[0].password, password }))) refuse("PASSWORD_UPDATE_NOT_CONFIRMED");
+    if ((await ctx.internalAdapter.listSessions(userId)).length !== 0) refuse("SESSIONS_NOT_REVOKED");
+
+    // Sealed before commit: if sealing fails everything rolls back (old password and sessions stay).
+    const envelope = sealCredential(input.transportKey, { email, temporary_password: password, auth_user_id: userId });
+    const audit: ResetAuditRecord = { at: now().toISOString(), status: "reset", userId, emailSha256Prefix: emailFingerprint(email), emailDomain: email.split("@")[1], credentialAccounts: 1, passwordChanged: true, sessionsRevoked: sessionsBefore, sessionsRemaining: 0, usersCreated: 0, merchantStateTouched: false, emailsSent: 0 };
+    return { status: "reset" as const, userId, envelope, audit };
+  });
+}

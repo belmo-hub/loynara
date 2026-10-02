@@ -154,19 +154,25 @@ describe("secure tap ledger boundary", () => {
 });
 
 describe("pilot policy: no automatic NFC awards on the production deployment", () => {
-  const productionMarkers: Array<[string, Record<string, string>]> = [["PRODUCTION_ENVIRONMENT", { PRODUCTION_ENVIRONMENT: "loynara-production" }], ["NODE_ENV", { NODE_ENV: "production" }]];
-  for (const [name, env] of productionMarkers) {
-    it(`refuses automatic_fixed and still accepts staff_confirmed and disabled (${name})`, async () => {
-      const f = await fixture();
-      for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
-      try {
-        await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "automatic_fixed", cooldownSeconds: 60 })).rejects.toMatchObject({ code: "TAP_AUTOMATIC_NOT_ALLOWED" });
-        expect((await db.select().from(programs).where(eq(programs.id, f.program.id)))[0].tapMode).toBe("disabled");
-        await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "staff_confirmed", cooldownSeconds: 60 })).resolves.toEqual({ mode: "staff_confirmed", cooldownSeconds: 60 });
-        await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "disabled", cooldownSeconds: null })).resolves.toEqual({ mode: "disabled", cooldownSeconds: null });
-      } finally { vi.unstubAllEnvs(); }
-    });
-  }
+  it("refuses automatic_fixed on real production and still accepts staff_confirmed and disabled", async () => {
+    const f = await fixture();
+    vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "automatic_fixed", cooldownSeconds: 60 })).rejects.toMatchObject({ code: "TAP_AUTOMATIC_NOT_ALLOWED" });
+      expect((await db.select().from(programs).where(eq(programs.id, f.program.id)))[0].tapMode).toBe("disabled");
+      await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "staff_confirmed", cooldownSeconds: 60 })).resolves.toEqual({ mode: "staff_confirmed", cooldownSeconds: 60 });
+      await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "disabled", cooldownSeconds: null })).resolves.toEqual({ mode: "disabled", cooldownSeconds: null });
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it("keeps automatic_fixed available on a device-test/preview process (NODE_ENV=production, no production marker)", async () => {
+    const f = await fixture();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PRODUCTION_ENVIRONMENT", "device-test");
+    try {
+      await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "automatic_fixed", cooldownSeconds: 60 })).resolves.toEqual({ mode: "automatic_fixed", cooldownSeconds: 60 });
+    } finally { vi.unstubAllEnvs(); }
+  });
   it("a legacy automatic_fixed programme never awards on production: the tap waits for staff", async () => {
     const f = await configured(); // configured outside production, as a development database might be
     vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");

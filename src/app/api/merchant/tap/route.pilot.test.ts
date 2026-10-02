@@ -23,9 +23,15 @@ describe("merchant tap route under the pilot policy", () => {
     expect(await response.json()).toMatchObject({ code: "TAP_AUTOMATIC_NOT_ALLOWED" });
   });
 
-  it("rejects automatic_fixed when NODE_ENV is production even without the marker", async () => {
+  it("rejects automatic_fixed with the production marker even when NODE_ENV is production too", async () => {
+    vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
     vi.stubEnv("NODE_ENV", "production");
     expect((await call("automatic_fixed")).status).toBe(400);
+  });
+
+  it("does not reject automatic_fixed on a device-test process (NODE_ENV=production, no production marker)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect((await call("automatic_fixed")).status).toBe(200);
   });
 
   it("still accepts staff_confirmed and disabled on production", async () => {

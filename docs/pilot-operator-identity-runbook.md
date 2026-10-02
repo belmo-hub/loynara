@@ -22,7 +22,7 @@ IDs such as O-004 or R-010 refer to the Launch Ledger (`docs/launch-ledger/` on 
 
 1. The owner gives an explicit approval, in chat, for **this identity** (named person, role, purpose) at action time. An earlier approval for a different identity does not carry over.
 2. A production build containing this script is deployed (separate approval, same exact-commit process as the dashboard releases). Until then the script does not exist on the host.
-3. The credential-lifecycle decision (O-004) is recorded: passwords are operator-set and handed over out of band; **there is no logout, password change or reset in the product** (R-010). Tell the merchant before creating the account that a lost password cannot currently be reset by them (see the recovery runbook).
+3. The credential-lifecycle decision (O-004) is recorded: passwords are operator-set and handed over out of band; **there is no self-service password change or reset in the product** (R-010). Tell the merchant before creating the account that there is no self-service reset; the operator resets the password in person (recovery runbook, section B).
 4. Registration stays disabled (`PUBLIC_REGISTRATION_ENABLED=false`). Do not change any variable for this task.
 
 ## 2. Prepare the transport key (operator machine, outside iCloud Desktop)
@@ -75,7 +75,7 @@ echo '<envelope>' | base64 -d | openssl pkeyutl -decrypt -inkey transport-privat
 - **Owner:** signs in and completes the onboarding wizard (identity-only accounts are supported); that is what creates tenant, location and programme.
 - **Staff:** provision their identity the same way, then the owner creates an invite for the **same e-mail address**; acceptance requires that e-mail to match. The invite link is shown to the owner on the staff page with a copy button and is not sent by e-mail; the owner shares it out of band.
 - **Retry:** re-running with the same e-mail is safe and reports `existing`; it issues no new credential.
-- **Lost envelope or lost password:** the tool cannot re-issue (by design). See [pilot-recovery-runbook.md](pilot-recovery-runbook.md); do not delete rows to "start over". Any deletion is a production write that needs its own explicit approval, and the earlier synthetic-cleanup exception does not apply to real merchant data (X-006).
+- **Lost envelope or forgotten password:** use the operator-assisted reset, `npm run operator:reset-credential -- --target loynara-production --email …`, described in [pilot-recovery-runbook.md](pilot-recovery-runbook.md) section B. The provisioning tool itself never re-issues. Do not delete rows to "start over". Any deletion is a production write that needs its own explicit approval, and the earlier synthetic-cleanup exception does not apply to real merchant data (X-006).
 
 ## 7. Local rehearsal (no production)
 

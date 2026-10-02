@@ -49,3 +49,25 @@ describe("germanDate raw timestamp fallback", () => {
     expect(germanDate(timestamp, true)).toBe(expected);
   });
 });
+
+describe("Overview programme call to action follows the role", () => {
+  const render = (role: "owner" | "manager" | "cashier") => {
+    state.me = {
+      userId: "u", tenantId: "tenant", locationId: "location", role,
+      businessName: "Test Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
+      programSlug: "test-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
+      stats: { members: 1, awards: 1, redemptions: 0 }, activity: [],
+    };
+    return renderToStaticMarkup(createElement(Overview));
+  };
+  it("offers the owner an edit action", () => {
+    const html = render("owner");
+    expect(html).toContain("Programm bearbeiten");
+    expect(html).not.toContain("Programm ansehen");
+  });
+  it("does not promise a manager an edit action on the read-only programme page", () => {
+    const html = render("manager");
+    expect(html).not.toContain("Programm bearbeiten");
+    expect(html).toContain("Programm ansehen");
+  });
+});

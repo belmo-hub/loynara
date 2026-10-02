@@ -218,7 +218,7 @@ function ProgrammeCard({ me }: { me: MeResponse }) {
         <dt>Prämie</dt><dd>{me.rewardCost} {unitOf(me)} → {me.rewardTitle}</dd>
         {tap && <><dt>NFC-Tap</dt><dd>{tap}</dd></>}
       </dl>
-      <div><Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program">Programm bearbeiten</Link></div>
+      <div><Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program">{me.role === "owner" ? "Programm bearbeiten" : "Programm ansehen"}</Link></div>
     </section>
   );
 }
