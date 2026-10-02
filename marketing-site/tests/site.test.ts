@@ -28,7 +28,7 @@ test('no stale price, internal wording or old brand', () => {
   assert.doesNotMatch(text, /LoopLocal|synthetic|synthetisch|Audit|Entwurf|nicht geprüft|nicht getestet|in Vorbereitung|Testdaten|lokal getestet/i);
 });
 test('no fabricated proof, outcomes or unsupported availability claims', () => {
-  assert.doesNotMatch(text, /Testimonial|Referenz(?:kunden)?\b|bereits im Einsatz|vertrauen uns|\d[\d.]* (?:zufriedene )?Kunden nutzen|garantiert|Garantie auf|mehr Umsatz um|ROI\b|Rendite von|Gewinn von|spart? Zeit/i);
+  assert.doesNotMatch(text, /Testimonial|Referenz(?:kunden)?\b|bereits im Einsatz|vertrauen uns|\d[\d.]* (?:zufriedene )?Kunden nutzen|\bgarantiert\b|Garantie auf|mehr Umsatz um|ROI\b|Rendite von|Gewinn von|spart? Zeit/i);
   assert.doesNotMatch(text, /iPhone|Android|alle Handys|jedes Smartphone|Apple Pay|Google Pay|Smart Tap|Apple VAS|automatische Vergabe|Bezahlen per NFC/i);
   assert.doesNotMatch(home, /<img[^>]+(?:logo-wall|partner|kunden-logo)/i);
 });
@@ -37,17 +37,28 @@ test('platform previews are marked as previews and kept out of the offer', () =>
   assert.match(pricing, /Im aktuellen Pilotangebot/); assert.match(pricing, /Plattform-Ausblick – nicht Teil des Angebots/);
   const inOffer = pricing.slice(pricing.indexOf('Im aktuellen Pilotangebot'), pricing.indexOf('Plattform-Ausblick'));
   assert.doesNotMatch(inOffer, /Kampagn|Nachricht|Automat|Wallet/);
-  assert.match(section('momente', 'rechner'), /Plattform-Vorschau/); assert.match(section('plattform', 'start'), /nicht Teil des aktuellen Angebots/);
+  assert.match(section('momente', 'rechner'), /Plattform-Ausblick – nicht im aktuellen Pilotangebot/); assert.match(section('plattform', 'start'), /Ausblick – nicht im aktuellen Pilotangebot/);
   assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten/);
 });
 test('calculator copy: scope, disclaimer next to the result, no profit/ROI wording', () => {
   const calc = section('rechner', 'plattform');
   assert.match(calc, /Für einen Standort/); assert.match(calc, /Rechenbeispiel, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
   assert.match(calc, /910 € zusätzlicher Monatsumsatz im Beispiel/); assert.match(calc, /871 €/); assert.match(calc, /10\.452 €/); assert.match(calc, /23,3×/);
-  assert.match(calc, /Differenz nach Abogebühr/); assert.match(calc, /Umsatz-\/Gebührenverhältnis/);
+  assert.match(calc, /Differenz nach Abogebühr/);
+  // finding 16: primary ratio removed; preserved in the expanded calculation details, labelled as a comparison
+  const primary = calc.slice(calc.indexOf('zusätzlicher Monatsumsatz im Beispiel'), calc.indexOf('Berechnung und Annahmen im Detail'));
+  assert.doesNotMatch(primary, /23,3×|Verhältnis/); const breakdown = home.slice(home.indexOf('id="calc-breakdown"'), home.indexOf('class="calc-cta"'));
+  assert.doesNotMatch(visible(breakdown), /×|Verhältnis/);
+  assert.match(visible(home.slice(home.indexOf('<details class="calc-assumptions">'), home.indexOf('id="calc-empty"'))), /Zusatzumsatz im Vergleich zur Monatsgebühr 23,3× .*kein Gewinn und keine garantierte Rendite/);
   assert.doesNotMatch(calc, /Nettogewinn|Netto-Nutzen|Return on|Ihr Geld|verdienst du/i);
-  const i = calc.indexOf('zusätzlicher Monatsumsatz im Beispiel'), j = calc.indexOf('Rechenbeispiel, keine Umsatzprognose');
-  assert.ok(j > i && j - i < 120, 'disclaimer directly follows the primary result');
+  const i = calc.indexOf('zusätzlicher Monatsumsatz im Beispiel'), j = calc.indexOf('Rechenbeispiel, keine Umsatzprognose'), k = calc.indexOf('Berechnung und Annahmen im Detail');
+  assert.ok(j > i && j - i < 120, 'disclaimer directly follows the primary result'); assert.ok(k > j && k - j < 260, 'details follow the disclaimer');
+});
+test('review corrections: demo stage has no scroll-driven guide or mobile Zurück/Weiter, hero is labelled as an illustration', () => {
+  assert.doesNotMatch(home, /guide-prev|guide-next|guide-nav|Interaktive Demo · Beispieldaten/);
+  assert.match(home, /Beispieldarstellung/); assert.match(home, /class="reset-button"/);
+  assert.equal((home.match(/data-reveal/g) ?? []).length <= 3, true, 'fade-up reveals are reserved for product visuals');
+  assert.doesNotMatch(home, /pgroup|class="tags"|pvisual/);
 });
 test('the contact section states the honest mail-draft behaviour', () => {
   assert.match(text, /Deine Anfrage wird in deinem E-Mail-Programm geöffnet\. Gesendet wird sie erst dort\./);
@@ -65,4 +76,12 @@ test('publication changes survive: legal links, no terms link, legal fragments r
   assert.match(legalPage('impressum', { impressum: '<p>Beispiel</p>', datenschutz: null }), /index,follow/);
   const real = readFileSync(resolve(import.meta.dirname, '../legal/impressum.html'), 'utf8');
   assert.match(real, /Kassel/); assert.match(legalPage('impressum', { impressum: real, datenschutz: null }), /Friedrich-Ebert-Straße 70/);
+});
+
+test('robustness CSS: solid header fallback, prefixed blur, print shows all reveals and drops sticky positioning', () => {
+  const css = readFileSync(resolve(import.meta.dirname, '../styles.css'), 'utf8');
+  assert.match(css, /\.header\{position:sticky;[^}]*background:var\(--canvas\)/);
+  assert.match(css, /@supports \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{\.header\{background:rgba\(246,243,236,\.9\);-webkit-backdrop-filter:[^}]*backdrop-filter:/);
+  assert.match(css, /@media print\{\[data-reveal\]\{opacity:1!important;transform:none!important\}\.header,\.stage-col,\.stage\{position:static!important\}/);
+  assert.doesNotMatch(css, /color-mix\(/, 'no color-mix: older Safari versions would drop the header background');
 });

@@ -1,9 +1,9 @@
 import { animate, inView } from 'motion';
 import { SITE, DEMO, industries, isIndustryKey, type IndustryKey } from './site.js';
 import { initialDemo, transition, viewOf, GUIDE_STEPS, type DemoAction, type DemoState } from './demo.js';
-import { GUIDE, MOMENTS, demoStage, momentBody, type MomentId } from './views.js';
+import { GUIDE_TITLES, MOMENTS, demoStage, guideHtml, momentBody, type MomentId } from './views.js';
 import { EXAMPLE, LIMITS, SLIDER_RANGE, compute, series, parseField, euro, signedEuro, ratioText, formatNumber, niceScale, type FieldKey, type Inputs, type Scenario } from './calc.js';
-import { plot, tableHtml, tooltipHtml, monthAtX, xAt, WIDE, COMPACT, type Geometry } from './chart.js';
+import { plot, tableHtml, readoutHtml, monthAtX, WIDE, COMPACT, type Geometry } from './chart.js';
 import { buildRequest } from './request.js';
 
 const $ = <T extends Element = HTMLElement>(selector: string, root: ParentNode = document) => root.querySelector<T>(selector);
@@ -52,31 +52,27 @@ function reveals() {
   }
 }
 entrance(); reveals();
+/** Printing must never hide content that has not been scrolled into view yet. */
+addEventListener('beforeprint', () => { for (const el of $$('[data-reveal]')) { el.style.opacity = ''; el.style.transform = ''; } });
 
 // ---- industry (drives the demo and the business-moment scene; the calculator stays independent) -----------------------
 let industry: IndustryKey = 'cafe';
 let demo: DemoState = initialDemo();
-let guideView = 0;
 const stageEl = $('#demo-screens');
 const guideEl = $('#guide');
 
 const panelToHighlight = (s: DemoState) => ({ start: 'customer', enroll: 'customer', confirmed: 'customer', request: 'cashier', request2: 'cashier', reward: 'cashier', redeemed: 'owner' }[s.phase]);
 const MESSAGES: Record<string, string> = {
   entry: '', identity: '', open: 'Karte geöffnet. Die Anfrage liegt an der Kasse.', enroll: 'Karte erstellt. Die Anfrage liegt an der Kasse.', confirm: 'Besuch bestätigt, ein Stempel vergeben.',
-  nextVisit: 'Zweiter Besuch gemeldet. Dein Team bestätigt ihn an der Kasse.', redeem: 'Prämie eingelöst. Neuer Stand: 0 von 10.', reset: 'Demo zurückgesetzt.',
+  nextVisit: 'Zweiter Besuch gemeldet. Dein Team bestätigt ihn an der Kasse.', fixture: 'Bestandskarte geladen: 8 von 10.', redeem: 'Prämie eingelöst. Neuer Stand: 0 von 10.', reset: 'Demo zurückgesetzt.',
 };
 
+/** The guide mirrors the demo state. It never reads scroll position and never changes business state. */
 function renderGuide() {
-  const v = viewOf(demo);
-  $$('li', guideEl!).forEach((li, i) => {
-    li.classList.toggle('is-current', i === guideView);
-    li.classList.toggle('is-view', i === guideView);
-    const state = i < v.guideStep || (demo.phase === 'redeemed' && i === 3) ? 'done' : i === v.guideStep ? 'now' : 'todo';
-    const badge = $('.guide-state', li); if (badge) { badge.dataset.state = state; badge.textContent = state === 'done' ? 'Erledigt' : state === 'now' ? 'Jetzt' : 'Offen'; }
-  });
-  const count = $('#guide-count'); if (count) count.textContent = `Schritt ${guideView + 1} von ${GUIDE_STEPS}`;
-  ($<HTMLButtonElement>('#guide-prev')!).disabled = guideView === 0;
-  ($<HTMLButtonElement>('#guide-next')!).disabled = guideView === GUIDE_STEPS - 1;
+  if (guideEl) guideEl.innerHTML = guideHtml(demo);
+  const step = viewOf(demo).guideStep, label = `Schritt ${step + 1} von ${GUIDE_STEPS}`;
+  const count = $('#guide-count'); if (count) count.textContent = label;
+  const inline = $('#stage-step'); if (inline) inline.textContent = `${label} · ${GUIDE_TITLES[step]}`;
 }
 
 function flyMarker(from: DOMRect | null, toEl: Element | null) {
@@ -118,9 +114,19 @@ function act(action: DemoAction, fromEl?: Element | null) {
   const prev = demo, fromRect = fromEl?.getBoundingClientRect() ?? null;
   demo = transition(demo, action);
   if (demo === prev) return;
-  guideView = viewOf(demo).guideStep;
   renderDemo(prev, fromRect);
+  keepNextVisible(action);
   const message = MESSAGES[action.type]; if (message) announce('demo-announcement', message);
+}
+/** After an explicit action, scroll only as far as needed so the next control (or the result) is fully visible below the sticky header. */
+function keepNextVisible(action: DemoAction) {
+  if (!['open', 'enroll', 'confirm', 'nextVisit', 'redeem', 'fixture'].includes(action.type) || !stageEl) return;
+  const target = $('[data-next]', stageEl) ?? $('.panel.is-active', stageEl);
+  if (!target) return;
+  const stepLine = $('#stage-step'), sticky = !!stepLine && getComputedStyle(stepLine).position === 'sticky';
+  const header = ($('.header')?.getBoundingClientRect().height ?? 72) + (sticky ? stepLine!.getBoundingClientRect().height + 8 : 0) + 8, r = target.getBoundingClientRect();
+  const delta = r.top < header ? r.top - header - 8 : r.bottom > innerHeight - 16 ? Math.min(r.bottom - innerHeight + 28, r.top - header - 8) : 0;
+  if (Math.abs(delta) > 1) scrollBy({ top: delta, behavior: reduced() ? 'auto' : 'smooth' });
 }
 stageEl?.addEventListener('click', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
@@ -135,21 +141,10 @@ stageEl?.addEventListener('click', event => {
     case 'confirm': return act({ type: 'confirm' }, button);
     case 'nextVisit': return act({ type: 'nextVisit' }, button);
     case 'redeem': return act({ type: 'redeem' }, button);
+    case 'use-returning': return act({ type: 'fixture', identity: 'returning' }, button);
   }
 });
-$('#demo-reset')?.addEventListener('click', () => { demo = initialDemo(); guideView = 0; renderDemo(); announce('demo-announcement', MESSAGES.reset); });
-$('#guide-prev')?.addEventListener('click', () => { guideView = Math.max(0, guideView - 1); renderGuide(); });   // view only
-$('#guide-next')?.addEventListener('click', () => { guideView = Math.min(GUIDE_STEPS - 1, guideView + 1); renderGuide(); });
-
-// guide: single-step presentation on narrow screens, scroll-follow on wide ones (both change the view only)
-const narrow = matchMedia('(max-width: 1023px), (max-height: 699px)');
-function layoutGuide() {
-  guideEl?.classList.toggle('single', narrow.matches);
-  const nav = $('#guide-nav'); if (nav) nav.hidden = !narrow.matches;
-  renderGuide();
-}
-narrow.addEventListener('change', layoutGuide); layoutGuide();
-$$('li', guideEl!).forEach((li, i) => inView(li, () => { if (!narrow.matches) { guideView = i; renderGuide(); } }, { margin: '-35% 0px -45% 0px' }));
+$('#demo-reset')?.addEventListener('click', () => { demo = initialDemo(demo.identity); renderDemo(); announce('demo-announcement', MESSAGES.reset); });
 
 // ---- industry selection --------------------------------------------------------------------------------------------
 const select = $<HTMLSelectElement>('#industry-select');
@@ -158,7 +153,7 @@ function setIndustry(key: IndustryKey, speak = true) {
   document.body.dataset.industry = key;
   $$('[data-industry-choice]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.industryChoice === key)));
   if (select) select.value = key;
-  demo = initialDemo(); guideView = 0;
+  demo = initialDemo(demo.identity);
   renderDemo(); renderMoment(false);
   if (speak) announce('demo-announcement', `${industries[key].label} gewählt. Die Demo beginnt von vorn.`);
 }
@@ -246,29 +241,27 @@ function retargetChart(s: Scenario | null, immediate: boolean) {
   tweenHandle = { stop: () => handle.stop() };
 }
 
-// tooltip + month inspection
-const tip = $('#chart-tip'), wrap = $('#chart-wrap'), svg = $<SVGSVGElement>('#chart');
+// month inspection: a fixed readout strip above the plot (never covers the data); hover, touch and keyboard are equivalent
+const readout = $('#chart-readout'), wrap = $('#chart-wrap'), svg = $<SVGSVGElement>('#chart');
 function positionTip(pts = series(scenarioFrom(shown.baseline, shown.additional))) {
-  if (!tip || !wrap || !svg) return;
-  if (chartActive === null) { tip.hidden = true; return; }
-  const p = pts[chartActive]; tip.hidden = false; tip.innerHTML = tooltipHtml(p);
-  const box = wrap.getBoundingClientRect(), rect = svg.getBoundingClientRect();
-  const x = (xAt(chartActive, 12, geom) / geom.width) * rect.width + (rect.left - box.left);
-  const w = tip.offsetWidth, left = clamp(x - w / 2, 0, Math.max(0, box.width - w));
-  tip.style.left = `${left}px`; tip.style.top = '8px';
+  if (!readout) return;
+  readout.innerHTML = readoutHtml(pts[chartActive ?? 12], chartActive === null);
 }
-function inspect(month: number | null) { chartActive = month; drawChart(); }
+function inspect(month: number | null, speak = false) {
+  chartActive = month; drawChart();
+  if (speak && month !== null) { const p = series(scenarioFrom(shown.baseline, shown.additional))[month]; announce('chart-announce', `Monat ${month}: ohne Steigerung ${euro(p.baseline)}, mit Steigerung ${euro(p.scenario)}, Differenz ${euro(p.gap)}.`); }
+}
 const hit = $('#chart-hit');
 hit?.addEventListener('pointermove', e => inspect(monthAtX(e.clientX, svg!.getBoundingClientRect(), geom)));
 hit?.addEventListener('pointerdown', e => inspect(monthAtX(e.clientX, svg!.getBoundingClientRect(), geom)));
 hit?.addEventListener('pointerleave', e => { if ((e as PointerEvent).pointerType === 'mouse') inspect(null); });
-svg?.addEventListener('focus', () => { if (chartActive === null) inspect(12); });
+svg?.addEventListener('focus', () => { if (chartActive === null) inspect(12, true); });
 svg?.addEventListener('blur', () => inspect(null));
 svg?.addEventListener('keydown', e => {
   const cur = chartActive ?? 12; let next = cur;
   if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = Math.min(12, cur + 1); else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = Math.max(0, cur - 1);
   else if (e.key === 'Home') next = 0; else if (e.key === 'End') next = 12; else if (e.key === 'Escape') { inspect(null); return; } else return;
-  e.preventDefault(); inspect(next);
+  e.preventDefault(); inspect(next, true);
 });
 document.addEventListener('pointerdown', e => { if (chartActive !== null && wrap && !wrap.contains(e.target as Node)) inspect(null); });
 function applyGeometry() {
@@ -287,6 +280,7 @@ function update(immediate = false) {
   const s = currentScenario();
   showOutputs(s);
   retargetChart(s, immediate);
+  const help = $('#chart-help'); if (help) { help.dataset.base ??= help.textContent ?? ''; help.textContent = s && s.additional === 0 ? `${help.dataset.base} Bei 0 % Zunahme liegen beide Linien übereinander.` : help.dataset.base; }
   const share = $<HTMLButtonElement>('#calc-share'); if (share) share.disabled = !s;
   window.clearTimeout(announceTimer);
   announceTimer = window.setTimeout(() => announce('calc-announcement', s ? `Beispiel: ${euro(s.additional)} zusätzlicher Monatsumsatz, Differenz nach Abogebühr ${signedEuro(s.difference)}.` : 'Bitte alle Felder mit gültigen Zahlen füllen.'), 700);
@@ -362,7 +356,7 @@ if (form) {
     catch { if (status) status.textContent = `Kopieren war nicht möglich. Schreib uns bitte direkt an ${SITE.supportEmail}.`; }
   });
 }
-void DEMO; void GUIDE; void EXAMPLE;
+void DEMO; void EXAMPLE;
 setIndustry('cafe', false);
 applyGeometry();
 update(true);

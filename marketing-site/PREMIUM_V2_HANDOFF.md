@@ -25,3 +25,6 @@ Lab performance (loopback, 4× CPU throttle, not field data): app.js 90 KB / 32.
 - The calculator chart is a scenario graph; Fidelix has none.
 - Impressum/Datenschutz text is the operator's published text; this pass did not review it. Datenschutz mentions a "lokale Produktdemo" and clipboard use is not described there (clipboard write occurs only on an explicit "Text kopieren" click and stays on the device).
 - Marketing build now needs `npm ci --prefix marketing-site` before `npm run marketing:build`.
+
+## Review-correction pass (2026-10-02)
+Closes the 21 findings of the independent Opus review of `4d0bbee` (guide driven by demo state, no mobile Zurück/Weiter, separate new-card fixture 0→1, hero cluster, outlook labelling, corrected industry scenes, readout strip instead of tooltip, ratio moved into the details, compact platform section, pricing/contact layout, header fallback, print rules). Verification and the remaining engine gaps are listed in the commit message and in the final report: Chromium only; Playwright WebKit NOT RUN (isolated install stalled again during extraction and was stopped); macOS Safari and physical iPhone NOT RUN. See `SAFARI_CHECKLIST.md`. The proposed Datenschutz addendum is in `PRIVACY_ADDENDUM_DRAFT.md` and is not applied.

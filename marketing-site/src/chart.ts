@@ -2,8 +2,8 @@ import { compactEuro, euro, formatNumber, niceScale, type Point } from './calc.j
 
 export type Geometry = { width: number; height: number; left: number; right: number; top: number; bottom: number; xStep: number };
 /** Two layouts of the same chart so axis text stays about 12 px wherever the chart is shown. */
-export const WIDE: Geometry = { width: 640, height: 340, left: 82, right: 18, top: 16, bottom: 44, xStep: 2 };
-export const COMPACT: Geometry = { width: 360, height: 300, left: 72, right: 14, top: 14, bottom: 46, xStep: 3 };
+export const WIDE: Geometry = { width: 640, height: 340, left: 82, right: 18, top: 32, bottom: 44, xStep: 2 };
+export const COMPACT: Geometry = { width: 360, height: 300, left: 72, right: 14, top: 30, bottom: 46, xStep: 3 };
 export const CHART = WIDE;
 const plotW = (g: Geometry) => g.width - g.left - g.right, plotH = (g: Geometry) => g.height - g.top - g.bottom;
 export const xAt = (month: number, months = 12, g: Geometry = WIDE) => g.left + (month / months) * plotW(g);
@@ -30,7 +30,14 @@ export function plot({ points, top, tickStep, active, geometry: g = WIDE }: Plot
     const p = points[active], x = X(p.month);
     marker = `<line class="cursor" x1="${f(x)}" x2="${f(x)}" y1="${g.top}" y2="${g.top + plotH(g)}"/><circle class="dot base" cx="${f(x)}" cy="${f(Y(p.baseline))}" r="5"/><circle class="dot scen" cx="${f(x)}" cy="${f(Y(p.scenario))}" r="6"/>`;
   }
-  return `${grid}${xs}<path class="gap" d="${area}"/><path class="line base" d="${line('baseline')}"/><path class="line scen" d="${line('scenario')}"/>${marker}`;
+  // difference label at the last month, placed below the lines so it never covers them (omitted when both series coincide)
+  let gapLabel = '';
+  const last = points[months];
+  if (last && last.gap > 0) {
+    const x = X(months), y1 = Y(last.scenario), y2 = Y(last.baseline);
+    gapLabel = `<line class="gapmark" x1="${f(x)}" x2="${f(x)}" y1="${f(y1)}" y2="${f(y2)}"/><text class="gaplabel" x="${f(x)}" y="${f(Math.min(y1, y2) - 10)}" text-anchor="end">+${euro(last.gap)} im Jahr</text>`;
+  }
+  return `${grid}${xs}<path class="gap" d="${area}"/><path class="line base" d="${line('baseline')}"/><path class="line scen" d="${line('scenario')}"/>${gapLabel}${marker}`;
 }
 
 export function monthAtX(clientX: number, rect: DOMRect, g: Geometry = WIDE, months = 12): number {
@@ -39,8 +46,9 @@ export function monthAtX(clientX: number, rect: DOMRect, g: Geometry = WIDE, mon
 }
 export const scaleFor = (max: number) => niceScale(max);
 
-export function tooltipHtml(p: Point): string {
-  return `<strong>Monat ${p.month}</strong><span>Ohne angenommene Steigerung <b>${euro(p.baseline)}</b></span><span>Mit deiner angenommenen Steigerung <b>${euro(p.scenario)}</b></span><span>Differenz <b>${euro(p.gap)}</b></span>`;
+/** Fixed readout strip above the plot: the inspected month never hides data. `idle` = nothing inspected, showing the year-end values. */
+export function readoutHtml(p: Point, idle = false): string {
+  return `<span class="ro-month">Monat ${p.month}${idle ? ' · Jahresende' : ''}</span><span class="ro-cell"><span class="ro-label"><i class="swatch base"></i>Ohne</span><b>${euro(p.baseline)}</b></span><span class="ro-cell"><span class="ro-label"><i class="swatch scen"></i>Mit</span><b>${euro(p.scenario)}</b></span><span class="ro-cell">Differenz<b>${euro(p.gap)}</b></span>`;
 }
 export function tableHtml(points: Point[]): string {
   const row = (p: Point) => `<tr><th scope="row">${p.month}</th><td>${formatNumber(p.baseline, 2)} €</td><td>${formatNumber(p.scenario, 2)} €</td><td>${formatNumber(p.gap, 2)} €</td></tr>`;

@@ -14,7 +14,7 @@ for (const [label, viewport, path, setup] of [
   const ctx = await browser.newContext({ viewport, isMobile: viewport.width < 600, bypassCSP: true }); const page = await ctx.newPage();
   await page.goto(base + path); await page.waitForTimeout(700);
   const h = await page.evaluate(() => document.documentElement.scrollHeight); for (let y = 0; y < h; y += 600) { await page.evaluate(v => scrollTo(0, v), y); await page.waitForTimeout(40); } await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(600);
-  if (setup) await setup(page);
+  if (setup) { await setup(page); await page.waitForTimeout(800); }
   await page.addScriptTag({ path: axe });
   const res = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'] } })).violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, sample: v.nodes[0].target.join(' ') + ' :: ' + (v.nodes[0].failureSummary ?? '').slice(0, 160) })));
   console.log(`${label}: ${res.length === 0 ? 'no violations' : JSON.stringify(res, null, 1)}`); failures += res.filter(v => v.impact === 'serious' || v.impact === 'critical').length;
