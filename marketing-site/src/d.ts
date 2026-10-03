@@ -1,17 +1,18 @@
 /**
- * Browser wiring for the final marketing page. Everything lives in page memory: no network, no storage.
+ * Browser wiring for the marketing page (Concept D). Everything lives in page memory: no network, no storage.
  * The tested state machines (demo.ts, ref.ts), brand state (brand.ts) and calculator maths (calc.ts) are reused unchanged.
  * Selecting a tab only changes the view; it never runs a business action.
  */
 import { animate } from 'motion';
-import { initialDemo, transition, viewOf, type DemoState } from './demo.js';
+import { initialDemo, transition, viewOf, type DemoAction, type DemoState } from './demo.js';
 import { initialRef, refTransition, refView, REF_RULE, type RefAction, type RefState } from './ref.js';
 import { initialBrand, isLogo, isReward, isStyle, STYLES, type BrandState } from './brand.js';
 import { LIMITS, SLIDER_RANGE, compute, euro, formatNumber, niceScale, parseField, ratioText, series, signedEuro, type FieldKey, type Inputs, type Scenario, EXAMPLE } from './calc.js';
 import { plot, tableHtml, COMPACT, WIDE } from './chart.js';
 import { buildRequest } from './request.js';
 import { SITE } from './site.js';
-import { cardHtml, statusFor, studioHtml } from './final-parts.js';
+import { statusFor } from './final-parts.js';
+import { browserScreen, phone, refVisual, refLit, standObj, visitScreen, visitStep, walletScreen } from './d-parts.js';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
 const $$ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll<T>(sel)];
@@ -26,7 +27,7 @@ const fx = (el: Element | null | undefined, frames: Array<Record<string, string 
 };
 const say = (root: Element | null, text: string) => { const live = root?.querySelector('[data-live]'); if (live) live.textContent = text; };
 const bind = (root: ParentNode, name: string, text: string) => { for (const el of $$(`[data-bind="${name}"]`, root)) el.textContent = text; };
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many: string) => `${n}\u00a0${n === 1 ? one : many}`;
 
 // ---- tabs: roving tabindex + arrow/Home/End; focus stays on the tab --------------------------------------------------------------
 function tabs(list: HTMLElement, onSelect: (view: string) => void) {
@@ -50,79 +51,84 @@ function showView(panelId: string, view: string) {
   const panel = document.getElementById(panelId)!;
   for (const el of $$('[data-show]', panel)) { const on = el.dataset.show === view; if (el.hidden === on) { el.hidden = !on; if (on) fx(el, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0px)' }]); } }
 }
-for (const id of ['stage', 'owner']) { const list = $(`[data-tabs="${id}"]`); if (list) tabs(list, v => showView(id, v)); }
+for (const id of ['owner']) { const list = $(`[data-tabs="${id}"]`); if (list) tabs(list, v => showView(id, v)); }
 
-// ---- product stage: visit, reward (demo.ts) and referral (ref.ts) ---------------------------------------------------------------
-const stage = $('#stage')!;
-let brand: BrandState = initialBrand();
-const visit0 = (): DemoState => transition(initialDemo('returning'), { type: 'open' });          // card open, request pending, 8/10
-const reward0 = (): DemoState => ({ phase: 'reward', entry: 'nfc', identity: 'returning', enrolled: false }); // full card, 10/10
-let visit = visit0(), reward = reward0(), ref: RefState = initialRef();
-const STAGE_BRAND = initialBrand();   // the stage shows the default identity; the studio below has its own brand state
-const card = (slot: string, balance: number, status: string) => { const el = $(`[data-slot="${slot}"]`, stage); if (el) el.innerHTML = cardHtml({ balance, status, brand: STAGE_BRAND }); return el; };
-const stamp = (slot: string, n: number) => fx($(`[data-slot="${slot}"] .lc-stamps`, stage)?.children[n - 1], [{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], 320);
-const button = (act: string) => $<HTMLButtonElement>(`[data-act="${act}"]`, stage)!;
-const resetBtn = (act: string) => $<HTMLButtonElement>(`[data-reset="${act}"]`, stage)!;
-
-function renderVisit(prev?: DemoState) {
-  const v = viewOf(visit), done = visit.phase !== 'request';
-  card('visit-card', v.balance, statusFor(v.balance));
-  bind(stage, 'visit-caption', done ? 'Bestätigt – genau ein Stempel, auch bei doppeltem Tippen.' : 'Neue Anfrage an der Kasse: Beispielkarte 4217. Erst die Bestätigung zählt.');
-  bind(stage, 'visit-owner', v.confirmedVisits ? `Inhaber sieht: ${plural(v.confirmedVisits, 'bestätigter Besuch', 'bestätigte Besuche')}.` : 'Inhaber sieht: noch kein bestätigter Besuch.');
-  const b = button('visit'); b.disabled = done; b.textContent = done ? '✓ Besuch bestätigt' : 'Besuch bestätigen'; resetBtn('visit').hidden = !done;
-  if (prev && viewOf(prev).balance < v.balance) stamp('visit-card', v.balance);
-}
-function renderReward() {
-  const v = viewOf(reward), done = reward.phase === 'redeemed';
-  card('reward-card', v.balance, statusFor(v.balance, done));
-  bind(stage, 'reward-caption', done ? 'Eingelöst – genau einmal. Der Stand beginnt wieder bei null.' : 'Zehn Stempel: Es wartet ein Kaffee aufs Haus. Dein Team löst die Prämie ein – genau einmal.');
-  bind(stage, 'reward-owner', v.redemptions ? `Inhaber sieht: ${plural(v.redemptions, 'eingelöste Prämie', 'eingelöste Prämien')}.` : 'Inhaber sieht: noch keine eingelöste Prämie.');
-  const b = button('reward'); b.disabled = done; b.textContent = done ? '✓ Prämie eingelöst' : 'Prämie einlösen'; resetBtn('reward').hidden = !done;
-}
-const REF_UI: Record<string, { label: string; action: RefAction; caption: string; friend: string }> = {
-  idle: { label: 'Link teilen', action: 'share', caption: 'Kunde A ist Stammkunde: 7 von 10 Stempeln. Teilen allein bringt noch keinen Bonus.', friend: 'Freund B ist noch nicht dabei.' },
-  shared: { label: 'Freund öffnet den Link', action: 'open', caption: 'Der Link ist geteilt. Das bringt noch keinen Bonus.', friend: 'Freund B hat den Link noch nicht geöffnet.' },
-  opened: { label: 'Freund erstellt seine Karte', action: 'join', caption: 'Freund B hat den Link geöffnet. Auch das bringt noch keinen Bonus.', friend: 'Freund B hat noch keine Karte.' },
-  joined: { label: 'Ersten Besuch bestätigen', action: 'confirm', caption: 'Teilnahme offen: Erst wenn dein Team den ersten Besuch von Freund B bestätigt, zählt die Empfehlung.', friend: 'Freund B hat eine Karte (0 von 10). Der erste Besuch fehlt noch.' },
-  qualified: { label: '✓ Bonus verbucht', action: 'reset', caption: `Bedingung erfüllt: +${REF_RULE.referrerBonus} Bonusstempel für Kunde A, genau einmal verbucht.`, friend: 'Freund B: erster Besuch bestätigt (1 von 10).' },
+// ---- counter demo (demo.ts): one phone, one action, one owner consequence ----------------------------------------------------------
+const visitRoot = $('[data-visit]')!, stagePhone = $('.phone-stage .screen')!;
+const VISIT: Record<string, { label: string; action: DemoAction; caption: string }> = {
+  start: { label: 'Karte öffnen', action: { type: 'open' }, caption: 'Dein Kunde tippt den Aufsteller an oder scannt den QR-Code.' },
+  enroll: { label: 'Karte erstellen', action: { type: 'enroll' }, caption: 'Eine neue Karte: ohne App und ohne Passwort, direkt im Browser.' },
+  request: { label: 'Besuch bestätigen', action: { type: 'confirm' }, caption: 'Die Anfrage liegt an der Kasse. Erst die Bestätigung deines Teams zählt.' },
+  confirmed: { label: 'Nächsten Besuch zeigen', action: { type: 'nextVisit' }, caption: 'Ein Stempel, genau einmal – auch bei doppeltem Tippen.' },
+  request2: { label: 'Besuch bestätigen', action: { type: 'confirm' }, caption: 'Ein weiterer Besuch. Wieder bestätigt dein Team.' },
+  reward: { label: 'Prämie einlösen', action: { type: 'redeem' }, caption: 'Zehn Stempel: Dein Team löst die Prämie an der Kasse ein.' },
+  redeemed: { label: 'Von vorn', action: { type: 'reset' }, caption: 'Eingelöst – genau einmal. Die Karte beginnt wieder bei null.' },
 };
-function renderRef(prev?: RefState) {
-  const v = refView(ref), ui = REF_UI[ref.phase], done = ref.phase === 'qualified';
-  card('refer-card', v.referrerBalance, done ? `+${REF_RULE.referrerBonus} Empfehlungsbonus` : statusFor(v.referrerBalance));
-  bind(stage, 'refer-friend', ui.friend); bind(stage, 'refer-caption', ui.caption);
-  bind(stage, 'refer-owner', done ? `Inhaber sieht: ${plural(v.qualifiedReferrals, 'qualifizierte Empfehlung', 'qualifizierte Empfehlungen')}, ${v.bonusBooked} Bonus verbucht.` : 'Inhaber sieht: noch keine qualifizierte Empfehlung.');
-  $$('[data-ref-step]', stage).forEach((li, i) => li.classList.toggle('done', i <= v.step));
-  const b = button('refer'); b.textContent = ui.label; b.disabled = done; resetBtn('refer').hidden = !done;
-  if (prev && prev.phase !== ref.phase) { fx($('[data-slot="refer-card"]', stage), [{ opacity: 0.6 }, { opacity: 1 }], 240); if (done) stamp('refer-card', v.referrerBalance); }
+let visit: DemoState = initialDemo('returning');
+const visitAct = $<HTMLButtonElement>('[data-act="visit"]', visitRoot)!, newCard = $<HTMLButtonElement>('[data-new-card]', visitRoot)!;
+function renderVisit(prev?: DemoState) {
+  const v = viewOf(visit), step = visitStep(visit), isNewDone = visit.identity === 'new' && visit.phase === 'confirmed';
+  stagePhone.innerHTML = visitScreen(visit);
+  $$('.visit-steps li', visitRoot).forEach((li, i) => { li.classList.toggle('done', i < step); li.classList.toggle('now', i === step); });
+  bind(visitRoot, 'visit-caption', isNewDone ? 'Erster Stempel auf der neuen Karte. Bis zur Prämie braucht sie zehn bestätigte Besuche.' : VISIT[visit.phase].caption);
+  bind(visitRoot, 'visit-owner', `${plural(v.confirmedVisits, 'bestätigter\u00a0Besuch', 'bestätigte\u00a0Besuche')} · ${plural(v.redemptions, 'Prämie\u00a0eingelöst', 'Prämien\u00a0eingelöst')}`);
+  visitAct.textContent = isNewDone ? 'Von vorn' : VISIT[visit.phase].label;
+  newCard.textContent = visit.identity === 'new' ? 'Mit Stammkundin (8 von 10)' : 'Mit neuer Karte';
+  if (prev && viewOf(prev).balance < v.balance) fx(stagePhone.querySelectorAll('.lc-stamps li')[v.balance - 1], [{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], 320);
+  if (prev && prev.phase !== visit.phase) fx(stagePhone.querySelector('.sheet'), [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0px)' }], 260);
 }
-button('visit').addEventListener('click', () => { const prev = visit; visit = transition(visit, { type: 'confirm' }); if (visit !== prev) { renderVisit(prev); say(stage, 'Besuch bestätigt. Ein Stempel hinzugefügt.'); } });
-button('reward').addEventListener('click', () => { const prev = reward; reward = transition(reward, { type: 'redeem' }); if (reward !== prev) { renderReward(); say(stage, 'Prämie eingelöst.'); } });
-button('refer').addEventListener('click', () => { const prev = ref; ref = refTransition(ref, REF_UI[ref.phase].action); if (ref !== prev) { renderRef(prev); say(stage, REF_UI[ref.phase].caption); } });
-resetBtn('visit').addEventListener('click', () => { visit = visit0(); renderVisit(); button('visit').focus(); say(stage, 'Beispiel zurückgesetzt.'); });
-resetBtn('reward').addEventListener('click', () => { reward = reward0(); renderReward(); button('reward').focus(); say(stage, 'Beispiel zurückgesetzt.'); });
-resetBtn('refer').addEventListener('click', () => { ref = refTransition(ref, 'reset'); renderRef(); button('refer').focus(); say(stage, 'Beispiel zurückgesetzt.'); });
+visitAct.addEventListener('click', () => {
+  const prev = visit;
+  visit = visit.identity === 'new' && visit.phase === 'confirmed' ? initialDemo('new') : transition(visit, VISIT[visit.phase].action);
+  if (visit !== prev) { renderVisit(prev); say(visitRoot, $('[data-bind="visit-caption"]', visitRoot)!.textContent ?? ''); }
+});
+newCard.addEventListener('click', () => { visit = initialDemo(visit.identity === 'new' ? 'returning' : 'new'); renderVisit(); visitAct.focus(); say(visitRoot, visit.identity === 'new' ? 'Neue Karte: Sie beginnt bei null.' : 'Stammkundin: 8 von 10 Stempeln.'); });
 
-// ---- branding studio: one state for stand, card and Wallet-Vorschau (page memory only) -----------------------------------------
+// ---- referral (ref.ts): two people, one evolving picture -----------------------------------------------------------------------------
+const refRoot = $('[data-ref]')!, refPic = $('[data-ref-visual]')!;
+const REF: Record<string, { label: string; action: RefAction; caption: string }> = {
+  idle: { label: 'Link teilen', action: 'share', caption: 'Lena ist Stammkundin: 7 von 10 Stempeln.' },
+  shared: { label: 'Jonas öffnet den Link', action: 'open', caption: 'Link geteilt. Das allein bringt noch keinen Bonus.' },
+  opened: { label: 'Jonas erstellt seine Karte', action: 'join', caption: 'Jonas hat den Link geöffnet – auch das zählt noch nicht.' },
+  joined: { label: 'Ersten Besuch bestätigen', action: 'confirm', caption: 'Jonas hat eine Karte. Jetzt fehlt sein erster bestätigter Besuch.' },
+  qualified: { label: '✓ Bonus verbucht', action: 'reset', caption: `Bedingung erfüllt: +${REF_RULE.referrerBonus} Bonusstempel für Lena, genau einmal verbucht.` },
+};
+let ref: RefState = initialRef();
+const refAct = $<HTMLButtonElement>('[data-act="ref"]', refRoot)!, refReset = $<HTMLButtonElement>('[data-reset="ref"]', refRoot)!;
+function renderRef(prev?: RefState) {
+  const v = refView(ref), lit = refLit(ref), done = ref.phase === 'qualified';
+  refPic.innerHTML = refVisual(ref);
+  $$('.ref-steps li', refRoot).forEach((li, i) => { li.classList.toggle('done', i < lit); li.classList.toggle('now', i === lit); });
+  bind(refRoot, 'ref-caption', REF[ref.phase].caption);
+  bind(refRoot, 'ref-owner', `${plural(v.qualifiedReferrals, 'qualifizierte\u00a0Empfehlung', 'qualifizierte\u00a0Empfehlungen')}${done ? ` · ${v.bonusBooked}\u00a0Bonus\u00a0verbucht` : ''}`);
+  refAct.textContent = REF[ref.phase].label; refAct.disabled = done; refReset.hidden = !done;
+  if (prev && prev.phase !== ref.phase) fx(refPic.querySelector(done ? '.person-a' : '.person-b'), [{ transform: 'translateY(6px) scale(0.97)' }, { transform: 'translateY(0px) scale(1)' }], 300);
+}
+refAct.addEventListener('click', () => { const prev = ref; ref = refTransition(ref, REF[ref.phase].action); if (ref !== prev) { renderRef(prev); say(refRoot, REF[ref.phase].caption); } });
+refReset.addEventListener('click', () => { ref = refTransition(ref, 'reset'); renderRef(); refAct.focus(); say(refRoot, 'Beispiel zurückgesetzt.'); });
+
+// ---- brand studio: one brand for stand, card and Wallet-Vorschau (page memory only) -------------------------------------------------------
 const studio = $('#studio')!;
-let studioView: 'tresen' | 'wallet' = 'tresen';
-function renderStudio() {
+let brand: BrandState = initialBrand(), screen: 'karte' | 'wallet' = 'karte';
+function renderStudio(changed = false) {
   studio.dataset.brand = brand.style;
-  const pic = $('[data-studio]', studio)!; pic.innerHTML = studioHtml(brand, studioView);
+  $('[data-studio-stand]', studio)!.innerHTML = standObj(brand);
+  $('[data-studio-phone]', studio)!.innerHTML = phone(screen === 'wallet' ? walletScreen(brand) : browserScreen(brand, 8, statusFor(8)), 'phone-studio');
   for (const b of $$('[data-brand-style]', studio)) b.setAttribute('aria-pressed', String(b.dataset.brandStyle === brand.style));
   for (const b of $$('[data-brand-logo]', studio)) b.setAttribute('aria-pressed', String(b.dataset.brandLogo === brand.logo));
   const lab = $('[data-brand-label]', studio); if (lab) lab.textContent = STYLES[brand.style].label;
   const sel = $<HTMLSelectElement>('[data-brand-reward]', studio); if (sel) sel.value = brand.reward;
-  fx(pic, [{ opacity: 0.55 }, { opacity: 1 }], 240);
+  if (changed) fx($('.studio-scene', studio), [{ opacity: 0.6 }, { opacity: 1 }], 240);
 }
-const studioTabs = $('[data-tabs="studio-view"]'); if (studioTabs) tabs(studioTabs, v => { studioView = v === 'wallet' ? 'wallet' : 'tresen'; renderStudio(); });
+const screenTabs = $('[data-tabs="screen"]'); if (screenTabs) tabs(screenTabs, v => { screen = v === 'wallet' ? 'wallet' : 'karte'; renderStudio(true); });
 studio.addEventListener('click', e => {
   const t = (e.target as HTMLElement).closest<HTMLElement>('[data-brand-style],[data-brand-logo]'); if (!t) return;
   const next = { ...brand };
   if (isStyle(t.dataset.brandStyle)) next.style = t.dataset.brandStyle; if (isLogo(t.dataset.brandLogo)) next.logo = t.dataset.brandLogo;
   if (next.style === brand.style && next.logo === brand.logo) return;
-  brand = next; renderStudio();
+  brand = next; renderStudio(true);
 });
-$('[data-brand-reward]', studio)?.addEventListener('change', e => { const v = (e.target as HTMLSelectElement).value; if (isReward(v) && v !== brand.reward) { brand = { ...brand, reward: v }; renderStudio(); } });
+$('[data-brand-reward]', studio)?.addEventListener('change', e => { const v = (e.target as HTMLSelectElement).value; if (isReward(v) && v !== brand.reward) { brand = { ...brand, reward: v }; renderStudio(true); } });
 
 // ---- calculator (calc.ts, unchanged maths; the fee comes from the single price source) ---------------------------------------------
 const FEE = SITE.price.amount;
@@ -204,5 +210,5 @@ if (form) {
   });
 }
 
-renderVisit(); renderReward(); renderRef(); renderStudio(); update(); renderFigures();
+renderVisit(); renderRef(); renderStudio(); update(); renderFigures();
 addEventListener('resize', () => update());

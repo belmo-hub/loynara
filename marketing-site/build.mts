@@ -32,7 +32,7 @@ await writeFile(resolve(root, '_headers'), `/*
   Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 `);
 const { brandCss: finalBrandCss } = await import('./src/final-parts.js');
-await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'final/final.css'), 'utf8')) + '\n' + finalBrandCss() + '\n');
+await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'design/d.css'), 'utf8')) + '\n' + finalBrandCss() + '\n');
 
 // Design-direction prototypes: only with MARKETING_CONCEPTS=true, never in a public build, never in the sitemap.
 for (const dir of ['concepts', 'concept-a', 'concept-b', 'concept-c']) await rm(resolve(root, dir), { recursive: true, force: true });
@@ -47,6 +47,6 @@ const typecheck = spawnSync(resolve('node_modules/.bin/tsc'), ['-p', 'marketing-
 if (typecheck.status) process.exit(typecheck.status);
 // One self-contained, minified browser file (Motion is bundled; the CSP allows only same-origin scripts).
 const { build } = await import(resolve(here, 'node_modules/esbuild/lib/main.js'));
-await build({ entryPoints: [resolve(here, 'src/final.ts')], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: resolve(root, 'assets/app.js'), legalComments: 'none', logLevel: 'warning' });
+await build({ entryPoints: [resolve(here, 'src/d.ts')], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: resolve(root, 'assets/app.js'), legalComments: 'none', logLevel: 'warning' });
 if (concepts) await build({ entryPoints: [resolve(here, 'src/concepts.ts')], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: resolve(root, 'assets/concepts.js'), legalComments: 'none', logLevel: 'warning' });
 console.log(`Marketing build PASS: ${missing.length ? `3 static pages (legal text pending: ${missing.join(', ')})` : '3 static pages'}, no application/database dependency. Public mode: ${process.env.MARKETING_PUBLIC === 'true' ? 'enabled' : 'disabled'}.${concepts ? ' Concept prototypes: /concepts/ (noindex, not in sitemap).' : ''}`);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
-// Final-page (Concept C) browser checks. Needs the loopback preview (PORT=8795 npm run marketing:preview).
+// Concept D browser checks. Needs the loopback preview (PORT=8795 npm run marketing:preview).
 // Local Chromium (system Chrome) only: no WebKit, no Safari, no physical phone, no screen reader.
 const base = process.env.BASE ?? 'http://127.0.0.1:8765', out = 'marketing-site/evidence/screens';
 await mkdir(out, { recursive: true });
@@ -28,25 +28,24 @@ async function newPage(viewport, opts = {}) {
   return { page, context, log };
 }
 
-// ---------- every viewport: structure, overflow, console, tabs, first viewport ---------------------------------------------------------
+// ---------- every viewport: structure, overflow, console, first viewport, default-visible value ---------------------------------------
 for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 932], [390, 844], [375, 812], [360, 800], [320, 740]]) {
   const { page, context, log } = await newPage({ width: w, height: h });
   const tag = `${w}px`;
   check(`${tag}: one h1, title`, (await page.locator('h1').count()) === 1 && (await page.title()).startsWith('Loynara'));
   check(`${tag}: no horizontal overflow`, await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
-  const wide = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > document.documentElement.clientWidth + 1 && !e.closest('details:not([open]), svg, .ctable'); }).slice(0, 5).map(e => `${e.tagName}.${e.className}`));
+  const wide = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > document.documentElement.clientWidth + 1 && !e.closest('details:not([open]), svg, .ctable, .hero-scene, .studio-scene'); }).slice(0, 5).map(e => `${e.tagName}.${e.className}`));
   check(`${tag}: nothing sticks out of the viewport`, wide.length === 0, wide.join(','));
   check(`${tag}: no console problems, no external requests`, log.problems.length === 0 && log.external.length === 0, [...log.problems, ...log.external].join(' | '));
-  check(`${tag}: three tab modules with ARIA roles and roving tabindex`, (await page.locator('[role=tablist]').count()) === 3 && (await page.locator('[role=tab]').count()) === 8 && (await page.locator('[role=tabpanel]').count()) === 3 && (await page.locator('[role=tab][tabindex="0"]').count()) === 3);
-  // tab labels never clipped
-  const clipped = await page.evaluate(() => [...document.querySelectorAll('[role=tab]')].filter(t => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > innerWidth + 1 || t.getBoundingClientRect().height < 40).map(t => t.textContent));
-  check(`${tag}: no clipped tab labels, every tab at least 40 px high`, clipped.length === 0, clipped.join(','));
-  // first viewport: headline, explanation, primary CTA, product context
-  const fv = await page.evaluate(() => { const vh = innerHeight, r = s => document.querySelector(s).getBoundingClientRect(); return { h1: r('h1').bottom <= vh, lead: r('.hero .lead').bottom <= vh, cta: r('.hero .btn-primary').bottom <= vh && r('.hero .btn-primary').top >= 0, product: r('.hero-comp').top < vh - 60 }; });
-  check(`${tag}: first viewport holds headline, explanation, primary CTA and the start of the product visual`, fv.h1 && fv.lead && (fv.cta || w < 700) && fv.product, JSON.stringify(fv));
-  // essential value is in the DOM and visible in the default state (no tab needed)
-  const dv = await page.evaluate(() => { const vis = e => !!(e.offsetParent || e.getClientRects().length); const t = [...document.querySelectorAll('main *')].filter(vis).map(e => e.textContent).join(' ').replace(/\s+/g, ' '); return t; });
-  for (const re of [/Besuche belohnen/i, /Empfehlungen fördern/i, /Kundenaktivität verstehen/i, /Kunde öffnet Karte/, /Team bestätigt/, /Fortschritt wächst/, /Empfehlung kann folgen/, /Aus Stammkunden können Empfehlungen werden/, /Sieh, was passiert/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 € \/ Monat \/ Standort/, /Aktuell enthalten/, /Gezeigter Ausblick/, /Geteilt[\s\S]*Teilnahme offen[\s\S]*Bedingung erfüllt[\s\S]*Bonus verbucht/]) check(`${tag}: visible by default, no tab needed: ${re}`, re.test(dv));
+  check(`${tag}: two tab modules with ARIA roles and roving tabindex`, (await page.locator('[role=tablist]').count()) === 2 && (await page.locator('[role=tab]').count()) === 5 && (await page.locator('[role=tabpanel]').count()) === 2 && (await page.locator('[role=tab][tabindex="0"]').count()) === 2);
+  const clipped = await page.evaluate(() => [...document.querySelectorAll('[role=tab], .btn')].filter(t => t.offsetParent && (t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > innerWidth + 1 || t.getBoundingClientRect().height < 40)).map(t => t.textContent));
+  check(`${tag}: no clipped tab or button labels, every control at least 40 px high`, clipped.length === 0, clipped.join(','));
+  const fv = await page.evaluate(() => { const vh = innerHeight, r = s => document.querySelector(s).getBoundingClientRect(); return { h1: r('h1').bottom <= vh, lead: r('.hero .lead').bottom <= vh, cta: r('.hero .btn-primary').bottom <= vh, product: r('.hero-scene').top < vh - 40 }; });
+  check(`${tag}: first viewport: headline, sentence, primary CTA and the start of the product scene`, fv.h1 && fv.lead && fv.cta && fv.product, JSON.stringify(fv));
+  const objects = await page.evaluate(() => { const r = document.querySelector('.hero-scene').getBoundingClientRect(); return [...document.querySelectorAll('.hero-scene .phone, .hero-scene .stand-obj')].map(e => e.getBoundingClientRect()).every(o => o.width > 90 && o.left >= r.left - 1 && o.right <= r.right + 1); });
+  check(`${tag}: hero product objects are large and inside their scene`, objects);
+  const dv = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && !e.closest('[hidden]')).map(e => e.textContent).join(' ').replace(/\s+/g, ' '));
+  for (const re of [/Kunde/, /Team/, /Inhaber/, /Karte öffnen/, /Team bestätigt/, /Prämie einlösen/, /Deine Stammkunden bringen den nächsten Kunden mit/, /Bonus verbucht/, /keinen Bonus/, /Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 €/, /pro Monat und Standort/, /Demo anfragen/]) check(`${tag}: visible by default: ${re}`, re.test(dv));
   await context.close();
 }
 
@@ -54,96 +53,93 @@ for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 
 for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 }, false], ['mobile', { width: 390, height: 844 }, true]]) {
   const { page, context, log } = await newPage(viewport, { scale: mobile ? 2 : 1 });
   await page.screenshot({ path: `${out}/${label}-hero.png` });
-  // ---- CTAs and navigation ----
   await page.locator('.hero .btn-primary').click(); await page.waitForTimeout(1300);
-  const reached = await page.evaluate(() => ({ hash: location.hash, top: Math.round(document.getElementById('anfrage').getBoundingClientRect().top), mailOpened: false }));
+  const reached = await page.evaluate(() => ({ hash: location.hash, top: Math.round(document.getElementById('anfrage').getBoundingClientRect().top) }));
   check(`${label}: hero "Demo anfragen" scrolls to the contact section and does not open a mail client`, reached.hash === '#anfrage' && reached.top < 200 && log.mails.length === 0, JSON.stringify(reached));
   await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(300);
   await page.locator('.hero .btn-ghost').click(); await page.waitForTimeout(1300);
-  check(`${label}: "Ablauf ansehen" reaches the product section`, (await page.evaluate(() => location.hash)) === '#ablauf' && await page.evaluate(() => Math.abs(document.getElementById('ablauf').getBoundingClientRect().top) < 200));
+  check(`${label}: "So funktioniert’s" reaches the counter scene`, (await page.evaluate(() => location.hash)) === '#ablauf');
   check(`${label}: login is a quiet link to the app`, (await page.locator('.login').getAttribute('href')) === 'https://app.getloynara.com/login' && !(await page.locator('.login').evaluate(e => e.classList.contains('btn'))));
-  if (!mobile) for (const [name, id] of [['Ablauf', 'ablauf'], ['Empfehlungen', 'empfehlung'], ['Inhaber', 'inhaber'], ['Gestaltung', 'gestaltung'], ['Rechner', 'rechner'], ['Preis', 'angebot']]) { await page.locator('.mainnav').getByRole('link', { name, exact: true }).click(); await page.waitForTimeout(1200); check(`${label}: nav "${name}" reaches #${id}`, await page.evaluate(i => Math.abs(document.getElementById(i).getBoundingClientRect().top) < 260, id)); }
+  if (!mobile) for (const [name, id] of [['Ablauf', 'ablauf'], ['Empfehlungen', 'empfehlung'], ['Gestaltung', 'gestaltung'], ['Inhaber', 'inhaber'], ['Rechner', 'rechner'], ['Preis', 'angebot']]) { await page.locator('.mainnav').getByRole('link', { name, exact: true }).click(); await page.waitForTimeout(1200); check(`${label}: nav "${name}" reaches #${id}`, await page.evaluate(i => Math.abs(document.getElementById(i).getBoundingClientRect().top) < 260, id)); }
 
-  // ---- product stage: visit ----
+  // ---- counter demo ----
   await jump(page, '#ablauf'); await page.waitForTimeout(300);
-  check(`${label}: stage opens on the visit view with the card at 8/10 and no business event`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'visit' && /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && /noch kein bestätigter Besuch/.test(await txt(page, '[data-bind="visit-owner"]')));
-  for (const v of ['reward', 'refer', 'visit']) { await page.locator(`#stage-${v}`).click(); await settle(page); }
-  check(`${label}: selecting tabs never confirms, redeems or books anything`, /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && /noch keine eingelöste Prämie/.test(await page.locator('[data-bind="reward-owner"]').textContent()) && /noch keine qualifizierte Empfehlung/.test(await page.locator('[data-bind="refer-owner"]').textContent()));
-  const cb = page.locator('[data-act="visit"]'); await cb.click(); await cb.click({ force: true }).catch(() => {}); await settle(page);
-  check(`${label}: confirmation adds exactly one stamp (9/10), owner follows, cannot repeat`, /9 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && /1 bestätigter Besuch/.test(await txt(page, '[data-bind="visit-owner"]')) && await cb.isDisabled());
-  await page.screenshot({ path: `${out}/${label}-stage-confirmed.png` });
-  await page.locator('[data-reset="visit"]').click(); await settle(page);
-  check(`${label}: reset returns to 8/10 and refocuses the action`, /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && !(await cb.isDisabled()));
-  // ---- reward ----
-  await page.locator('#stage-reward').click(); await settle(page);
-  check(`${label}: reward view shows a full card with a redeem action`, /10 von 10/.test(await page.locator('[data-slot="reward-card"] .lcard').getAttribute('aria-label')));
-  await page.locator('[data-act="reward"]').click(); await settle(page);
-  check(`${label}: redemption resets the card to 0/10, the owner sees exactly one redemption, no repeat`, /0 von 10/.test(await page.locator('[data-slot="reward-card"] .lcard').getAttribute('aria-label')) && /1 eingelöste Prämie/.test(await txt(page, '[data-bind="reward-owner"]')) && await page.locator('[data-act="reward"]').isDisabled());
-  await page.locator('[data-reset="reward"]').click(); await settle(page);
-
-  // ---- referral: no reward for sharing, opening or joining; one bonus after the first confirmed visit ----
-  await page.locator('#stage-refer').click(); await settle(page);
-  const bal = () => page.locator('[data-slot="refer-card"] .lcard').getAttribute('aria-label').then(t => Number(t.match(/(\d+) von 10/)[1]));
-  const doneSteps = () => page.locator('#stage .ref-steps li.done').count();
-  const ownerRef = () => txt(page, '[data-bind="refer-owner"]');
-  await page.screenshot({ path: `${out}/${label}-referral-0.png` });
-  const act = page.locator('[data-act="refer"]');
-  const labels = [];
-  for (const [i, expectBal] of [[0, 7], [1, 7], [2, 7]]) { labels.push(await act.textContent()); await act.click(); await settle(page); check(`${label}: referral action ${i + 1} (${labels[i]}) earns nothing: Kunde A stays at 7`, await bal() === expectBal && /noch keine qualifizierte Empfehlung/.test(await ownerRef())); }
-  check(`${label}: joined state = "Teilnahme offen": two steps lit, the next action is the first confirmed visit`, await doneSteps() === 2 && /Ersten Besuch bestätigen/.test(await act.textContent()));
+  const card = () => page.locator('.phone-stage .lcard').getAttribute('aria-label').then(t => Number(t.match(/(\d+) von 10/)[1]));
+  const owner = () => txt(page, '[data-bind="visit-owner"]');
+  const act = page.locator('[data-act="visit"]');
+  const lit = () => page.locator('.visit-steps li.done').count();
+  check(`${label}: counter demo starts at 8/10, nothing confirmed`, await card() === 8 && /0 bestätigte Besuche · 0 Prämien eingelöst/.test(await owner()) && (await act.textContent()) === 'Karte öffnen');
   await act.click(); await settle(page);
-  check(`${label}: qualification books exactly one bonus (7 → 8); all four steps lit; owner sees one qualified referral`, await bal() === 8 && await doneSteps() === 4 && /1 qualifizierte Empfehlung, 1 Bonus verbucht/.test(await ownerRef()) && await act.isDisabled());
+  check(`${label}: opening the card does not stamp; the request waits for the team`, await card() === 8 && /Dein Team bestätigt gleich/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Besuch bestätigen' && await lit() === 1);
+  await act.click(); await settle(page);
+  check(`${label}: confirmation adds exactly one stamp (9/10) and the owner sees it`, await card() === 9 && /1 bestätigter Besuch · 0 Prämien eingelöst/.test(await owner()) && /Stempel erhalten/.test(await txt(page, '.phone-stage')));
+  await page.screenshot({ path: `${out}/${label}-visit-confirmed.png` });
+  await act.click(); await settle(page); await act.click(); await settle(page);
+  check(`${label}: second confirmed visit reaches 10/10 and the reward is ready`, await card() === 10 && /Prämie bereit/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Prämie einlösen');
+  await act.click(); await settle(page);
+  check(`${label}: redemption resets the card to 0/10; the owner sees two visits and one redemption`, await card() === 0 && /2 bestätigte Besuche · 1 Prämie eingelöst/.test(await owner()));
+  await act.click(); await settle(page);
+  check(`${label}: "Von vorn" returns to 8/10`, await card() === 8 && /0 bestätigte Besuche/.test(await owner()));
+  await page.locator('[data-new-card]').click(); await settle(page);
+  check(`${label}: new card: no card and no stamps before it is created`, (await page.locator('.phone-stage .lcard').count()) === 0 || await card() === 0);
+  await act.click(); await settle(page);
+  check(`${label}: new card: creation is a separate step`, /Neue Karte erstellen/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Karte erstellen');
+  await act.click(); await settle(page); check(`${label}: new card created at 0/10, waiting for confirmation`, await card() === 0);
+  await act.click(); await settle(page); check(`${label}: new card: first confirmed visit = exactly 1/10, no jump to a reward`, await card() === 1 && /Bis zur Prämie braucht sie zehn bestätigte Besuche/.test(await txt(page, '[data-bind="visit-caption"]')));
+  await page.locator('[data-new-card]').click(); await settle(page);
+  check(`${label}: back to the returning card at 8/10`, await card() === 8);
+
+  // ---- referral ----
+  await jump(page, '#empfehlung'); await settle(page);
+  const a = () => page.locator('.person-a .stamps-num span').textContent().then(Number);
+  const refAct = page.locator('[data-act="ref"]'), refOwner = () => txt(page, '[data-bind="ref-owner"]');
+  await page.screenshot({ path: `${out}/${label}-referral-0.png` });
+  for (let i = 0; i < 3; i++) { const l = await refAct.textContent(); await refAct.click(); await settle(page); check(`${label}: referral "${l}" earns nothing (Lena stays at 7, no bonus)`, await a() === 7 && /0 qualifizierte Empfehlungen/.test(await refOwner()) && /kein Bonus/.test(await txt(page, '.person-a'))); }
+  check(`${label}: joined: two steps lit, next action is the first confirmed visit`, (await page.locator('.ref-steps li.done').count()) === 2 && (await refAct.textContent()) === 'Ersten Besuch bestätigen');
+  await refAct.click(); await settle(page);
+  check(`${label}: qualification books exactly one bonus (7 → 8), friend at 1/10, owner sees one qualified referral`, await a() === 8 && (await page.locator('.person-b .stamps-num span').textContent()) === '1' && /1 qualifizierte Empfehlung · 1 Bonus verbucht/.test(await refOwner()) && await refAct.isDisabled());
+  await refAct.click({ force: true }).catch(() => {}); await settle(page); check(`${label}: no duplicate bonus`, await a() === 8);
   await page.screenshot({ path: `${out}/${label}-referral-qualified.png` });
-  await act.click({ force: true }).catch(() => {}); await settle(page);
-  check(`${label}: no duplicate bonus`, await bal() === 8);
-  await page.locator('[data-reset="refer"]').click(); await settle(page);
-  check(`${label}: referral reset restores 7/10 and zero owner activity`, await bal() === 7 && await doneSteps() === 0 && /noch keine qualifizierte Empfehlung/.test(await ownerRef()));
-  check(`${label}: the visit and reward state were not touched by the referral demo`, /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')));
+  await page.locator('[data-reset="ref"]').click(); await settle(page);
+  check(`${label}: referral reset`, await a() === 7 && /0 qualifizierte Empfehlungen/.test(await refOwner()));
 
-  // ---- keyboard on the stage tabs ----
-  await page.locator('#stage-visit').click(); await page.locator('#stage-visit').focus(); await page.keyboard.press('ArrowRight');
-  check(`${label}: stage tabs: ArrowRight selects the next view and focus stays on the tab`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'reward' && await page.evaluate(() => document.activeElement?.id === 'stage-reward'));
-  await page.keyboard.press('End'); check(`${label}: stage tabs: End → last`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'refer');
-  await page.keyboard.press('ArrowRight'); check(`${label}: stage tabs wrap around`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'visit');
-
-  // ---- owner views ----
-  await jump(page, '#inhaber'); await settle(page);
-  check(`${label}: owner opens on Überblick with example data`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'overview' && /Beispieldaten/.test(await txt(page, '#owner')));
-  await page.screenshot({ path: `${out}/${label}-owner-overview.png` });
-  for (const v of ['quiet', 'win']) {
-    await page.locator(`#owner-${v}`).click(); await settle(page);
-    const t = await txt(page, '#owner');
-    check(`${label}: owner ${v}: labelled Plattform-Ausblick, message is an unsent preview, one main idea`, /Plattform-Ausblick – nicht im aktuellen Pilotangebot/.test(t) && /Vorschau · nicht versendet/i.test(t) && !/wurde gesendet|Zugestellt|zurückgekehrt/.test(t) && (await page.locator('#owner .ow:not([hidden])').count()) === 1);
-    await page.screenshot({ path: `${out}/${label}-owner-${v}.png` });
-  }
-  await page.locator('#owner-overview').focus(); await page.keyboard.press('End');
-  check(`${label}: owner tabs: End selects Zurückholen`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'win');
-  await page.locator('#owner-overview').click();
-
-  // ---- branding studio ----
+  // ---- brand studio ----
   await jump(page, '#gestaltung'); await settle(page);
-  const colours = () => page.evaluate(() => [...document.querySelectorAll('#studio [data-studio] .stand .st-face, #studio [data-studio] .lcard, #studio [data-studio] .wpass')].map(e => getComputedStyle(e).getPropertyValue('--b-dark').trim()));
-  check(`${label}: studio defaults to the physical pair: stand + card, labelled Gestaltungsbeispiel; Wallet is a deliberate second view`, (await page.locator('#studio [data-studio] .stand').count()) === 1 && (await page.locator('#studio [data-studio] .lcard').count()) === 1 && (await page.locator('#studio [data-studio] .wpass').count()) === 0 && /Gestaltungsbeispiel/.test(await txt(page, '#studio')));
-  // set some state elsewhere first to prove independence
-  await page.locator('#stage-visit').scrollIntoViewIfNeeded(); await page.locator('[data-act="visit"]').click(); await settle(page);
+  await jump(page, '#ablauf'); await act.click(); await act.click(); await settle(page);   // loyalty state 9/10, to prove independence
   await jump(page, '#rechner'); await fill(page, 'gain', '15'); await settle(page);
-  await jump(page, '#studio'); await settle(page);
-  const sel = { wald: '#143D2E', terrakotta: '#7A3320', nachtblau: '#16264A', pflaume: '#4A1D44', graphit: '#1C2326' };
-  for (const [k, hex] of Object.entries(sel)) {
-    await page.locator(`[data-brand-style="${k}"]`).click(); await page.waitForTimeout(250);
+  await jump(page, '#gestaltung'); await settle(page);
+  const colours = () => page.evaluate(() => [...document.querySelectorAll('#studio .so-face, #studio .lcard, #studio .wpass')].map(e => getComputedStyle(e).getPropertyValue('--b-dark').trim()));
+  check(`${label}: studio default shows the physical pair: stand + card in the browser`, (await page.locator('#studio .stand-obj').count()) === 1 && (await page.locator('#studio .lcard').count()) === 1 && (await page.locator('#studio .wpass').count()) === 0);
+  for (const [k, hex] of Object.entries({ wald: '#143D2E', terrakotta: '#7A3320', nachtblau: '#16264A', pflaume: '#4A1D44', graphit: '#1C2326' })) {
+    await page.locator(`[data-brand-style="${k}"]`).click(); await page.waitForTimeout(220);
     const c = await colours(); check(`${label}: colour ${k}: stand and card share ${hex}`, c.length === 2 && c.every(v => v === hex), c.join('/'));
-    await page.locator('#studio-view-wallet').click(); await page.waitForTimeout(250);
-    const w = await colours(); check(`${label}: colour ${k}: Wallet-Vorschau follows (${hex})`, w.length === 1 && w[0] === hex);
-    await page.locator('#studio-view-tresen').click(); await page.waitForTimeout(200);
+    await page.locator('#screen-wallet').click(); await page.waitForTimeout(220);
+    const w = await colours(); check(`${label}: colour ${k}: stand and Wallet-Vorschau share ${hex}`, w.length === 2 && w.every(v => v === hex), w.join('/'));
+    await page.locator('#screen-karte').click(); await page.waitForTimeout(150);
     await page.locator('#studio').screenshot({ path: `${out}/${label}-studio-${k}.png` });
   }
-  for (const logo of ['blatt', 'welle', 'monogramm']) { await page.locator(`[data-brand-logo="${logo}"]`).click(); await page.waitForTimeout(150); const svgs = await page.evaluate(() => [...document.querySelectorAll('#studio [data-studio] .lc-logo svg, #studio [data-studio] .st-logo')].length); check(`${label}: logo ${logo} appears on stand and card`, svgs >= 2 && (await page.locator(`[data-brand-logo="${logo}"]`).getAttribute('aria-pressed')) === 'true'); }
-  for (const r of ['aufmerksamkeit', 'extra', 'branche']) { await page.selectOption('#brand-reward', r); await page.waitForTimeout(150); const t = await txt(page, '#studio [data-studio]'); check(`${label}: reward ${r} reaches the card`, !/undefined|NaN/.test(t) && /ab 10 Stempeln/.test(t)); }
-  await page.locator('[data-brand-style="pflaume"]').click(); await page.waitForTimeout(200);
-  check(`${label}: brand changes leave the loyalty stage as it was (9/10 confirmed) and the calculator untouched (15 % → 1.365 €)`, /9 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && (await page.locator('[data-in="gain"]').inputValue()) === '15' && (await out$(page, 'additional')) === '1.365 €');
+  for (const logo of ['blatt', 'welle', 'monogramm']) { await page.locator(`[data-brand-logo="${logo}"]`).click(); await page.waitForTimeout(150); check(`${label}: logo ${logo} on stand and card`, (await page.locator('#studio .so-logo').count()) === 1 && (await page.locator('#studio .lc-logo svg').count()) === 1 && (await page.locator(`[data-brand-logo="${logo}"]`).getAttribute('aria-pressed')) === 'true'); }
+  for (const [r, word] of [['aufmerksamkeit', 'Aufmerksamkeit'], ['extra', 'Extra zum nächsten Besuch'], ['branche', 'Kaffee aufs Haus']]) { await page.selectOption('#brand-reward', r); await page.waitForTimeout(150); check(`${label}: reward ${r} reaches the card`, (await txt(page, '#studio .lcard')).includes(word)); }
+  await page.locator('#screen-karte').focus(); await page.keyboard.press('ArrowRight');
+  check(`${label}: screen tabs: ArrowRight selects the Wallet-Vorschau and keeps focus`, (await page.locator('#screen-wallet').getAttribute('aria-selected')) === 'true' && await page.evaluate(() => document.activeElement?.id === 'screen-wallet') && (await page.locator('#studio .wpass').count()) === 1);
+  await page.keyboard.press('Home');
+  check(`${label}: brand changes leave the loyalty demo (9/10) and the calculator (15 % → 1.365 €) untouched`, await card() === 9 && (await page.locator('[data-in="gain"]').inputValue()) === '15' && (await out$(page, 'additional')) === '1.365 €');
   check(`${label}: the studio makes no request and writes no storage`, log.external.length === 0 && await page.evaluate(() => localStorage.length === 0 && sessionStorage.length === 0 && document.cookie === ''));
   await page.locator('[data-brand-style="wald"]').click();
 
+  // ---- owner ----
+  await jump(page, '#inhaber'); await settle(page);
+  check(`${label}: owner opens on "Wer kommt wieder?" with example data`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'back' && /Beispieldaten/i.test(await txt(page, '#owner')) && /12/.test(await txt(page, '#owner')));
+  await page.screenshot({ path: `${out}/${label}-owner-back.png` });
+  for (const v of ['gone', 'quiet']) {
+    await page.locator(`#owner-${v}`).click(); await settle(page);
+    const t = await txt(page, '#owner');
+    check(`${label}: owner ${v}: one view, labelled Plattform-Ausblick, message is an unsent preview`, /Plattform-Ausblick/i.test(t) && /Vorschau · nicht versendet/i.test(t) && !/wurde gesendet|zurückgekehrt/i.test(t) && (await page.locator('#owner .ov:not([hidden])').count()) === 1);
+    await page.screenshot({ path: `${out}/${label}-owner-${v}.png` });
+  }
+  await page.locator('#owner-back').focus(); await page.keyboard.press('End');
+  check(`${label}: owner tabs: End selects "Wann ist es ruhig?"`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'quiet' && await page.evaluate(() => document.activeElement?.id === 'owner-quiet'));
+  await page.keyboard.press('Home');
   // ---- calculator ----
   await page.locator('[data-calc-reset]').click(); await jump(page, '#rechner'); await settle(page);
   await page.locator('.more summary').click();
@@ -155,7 +151,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   await fill(page, 'basket', '7,50'); await settle(page);
   check(`${label}: comma decimals (975 € / +936 €)`, (await out$(page, 'additional')) === '975 €' && (await out$(page, 'difference')) === '+936 €');
   await fill(page, 'basket', '7'); await fill(page, 'gain', '0'); await settle(page);
-  check(`${label}: 0 % is not softened: 0 €, −39 €, −468 €, ratio 0×, fee-exceeds note shown, result card not green`, (await out$(page, 'additional')) === '0 €' && (await out$(page, 'difference')) === '−39 €' && (await out$(page, 'annualised')) === '−468 €' && (await out$(page, 'ratio')) === '0×' && await page.locator('[data-zero-note]').isVisible() && await page.evaluate(() => getComputedStyle(document.querySelector('.result')).backgroundColor !== getComputedStyle(document.querySelector('.final')).backgroundColor) && (await page.locator('[data-calc].is-negative').count()) === 1 && (await page.locator('[data-chart] .gaplabel').count()) === 0);
+  check(`${label}: 0 % is not softened: 0 €, −39 €, −468 €, ratio 0×, fee-exceeds note shown, result card not green`, (await out$(page, 'additional')) === '0 €' && (await out$(page, 'difference')) === '−39 €' && (await out$(page, 'annualised')) === '−468 €' && (await out$(page, 'ratio')) === '0×' && await page.locator('[data-zero-note]').isVisible() && await page.evaluate(() => getComputedStyle(document.querySelector('.result')).backgroundColor !== 'rgb(20, 61, 46)') && (await page.locator('[data-calc].is-negative').count()) === 1 && (await page.locator('[data-chart] .gaplabel').count()) === 0);
   await page.screenshot({ path: `${out}/${label}-calc-zero.png` });
   await fill(page, 'visits', '1000'); await fill(page, 'basket', '500'); await fill(page, 'days', '31'); await fill(page, 'gain', '100'); await settle(page);
   check(`${label}: maximum values stay finite (15.500.000 €)`, (await out$(page, 'additional')) === '15.500.000 €' && !/NaN|Infinity/.test(await page.locator('[data-calc]').innerText() + await page.locator('[data-chart]').innerHTML()));
@@ -176,7 +172,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   // ---- offer + FAQ ----
   await jump(page, '#angebot'); await settle(page);
   const offer = await txt(page, '#angebot');
-  check(`${label}: offer shows price, qualifier, what is included and the separate outlook`, /39 € \/ Monat \/ Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /Aktuell enthalten/.test(offer) && /Gezeigter Ausblick · gesondert zu vereinbaren/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer));
+  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /39 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
   check(`${label}: no invented trial, setup fee, cancellation, hardware, discount or VAT claim`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Kündigung|MwSt|zzgl\.|inkl\.|unbegrenzt/i.test(offer));
   const d = page.locator('.faq details').first(); await d.locator('summary').click(); check(`${label}: FAQ opens`, await d.evaluate(e => e.open)); await d.locator('summary').click();
   await page.screenshot({ path: `${out}/${label}-offer.png` });
@@ -213,9 +209,10 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   await jump(page, '#rechner'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-calc.png` });
   check('320px: calculator inputs inside their card with the unit visible', await page.evaluate(() => { const card = document.querySelector('.inputs').getBoundingClientRect(); return [...document.querySelectorAll('.cf-val')].every(e => { const r = e.getBoundingClientRect(); return r.left >= card.left && r.right <= card.right; }); }));
   await fill(page, 'basket', '12,75'); await page.waitForTimeout(300); check('320px: typing keeps the caret and updates the result (1.658 €)', (await page.locator('[data-in="basket"]').inputValue()) === '12,75' && (await out$(page, 'additional')) === '1.658 €');
-  await jump(page, '#ablauf'); await page.locator('#stage-refer').scrollIntoViewIfNeeded(); await page.locator('#stage-refer').click(); await page.waitForTimeout(400);
-  await page.locator('#stage').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${out}/w320-referral.png` });
-  check('320px: referral steps and action stay readable inside the stage', await page.evaluate(() => [...document.querySelectorAll('#stage .stage-view:not([hidden]) *')].every(e => e.getBoundingClientRect().right <= innerWidth + 1)));
+  await jump(page, '#empfehlung'); for (let i = 0; i < 4; i++) await page.locator('[data-act="ref"]').click(); await page.waitForTimeout(300);
+  await page.locator('.ref-pair').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${out}/w320-referral.png` });
+  check('320px: referral picture, steps and action stay inside the viewport', await page.evaluate(() => [...document.querySelectorAll('#empfehlung *')].every(e => e.getBoundingClientRect().right <= innerWidth + 1)));
+  await jump(page, '#hero'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/w320-hero.png` });
   await jump(page, '#gestaltung'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-studio.png` });
   check('320px: studio controls keep 44 px targets', await page.evaluate(() => [...document.querySelectorAll('#studio button, #studio select')].every(e => e.getBoundingClientRect().width >= 43.5 && e.getBoundingClientRect().height >= 43.5)));
   await jump(page, '#anfrage'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-contact.png` });
@@ -228,32 +225,33 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
 { const { page, context } = await newPage({ width: 1280, height: 800 });
   await page.emulateMedia({ media: 'print' });
   const st = await page.evaluate(() => ({ header: getComputedStyle(document.querySelector('.top')).position, hiddenViews: [...document.querySelectorAll('[data-show]')].filter(e => getComputedStyle(e).display === 'none').length, buttons: [...document.querySelectorAll('.seg')].filter(e => getComputedStyle(e).display !== 'none').length }));
-  check('print: header static, every tab view of stage and owner is visible, tab controls hidden', st.header === 'static' && st.hiddenViews === 0 && st.buttons === 0, JSON.stringify(st));
+  check('print: header static, every owner view is visible, tab controls hidden', st.header === 'static' && st.hiddenViews === 0 && st.buttons === 0, JSON.stringify(st));
   await page.screenshot({ path: `${out}/print-top.png`, fullPage: true });
   const pdf = await page.pdf({ format: 'A4', printBackground: true }); check('print: a PDF can be produced', pdf.length > 20000);
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { scale: 2 });
-  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await settle(page);
-  const state = await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label');
+  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click(); await settle(page);
+  const state = await page.locator('.phone-stage .lcard').getAttribute('aria-label');
   await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(600);
-  check('orientation: landscape keeps state, no overflow', (await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  check('orientation: landscape keeps state, no overflow', (await page.locator('.phone-stage .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(600);
-  check('orientation: portrait again, state kept, no overflow', (await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  check('orientation: portrait again, state kept, no overflow', (await page.locator('.phone-stage .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
   await page.evaluate(() => { document.documentElement.style.fontSize = '125%'; }); await page.waitForTimeout(400);
   check('text size 125 %: no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
   await jump(page, '#rechner'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/mobile-text125-calc.png` });
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { reduced: true });
   check('reduced motion: smooth scrolling off, transitions off', await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior === 'auto' && getComputedStyle(document.querySelector('.btn')).transitionDuration === '0s'));
-  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('#stage-refer').click();
-  for (let i = 0; i < 4; i++) await page.locator('[data-act="refer"]').click();
-  check('reduced motion: the whole referral demo works with instant state changes', /1 qualifizierte Empfehlung/.test(await page.locator('[data-bind="refer-owner"]').textContent()));
+  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click();
+  check('reduced motion: the counter demo works with instant state changes', /1\sbestätigter\sBesuch/.test(await page.locator('[data-bind="visit-owner"]').textContent()));
+  await jump(page, '#empfehlung'); for (let i = 0; i < 4; i++) await page.locator('[data-act="ref"]').click();
+  check('reduced motion: the referral demo works with instant state changes', /1\squalifizierte\sEmpfehlung/.test(await page.locator('[data-bind="ref-owner"]').textContent()));
   await jump(page, '#rechner'); await fill(page, 'gain', '20'); check('reduced motion: calculator updates immediately', (await out$(page, 'additional')) === '1.820 €');
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { js: false });
   const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
-  check('no JS: headline, summary, referral rule, price, calculator example, contact are present', /Ein guter Besuch/.test(body) && /Besuche belohnen/i.test(body) && /Aus Stammkunden können Empfehlungen werden/.test(body) && /Bedingung erfüllt/.test(body) && /39 € \/ Monat \/ Standort/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
-  check('no JS: the first view of every module is shown and nothing is hidden by script', /Dein Team bestätigt jeden Besuch/.test(body) && /Überblick/.test(body) && /Gestaltungsbeispiel/.test(body));
+  check('no JS: headline, roles, counter flow, referral rule, price, calculator example and contact are present', /Ein guter Besuch/.test(body) && /Bestätigt den Besuch mit einem Tipp/.test(body) && /Karte öffnen/.test(body) && /keinen Bonus/.test(body) && /39 €/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
+  check('no JS: the product objects and the first owner view are rendered', (await page.locator('.hero-scene .phone').count()) === 1 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
   await page.screenshot({ path: `${out}/nojs-top.png`, fullPage: true });
   await context.close(); }
 

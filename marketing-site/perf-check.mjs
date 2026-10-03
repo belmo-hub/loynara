@@ -25,7 +25,7 @@ for (const [label, viewport, mobile] of [['mobile 390x844', { width: 390, height
   const H = await page.evaluate(() => document.documentElement.scrollHeight);
   for (let y = 0; y < H; y += 500) { await page.evaluate(v => scrollTo(0, v), y); await page.waitForTimeout(60); }
   await page.locator('#ablauf').scrollIntoViewIfNeeded();
-  await page.locator('[data-act="visit"]').click(); await page.waitForTimeout(400); await page.locator('#stage-refer').click(); await page.locator('[data-act="refer"]').click(); await page.waitForTimeout(300);
+  await page.locator('[data-act="visit"]').click(); await page.waitForTimeout(300); await page.locator('[data-act="visit"]').click(); await page.waitForTimeout(300); await page.locator('#empfehlung').scrollIntoViewIfNeeded(); await page.locator('[data-act="ref"]').click(); await page.waitForTimeout(300);
   await page.locator('#rechner').scrollIntoViewIfNeeded();
   const r = page.locator('[data-range="gain"]'); const box = await r.boundingBox();
   await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2); await page.mouse.down();
