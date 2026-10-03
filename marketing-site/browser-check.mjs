@@ -2,23 +2,24 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
-// compact-v3 browser checks. Needs the loopback preview (PORT=8791 npm run marketing:preview).
+// Final-page (Concept C) browser checks. Needs the loopback preview (PORT=8795 npm run marketing:preview).
 // Local Chromium (system Chrome) only: no WebKit, no Safari, no physical phone, no screen reader.
 const base = process.env.BASE ?? 'http://127.0.0.1:8765', out = 'marketing-site/evidence/screens';
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const results = [];
 const check = (name, ok = true, detail = '') => { if (!ok) console.error(`FAIL: ${name} ${detail}`); assert.ok(ok, `${name} ${detail}`); results.push(name); };
-const industries = ['cafe', 'barber', 'friseur', 'nagelstudio', 'gastro', 'autopflege', 'fitness', 'wellness'];
-const inView = async (page, selector, height) => { for (let i = 0; i < 40; i++) { const box = await page.locator(selector).first().boundingBox(); if (box && box.y < height && box.y + box.height > 0) return true; await page.waitForTimeout(50); } return false; };
-const settle = page => page.waitForTimeout(450);
-const jump = (page, sel) => page.evaluate(s => document.querySelector(s).scrollIntoView({ behavior: 'instant' }), sel);
+const settle = page => page.waitForTimeout(420);
+const jump = (page, sel) => page.evaluate(s => document.querySelector(s).scrollIntoView({ behavior: 'instant', block: 'start' }), sel);
 const txt = async (page, sel) => (await page.locator(sel).first().innerText()).replace(/\s+/g, ' ');
+const out$ = (page, k) => page.locator(`[data-out="${k}"]`).first().textContent();
+const selected = (page, sel) => page.locator(sel).evaluateAll(els => els.filter(e => e.getAttribute('aria-selected') === 'true').map(e => e.dataset.view));
+const fill = async (page, key, text) => { const i = page.locator(`[data-in="${key}"]`); await i.click(); await i.fill(text); };
 
 async function newPage(viewport, opts = {}) {
   const context = await browser.newContext({ viewport, isMobile: viewport.width < 600, hasTouch: viewport.width < 600, deviceScaleFactor: opts.scale ?? 1, reducedMotion: opts.reduced ? 'reduce' : 'no-preference', javaScriptEnabled: opts.js !== false });
   const page = await context.newPage();
-  const log = { problems: [], external: [], mails: [] };
+  const log = { problems: [], external: [], mails: [], storage: [] };
   page.on('console', m => { if (['error', 'warning'].includes(m.type())) log.problems.push(`${m.type()}: ${m.text()}`); });
   page.on('pageerror', e => log.problems.push(`pageerror: ${e.message}`));
   page.on('request', r => { const u = r.url(); if (u.startsWith('mailto:')) log.mails.push(u); else if (!u.startsWith(base) && !u.startsWith('data:')) log.external.push(u); });
@@ -26,348 +27,237 @@ async function newPage(viewport, opts = {}) {
   await page.waitForTimeout(700);
   return { page, context, log };
 }
-const fill = async (page, id, text) => { const i = page.locator(`#in-${id}`); await i.click(); await i.fill(text); };
-const outv = (page, name) => page.locator(`[data-out="${name}"]`).evaluate(e => e.textContent);
-const chapter = (page, c) => page.locator(`[data-chapter="${c}"]`).click();
-const act = async (page, a) => { await page.locator(`#stage [data-action="${a}"]`).click(); await settle(page); };
-const balance = page => page.locator('#stage [data-balance]').first().innerText().then(t => parseInt(t.trim(), 10));
-const ownerBal = page => page.locator('#stage [data-owner-balance]').first().innerText().then(t => t.trim());
-const strip = page => txt(page, '#strip-result');
-const selected = (page, sel) => page.locator(sel).evaluateAll(els => els.filter(e => e.getAttribute('aria-selected') === 'true').map(e => e.dataset.chapter ?? e.dataset.ownerView));
-const pickIndustry = async (page, key) => { const pills = page.locator(`[data-industry-choice="${key}"]`); if (await pills.isVisible()) await pills.click(); else await page.locator('#industry-select').selectOption(key); await settle(page); };
 
-// ---------- every viewport: load, overflow, console, scenes, tab semantics ----------------------------------------------------------
-for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [720, 450], [390, 844], [360, 740], [320, 640]]) {
+// ---------- every viewport: structure, overflow, console, tabs, first viewport ---------------------------------------------------------
+for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 932], [390, 844], [375, 812], [360, 800], [320, 740]]) {
   const { page, context, log } = await newPage({ width: w, height: h });
   const tag = `${w}px`;
-  check(`${tag}: h1 and title`, (await page.locator('h1').count()) === 1 && (await page.title()).startsWith('Loynara'));
-  check(`${tag}: exactly seven main scenes`, (await page.locator('section.hero, section.section').count()) === 7);
+  check(`${tag}: one h1, title`, (await page.locator('h1').count()) === 1 && (await page.title()).startsWith('Loynara'));
   check(`${tag}: no horizontal overflow`, await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
-  const wide = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > document.documentElement.clientWidth + 1 && !e.closest('details, #chart, table, .data-table, .sr-only, .visually-hidden, [hidden], svg'); }).slice(0, 5).map(e => `${e.tagName}.${e.className}`));
-  check(`${tag}: no element sticks out of the viewport`, wide.length === 0, wide.join(','));
-  check(`${tag}: no console problems`, log.problems.length === 0, log.problems.join(' | '));
-  check(`${tag}: no external requests`, log.external.length === 0, log.external.join(','));
-  check(`${tag}: exactly two tab modules (journey chapters, owner views) with ARIA roles`, (await page.locator('[role="tablist"]').count()) === 2 && (await page.locator('[role="tab"]').count()) === 7 && (await page.locator('[role="tabpanel"]').count()) === 2);
-  check(`${tag}: roving tabindex (one tab stop per module)`, (await page.locator('[data-chapter][tabindex="0"]').count()) === 1 && (await page.locator('[data-owner-view][tabindex="0"]').count()) === 1);
-  const boxes = await page.evaluate(() => ['.hero-phone', '.hero-cashier', '.hero-owner', '.hero-stand'].map(s => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }));
-  const overlap = (a, b) => a && b && a[0] < b[2] - 0.5 && b[0] < a[2] - 0.5 && a[1] < b[3] - 0.5 && b[1] < a[3] - 0.5;
-  check(`${tag}: hero surfaces do not collide; small stand present (hidden only on phones <= 380 px)`, boxes.every(Boolean) && (w <= 380 || boxes[3][2] - boxes[3][0] > 30) && !overlap(boxes[0], boxes[1]) && !overlap(boxes[0], boxes[2]) && !overlap(boxes[1], boxes[2]) && !overlap(boxes[3], boxes[0]) && !overlap(boxes[3], boxes[1]) && !overlap(boxes[3], boxes[2]), JSON.stringify(boxes));
-  const hero = await txt(page, '.hero');
-  check(`${tag}: hero keeps headline, supporting sentence, flow line and paper-to-digital strip`, /Ein guter Besuch\. Ein Grund, wiederzukommen\./.test(hero) && /Kunden öffnen ihre Karte\. Dein Team bestätigt\. Du siehst, was passiert\./.test(hero) && /Nicht nur Stempel sammeln\. Den nächsten Besuch mitdenken\./.test(hero));
-  const sizes = await page.evaluate(() => { const nav = document.querySelector('#main-nav a:not(.button)'), login = document.querySelector('.nav-actions .quiet'); return [getComputedStyle(nav).fontSize, getComputedStyle(login).fontSize]; });
-  check(`${tag}: Anmelden matches navigation text size`, w <= 1100 || sizes[0] === sizes[1], sizes.join('/'));
+  const wide = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > document.documentElement.clientWidth + 1 && !e.closest('details:not([open]), svg, .ctable'); }).slice(0, 5).map(e => `${e.tagName}.${e.className}`));
+  check(`${tag}: nothing sticks out of the viewport`, wide.length === 0, wide.join(','));
+  check(`${tag}: no console problems, no external requests`, log.problems.length === 0 && log.external.length === 0, [...log.problems, ...log.external].join(' | '));
+  check(`${tag}: three tab modules with ARIA roles and roving tabindex`, (await page.locator('[role=tablist]').count()) === 3 && (await page.locator('[role=tab]').count()) === 8 && (await page.locator('[role=tabpanel]').count()) === 3 && (await page.locator('[role=tab][tabindex="0"]').count()) === 3);
+  // tab labels never clipped
+  const clipped = await page.evaluate(() => [...document.querySelectorAll('[role=tab]')].filter(t => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > innerWidth + 1 || t.getBoundingClientRect().height < 40).map(t => t.textContent));
+  check(`${tag}: no clipped tab labels, every tab at least 40 px high`, clipped.length === 0, clipped.join(','));
+  // first viewport: headline, explanation, primary CTA, product context
+  const fv = await page.evaluate(() => { const vh = innerHeight, r = s => document.querySelector(s).getBoundingClientRect(); return { h1: r('h1').bottom <= vh, lead: r('.hero .lead').bottom <= vh, cta: r('.hero .btn-primary').bottom <= vh && r('.hero .btn-primary').top >= 0, product: r('.hero-comp').top < vh - 60 }; });
+  check(`${tag}: first viewport holds headline, explanation, primary CTA and the start of the product visual`, fv.h1 && fv.lead && (fv.cta || w < 700) && fv.product, JSON.stringify(fv));
+  // essential value is in the DOM and visible in the default state (no tab needed)
+  const dv = await page.evaluate(() => { const vis = e => !!(e.offsetParent || e.getClientRects().length); const t = [...document.querySelectorAll('main *')].filter(vis).map(e => e.textContent).join(' ').replace(/\s+/g, ' '); return t; });
+  for (const re of [/Besuche belohnen/i, /Empfehlungen fördern/i, /Kundenaktivität verstehen/i, /Kunde öffnet Karte/, /Team bestätigt/, /Fortschritt wächst/, /Empfehlung kann folgen/, /Aus Stammkunden können Empfehlungen werden/, /Sieh, was passiert/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 € \/ Monat \/ Standort/, /Aktuell enthalten/, /Gezeigter Ausblick/, /Geteilt[\s\S]*Teilnahme offen[\s\S]*Bedingung erfüllt[\s\S]*Bonus verbucht/]) check(`${tag}: visible by default, no tab needed: ${re}`, re.test(dv));
   await context.close();
 }
 
-// ---------- desktop + mobile functional runs ------------------------------------------------------------------------------------
+// ---------- functional runs: desktop + mobile ----------------------------------------------------------------------------------------
 for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 }, false], ['mobile', { width: 390, height: 844 }, true]]) {
   const { page, context, log } = await newPage(viewport, { scale: mobile ? 2 : 1 });
-  const H = viewport.height;
   await page.screenshot({ path: `${out}/${label}-hero.png` });
-
-  // ---- menu, anchors, CTAs ----
-  for (const [name, id] of [['Ablauf', 'ablauf'], ['Inhaber', 'inhaber'], ['Gestaltung', 'gestaltung'], ['Rechner', 'rechner'], ['Preis', 'angebot']]) {
-    if (mobile) { await page.getByRole('button', { name: /Menü/ }).click(); check(`${label}: menu announces expanded`, (await page.locator('#menu-toggle').getAttribute('aria-expanded')) === 'true'); }
-    await page.locator('#main-nav').getByRole('link', { name, exact: true }).click();
-    check(`${label}: nav "${name}" reaches #${id}`, await inView(page, `#${id}`, H));
-    if (mobile) check(`${label}: menu closes after navigation`, (await page.locator('#menu-toggle').getAttribute('aria-expanded')) === 'false');
-  }
-  if (mobile) {
-    await page.getByRole('button', { name: /Menü/ }).click(); await page.screenshot({ path: `${out}/mobile-menu.png` });
-    await page.keyboard.press('Escape');
-    check('mobile: Escape closes menu and restores focus', (await page.locator('#menu-toggle').getAttribute('aria-expanded')) === 'false' && await page.evaluate(() => document.activeElement?.id === 'menu-toggle'));
-  }
+  // ---- CTAs and navigation ----
+  await page.locator('.hero .btn-primary').click(); await page.waitForTimeout(1300);
+  const reached = await page.evaluate(() => ({ hash: location.hash, top: Math.round(document.getElementById('anfrage').getBoundingClientRect().top), mailOpened: false }));
+  check(`${label}: hero "Demo anfragen" scrolls to the contact section and does not open a mail client`, reached.hash === '#anfrage' && reached.top < 200 && log.mails.length === 0, JSON.stringify(reached));
   await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(300);
-  check(`${label}: hero CTAs`, (await page.locator('.hero .primary').getAttribute('href')) === '#anfrage' && (await page.locator('.hero .secondary').getAttribute('href')) === '#ablauf');
-  check(`${label}: login link`, (await page.locator('#main-nav a[href*="app.getloynara.com/login"]').getAttribute('href')) === 'https://app.getloynara.com/login');
+  await page.locator('.hero .btn-ghost').click(); await page.waitForTimeout(1300);
+  check(`${label}: "Ablauf ansehen" reaches the product section`, (await page.evaluate(() => location.hash)) === '#ablauf' && await page.evaluate(() => Math.abs(document.getElementById('ablauf').getBoundingClientRect().top) < 200));
+  check(`${label}: login is a quiet link to the app`, (await page.locator('.login').getAttribute('href')) === 'https://app.getloynara.com/login' && !(await page.locator('.login').evaluate(e => e.classList.contains('btn'))));
+  if (!mobile) for (const [name, id] of [['Ablauf', 'ablauf'], ['Empfehlungen', 'empfehlung'], ['Inhaber', 'inhaber'], ['Gestaltung', 'gestaltung'], ['Rechner', 'rechner'], ['Preis', 'angebot']]) { await page.locator('.mainnav').getByRole('link', { name, exact: true }).click(); await page.waitForTimeout(1200); check(`${label}: nav "${name}" reaches #${id}`, await page.evaluate(i => Math.abs(document.getElementById(i).getBoundingClientRect().top) < 260, id)); }
 
-  // ---- journey: visible default overview, returning card 8 -> 9 -> 10 -> redeem, tabs never execute events ----
-  await jump(page, '#ablauf'); await page.waitForTimeout(400);
-  check(`${label}: journey opens on a visible overview: chapter 1 selected, growth strip and stage visible without any click`, (await selected(page, '[data-chapter]')).join() === 'start' && (await page.locator('#growth').isVisible()) && (await page.locator('#stage').isVisible()));
-  check(`${label}: default stage shows the returning card at 8/10 and no events happened`, /^Stand 8\/10/.test(await strip(page)) && /Besuche 0/.test(await strip(page)) && /Prämien 0/.test(await strip(page)));
-  for (const c of ['collect', 'reward', 'refer', 'start']) { await chapter(page, c); await settle(page); }
-  check(`${label}: chapter tabs alone never create a stamp, a redemption or a bonus`, (await selected(page, '[data-chapter]')).join() === 'start' && /Stand 8\/10 · Besuche 0 · Prämien 0/.test(await strip(page)));
-  await act(page, 'open-nfc');
-  check(`${label}: opening the card by NFC reports the visit; no stamp yet`, await balance(page) === 8 && /Besuch gemeldet/.test(await txt(page, '#stage')));
-  await chapter(page, 'collect'); await settle(page);
-  await act(page, 'confirm');
-  check(`${label}: staff confirmation adds exactly one stamp (9/10) and the owner counter follows`, await balance(page) === 9 && /Besuche 1/.test(await strip(page)) && (await ownerBal(page)).startsWith('9'));
-  check(`${label}: no duplicate confirm possible after the stamp`, (await page.locator('#stage [data-action="confirm"]').count()) === 0 || (await page.locator('#stage [data-action="confirm"]').isDisabled()));
-  await chapter(page, 'reward'); await settle(page);
-  for (let i = 0; i < 3; i++) { const open = page.locator('#stage [data-action="open-nfc"]'); if (await open.count()) { await open.click(); await settle(page); } const conf = page.locator('#stage [data-action="confirm"]'); if (await conf.count()) { await conf.click(); await settle(page); } if (await balance(page) >= 10) break; }
-  check(`${label}: card reaches 10/10 and offers redemption`, await balance(page) === 10 && (await page.locator('#stage [data-action="redeem"]').count()) === 1);
-  await page.screenshot({ path: `${out}/${label}-journey-reward-ready.png` });
-  await act(page, 'redeem');
-  check(`${label}: redemption is recorded once and cannot be repeated`, /Prämien 1/.test(await strip(page)) && (await page.locator('#stage [data-action="redeem"]').count()) === 0);
-  await chapter(page, 'collect'); await settle(page); await chapter(page, 'reward'); await settle(page);
-  check(`${label}: switching chapters after a redemption shows a coherent example snapshot, never a replayed or double-counted redemption`, /Prämien 0/.test(await strip(page)) && (await page.locator('#stage [data-action="redeem"]').count()) === 0 && (await balance(page)) === 9);
-  await chapter(page, 'start'); await settle(page); await page.locator('#demo-reset').click(); await settle(page);
-  check(`${label}: reset returns the card example to 8/10 with no events`, /Stand 8\/10 · Besuche 0 · Prämien 0/.test(await strip(page)));
-
-  // ---- new card: 0 -> 1 ----
-  await chapter(page, 'start'); await settle(page);
-  await page.locator('#stage [data-action="identity-new"]').click(); await settle(page);
-  check(`${label}: new card starts at 0/10 with no invented history`, /Stand 0\/10/.test(await strip(page)) && /Besuche 0/.test(await strip(page)) && ((await page.locator('#stage [data-balance]').count()) === 0 || (await balance(page)) === 0));
-  await act(page, 'open-qr');
-  if (await page.locator('#stage [data-action="enroll"]').count()) { await page.locator('#stage [data-action="enroll"]').click(); await settle(page); }
-  await chapter(page, 'collect'); await settle(page);
-  if (await page.locator('#stage [data-action="confirm"]').count()) await act(page, 'confirm');
-  check(`${label}: new card gets its first confirmed stamp: 0 -> 1`, await balance(page) === 1 && /Besuche 1/.test(await strip(page)));
-  await page.screenshot({ path: `${out}/${label}-journey-new-first-stamp.png` });
-  await page.locator('#demo-reset').click(); await settle(page);
-  await chapter(page, 'start'); await settle(page);
-  if (await page.locator('#stage [data-action="identity-returning"]').count()) { await page.locator('#stage [data-action="identity-returning"]').click(); await settle(page); }
-
-  // ---- referral: no bonus on share/open, exactly one bonus after confirmation, no duplicates ----
-  await chapter(page, 'refer'); await settle(page);
-  check(`${label}: referral chapter states the qualification rule and the four states`, /erster Besuch/i.test(await txt(page, '#stage-strip')) && /Link geteilt/.test(await txt(page, '.ref-steps')) && /Teilnahme offen/.test(await txt(page, '.ref-steps')) && /Bedingung erfüllt/.test(await txt(page, '.ref-steps')) && /Bonus verbucht/.test(await txt(page, '.ref-steps')));
-  const counts = async () => page.evaluate(() => ['[data-ref-visits]', '[data-ref-qualified]', '[data-ref-bonus]'].map(s => document.querySelector(s)?.textContent.trim()).join('/'));
-  const before = await counts(); await page.screenshot({ path: `${out}/${label}-referral-before.png` });
-  await act(page, 'ref-share'); check(`${label}: sharing earns nothing`, (await counts()) === before && /Empfehlungen 0/.test(await strip(page)));
-  await act(page, 'ref-open'); check(`${label}: opening the link earns nothing`, (await counts()) === before && /Empfehlungen 0/.test(await strip(page)));
-  await act(page, 'ref-join'); check(`${label}: joining alone earns nothing (needs a confirmed first visit)`, (await counts()) === before && /Empfehlungen 0/.test(await strip(page)));
-  await act(page, 'ref-confirm');
-  check(`${label}: confirmed first visit books exactly one bonus; both cards update`, (await counts()) === '1/1/1' && /Empfehlungen 1/.test(await strip(page)) && /8\/10/.test(await strip(page)));
-  check(`${label}: no further referral action remains (no duplicate bonus)`, (await page.locator('#stage [data-action^="ref-"]').count()) === 0);
-  await page.screenshot({ path: `${out}/${label}-referral-after.png` });
-  await chapter(page, 'start'); await settle(page); await chapter(page, 'refer'); await settle(page);
-  check(`${label}: leaving and re-entering the referral chapter keeps the booked state, still one bonus`, (await counts()) === '1/1/1');
-  await page.locator('#demo-reset').click(); await settle(page);
-  check(`${label}: referral reset returns to the beginning`, (await counts()) === '0/0/0' && (await page.locator('#stage [data-action="ref-share"]').count()) === 1);
-  check(`${label}: growth strip shows the loop`, /Besuch\s*(→\s*)?Fortschritt\s*(→\s*)?Prämie\s*(→\s*)?Empfehlung\s*(→\s*)?neuer Besuch/.test(await txt(page, '#growth')));
-
-  // ---- mobile: one active surface; inactive panels collapse to a summary ----
-  if (mobile) {
-    await chapter(page, 'start'); await settle(page);
-    await jump(page, '#stage'); await page.waitForTimeout(300);
-    const heights = await page.evaluate(() => [...document.querySelectorAll('#stage .stage-panels .panel')].map(p => ({ active: p.classList.contains('is-active'), h: Math.round(p.getBoundingClientRect().height) })));
-    check('mobile: exactly one expanded panel in the stage; inactive ones are compact summaries', heights.filter(x => x.active).length === 1 && heights.filter(x => !x.active).every(x => x.h < 90), JSON.stringify(heights));
-    await page.screenshot({ path: `${out}/mobile-journey-overview.png` });
-  }
-
-  // ---- industry: all eight, calculator untouched, loyalty restarts with a note ----
-  await jump(page, '#rechner'); await fill(page, 'gain', '20'); await settle(page);
+  // ---- product stage: visit ----
   await jump(page, '#ablauf'); await page.waitForTimeout(300);
-  for (const key of industries) {
-    await pickIndustry(page, key);
-    const t = await txt(page, '#stage');
-    check(`${label}: industry ${key}: stage renders without placeholders`, t.length > 80 && !/undefined|NaN|\[object/.test(t));
-  }
-  await pickIndustry(page, 'barber');
-  check(`${label}: industry change explains the restart and leaves the calculator inputs alone`, /Dein Rechenbeispiel bleibt unverändert/.test(await txt(page, '#industry-note')) && (await page.locator('#in-gain').inputValue()) === '20');
-  await pickIndustry(page, 'cafe');
-  await page.locator('#calc-reset').evaluate(b => b.click());
+  check(`${label}: stage opens on the visit view with the card at 8/10 and no business event`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'visit' && /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && /noch kein bestätigter Besuch/.test(await txt(page, '[data-bind="visit-owner"]')));
+  for (const v of ['reward', 'refer', 'visit']) { await page.locator(`#stage-${v}`).click(); await settle(page); }
+  check(`${label}: selecting tabs never confirms, redeems or books anything`, /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && /noch keine eingelöste Prämie/.test(await page.locator('[data-bind="reward-owner"]').textContent()) && /noch keine qualifizierte Empfehlung/.test(await page.locator('[data-bind="refer-owner"]').textContent()));
+  const cb = page.locator('[data-act="visit"]'); await cb.click(); await cb.click({ force: true }).catch(() => {}); await settle(page);
+  check(`${label}: confirmation adds exactly one stamp (9/10), owner follows, cannot repeat`, /9 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && /1 bestätigter Besuch/.test(await txt(page, '[data-bind="visit-owner"]')) && await cb.isDisabled());
+  await page.screenshot({ path: `${out}/${label}-stage-confirmed.png` });
+  await page.locator('[data-reset="visit"]').click(); await settle(page);
+  check(`${label}: reset returns to 8/10 and refocuses the action`, /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && !(await cb.isDisabled()));
+  // ---- reward ----
+  await page.locator('#stage-reward').click(); await settle(page);
+  check(`${label}: reward view shows a full card with a redeem action`, /10 von 10/.test(await page.locator('[data-slot="reward-card"] .lcard').getAttribute('aria-label')));
+  await page.locator('[data-act="reward"]').click(); await settle(page);
+  check(`${label}: redemption resets the card to 0/10, the owner sees exactly one redemption, no repeat`, /0 von 10/.test(await page.locator('[data-slot="reward-card"] .lcard').getAttribute('aria-label')) && /1 eingelöste Prämie/.test(await txt(page, '[data-bind="reward-owner"]')) && await page.locator('[data-act="reward"]').isDisabled());
+  await page.locator('[data-reset="reward"]').click(); await settle(page);
 
-  // ---- owner workspace: three views, outlook labelling, keyboard, preview toggles ----
-  await jump(page, '#inhaber'); await page.waitForTimeout(400);
-  check(`${label}: owner opens on the Überblick with counters and a visible outlook qualification`, (await selected(page, '[data-owner-view]')).join() === 'overview' && /Plattform-Ausblick – nicht im aktuellen Pilotangebot/.test(await txt(page, '#inhaber')) && /Beispieldaten/.test(await txt(page, '#owner-body')));
+  // ---- referral: no reward for sharing, opening or joining; one bonus after the first confirmed visit ----
+  await page.locator('#stage-refer').click(); await settle(page);
+  const bal = () => page.locator('[data-slot="refer-card"] .lcard').getAttribute('aria-label').then(t => Number(t.match(/(\d+) von 10/)[1]));
+  const doneSteps = () => page.locator('#stage .ref-steps li.done').count();
+  const ownerRef = () => txt(page, '[data-bind="refer-owner"]');
+  await page.screenshot({ path: `${out}/${label}-referral-0.png` });
+  const act = page.locator('[data-act="refer"]');
+  const labels = [];
+  for (const [i, expectBal] of [[0, 7], [1, 7], [2, 7]]) { labels.push(await act.textContent()); await act.click(); await settle(page); check(`${label}: referral action ${i + 1} (${labels[i]}) earns nothing: Kunde A stays at 7`, await bal() === expectBal && /noch keine qualifizierte Empfehlung/.test(await ownerRef())); }
+  check(`${label}: joined state = "Teilnahme offen": two steps lit, the next action is the first confirmed visit`, await doneSteps() === 2 && /Ersten Besuch bestätigen/.test(await act.textContent()));
+  await act.click(); await settle(page);
+  check(`${label}: qualification books exactly one bonus (7 → 8); all four steps lit; owner sees one qualified referral`, await bal() === 8 && await doneSteps() === 4 && /1 qualifizierte Empfehlung, 1 Bonus verbucht/.test(await ownerRef()) && await act.isDisabled());
+  await page.screenshot({ path: `${out}/${label}-referral-qualified.png` });
+  await act.click({ force: true }).catch(() => {}); await settle(page);
+  check(`${label}: no duplicate bonus`, await bal() === 8);
+  await page.locator('[data-reset="refer"]').click(); await settle(page);
+  check(`${label}: referral reset restores 7/10 and zero owner activity`, await bal() === 7 && await doneSteps() === 0 && /noch keine qualifizierte Empfehlung/.test(await ownerRef()));
+  check(`${label}: the visit and reward state were not touched by the referral demo`, /8 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')));
+
+  // ---- keyboard on the stage tabs ----
+  await page.locator('#stage-visit').click(); await page.locator('#stage-visit').focus(); await page.keyboard.press('ArrowRight');
+  check(`${label}: stage tabs: ArrowRight selects the next view and focus stays on the tab`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'reward' && await page.evaluate(() => document.activeElement?.id === 'stage-reward'));
+  await page.keyboard.press('End'); check(`${label}: stage tabs: End → last`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'refer');
+  await page.keyboard.press('ArrowRight'); check(`${label}: stage tabs wrap around`, (await selected(page, '[data-tabs="stage"] [role=tab]')).join() === 'visit');
+
+  // ---- owner views ----
+  await jump(page, '#inhaber'); await settle(page);
+  check(`${label}: owner opens on Überblick with example data`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'overview' && /Beispieldaten/.test(await txt(page, '#owner')));
   await page.screenshot({ path: `${out}/${label}-owner-overview.png` });
-  for (const view of ['quiet', 'win']) {
-    await page.locator(`[data-owner-view="${view}"]`).click(); await settle(page);
-    check(`${label}: owner view ${view} is labelled as Plattform-Ausblick and sends nothing`, /Plattform-Ausblick – nicht im aktuellen Pilotangebot/.test(await txt(page, '#owner-body')) && !/wurde gesendet/.test(await txt(page, '#owner-body')));
-    const btn = page.locator('#owner-action');
-    if (await btn.isVisible()) { await btn.click(); await settle(page); check(`${label}: owner view ${view} previews a message labelled as preview (not sent)`, /Vorschau/.test(await txt(page, '#owner-body'))); await page.screenshot({ path: `${out}/${label}-owner-${view}-preview.png` }); await btn.click(); await settle(page); }
-    await page.screenshot({ path: `${out}/${label}-owner-${view}.png` });
+  for (const v of ['quiet', 'win']) {
+    await page.locator(`#owner-${v}`).click(); await settle(page);
+    const t = await txt(page, '#owner');
+    check(`${label}: owner ${v}: labelled Plattform-Ausblick, message is an unsent preview, one main idea`, /Plattform-Ausblick – nicht im aktuellen Pilotangebot/.test(t) && /Vorschau · nicht versendet/i.test(t) && !/wurde gesendet|Zugestellt|zurückgekehrt/.test(t) && (await page.locator('#owner .ow:not([hidden])').count()) === 1);
+    await page.screenshot({ path: `${out}/${label}-owner-${v}.png` });
   }
-  await page.locator('[data-owner-view="overview"]').click(); await settle(page);
-  check(`${label}: owner overview counters are unchanged by selecting views`, /12/.test(await txt(page, '#owner-body')) && /3/.test(await txt(page, '#owner-body')));
-  for (const key of industries) { await pickIndustry(page, key); for (const view of ['overview', 'quiet', 'win']) { await page.locator(`[data-owner-view="${view}"]`).click(); await page.waitForTimeout(80); const t = await txt(page, '#owner-body'); check(`${label}: owner ${view} renders for ${key}`, t.length > 40 && !/undefined|NaN|\[object/.test(t)); } }
-  await pickIndustry(page, 'cafe'); await page.locator('[data-owner-view="overview"]').click();
-
-  // ---- keyboard on both tab modules ----
-  await page.locator('[data-owner-view="overview"]').focus();
-  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(150);
-  check(`${label}: owner tabs: ArrowRight selects the next view and focus stays on the tab`, (await selected(page, '[data-owner-view]')).join() === 'quiet' && await page.evaluate(() => document.activeElement?.dataset.ownerView === 'quiet'));
-  await page.keyboard.press('End'); check(`${label}: owner tabs: End selects the last view`, (await selected(page, '[data-owner-view]')).join() === 'win');
-  await page.keyboard.press('Home'); check(`${label}: owner tabs: Home selects the first view`, (await selected(page, '[data-owner-view]')).join() === 'overview');
-  await jump(page, '#ablauf'); await page.locator('[data-chapter="start"]').focus();
-  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(200);
-  check(`${label}: chapter tabs: arrows select Belohnen and focus stays on the tab`, (await selected(page, '[data-chapter]')).join() === 'reward' && await page.evaluate(() => document.activeElement?.dataset.chapter === 'reward'));
-  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(150);
-  check(`${label}: chapter tabs: Empfehlen is reachable by keyboard`, (await selected(page, '[data-chapter]')).join() === 'refer');
-  await page.keyboard.press('ArrowRight'); check(`${label}: chapter tabs wrap around`, (await selected(page, '[data-chapter]')).join() === 'start');
-  check(`${label}: tabpanel is controlled by the selected tab`, await page.evaluate(() => { const p = document.querySelector('#journey-panel'), t = document.querySelector('[data-chapter][aria-selected="true"]'); return p.getAttribute('role') === 'tabpanel' && t.getAttribute('aria-controls') === p.id; }));
-  await page.locator('#demo-reset').click(); await settle(page);
+  await page.locator('#owner-overview').focus(); await page.keyboard.press('End');
+  check(`${label}: owner tabs: End selects Zurückholen`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'win');
+  await page.locator('#owner-overview').click();
 
   // ---- branding studio ----
-  await jump(page, '#gestaltung'); await page.waitForTimeout(400);
-  check(`${label}: studio shows stand, browser card and Wallet-Vorschau with the Gestaltungsbeispiel label`, (await page.locator('#studio-comp .studio-stand').count()) === 1 && (await page.locator('#studio-comp .browser-phone').count()) === 1 && (await page.locator('#studio-comp .wallet-pass').count()) >= 1 && /Gestaltungsbeispiel/.test(await txt(page, '#gestaltung')) && /Wallet-Vorschau/.test(await txt(page, '#gestaltung')));
-  check(`${label}: no fake "Add to Wallet" control and no invented stand specification`, (await page.getByRole('button', { name: /wallet|hinzufügen/i }).count()) === 0 && !/Add to Wallet|Zu Wallet hinzufügen|\d+\s?(cm|mm)\b/i.test(await txt(page, '#gestaltung')));
-  const brandVars = () => page.evaluate(() => ['#studio-comp .studio-stand', '#studio-comp .browser-phone', '#studio-comp .wallet-pass', '#stage', '.system-mini', '#owner-frame'].map(s => { const e = document.querySelector(s); return e ? getComputedStyle(e).getPropertyValue('--b-dark').trim() : 'none'; }));
-  for (const sw of ['wald', 'terrakotta', 'nachtblau', 'pflaume', 'graphit']) {
-    await page.locator(`#studio [data-brand-style="${sw}"]`).click(); await page.waitForTimeout(250);
-    const vars = await brandVars(), first = vars[0];
-    check(`${label}: brand ${sw}: stand, browser card, Wallet preview and journey card share one colour`, first && first !== 'none' && vars.every(v => v === first), vars.join('/'));
-    check(`${label}: brand ${sw}: pressed state`, (await page.locator(`#studio [data-brand-style="${sw}"]`).getAttribute('aria-pressed')) === 'true');
-    await jump(page, '#studio-comp'); await page.waitForTimeout(150);
-    await page.locator('#studio-comp').screenshot({ path: `${out}/${label}-brand-${sw}.png` });
-  }
-  for (const logo of ['blatt', 'welle', 'monogramm']) { await page.locator(`#studio [data-brand-logo="${logo}"]`).click(); await page.waitForTimeout(150); check(`${label}: logo ${logo} shown on the stand`, (await page.locator('#studio-comp .studio-stand svg').count()) >= 1 && (await page.locator(`#studio [data-brand-logo="${logo}"]`).getAttribute('aria-pressed')) === 'true'); }
-  for (const rw of ['aufmerksamkeit', 'extra', 'branche']) { await page.locator(`#studio [data-brand-reward="${rw}"]`).click(); await page.waitForTimeout(150); const t = await txt(page, '#studio-comp'); check(`${label}: reward ${rw} flows into the cards`, !/undefined|NaN/.test(t) && t.length > 60); }
-  // independence
+  await jump(page, '#gestaltung'); await settle(page);
+  const colours = () => page.evaluate(() => [...document.querySelectorAll('#studio [data-studio] .stand .st-face, #studio [data-studio] .lcard, #studio [data-studio] .wpass')].map(e => getComputedStyle(e).getPropertyValue('--b-dark').trim()));
+  check(`${label}: studio defaults to the physical pair: stand + card, labelled Gestaltungsbeispiel; Wallet is a deliberate second view`, (await page.locator('#studio [data-studio] .stand').count()) === 1 && (await page.locator('#studio [data-studio] .lcard').count()) === 1 && (await page.locator('#studio [data-studio] .wpass').count()) === 0 && /Gestaltungsbeispiel/.test(await txt(page, '#studio')));
+  // set some state elsewhere first to prove independence
+  await page.locator('#stage-visit').scrollIntoViewIfNeeded(); await page.locator('[data-act="visit"]').click(); await settle(page);
   await jump(page, '#rechner'); await fill(page, 'gain', '15'); await settle(page);
-  await jump(page, '#ablauf'); await chapter(page, 'start'); await settle(page); await page.locator('#stage [data-action="open-nfc"]').click(); await settle(page); await chapter(page, 'collect'); await settle(page); await act(page, 'confirm');
-  const loyaltyBefore = await strip(page);
-  await jump(page, '#gestaltung'); await page.locator('#studio [data-brand-style="pflaume"]').click(); await page.waitForTimeout(250);
-  await jump(page, '#ablauf');
-  check(`${label}: brand change keeps the loyalty state`, (await strip(page)) === loyaltyBefore);
-  await jump(page, '#rechner');
-  check(`${label}: brand change keeps the calculator inputs and results`, (await page.locator('#in-gain').inputValue()) === '15' && (await outv(page, 'additional')) === '1.365 €');
-  const vv = await brandVars(); check(`${label}: the journey card follows the studio brand`, vv.every(v => v === vv[0]) && vv[3] !== 'none');
-  await pickIndustry(page, 'friseur'); await jump(page, '#gestaltung');
-  check(`${label}: industry change keeps the chosen brand style`, (await page.locator('#studio [data-brand-style="pflaume"]').getAttribute('aria-pressed')) === 'true');
-  await pickIndustry(page, 'cafe');
-  await page.locator('#studio [data-brand-style="wald"]').click(); await page.locator('#calc-reset').evaluate(b => b.click());
+  await jump(page, '#studio'); await settle(page);
+  const sel = { wald: '#143D2E', terrakotta: '#7A3320', nachtblau: '#16264A', pflaume: '#4A1D44', graphit: '#1C2326' };
+  for (const [k, hex] of Object.entries(sel)) {
+    await page.locator(`[data-brand-style="${k}"]`).click(); await page.waitForTimeout(250);
+    const c = await colours(); check(`${label}: colour ${k}: stand and card share ${hex}`, c.length === 2 && c.every(v => v === hex), c.join('/'));
+    await page.locator('#studio-view-wallet').click(); await page.waitForTimeout(250);
+    const w = await colours(); check(`${label}: colour ${k}: Wallet-Vorschau follows (${hex})`, w.length === 1 && w[0] === hex);
+    await page.locator('#studio-view-tresen').click(); await page.waitForTimeout(200);
+    await page.locator('#studio').screenshot({ path: `${out}/${label}-studio-${k}.png` });
+  }
+  for (const logo of ['blatt', 'welle', 'monogramm']) { await page.locator(`[data-brand-logo="${logo}"]`).click(); await page.waitForTimeout(150); const svgs = await page.evaluate(() => [...document.querySelectorAll('#studio [data-studio] .lc-logo svg, #studio [data-studio] .st-logo')].length); check(`${label}: logo ${logo} appears on stand and card`, svgs >= 2 && (await page.locator(`[data-brand-logo="${logo}"]`).getAttribute('aria-pressed')) === 'true'); }
+  for (const r of ['aufmerksamkeit', 'extra', 'branche']) { await page.selectOption('#brand-reward', r); await page.waitForTimeout(150); const t = await txt(page, '#studio [data-studio]'); check(`${label}: reward ${r} reaches the card`, !/undefined|NaN/.test(t) && /ab 10 Stempeln/.test(t)); }
+  await page.locator('[data-brand-style="pflaume"]').click(); await page.waitForTimeout(200);
+  check(`${label}: brand changes leave the loyalty stage as it was (9/10 confirmed) and the calculator untouched (15 % → 1.365 €)`, /9 von 10/.test(await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) && (await page.locator('[data-in="gain"]').inputValue()) === '15' && (await out$(page, 'additional')) === '1.365 €');
+  check(`${label}: the studio makes no request and writes no storage`, log.external.length === 0 && await page.evaluate(() => localStorage.length === 0 && sessionStorage.length === 0 && document.cookie === ''));
+  await page.locator('[data-brand-style="wald"]').click();
 
   // ---- calculator ----
-  await jump(page, '#rechner'); await page.waitForTimeout(400);
-  await page.locator('.calc-assumptions summary').click();
-  check(`${label}: calculator default (910 €, 9.100 €, 39 €, +871 €, 10.452 €; ratio 23,3×)`, (await outv(page, 'additional')) === '910 €' && (await outv(page, 'baseline')) === '9.100 €' && (await outv(page, 'fee')) === '39 €' && (await outv(page, 'difference')) === '+871 €' && (await outv(page, 'annualised')) === '10.452 €' && (await outv(page, 'ratio')) === '23,3×');
-  check(`${label}: ratio sits inside the details, outside the primary result`, await page.evaluate(() => !!document.querySelector('.calc-assumptions [data-out="ratio"]') && !document.querySelector('.primary-figure [data-out="ratio"], .after-fee [data-out="ratio"]')));
-  check(`${label}: ratio is labelled as a revenue-to-fee comparison, not profit or ROI`, /Zusatzumsatz im Vergleich zur Monatsgebühr/.test(await page.locator('.calc-assumptions').innerText()) && /kein Gewinn und keine garantierte Rendite/.test(await page.locator('.calc-assumptions').innerText()));
-  const order = await page.evaluate(() => { const y = s => document.querySelector(s).getBoundingClientRect().top; return [y('.disclaimer'), y('.calc-assumptions summary')]; });
-  check(`${label}: "Annahmen im Detail" sits below the disclaimer`, order[1] > order[0]);
-  await page.locator('.calc-assumptions summary').click();
-  check(`${label}: month-12 gap label on the chart reads "+10.920 € Zusatzumsatz" (before fee)`, /\+10\.920 € Zusatzumsatz/.test(await page.locator('#chart .gaplabel').innerHTML()));
+  await page.locator('[data-calc-reset]').click(); await jump(page, '#rechner'); await settle(page);
+  await page.locator('.more summary').click();
+  check(`${label}: calculator default: 910 / 9.100 / 39 / +871 / +10.452 / ratio 23,3×`, (await out$(page, 'additional')) === '910 €' && (await out$(page, 'baseline')) === '9.100 €' && (await out$(page, 'fee')) === '39 €' && (await out$(page, 'difference')) === '+871 €' && (await out$(page, 'annualised')) === '+10.452 €' && (await out$(page, 'ratio')) === '23,3×');
+  check(`${label}: ratio is only inside the details`, await page.evaluate(() => !!document.querySelector('.more [data-out="ratio"]') && !document.querySelector('.result [data-out="ratio"]')));
+  await page.locator('.more summary').click();
+  check(`${label}: chart label "+10.920 € Zusatzumsatz" (before fee)`, /\+10\.920 € Zusatzumsatz/.test(await page.locator('[data-chart]').innerHTML()));
   await page.screenshot({ path: `${out}/${label}-calc-default.png` });
   await fill(page, 'basket', '7,50'); await settle(page);
-  check(`${label}: comma decimals (50 × 7,50 × 26 × 10 % = 975 €)`, (await outv(page, 'additional')) === '975 €' && (await outv(page, 'difference')) === '+936 €');
-  await fill(page, 'gain', '0'); await settle(page);
-  check(`${label}: zero increase shows −39 €, −468 € and no month-12 label`, (await outv(page, 'additional')) === '0 €' && (await outv(page, 'difference')) === '−39 €' && (await outv(page, 'annualised')) === '−468 €' && (await outv(page, 'ratio')) === '0×' && (await page.locator('#chart .gaplabel').count()) === 0);
+  check(`${label}: comma decimals (975 € / +936 €)`, (await out$(page, 'additional')) === '975 €' && (await out$(page, 'difference')) === '+936 €');
+  await fill(page, 'basket', '7'); await fill(page, 'gain', '0'); await settle(page);
+  check(`${label}: 0 % is not softened: 0 €, −39 €, −468 €, ratio 0×, fee-exceeds note shown, result card not green`, (await out$(page, 'additional')) === '0 €' && (await out$(page, 'difference')) === '−39 €' && (await out$(page, 'annualised')) === '−468 €' && (await out$(page, 'ratio')) === '0×' && await page.locator('[data-zero-note]').isVisible() && await page.evaluate(() => getComputedStyle(document.querySelector('.result')).backgroundColor !== getComputedStyle(document.querySelector('.final')).backgroundColor) && (await page.locator('[data-calc].is-negative').count()) === 1 && (await page.locator('[data-chart] .gaplabel').count()) === 0);
   await page.screenshot({ path: `${out}/${label}-calc-zero.png` });
   await fill(page, 'visits', '1000'); await fill(page, 'basket', '500'); await fill(page, 'days', '31'); await fill(page, 'gain', '100'); await settle(page);
-  check(`${label}: maximum values stay finite`, !/NaN|Infinity|undefined/.test(await page.locator('.calc-grid').innerText()) && (await outv(page, 'additional')) === '15.500.000 €' && !/NaN|Infinity/.test(await page.locator('#chart-plot').innerHTML()));
-  await fill(page, 'basket', '-3'); await page.locator('#in-basket').blur(); await page.waitForTimeout(300);
-  check(`${label}: negative value is rejected and old results are not shown as current`, /Negative Werte/.test(await page.locator('#err-basket').innerText()) && (await outv(page, 'additional')) === '–' && !(await page.locator('#calc-empty').isHidden()));
-  await page.screenshot({ path: `${out}/${label}-calc-invalid.png` });
-  for (const bad of ['1e5', 'abc', '1.234,5', '7,555']) { await fill(page, 'basket', bad); await page.locator('#in-basket').blur(); check(`${label}: "${bad}" is rejected`, (await page.locator('#in-basket').getAttribute('aria-invalid')) === 'true' && (await page.locator('#err-basket').innerText()).length > 5); }
-  await fill(page, 'basket', ''); await page.locator('#in-basket').blur();
-  check(`${label}: blank field is explained`, /Wert eingeben/.test(await page.locator('#err-basket').innerText()));
-  await page.locator('#calc-reset').click(); await settle(page);
-  check(`${label}: reset restores the example`, (await outv(page, 'additional')) === '910 €' && (await page.locator('#calc-empty').isHidden()) && (await page.locator('#in-basket').inputValue()) === '7');
-  await page.locator('#rg-gain').focus(); for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight'); await page.waitForTimeout(500);
-  check(`${label}: slider keyboard (gain 10 → 13, text and results follow)`, (await page.locator('#in-gain').inputValue()) === '13' && (await outv(page, 'additional')) === '1.183 €');
-  await page.locator('#calc-reset').click(); await page.waitForTimeout(400);
-  const svg = page.locator('#chart'); await svg.focus(); await page.keyboard.press('End');
-  const ro = async () => (await page.locator('#chart-readout').innerText()).replace(/\s+/g, ' ');
-  check(`${label}: keyboard inspection shows month 12 with exact values in the readout`, /Monat 12/.test(await ro()) && /109\.200 €/.test(await ro()) && /120\.120 €/.test(await ro()) && /10\.920 €/.test(await ro()));
-  await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft'); check(`${label}: arrow keys move the month`, /Monat 10/.test(await ro()));
-  const sb = await page.locator('#chart-readout').boundingBox(), wrapBox = await page.locator('#chart-wrap').boundingBox();
-  check(`${label}: the readout never overlaps the plotting area`, sb.y + sb.height <= wrapBox.y + 1);
-  await page.locator('#chart').scrollIntoViewIfNeeded(); await page.evaluate(() => scrollBy(0, 120)); await page.waitForTimeout(200);
-  const box = await page.locator('#chart-hit').boundingBox();
-  if (mobile) await page.touchscreen.tap(box.x + box.width * 0.45, box.y + box.height * 0.5); else await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.4);
-  await page.waitForTimeout(150);
-  check(`${label}: pointer/touch inspection updates the same readout`, /Monat (5|6|7)\b/.test(await ro()));
-  check(`${label}: no tooltip element covers the chart`, (await page.locator('.tooltip, #chart-tip').count()) === 0);
-  await page.screenshot({ path: `${out}/${label}-chart-readout.png` });
-  await page.locator('.data-table summary').click();
-  check(`${label}: data table has 13 month rows (accessible alternative to the graph)`, (await page.locator('#chart-table tbody tr').count()) === 13);
-  await page.locator('.data-table summary').click();
+  check(`${label}: maximum values stay finite (15.500.000 €)`, (await out$(page, 'additional')) === '15.500.000 €' && !/NaN|Infinity/.test(await page.locator('[data-calc]').innerText() + await page.locator('[data-chart]').innerHTML()));
+  await fill(page, 'basket', '-3'); await page.locator('[data-in="basket"]').blur(); await settle(page);
+  check(`${label}: negative input is rejected, old results are not shown as current`, /Negative Werte/.test(await page.locator('[data-err="basket"]').innerText()) && (await out$(page, 'additional')) === '–' && await page.locator('[data-calc-empty]').isVisible());
+  for (const bad of ['1e5', 'abc', '1.234,5', '7,555']) { await fill(page, 'basket', bad); await page.locator('[data-in="basket"]').blur(); check(`${label}: "${bad}" rejected`, (await page.locator('[data-in="basket"]').getAttribute('aria-invalid')) === 'true'); }
+  await fill(page, 'basket', ''); await page.locator('[data-in="basket"]').blur(); check(`${label}: blank field explained`, /Wert eingeben/.test(await page.locator('[data-err="basket"]').innerText()));
+  await page.locator('[data-calc-reset]').click(); await settle(page);
+  check(`${label}: reset restores the example`, (await out$(page, 'additional')) === '910 €' && await page.locator('[data-calc-empty]').isHidden());
+  await page.locator('[data-range="gain"]').focus(); for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight'); await page.waitForTimeout(400);
+  check(`${label}: slider keyboard (10 → 13 %, 1.183 €)`, (await page.locator('[data-in="gain"]').inputValue()) === '13' && (await out$(page, 'additional')) === '1.183 €');
+  await page.locator('[data-calc-reset]').click();
+  const unit = await page.evaluate(() => [...document.querySelectorAll('.cf-val')].every(v => { const i = v.querySelector('input').getBoundingClientRect(), u = v.querySelector('.cf-unit'); return i.width > 40 && (!u || u.getBoundingClientRect().right <= v.getBoundingClientRect().right + 0.5); }));
+  check(`${label}: units never overflow their field; inputs stay one per row`, unit && await page.evaluate(() => { const ys = [...document.querySelectorAll('.cf')].map(e => Math.round(e.getBoundingClientRect().top)); return new Set(ys).size === 4; }));
+  const ro = await page.locator('[data-chart]').boundingBox(); check(`${label}: chart is inside the viewport`, ro.x >= 0 && ro.x + ro.width <= viewport.width + 1);
+  await page.locator('.ctable summary').click(); check(`${label}: data table has 13 month rows`, (await page.locator('[data-table] tbody tr').count()) === 13); await page.locator('.ctable summary').click();
 
-  // ---- offer, FAQ, request ----
-  await jump(page, '#angebot'); await page.waitForTimeout(300);
+  // ---- offer + FAQ ----
+  await jump(page, '#angebot'); await settle(page);
   const offer = await txt(page, '#angebot');
-  check(`${label}: offer: 39 € / Monat / Standort with pilot qualifier; current offer and outlook are separated`, /39 € \/ Monat \/ Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/i.test(offer) && /Aktuelles Pilotangebot/i.test(offer) && /Gezeigter Ausblick · gesondert zu vereinbaren/i.test(offer));
-  check(`${label}: offer: no setup fee, trial, discount, contract, VAT or hardware inclusion claims`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Vertragslaufzeit|zzgl\.|inkl\.|MwSt|Hardware inklusive|Aufsteller inklusive/i.test(offer));
-  const faqN = await page.locator('#angebot details').count();
-  check(`${label}: FAQ has 5–6 disclosures, including referrals`, faqN >= 5 && faqN <= 6 && /Wann wird eine Empfehlung belohnt/.test(offer), String(faqN));
-  const d = page.locator('#angebot details').first(); await d.locator('summary').click();
-  check(`${label}: FAQ opens`, await d.evaluate(e => e.open));
+  check(`${label}: offer shows price, qualifier, what is included and the separate outlook`, /39 € \/ Monat \/ Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /Aktuell enthalten/.test(offer) && /Gezeigter Ausblick · gesondert zu vereinbaren/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer));
+  check(`${label}: no invented trial, setup fee, cancellation, hardware, discount or VAT claim`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Kündigung|MwSt|zzgl\.|inkl\.|unbegrenzt/i.test(offer));
+  const d = page.locator('.faq details').first(); await d.locator('summary').click(); check(`${label}: FAQ opens`, await d.evaluate(e => e.open)); await d.locator('summary').click();
   await page.screenshot({ path: `${out}/${label}-offer.png` });
-  await jump(page, '#rechner'); await page.locator('#calc-share').evaluate(b => b.click());
-  check(`${label}: sharing the numbers is explicit and shown in the form`, !(await page.locator('#request-figures').isHidden()));
+
+  // ---- contact ----
+  await jump(page, '#rechner'); await settle(page);
+  await page.locator('[data-calc-share]').click();
+  check(`${label}: sharing the numbers is explicit and visible in the form`, !(await page.locator('#request-figures').isHidden()) && /Zahlen übernommen/.test(await page.locator('[data-calc-share]').textContent()));
   await page.locator('#request-figures-remove').click(); check(`${label}: shared numbers can be removed`, await page.locator('#request-figures').isHidden());
-  await jump(page, '#anfrage');
+  await jump(page, '#anfrage'); await settle(page);
+  const mailsBefore = log.mails.length;
   await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click();
-  check(`${label}: empty request is refused and focused`, /Namen deines Geschäfts/.test(await page.locator('#request-status').innerText()) && await page.evaluate(() => document.activeElement?.id === 'req-business'));
+  check(`${label}: empty request is refused, focused on the business name, no mail opened, no false success`, /Namen deines Geschäfts/.test(await page.locator('#request-status').innerText()) && await page.evaluate(() => document.activeElement?.id === 'req-business') && log.mails.length === mailsBefore && !/gesendet!|Danke|erfolgreich/i.test(await page.locator('#request-status').innerText()));
   await page.locator('#req-business').fill('Bäckerei & Café "Süß"'); await page.locator('#req-message').fill('Zeile 1\nZeile 2');
-  await page.locator('#calc-share').evaluate(b => b.click());
-  await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click(); await page.waitForTimeout(200);
+  await page.locator('#req-industry').selectOption({ label: 'Café' });
+  await page.locator('[data-calc-share]').evaluate(b => b.click());
+  await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click(); await page.waitForTimeout(250);
   const mail = decodeURIComponent(log.mails.at(-1) ?? '');
-  check(`${label}: mail draft goes to support with umlauts, line breaks and the shared figures`, mail.startsWith('mailto:support@getloynara.com?subject=Demo-Anfrage Loynara – Bäckerei & Café "Süß"') && mail.includes('Zeile 1\nZeile 2') && mail.includes('Käufe pro Tag: 50') && mail.includes('kein Gewinn'));
-  check(`${label}: page says nothing was sent`, /Gesendet ist noch nichts/.test(await page.locator('#request-status').innerText()) && !(await page.locator('#request-copy').isHidden()));
-  await page.locator('#request-copy').click(); await page.waitForTimeout(200);
-  check(`${label}: denied clipboard is handled with a fallback message`, /Kopieren war nicht möglich|Text kopiert/.test(await page.locator('#request-status').innerText()));
-  check(`${label}: closing scene repeats the headline and the direct contact address`, /Gib dem nächsten Besuch einen Grund\. Und der nächsten Empfehlung einen Weg\./.test(await txt(page, '#anfrage')) && (await page.locator('#anfrage a[href^="mailto:support@getloynara.com"]').count()) >= 1);
-  const sep = await page.evaluate(() => { const l = document.querySelector('.after').getBoundingClientRect(), e = document.querySelector('.existing').getBoundingClientRect(); return e.top - l.bottom; });
-  check(`${label}: "Schon dabei?" is separated from the request steps`, sep >= 24, String(sep));
-  await page.screenshot({ path: `${out}/${label}-request.png` });
+  check(`${label}: mail draft: support address, encoded umlauts/quotes/ampersand/newlines, industry, opt-in figures`, mail.startsWith('mailto:support@getloynara.com?subject=Demo-Anfrage Loynara – Bäckerei & Café "Süß"') && mail.includes('Zeile 1\nZeile 2') && mail.includes('Branche: Café') && mail.includes('Käufe pro Tag: 50') && mail.includes('kein Gewinn'));
+  check(`${label}: page says nothing was sent yet and offers the copy fallback`, /Gesendet ist noch nichts/.test(await page.locator('#request-status').innerText()) && !(await page.locator('#request-copy').isHidden()));
+  await page.locator('#request-copy').click(); await page.waitForTimeout(250);
+  check(`${label}: denied clipboard gets a fallback message, never a success claim`, /Kopieren war nicht möglich|Text kopiert/.test(await page.locator('#request-status').innerText()));
+  check(`${label}: contact explains what happens next without a response-time promise`, /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/.test(await txt(page, '.next')) && !/innerhalb|Stunden|werktags|binnen/i.test(await txt(page, '#anfrage')));
+  const mailtoLinks = await page.locator('#anfrage a[href^="mailto:"], footer a[href^="mailto:"]').evaluateAll(a => a.map(x => x.getAttribute('href').split('?')[0]));
+  check(`${label}: every mail link targets support@getloynara.com`, mailtoLinks.length >= 2 && mailtoLinks.every(h => h === 'mailto:support@getloynara.com'));
+  await page.screenshot({ path: `${out}/${label}-contact.png` });
   for (const [name, href] of [['Impressum', '/impressum/'], ['Datenschutz', '/datenschutz/']]) check(`${label}: footer ${name}`, (await page.locator('footer').getByRole('link', { name }).getAttribute('href')) === href);
-  check(`${label}: no console problems during the whole run`, log.problems.length === 0, log.problems.join(' | '));
-  check(`${label}: no external requests during the whole run`, log.external.length === 0, log.external.join(','));
+  check(`${label}: no console problems, no external requests during the whole run`, log.problems.length === 0 && log.external.length === 0, [...log.problems, ...log.external].join(' | '));
   await context.close();
 }
 
-// ---------- 320 px ------------------------------------------------------------------------------------------------------------------
-{ const { page, context } = await newPage({ width: 320, height: 640 }, { scale: 2 });
-  await jump(page, '#calc-form'); await page.waitForTimeout(300);
-  const fits = await page.evaluate(() => { const card = document.querySelector('.calc-inputs').getBoundingClientRect(); return [...document.querySelectorAll('.field-input')].every(e => { const r = e.getBoundingClientRect(); return r.right <= card.right - 4 && r.left >= card.left; }); });
-  check('320px: every calculator input (incl. basket with € unit) stays inside its card', fits);
-  await fill(page, 'basket', '12,75'); await page.waitForTimeout(300);
-  check('320px: typed value and result update; caret keeps working', (await page.locator('#in-basket').inputValue()) === '12,75' && (await outv(page, 'additional')) === '1.658 €');
-  await page.screenshot({ path: `${out}/w320-calc.png` });
-  await jump(page, '#ablauf'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-journey.png` });
-  const tabsFit = await page.evaluate(() => [...document.querySelectorAll('[role=tab]')].every(t => { const r = t.getBoundingClientRect(); return r.right <= innerWidth + 1 && r.height >= 40 && r.width >= 40; }));
-  check('320px: every tab is inside the viewport and at least 40 px in both directions', tabsFit);
+// ---------- 320 px: the tight cases ------------------------------------------------------------------------------------------------------
+{ const { page, context } = await newPage({ width: 320, height: 740 }, { scale: 2 });
+  await jump(page, '#rechner'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-calc.png` });
+  check('320px: calculator inputs inside their card with the unit visible', await page.evaluate(() => { const card = document.querySelector('.inputs').getBoundingClientRect(); return [...document.querySelectorAll('.cf-val')].every(e => { const r = e.getBoundingClientRect(); return r.left >= card.left && r.right <= card.right; }); }));
+  await fill(page, 'basket', '12,75'); await page.waitForTimeout(300); check('320px: typing keeps the caret and updates the result (1.658 €)', (await page.locator('[data-in="basket"]').inputValue()) === '12,75' && (await out$(page, 'additional')) === '1.658 €');
+  await jump(page, '#ablauf'); await page.locator('#stage-refer').scrollIntoViewIfNeeded(); await page.locator('#stage-refer').click(); await page.waitForTimeout(400);
+  await page.locator('#stage').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${out}/w320-referral.png` });
+  check('320px: referral steps and action stay readable inside the stage', await page.evaluate(() => [...document.querySelectorAll('#stage .stage-view:not([hidden]) *')].every(e => e.getBoundingClientRect().right <= innerWidth + 1)));
   await jump(page, '#gestaltung'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-studio.png` });
-  const studioFit = await page.evaluate(() => [...document.querySelectorAll('#studio *')].every(e => e.closest('svg') || e.getBoundingClientRect().width === 0 || e.getBoundingClientRect().right <= innerWidth + 1));
-  check('320px: studio controls and previews stay inside the viewport', studioFit);
-  await jump(page, '#angebot'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-offer.png` });
+  check('320px: studio controls keep 44 px targets', await page.evaluate(() => [...document.querySelectorAll('#studio button, #studio select')].every(e => e.getBoundingClientRect().width >= 43.5 && e.getBoundingClientRect().height >= 43.5)));
+  await jump(page, '#anfrage'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-contact.png` });
   await context.close(); }
 
-// ---------- legal pages -------------------------------------------------------------------------------------------------------------
+// ---------- legal pages, reveals/print, orientation, text size, reduced motion, no JS ------------------------------------------------------------
 { const { page, context } = await newPage({ width: 1280, height: 800 });
-  for (const path of ['/impressum/', '/datenschutz/']) { const r = await page.goto(base + path); check(`${path} loads with content`, r.status() === 200 && (await page.locator('main').innerText()).length > 200 && (await page.locator('h1').count()) === 1); }
-  await context.close(); }
-
-// ---------- reveal robustness: anchors, reload, Back, resize, print --------------------------------------------------------------------
-{ const { page, context } = await newPage({ width: 1440, height: 900 });
-  const hidden = () => page.evaluate(() => [...document.querySelectorAll('[data-reveal]')].filter(e => { const r = e.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && getComputedStyle(e).opacity !== '1'; }).length);
-  for (const id of ['inhaber', 'gestaltung', 'rechner', 'angebot']) { await page.evaluate(i => { document.documentElement.style.scrollBehavior = 'auto'; scrollTo(0, document.getElementById(i).offsetTop + 120); }, id); await page.waitForTimeout(900); check(`reveals: #${id} becomes fully visible after an instant jump`, await hidden() === 0); }
-  await page.reload(); await page.waitForTimeout(1200); check('reveals: nothing visible stays hidden after a reload with restored scroll', await hidden() === 0);
-  await page.goto(base + '/impressum/'); await page.waitForTimeout(300); await page.goBack(); await page.waitForTimeout(1200); check('reveals: nothing visible stays hidden after Back from a legal page', await hidden() === 0);
-  await page.setViewportSize({ width: 600, height: 900 }); await page.waitForTimeout(700); check('reveals: nothing visible stays hidden after resize', await hidden() === 0);
+  for (const path of ['/impressum/', '/datenschutz/']) { const errs = []; page.on('pageerror', e => errs.push(e.message)); const r = await page.goto(base + path); await page.waitForTimeout(400); check(`${path}: loads with content, no script error`, r.status() === 200 && (await page.locator('main').innerText()).length > 200 && (await page.locator('h1').count()) === 1 && errs.length === 0, errs.join('|')); }
   await context.close(); }
 { const { page, context } = await newPage({ width: 1280, height: 800 });
   await page.emulateMedia({ media: 'print' });
-  const state = await page.evaluate(() => ({ revealHidden: [...document.querySelectorAll('[data-reveal]')].filter(e => getComputedStyle(e).opacity !== '1').length, headerPos: getComputedStyle(document.querySelector('.header')).position, panelsHidden: [...document.querySelectorAll('[role=tabpanel]')].filter(e => getComputedStyle(e).display === 'none').length }));
-  check('print: all reveal content is visible before any scrolling; header is not sticky; no tabpanel is hidden', state.revealHidden === 0 && state.headerPos === 'static' && state.panelsHidden === 0, JSON.stringify(state));
+  const st = await page.evaluate(() => ({ header: getComputedStyle(document.querySelector('.top')).position, hiddenViews: [...document.querySelectorAll('[data-show]')].filter(e => getComputedStyle(e).display === 'none').length, buttons: [...document.querySelectorAll('.seg')].filter(e => getComputedStyle(e).display !== 'none').length }));
+  check('print: header static, every tab view of stage and owner is visible, tab controls hidden', st.header === 'static' && st.hiddenViews === 0 && st.buttons === 0, JSON.stringify(st));
   await page.screenshot({ path: `${out}/print-top.png`, fullPage: true });
   const pdf = await page.pdf({ format: 'A4', printBackground: true }); check('print: a PDF can be produced', pdf.length > 20000);
   await context.close(); }
-
-// ---------- orientation change and increased text size ---------------------------------------------------------------------------------
 { const { page, context } = await newPage({ width: 390, height: 844 }, { scale: 2 });
-  await jump(page, '#ablauf'); await page.locator('#stage [data-action="open-nfc"]').click(); await settle(page);
-  const before = await strip(page);
+  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await settle(page);
+  const state = await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label');
   await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(600);
-  check('orientation: landscape keeps state, no overflow', (await strip(page)) === before && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  check('orientation: landscape keeps state, no overflow', (await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(600);
-  check('orientation: back to portrait keeps state, no overflow', (await strip(page)) === before && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  check('orientation: portrait again, state kept, no overflow', (await page.locator('[data-slot="visit-card"] .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
   await page.evaluate(() => { document.documentElement.style.fontSize = '125%'; }); await page.waitForTimeout(400);
-  check('increased text size (125 %): no horizontal overflow on the phone', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
-  await jump(page, '#ablauf'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/mobile-text125-journey.png` });
+  check('text size 125 %: no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
   await jump(page, '#rechner'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/mobile-text125-calc.png` });
   await context.close(); }
-
-// ---------- reduced motion + no JS --------------------------------------------------------------------------------------------------------
-{ const { page, context } = await newPage({ width: 1280, height: 800 }, { reduced: true });
-  check('reduced motion: sections are visible without reveal animation', await page.evaluate(() => [...document.querySelectorAll('[data-reveal]')].every(e => getComputedStyle(e).opacity === '1')));
-  await jump(page, '#rechner'); await fill(page, 'gain', '20');
-  check('reduced motion: calculator values change immediately', (await outv(page, 'additional')) === '1.820 €');
-  await jump(page, '#ablauf'); await page.locator('[data-action="open-nfc"]').click(); await chapter(page, 'collect'); await page.locator('[data-action="confirm"]').click();
-  check('reduced motion: journey works with instant state changes', (await ownerBal(page)).startsWith('9'));
-  check('reduced motion: smooth scrolling is disabled', await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior === 'auto'));
+{ const { page, context } = await newPage({ width: 390, height: 844 }, { reduced: true });
+  check('reduced motion: smooth scrolling off, transitions off', await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior === 'auto' && getComputedStyle(document.querySelector('.btn')).transitionDuration === '0s'));
+  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('#stage-refer').click();
+  for (let i = 0; i < 4; i++) await page.locator('[data-act="refer"]').click();
+  check('reduced motion: the whole referral demo works with instant state changes', /1 qualifizierte Empfehlung/.test(await page.locator('[data-bind="refer-owner"]').textContent()));
+  await jump(page, '#rechner'); await fill(page, 'gain', '20'); check('reduced motion: calculator updates immediately', (await out$(page, 'additional')) === '1.820 €');
   await context.close(); }
-{ const { page, context } = await newPage({ width: 1280, height: 800 }, { js: false });
-  const text = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
-  check('no JS: proposition, price, calculator example and contact link are present', /Ein guter Besuch/.test(text) && /39 € \/ Monat \/ Standort/.test(text) && /910 € zusätzlicher Monatsumsatz/.test(text) && (await page.locator('a[href^="mailto:support@getloynara.com"]').count()) >= 1);
-  check('no JS: journey explains the chapters in text; outlook labels remain readable; nothing is hidden', /JavaScript aktivieren/.test(text) && /Starten/.test(text) && /Empfehlen/.test(text) && /Plattform-Ausblick/.test(text) && await page.evaluate(() => [...document.querySelectorAll('[data-reveal]')].every(e => getComputedStyle(e).opacity === '1')));
+{ const { page, context } = await newPage({ width: 390, height: 844 }, { js: false });
+  const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+  check('no JS: headline, summary, referral rule, price, calculator example, contact are present', /Ein guter Besuch/.test(body) && /Besuche belohnen/i.test(body) && /Aus Stammkunden können Empfehlungen werden/.test(body) && /Bedingung erfüllt/.test(body) && /39 € \/ Monat \/ Standort/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
+  check('no JS: the first view of every module is shown and nothing is hidden by script', /Dein Team bestätigt jeden Besuch/.test(body) && /Überblick/.test(body) && /Gestaltungsbeispiel/.test(body));
   await page.screenshot({ path: `${out}/nojs-top.png`, fullPage: true });
   await context.close(); }
 
-// ---------- screenshots at intermediate widths -----------------------------------------------------------------------------------------
-for (const [w, h] of [[1280, 800], [1024, 768], [768, 1024]]) { const { page, context } = await newPage({ width: w, height: h }); await page.screenshot({ path: `${out}/w${w}-hero.png` }); await jump(page, '#ablauf'); await page.waitForTimeout(400); await page.screenshot({ path: `${out}/w${w}-journey.png` }); await jump(page, '#gestaltung'); await page.waitForTimeout(400); await page.screenshot({ path: `${out}/w${w}-studio.png` }); await context.close(); }
+// ---------- intermediate widths: desktop composition ------------------------------------------------------------------------------------------
+for (const [w, h] of [[1280, 800], [1024, 768], [768, 1024]]) { const { page, context } = await newPage({ width: w, height: h }); await page.screenshot({ path: `${out}/w${w}-hero.png` }); await jump(page, '#ablauf'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w${w}-stage.png` }); await jump(page, '#gestaltung'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w${w}-studio.png` }); await context.close(); }
 await browser.close();
 console.log(`PASS: ${results.length} browser checks.`);

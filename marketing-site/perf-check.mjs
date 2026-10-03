@@ -25,13 +25,13 @@ for (const [label, viewport, mobile] of [['mobile 390x844', { width: 390, height
   const H = await page.evaluate(() => document.documentElement.scrollHeight);
   for (let y = 0; y < H; y += 500) { await page.evaluate(v => scrollTo(0, v), y); await page.waitForTimeout(60); }
   await page.locator('#ablauf').scrollIntoViewIfNeeded();
-  await page.locator('[data-action="open-nfc"]').click(); await page.waitForTimeout(300); await page.locator('[data-chapter="collect"]').click(); await page.locator('[data-action="confirm"]').click(); await page.waitForTimeout(400);
+  await page.locator('[data-act="visit"]').click(); await page.waitForTimeout(400); await page.locator('#stage-refer').click(); await page.locator('[data-act="refer"]').click(); await page.waitForTimeout(300);
   await page.locator('#rechner').scrollIntoViewIfNeeded();
-  const r = page.locator('#rg-gain'); const box = await r.boundingBox();
+  const r = page.locator('[data-range="gain"]'); const box = await r.boundingBox();
   await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2); await page.mouse.down();
   for (let i = 0; i <= 30; i++) { await page.mouse.move(box.x + box.width * (0.3 + 0.4 * i / 30), box.y + box.height / 2); await page.waitForTimeout(16); }
   await page.mouse.up(); await page.waitForTimeout(500);
-  await page.locator('#in-basket').click(); await page.keyboard.type('12,5', { delay: 30 }); await page.waitForTimeout(500);
+  await page.locator('[data-in="basket"]').click(); await page.keyboard.type('12,5', { delay: 30 }); await page.waitForTimeout(500);
   const after = await page.evaluate(() => ({ cls: +window.__m.cls.toFixed(4), tbt: Math.round(window.__m.tbt), worstEvent: Math.max(0, ...window.__m.events.map(e => e[1])), events: window.__m.events.length }));
   console.log(label, JSON.stringify({ load, afterInteractions: after }));
   await ctx.close();

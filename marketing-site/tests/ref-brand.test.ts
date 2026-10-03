@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { initialRef, refTransition, refView, REF_RULE, type RefAction, type RefState } from '../src/ref.js';
 import { initialBrand, STYLES, LOGOS, REWARD_LABELS, rewardText, brandVars, isStyle } from '../src/brand.js';
 import { industryKeys, industries } from '../src/site.js';
-import { refStage, standSvg, studioComposition, walletPass, studioControls } from '../src/views.js';
+import { standSvg, walletHtml, studioHtml, studioControls, cardHtml, brandCss } from '../src/final-parts.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -28,36 +28,23 @@ test('referral: steps cannot be skipped, repeated clicks never duplicate a join 
   assert.deepEqual(refTransition(spam, 'reset'), fresh);
   assert.equal(refTransition(run(fresh, 'share'), 'confirm').phase, 'shared');
 });
-test('referral stage: no bonus text before qualification, friend gets no reward claim, rule line states the real condition', () => {
-  for (const key of industryKeys) {
-    const brand = initialBrand();
-    for (const [phase, bonus] of [['idle', false], ['shared', false], ['opened', false], ['joined', false], ['qualified', true]] as const) {
-      const html = refStage({ phase }, key, brand, { interactive: true });
-      assert.equal(/\+1 Empfehlungsbonus|Bonus einmal verbucht/.test(html), bonus, phase);
-      assert.match(html, /sobald dein Team den ersten Besuch des Freundes bestätigt/); assert.match(html, /Ein Bonus für den Freund ist einstellbar/);
-      assert.doesNotMatch(html, /Freund (erhält|bekommt) (einen )?Bonus|Willkommensbonus/);
-      assert.match(html, new RegExp(`data-ref-qualified>${bonus ? 1 : 0}<`));
-    }
-    assert.match(refStage({ phase: 'shared' }, key, brand, { interactive: true }), /nichts wurde versendet/);
-    assert.match(refStage({ phase: 'opened' }, key, brand, { interactive: true }), /Das Öffnen allein bringt keinen Bonus/);
-  }
-});
-test('brand: presets mirror the application card studio, state is separate, reward options are grammatical, markup uses the brand', () => {
+test('brand: presets mirror the application card studio, markup follows logo and reward, every surface carries the same brand', () => {
   assert.deepEqual(Object.keys(STYLES), ['wald', 'terrakotta', 'nachtblau', 'pflaume', 'graphit']);
   assert.equal(Object.keys(LOGOS).length, 3); assert.equal(Object.keys(REWARD_LABELS).length, 3);
-  for (const key of industryKeys) {
-    for (const style of Object.keys(STYLES)) for (const logo of Object.keys(LOGOS)) for (const reward of Object.keys(REWARD_LABELS)) {
-      const b = { style, logo, reward } as ReturnType<typeof initialBrand>;
-      const html = studioComposition(b, key); assert.ok(html.includes(industries[key].name)); assert.ok(html.includes(rewardText(b, key).replace(/^./, c => c.toUpperCase())) || html.includes(rewardText(b, key)));
-      assert.match(html, /Gestaltungsbeispiel/); assert.match(html, /Wallet-Vorschau/); assert.doesNotMatch(html, /Zu Wallet hinzufügen|Add to Wallet/i);
-    }
+  for (const style of Object.keys(STYLES)) for (const logo of Object.keys(LOGOS)) for (const reward of Object.keys(REWARD_LABELS)) {
+    const b = { style, logo, reward } as ReturnType<typeof initialBrand>;
+    const text = rewardText(b, 'cafe').replace(/^./, c => c.toUpperCase());
+    const pair = studioHtml(b, 'tresen'), wallet = studioHtml(b, 'wallet');
+    for (const html of [pair, wallet]) { assert.ok(html.includes(industries.cafe.name)); assert.ok(html.includes(text), `${reward}: ${text}`); assert.doesNotMatch(html, /Zu Wallet hinzufügen|Add to Wallet/i); }
+    assert.match(pair, /Gestaltungsbeispiel/); assert.match(wallet, /Wallet-Vorschau/); assert.match(pair, /class="stand"/); assert.match(pair, /class="lcard/);
+    assert.ok(standSvg(b).includes(LOGOS[b.logo].svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')) && cardHtml({ balance: 8, status: 'x', brand: b }).includes(LOGOS[b.logo].svg) && walletHtml(b).includes(LOGOS[b.logo].svg), 'logo on stand, card and Wallet');
   }
   assert.match(brandVars({ ...initialBrand(), style: 'nachtblau' }), /--b-dark:#16264A/);
   assert.equal(isStyle('wald'), true); assert.equal(isStyle('x'), false);
-  assert.match(studioControls(initialBrand()), /Markenstil[\s\S]*Logo[\s\S]*Prämie/);
-  assert.match(standSvg(initialBrand(), 'Café Morgenlicht'), /role="img"/); assert.match(walletPass(initialBrand(), 'cafe'), /STEMPEL/);
+  assert.match(studioControls(initialBrand()), /Farbe[\s\S]*Marke[\s\S]*Prämie/);
+  assert.doesNotMatch(studioHtml(initialBrand(), 'tresen') + studioHtml(initialBrand(), 'wallet'), /https?:|<img|<input type="file"/);
 });
-test('brand CSS variables in styles.css are in sync with src/brand.ts', () => {
-  const css = readFileSync(resolve(import.meta.dirname, '../styles.css'), 'utf8');
-  for (const [k, s] of Object.entries(STYLES)) { assert.ok(css.includes(`html[data-brand-style="${k}"] [data-brand-scope]{--b-dark:${s.dark};--b-mid:${s.mid};--b-accent:${s.accent};--b-soft:${s.soft}}`), k); }
+test('brand CSS variables generated for the stylesheet are in sync with src/brand.ts', () => {
+  const css = brandCss();
+  for (const [k, s] of Object.entries(STYLES)) assert.ok(css.includes(`[data-brand="${k}"]{--b-dark:${s.dark};--b-mid:${s.mid};--b-accent:${s.accent};--b-soft:${s.soft}}`), k);
 });

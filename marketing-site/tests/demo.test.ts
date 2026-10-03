@@ -2,9 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initialDemo, transition, viewOf, enterChapter, chapterOf, CHAPTER_PHASES, type DemoAction, type DemoState } from '../src/demo.js';
 import { DEMO, industries, industryKeys } from '../src/site.js';
-import { journeyStage, ownerBody, OWNER_VIEWS, nearMessage, OWNER_BADGE, MESSAGE_TAG, CHAPTERS } from '../src/views.js';
-import { initialRef } from '../src/ref.js';
 import { initialBrand, rewardText } from '../src/brand.js';
+import { cardHtml, statusFor, ownerPanels, OUTLOOK } from '../src/final-parts.js';
 
 const run = (s: DemoState, ...actions: DemoAction[]) => actions.reduce(transition, s);
 const A = { nfc: { type: 'entry', entry: 'nfc' }, qr: { type: 'entry', entry: 'qr' }, open: { type: 'open' }, enroll: { type: 'enroll' }, confirm: { type: 'confirm' }, next: { type: 'nextVisit' }, redeem: { type: 'redeem' }, reset: { type: 'reset' }, isNew: { type: 'identity', identity: 'new' }, toReturning: { type: 'fixture', identity: 'returning' } } as const satisfies Record<string, DemoAction>;
@@ -74,8 +73,7 @@ test('missing-regular scenes: the pause always exceeds the stated usual interval
   }
 });
 
-const brand = initialBrand(), ref = initialRef();
-const stage = (c: Parameters<typeof journeyStage>[0], d: DemoState, key: (typeof industryKeys)[number]) => journeyStage(c, d, ref, key, brand, true);
+const brand = initialBrand();
 
 test('chapter selection is a view change: snapshots only when the state does not already belong to the chapter, never a business event', () => {
   const fresh = initialDemo();
@@ -94,31 +92,24 @@ test('new card: chapters are consistent (collect keeps zero, reward is not reach
   const c = enterChapter(n, 'collect'); assert.deepEqual([c.phase, c.enrolled, viewOf(c).balance], ['request', true, 0]);
   assert.equal(viewOf(run(c, A.confirm)).balance, 1);
   assert.equal(enterChapter(n, 'reward'), n, 'no invented reward for a new card');
-  assert.match(stage('reward', n, 'cafe'), /Eine neue Karte braucht zehn bestätigte Besuche/); assert.match(stage('reward', n, 'cafe'), /data-action="use-returning"/);
 });
-test('every number in the three journey panels comes from one state, in every industry', () => {
-  for (const key of industryKeys) for (const chapter of ['start', 'collect', 'reward'] as const) {
-    let s = enterChapter(initialDemo(), chapter);
-    for (const a of [A.open, A.confirm, A.next, A.confirm, A.redeem]) {
-      s = transition(s, a); const v = viewOf(s), html = stage(chapter, s, key);
-      assert.match(html, new RegExp(`data-visits>${v.confirmedVisits}<`)); assert.match(html, new RegExp(`data-redemptions>${v.redemptions}<`));
-      if (v.hasCard) assert.match(html, new RegExp(`<strong data-owner-balance>${v.balance} / ${v.threshold}<`));
-    }
-  }
-});
-test('every industry: reward grammar, complete sentences, outlook labelling and brand reward options read correctly', () => {
+test('every industry: reward grammar and complete sentences read correctly in every brand reward option', () => {
   const rewards = new Set<string>();
   for (const key of industryKeys) {
     const x = industries[key]; rewards.add(x.reward);
     for (const f of [x.name, x.reward, x.visit, x.intro, x.referral, x.quiet.message, x.quiet.when, x.regular.who, x.regular.story, x.regular.pause, x.quiet.outcome]) assert.ok(f.length > 6, key);
     for (const sentence of [x.quiet.message, x.quiet.outcome, x.regular.story]) assert.match(sentence, /^[A-ZÄÖÜ]/);
-    for (const r of ['branche', 'aufmerksamkeit', 'extra'] as const) assert.match(nearMessage(rewardText({ ...brand, reward: r }, key)), /^Noch ein Besuch – dann wartet (ein|eine) [^.]+ auf dich\.$/);
-    assert.ok(stage('collect', run(enterChapter(initialDemo(), 'collect'), A.confirm), key).includes(x.name));
-    for (const v of OWNER_VIEWS) for (const revealed of [false, true]) assert.ok(ownerBody(v.id, key, revealed).length > 80);
-    for (const v of ['quiet', 'win'] as const) { const html = ownerBody(v, key, true); assert.match(html, new RegExp(OWNER_BADGE)); assert.match(html, /Versand ist nicht Teil des aktuellen Angebots/); assert.doesNotMatch(html, /Jetzt senden|gesendet|Zugestellt|Du bemerkst|automatisch erkannt/i); }
-    assert.match(ownerBody('quiet', key, false), /Denkbar: Karten mit Kontakt-Einwilligung/);
-    assert.match(ownerBody('win', key, false), new RegExp(x.regular.who));
+    for (const r of ['branche', 'aufmerksamkeit', 'extra'] as const) assert.match(`Noch ein Besuch – dann wartet ${rewardText({ ...brand, reward: r }, key)} auf dich.`, /^Noch ein Besuch – dann wartet (ein|eine) [^.]+ auf dich\.$/);
   }
-  assert.equal(rewards.size, 8); assert.equal(CHAPTERS.length, 4); assert.equal(MESSAGE_TAG, 'Vorschau – Versand ist nicht Teil des aktuellen Angebots');
-  assert.equal(OWNER_VIEWS.filter(v => v.outlook).length, 2); assert.equal(OWNER_VIEWS.find(v => v.id === 'overview')!.outlook, false);
+  assert.equal(rewards.size, 8);
+});
+test('the card shows exactly the balance of the state it is derived from', () => {
+  for (const s of [initialDemo(), run(initialDemo(), A.open, A.confirm), run(initialDemo(), A.open, A.confirm, A.next, A.confirm), run(initialDemo(), A.open, A.confirm, A.next, A.confirm, A.redeem)]) {
+    const v = viewOf(s), html = cardHtml({ balance: v.balance, status: statusFor(v.balance, s.phase === 'redeemed'), brand });
+    assert.match(html, new RegExp(`${v.balance} von ${v.threshold} Stempeln`)); assert.equal((html.match(/<li class="on">/g) ?? []).length, v.balance);
+  }
+});
+test('owner views: the overview belongs to the pilot, the other two are labelled as platform outlook with an unsent preview', () => {
+  assert.doesNotMatch(ownerPanels.overview, new RegExp(OUTLOOK)); assert.match(ownerPanels.overview, /Teil des Pilotangebots/);
+  for (const v of ['quiet', 'win'] as const) { assert.match(ownerPanels[v], new RegExp(OUTLOOK)); assert.match(ownerPanels[v], /Vorschau · nicht versendet/); assert.doesNotMatch(ownerPanels[v], /Jetzt senden|wurde gesendet|Zugestellt/); }
 });
