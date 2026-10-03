@@ -11,6 +11,7 @@ PORT=8780 npm run marketing:preview   # loopback server (default port 8765)
 BASE=http://127.0.0.1:8780 node marketing-site/browser-check.mjs   # real-browser checks (preview running)
 BASE=http://127.0.0.1:8780 node marketing-site/a11y-check.mjs      # axe-core WCAG A/AA scan
 BASE=http://127.0.0.1:8780 node marketing-site/perf-check.mjs      # lab metrics, 4x CPU throttle
+MARKETING_CONCEPTS=true npm run marketing:build             # adds the private /concepts/ design prototypes (never in a public build; see CONCEPTS_REVIEW.md)
 BASE=http://127.0.0.1:8780 node marketing-site/measure.mjs <label>  # page height, default-visible words, unique copy (writes marketing-site/evidence/, git-ignored)
 ```
 

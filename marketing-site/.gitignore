@@ -1,2 +1,9 @@
 node_modules/
 evidence/
+# design-concept prototypes are generated only with MARKETING_CONCEPTS=true and never committed or deployed
+site/concepts/
+site/concept-a/
+site/concept-b/
+site/concept-c/
+site/concepts.css
+site/assets/concepts.js
