@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { cardSecurityEvents, ledgerEntries, memberships, staffRoles } from "@/db/schema";
 import { closeCard } from "./card-lifecycle";
+import { getCustomerExport, getMerchantExport } from "./export";
 import { reissueCardByStaff } from "./card-reissue";
 import { createAdditionalLocation } from "./locations";
 import { award, redeem, reverseEntry } from "./loyalty";
@@ -47,6 +48,14 @@ describe("staff-assisted card reissue", () => {
     expect(await db.select().from(memberships).where(eq(memberships.tenantId, merchant.tenantId))).toHaveLength(1);
     const [event] = await db.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.membershipId, card.id));
     expect(event).toMatchObject({ action: "card_reissued_by_staff", actorUserId: owner, reason: "Neues Handy, Kartennummer genannt" });
+
+    // Exports carry the same number and the audited reissue, and still reconcile with the ledger.
+    const merchantExport = await getMerchantExport(owner);
+    expect(merchantExport.memberships).toEqual([expect.objectContaining({ id: card.id, cardNumber: "K-0001", balance: 2 })]);
+    expect(merchantExport.cardSecurityEvents).toEqual([expect.objectContaining({ membershipId: card.id, action: "card_reissued_by_staff", actorUserId: owner })]);
+    expect(merchantExport.ledger.filter(entry => entry.membershipId === card.id).reduce((sum, entry) => sum + entry.delta, 0)).toBe(2);
+    expect((await getCustomerExport(result.cardToken)).membership).toMatchObject({ id: card.id, cardNumber: "K-0001", balance: 2 });
+    expect(JSON.stringify(merchantExport)).not.toContain(result.cardToken);
   });
 
   it("is limited to owners and managers of the card's location and refuses closed cards", async () => {
