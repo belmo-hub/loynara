@@ -1,5 +1,7 @@
 # Tapja ↔ Loynara delta register
 
+> **Errata (hardening review):** rows 2 and 4 describe the first implementation (sequential `K-0007`, plain reissue). Both were revised; the current behaviour is in [merchant-completion-hardening.md](merchant-completion-hardening.md). The competitor evidence in this register is unchanged.
+
 Compact, evidence-backed. One row per area. Written 2026-10-04.
 
 **Tapja authenticated evidence.** Owner's own signed-in session in Chrome (Claude in Chrome). Business "Take a Piz". Role:

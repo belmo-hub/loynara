@@ -1,5 +1,16 @@
 # Merchant-completion handoff (Tapja benchmark → Loynara)
 
+> **Superseded in part (hardening review, see [merchant-completion-hardening.md](merchant-completion-hardening.md)).**
+> Statements below that were written before the review and are no longer true:
+> - Card numbers are **not** sequential (`K-0007`, tenant counter). The final design is a random six-character locator `K-XXXXXX`; the migration is now `0019_card_locators.sql` (the file `0019_card_numbers.sql` never existed outside this branch).
+> - Lookup by `7`, `#7`, `Nr. 7` is gone. A typed locator shows a minimal preview first and opens the card only on a second, deliberate step.
+> - Reissue now needs an explicit *Berechtigung geprüft* confirmation, a verification method and a retry key; it also revokes Apple Wallet registrations.
+> - The "enumerable at the counter" risk is replaced by the locator analysis in the hardening record.
+> - Rollback is now a tested script: `docs/rollback/0019-card-locators-down.sql`.
+> - The "pre-existing red test `logout.spec.ts:133`" was diagnosed and fixed (login form hydration), see the hardening record.
+> - Test counts and SHAs here describe `b7b9298`, not the hardened candidate.
+
+
 Companion: [tapja-delta-register.md](tapja-delta-register.md) (evidence, decisions, priorities).
 
 ## Run record
