@@ -246,13 +246,41 @@ native backup restore test (O-017), a migration rehearsal on a restored producti
 
 * **Nothing is required to deploy with defaults.** `STAFF_INVITE_SIGNUP_ENABLED` absent = off; no new variable is mandatory.
 * Running migration `0019_card_locators` through the existing migrate service needs its own explicit approval, a fresh backup first, and the rollback note above.
-* To enable invite sign-up later (separate approval, not done): set `STAFF_INVITE_SIGNUP_ENABLED=true` on the **web** service **and** change
-  `scripts/config-check.ts` (remove the line that refuses this flag in production: `Invite-gated staff sign-up is not approved for production`), otherwise the
-  production guard stops the web service from starting. Keep `PUBLIC_REGISTRATION_ENABLED=false`.
+* **Invite sign-up (owner-approved for the pilot; superseded text, see section 17):** set `STAFF_INVITE_SIGNUP_ENABLED=true` on the **web** service only,
+  with `PUBLIC_REGISTRATION_ENABLED=false`. The production guard now accepts exactly that combination and refuses public registration on.
 * Do not set any NFC, Wallet or e-mail flag as part of this release.
 
 ## 16. Verdict
 
-**GO for integration into one exact application RC**, on the conditions in sections 14 and 15: no production action is implied, the migration rehearsal on a restored copy and the
+**GO for integration into one exact application RC** (final config patch: section 17), on the conditions in sections 14 and 15: no production action is implied, the migration rehearsal on a restored copy and the
 targeted physical regression remain required, and physical NFC stays a separate gate. Residual, documented risks: locator is a bounded locator not a secret; reissue entitlement is a
 merchant attestation; Google Wallet objects are not revocable from Loynara; invite-created accounts have unverified e-mail; the browser suite needs a warmed dev server.
+
+## 17. Final production-config patch (invite sign-up deployable)
+
+Owner approved invite-gated staff sign-up for the pilot. Previous head `bee812d5d31453803aee4dde616a1db259249e24`.
+
+| Production configuration | Before | After |
+|---|---|---|
+| registration `false`/unset, invite unset/`false` | pass | pass |
+| registration `false`/unset, invite `true` | **refused** ("not approved") | **pass** |
+| registration `true` (invite anything) | refused | refused (unchanged message) |
+| invite set to anything but exactly `true`/`false` (`TRUE`, `1`, empty…) | `TRUE`/`1` silently meant off | **refused**: must be exactly true or false |
+| invite `true` with registration set to an ambiguous value (`TRUE`, `1`, empty…) | not checked | **refused**: must be exactly false or unset |
+| every other production guard (ingress, origin, secrets, database, SMTP, NFC, billing…) | enforced | unchanged and still enforced with the flag on |
+| preview / development / test processes | unchecked | unchanged (unchecked) |
+
+Default is still off; nothing sets the flag in any environment. The flag has exactly one reader (`src/lib/invite-signup.ts`) and no other variable can relax the
+token, exact-address or pending/unexpired/unrevoked/unused rules; source tripwires in `scripts/config-check.test.ts` pin that, plus the rule that the sign-up
+hook can return early only through the invite check. The startup script `scripts/production-guard.ts` is also run as a real process in tests.
+
+**Proposed ledger correction (for a later update of the canonical ledger; not applied):**
+
+> **OWNER-REPORTED (Tier 3; not independently rediscovered from repository evidence), recorded from the owner's statement of 2026-10-05.**
+> 1. The supervised customer → cashier → owner dry run on the verified pilot RC (T-042 / O-007) **passed**. The customer balance synchronised 0 → 2 → 0
+>    across the three views. Exact devices, operating systems, scan counts and timings were not reported and stay NOT REPORTED (Android, T-084, remains
+>    NOT RUN unless the owner states otherwise).
+> 2. The extra empty synthetic card seen afterwards was **created manually by the owner**. The anomaly is resolved and is **not an application defect**.
+> 3. Scope: this covers the pilot RC only. It does not cover the merchant-completion candidate (locator lookup, corrections, reissue, invite sign-up), which needs
+>    the targeted regression in `docs/merchant-completion-hardening.md` section 13. Physical NFC (O-030…O-037) is unchanged: NOT RUN. Any cleanup of the synthetic
+>    production data still requires its own new explicit owner approval (X-006 / D-017 are not reusable).

@@ -45,6 +45,8 @@ describe("invite-gated staff sign-up", () => {
 
     const created = await signUp("Kasse@Example.test", invite.token);
     expect(created.user.email).toBe("kasse@example.test");
+    // Sign-up through an invitation does not change e-mail verification: the account is created exactly as before (unverified).
+    expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [created.user.id])).rows[0].emailVerified).toBe(false);
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, created.user.id))).toHaveLength(0);
     expect(await acceptStaffInvite({ userId: created.user.id, token: invite.token })).toMatchObject({ role: "cashier", locationId: merchant.locationId });
 

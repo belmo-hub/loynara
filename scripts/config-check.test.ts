@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { execFile } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+import { afterAll, describe, expect, it } from "vitest";
 import { productionConfigIssues } from "./config-check";
 
 describe("production configuration gate", () => {
@@ -25,9 +30,39 @@ describe("production configuration gate", () => {
     expect(productionConfigIssues(safe)).toEqual([]);
   });
 
-  it("refuses invite-gated staff sign-up until it is approved for production", () => {
-    expect(productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: "true" })).toEqual(expect.arrayContaining([expect.stringMatching(/invite-gated/i)]));
-    expect(productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: "false" })).toEqual([]);
+  describe("invite-gated staff sign-up (approved for the pilot, default off)", () => {
+    const invitation = (flag: string | undefined, registration: string | undefined = "false") => productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: flag, PUBLIC_REGISTRATION_ENABLED: registration });
+
+    it("A: registration off, invite sign-up off or unset: passes", () => {
+      expect(invitation("false")).toEqual([]);
+      expect(invitation(undefined)).toEqual([]);
+      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: undefined })).toEqual([]);
+    });
+
+    it("B: registration off, invite sign-up on: passes", () => {
+      expect(invitation("true")).toEqual([]);
+      expect(invitation("true", undefined)).toEqual([]);
+    });
+
+    it("C: public registration on always fails, with or without invite sign-up", () => {
+      for (const flag of [undefined, "false", "true"]) expect(invitation(flag, "true"), String(flag)).toEqual(expect.arrayContaining([expect.stringMatching(/Public registration is not approved/)]));
+    });
+
+    it("D: ambiguous registration or flag values fail instead of being guessed", () => {
+      for (const registration of ["TRUE", "1", "yes", "", " false"]) expect(invitation("true", registration), registration).toEqual(expect.arrayContaining([expect.stringMatching(/exactly false/)]));
+      for (const flag of ["TRUE", "1", "yes", "", " true", "enabled"]) expect(invitation(flag), flag).toEqual(expect.arrayContaining([expect.stringMatching(/exactly true or false/)]));
+    });
+
+    it("does not relax any other production guard when the flag is on", () => {
+      const issues = productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: "true", TRUSTED_INGRESS: "local", SMTP_HOST: "localhost", BETTER_AUTH_URL: "https://preview.getloynara.com", BETTER_AUTH_SECRET: "replace-me", DATABASE_URL: "postgresql://looplocal:looplocal_local_only@localhost:54329/looplocal" });
+      expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/ingress/i), expect.stringMatching(/Mailpit/i), expect.stringMatching(/origin/i), expect.stringMatching(/secret/i), expect.stringMatching(/database/i)]));
+    });
+
+    it("leaves preview and development processes alone", () => {
+      for (const NODE_ENV of ["development", "test", undefined]) {
+        expect(productionConfigIssues({ NODE_ENV, STAFF_INVITE_SIGNUP_ENABLED: "true", PUBLIC_REGISTRATION_ENABLED: "true" } as NodeJS.ProcessEnv), String(NODE_ENV)).toEqual([]);
+      }
+    });
   });
 
   it("refuses preview, mismatched, or token-bearing public origins", () => {
@@ -145,5 +180,70 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...safe, NFC_VERIFY_MASTER_KEY: master })).toEqual(expect.arrayContaining([expect.stringMatching(/not enabled/)]));
       expect(productionConfigIssues({ ...safe, NFC_ENABLED: "TRUE" })).toEqual(expect.arrayContaining([expect.stringMatching(/exactly true or false/)]));
     });
+  });
+});
+
+// The real startup gate (`npm start` runs scripts/production-guard.ts first), executed as a process from an empty directory so
+// no local .env or var/ files can leak in.
+describe("production startup gate as a process", () => {
+  const root = path.resolve(__dirname, "..");
+  const empty = mkdtempSync(path.join(tmpdir(), "loynara-guard-"));
+  afterAll(() => rmSync(empty, { recursive: true, force: true }));
+  const env: Record<string, string | undefined> = {
+    PATH: process.env.PATH, HOME: process.env.HOME, PRODUCTION_ENVIRONMENT: "loynara-production", PRODUCTION_APPROVED_ORIGIN: "https://app.getloynara.com",
+    DATABASE_URL: "postgresql://merchant:unique-value@db.railway.internal/loynara", BETTER_AUTH_URL: "https://app.getloynara.com", PUBLIC_BASE_URL: "https://app.getloynara.com",
+    BETTER_AUTH_SECRET: "a".repeat(64), SMTP_HOST: "disabled", PG_POOL_MAX: "5", TRUSTED_INGRESS: "cloudflare_tunnel",
+  };
+  const guard = async (extra: Record<string, string | undefined>) => {
+    try {
+      const done = await promisify(execFile)(path.join(root, "node_modules/.bin/tsx"), ["--tsconfig", path.join(root, "tsconfig.json"), path.join(root, "scripts/production-guard.ts")], { cwd: empty, env: { ...env, ...extra } as NodeJS.ProcessEnv, timeout: 60_000 });
+      return { code: 0, output: `${done.stdout}${done.stderr}` };
+    } catch (error) {
+      const failed = error as { code?: number; stdout?: string; stderr?: string };
+      return { code: failed.code ?? 1, output: `${failed.stdout ?? ""}${failed.stderr ?? ""}` };
+    }
+  };
+
+  it("starts with invite sign-up unset, off, or on while public registration is off", async () => {
+    for (const extra of [{}, { PUBLIC_REGISTRATION_ENABLED: "false", STAFF_INVITE_SIGNUP_ENABLED: "false" }, { PUBLIC_REGISTRATION_ENABLED: "false", STAFF_INVITE_SIGNUP_ENABLED: "true" }]) {
+      const result = await guard(extra);
+      expect(result.output, JSON.stringify(extra)).toContain("Production configuration gate passed.");
+      expect(result.code).toBe(0);
+    }
+  }, 120_000);
+
+  it("refuses to start with public registration on, even alongside invite sign-up", async () => {
+    for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true" }, { STAFF_INVITE_SIGNUP_ENABLED: "TRUE" }]) {
+      const result = await guard(extra);
+      expect(result.code, JSON.stringify(extra)).toBe(1);
+      expect(result.output).toContain("Production startup rejected:");
+    }
+  }, 120_000);
+});
+
+// A configuration check cannot see code. These tripwires pin the two facts it relies on: the flag has one reader, and the
+// sign-up hook can admit an account only through the invite check (exact address, secret token, pending/unexpired/unrevoked/unused).
+describe("invite sign-up code invariants", () => {
+  const src = path.resolve(__dirname, "..", "src");
+  const files = (dir: string): string[] => readdirSync(dir).flatMap(name => { const full = path.join(dir, name); return statSync(full).isDirectory() ? files(full) : [full]; });
+
+  it("is read only by invite-signup.ts", () => {
+    const readers = files(src).filter(file => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file) && readFileSync(file, "utf8").includes("STAFF_INVITE_SIGNUP_ENABLED")).map(file => path.relative(src, file));
+    expect(readers).toEqual(["lib/invite-signup.ts"]);
+  });
+
+  it("lets the sign-up hook return early only through the invite check", () => {
+    const auth = readFileSync(path.join(src, "lib/auth.ts"), "utf8");
+    const hook = auth.slice(auth.indexOf("before: createAuthMiddleware"));
+    expect(hook.match(/\breturn\b/g)).toHaveLength(1);
+    expect(hook).toContain('if (inviteSignUpEnabled() && await inviteAllowsSignUp(context.headers?.get("x-loynara-invite"), body?.email)) return;');
+    expect(hook.indexOf("Registration is not enabled")).toBeGreaterThan(hook.indexOf("inviteAllowsSignUp"));
+    expect(hook).toContain('process.env.PUBLIC_REGISTRATION_ENABLED !== "true"');
+  });
+
+  it("requires a token, the exact invited address and a live invitation", () => {
+    const invite = readFileSync(path.join(src, "lib/invite-signup.ts"), "utf8");
+    expect(invite).toContain('return env.STAFF_INVITE_SIGNUP_ENABLED === "true";');
+    for (const required of ["accepted_at IS NULL", "revoked_at IS NULL", "expires_at > now()", "token_hash = $1", "invite.email === email.trim().toLowerCase()", "if (!token || typeof email !== \"string\") return false;"]) expect(invite, required).toContain(required);
   });
 });

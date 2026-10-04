@@ -36,7 +36,17 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     issues.push("Production auth secret is missing, short, or a placeholder");
   }
   if (env.PUBLIC_REGISTRATION_ENABLED === "true") issues.push("Public registration is not approved for production");
-  if (env.STAFF_INVITE_SIGNUP_ENABLED === "true") issues.push("Invite-gated staff sign-up is not approved for production");
+  // Invite-gated staff sign-up (approved for the pilot) is a narrow exception, not a form of registration: an account may be
+  // created only for the exact invited address with the invitation's secret token while it is pending, unexpired, unrevoked
+  // and unused (src/lib/auth.ts + invite-signup.ts; no other setting can relax that). It therefore requires public
+  // registration to be explicitly off, and the flag itself must be unambiguous. Absent or "false" keeps it off.
+  const invite = env.STAFF_INVITE_SIGNUP_ENABLED;
+  if (invite !== undefined && invite !== "true" && invite !== "false") {
+    issues.push("STAFF_INVITE_SIGNUP_ENABLED must be exactly true or false when set");
+  } else if (invite === "true" && env.PUBLIC_REGISTRATION_ENABLED !== undefined && env.PUBLIC_REGISTRATION_ENABLED !== "false" && env.PUBLIC_REGISTRATION_ENABLED !== "true") {
+    // "true" is already refused above; this catches ambiguous values that the application would treat as closed.
+    issues.push("Invite-gated staff sign-up requires PUBLIC_REGISTRATION_ENABLED to be exactly false (or unset)");
+  }
   const poolMax = Number(env.PG_POOL_MAX);
   if (!Number.isSafeInteger(poolMax) || poolMax < 1 || poolMax > 10) issues.push("Production PostgreSQL pool limit must be an integer from 1 to 10 per pool");
   if (env.SMTP_HOST !== "disabled") issues.push("Local Mailpit/SMTP transport must be disabled in production");
