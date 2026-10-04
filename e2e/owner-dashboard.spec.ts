@@ -143,7 +143,10 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       const page = await ctx.newPage();
       await page.goto("/merchant");
       await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", level: 1 })).toBeVisible();
-      await expect(page.getByText("2 von 4 Schritten erledigt")).toBeVisible();
+      // Readiness is derived from saved state: only the programme exists, so the next step is the first card.
+      await expect(page.getByText("1 von 3 Pflichtschritten belegt.")).toBeVisible();
+      await expect(page.locator(".ow-action--lead")).toContainText("Erste Karte angemeldet");
+      await expect(page.getByText("Rechtstexte freigegeben")).toBeVisible();
       await expect(page.getByText("Karten", { exact: true })).toHaveCount(0); // no wall of zero metrics
 
       const joined = await guest.post("/api/enroll", { data: { slug: owner.programSlug, acceptedTerms: true, marketingOptIn: false } });
@@ -157,6 +160,8 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeVisible();
       await expect(page.getByText("Bestätigte Gutschriften")).toBeVisible();
       await expect(page.getByText("Kein Umsatz.", { exact: false })).toBeVisible();
+      // The confirmed counter award completes the required evidence; the checklist collapses but stays reachable.
+      await expect(page.locator("details.ow-readiness summary")).toContainText("Alle 3 Pflichtschritte sind belegt");
     } finally { await ctx.close(); }
   } finally { await Promise.all([owner.context.dispose(), guest.dispose()]); }
 });

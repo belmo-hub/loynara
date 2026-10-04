@@ -43,7 +43,7 @@ test("offline award lease is cashier-scoped and revoked staff sees a reviewable 
     const cashierBrowser = await browser.newContext({ baseURL: url, storageState: await cashier.storageState() });
     const page = await cashierBrowser.newPage();
     await page.goto("/cashier");
-    await page.getByLabel("Kartencode manuell eingeben").fill(scanCode);
+    await page.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Vergabe prüfen" }).click();

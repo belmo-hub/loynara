@@ -43,13 +43,13 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect.poll(() => new URL(cashier.url()).pathname).toBe("/cashier");
     await expect(cashier.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
     const cameraButton = await cashier.getByRole("button", { name: "Kamera öffnen" }).boundingBox();
-    const manualField = await cashier.getByLabel("Kartencode manuell eingeben").boundingBox();
+    const manualField = await cashier.getByLabel("Kartennummer oder Kartencode").boundingBox();
     expect(cameraButton).not.toBeNull();
     expect(manualField).not.toBeNull();
     expect(cameraButton!.y).toBeLessThan(manualField!.y);
-    await expect(cashier.getByLabel("Kartencode manuell eingeben")).toHaveAttribute("placeholder", "sc_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+    await expect(cashier.getByLabel("Kartennummer oder Kartencode")).toHaveAttribute("placeholder", "z. B. 7 oder K-0007");
 
-    await cashier.getByLabel("Kartencode manuell eingeben").fill(scanCode);
+    await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
     await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(cashier.locator(".balance-display strong")).toHaveText(`0 ${unit}`);
     await expect(cashier.locator(".reward-action-list button").first()).toBeDisabled();
@@ -76,7 +76,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await cashier.getByRole("button", { name: "Menge erhöhen" }).click();
     await expect(cashier.locator(".quantity-row output")).toHaveText("3");
     await cashier.getByRole("button", { name: "Andere Karte" }).click();
-    await cashier.getByLabel("Kartencode manuell eingeben").fill(scanCode);
+    await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
     await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(cashier.locator(".quantity-row output")).toHaveText("1");
 

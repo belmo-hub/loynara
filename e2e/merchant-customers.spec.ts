@@ -99,7 +99,10 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
       const page = await ownerBrowser.newPage();
       await page.goto("/merchant/customers");
       await expect(page.getByRole("heading", { name: "Kundenkarten" })).toBeVisible();
-      await page.getByRole("button", { name: new RegExp(membershipId.slice(0, 12)) }).click();
+      // Cards are listed by their short card number, never by name.
+      const { member } = await (await ownerA.context.get(`/api/merchant/customers/${membershipId}`)).json() as { member: { cardNumber: string } };
+      expect(member.cardNumber).toMatch(/^K-\d{4,}$/);
+      await page.getByRole("button", { name: new RegExp(`Karte ${member.cardNumber}`) }).click();
       await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
       await expect(page.getByText("+3 Stempel")).toBeVisible();
       await page.getByRole("link", { name: "CSV-Vorschau" }).click();

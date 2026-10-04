@@ -51,7 +51,7 @@ test("insecure context and absent camera API show a manual path", async ({ page 
   await page.getByRole("button", { name: "Kamera öffnen" }).click();
   await expect(page.locator(".scanner-content p[role=alert]")).toContainText("bietet keine Kamera");
   await page.getByRole("button", { name: "Code manuell eingeben" }).click();
-  await expect(page.getByLabel("Kartencode manuell eingeben")).toBeVisible();
+  await expect(page.getByLabel("Kartennummer oder Kartencode")).toBeVisible();
 });
 
 test("fake camera stream stops on restart and close; no real hardware is used", async ({ baseURL }) => {

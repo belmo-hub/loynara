@@ -26,7 +26,7 @@ test("cashier browser confirms purchase points and selected reward before card r
     try {
       const cashier = await browserContext.newPage();
       await cashier.goto("/cashier");
-      await cashier.getByLabel("Kartencode manuell eingeben").fill(scanCode);
+      await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
       await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
       await expect(cashier.getByRole("heading", { name: "Karte gefunden." })).toBeVisible();
       await expect(cashier.locator(".balance-display strong")).toContainText("0 Punkte");

@@ -78,7 +78,7 @@ test("customer search stays applied when switching between location and tenant s
       const page = await context.newPage();
       await page.goto("/merchant/customers");
       await expect(page.locator(".ow-member")).toHaveCount(2);
-      await page.getByLabel("Karten-ID suchen").fill(wanted.id);
+      await page.getByLabel("Kartennummer suchen").fill(wanted.id);
       await page.getByRole("button", { name: "Suchen", exact: true }).click();
       await expect(page.locator(".ow-member")).toHaveCount(1);
       for (const label of ["Alle Standorte", "Erster Standort"]) {
@@ -86,7 +86,7 @@ test("customer search stays applied when switching between location and tenant s
         await page.waitForLoadState("networkidle");
         await expect(page.locator(".ow-member")).toHaveCount(1);
         await expect(page.locator(".ow-member")).toContainText(wanted.pseudonym);
-        await expect(page.getByLabel("Karten-ID suchen")).toHaveValue(wanted.id);
+        await expect(page.getByLabel("Kartennummer suchen")).toHaveValue(wanted.id);
       }
     } finally { await context.close(); }
   } finally { await f.api.dispose(); }
