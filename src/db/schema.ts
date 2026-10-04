@@ -26,6 +26,8 @@ export const tenants = pgTable("tenants", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   currency: varchar("currency", { length: 3 }).notNull().default("EUR"),
   locale: varchar("locale", { length: 5 }).notNull().default("de"),
+  // Next short card number for this tenant; advanced only by the memberships insert trigger (0019).
+  nextCardNumber: integer("next_card_number").notNull().default(1),
   createdAt: createdAt(),
 });
 
@@ -181,10 +183,15 @@ export const memberships = pgTable("memberships", {
   scanCode: varchar("scan_code", { length: 64 }).notNull().unique(),
   cardToken: varchar("card_token", { length: 100 }).notNull().unique(),
   balance: integer("balance").notNull().default(0),
+  // Short, tenant-scoped, immutable number for manual counter lookup ("K-0007"). Assigned by a database trigger
+  // when the insert leaves it at 0; it is a lookup handle for authenticated staff, never a bearer credential.
+  cardNumber: integer("card_number").notNull().default(0),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [
   unique("memberships_tenant_id_id_uq").on(t.tenantId, t.id),
+  unique("memberships_card_number_uq").on(t.tenantId, t.cardNumber),
+  check("membership_card_number_positive", sql`${t.cardNumber} > 0`),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   check("membership_balance_nonnegative", sql`${t.balance} >= 0`),
 ]);
@@ -229,6 +236,9 @@ export const cardSecurityEvents = pgTable("card_security_events", {
   tenantId: uuid("tenant_id").notNull(),
   membershipId: uuid("membership_id").notNull(),
   action: varchar("action", { length: 32 }).notNull(),
+  // Set for staff-initiated actions (0019); customer self-service rows keep both empty.
+  actorUserId: text("actor_user_id"),
+  reason: varchar("reason", { length: 240 }),
   createdAt: createdAt(),
 }, (t) => [
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),

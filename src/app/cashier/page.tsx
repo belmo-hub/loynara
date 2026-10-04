@@ -10,7 +10,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
-type LookupResult = { membershipId: string; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
+type LookupResult = { membershipId: string; cardNumber: string; matchedBy: "code" | "number"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
 type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
@@ -55,7 +55,7 @@ export default function CashierPage() {
     setBusy(true); setStatus("idle"); setMessage(""); setOfflineLease(null);
     try {
       const result = await apiJson<LookupResult>(`/api/cashier/lookup?code=${encodeURIComponent(code)}`);
-      setCard({ id: result.membershipId, code, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
+      setCard({ id: result.membershipId, code, cardNumber: result.cardNumber, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
       pendingRef.current = null;
       try {
         const deviceId = getOfflineDeviceId(localStorage);
@@ -69,9 +69,12 @@ export default function CashierPage() {
       if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
       setCard(null);
       setStatus(cause instanceof ClientApiError && cause.status === 0 ? "offline" : "rejected");
-      setMessage(cause instanceof Error ? cause.message : "Karte konnte nicht geprüft werden.");
+      const fr = locale === "fr";
+      setMessage(cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code."
+        : cause instanceof ClientApiError && cause.code === "INVALID_CODE" ? fr ? "Saisissez un numéro de carte comme 7 ou K-0007, ou le code complet commençant par sc_." : "Gib eine Kartennummer wie 7 oder K-0007 ein oder den vollständigen Code mit sc_."
+        : cause instanceof Error ? cause.message : fr ? "La carte n’a pas pu être vérifiée." : "Karte konnte nicht geprüft werden.");
     } finally { setBusy(false); }
-  }, []);
+  }, [locale]);
 
   function queueOffline(selectedCard: CashierCard, award: CashierAward) {
     try {

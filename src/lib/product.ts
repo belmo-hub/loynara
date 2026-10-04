@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
+import { formatCardNumber, parseCardNumber } from "./card-number";
 import { draftPriceMinor } from "./pricing";
 import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
@@ -263,20 +264,29 @@ export async function getCard(token: string) {
     .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(10);
-  return { scanCode: row.member.scanCode, balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
+  return { scanCode: row.member.scanCode, cardNumber: formatCardNumber(row.member.cardNumber), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
 }
 
+/**
+ * Finds a card for the counter by its scanned code or, as the manual fallback, by its short card number. A number is
+ * resolved only inside the caller's own tenant, so it never reveals another merchant's card.
+ */
 export async function lookupCard(input: { userId: string; locationId: string; scanCode: string }) {
+  const cardNumber = input.scanCode.startsWith("sc_") ? null : parseCardNumber(input.scanCode);
+  if (!cardNumber && !input.scanCode.startsWith("sc_")) throw new DomainError("INVALID_CODE", "Invalid card code");
+  // The number space is per tenant: resolve it only inside the tenant of the signed-in staff member.
+  const [actor] = cardNumber ? await db.select({ tenantId: staffRoles.tenantId }).from(staffRoles).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.active, true))) : [];
+  if (cardNumber && !actor) throw new DomainError("FORBIDDEN", "No checkout access");
   const [row] = await db.select({ member: memberships, program: programs, tenant: tenants }).from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
-    .where(eq(memberships.scanCode, input.scanCode));
+    .where(cardNumber ? and(eq(memberships.tenantId, actor.tenantId), eq(memberships.cardNumber, cardNumber)) : eq(memberships.scanCode, input.scanCode));
   if (!row || row.member.closedAt || row.program.locationId !== input.locationId || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, row.member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
   if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
   const [rule] = await db.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, row.member.tenantId), eq(programRuleVersions.programId, row.program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
   if (!rule) throw new DomainError("NOT_FOUND", "Programme rule not found");
-  return { membershipId: row.member.id, balance: row.member.balance, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ruleVersionId: rule.id, rewards: await currentRewards(row.member.tenantId, row.program.id) };
+  return { membershipId: row.member.id, cardNumber: formatCardNumber(row.member.cardNumber), matchedBy: cardNumber ? "number" as const : "code" as const, balance: row.member.balance, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ruleVersionId: rule.id, rewards: await currentRewards(row.member.tenantId, row.program.id) };
 }
 
 export async function getPublicProgram(slug: string) {
@@ -311,8 +321,9 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, tenant.id), eq(ledgerEntries.locationId, location.id)));
-  const entries = await db.select({ id: ledgerEntries.id, kind: ledgerEntries.kind, delta: ledgerEntries.delta, createdAt: ledgerEntries.createdAt, membershipId: ledgerEntries.membershipId }).from(ledgerEntries)
+  const entries = await db.select({ id: ledgerEntries.id, kind: ledgerEntries.kind, delta: ledgerEntries.delta, createdAt: ledgerEntries.createdAt, cardNumber: memberships.cardNumber }).from(ledgerEntries)
+    .innerJoin(memberships, and(eq(memberships.id, ledgerEntries.membershipId), eq(memberships.tenantId, ledgerEntries.tenantId)))
     .where(and(eq(ledgerEntries.tenantId, tenant.id), eq(ledgerEntries.locationId, location.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(10);
-  return { ...base, stats: { members: memberCount.count, awards: totals.awards, redemptions: totals.redemptions, periodLabel: "Seit Programmstart" }, activity: entries.map((entry) => ({ id: entry.id, kind: entry.kind === "redeem" ? "redemption" : entry.kind, occurredAt: entry.createdAt.toLocaleString(tenant.locale === "fr" ? "fr-FR" : "de-DE", { timeZone: location.timezone }), amount: Math.abs(entry.delta), unit: program?.type === "points" ? "Punkte" : "Stempel", reference: `Karte ${entry.membershipId.slice(0, 8)}` })) };
+  return { ...base, stats: { members: memberCount.count, awards: totals.awards, redemptions: totals.redemptions, periodLabel: "Seit Programmstart" }, activity: entries.map((entry) => ({ id: entry.id, kind: entry.kind === "redeem" ? "redemption" : entry.kind, occurredAt: entry.createdAt.toLocaleString(tenant.locale === "fr" ? "fr-FR" : "de-DE", { timeZone: location.timezone }), amount: Math.abs(entry.delta), unit: program?.type === "points" ? "Punkte" : "Stempel", reference: `Karte ${formatCardNumber(entry.cardNumber)}` })) };
 }

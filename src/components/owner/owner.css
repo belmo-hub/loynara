@@ -395,3 +395,5 @@
 .ow-swatches + .ow-colorrow { margin-top: var(--ow-s2); }
 @media (max-width: 640px) { .ow-pagehead .ow-btn { min-height: 40px; } }
 @media (max-width: 560px) { .ow-step .ow-btn--ghost { padding-inline: 0; justify-self: start; } }
+.ow-feed-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.ow-feed-reason { display: block; margin-top: 2px; color: var(--ow-muted, #5f6b66); font-size: 12px; }

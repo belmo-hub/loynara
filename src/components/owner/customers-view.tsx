@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { apiJson } from "@/components/client-api";
+import { parseCardNumber } from "@/lib/card-number";
 import type { MerchantMember, MerchantMemberDetail, MerchantMemberList } from "@/lib/merchant-members";
 import { useOwner } from "./owner-context";
+import { CorrectionDialog, correctable, ReissueDialog, sourceLabel } from "./card-actions";
 import { germanDate, Notice, Skeleton } from "./owner-ui";
 
 type Filters = { q: string; status: "all" | "active" | "closed"; activity: "all" | "recorded" | "none" };
@@ -45,6 +47,9 @@ export function CustomersView() {
   const [detailBusy, setDetailBusy] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [olderBusy, setOlderBusy] = useState(false);
+  const [correcting, setCorrecting] = useState<MerchantMemberDetail["timeline"][number] | null>(null);
+  const [reissuing, setReissuing] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
   const token = useRef(0);
   const detailToken = useRef(0);
 
@@ -110,12 +115,17 @@ export function CustomersView() {
   function submit(event: FormEvent) { event.preventDefault(); void run(filters); }
   function pick(patch: Partial<Filters>) { const chosen = { ...filters, ...patch }; setFilters(chosen); void run(chosen); }
 
-  async function open(id: string) {
+  async function open(id: string, keepNotice = false) {
     const mine = ++detailToken.current;
     setSelected(id); setDetail(null); setDetailError(""); setDetailBusy(true);
+    if (!keepNotice) setActionNotice("");
     try {
       const result = await apiJson<MerchantMemberDetail>(`/api/merchant/customers/${encodeURIComponent(id)}`);
-      if (detailToken.current === mine) setDetail(result);
+      if (detailToken.current === mine) {
+        setDetail(result);
+        // Keep the list row in step with the detail after a correction or reissue.
+        setMembers(current => current.map(member => member.id === result.member.id ? result.member : member));
+      }
     } catch (cause) { if (detailToken.current === mine) setDetailError(reason(cause)); }
     finally { if (detailToken.current === mine) setDetailBusy(false); }
   }
@@ -129,16 +139,18 @@ export function CustomersView() {
     finally { setOlderBusy(false); }
   }
 
-  const searchShort = filters.q.trim().length > 0 && filters.q.trim().length < 3;
+  // Corrections and reissues run against the active location (the server checks the same); elsewhere only explain.
+  const canAct = !!detail && detail.member.locationId === me.locationId && !detail.member.closedAt;
+  const searchShort = filters.q.trim().length > 0 && filters.q.trim().length < 3 && parseCardNumber(filters.q) === null;
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Pseudonyme Karten mit bestätigten Kassenvorgängen und aktuellem Stand. Namen und Kontaktdaten zeigt Loynara hier nicht.</p></div>
+        <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Pseudonyme Karten mit Kartennummer, bestätigten Kassenvorgängen und aktuellem Stand. Namen und Kontaktdaten zeigt Loynara hier nicht.</p></div>
         <div className="ow-row">{!(me.hiddenSurfaces ?? []).includes("audiences") && <Link className="ow-btn ow-btn--secondary" href="/merchant/audiences">Zielgruppen</Link>}{me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
       </header>
 
       <form className="ow-card ow-filters" onSubmit={submit} role="search" aria-label="Karten filtern">
-        <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor="cu-q">Karten-ID suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="Erste 3 Zeichen der Karten-ID" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Mindestens 3 Zeichen.</span>}</div>
+        <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor="cu-q">Kartennummer suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="z. B. 7 oder K-0007" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Kartennummer oder mindestens 3 Zeichen der internen ID.</span>}</div>
         <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>
         <div className="ow-field"><span className="ow-label" id="cu-a">Kassenaktivität</span><div className="ow-seg" role="group" aria-labelledby="cu-a">{ACTIVITY.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.activity === value} onClick={() => pick({ activity: value })}>{label}</button>)}</div></div>
         <button type="submit" className="ow-btn ow-btn--primary" disabled={loading}>Suchen</button>
@@ -188,15 +200,21 @@ export function CustomersView() {
                   <dt>Erfolgreich geworben</dt><dd>{detail.member.qualifiedReferrals}</dd>
                   <dt>Prämienstatus</dt><dd>{eligibilityLabel(detail.member.eligibility)}</dd>
                 </dl>
+                {actionNotice && <Notice tone="ok" role="status">{actionNotice}</Notice>}
+                {!detail.member.closedAt && (canAct
+                  ? <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => setReissuing(true)}>Karte neu ausstellen</button><span className="ow-hint">Neuer Link bei verlorenem Kartenlink; Stand bleibt.</span></div>
+                  : <p className="ow-hint">Korrigieren und neu ausstellen ist am Standort {detail.member.locationName} möglich. Wechsle dazu den aktiven Standort.</p>)}
                 {detail.eligibleRewards.length > 0 && <div><h3 style={{ fontSize: 15 }}>Jetzt einlösbar</h3><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{detail.eligibleRewards.map(reward => <li key={reward.id}>{reward.title} · {reward.cost} {unitOf(detail.member)}</li>)}</ul></div>}
                 <div><h3 style={{ fontSize: 15 }}>Vorgänge</h3><p className="ow-hint">Jeder bestätigte Kassenvorgang zählt einmal, unabhängig von der vergebenen Menge. Das ist kein Nachweis eines Besuchs.</p>
-                  {detail.timeline.length === 0 ? <p className="ow-muted">Noch keine Buchungen.</p> : <ol className="ow-feed">{detail.timeline.map(entry => <li key={entry.id}><span><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong><span className="ow-muted ow-num"> · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitOf(detail.member)}</span>{entry.reversed && <small className="ow-muted"> · später korrigiert</small>}</span><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time></li>)}</ol>}
+                  {detail.timeline.length === 0 ? <p className="ow-muted">Noch keine Buchungen.</p> : <ol className="ow-feed">{detail.timeline.map(entry => <li key={entry.id}><span><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong><span className="ow-muted ow-num"> · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitOf(detail.member)}</span>{entry.kind !== "reversal" && <small className="ow-muted"> · {sourceLabel(entry.source)}</small>}{entry.reversed && <small className="ow-muted"> · später korrigiert</small>}{entry.reason && <small className="ow-feed-reason">Grund: {entry.reason}</small>}</span><span className="ow-feed-side"><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time>{canAct && correctable(entry) && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCorrecting(entry)}>Korrigieren</button>}</span></li>)}</ol>}
                   {detail.nextCursor && <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void older()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button>}
                 </div>
               </div>
             ) : null}
         </section>
       </div>
+      {correcting && detail && <CorrectionDialog entry={correcting} unit={unitOf(detail.member)} locationId={me.locationId} onClose={() => setCorrecting(null)} onDone={() => { const id = detail.member.id; setCorrecting(null); setActionNotice("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); void open(id, true); }} />}
+      {reissuing && detail && <ReissueDialog membershipId={detail.member.id} cardNumber={detail.member.cardNumber} onClose={() => { setReissuing(false); void open(detail.member.id, true); }} onDone={() => setActionNotice("Karte neu ausgestellt. Der alte Link ist ungültig.")} />}
     </div>
   );
 }

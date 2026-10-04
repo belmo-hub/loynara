@@ -19,7 +19,9 @@ type BillingProvider = {
 function fixtureOrigin() {
   // Exact URLs reject pg query-string host/user overrides, including ones
   // that would redirect a seemingly local connection to another database.
-  const testDatabase = process.env.NODE_ENV === "test" && process.env.DATABASE_URL === "postgresql://looplocal:looplocal_local_only@localhost:54329/looplocal_test";
+  // TEST_PG_PORT lets an isolated worktree container stand in for the compose database in tests only.
+  const testPort = process.env.TEST_PG_PORT && /^\d{4,5}$/.test(process.env.TEST_PG_PORT) ? process.env.TEST_PG_PORT : "54329";
+  const testDatabase = process.env.NODE_ENV === "test" && process.env.DATABASE_URL === `postgresql://looplocal:looplocal_local_only@localhost:${testPort}/looplocal_test`;
   const localDatabase = process.env.DATABASE_URL === "postgresql://looplocal:looplocal_local_only@localhost:54329/looplocal";
   if (process.env.BILLING_FIXTURE_MODE !== "true" || process.env.NODE_ENV === "production" ||
       !(testDatabase || localDatabase) ||

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { formatCardNumber, parseCardNumber } from "./card-number";
 
 const memberLimit = 25;
 const timelineLimit = 30;
@@ -13,20 +14,20 @@ type ReferralStatus = "none" | "pending" | "qualified" | "review" | "rejected" |
 type MemberRow = {
   id: string; programId: string; programName: string; programType: "stamp" | "points";
   earningMode: "manual" | "purchase"; programStatus: string; programStarted: boolean; locationId: string; locationName: string;
-  balance: number; createdAt: Date; closedAt: Date | null;
+  balance: number; cardNumber: number; createdAt: Date; closedAt: Date | null;
   qualifyingCheckouts: number; firstQualifyingAt: Date | null; lastQualifyingAt: Date | null;
   activityCount: number; redemptionCount: number; purchaseCount: number; emailMarketingEligible: boolean; cursorAt: string;
   referralStatus: ReferralStatus; qualifiedReferrals: number;
 };
 type TimelineRow = {
   id: string; kind: "award" | "redeem" | "reversal"; delta: number; source: string;
-  createdAt: Date; cursorAt: string; reversalOfId: string | null; reversed: boolean; rewardTitle: string | null;
+  createdAt: Date; cursorAt: string; reversalOfId: string | null; reversed: boolean; rewardTitle: string | null; reason: string | null;
 };
 type RewardRow = { id: string; title: string; cost: number };
 
 export type MerchantMember = {
-  id: string; pseudonym: string; programName: string; programType: "stamp" | "points";
-  locationName: string; balance: number; createdAt: string; closedAt: string | null;
+  id: string; pseudonym: string; cardNumber: string; programName: string; programType: "stamp" | "points";
+  locationId: string; locationName: string; balance: number; createdAt: string; closedAt: string | null;
   qualifyingCheckouts: number; firstQualifyingAt: string | null; lastQualifyingAt: string | null;
   activityCount: number; redemptionCount: number; purchaseCount: number | null;
   referralStatus: ReferralStatus; qualifiedReferrals: number;
@@ -37,7 +38,7 @@ export type MerchantMemberList = { members: MerchantMember[]; nextCursor: string
 export type MerchantMemberDetail = {
   member: MerchantMember;
   eligibleRewards: RewardRow[];
-  timeline: Array<{ id: string; kind: TimelineRow["kind"]; delta: number; source: string; createdAt: string; reversalOfId: string | null; reversed: boolean; rewardTitle: string | null }>;
+  timeline: Array<{ id: string; kind: TimelineRow["kind"]; delta: number; source: string; createdAt: string; reversalOfId: string | null; reversed: boolean; rewardTitle: string | null; reason: string | null }>;
   nextCursor: string | null;
 };
 
@@ -71,9 +72,11 @@ function iso(value: Date | null) { return value ? value.toISOString() : null; }
 function memberView(row: MemberRow, eligibility: MerchantMember["eligibility"] = "not_checked"): MerchantMember {
   return {
     id: row.id,
-    pseudonym: `Karte ${row.id.slice(0, 12)}`,
+    pseudonym: `Karte ${formatCardNumber(row.cardNumber)}`,
+    cardNumber: formatCardNumber(row.cardNumber),
     programName: row.programName,
     programType: row.programType,
+    locationId: row.locationId,
     locationName: row.locationName,
     balance: row.balance,
     createdAt: row.createdAt.toISOString(),
@@ -112,7 +115,7 @@ const activitySummary = `
 
 const memberFields = `
   page.id, page."programId", page."programName", page."programType", page."earningMode", page."programStatus", page."programStarted",
-  page."locationId", page."locationName", page.balance, page."createdAt", page."closedAt", page."cursorAt",
+  page."locationId", page."locationName", page.balance, page."cardNumber", page."createdAt", page."closedAt", page."cursorAt",
   summary."qualifyingCheckouts", summary."firstQualifyingAt", summary."lastQualifyingAt", summary."activityCount", summary."redemptionCount", summary."purchaseCount",
   COALESCE((
     SELECT referral.status FROM referrals referral
@@ -138,13 +141,16 @@ export async function listMerchantMembers(actorUserId: string, options: { status
   if (!["all", "active", "closed"].includes(status)) throw new DomainError("INVALID_FILTER", "Invalid card status filter");
   const activity = options.activity ?? "all";
   if (!["all", "recorded", "none"].includes(activity)) throw new DomainError("INVALID_FILTER", "Invalid activity filter");
-  const query = options.query?.trim().toLowerCase() || null;
-  if (query && !/^[0-9a-f-]{3,36}$/.test(query)) throw new DomainError("INVALID_QUERY", "Search with at least three characters from a card ID");
+  const raw = options.query?.trim().toLowerCase() || null;
+  // A card number ("7", "K-0007") matches exactly; otherwise the query is a prefix of the internal card ID.
+  const number = raw ? parseCardNumber(raw) : null;
+  const query = raw && !number ? raw : null;
+  if (query && !/^[0-9a-f-]{3,36}$/.test(query)) throw new DomainError("INVALID_QUERY", "Search with a card number or at least three characters from a card ID");
   const cursor = decodeCursor(options.cursor);
   const limit = options.limit === undefined ? memberLimit : Math.max(1, Math.min(memberLimit, Math.trunc(options.limit)));
   const rows = await pool.query<MemberRow>(`
     WITH page AS (
-      SELECT m.id, m.tenant_id, m.balance, m.created_at AS "createdAt", m.closed_at AS "closedAt",
+      SELECT m.id, m.tenant_id, m.balance, m.card_number AS "cardNumber", m.created_at AS "createdAt", m.closed_at AS "closedAt",
         p.id AS "programId", p.name AS "programName", p.type AS "programType", p.status AS "programStatus",
         p.earning_mode AS "earningMode", (p.effective_at <= now()) AS "programStarted", l.id AS "locationId", l.name AS "locationName",
         to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt"
@@ -154,6 +160,7 @@ export async function listMerchantMembers(actorUserId: string, options: { status
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2)
         AND ($3::text = 'all' OR ($3 = 'active' AND m.closed_at IS NULL) OR ($3 = 'closed' AND m.closed_at IS NOT NULL))
         AND ($4::text IS NULL OR m.id::text LIKE $4)
+        AND ($9::int IS NULL OR m.card_number = $9)
         AND ($5::text = 'all' OR ($5 = 'recorded') = EXISTS (
           SELECT 1 FROM ledger_entries activity WHERE activity.tenant_id = m.tenant_id AND activity.membership_id = m.id
             AND activity.kind = 'award' AND activity.source in ('staff_online','staff_offline')
@@ -164,7 +171,7 @@ export async function listMerchantMembers(actorUserId: string, options: { status
     )
     SELECT ${memberFields} FROM page LEFT JOIN LATERAL (${activitySummary}) summary ON true
     ORDER BY page."createdAt" DESC, page.id DESC
-  `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1]);
+  `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1, number]);
   const hasMore = rows.rows.length > limit;
   const page = rows.rows.slice(0, limit);
   return { members: page.map(row => memberView(row)), nextCursor: hasMore ? encodeCursor(page.at(-1)!) : null };
@@ -177,7 +184,7 @@ export async function getMerchantMember(actorUserId: string, membershipId: strin
   const limit = options.limit === undefined ? timelineLimit : Math.max(1, Math.min(timelineLimit, Math.trunc(options.limit)));
   const selected = await pool.query<MemberRow>(`
     WITH page AS (
-      SELECT m.id, m.tenant_id, m.balance, m.created_at AS "createdAt", m.closed_at AS "closedAt",
+      SELECT m.id, m.tenant_id, m.balance, m.card_number AS "cardNumber", m.created_at AS "createdAt", m.closed_at AS "closedAt",
         p.id AS "programId", p.name AS "programName", p.type AS "programType", p.status AS "programStatus",
         p.earning_mode AS "earningMode", (p.effective_at <= now()) AS "programStarted", l.id AS "locationId", l.name AS "locationName",
         to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt"
@@ -194,7 +201,7 @@ export async function getMerchantMember(actorUserId: string, membershipId: strin
   const entries = await pool.query<TimelineRow>(`
     SELECT e.id, e.kind, e.delta, e.source, e.created_at AS "createdAt",
       to_char(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt", e.reversal_of_id AS "reversalOfId",
-      r.reward_title AS "rewardTitle", EXISTS (
+      r.reward_title AS "rewardTitle", CASE WHEN e.kind = 'reversal' THEN e.reason END AS reason, EXISTS (
         SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id
       ) AS reversed
     FROM ledger_entries e
@@ -226,7 +233,7 @@ export async function getMerchantMember(actorUserId: string, membershipId: strin
   return {
     member: memberView(row, eligibility),
     eligibleRewards,
-    timeline: timelinePage.map(entry => ({ id: entry.id, kind: entry.kind, delta: entry.delta, source: entry.source, createdAt: entry.createdAt.toISOString(), reversalOfId: entry.reversalOfId, reversed: entry.reversed, rewardTitle: entry.rewardTitle })),
+    timeline: timelinePage.map(entry => ({ id: entry.id, kind: entry.kind, delta: entry.delta, source: entry.source, createdAt: entry.createdAt.toISOString(), reversalOfId: entry.reversalOfId, reversed: entry.reversed, rewardTitle: entry.rewardTitle, reason: entry.reason })),
     nextCursor: hasMore ? encodeCursor(timelinePage.at(-1)!) : null,
   };
 }
