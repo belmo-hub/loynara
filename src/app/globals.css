@@ -290,9 +290,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   .customer-wallet { padding-top: 18px; }
 }
 .customer-card-number { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 12px 0 2px; }
-.customer-card-number span { color: #6f8173; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.customer-card-number strong { font-size: 22px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-.customer-card-number small { color: #7d8d80; font-size: 11px; }
+.customer-card-number span { color: #4f6355; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.customer-card-number strong { color: #1d3a2a; font-size: 22px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.customer-card-number small { color: #56685a; font-size: 11px; }
 .cashier-number-note { margin: 14px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; line-height: 1.45; }
 .invite-page { grid-template-columns: minmax(0, 1fr); justify-items: center; }
 .invite-card { min-width: 0; }
