@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { MeResponse } from "@/components/client-api";
+import type { LaunchReadiness } from "@/lib/readiness";
 import { BrowserCardPreview } from "./card-preview";
 import { JoinCard } from "./join-card";
+import { ReadinessCard } from "./readiness-card";
 import { useOwner } from "./owner-context";
-import { germanDate, nf, Notice, OwnerIcon, Skeleton } from "./owner-ui";
+import { germanDate, nf, Notice, Skeleton } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 type Analytics = { currentActiveCards: number; newCards: number; qualifyingCheckouts: number; participatingCards: number; repeatCards: number; rewards: { redemptions: number }; asOf: string; countingRule: string };
@@ -26,38 +28,16 @@ export function Overview() {
 
 function NewBusiness({ me }: { me: MeResponse }) {
   const isOwner = me.role === "owner";
-  const [brand, reloadBrand] = useLoad<Brand>(isOwner ? `/api/merchant/program/brand?programSlug=${encodeURIComponent(me.programSlug)}` : null);
-  const unit = unitOf(me);
-  const hasStamp = (me.stats?.awards ?? 0) > 0;
-  const logoState: boolean | null = brand.state === "ok" ? Boolean(brand.data.logoData) : null;
-  const steps = [
-    { id: "rule", title: "Sammelregel festlegen", done: true as boolean | null, note: me.programType === "stamp" ? "Stempelkarte: Dein Team bestätigt jeden Stempel an der Kasse." : "Punktekarte: Dein Team bestätigt jede Gutschrift an der Kasse.", href: "/merchant/program", cta: "Regel ansehen" },
-    { id: "reward", title: "Erste Prämie erstellen", done: me.rewardTitle ? true : false, note: me.rewardTitle ? `${me.rewardCost} ${unit} → ${me.rewardTitle}` : "Lege fest, wofür Kunden sammeln.", href: "/merchant/program", cta: "Prämie bearbeiten" },
-    { id: "card", title: "Kundenkarte gestalten", done: logoState, note: logoState === null ? (isOwner ? "Status wird geprüft …" : "Nur Inhaber:innen sehen diesen Status.") : logoState ? "Logo und Farbe sind hinterlegt." : "Farbe und Logo deiner Karte festlegen.", href: "/merchant/program/card", cta: "Karte gestalten" },
-    { id: "test", title: "Ablauf testen", done: hasStamp, note: hasStamp ? "Die erste Gutschrift wurde an der Kasse bestätigt." : "Melde dich mit dem Anmeldelink selbst an und bestätige an der Kasse einen ersten Stempel.", href: "/cashier", cta: "Kasse öffnen" },
-  ].filter(step => !(step.id === "card" && (me.hiddenSurfaces ?? []).includes("cardLogo")));
-  const doneCount = steps.filter(step => step.done === true).length;
-  const next = steps.find(step => step.done !== true);
+  const [brand] = useLoad<Brand>(isOwner ? `/api/merchant/program/brand?programSlug=${encodeURIComponent(me.programSlug)}` : null);
+  const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">{me.locationName}</p><h1>Dein Treueprogramm einrichten</h1><p>{steps.length === 4 ? "Vier" : "Drei"} Schritte bis zur ersten bestätigten Gutschrift. Alles lässt sich später ändern.</p></div>
+        <div><p className="ow-eyebrow">{me.locationName}</p><h1>Dein Treueprogramm einrichten</h1><p>Jeder Schritt zeigt, was bereits gespeichert oder an der Kasse belegt ist. Alles lässt sich später ändern.</p></div>
       </header>
       <div className="ow-two">
         <div className="ow-stack">
-          <section className="ow-card" aria-labelledby="ow-check-title">
-            <div className="ow-card-head"><div><h2 id="ow-check-title">Einrichtung</h2><p>{doneCount} von {steps.length} Schritten erledigt</p></div></div>
-            <ol className="ow-steps">
-              {steps.map((step, index) => (
-                <li key={step.id} className="ow-step" data-done={step.done === true} data-next={next?.id === step.id}>
-                  <span className="ow-step-mark" aria-hidden="true">{step.done === true ? <OwnerIcon name="check" size={16} /> : index + 1}</span>
-                  <div><div className="ow-step-title">{step.title}<span className="ow-sr">{step.done === true ? " – erledigt" : step.done === null ? " – Status nicht verfügbar" : " – offen"}</span></div><div className="ow-step-note">{step.note}</div></div>
-                  <Link className={`ow-btn ow-btn--sm ${next?.id === step.id ? "ow-btn--primary" : "ow-btn--ghost"}`} href={step.href}>{step.cta}</Link>
-                </li>
-              ))}
-            </ol>
-            {brand.state === "error" && <div style={{ marginTop: 12 }}><Notice tone="warn" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadBrand}>Erneut laden</button>}>Der Status der Kundenkarte konnte nicht geladen werden.</Notice></div>}
-          </section>
+          <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} />
         </div>
         <aside className="ow-stack" aria-label="Vorschau und Einladung">
           <section className="ow-card ow-stack" aria-labelledby="ow-prev-title">
@@ -84,13 +64,14 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const showNext = !(me.hiddenSurfaces ?? []).some(surface => surface === "campaigns" || surface === "audiences");
   const [inactive, reloadInactive] = useLoad<AudienceCount>(showNext ? `/api/merchant/audiences/preview?programSlug=${slug}&kind=inactive&daysSinceLast=30` : null);
   const [close, reloadClose] = useLoad<AudienceCount>(showNext ? `/api/merchant/audiences/preview?programSlug=${slug}&kind=close_to_reward&maxRemaining=2` : null);
+  const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
   const [refreshing, setRefreshing] = useState(false);
   const unit = unitOf(me);
 
   async function refreshAll() {
     setRefreshing(true);
     await owner.refresh();
-    reloadAnalytics(); reloadInactive(); reloadClose();
+    reloadAnalytics(); reloadInactive(); reloadClose(); reloadReadiness();
     setRefreshing(false);
     owner.announce("Übersicht aktualisiert.");
   }
@@ -117,6 +98,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
       <div className="ow-two">
         <div className="ow-stack">
+          <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} compact />
           {showNext && <NextActions me={me} inactive={inactive} close={close} reloadInactive={reloadInactive} reloadClose={reloadClose} unit={unit} />}
           <RecentActivity me={me} />
         </div>
