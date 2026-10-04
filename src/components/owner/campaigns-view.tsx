@@ -230,7 +230,7 @@ export function CampaignsView() {
             </ul>
           </div>
           {builder.savedId && (
-            <div className="ow-field"><label htmlFor="c-when">Termin für den Versand</label><input id="c-when" className="ow-input" style={{ maxWidth: 260 }} type="datetime-local" value={when[builder.savedId] ?? ""} onChange={event => setWhen(current => ({ ...current, [builder.savedId!]: event.target.value }))} aria-describedby="c-when-hint" /><span id="c-when-hint" className="ow-hint">Der Termin gilt in deiner Browser-Zeitzone{browserZone ? ` (${browserZone})` : ""}{timezone && browserZone && timezone !== browserZone ? `. Der Standort nutzt ${timezone}, bitte achte auf den Unterschied.` : "."} Es wird nichts gesendet, bevor du hier plan­st.</span></div>
+            <div className="ow-field"><label htmlFor="c-when">Termin für den Versand</label><input id="c-when" className="ow-input" style={{ maxWidth: 260 }} type="datetime-local" value={when[builder.savedId] ?? ""} onChange={event => setWhen(current => ({ ...current, [builder.savedId!]: event.target.value }))} aria-describedby="c-when-hint" /><span id="c-when-hint" className="ow-hint">Der Termin gilt in deiner Browser-Zeitzone{browserZone ? ` (${browserZone})` : ""}{timezone && browserZone && timezone !== browserZone ? `. Der Standort nutzt ${timezone}, bitte achte auf den Unterschied.` : "."} Es wird nichts gesendet, bevor du hier plan­st. Zwischen 21 und 9 Uhr Ortszeit des Standorts wartet jede Nachricht bis 9 Uhr.</span></div>
           )}
         </>}
         <div className="ow-row" style={{ justifyContent: "space-between" }}>

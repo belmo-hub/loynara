@@ -53,6 +53,14 @@ async function mark(job: Job, status: "complete" | "blocked" | "retry" | "failed
   );
 }
 
+/** A quiet-hours deferral is not a failed attempt: give the attempt back and wake the job at the allowed time. */
+async function defer(job: Job, reason: string, until: Date) {
+  await pool.query(
+    "UPDATE outbox_jobs SET status = 'retry', attempts = attempts - 1, last_error = $2, next_attempt_at = $3 WHERE id = $1 AND status = 'processing' AND attempts = $4",
+    [job.id, reason.slice(0, 300), until, job.attempts],
+  );
+}
+
 async function processJob(job: Job) {
   if (job.kind === "email.verify") {
     try {
@@ -108,6 +116,7 @@ async function processJob(job: Job) {
     try {
       const { deliverCampaignRecipient } = await import("../src/lib/campaigns");
       const result = await deliverCampaignRecipient(job);
+      if (result.status === "deferred") { await defer(job, result.reason, result.until); return "retry"; }
       const delay = result.status === "retry" ? Math.min(3600, 10 * 2 ** (job.attempts - 1)) : 0;
       await mark(job, result.status, result.reason, delay);
       return result.status;
@@ -125,6 +134,7 @@ async function processJob(job: Job) {
       const result = job.kind === "automation.event" ? await processAutomationEvent(job)
         : job.kind === "automation.scan" ? await processAutomationScan(job)
           : await deliverAutomationRun(job);
+      if (result.status === "deferred") { await defer(job, result.reason, result.until); return "retry"; }
       const delay = result.status === "retry" ? Math.min(3600, 10 * 2 ** (job.attempts - 1)) : 0;
       await mark(job, result.status, result.reason, delay);
       return result.status;

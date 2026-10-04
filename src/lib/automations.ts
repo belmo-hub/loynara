@@ -7,12 +7,13 @@ import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, monthlyLocationUsage, promotionalLimits } from "./promotion-policy";
+import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
 type DeliveryJob = Job & { attempts: number };
 type Outcome = { status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string; queuedCount?: number };
+type DeliveryOutcome = Outcome | { status: "deferred"; reason: string; until: Date };
 type Rule = typeof automationRules.$inferSelect;
 const DAY = 86_400_000;
 const MAX_ATTEMPTS = 5;
@@ -201,11 +202,11 @@ export async function processAutomationScan(job: Job, now?: Date): Promise<Outco
   });
 }
 
-export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender = sendLocalMailpit, now?: Date, provider: TransactionalEmailProvider | null = promotionalProvider()): Promise<Outcome> {
+export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender = sendLocalMailpit, now?: Date, provider: TransactionalEmailProvider | null = promotionalProvider()): Promise<DeliveryOutcome> {
   now ??= await databaseAudienceNow();
   const payload = deliveryPayload.safeParse(job.payload);
   if (!payload.success || !Number.isInteger(job.attempts) || job.attempts < 1) return { status: "blocked", reason: "Invalid automation delivery payload" };
-  return db.transaction(async tx => {
+  return db.transaction(async (tx): Promise<DeliveryOutcome> => {
     const [rule] = await tx.select().from(automationRules).where(and(eq(automationRules.id, payload.data.ruleId), eq(automationRules.tenantId, job.tenantId))).for("update").limit(1);
     if (!rule) return { status: "suppressed", reason: "Rule unavailable" };
     const runWhere = and(eq(automationRuns.id, payload.data.runId), eq(automationRuns.tenantId, job.tenantId), eq(automationRuns.ruleId, rule.id), eq(automationRuns.membershipId, payload.data.membershipId));
@@ -233,6 +234,10 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
     } else if (!await inactiveNow(tx, rule, run.membershipId, now)) return suppress("Member no longer inactive");
     const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, rule.tenantId)).limit(1);
     if (!tenant) return suppress("Merchant unavailable");
+    const timezone = await programTimezone(tx, rule.tenantId, rule.programId);
+    if (!timezone) return suppress("Location unavailable");
+    const until = quietHoursDeferral(now, timezone);
+    if (until) return { status: "deferred", reason: "Quiet hours in the location's timezone", until };
     const link = unsubscribeUrl({ tenantId: rule.tenantId, membershipId: run.membershipId, email: contact.email });
     const message = { to: contact.email, subject: rule.subject, body: `${rule.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
     try {

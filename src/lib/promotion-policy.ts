@@ -36,3 +36,44 @@ export async function monthlyLocationUsage(query: Query, tenantId: string, locat
   `);
   return Number(result.rows[0]?.count ?? 0);
 }
+
+/**
+ * Quiet hours for every promotional send (campaigns and automations): nothing goes out between 21:00 and 09:00 in
+ * the location's own timezone. A send that falls inside the window is deferred to the next 09:00 local time, never
+ * dropped; eligibility (consent, opt-out, card state, frequency) is checked again when it runs.
+ */
+export const QUIET_HOURS = { startHour: 21, endHour: 9 } as const;
+
+function localParts(date: Date, timeZone: string) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(date).filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)]));
+  return { year: parts.year, month: parts.month, day: parts.day, hour: parts.hour, minute: parts.minute, second: parts.second };
+}
+
+function zonedTimeToUtc(year: number, month: number, day: number, hour: number, timeZone: string) {
+  const wall = Date.UTC(year, month - 1, day, hour);
+  let guess = wall;
+  // Two passes settle the offset on either side of a DST change.
+  for (let pass = 0; pass < 2; pass++) {
+    const p = localParts(new Date(guess), timeZone);
+    guess = wall - (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(guess / 1000) * 1000);
+  }
+  return new Date(guess);
+}
+
+/** Returns when a send may happen if `now` is inside quiet hours for `timeZone`, otherwise null. */
+export function quietHoursDeferral(now: Date, timeZone: string, window: { startHour: number; endHour: number } = QUIET_HOURS): Date | null {
+  const local = localParts(now, timeZone);
+  if (local.hour < window.startHour && local.hour >= window.endHour) return null;
+  const day = local.hour >= window.startHour ? new Date(Date.UTC(local.year, local.month - 1, local.day + 1)) : new Date(Date.UTC(local.year, local.month - 1, local.day));
+  return zonedTimeToUtc(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), window.endHour, timeZone);
+}
+
+/** Location timezone for a programme; promotional sends are always scheduled in the merchant's local time. */
+export async function programTimezone(query: Query, tenantId: string, programId: string) {
+  const result = await query.execute(sql`
+    SELECT l.timezone FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id
+    WHERE p.tenant_id = ${tenantId}::uuid AND p.id = ${programId}::uuid
+  `);
+  return (result.rows[0] as { timezone?: string } | undefined)?.timezone ?? null;
+}

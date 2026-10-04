@@ -39,7 +39,7 @@ export default function AutomationsPage() {
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
-          <p>Höchstens 20 Nachrichten pro Regel und UTC-Tag. Mindestens sieben Tage Abstand zwischen Automationsnachrichten je Karte. Zusätzlich gelten das konfigurierte Standortlimit und ein Kontaktabstand für alle Angebote.</p>
+          <p>Höchstens 20 Nachrichten pro Regel und UTC-Tag. Mindestens sieben Tage Abstand zwischen Automationsnachrichten je Karte. Zusätzlich gelten das konfigurierte Standortlimit und ein Kontaktabstand für alle Angebote. Ruhezeit: zwischen 21 und 9 Uhr Ortszeit des Standorts wird nichts versendet; fällige Nachrichten warten bis 9 Uhr und werden dann erneut geprüft.</p>
           <p className="ow-muted">Der Kassenabschluss verschickt nie selbst eine Nachricht. Kanal: {d.deliveryMode === "mailgun_eu" ? "Mailgun EU freigeschaltet" : d.deliveryMode === "mailpit" ? "nur lokaler Mailpit-Test" : "promotionaler Versand deaktiviert"}.</p>
         </aside>
       </div>

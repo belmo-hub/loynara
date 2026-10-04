@@ -11,6 +11,9 @@ import { createMerchant, enroll } from "./product";
 import { deliverAutomationRun, listAutomations, processAutomationEvent, processAutomationScan, upsertAutomationRule } from "./automations";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Automation tests require looplocal_test");
+// Delivery here runs on the wall clock; quiet hours have their own deterministic tests (quiet-hours*.test.ts).
+vi.mock("./promotion-policy", async importOriginal => ({ ...(await importOriginal<typeof import("./promotion-policy")>()), quietHoursDeferral: () => null }));
+
 const run = promisify(execFile);
 
 beforeEach(async () => {

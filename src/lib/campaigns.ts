@@ -7,7 +7,7 @@ import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, monthlyLocationUsage, promotionalLimits } from "./promotion-policy";
+import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 const DAILY_QUOTA = 100;
 const MAX_AUDIENCE = 500;
@@ -246,7 +246,7 @@ async function finishCampaignIfDone(tx: Transaction, campaignId: string, tenantI
   await tx.update(campaigns).set({ status: failed.count ? "blocked" : "complete", updatedAt: new Date() }).where(and(eq(campaigns.id, campaignId), eq(campaigns.status, "dispatching")));
 }
 
-export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSender = sendLocalMailpit, provider: TransactionalEmailProvider | null = promotionalProvider()): Promise<{ status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string }> {
+export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSender = sendLocalMailpit, provider: TransactionalEmailProvider | null = promotionalProvider(), now: Date = new Date()): Promise<{ status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string } | { status: "deferred"; reason: string; until: Date }> {
   const parsed = z.object({ campaignId: z.uuid(), recipientId: z.uuid(), membershipId: z.uuid() }).strict().safeParse(job.payload);
   if (!parsed.success || !Number.isInteger(job.attempts) || job.attempts < 1) return { status: "blocked", reason: "Invalid campaign recipient payload" };
   return db.transaction(async tx => {
@@ -280,6 +280,10 @@ export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSend
     if (!classified.eligible.length) return suppress(classified.excluded.unsubscribed ? "Unsubscribed" : classified.excluded.suppressed ? "Address suppressed by provider" : classified.excluded.frequency ? "Customer frequency limit" : classified.excluded.noConsent ? "Marketing consent withdrawn" : classified.excluded.nonSynthetic ? "Recipient is not synthetic" : "Contact unavailable or unverified");
     const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, campaign.tenantId)).limit(1);
     if (!tenant) return suppress("Merchant unavailable");
+    const timezone = await programTimezone(tx, campaign.tenantId, campaign.programId);
+    if (!timezone) return suppress("Location unavailable");
+    const until = quietHoursDeferral(now, timezone);
+    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
     const link = unsubscribeUrl({ tenantId: campaign.tenantId, membershipId: member.id, email: classified.eligible[0].email });
     const message = { to: classified.eligible[0].email, subject: campaign.subject, body: `${campaign.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
     try {
