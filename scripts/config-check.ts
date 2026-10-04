@@ -36,6 +36,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     issues.push("Production auth secret is missing, short, or a placeholder");
   }
   if (env.PUBLIC_REGISTRATION_ENABLED === "true") issues.push("Public registration is not approved for production");
+  if (env.STAFF_INVITE_SIGNUP_ENABLED === "true") issues.push("Invite-gated staff sign-up is not approved for production");
   const poolMax = Number(env.PG_POOL_MAX);
   if (!Number.isSafeInteger(poolMax) || poolMax < 1 || poolMax > 10) issues.push("Production PostgreSQL pool limit must be an integer from 1 to 10 per pool");
   if (env.SMTP_HOST !== "disabled") issues.push("Local Mailpit/SMTP transport must be disabled in production");

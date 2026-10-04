@@ -25,6 +25,11 @@ describe("production configuration gate", () => {
     expect(productionConfigIssues(safe)).toEqual([]);
   });
 
+  it("refuses invite-gated staff sign-up until it is approved for production", () => {
+    expect(productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: "true" })).toEqual(expect.arrayContaining([expect.stringMatching(/invite-gated/i)]));
+    expect(productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: "false" })).toEqual([]);
+  });
+
   it("refuses preview, mismatched, or token-bearing public origins", () => {
     expect(productionConfigIssues({ ...safe, BETTER_AUTH_URL: "https://preview.getloynara.com" })).toEqual(expect.arrayContaining([expect.stringMatching(/origin/i)]));
     expect(productionConfigIssues({ ...safe, PUBLIC_BASE_URL: "https://app.getloynara.com/card/private" })).toEqual(expect.arrayContaining([expect.stringMatching(/origin/i)]));

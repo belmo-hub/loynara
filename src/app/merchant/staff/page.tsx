@@ -15,7 +15,7 @@ const ROLE_LABEL = { owner: "Inhaber:in", manager: "Leitung", cashier: "Kasse" }
 export default function StaffPage() {
   const { me } = useOwner();
   const owner = me?.role === "owner";
-  const [staff, reloadStaff] = useLoad<{ staff: StaffMember[] }>(owner ? "/api/staff" : null);
+  const [staff, reloadStaff] = useLoad<{ staff: StaffMember[]; accountCreation?: "public" | "invite" | "operator" }>(owner ? "/api/staff" : null);
   const [audit, reloadAudit] = useLoad<{ events: AuditEvent[] }>(owner ? "/api/staff/audit" : null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"manager" | "cashier">("cashier");
@@ -75,6 +75,7 @@ export default function StaffPage() {
           {invite && (
             <div className="ow-readonly ow-stack" role="status"><strong>Einladung für {invite.email}</strong>
               <p>Dieser Link gilt bis {new Date(invite.expiresAt).toLocaleDateString("de-DE")}. Teile ihn nur mit der eingeladenen Person.</p>
+              {staff.state === "ok" && <p className="ow-hint">{staff.data.accountCreation === "operator" ? "Konten werden derzeit vom Loynara-Betreiber angelegt. Die Person nimmt die Einladung an, sobald ihr Konto für genau diese Adresse besteht." : staff.data.accountCreation === "invite" ? "Die Person legt über den Link ihr eigenes Konto für genau diese Adresse an und ist danach sofort an der Kasse." : "Die Person kann über den Link ein Konto erstellen und die Einladung annehmen."}</p>}
               <code style={{ overflowWrap: "anywhere", fontSize: 13 }}>{inviteUrl}</code>
               <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void copy()}>Link kopieren</button></div></div>
           )}

@@ -294,3 +294,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .customer-card-number strong { font-size: 22px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
 .customer-card-number small { color: #7d8d80; font-size: 11px; }
 .cashier-number-note { margin: 14px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; line-height: 1.45; }
+.invite-page { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.invite-card { min-width: 0; }
+.invite-card .auth-form { margin-top: 16px; }
+.invite-card .auth-form input { width: 100%; min-width: 0; }
+@media (max-width: 420px) { .invite-card { padding: 22px; } .invite-card h1 { font-size: 30px; } }

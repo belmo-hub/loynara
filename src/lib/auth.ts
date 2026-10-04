@@ -18,6 +18,10 @@ export const auth = betterAuth({
         context.path === "/sign-up/email" &&
         process.env.PUBLIC_REGISTRATION_ENABLED !== "true"
       ) {
+        // Loaded lazily so operator scripts that import this module do not open the application pool.
+        const { inviteAllowsSignUp, inviteSignUpEnabled } = await import("./invite-signup");
+        const body = context.body as { email?: unknown } | undefined;
+        if (inviteSignUpEnabled() && await inviteAllowsSignUp(context.headers?.get("x-loynara-invite"), body?.email)) return;
         throw new APIError("FORBIDDEN", { message: "Registration is not enabled" });
       }
     }),

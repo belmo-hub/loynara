@@ -7,6 +7,7 @@ import { DomainError } from "./loyalty";
 
 const inviteInput = z.object({ actorUserId: z.string().min(1), locationId: z.uuid(), email: z.email(), role: z.enum(["manager", "cashier"]) });
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
+export const inviteTokenHash = hash;
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
