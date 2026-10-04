@@ -1,15 +1,10 @@
 import "dotenv/config";
 import { pool } from "../src/db";
+import { claimOutboxJob, deferOutboxJob, markOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { productionConfigIssues } from "./config-check";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 
-type Job = {
-  id: string;
-  tenantId: string;
-  kind: string;
-  payload: Record<string, unknown>;
-  attempts: number;
-};
+type Job = OutboxJob;
 
 const leaseMinutes = 5;
 const maxAttempts = 5;
@@ -22,44 +17,9 @@ let heartbeatSentAt = 0;
 process.on("SIGINT", () => { stopping = true; });
 process.on("SIGTERM", () => { stopping = true; });
 
-async function claimJob(): Promise<Job | null> {
-  await pool.query(
-    "UPDATE outbox_jobs SET status = 'failed', last_error = 'Worker lease expired after retry limit' WHERE status = 'processing' AND next_attempt_at <= now() AND attempts >= $1",
-    [maxAttempts],
-  );
-  const result = await pool.query<Job>(`
-    WITH candidate AS (
-      SELECT id FROM outbox_jobs
-      WHERE next_attempt_at <= now() AND attempts < ${maxAttempts}
-        AND (status IN ('pending', 'retry') OR status = 'processing')
-      ORDER BY created_at, id
-      FOR UPDATE SKIP LOCKED
-      LIMIT 1
-    )
-    UPDATE outbox_jobs AS job
-    SET status = 'processing', attempts = job.attempts + 1,
-        next_attempt_at = now() + interval '${leaseMinutes} minutes', last_error = NULL
-    FROM candidate
-    WHERE job.id = candidate.id
-    RETURNING job.id, job.tenant_id AS "tenantId", job.kind, job.payload, job.attempts
-  `);
-  return result.rows[0] ?? null;
-}
-
-async function mark(job: Job, status: "complete" | "blocked" | "retry" | "failed" | "suppressed", reason?: string, delaySeconds = 0) {
-  await pool.query(
-    "UPDATE outbox_jobs SET status = $2, last_error = $3, next_attempt_at = now() + $4::int * interval '1 second' WHERE id = $1 AND status = 'processing' AND attempts = $5",
-    [job.id, status, reason?.slice(0, 300) ?? null, delaySeconds, job.attempts],
-  );
-}
-
-/** A quiet-hours deferral is not a failed attempt: give the attempt back and wake the job at the allowed time. */
-async function defer(job: Job, reason: string, until: Date) {
-  await pool.query(
-    "UPDATE outbox_jobs SET status = 'retry', attempts = attempts - 1, last_error = $2, next_attempt_at = $3 WHERE id = $1 AND status = 'processing' AND attempts = $4",
-    [job.id, reason.slice(0, 300), until, job.attempts],
-  );
-}
+const claimJob = () => claimOutboxJob(pool, { maxAttempts, leaseMinutes });
+const mark = (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => markOutboxJob(pool, job, status, reason, delaySeconds);
+const defer = (job: Job, reason: string, until: Date) => deferOutboxJob(pool, job, reason, until);
 
 async function processJob(job: Job) {
   if (job.kind === "email.verify") {

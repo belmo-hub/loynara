@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { apiJson } from "@/components/client-api";
-import { parseCardNumber } from "@/lib/card-number";
+import { parseCardLocator } from "@/lib/card-locator";
 import type { MerchantMember, MerchantMemberDetail, MerchantMemberList } from "@/lib/merchant-members";
 import { useOwner } from "./owner-context";
 import { CorrectionDialog, correctable, ReissueDialog, sourceLabel } from "./card-actions";
@@ -141,7 +141,7 @@ export function CustomersView() {
 
   // Corrections and reissues run against the active location (the server checks the same); elsewhere only explain.
   const canAct = !!detail && detail.member.locationId === me.locationId && !detail.member.closedAt;
-  const searchShort = filters.q.trim().length > 0 && filters.q.trim().length < 3 && parseCardNumber(filters.q) === null;
+  const searchShort = filters.q.trim().length > 0 && filters.q.trim().length < 3 && parseCardLocator(filters.q) === null;
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
@@ -150,7 +150,7 @@ export function CustomersView() {
       </header>
 
       <form className="ow-card ow-filters" onSubmit={submit} role="search" aria-label="Karten filtern">
-        <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor="cu-q">Kartennummer suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="z. B. 7 oder K-0007" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Kartennummer oder mindestens 3 Zeichen der internen ID.</span>}</div>
+        <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor="cu-q">Kartennummer suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="z. B. K-7QX2MA" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Vollständige Kartennummer oder mindestens 3 Zeichen der internen ID.</span>}</div>
         <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>
         <div className="ow-field"><span className="ow-label" id="cu-a">Kassenaktivität</span><div className="ow-seg" role="group" aria-labelledby="cu-a">{ACTIVITY.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.activity === value} onClick={() => pick({ activity: value })}>{label}</button>)}</div></div>
         <button type="submit" className="ow-btn ow-btn--primary" disabled={loading}>Suchen</button>
@@ -214,7 +214,7 @@ export function CustomersView() {
         </section>
       </div>
       {correcting && detail && <CorrectionDialog entry={correcting} unit={unitOf(detail.member)} locationId={me.locationId} onClose={() => setCorrecting(null)} onDone={() => { const id = detail.member.id; setCorrecting(null); setActionNotice("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); void open(id, true); }} />}
-      {reissuing && detail && <ReissueDialog membershipId={detail.member.id} cardNumber={detail.member.cardNumber} onClose={() => { setReissuing(false); void open(detail.member.id, true); }} onDone={() => setActionNotice("Karte neu ausgestellt. Der alte Link ist ungültig.")} />}
+      {reissuing && detail && <ReissueDialog membershipId={detail.member.id} cardLocator={detail.member.cardLocator} onClose={() => { setReissuing(false); void open(detail.member.id, true); }} onDone={() => setActionNotice("Karte neu ausgestellt. Der alte Link ist ungültig.")} />}
     </div>
   );
 }

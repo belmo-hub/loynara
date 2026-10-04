@@ -72,12 +72,17 @@ export function appleSigningConfig(env: Record<string, string | undefined> = pro
   };
 }
 
-export function applePassToken(membershipId: string, config: ApplePassConfig): string {
-  return createHmac("sha256", config.authSecret).update(`${config.passTypeId}:${membershipId}`).digest("base64url");
+/**
+ * The pass web-service token is bound to the card's CURRENT scan code. A staff reissue rotates the scan code, so a pass
+ * installed before the reissue (for example on a lost phone) stops authenticating and cannot fetch the updated pass,
+ * which would carry the new QR code.
+ */
+export function applePassToken(membershipId: string, scanCode: string, config: ApplePassConfig): string {
+  return createHmac("sha256", config.authSecret).update(`${config.passTypeId}:${membershipId}:${scanCode}`).digest("base64url");
 }
 
-export function validApplePassToken(membershipId: string, token: string, config: ApplePassConfig): boolean {
-  const expected = Buffer.from(applePassToken(membershipId, config));
+export function validApplePassToken(membershipId: string, scanCode: string, token: string, config: ApplePassConfig): boolean {
+  const expected = Buffer.from(applePassToken(membershipId, scanCode, config));
   const supplied = Buffer.from(token);
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
@@ -97,7 +102,7 @@ export function applePassJson(pass: WalletPassData, config: ApplePassConfig) {
     backgroundColor: hexToRgb(pass.brandColor),
     labelColor: "rgb(230, 240, 237)",
     webServiceURL: config.webServiceUrl,
-    authenticationToken: applePassToken(pass.membershipId, config),
+    authenticationToken: applePassToken(pass.membershipId, pass.scanCode, config),
     barcodes: [{ format: "PKBarcodeFormatQR", message: pass.scanCode, messageEncoding: "iso-8859-1" }],
     storeCard: {
       primaryFields: [{ key: "balance", label: unit.toUpperCase(), value: pass.balance }],

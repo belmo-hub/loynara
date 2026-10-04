@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { billingInvoices, billingLocationPlans, cardSecurityEvents, consentEvents, ledgerEntries, locations, memberships, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
-import { formatCardNumber } from "./card-number";
+import { formatCardLocator } from "./card-locator";
 
 const MAX_ROWS = 50_000;
 function checked<T>(rows: T[], label: string) {
@@ -22,7 +22,7 @@ export async function getMerchantExport(actorUserId: string) {
     db.select().from(programs).where(eq(programs.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(rewards).where(eq(rewards.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(rewardVersions).where(eq(rewardVersions.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select({ id: memberships.id, cardNumber: memberships.cardNumber, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.tenantId, tenantId)).limit(MAX_ROWS + 1),
+    db.select({ id: memberships.id, cardLocator: memberships.cardLocator, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(redemptions).where(eq(redemptions.tenantId, tenantId)).limit(MAX_ROWS + 1),
     db.select().from(consentEvents).where(eq(consentEvents.tenantId, tenantId)).limit(MAX_ROWS + 1),
@@ -34,7 +34,7 @@ export async function getMerchantExport(actorUserId: string) {
   ]);
   if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
   return {
-    // 4: card numbers on memberships; card security events (reissues with actor and reason).
+    // 4: card locators on memberships; card security events (reissues with actor, reason and verification method).
     formatVersion: 4,
     exportedAt: new Date().toISOString(),
     scope: "owner-business-data-without-card-or-contact-credentials",
@@ -44,7 +44,7 @@ export async function getMerchantExport(actorUserId: string) {
     programs: checked(programRows, "Programs"),
     rewards: checked(rewardRows, "Rewards"),
     rewardVersions: checked(versionRows, "Reward versions"),
-    memberships: checked(membershipRows, "Memberships").map(row => ({ ...row, cardNumber: formatCardNumber(row.cardNumber) })),
+    memberships: checked(membershipRows, "Memberships").map(row => ({ ...row, cardLocator: formatCardLocator(row.cardLocator) })),
     ledger: checked(ledgerRows, "Ledger"),
     redemptions: checked(redemptionRows, "Redemptions"),
     consentEvents: checked(consentRows, "Consent events"),
@@ -58,7 +58,7 @@ export async function getMerchantExport(actorUserId: string) {
 
 export async function getCustomerExport(cardToken: string) {
   if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
-  const [card] = await db.select({ id: memberships.id, cardNumber: memberships.cardNumber, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
+  const [card] = await db.select({ id: memberships.id, cardLocator: memberships.cardLocator, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
   if (!card) throw new DomainError("NOT_FOUND", "Card not found");
   const [[program], entries, redemptionRows, consentRows] = await Promise.all([
     db.select({ name: programs.name, type: programs.type, rulesText: programs.rulesText }).from(programs).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
@@ -66,5 +66,5 @@ export async function getCustomerExport(cardToken: string) {
     db.select({ rewardTitle: redemptions.rewardTitle, cost: redemptions.cost, createdAt: redemptions.createdAt }).from(redemptions).where(and(eq(redemptions.tenantId, card.tenantId), eq(redemptions.membershipId, card.id))).limit(MAX_ROWS + 1),
     db.select({ channel: consentEvents.channel, purpose: consentEvents.purpose, granted: consentEvents.granted, noticeVersion: consentEvents.noticeVersion, source: consentEvents.source, createdAt: consentEvents.createdAt }).from(consentEvents).where(and(eq(consentEvents.tenantId, card.tenantId), eq(consentEvents.membershipId, card.id))).limit(MAX_ROWS + 1),
   ]);
-  return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "pseudonymous-card-activity-without-contact-records", membership: { id: card.id, cardNumber: formatCardNumber(card.cardNumber), balance: card.balance, createdAt: card.createdAt }, program, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events") };
+  return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "pseudonymous-card-activity-without-contact-records", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events") };
 }

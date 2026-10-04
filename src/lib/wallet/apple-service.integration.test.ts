@@ -24,7 +24,7 @@ async function createMember() {
 describe("Apple pass update web service state", () => {
   it("authenticates registration, returns changed serials, and removes the device on unregistration", async () => {
     const member = await createMember();
-    const input = { deviceId: "fixture-device", passTypeId: config.passTypeId, serial: member.id, authorization: `ApplePass ${applePassToken(member.id, config)}`, pushToken: "a".repeat(64) };
+    const input = { deviceId: "fixture-device", passTypeId: config.passTypeId, serial: member.id, authorization: `ApplePass ${applePassToken(member.id, member.scanCode, config)}`, pushToken: "a".repeat(64) };
     expect(await registerAppleDevice(input, config)).toBe(201);
     expect(await registerAppleDevice(input, config)).toBe(200);
     const first = await listUpdatedApplePasses("fixture-device", config.passTypeId);

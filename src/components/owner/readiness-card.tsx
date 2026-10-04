@@ -38,7 +38,7 @@ export function ReadinessCard({ readiness, reload, isOwner, compact = false }: {
     <>
       {next && data.next && (
         <div className="ow-action ow-action--lead" style={{ marginBottom: 16 }}>
-          <p className="ow-eyebrow" style={{ margin: 0 }}>Als Nächstes</p>
+          <p className="ow-eyebrow" style={{ margin: 0 }}>Nächster Schritt</p>
           <h3>{next.title}</h3>
           <p>{next.evidence} {data.next.reason}</p>
           {visibleAction(next) && <div><Link className="ow-btn ow-btn--sm ow-btn--primary" href={visibleAction(next)!.href}>{visibleAction(next)!.label}</Link></div>}

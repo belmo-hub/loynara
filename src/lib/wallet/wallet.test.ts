@@ -64,7 +64,7 @@ describe("wallet pass adapters (fixtures; no provider/device contact)", () => {
     expect(first.storeCard.primaryFields[0].value).toBe(7);
     expect(updated.storeCard.primaryFields[0].value).toBe(8);
     expect(first.barcodes[0].message).toBe(pass.scanCode);
-    expect(applePassToken(pass.membershipId, config)).toBe(first.authenticationToken);
+    expect(applePassToken(pass.membershipId, pass.scanCode, config)).toBe(first.authenticationToken);
   });
 
   it("requires Google credentials and a public HTTPS logo before offering a save link", () => {

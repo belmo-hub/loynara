@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { formatCardNumber, parseCardNumber } from "./card-number";
+import { formatCardLocator, parseCardLocator } from "./card-locator";
 
 const memberLimit = 25;
 const timelineLimit = 30;
@@ -14,7 +14,7 @@ type ReferralStatus = "none" | "pending" | "qualified" | "review" | "rejected" |
 type MemberRow = {
   id: string; programId: string; programName: string; programType: "stamp" | "points";
   earningMode: "manual" | "purchase"; programStatus: string; programStarted: boolean; locationId: string; locationName: string;
-  balance: number; cardNumber: number; createdAt: Date; closedAt: Date | null;
+  balance: number; cardLocator: string; createdAt: Date; closedAt: Date | null;
   qualifyingCheckouts: number; firstQualifyingAt: Date | null; lastQualifyingAt: Date | null;
   activityCount: number; redemptionCount: number; purchaseCount: number; emailMarketingEligible: boolean; cursorAt: string;
   referralStatus: ReferralStatus; qualifiedReferrals: number;
@@ -26,7 +26,7 @@ type TimelineRow = {
 type RewardRow = { id: string; title: string; cost: number };
 
 export type MerchantMember = {
-  id: string; pseudonym: string; cardNumber: string; programName: string; programType: "stamp" | "points";
+  id: string; pseudonym: string; cardLocator: string; programName: string; programType: "stamp" | "points";
   locationId: string; locationName: string; balance: number; createdAt: string; closedAt: string | null;
   qualifyingCheckouts: number; firstQualifyingAt: string | null; lastQualifyingAt: string | null;
   activityCount: number; redemptionCount: number; purchaseCount: number | null;
@@ -72,8 +72,8 @@ function iso(value: Date | null) { return value ? value.toISOString() : null; }
 function memberView(row: MemberRow, eligibility: MerchantMember["eligibility"] = "not_checked"): MerchantMember {
   return {
     id: row.id,
-    pseudonym: `Karte ${formatCardNumber(row.cardNumber)}`,
-    cardNumber: formatCardNumber(row.cardNumber),
+    pseudonym: `Karte ${formatCardLocator(row.cardLocator)}`,
+    cardLocator: formatCardLocator(row.cardLocator),
     programName: row.programName,
     programType: row.programType,
     locationId: row.locationId,
@@ -115,7 +115,7 @@ const activitySummary = `
 
 const memberFields = `
   page.id, page."programId", page."programName", page."programType", page."earningMode", page."programStatus", page."programStarted",
-  page."locationId", page."locationName", page.balance, page."cardNumber", page."createdAt", page."closedAt", page."cursorAt",
+  page."locationId", page."locationName", page.balance, page."cardLocator", page."createdAt", page."closedAt", page."cursorAt",
   summary."qualifyingCheckouts", summary."firstQualifyingAt", summary."lastQualifyingAt", summary."activityCount", summary."redemptionCount", summary."purchaseCount",
   COALESCE((
     SELECT referral.status FROM referrals referral
@@ -142,15 +142,15 @@ export async function listMerchantMembers(actorUserId: string, options: { status
   const activity = options.activity ?? "all";
   if (!["all", "recorded", "none"].includes(activity)) throw new DomainError("INVALID_FILTER", "Invalid activity filter");
   const raw = options.query?.trim().toLowerCase() || null;
-  // A card number ("7", "K-0007") matches exactly; otherwise the query is a prefix of the internal card ID.
-  const number = raw ? parseCardNumber(raw) : null;
-  const query = raw && !number ? raw : null;
-  if (query && !/^[0-9a-f-]{3,36}$/.test(query)) throw new DomainError("INVALID_QUERY", "Search with a card number or at least three characters from a card ID");
+  // A card locator ("K-7QX2MA") matches exactly; otherwise the query is a prefix of the internal card ID.
+  const locator = raw ? parseCardLocator(raw) : null;
+  const query = raw && !locator ? raw : null;
+  if (query && !/^[0-9a-f-]{3,36}$/.test(query)) throw new DomainError("INVALID_QUERY", "Search with a card locator or at least three characters from a card ID");
   const cursor = decodeCursor(options.cursor);
   const limit = options.limit === undefined ? memberLimit : Math.max(1, Math.min(memberLimit, Math.trunc(options.limit)));
   const rows = await pool.query<MemberRow>(`
     WITH page AS (
-      SELECT m.id, m.tenant_id, m.balance, m.card_number AS "cardNumber", m.created_at AS "createdAt", m.closed_at AS "closedAt",
+      SELECT m.id, m.tenant_id, m.balance, m.card_locator AS "cardLocator", m.created_at AS "createdAt", m.closed_at AS "closedAt",
         p.id AS "programId", p.name AS "programName", p.type AS "programType", p.status AS "programStatus",
         p.earning_mode AS "earningMode", (p.effective_at <= now()) AS "programStarted", l.id AS "locationId", l.name AS "locationName",
         to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt"
@@ -160,7 +160,7 @@ export async function listMerchantMembers(actorUserId: string, options: { status
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2)
         AND ($3::text = 'all' OR ($3 = 'active' AND m.closed_at IS NULL) OR ($3 = 'closed' AND m.closed_at IS NOT NULL))
         AND ($4::text IS NULL OR m.id::text LIKE $4)
-        AND ($9::int IS NULL OR m.card_number = $9)
+        AND ($9::text IS NULL OR m.card_locator = $9)
         AND ($5::text = 'all' OR ($5 = 'recorded') = EXISTS (
           SELECT 1 FROM ledger_entries activity WHERE activity.tenant_id = m.tenant_id AND activity.membership_id = m.id
             AND activity.kind = 'award' AND activity.source in ('staff_online','staff_offline')
@@ -171,7 +171,7 @@ export async function listMerchantMembers(actorUserId: string, options: { status
     )
     SELECT ${memberFields} FROM page LEFT JOIN LATERAL (${activitySummary}) summary ON true
     ORDER BY page."createdAt" DESC, page.id DESC
-  `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1, number]);
+  `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1, locator]);
   const hasMore = rows.rows.length > limit;
   const page = rows.rows.slice(0, limit);
   return { members: page.map(row => memberView(row)), nextCursor: hasMore ? encodeCursor(page.at(-1)!) : null };
@@ -184,7 +184,7 @@ export async function getMerchantMember(actorUserId: string, membershipId: strin
   const limit = options.limit === undefined ? timelineLimit : Math.max(1, Math.min(timelineLimit, Math.trunc(options.limit)));
   const selected = await pool.query<MemberRow>(`
     WITH page AS (
-      SELECT m.id, m.tenant_id, m.balance, m.card_number AS "cardNumber", m.created_at AS "createdAt", m.closed_at AS "closedAt",
+      SELECT m.id, m.tenant_id, m.balance, m.card_locator AS "cardLocator", m.created_at AS "createdAt", m.closed_at AS "closedAt",
         p.id AS "programId", p.name AS "programName", p.type AS "programType", p.status AS "programStatus",
         p.earning_mode AS "earningMode", (p.effective_at <= now()) AS "programStarted", l.id AS "locationId", l.name AS "locationName",
         to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt"

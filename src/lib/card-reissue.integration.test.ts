@@ -1,21 +1,29 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { cardSecurityEvents, ledgerEntries, memberships, staffRoles } from "@/db/schema";
+import { appleDevices, appleRegistrations, cardSecurityEvents, ledgerEntries, memberships, outboxJobs, referrals, staffRoles, walletPasses } from "@/db/schema";
 import { closeCard } from "./card-lifecycle";
+import { reissueCardByStaff, VERIFICATION_METHODS } from "./card-reissue";
 import { getCustomerExport, getMerchantExport } from "./export";
-import { reissueCardByStaff } from "./card-reissue";
 import { createAdditionalLocation } from "./locations";
-import { award, redeem, reverseEntry } from "./loyalty";
+import { award } from "./loyalty";
 import { getMerchantAnalytics } from "./merchant-analytics";
-import { getMerchantMember } from "./merchant-members";
 import { createMerchant, enroll, getCard, lookupCard } from "./product";
+import { configureReferrals, getCardReferralShare } from "./referrals";
+import { bindTapCard } from "./secure-tap";
+import { applePassToken } from "./wallet/apple";
+import { registerAppleDevice, registeredApplePass } from "./wallet/apple-service";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user" CASCADE'); });
-afterAll(async () => { await pool.end(); });
+const appleConfig = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "secret".repeat(8) };
+const originalBaseUrl = process.env.PUBLIC_BASE_URL;
+beforeEach(async () => { process.env.PUBLIC_BASE_URL = "http://localhost:3000"; await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices CASCADE'); });
+afterAll(async () => {
+  if (originalBaseUrl === undefined) delete process.env.PUBLIC_BASE_URL; else process.env.PUBLIC_BASE_URL = originalBaseUrl;
+  await pool.query("TRUNCATE TABLE apple_devices CASCADE"); await pool.end();
+});
 
 async function user() {
   const id = randomUUID();
@@ -24,95 +32,206 @@ async function user() {
 }
 const shop = (userId: string, businessName = "Synthetic Reissue Café") => createMerchant({ userId, businessName, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 3 });
 const key = () => randomUUID();
+const request = (actorUserId: string, locationId: string, membershipId: string, extra: Partial<Parameters<typeof reissueCardByStaff>[0]> = {}) => ({
+  actorUserId, locationId, membershipId, reason: "Neues Handy, alten Kartenlink gezeigt", verificationMethod: "card_link" as const, entitlementConfirmed: true as const, idempotencyKey: key(), ...extra,
+});
+const credentials = async (id: string) => (await db.select({ cardToken: memberships.cardToken, scanCode: memberships.scanCode, cardLocator: memberships.cardLocator, balance: memberships.balance }).from(memberships).where(eq(memberships.id, id)))[0];
+const events = (membershipId: string) => db.select().from(cardSecurityEvents).where(and(eq(cardSecurityEvents.membershipId, membershipId), eq(cardSecurityEvents.action, "card_reissued_by_staff")));
 
 describe("staff-assisted card reissue", () => {
-  it("rotates both bearer credentials on the same card without touching value or history", async () => {
+  it("rotates bearer access on the same card and changes nothing about value, history or analytics", async () => {
     const owner = await user();
     const merchant = await shop(owner);
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 2, idempotencyKey: key(), requestId: randomUUID() });
+    const before = await credentials(card.id);
     const ledgerBefore = await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, card.id));
+    const analyticsBefore = await getMerchantAnalytics(owner, { windowDays: 30 });
+    const memberCountBefore = (await db.select().from(memberships).where(eq(memberships.tenantId, merchant.tenantId))).length;
 
-    const result = await reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: card.id, reason: "Neues Handy, Kartennummer genannt" });
-    expect(result.membershipId).toBe(card.id);
-    expect(result.cardToken).not.toBe(card.cardToken);
+    const result = await reissueCardByStaff(request(owner, merchant.locationId, card.id, { reason: "Neues Handy, Kartennummer genannt", verificationMethod: "stored_contact" }));
+    expect(result).toMatchObject({ membershipId: card.id, duplicate: false });
 
+    // Old link and QR are dead everywhere; the new ones work.
     await expect(getCard(card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(lookupCard({ userId: owner, locationId: merchant.locationId, scanCode: card.scanCode })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const fresh = await getCard(result.cardToken);
-    expect(fresh).toMatchObject({ balance: 2, cardNumber: "K-0001" });
     expect(fresh.scanCode).not.toBe(card.scanCode);
     expect((await lookupCard({ userId: owner, locationId: merchant.locationId, scanCode: fresh.scanCode })).membershipId).toBe(card.id);
 
+    // Same membership, same locator, same balance, no new spendable balance, no ledger rewrite.
+    const after = await credentials(card.id);
+    expect(after).toMatchObject({ cardLocator: before.cardLocator, balance: 2 });
+    expect(after.cardToken).not.toBe(before.cardToken);
     expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, card.id))).toEqual(ledgerBefore);
-    expect(await db.select().from(memberships).where(eq(memberships.tenantId, merchant.tenantId))).toHaveLength(1);
-    const [event] = await db.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.membershipId, card.id));
-    expect(event).toMatchObject({ action: "card_reissued_by_staff", actorUserId: owner, reason: "Neues Handy, Kartennummer genannt" });
+    expect((await db.select().from(memberships).where(eq(memberships.tenantId, merchant.tenantId))).length).toBe(memberCountBefore);
+    // It is not a visit and not a purchase.
+    expect(await getMerchantAnalytics(owner, { windowDays: 30, asOf: new Date(analyticsBefore.asOf) })).toMatchObject({ qualifyingCheckouts: 1, participatingCards: 1, repeatCards: 0, newCards: 1, issued: analyticsBefore.issued });
 
-    // Exports carry the same number and the audited reissue, and still reconcile with the ledger.
-    const merchantExport = await getMerchantExport(owner);
-    expect(merchantExport.memberships).toEqual([expect.objectContaining({ id: card.id, cardNumber: "K-0001", balance: 2 })]);
-    expect(merchantExport.cardSecurityEvents).toEqual([expect.objectContaining({ membershipId: card.id, action: "card_reissued_by_staff", actorUserId: owner })]);
-    expect(merchantExport.ledger.filter(entry => entry.membershipId === card.id).reduce((sum, entry) => sum + entry.delta, 0)).toBe(2);
-    expect((await getCustomerExport(result.cardToken)).membership).toMatchObject({ id: card.id, cardNumber: "K-0001", balance: 2 });
-    expect(JSON.stringify(merchantExport)).not.toContain(result.cardToken);
+    const [event] = await events(card.id);
+    expect(event).toMatchObject({ actorUserId: owner, reason: "Neues Handy, Kartennummer genannt", verificationMethod: "stored_contact", tenantId: merchant.tenantId });
+    expect(event.createdAt).toBeInstanceOf(Date);
+    expect(event.idempotencyKey).toHaveLength(36);
   });
 
-  it("is limited to owners and managers of the card's location and refuses closed cards", async () => {
+  it("requires owner or manager of the card's location, a reason, the entitlement confirmation and a known method", async () => {
     const owner = await user();
     const merchant = await shop(owner);
     const other = await shop(await user(), "Other Synthetic Café");
     const second = await createAdditionalLocation(owner, { name: "Second counter", city: "Bonn", country: "DE", timezone: "Europe/Berlin", programName: "Bonn card", programType: "stamp", rulesText: "Ein Stempel pro Kassenvorgang.", rewardTitle: "Testkaffee", rewardCost: 4 });
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-    const [cashier, manager, foreignManager] = [await user(), await user(), await user()];
+    const [cashier, manager, foreignManager, revoked] = [await user(), await user(), await user(), await user()];
     await db.insert(staffRoles).values([
       { tenantId: merchant.tenantId, userId: cashier, role: "cashier", locationId: merchant.locationId },
       { tenantId: merchant.tenantId, userId: manager, role: "manager", locationId: merchant.locationId },
       { tenantId: merchant.tenantId, userId: foreignManager, role: "manager", locationId: second.locationId },
+      { tenantId: merchant.tenantId, userId: revoked, role: "manager", locationId: merchant.locationId, active: false },
     ]);
-    const reason = "Kartenlink verloren, geprüft";
-    await expect(reissueCardByStaff({ actorUserId: cashier, locationId: merchant.locationId, membershipId: card.id, reason })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(reissueCardByStaff({ actorUserId: foreignManager, locationId: merchant.locationId, membershipId: card.id, reason })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(reissueCardByStaff({ actorUserId: owner, locationId: second.locationId, membershipId: card.id, reason })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(reissueCardByStaff({ actorUserId: owner, locationId: other.locationId, membershipId: card.id, reason })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(reissueCardByStaff({ actorUserId: manager, locationId: merchant.locationId, membershipId: card.id, reason: "kurz" })).rejects.toThrow();
-    expect((await reissueCardByStaff({ actorUserId: manager, locationId: merchant.locationId, membershipId: card.id, reason })).membershipId).toBe(card.id);
+    const before = await credentials(card.id);
+
+    await expect(reissueCardByStaff(request(cashier, merchant.locationId, card.id))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(reissueCardByStaff(request(foreignManager, merchant.locationId, card.id))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(reissueCardByStaff(request(revoked, merchant.locationId, card.id))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(reissueCardByStaff(request(await user(), merchant.locationId, card.id))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(reissueCardByStaff(request(owner, second.locationId, card.id))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(reissueCardByStaff(request(owner, other.locationId, card.id))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // Missing or false confirmation, bad method, short reason and a bad key are refused before anything changes.
+    const base = request(manager, merchant.locationId, card.id);
+    await expect(reissueCardByStaff({ ...base, entitlementConfirmed: false as unknown as true })).rejects.toThrow();
+    await expect(reissueCardByStaff({ ...base, entitlementConfirmed: undefined as unknown as true })).rejects.toThrow();
+    await expect(reissueCardByStaff({ ...base, verificationMethod: "passport" as unknown as "card_link" })).rejects.toThrow();
+    await expect(reissueCardByStaff({ ...base, verificationMethod: undefined as unknown as "card_link" })).rejects.toThrow();
+    await expect(reissueCardByStaff({ ...base, reason: "kurz" })).rejects.toThrow();
+    await expect(reissueCardByStaff({ ...base, idempotencyKey: "x" })).rejects.toThrow();
+    expect(await credentials(card.id)).toEqual(before);
+    expect(await events(card.id)).toHaveLength(0);
+
+    for (const method of VERIFICATION_METHODS) expect((await reissueCardByStaff(request(manager, merchant.locationId, card.id, { verificationMethod: method }))).membershipId).toBe(card.id);
+    expect((await events(card.id)).map(event => event.verificationMethod).sort()).toEqual([...VERIFICATION_METHODS].sort());
 
     const closed = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     await closeCard(closed.cardToken);
-    await expect(reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: closed.id, reason })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(reissueCardByStaff(request(owner, merchant.locationId, closed.id))).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
-});
 
-describe("counter mistake to correction", () => {
-  it("reconciles balance, card history and analytics after a compensating entry", async () => {
+  it("applies a retried request once and returns the same link", async () => {
     const owner = await user();
     const merchant = await shop(owner);
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-    const right = await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: key(), requestId: randomUUID() });
-    const wrong = await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 2, idempotencyKey: key(), requestId: randomUUID() });
-    expect(wrong.balance).toBe(3);
+    const input = request(owner, merchant.locationId, card.id);
+    const first = await reissueCardByStaff(input);
+    const retry = await reissueCardByStaff(input);
+    expect(retry).toEqual({ membershipId: card.id, cardToken: first.cardToken, duplicate: true });
+    expect(await events(card.id)).toHaveLength(1);
+    expect((await getCard(first.cardToken)).cardLocator).toMatch(/^K-/);
+  });
 
-    const correctionKey = key();
-    const corrected = await reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: wrong.entryId, reason: "Doppelt gebucht, nur ein Kaffee", idempotencyKey: correctionKey, requestId: randomUUID() });
-    expect(corrected.balance).toBe(1);
-    // The same key is a safe retry, not a second correction.
-    expect(await reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: wrong.entryId, reason: "Doppelt gebucht, nur ein Kaffee", idempotencyKey: correctionKey, requestId: randomUUID() })).toMatchObject({ duplicate: true, entryId: corrected.entryId });
+  it("rotates exactly once for simultaneous retries with one key, and leaves one valid link for different keys", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const same = request(owner, merchant.locationId, card.id);
+    const results = await Promise.all(Array.from({ length: 6 }, () => reissueCardByStaff(same)));
+    expect(new Set(results.map(result => result.cardToken)).size).toBe(1);
+    expect(results.filter(result => !result.duplicate)).toHaveLength(1);
+    expect(await events(card.id)).toHaveLength(1);
 
-    const detail = await getMerchantMember(owner, card.id);
-    expect(detail.member).toMatchObject({ balance: 1, qualifyingCheckouts: 1 });
-    expect(detail.timeline.map(entry => [entry.kind, entry.delta, entry.reversed, entry.reason])).toEqual([
-      ["reversal", -2, false, "Doppelt gebucht, nur ein Kaffee"],
-      ["award", 2, true, null],
-      ["award", 1, false, null],
-    ]);
-    const analytics = await getMerchantAnalytics(owner, { windowDays: 30 });
-    expect(analytics).toMatchObject({ qualifyingCheckouts: 1, repeatCards: 0, issued: { stampUnits: 1, awardActions: 1 } });
+    // Different keys are different decisions: every one is recorded, the last one wins, all earlier links are dead.
+    const racing = await Promise.all(Array.from({ length: 4 }, () => reissueCardByStaff(request(owner, merchant.locationId, card.id))));
+    expect(await events(card.id)).toHaveLength(5);
+    const current = (await credentials(card.id)).cardToken;
+    expect(racing.map(result => result.cardToken)).toContain(current);
+    for (const token of [card.cardToken, results[0].cardToken, ...racing.map(result => result.cardToken)].filter(token => token !== current)) await expect(getCard(token)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await getCard(current)).cardLocator).toMatch(/^K-/);
+  });
 
-    // A reward that spent the corrected stamps blocks the correction instead of creating a negative balance.
-    await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 2, idempotencyKey: key(), requestId: randomUUID() });
-    const rewardVersionId = (await lookupCard({ userId: owner, locationId: merchant.locationId, scanCode: "1" })).rewards[0].id;
-    await redeem({ userId: owner, locationId: merchant.locationId, membershipId: card.id, rewardVersionId, idempotencyKey: key(), requestId: randomUUID() });
-    await expect(reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: right.entryId, reason: "Später bemerkter Fehler", idempotencyKey: key(), requestId: randomUUID() })).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
+  it("does not let a key be replayed by someone else, on another card, or after a later reissue", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const manager = await user();
+    await db.insert(staffRoles).values({ tenantId: merchant.tenantId, userId: manager, role: "manager", locationId: merchant.locationId });
+    const a = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const b = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const input = request(owner, merchant.locationId, a.id);
+    await reissueCardByStaff(input);
+    await expect(reissueCardByStaff({ ...input, actorUserId: manager })).rejects.toMatchObject({ code: "KEY_REUSED" });
+    await expect(reissueCardByStaff({ ...input, membershipId: b.id })).rejects.toMatchObject({ code: "KEY_REUSED" });
+    await reissueCardByStaff(request(owner, merchant.locationId, a.id));
+    await expect(reissueCardByStaff(input)).rejects.toMatchObject({ code: "KEY_REUSED" });
+    expect(await events(a.id)).toHaveLength(2);
+    expect(await events(b.id)).toHaveLength(0);
+  });
+
+  it("does not qualify a referral, count as a visit, or touch the ledger", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const referrer = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await configureReferrals({ actorUserId: owner, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+    const referred = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: code });
+    const ledgerBefore = await db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, merchant.tenantId));
+
+    await reissueCardByStaff(request(owner, merchant.locationId, referred.id));
+    await reissueCardByStaff(request(owner, merchant.locationId, referrer.id));
+
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, merchant.tenantId))).toEqual(ledgerBefore);
+    expect((await db.select().from(referrals).where(eq(referrals.referredMembershipId, referred.id)))[0].status).toBe("pending");
+    expect((await credentials(referred.id)).balance + (await credentials(referrer.id)).balance).toBe(0);
+    // The referral still qualifies normally, once, on the first real checkout after the reissue.
+    await award({ userId: owner, locationId: merchant.locationId, membershipId: referred.id, quantity: 1, idempotencyKey: key(), requestId: randomUUID() });
+    expect((await db.select().from(referrals).where(eq(referrals.referredMembershipId, referred.id)))[0].status).toBe("qualified");
+  });
+
+  it("revokes obsolete bindings: tap cookie token, Apple registrations and the Apple pass token", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const keep = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    for (const member of [card, keep]) await db.insert(walletPasses).values({ tenantId: merchant.tenantId, membershipId: member.id, provider: "apple", providerObjectId: member.id, status: "issued" });
+    const auth = (member: { id: string }, scanCode: string) => `ApplePass ${applePassToken(member.id, scanCode, appleConfig)}`;
+    const device = (member: { id: string }, scanCode: string, deviceId: string) => ({ deviceId, passTypeId: appleConfig.passTypeId, serial: member.id, authorization: auth(member, scanCode), pushToken: "a".repeat(64) });
+    await registerAppleDevice(device(card, card.scanCode, "lost-phone"), appleConfig);
+    await registerAppleDevice(device(card, card.scanCode, "shared-tablet"), appleConfig);
+    await registerAppleDevice(device(keep, keep.scanCode, "shared-tablet"), appleConfig);
+    expect(await bindTapCard(card.cardToken)).toBe(await bindTapCard(keep.cardToken));
+
+    const { cardToken } = await reissueCardByStaff(request(owner, merchant.locationId, card.id));
+    const fresh = (await credentials(card.id)).scanCode;
+
+    await expect(bindTapCard(card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" }); // an NFC cookie holding the old token stops resolving
+    expect(await bindTapCard(cardToken)).toBeTruthy();
+    expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, card.id))).toHaveLength(0);
+    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "lost-phone"))).toHaveLength(0);
+    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "shared-tablet"))).toHaveLength(1);
+    expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, keep.id))).toHaveLength(1);
+    // The pass installed before the reissue can neither fetch the updated pass (with the new QR) nor re-register.
+    const stale = { passTypeId: appleConfig.passTypeId, serial: card.id, authorization: auth(card, card.scanCode) };
+    await expect(registeredApplePass(stale, appleConfig)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(registerAppleDevice(device(card, card.scanCode, "lost-phone"), appleConfig)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "lost-phone"))).toHaveLength(0);
+    // A pass downloaded from the new link authenticates; another card's pass is untouched.
+    expect((await registeredApplePass({ ...stale, authorization: auth(card, fresh) }, appleConfig)).scanCode).toBe(fresh);
+    expect(await registerAppleDevice(device(card, fresh, "new-phone"), appleConfig)).toBe(201);
+    expect((await registeredApplePass({ passTypeId: appleConfig.passTypeId, serial: keep.id, authorization: auth(keep, keep.scanCode) }, appleConfig)).membershipId).toBe(keep.id);
+    expect((await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "wallet.refresh"))).length).toBeGreaterThan(0);
+  });
+
+  it("keeps an append-only audit trail with actor, time, reason and method, and exports it without credentials", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const { cardToken } = await reissueCardByStaff(request(owner, merchant.locationId, card.id, { reason: "Handywechsel, Kontakt stimmt überein", verificationMethod: "other_check" }));
+    const [event] = await events(card.id);
+    await expect(pool.query("UPDATE card_security_events SET reason = 'umgeschrieben' WHERE id = $1", [event.id])).rejects.toThrow(/append-only/);
+    await expect(pool.query("UPDATE card_security_events SET actor_user_id = 'someone-else' WHERE id = $1", [event.id])).rejects.toThrow(/append-only/);
+    await expect(pool.query("DELETE FROM card_security_events WHERE id = $1", [event.id])).rejects.toThrow(/append-only/);
+    await expect(pool.query("INSERT INTO card_security_events (tenant_id, membership_id, action, verification_method) VALUES ($1, $2, 'card_reissued_by_staff', 'passport')", [merchant.tenantId, card.id])).rejects.toThrow(/card_security_verification_valid/);
+
+    const merchantExport = await getMerchantExport(owner);
+    expect(merchantExport.cardSecurityEvents).toEqual([expect.objectContaining({ membershipId: card.id, actorUserId: owner, reason: "Handywechsel, Kontakt stimmt überein", verificationMethod: "other_check" })]);
+    expect(merchantExport.memberships).toEqual([expect.objectContaining({ id: card.id, cardLocator: expect.stringMatching(/^K-[A-Z2-9]{6}$/), balance: 0 })]);
+    const serialized = JSON.stringify(merchantExport);
+    for (const secret of [card.cardToken, cardToken, card.scanCode, (await credentials(card.id)).scanCode]) expect(serialized).not.toContain(secret);
+    expect((await getCustomerExport(cardToken)).membership).toMatchObject({ id: card.id, cardLocator: merchantExport.memberships[0].cardLocator });
   });
 });

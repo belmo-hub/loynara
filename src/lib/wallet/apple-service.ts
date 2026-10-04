@@ -7,17 +7,19 @@ import { walletPassDataByMembershipId } from "./data";
 
 type RegistrationInput = { deviceId: string; passTypeId: string; serial: string; authorization: string; pushToken: string };
 
+const serialPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Format checks only; the token itself is verified against the card's current scan code in registeredApplePass. */
 function authorized(input: Omit<RegistrationInput, "pushToken">, config: ApplePassConfig) {
-  if (input.passTypeId !== config.passTypeId || !/^ApplePass [A-Za-z0-9_-]+$/.test(input.authorization) || !validApplePassToken(input.serial, input.authorization.slice(10), config)) {
-    throw new DomainError("FORBIDDEN", "Invalid pass authentication");
-  }
+  if (input.passTypeId !== config.passTypeId || !/^ApplePass [A-Za-z0-9_-]+$/.test(input.authorization)) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
   if (!/^[A-Za-z0-9._-]{1,200}$/.test(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
 }
 
 export async function registeredApplePass(input: Omit<RegistrationInput, "deviceId" | "pushToken">, config: ApplePassConfig) {
-  if (input.passTypeId !== config.passTypeId || !/^ApplePass [A-Za-z0-9_-]+$/.test(input.authorization) || !validApplePassToken(input.serial, input.authorization.slice(10), config)) {
-    throw new DomainError("FORBIDDEN", "Invalid pass authentication");
-  }
+  if (input.passTypeId !== config.passTypeId || !/^ApplePass [A-Za-z0-9_-]+$/.test(input.authorization) || !serialPattern.test(input.serial)) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  const [current] = await db.select({ scanCode: memberships.scanCode }).from(memberships).where(eq(memberships.id, input.serial));
+  // An unknown card and a wrong token look the same; a reissued or closed card has a new scan code, so old tokens fail here.
+  if (!current || !validApplePassToken(input.serial, current.scanCode, input.authorization.slice(10), config)) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
   const [issued] = await db.select().from(walletPasses).where(and(eq(walletPasses.membershipId, input.serial), eq(walletPasses.provider, "apple")));
   if (!issued) throw new DomainError("NOT_FOUND", "Pass not found");
   return walletPassDataByMembershipId(input.serial);

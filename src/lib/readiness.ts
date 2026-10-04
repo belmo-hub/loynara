@@ -59,7 +59,7 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
         WHERE m.tenant_id = $1 AND p.location_id = $2) AS cards,
       -- Only real counter evidence counts: seed data, referral bonuses and corrected awards do not prove the flow.
       (SELECT min(e.created_at) FROM ledger_entries e WHERE e.tenant_id = $1 AND e.location_id = $2 AND e.kind = 'award'
-        AND e.source IN ('staff_online','staff_offline','nfc_tap')
+        AND e.source IN ('staff_online','staff_offline')
         AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)) AS first_award_at,
       (SELECT min(e.created_at) FROM ledger_entries e WHERE e.tenant_id = $1 AND e.location_id = $2 AND e.kind = 'redeem'
         AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)) AS first_redeem_at,
@@ -86,7 +86,7 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
     : { id: "enrolment", group: "verify", required: true, status: "todo", title: "Erste Karte angemeldet", evidence: "Noch keine Karte. Melde dich mit dem Anmeldelink oder dem Tresenschild selbst an.", action: { label: "Anmeldelink öffnen", href: "/merchant/settings" } });
   steps.push(facts.first_award_at
     ? { id: "first_award", group: "verify", required: true, status: "done", title: "Erste Gutschrift an der Kasse bestätigt", evidence: `Erstmals am ${germanDate(facts.first_award_at, location.timezone)}; nicht korrigiert.` }
-    : { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Gutschrift an der Kasse bestätigt", evidence: "Noch keine bestätigte Kassen-Gutschrift. Demo-Daten, Empfehlungsboni und korrigierte Vorgänge zählen nicht.", action: { label: "Kasse öffnen", href: "/cashier" } });
+    : { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Gutschrift an der Kasse bestätigt", evidence: "Noch keine bestätigte Kassen-Gutschrift. Demo-Daten, Empfehlungsboni, NFC-Taps und korrigierte Vorgänge zählen hier nicht.", action: { label: "Kasse öffnen", href: "/cashier" } });
   steps.push(facts.first_redeem_at
     ? { id: "first_redemption", group: "verify", required: false, status: "done", title: "Einlösung einmal durchgespielt", evidence: `Erstmals am ${germanDate(facts.first_redeem_at, location.timezone)}.` }
     : { id: "first_redemption", group: "verify", required: false, status: "todo", title: "Einlösung einmal durchgespielt", evidence: "Noch keine Prämie eingelöst. Ein Probelauf zeigt dem Team, wie die Bestätigung aussieht.", action: { label: "Kasse öffnen", href: "/cashier" } });

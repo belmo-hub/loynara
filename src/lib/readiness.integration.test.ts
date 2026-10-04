@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { locations, staffRoles } from "@/db/schema";
+import { cardSecurityEvents, ledgerEntries, locations, programs, secureTags, staffRoles, tapRequests } from "@/db/schema";
+import { reissueCardByStaff } from "./card-reissue";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll, lookupCard } from "./product";
 import { getLaunchReadiness } from "./readiness";
@@ -50,7 +51,7 @@ describe("launch readiness", () => {
     expect(status(await getLaunchReadiness(owner, merchant.locationId, noNfc)).first_award).toBe("todo");
 
     await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
-    const rewardVersionId = (await lookupCard({ userId: owner, locationId: merchant.locationId, scanCode: "1" })).rewards[0].id;
+    const rewardVersionId = (await lookupCard({ userId: owner, locationId: merchant.locationId, scanCode: card.scanCode })).rewards[0].id;
     await redeem({ userId: owner, locationId: merchant.locationId, membershipId: card.id, rewardVersionId, idempotencyKey: randomUUID(), requestId: randomUUID() });
     await db.update(locations).set({ brandColor: "#7a2e1f" }).where(eq(locations.id, merchant.locationId));
     readiness = await getLaunchReadiness(owner, merchant.locationId, noNfc);
@@ -89,5 +90,62 @@ describe("launch readiness", () => {
     expect(forManager.next?.stepId).toBe("enrolment");
     await expect(getLaunchReadiness(cashier, merchant.locationId, noNfc)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(getLaunchReadiness(otherOwner, merchant.locationId, noNfc)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("is not satisfied by anything other than a cashier-confirmed award: seed, referral bonus, NFC tap, recovery, reissue, correction", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const insert = (source: string, kind: "award" | "reversal" = "award", delta = 1) => db.insert(ledgerEntries).values({
+      tenantId: merchant.tenantId, locationId: merchant.locationId, membershipId: card.id, delta, kind, source, requestId: randomUUID(), idempotencyKey: randomUUID(),
+      actorUserId: source === "nfc_tap" ? null : owner,
+    });
+    for (const source of ["synthetic_seed", "referral_bonus", "nfc_tap", "legacy_unclassified"]) await insert(source);
+    await insert("staff_correction", "reversal", -1);
+    await db.insert(cardSecurityEvents).values({ tenantId: merchant.tenantId, membershipId: card.id, action: "card_credential_rotated" });
+    await reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: card.id, reason: "Neues Handy, Kontakt stimmt", verificationMethod: "stored_contact", entitlementConfirmed: true, idempotencyKey: randomUUID() });
+    const readiness = await getLaunchReadiness(owner, merchant.locationId, noNfc);
+    expect(status(readiness)).toMatchObject({ enrolment: "done", first_award: "todo", first_redemption: "todo" });
+    expect(readiness.next?.stepId).toBe("first_award");
+    expect(readiness.requiredDone).toBe(2);
+  });
+
+  it("keeps outside-Loynara conditions open even when every application step has evidence", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const rewardVersionId = (await lookupCard({ userId: owner, locationId: merchant.locationId, scanCode: card.scanCode })).rewards[0].id;
+    await redeem({ userId: owner, locationId: merchant.locationId, membershipId: card.id, rewardVersionId, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    await db.update(locations).set({ brandColor: "#7a2e1f" }).where(eq(locations.id, merchant.locationId));
+    await db.insert(staffRoles).values({ tenantId: merchant.tenantId, userId: await user(), role: "cashier", locationId: merchant.locationId });
+    const readiness = await getLaunchReadiness(owner, merchant.locationId, noNfc);
+    expect(readiness).toMatchObject({ requiredDone: 3, requiredTotal: 3, next: null });
+    const outside = readiness.steps.filter(step => step.group === "external");
+    expect(outside.map(step => step.id).sort()).toEqual(["access", "legal", "nfc"]);
+    for (const step of outside) { expect(step.status, step.id).toBe("external"); expect(step.required, step.id).toBe(false); }
+    // No application step claims legal or operator approval.
+    expect(readiness.steps.filter(step => step.group !== "external").every(step => step.status === "done")).toBe(true);
+  });
+
+  it("reports NFC from evidence: external without a key provider, then tag and a confirmed tap when it is on", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const withKeys = { NODE_ENV: "test", TAP_SYNTHETIC_KEY_FILE: "/synthetic/keys.json" } as Record<string, string | undefined>;
+    const nfc = async (env: Record<string, string | undefined>) => (await getLaunchReadiness(owner, merchant.locationId, env)).steps.find(step => step.id === "nfc")!;
+
+    expect(await nfc(noNfc)).toMatchObject({ status: "external", group: "external", required: false });
+    expect(await nfc(withKeys)).toMatchObject({ status: "not_applicable" }); // available, but the programme has tap switched off
+    await db.update(programs).set({ tapMode: "staff_confirmed", tapCooldownSeconds: 60 }).where(eq(programs.id, merchant.programId));
+    expect(await nfc(withKeys)).toMatchObject({ status: "todo", group: "verify" });
+    const [tag] = await db.insert(secureTags).values({ publicRef: "readiness-tag-ref-0001", tenantId: merchant.tenantId, locationId: merchant.locationId, programId: merchant.programId, uid: "04A1B2C3D4E5F6", keyRef: "synthetic-key", configVersion: 1, status: "active" }).returning();
+    const readTag = await nfc(withKeys);
+    expect(readTag.status).toBe("todo");
+    expect(readTag.evidence).toContain("noch kein bestätigter Tap"); // a readable, active tag proves no checkout
+    await db.insert(tapRequests).values({ tagId: tag.id, counter: 1, tenantId: merchant.tenantId, locationId: merchant.locationId, programId: merchant.programId, membershipId: card.id, status: "confirmed", expiresAt: new Date(Date.now() + 60_000) });
+    expect(await nfc(withKeys)).toMatchObject({ status: "done" });
+    // NFC is never a required step for the first pilot.
+    expect((await getLaunchReadiness(owner, merchant.locationId, withKeys)).requiredTotal).toBe(3);
   });
 });

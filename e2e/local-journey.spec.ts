@@ -47,7 +47,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     expect(cameraButton).not.toBeNull();
     expect(manualField).not.toBeNull();
     expect(cameraButton!.y).toBeLessThan(manualField!.y);
-    await expect(cashier.getByLabel("Kartennummer oder Kartencode")).toHaveAttribute("placeholder", "z. B. 7 oder K-0007");
+    await expect(cashier.getByLabel("Kartennummer oder Kartencode")).toHaveAttribute("placeholder", "z. B. K-7QX2MA");
 
     await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
     await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();

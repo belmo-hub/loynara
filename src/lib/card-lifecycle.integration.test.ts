@@ -90,7 +90,7 @@ describe("bearer card closure", () => {
     expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "shared-device"))).toMatchObject([{ pushToken: "b".repeat(64) }]);
     expect((await listUpdatedApplePasses("shared-device", "pass.local.loop"))?.serialNumbers).toEqual([liveCard.id]);
     const config = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "secret".repeat(8) };
-    await expect(registerAppleDevice({ deviceId: "new-device", passTypeId: config.passTypeId, serial: closedCard.id, authorization: `ApplePass ${applePassToken(closedCard.id, config)}`, pushToken: "c".repeat(64) }, config)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(registerAppleDevice({ deviceId: "new-device", passTypeId: config.passTypeId, serial: closedCard.id, authorization: `ApplePass ${applePassToken(closedCard.id, closedCard.scanCode, config)}`, pushToken: "c".repeat(64) }, config)).rejects.toMatchObject({ code: "FORBIDDEN" }); // closing retires the scan code, so the pass token no longer authenticates
     expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "new-device"))).toHaveLength(0);
   });
 });

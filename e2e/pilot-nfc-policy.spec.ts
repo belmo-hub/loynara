@@ -4,6 +4,10 @@ import { expect, request as apiRequest, test } from "@playwright/test";
 // Pilot policy: automatic NFC awards are never offered or accepted on the production deployment.
 // Run once normally (development: automatic stays available) and once with E2E_PILOT_PRODUCTION=1 against a
 // server started with PRODUCTION_ENVIRONMENT=loynara-production (production-like: automatic refused).
+// The production-like run also needs TRUSTED_INGRESS=cloudflare_tunnel (the spec sends the tunnel header itself) AND a
+// configured NFC key provider: NFC_ENABLED=true NFC_KEY_PROVIDER=derived_v1 NFC_VERIFY_MASTER_KEY=<64 hex characters>.
+// Without the provider the NFC surfaces are withheld on purpose and "cashier screen shows the NFC confirmation panel"
+// cannot pass; that is the deployment's real behaviour, not a defect.
 const productionLike = process.env.E2E_PILOT_PRODUCTION === "1";
 
 async function ownerWithProgramme(baseURL: string) {

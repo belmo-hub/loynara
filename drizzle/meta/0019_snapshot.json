@@ -1,5 +1,5 @@
 {
-  "id": "31af66a5-1b0e-4be8-bba0-b77fee24ddcd",
+  "id": "f95a5c17-1b1f-4f38-9135-5834c5587783",
   "prevId": "d627c55b-0c9f-4479-a850-62f3f9bf58bc",
   "version": "7",
   "dialect": "postgresql",
@@ -1485,6 +1485,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "verification_method": {
+          "name": "verification_method",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1520,6 +1532,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "card_security_idempotency_uq": {
+          "name": "card_security_idempotency_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"card_security_events\".\"idempotency_key\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1542,7 +1576,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "card_security_verification_valid": {
+          "name": "card_security_verification_valid",
+          "value": "\"card_security_events\".\"verification_method\" is null or \"card_security_events\".\"verification_method\" in ('card_link','stored_contact','other_check')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.consent_events": {
@@ -2453,12 +2492,12 @@
           "notNull": true,
           "default": 0
         },
-        "card_number": {
-          "name": "card_number",
-          "type": "integer",
+        "card_locator": {
+          "name": "card_locator",
+          "type": "varchar(6)",
           "primaryKey": false,
           "notNull": true,
-          "default": 0
+          "default": "''"
         },
         "closed_at": {
           "name": "closed_at",
@@ -2516,20 +2555,20 @@
             "id"
           ]
         },
-        "memberships_card_number_uq": {
-          "name": "memberships_card_number_uq",
+        "memberships_card_locator_uq": {
+          "name": "memberships_card_locator_uq",
           "nullsNotDistinct": false,
           "columns": [
             "tenant_id",
-            "card_number"
+            "card_locator"
           ]
         }
       },
       "policies": {},
       "checkConstraints": {
-        "membership_card_number_positive": {
-          "name": "membership_card_number_positive",
-          "value": "\"memberships\".\"card_number\" > 0"
+        "membership_card_locator_valid": {
+          "name": "membership_card_locator_valid",
+          "value": "\"memberships\".\"card_locator\" ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$'"
         },
         "membership_balance_nonnegative": {
           "name": "membership_balance_nonnegative",
@@ -5040,13 +5079,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'de'"
-        },
-        "next_card_number": {
-          "name": "next_card_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
         },
         "created_at": {
           "name": "created_at",

@@ -26,8 +26,6 @@ export const tenants = pgTable("tenants", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   currency: varchar("currency", { length: 3 }).notNull().default("EUR"),
   locale: varchar("locale", { length: 5 }).notNull().default("de"),
-  // Next short card number for this tenant; advanced only by the memberships insert trigger (0019).
-  nextCardNumber: integer("next_card_number").notNull().default(1),
   createdAt: createdAt(),
 });
 
@@ -183,15 +181,16 @@ export const memberships = pgTable("memberships", {
   scanCode: varchar("scan_code", { length: 64 }).notNull().unique(),
   cardToken: varchar("card_token", { length: 100 }).notNull().unique(),
   balance: integer("balance").notNull().default(0),
-  // Short, tenant-scoped, immutable number for manual counter lookup ("K-0007"). Assigned by a database trigger
-  // when the insert leaves it at 0; it is a lookup handle for authenticated staff, never a bearer credential.
-  cardNumber: integer("card_number").notNull().default(0),
+  // Short random locator for manual counter lookup, displayed as "K-7QX2MA" (lib/card-locator). Six characters from a
+  // 31-symbol alphabet without I, L, O, 0 or 1. Assigned by a database trigger (0019) when an insert leaves it empty;
+  // unique per tenant, immutable, not sequential. It finds a card for authenticated staff and is never a credential.
+  cardLocator: varchar("card_locator", { length: 6 }).notNull().default(""),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [
   unique("memberships_tenant_id_id_uq").on(t.tenantId, t.id),
-  unique("memberships_card_number_uq").on(t.tenantId, t.cardNumber),
-  check("membership_card_number_positive", sql`${t.cardNumber} > 0`),
+  unique("memberships_card_locator_uq").on(t.tenantId, t.cardLocator),
+  check("membership_card_locator_valid", sql`${t.cardLocator} ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$'`),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   check("membership_balance_nonnegative", sql`${t.balance} >= 0`),
 ]);
@@ -236,13 +235,19 @@ export const cardSecurityEvents = pgTable("card_security_events", {
   tenantId: uuid("tenant_id").notNull(),
   membershipId: uuid("membership_id").notNull(),
   action: varchar("action", { length: 32 }).notNull(),
-  // Set for staff-initiated actions (0019); customer self-service rows keep both empty.
+  // Set for staff-initiated actions (0019); customer self-service rows leave these empty.
   actorUserId: text("actor_user_id"),
   reason: varchar("reason", { length: 240 }),
+  // How the merchant satisfied themselves that the person belongs to the card. Never proof that Loynara verified anyone.
+  verificationMethod: varchar("verification_method", { length: 24 }),
+  // Client-chosen key so a retried staff request after an unclear network result is applied once.
+  idempotencyKey: varchar("idempotency_key", { length: 100 }),
   createdAt: createdAt(),
 }, (t) => [
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
   index("card_security_membership_idx").on(t.tenantId, t.membershipId, t.createdAt),
+  uniqueIndex("card_security_idempotency_uq").on(t.tenantId, t.idempotencyKey).where(sql`${t.idempotencyKey} is not null`),
+  check("card_security_verification_valid", sql`${t.verificationMethod} is null or ${t.verificationMethod} in ('card_link','stored_contact','other_check')`),
 ]);
 
 export const consentEvents = pgTable("consent_events", {

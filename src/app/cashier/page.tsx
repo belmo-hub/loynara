@@ -10,7 +10,8 @@ import { LogoutButton } from "@/components/logout-button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
-type LookupResult = { membershipId: string; cardNumber: string; matchedBy: "code" | "number"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
+type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
+type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
 type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
@@ -24,6 +25,7 @@ export default function CashierPage() {
   const [accessState, setAccessState] = useState<"loading" | "ready" | "blocked">("loading");
   const [accessMessage, setAccessMessage] = useState("");
   const [card, setCard] = useState<CashierCard | null>(null);
+  const [preview, setPreview] = useState<(LookupPreview & { code: string }) | null>(null);
   const [completedTransaction, setCompletedTransaction] = useState(0);
   const [busy, setBusy] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -51,11 +53,13 @@ export default function CashierPage() {
     });
   }, [router]);
 
-  const lookup = useCallback(async (code: string) => {
+  const lookup = useCallback(async (code: string, confirm = false) => {
     setBusy(true); setStatus("idle"); setMessage(""); setOfflineLease(null);
     try {
-      const result = await apiJson<LookupResult>(`/api/cashier/lookup?code=${encodeURIComponent(code)}`);
-      setCard({ id: result.membershipId, code, cardNumber: result.cardNumber, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
+      const result = await apiJson<LookupResult | LookupPreview>(`/api/cashier/lookup?code=${encodeURIComponent(code)}${confirm ? "&confirm=1" : ""}`);
+      if (result.stage === "preview") { setCard(null); setPreview({ ...result, code }); return; }
+      setPreview(null);
+      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
       pendingRef.current = null;
       try {
         const deviceId = getOfflineDeviceId(localStorage);
@@ -67,11 +71,11 @@ export default function CashierPage() {
       }
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
-      setCard(null);
+      setCard(null); setPreview(null);
       setStatus(cause instanceof ClientApiError && cause.status === 0 ? "offline" : "rejected");
       const fr = locale === "fr";
-      setMessage(cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code."
-        : cause instanceof ClientApiError && cause.code === "INVALID_CODE" ? fr ? "Saisissez un numéro de carte comme 7 ou K-0007, ou le code complet commençant par sc_." : "Gib eine Kartennummer wie 7 oder K-0007 ein oder den vollständigen Code mit sc_."
+      setMessage(cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code ; les numéros ne contiennent ni 0/O ni 1/I/L." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code und achte auf 0/O und 1/I/L: Kartennummern enthalten diese Zeichen nicht."
+        : cause instanceof ClientApiError && cause.code === "INVALID_CODE" ? fr ? "Numéro de carte non reconnu. Il ressemble à K-7QX2MA et ne contient ni 0, O, 1, I ni L. Sinon, saisissez le long code commençant par sc_." : "Kartennummer nicht erkannt. Sie sieht aus wie K-7QX2MA und enthält weder 0, O, 1, I noch L. Alternativ den langen Code mit sc_ eingeben."
         : cause instanceof Error ? cause.message : fr ? "La carte n’a pas pu être vérifiée." : "Karte konnte nicht geprüft werden.");
     } finally { setBusy(false); }
   }, [locale]);
@@ -156,5 +160,5 @@ export default function CashierPage() {
   }
 
   if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <><a href="/login" className="button button--outline">Zur Anmeldung</a><LogoutButton className="button button--outline" /></>}</div></main>;
-  return <><CashierView key={`${card?.id ?? "empty"}:${completedTransaction}`} locationName={locationName} card={card} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <CashierTapPanel />}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
+  return <><CashierView key={`${card?.id ?? (preview ? "preview" : "empty")}:${completedTransaction}`} locationName={locationName} card={card} preview={preview} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setPreview(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <CashierTapPanel />}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
 }

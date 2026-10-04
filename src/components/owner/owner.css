@@ -403,3 +403,6 @@
 .ow-step-mark--na { border-color: var(--ow-line); }
 .ow-step-mark--todo { border-color: var(--ow-line-strong); }
 details.ow-readiness > summary { cursor: pointer; min-height: 24px; list-style-position: inside; }
+.ow-entitlement { border: 1px solid var(--ow-line-strong); border-radius: var(--ow-r2); padding: var(--ow-s3) var(--ow-s4); margin: 0; display: grid; gap: var(--ow-s2); }
+.ow-entitlement legend { font-weight: 700; padding-inline: 6px; }
+.ow-entitlement p { margin: 0; }

@@ -80,7 +80,7 @@ export type PublicProgram = {
 
 export type CardResponse = {
   scanCode: string;
-  cardNumber: string;
+  cardLocator: string;
   balance: number;
   merchantName: string;
   locationName: string;
