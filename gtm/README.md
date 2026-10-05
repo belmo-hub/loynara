@@ -54,6 +54,7 @@ Detail, message hierarchy and claim check: [02-positioning-angles.md](02-positio
 | 14 | [14-angle-reconciliation.md](14-angle-reconciliation.md) | All 124 original angles + 45 other original items → canonical angle, coverage before, status |
 | 15 | [15-copy-switches.md](15-copy-switches.md) | NFC and RC copy switches: exact website strings and GTM replacements |
 | 16 | [16-execution-matrix.md](16-execution-matrix.md) | Core angles → walk-in / demo / static / 15s video / post / objection / vertical; long-tail placements |
+| 17 | [17-field-kit.md](17-field-kit.md) | **Field kit:** 60 Kassel prospects + routes, printed German collateral, learning sheet, and the physical counter stand (pre-/post-NFC artwork, laser files, fabrication sheet) |
 
 ## Founder decisions
 

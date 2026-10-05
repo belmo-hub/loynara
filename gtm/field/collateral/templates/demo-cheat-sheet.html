@@ -1,0 +1,68 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Loynara · Demo-Spickzettel (intern)</title>
+<link rel="stylesheet" href="../print.css">
+<style>
+.page{padding:10mm 11mm 8mm;background:#fff}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid var(--deep);padding-bottom:2mm}
+.hd h1{font-size:17pt}.hd .fine{text-align:right}
+.flow{display:grid;grid-template-columns:repeat(7,1fr);gap:1.4mm;margin-top:3mm}
+.flow div{background:var(--deep);color:#fff;border-radius:2.2mm;padding:2.2mm 1.8mm 2.4mm;min-height:36mm}
+.flow b{display:block;font-size:7.6pt;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.flow span{display:block;margin-top:1mm;font-size:8.4pt;line-height:1.3}
+.flow .ask{display:block;margin-top:1.2mm;font-size:7.2pt;color:var(--on-dark);font-style:italic}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-top:3mm}
+.box{border:.3mm solid var(--line);border-radius:2.4mm;padding:2.4mm 3mm;background:var(--paper)}
+.box h2{font-size:9.6pt;margin-bottom:1.2mm;display:flex;justify-content:space-between}
+.box h2 span{font-size:7.4pt;font-weight:700;color:var(--muted);letter-spacing:0}
+.box p,.box li{font-size:9.2pt;line-height:1.4}
+.box li{margin-top:.8mm;padding-left:2.4mm;position:relative}.box li::before{content:"–";position:absolute;left:0;color:var(--brand)}
+.q{font-style:normal;color:var(--deep);font-weight:650}
+.full{grid-column:1/-1}
+.never{background:#F7E8E0;border-color:#E9C9B8}.never h2{color:var(--warm)}
+.ok{background:var(--soft);border-color:#C9DDC9}
+table{width:100%;border-collapse:collapse;font-size:8.9pt}td{padding:1.3mm 1mm;vertical-align:top;border-top:.2mm solid var(--line)}td:first-child{width:21mm;font-weight:760;color:var(--brand)}
+</style></head><body><section class="page">
+<div class="hd"><h1>Demo-Spickzettel <em>für den Gründer</em></h1><p class="fine">Intern, nicht für Kunden<br>{{variant}}</p></div>
+
+<div class="flow">
+ <div><b>1 Kunde</b><span>{{demo_step1}}</span></div>
+ <div><b>2 Tresen</b><span>Zweites Gerät: Team scannt und bestätigt. „Ohne euch kein Stempel, Selbststempeln geht nicht.“</span><i class="ask">Wer steht bei dir an der Kasse?</i></div>
+ <div><b>3 Fortschritt</b><span>Beispielkarte 9/10 → 10/10 → Prämie. „Was wäre bei dir die Prämie?“</span></div>
+ <div><b>4 Empfehlung</b><span>Bonus erst nach dem ersten bestätigten Besuch des Neuen. Fürs Teilen allein: nichts.</span><i class="ask">Wie kommen neue Kunden heute zu dir?</i></div>
+ <div><b>5 Inhaber</b><span>Wie viele Karten kommen wieder? Pro Karte Stand und letzter Besuch. <b style="display:inline;color:var(--accent);font-size:inherit;letter-spacing:0;text-transform:none">Karten pseudonym, keine Namen.</b></span></div>
+ <div><b>6 Preis</b><span>39 € pro Monat und Standort. Alle Bedingungen schriftlich. Rechnung mit <i>deinem</i> Warenkorb. Dann schweigen.</span></div>
+ <div><b>7 Frage</b><span>Discovery- und Abschlussfrage (unten). Antwort aufschreiben, wenn du draußen bist.</span></div>
+</div>
+
+<div class="cols">
+ <div class="box"><h2>20-Sekunden-Pitch <span>an der Tür</span></h2>
+  <p>„Hi, ich bin [Vorname]. Ich mach hier in Kassel digitale Stempelkarten für Läden wie deinen: Dein Kunde scannt einen QR-Code, die Karte ist im Browser, <b>keine App</b>, und dein Team bestätigt jeden Stempel. Darf ich dir das zwei Minuten zeigen? Wenn's nichts für dich ist, bin ich direkt wieder weg.“</p>
+  <p class="fine" style="margin-top:1mm">Wenn eine Papierkarte am Tresen liegt: „Genau darum geht's, nur ohne Papier.“ Kommt gerade ein Kunde: „Wann passt's besser?“</p></div>
+ <div class="box"><h2>2-Minuten-Pitch <span>Beats 1–6, je ca. 20 s</span></h2>
+  <ol style="font-size:9.2pt;line-height:1.4">
+   <li>Karte zeigen (Beat 1), nichts erklären, warten bis sie geschaut haben.</li>
+   <li>Team: scannen, bestätigen, fertig.</li>
+   <li>Fortschritt 9/10: „Der nächste Besuch wird sichtbar.“</li>
+   <li>Empfehlung nur einen Satz.</li>
+   <li>Inhaber: „Du siehst, wie viele wiederkommen.“</li>
+   <li>Preis, Pause. Dann die Frage.</li></ol></div>
+
+ <div class="box full"><h2>5-Minuten-Demo <span>nur wenn die Person Zeit hat</span></h2>
+  <table>
+   <tr><td>0:00</td><td><span class="q">Discovery:</span> „Wie viele deiner Stammkunden sind das, so grob? Merkst du, wenn einer ein paar Wochen fehlt?“ (zuhören, nicht verkaufen)</td></tr>
+   <tr><td>1:00</td><td>Beats 1–3 mit <b>ihrem</b> Beispiel: ihre Prämie, ihre Stempelzahl. Karte in ihrer Hand.</td></tr>
+   <tr><td>2:30</td><td>Beat 4 Empfehlung: Beispielpaar zeigen. Beat 5 Inhaber: Auswertung + eine Karte (Letzter Vorgang). Nicht mehr Tabs öffnen.</td></tr>
+   <tr><td>3:30</td><td><b>Ehrlich bleiben:</b> {{demo_recovery}} {{demo_nfc}} „Nachrichten an Kunden, Wallet, Logo auf der Karte: Ausblick, nicht Teil des Angebots.“</td></tr>
+   <tr><td>4:15</td><td>Preis + Rechnung mit ihrem Durchschnittsbon (aufgerundet): 25 € → 2 · 18 € → 3 · 8 € → 5 · 6 € → 7. „Rechenbeispiel, keine Prognose.“</td></tr>
+   <tr><td>4:45</td><td>Abschlussfrage, dann stillhalten.</td></tr>
+  </table></div>
+
+ <div class="box ok"><h2>Discovery-Fragen <span>wähle eine</span></h2>
+  <ul><li class="q">Wie viele deiner Kunden waren diesen Monat zweimal da? Weißt du das?</li>
+  <li class="q">Was nervt dich an den Papierkarten?</li><li class="q">Wie kommen neue Kunden heute zu dir?</li></ul></div>
+ <div class="box ok"><h2>Abschlussfrage <span>Stand heute</span></h2>
+  <p><b>Immer:</b> „Würde dir das bei etwas Konkretem helfen?“</p>
+  <p style="margin-top:1mm"><b>Vor Freigabe der Bedingungen:</b> „Wenn die Bedingungen schriftlich stehen: willst du einer der ersten Läden sein? Wie darf ich mich melden?“ Kein Datum, keine Zahlung. Antwort + Wortlaut der Erlaubnis in die Pilotinteresse-Karte.</p></div>
+
+ <div class="box never full"><h2>Nie sagen <span>claim-sicher</span></h2>
+  <p>KI · mehr Umsatz · garantiert · Prozentzahlen · „bei [anderem Laden] hat das X gebracht“ · NFC, Wallet, Logo auf der Karte oder Nachrichten als vorhanden · Namen auf der Inhaber-Ansicht · Funktionen „kommt mit dem nächsten Update“ als live · „nur diese Woche“ · Startdatum oder Zahlung versprechen. <b>Kein Live-QR ans Produktivsystem:</b> Demo läuft auf dem Tablet mit lokalen Beispieldaten, bis der Demo-Händler freigegeben ist.</p></div>
+</div></section></body></html>

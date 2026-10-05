@@ -1,0 +1,34 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Loynara · Nach-der-Demo-Zusammenfassung (Vorlage)</title>
+<link rel="stylesheet" href="../print.css">
+<style>
+.page{padding:0;background:#fff}
+.top{background:var(--deep);color:#fff;padding:11mm 16mm 8mm}
+.top .brandline{color:#fff}.top h1{margin-top:6mm;font-size:21pt;line-height:1.05}.top h1 em{color:var(--accent)}
+.top p{margin-top:2.6mm;color:var(--on-dark);font-size:10.4pt}
+.in{padding:5mm 16mm 0}
+[contenteditable]{background:#FFF3C4;color:var(--deep);border-radius:1mm;padding:0 1.2mm;outline:none}
+.blk{margin-top:4.4mm}.blk h2{font-size:12pt;margin-bottom:1.6mm}.blk p,.blk li{font-size:10.4pt;line-height:1.5}
+.blk li{margin-top:1.2mm;padding-left:4mm;position:relative}.blk li::before{content:"–";position:absolute;left:0;color:var(--brand)}
+.rule{background:var(--soft);border-radius:3.4mm;padding:4mm 5mm;margin-top:2mm;display:flex;gap:6mm;align-items:center}
+.rule .lcard{width:50mm;flex:none}.rule p{font-size:10.4pt}
+.price{display:flex;gap:6mm;align-items:baseline}.price b{font-size:22pt;color:var(--deep);letter-spacing:-.03em;white-space:nowrap}.price p{flex:1}
+.hint{margin:5mm 16mm 0;font-size:7.6pt;color:var(--muted);border-top:.3mm solid var(--line);padding-top:2.4mm}
+@media print{[contenteditable]{background:none}}
+</style></head><body><section class="page">
+<div class="top"><div class="brandline"><img class="mark" src="../../../../marketing-site/site/assets/loynara-mark.svg" alt="">Loynara</div>
+ <h1>So könnte das bei<br><em contenteditable>[Laden]</em> aussehen.</h1><p>Hallo <span contenteditable>[Vorname]</span>, danke für deine Zeit am <span contenteditable>[Tag]</span>. Hier die Kurzfassung.</p></div>
+<div class="in">
+ <div class="blk"><h2>Dein Stempelprogramm (Vorschlag, du entscheidest)</h2>
+  <div class="rule"><div class="lcard"><div class="lc-top"><span class="lg">★</span><span contenteditable>[Laden]</span></div><div class="lc-rew"><span contenteditable>[Prämie]</span> · ab <span contenteditable>[10]</span> Stempeln</div>
+   <div class="lc-st"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div><div class="lc-ft"><span><b>7</b> / <span contenteditable>[10]</span></span><span>Beispiel</span></div></div>
+   <p><b>Regel:</b> pro bestätigtem Besuch ein Stempel, bei <span contenteditable>[10]</span> Stempeln: <span contenteditable>[Prämie]</span>. Empfehlungsbonus: <span contenteditable>[an/aus, Bonus]</span> (erst nach dem ersten bestätigten Besuch des Neuen).</p></div></div>
+ <div class="blk"><h2>So läuft es</h2><ul>
+  <li><b>Kunde:</b> {{customer}}</li><li><b>Team:</b> Karte zeigen lassen, scannen, bestätigen. Erst dann zählt der Besuch. Jeder hat einen eigenen Zugang.</li>
+  <li><b>Du:</b> Du siehst, wie viele Karten wiederkommen, und pro Karte Stand und letzten Besuch. Karten sind pseudonym.</li></ul></div>
+ <div class="blk"><h2>Preis</h2><div class="price"><b>39 €</b><p>pro Monat und Standort. Vorgeschlagener Pilotpreis. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst.<br>Rechenbeispiel, keine Prognose: Bei rund <span contenteditable>[Warenkorb]</span> € pro Besuch entsprechen 39 € etwa <span contenteditable>[n]</span> Besuchen im Monat.</p></div></div>
+ <div class="blk"><h2>Wie geht es weiter?</h2><p><span contenteditable>[Nächster Schritt, z. B. „Ich melde mich, sobald die Bedingungen schriftlich stehen. Bis dahin gibt es kein Startdatum und keine Zahlung.“ / vereinbarter Termin]</span></p></div>
+ <div class="blk"><p class="fine"><b>Was noch nicht dabei ist (Ausblick):</b> Nachrichten an Kunden, Wallet-Karte, Logo auf der Karte, Anbindung an Kasse oder Lieferplattformen. {{nfc_footer}}</p></div>
+ <p style="margin-top:4mm;font-size:10.4pt">Viele Grüße<br><span contenteditable>[Name]</span> · <span contenteditable>[Telefon]</span> · support@getloynara.com</p>
+</div>
+<div class="hint">Vorlage. Nur senden, wenn der Inhaber den Weg ausdrücklich erlaubt hat (Pilotinteresse-Karte, „Wortlaut der Erlaubnis“). Gelbe Felder anpassen (in diesem HTML anklicken), dann drucken oder als PDF sichern. {{variant}}</div>
+</section></body></html>

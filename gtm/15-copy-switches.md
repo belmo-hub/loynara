@@ -88,3 +88,12 @@ Visual note: the counter-stand illustration changes only its text. Re-adding a t
 | Camera fails at the counter | Retry the scan | Staff type the short card number |
 | Wrong stamp | No merchant correction button; say „kommt mit dem nächsten Update“ | Owner/manager correction with reason; the original stays in the history |
 | What never to say before the switch | „Neue Karte, gleicher Stand“ as if it were live | — |
+
+## Physical collateral and the counter stand
+
+| Item | Now | After the gate | How |
+|---|---|---|---|
+| Printed handout, cheat sheets, pilot sheet | Current wording | After RC / after NFC acceptance | `python3 gtm/field/collateral/build_collateral.py --rc --nfc` (writes `print-post/`, never overwrites `print/`). Wording lives in `gtm/field/collateral/variants.py` |
+| Counter stand insert | `insert-pre-nfc`: „Für deine Kundenkarte QR-Code scannen“, no NFC wording | `HOLD_insert-post-nfc`: „Handy kurz antippen“ / „oder QR-Code scannen“, QR as fallback | Print the held file and drop it into the already-installed stands (tag position is identical). Nothing else changes physically |
+| Insert QR | Placeholder (`loynara.invalid`) | The approved demo/production join URL, error correction M | Edit `PLACEHOLDER_URL` in `gtm/field/stand/artwork.py`, rebuild, reprint (see `STAND-SPEC.md` §8) |
+
