@@ -80,3 +80,8 @@ describe("NFC operator offline execution boundary", () => {
     expect(result.stderr).toMatch(/TRANSPORT_KEYS_REQUIRED/);
   });
 });
+
+it("preview execute cannot silently generate keys without prepared custody",()=>{
+ const result=run(["provision","--target","preview","--execute","--provenance-ref","review-001","--transport-keys-file",custodyFile,"--env-file",envFile]);
+ expect(result.attempted).toBe("");expect(result.status).toBe(1);expect(result.stderr).toMatch(/PREPARED_CUSTODY_REQUIRED/);
+});

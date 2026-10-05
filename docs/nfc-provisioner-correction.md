@@ -1,5 +1,7 @@
 # NFC provisioner correction — local software handoff
 
+Subsequent TAG-01 evidence and the prepared-key preview execution extension supersede this handoff's historical current-key blocker and preview CLI instructions. See [Prepared preview custody](nfc-prepared-custody.md). The sections below describe the original software correction, not current physical write authorization.
+
 Base: `feature/nfc-v1`, `70ecc72349f213f45ead25e6889ab55222fb95aa`. Correction branch: `codex/nfc-provisioner-correction`. The final commit is supplied in the owner handoff rather than recorded inside itself.
 
 Scope: software, CPU chip fixtures and disposable local database fixtures only. No physical tag connection, authentication, write or registration; no production access, production key generation, push or deployment. Physical TAG-01 identifiers remain in owner-local acceptance evidence, outside this repository.

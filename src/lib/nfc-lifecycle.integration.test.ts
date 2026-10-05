@@ -35,6 +35,16 @@ async function register(f: Fx, options: { uid?: string; initialCounter?: number 
 const ledgerCount = async (membershipId: string) => (await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, membershipId))).length;
 
 describe("counter-tag flow: customer tap to cashier confirmation to ledger", () => {
+  it("prepared reservation and activation refuse policy drift under the programme lock", async () => {
+    const f = await nfcFixture();
+    const policy = { tenantId: f.tenant.id, locationId: f.location.id, programId: f.program.id, mode: "staff_confirmed" as const, cooldownSeconds: 60 };
+    await expect(provisionSecureTag({ actorUserId: f.userId, programId: f.program.id, uid: "04000000000001", keyRef: "prepared_cpu", configVersion: 1, expectedPolicy: { ...policy, cooldownSeconds: 61 } })).rejects.toMatchObject({ code: "PREPARED_POLICY_MISMATCH" });
+    expect(await db.select().from(secureTags)).toHaveLength(0);
+    const tag = await provisionSecureTag({ actorUserId: f.userId, programId: f.program.id, uid: "04000000000001", keyRef: "prepared_cpu", configVersion: 1, expectedPolicy: policy });
+    await setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "automatic_fixed", cooldownSeconds: 60 });
+    await expect(activateSecureTag({ actorUserId: f.userId, tagId: tag.id, expectedPolicy: policy })).rejects.toMatchObject({ code: "PREPARED_POLICY_MISMATCH" });
+    expect((await db.select().from(secureTags))[0].status).toBe("provisioned");
+  });
   it("enrolled customer: pending, polled idempotently, listed for the cashier, confirmed exactly once, reload is calm", async () => {
     const f = await nfcFixture();
     const c = await register(f);

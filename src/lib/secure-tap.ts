@@ -74,13 +74,18 @@ export async function setTapPolicy(input: { actorUserId: string; programId: stri
   });
 }
 
-export async function provisionSecureTag(input: { actorUserId: string; programId: string; uid: string; keyRef: string; configVersion: number; replacesTagId?: string; /** The reference already written on the chip; generated when omitted. */ publicRef?: string }) {
+export type PreparedTagPolicy = { tenantId: string; locationId: string; programId: string; mode: "staff_confirmed"; cooldownSeconds: number };
+function assertPreparedPolicy(program: typeof programs.$inferSelect, policy?: PreparedTagPolicy): void {
+  if (policy && (program.id !== policy.programId || program.tenantId !== policy.tenantId || program.locationId !== policy.locationId || program.status !== "active" || program.type !== "stamp" || program.earningMode !== "manual" || program.tapMode !== policy.mode || program.tapCooldownSeconds !== policy.cooldownSeconds)) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved tag policy changed");
+}
+export async function provisionSecureTag(input: { actorUserId: string; programId: string; uid: string; keyRef: string; configVersion: number; replacesTagId?: string; expectedPolicy?: PreparedTagPolicy; /** The reference already written on the chip; generated when omitted. */ publicRef?: string }) {
   if (input.publicRef !== undefined && !publicRefPattern.test(input.publicRef)) throw new DomainError("INVALID_TAG", "Invalid tag reference");
   if (!uidPattern.test(input.uid) || !/^[A-Za-z0-9_-]{1,80}$/.test(input.keyRef) || !Number.isInteger(input.configVersion) || input.configVersion < 1) throw new DomainError("INVALID_TAG", "Invalid provisioning metadata");
   return db.transaction(async tx => {
     const [program] = await tx.select().from(programs).where(eq(programs.id, input.programId)).for("update");
     if (!program || program.type !== "stamp" || program.earningMode !== "manual") throw new DomainError("INVALID_TAG", "Fixed-stamp programme required");
     await owner(tx, input.actorUserId, program.tenantId);
+    assertPreparedPolicy(program, input.expectedPolicy);
     if (input.replacesTagId) {
       const [old] = await tx.select().from(secureTags).where(and(eq(secureTags.id, input.replacesTagId), eq(secureTags.tenantId, program.tenantId), eq(secureTags.programId, program.id))).for("update");
       if (!old || old.status !== "active") throw new DomainError("INVALID_TAG", "Active tag to replace not found");
@@ -91,13 +96,17 @@ export async function provisionSecureTag(input: { actorUserId: string; programId
   });
 }
 
-export async function activateSecureTag(input: { actorUserId: string; tagId: string; /** Highest counter already seen (verification reads made during provisioning), so those URLs can never be replayed. */ initialCounter?: number }) {
+export async function activateSecureTag(input: { actorUserId: string; tagId: string; expectedPolicy?: PreparedTagPolicy; expectedTag?: { uid: string; keyRef: string; publicRef: string }; /** Highest counter already seen (verification reads made during provisioning), so those URLs can never be replayed. */ initialCounter?: number }) {
   return db.transaction(async tx => {
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
     if (!tag || tag.status !== "provisioned") throw new DomainError("NOT_FOUND", "Provisioned tag not found");
     await owner(tx, input.actorUserId, tag.tenantId);
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, tag.programId), eq(programs.tenantId, tag.tenantId)));
+    if (input.expectedTag && (tag.uid !== input.expectedTag.uid || tag.keyRef !== input.expectedTag.keyRef || tag.publicRef !== input.expectedTag.publicRef)) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved tag binding changed");
+    const query = tx.select().from(programs).where(and(eq(programs.id, tag.programId), eq(programs.tenantId, tag.tenantId)));
+    const [program] = input.expectedPolicy ? await query.for("update") : await query;
     if (!program || program.status !== "active" || program.tapMode === "disabled") throw new DomainError("TAP_DISABLED", "Tap is disabled");
+    assertPreparedPolicy(program, input.expectedPolicy);
+    if (input.expectedPolicy && tag.locationId !== input.expectedPolicy.locationId) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved location changed");
     await tx.update(secureTags).set({ status: "active", activatedAt: new Date(), ...(input.initialCounter ? { lastCounter: Math.max(tag.lastCounter, input.initialCounter) } : {}) }).where(eq(secureTags.id, tag.id));
     return { id: tag.id, status: "active" as const };
   });

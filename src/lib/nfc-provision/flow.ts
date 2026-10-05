@@ -1,11 +1,11 @@
-import { Ntag424, generateDevelopmentKeys, ndefTemplate, verifyDynamicNdef, type ApduTransport, type DevelopmentKeys, type Version } from "./ntag";
+import { Ntag424, ndefTemplate, verifyDynamicNdef, type ApduTransport, type DevelopmentKeys, type Version } from "./ntag";
 import { verifySdm } from "../secure-tap-crypto";
 import { assertCurrentKeys, assertProvenance } from "./provenance";
 
 export interface ProvisionRepository {
   checkTarget(input: { actorUserId: string; programId: string; replacesTagId?: string }): Promise<{ tenantId: string; locationId: string; programId: string; mode: string; cooldownSeconds: number }>;
-  reserve(input: { actorUserId: string; programId: string; uid: string; keyRef: string; replacesTagId?: string }): Promise<{ id: string; publicRef: string }>;
-  verifyMapping(input: { tagId: string; publicRef: string; uid: string; tenantId: string; locationId: string; programId: string }): Promise<void>;
+  reserve(input: { actorUserId: string; programId: string; uid: string; keyRef: string; replacesTagId?: string; publicRef?: string }): Promise<{ id: string; publicRef: string }>;
+  verifyMapping(input: { tagId: string; publicRef: string; uid: string; tenantId: string; locationId: string; programId: string; keyRef?: string }): Promise<void>;
   activate(input: { actorUserId: string; tagId: string; initialCounter: number }): Promise<void>;
   fail(input: { actorUserId: string; tagId: string }): Promise<void>;
 }
@@ -69,6 +69,8 @@ export async function provisionPhysicalTag(input: {
   provenanceRef?: string;
   currentKeys?: DevelopmentKeys;
   expectedUid?: string;
+  expectedPublicRef?: string;
+  requireEmptyNdef?: boolean;
   replacesTagId?: string;
   confirm(summary: { uid: string; version: Version; originalFileSettings: string; mapping: Awaited<ReturnType<ProvisionRepository["checkTarget"]>> }): Promise<boolean>;
   onStage(stage: ProvisionStage, proof?: ProvisionProof): Promise<void>;
@@ -88,6 +90,7 @@ export async function provisionPhysicalTag(input: {
   try {
     assertProvenance(input.provenanceRef);
     assertCurrentKeys(input.currentKeys);
+    if (!input.keyFactory) throw new Error("Explicit prepared or derived key factory is required; hardware key generation is forbidden");
     if (!input.onStage || !input.onIntent || !input.assertSafeToStart) throw new Error("Durable intent/stage evidence and prior-state guard are required");
     if (!input.expectedUid || !/^[a-f0-9]{14}$/.test(input.expectedUid)) throw new Error("Execution requires the custody-bound expected chip UID");
     const mapping = await input.repository.checkTarget(input);
@@ -97,18 +100,23 @@ export async function provisionPhysicalTag(input: {
     if (repeat.uid !== version.uid || (input.expectedUid && version.uid !== input.expectedUid)) throw new Error("Presented tag changed during preflight");
     const settings = await tag.readFileSettings();
     if (!settings.equals(Buffer.from("0000e0ee000100", "hex"))) throw new Error("Tag is not in expected factory NDEF state");
+    if (input.requireEmptyNdef) {
+      const nlen = await tag.readNdef(2);
+      if (nlen.length !== 2 || nlen.readUInt16BE(0) !== 0) throw new Error("Prepared plan requires empty NDEF");
+    }
     await input.assertSafeToStart?.(version.uid);
     if (!await input.confirm({ uid: version.uid, version, originalFileSettings: settings.toString("hex"), mapping })) throw new Error("Operator did not confirm irreversible changes");
     await note("confirmed");
     // Establish the explicitly supplied current credential before reserving or writing. No fallback.
     await tag.authenticateFirst(0, input.currentKeys.key0);
     await tag.reconnect();
-    const keys = input.keyFactory?.({ uid: version.uid, keyRef: input.keyRef }) ?? generateDevelopmentKeys();
+    const keys = input.keyFactory({ uid: version.uid, keyRef: input.keyRef });
     await input.keyStore.save(input.keyRef, version.uid, keys);
     await note("keys_saved");
-    const reserved = await input.repository.reserve({ actorUserId: input.actorUserId, programId: input.programId, uid: version.uid, keyRef: input.keyRef, replacesTagId: input.replacesTagId });
+    const reserved = await input.repository.reserve({ actorUserId: input.actorUserId, programId: input.programId, uid: version.uid, keyRef: input.keyRef, replacesTagId: input.replacesTagId, publicRef: input.expectedPublicRef });
     tagId = reserved.id;
     await note("reserved");
+    if (input.expectedPublicRef && reserved.publicRef !== input.expectedPublicRef) throw new Error("Reservation differs from approved plan");
     const template = ndefTemplate(input.origin, reserved.publicRef);
     await intend("writing_ndef");
     await tag.writeNdef(template.bytes);

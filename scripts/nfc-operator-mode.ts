@@ -5,7 +5,7 @@ export type OperatorMode = "read_only" | "offline_dry_run" | "execute";
 
 const COMMANDS = new Set(["reader-check", "tag-inspect", "provision", "resume", "tag-status", "tag-revoke"]);
 const FLAGS = new Set(["execute", "dry-run"]);
-const OPTIONS = new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id", "target", "tenant-id", "location-id", "cooldown-seconds", "execute", "dry-run", "provenance-ref", "transport-keys-file"]);
+const OPTIONS = new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id", "target", "tenant-id", "location-id", "cooldown-seconds", "execute", "dry-run", "provenance-ref", "transport-keys-file", "prepared-custody-file", "age-identity-file", "approved-plan-fingerprint"]);
 
 export function parseOperatorOptions(args: string[]): OperatorOptions {
   const values: OperatorOptions = {};
@@ -38,6 +38,12 @@ export function operatorMode(command: string | undefined, values: OperatorOption
   }
   if (values.execute !== "true") return "offline_dry_run";
   requireProvenanceRef(values["provenance-ref"]);
+  if ((command === "provision" || command === "resume") && values.target === "preview") {
+    if (!values["prepared-custody-file"]) throw new Error("PREPARED_CUSTODY_REQUIRED");
+    if (!values["age-identity-file"]) throw new Error("AGE_IDENTITY_REQUIRED");
+    if (!/^[a-f0-9]{64}$/.test(values["approved-plan-fingerprint"] ?? "")) throw new Error("PLAN_APPROVAL_REQUIRED");
+    return "execute";
+  }
   if (command !== "tag-revoke" && !values["transport-keys-file"]?.trim()) throw new Error("TRANSPORT_KEYS_REQUIRED: --transport-keys-file must identify explicit current credentials in custody");
   return "execute";
 }
