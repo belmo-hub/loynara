@@ -3,6 +3,7 @@
  * Brand-aware: logo and reward text follow the BrandState; colours come from the enclosing [data-brand] scope.
  * Example data only. Decorative patterns encode nothing and are no real QR codes.
  */
+import { ENTRY_COPY as E } from './claims.js';
 import { DEMO, industries } from './site.js';
 import { LOGOS, REWARD_LABELS, STYLES, initialBrand, rewardText, type BrandState, type LogoKey, type RewardKey, type StyleKey } from './brand.js';
 import { LIMITS, type FieldKey } from './calc.js';
@@ -30,7 +31,7 @@ function pattern(x: number, y: number, size: number, cls: string): string {
 }
 /** Counter stand: Gestaltungsbeispiel. No dimensions, material or inclusion is implied. */
 export function standSvg(b: BrandState = initialBrand()): string {
-  return `<svg class="stand" viewBox="0 0 200 270" role="img" aria-label="Aufsteller am Tresen, Gestaltungsbeispiel"><ellipse class="st-shadow" cx="100" cy="256" rx="88" ry="9"/><rect class="st-base" x="22" y="236" width="156" height="16" rx="8"/><path class="st-edge" d="M44 24h112l14 214H30z"/><path class="st-face" d="M50 30h100l13 206H37z"/><circle class="st-ring" cx="100" cy="74" r="19"/><svg class="st-logo" x="86" y="60" width="28" height="28" viewBox="0 0 32 32">${inner(LOGOS[b.logo].svg)}</svg><text class="st-name" x="100" y="120" text-anchor="middle">${X.name}</text><text class="st-small" x="100" y="136" text-anchor="middle">Scannen und sammeln</text><rect class="st-qrbg" x="72" y="148" width="56" height="56" rx="6"/>${pattern(77, 153, 46, 'st-qr')}</svg>`;
+  return `<svg class="stand" viewBox="0 0 200 270" role="img" aria-label="Aufsteller am Tresen, Gestaltungsbeispiel"><ellipse class="st-shadow" cx="100" cy="256" rx="88" ry="9"/><rect class="st-base" x="22" y="236" width="156" height="16" rx="8"/><path class="st-edge" d="M44 24h112l14 214H30z"/><path class="st-face" d="M50 30h100l13 206H37z"/><circle class="st-ring" cx="100" cy="74" r="19"/><svg class="st-logo" x="86" y="60" width="28" height="28" viewBox="0 0 32 32">${inner(LOGOS[b.logo].svg)}</svg><text class="st-name" x="100" y="120" text-anchor="middle">${X.name}</text><text class="st-small" x="100" y="136" text-anchor="middle">${E.standText}</text><rect class="st-qrbg" x="72" y="148" width="56" height="56" rx="6"/>${pattern(77, 153, 46, 'st-qr')}</svg>`;
 }
 /** Wallet-Vorschau: a design example, not a provisioned pass. */
 export function walletHtml(b: BrandState = initialBrand(), balance = 8): string {

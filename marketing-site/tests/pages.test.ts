@@ -75,3 +75,11 @@ test('accessible structure: example pictures are labelled, FAQ uses native discl
     for (const [, alt] of html.matchAll(/role="img" aria-label="([^"]*)"/g)) assert.ok(alt.length > 10, `${p.path}: ${alt}`);
   }
 });
+
+test('owner views are pseudonymous like the real customer list: no named customers, no named-list claim', () => {
+  for (const html of [homePage(), ...pages.map(x => x.html)]) {
+    for (const [, list] of html.matchAll(/<ul class="people">([\s\S]*?)<\/ul>/g)) for (const [, name] of list.matchAll(/<b>([^<]*)<\/b>/g)) assert.match(name, /^Karte [A-Z]$/, name);
+    assert.doesNotMatch(visible(html), /Name, letzter|Namen und Telefonnummern|wer seit Wochen fehlt|wer schon länger fehlt|wann es ruhig ist/);
+  }
+  for (const { text } of pages.filter(x => x.p !== referrals)) assert.match(text, /Namen zeigt Loynara nicht/);
+});

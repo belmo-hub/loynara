@@ -3,6 +3,7 @@
  * The tested state machines (demo.ts, ref.ts), brand state (brand.ts) and calculator maths (calc.ts) are reused unchanged.
  * Selecting a tab only changes the view; it never runs a business action.
  */
+import { ENTRY_COPY as E } from './claims.js';
 import { animate } from 'motion';
 import { initialDemo, transition, viewOf, type DemoAction, type DemoState } from './demo.js';
 import { initialRef, refTransition, refView, REF_RULE, type RefAction, type RefState } from './ref.js';
@@ -56,7 +57,7 @@ for (const id of ['owner']) { const list = $(`[data-tabs="${id}"]`); if (list) t
 // ---- counter demo (demo.ts): one phone, one action, one owner consequence ----------------------------------------------------------
 const visitRoot = $('[data-visit]')!, stagePhone = $('.phone-stage .screen')!;
 const VISIT: Record<string, { label: string; action: DemoAction; caption: string }> = {
-  start: { label: 'Karte öffnen', action: { type: 'open' }, caption: 'Dein Kunde scannt den QR-Code am Tresen.' },
+  start: { label: 'Karte öffnen', action: { type: 'open' }, caption: E.visitCaption },
   enroll: { label: 'Karte erstellen', action: { type: 'enroll' }, caption: 'Eine neue Karte: ohne App und ohne Passwort, direkt im Browser.' },
   request: { label: 'Besuch bestätigen', action: { type: 'confirm' }, caption: 'Die Karte ist offen. Erst wenn dein Team scannt und bestätigt, zählt der Besuch.' },
   confirmed: { label: 'Nächsten Besuch zeigen', action: { type: 'nextVisit' }, caption: 'Ein Stempel, genau einmal – auch bei doppeltem Tippen.' },

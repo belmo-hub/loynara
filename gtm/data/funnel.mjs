@@ -2,23 +2,9 @@
 // Usage: node gtm/data/funnel.mjs [--actuals pipeline.csv]   (edit the CSV inputs, rerun)
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseCsv } from './csv.mjs';
 
 const dir = import.meta.dirname;
-// Minimal RFC 4180 reader: quoted fields may contain commas, quotes ("") and newlines.
-export function parseCsv(text) {
-  const rows = []; let row = [], field = '', quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quoted) { if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (ch === '"') quoted = false; else field += ch; }
-    else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(field); field = ''; }
-    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(field); rows.push(row); row = []; field = ''; }
-    else field += ch;
-  }
-  if (field !== '' || row.length) { row.push(field); rows.push(row); }
-  return rows.filter(r => r.some(v => v !== ''));
-}
-
 const rows = parseCsv(readFileSync(resolve(dir, 'funnel-model.csv'), 'utf8')).slice(1);
 const scenarios = ['conservative', 'target', 'stretch'];
 const input = Object.fromEntries(scenarios.map(s => [s, {}]));
@@ -36,8 +22,33 @@ export function plan(a) {
   return { merchants, fromWalkins, pilots, demos, conversations, doors, weeks, demosPerWeek: r1(demos / weeks), setupsPerWeek: r1(pilots / weeks) };
 }
 
+
+// Month one (month-one-model.csv): what each operating model yields at its assumptions, and what reaching the goal would require.
+export function monthOne(a) {
+  const k = a.rate_demo_to_close * a.close_rate_factor * a.rate_close_to_activated, m = 1 + a.referral_intros_per_activated_merchant * a.rate_referral_intro_to_activated;
+  const doors = a.weeks_in_month * a.field_days_per_week * a.sellers * a.doors_per_seller_day, conv = doors * a.rate_door_to_conversation;
+  const demosField = conv * a.rate_conversation_to_demo, demosIn = a.weeks_in_month * a.inbound_leads_per_week * a.rate_inbound_lead_to_demo, demos = demosField + demosIn;
+  const merchantsNeeded = a.goal_paying_locations / a.locations_per_merchant, fieldDemosNeeded = merchantsNeeded / (k * m) - demosIn;
+  const r2 = x => Math.round(x * 100) / 100;
+  return {
+    doors, demos: r1(demos), activated: r1(demos * k * m), payingLocations: r1(demos * k * m * a.locations_per_merchant),
+    requiredDoors: up(fieldDemosNeeded / (a.rate_door_to_conversation * a.rate_conversation_to_demo)),
+    requiredDoorsPerSellerDay: r1(up(fieldDemosNeeded / (a.rate_door_to_conversation * a.rate_conversation_to_demo)) / (a.weeks_in_month * a.field_days_per_week * a.sellers)),
+    requiredDemoRate: r2(fieldDemosNeeded / conv),
+    requiredCloseRate: r2(merchantsNeeded / (demos * a.close_rate_factor * a.rate_close_to_activated * m)),
+    requiredActivationRate: r2(merchantsNeeded / (demos * a.rate_demo_to_close * a.close_rate_factor * m)),
+  };
+}
+
 const out = Object.fromEntries(scenarios.map(s => [s, plan(input[s])]));
 console.table(out);
+
+if (process.argv.includes('--month-one')) {
+  const [head, ...lines] = parseCsv(readFileSync(resolve(dir, 'month-one-model.csv'), 'utf8'));
+  const cols = head.slice(2, -2), inputs = Object.fromEntries(cols.map(c => [c, {}]));
+  for (const l of lines) if (l[head.length - 2] === 'input') cols.forEach((c, i) => (inputs[c][l[1]] = Number(l[2 + i])));
+  console.table(Object.fromEntries(cols.map(c => [c, monthOne(inputs[c])])));
+}
 
 // Optional: compare real pipeline rates against the target thresholds in 04-funnel.md.
 const i = process.argv.indexOf('--actuals');

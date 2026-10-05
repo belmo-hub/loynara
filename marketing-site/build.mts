@@ -6,6 +6,8 @@ import { homePage, legalPage, subPage, type LegalFragments } from './template.js
 import { SUB_PAGES } from './src/pages.js';
 import { SITE } from './src/site.js';
 
+if (process.env.LOYNARA_TEST_GATES !== undefined) throw new Error('LOYNARA_TEST_GATES is a test-only override; unset it before building. Release gates are set in src/claims.ts.');
+
 const here = import.meta.dirname, root = resolve(here, 'site');
 const concepts = process.env.MARKETING_CONCEPTS === 'true';
 if (concepts && process.env.MARKETING_PUBLIC === 'true') throw new Error('Concept prototypes cannot be part of a public build.');

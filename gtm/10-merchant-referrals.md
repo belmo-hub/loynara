@@ -1,5 +1,7 @@
 # 10 · Merchant-to-merchant referrals
 
+Canonical angle: **ACQ-04** (from the original playbook §6: ask each new merchant for one or two owner introductions).
+
 Owners know each other: the barber next door, the pizzeria supplier, the Döner across the street, family who run another shop. One warm introduction is worth about 10 cold doors (planning assumption; measure it). The funnel model assumes 15 % of paying merchants come from introductions (target scenario).
 
 This is a **manual, founder-run process**. Nothing is built into the product, and nothing needs to be.

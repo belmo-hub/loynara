@@ -4,6 +4,7 @@
  * Claims follow the same boundary as the home page: QR today, NFC/Wallet/messages only as outlook,
  * example data labelled as such, no proof, results or availability that the product cannot show.
  */
+import { ENTRY_COPY as E } from './claims.js';
 import { SITE } from './site.js';
 import { initialBrand, type BrandState } from './brand.js';
 import { cardHtml, statusFor } from './final-parts.js';
@@ -38,9 +39,9 @@ const scene = (o: { id?: string; eyebrow: string; h2: [string, string]; lead: st
 const refPair = (a: [string, string], f: [string, string], aBal: number) =>
   `<div class="ref-wrap"><p class="fine ref-cap">Beispieldaten</p><div class="ref-pair" data-phase="qualified" role="img" aria-label="Beispiel: ${a[0]} hat ${f[0]} geworben. Nach dem ersten bestätigten Besuch von ${f[0]} bekommt ${a[0]} einen Bonusstempel."><div class="person person-a"><span class="avatar" aria-hidden="true">${a[0][0]}</span><b>${a[0]}</b><small>${a[1]}</small><p class="stamps-num"><span>${aBal + 1}</span>/10</p><p class="bonus">+1 Bonusstempel</p></div><div class="link" aria-hidden="true"><i></i></div><div class="person person-b"><span class="avatar" aria-hidden="true">${f[0][0]}</span><b>${f[0]}</b><small>${f[1]}</small><p class="stamps-num"><span>1</span>/10</p><p class="bonus bonus-none">erster Besuch bestätigt</p></div></div></div>`;
 
-/** What the owner sees today, from real application labels; the numbers are example data. */
+/** What the owner sees today: pseudonymous cards (the real list shows no names), stand and last confirmed visit; example data. */
 const ownerToday = (unit: string, rows: Array<[string, string, string]>) =>
-  `<div class="owner-card"><p class="ov-meta">Kundenübersicht · Beispieldaten</p><p class="ov-note">Name, letzter bestätigter Besuch, Stempel</p><ul class="people">${rows.map(([n, s, t]) => `<li><span class="avatar" aria-hidden="true">${n[0]}</span><b>${n}</b><small>${t}</small><span class="dots" role="img" aria-label="${s} von 10 ${unit}">${Array.from({ length: 10 }, (_, i) => `<i${i < Number(s) ? ' class="on"' : ''}></i>`).join('')}</span></li>`).join('')}</ul><p class="ov-note">Gezählt wird nur, was dein Team bestätigt hat – nicht dein gesamter Umsatz.</p></div>`;
+  `<div class="owner-card"><p class="ov-meta">Kundenkarten · Beispieldaten</p><p class="ov-note">Pseudonyme Karten: Stand und letzter bestätigter Vorgang. Namen zeigt Loynara nicht.</p><ul class="people">${rows.map(([n, s, t]) => `<li><span class="avatar" aria-hidden="true">${n.slice(-1)}</span><b>${n}</b><small>${t}</small><span class="dots" role="img" aria-label="${s} von 10 ${unit}">${Array.from({ length: 10 }, (_, i) => `<i${i < Number(s) ? ' class="on"' : ''}></i>`).join('')}</span></li>`).join('')}</ul><p class="ov-note">Gezählt wird nur, was dein Team bestätigt hat – nicht dein gesamter Umsatz.</p></div>`;
 
 const breakEven = (basket: number, what: string) => {
   const n = visitsToCoverFee(basket);
@@ -59,22 +60,22 @@ export const barber: SubPage = {
   hero: card(barberBrand, 'Studio Schnittwerk', 'eine Bartpflege als Extra', 7),
   sections: [
     scene({ id: 'ablauf', eyebrow: 'Am Stuhl', h2: ['Du schneidest.', 'Die Karte zählt mit.'], lead: 'Beim Bezahlen zeigt der Kunde seine Karte auf dem Handy. Du scannst, bestätigst – fertig. Kein Stempelkissen, keine verlorenen Pappkarten.',
-      body: steps([['Einmal anmelden', 'Der Kunde scannt den QR-Code an deinem Tresen. Die Karte öffnet sich im Browser.'], ['Bei jedem Termin', 'Karte zeigen, du scannst und bestätigst. Erst dann gibt es den Stempel.'], ['Beim zehnten Termin', 'Die Prämie wird mit einem Tipp eingelöst. Die Karte beginnt von vorn.']]),
+      body: steps([['Einmal anmelden', E.pageSignup], ['Bei jedem Termin', 'Karte zeigen, du scannst und bestätigst. Erst dann gibt es den Stempel.'], ['Beim zehnten Termin', 'Die Prämie wird mit einem Tipp eingelöst. Die Karte beginnt von vorn.']]),
       visual: card(barberBrand, 'Studio Schnittwerk', 'eine Bartpflege als Extra', 10) }),
     scene({ id: 'empfehlung', tone: 'white', flip: true, eyebrow: 'Empfehlungen', h2: ['Barber leben von Mundpropaganda.', 'Jetzt zählt sie.'], lead: 'Dein Stammkunde teilt seinen Link. Kommt sein Kumpel zum ersten Mal und du bestätigst den Termin, bekommen beide den Bonus, den du festlegst.',
       body: '<p class="fine">Teilen, Öffnen oder Anmelden allein bringt keinen Bonus. <a href="/empfehlungen/">So funktionieren Empfehlungen</a></p>',
       visual: refPair(['Deniz', 'Stammkunde'], ['Tim', 'neu dabei'], 6) }),
-    scene({ id: 'inhaber', eyebrow: 'Für dich als Inhaber', h2: ['Du siehst, wer wiederkommt.', 'Und wer schon länger fehlt.'], lead: 'Jede Karte mit Stand, bestätigten Terminen und letztem Besuch. So erkennst du, wer überfällig ist – auch ohne Buchungssoftware.',
-      body: '<p class="fine">Nachrichten an Kunden, die länger nicht da waren, zeigen wir als Ausblick. Heute siehst du sie in der Übersicht.</p>',
-      visual: ownerToday('Stempel', [['Deniz', '7', 'vor 3 Wochen'], ['Tim', '1', 'neu, geworben'], ['Kerem', '4', 'vor 9 Wochen']]) }),
+    scene({ id: 'inhaber', eyebrow: 'Für dich als Inhaber', h2: ['Du siehst, wie viele wiederkommen.', 'Und welche Karten länger ruhen.'], lead: 'Die Auswertung zählt wiederkehrende Karten. Pro Karte siehst du Stand, bestätigte Termine und den letzten Besuch – auch ohne Buchungssoftware. Die Karten sind pseudonym.',
+      body: '<p class="fine">Eine Liste aller Karten, die länger nicht da waren, und Nachrichten an diese Kunden zeigen wir als Ausblick.</p>',
+      visual: ownerToday('Stempel', [['Karte A', '7', 'letzter Besuch vor 3 Wochen'], ['Karte B', '1', 'neu, geworben'], ['Karte C', '4', 'letzter Besuch vor 9 Wochen']]) }),
     `<section class="sec sec-white" id="angebot"><div class="wrap offer-grid"><div class="offer-copy"><p class="eyebrow">Was es kostet</p><h2>Ein Preis pro Laden. <em>Egal, wie viele Stühle.</em></h2><p class="lead">Wir zeigen dir den Ablauf an deinem eigenen Laden und besprechen den Start persönlich.</p></div>${breakEven(25, 'Haarschnitt')}</div></section>`,
   ],
   faq: [
-    ['Brauchen meine Kunden eine App?', 'Nein. Die Karte läuft im Browser. Einmal den QR-Code scannen, danach öffnet der gespeicherte Link die Karte.'],
+    ['Brauchen meine Kunden eine App?', E.pageAppAnswer],
     ['Was, wenn ich gerade schneide?', 'Bestätigt wird beim Bezahlen, nicht mitten im Schnitt. Das dauert nicht länger, als eine Pappkarte zu stempeln.'],
     ['Kann ein Kunde sich selbst stempeln?', 'Nein. Einen Stempel gibt es nur, wenn du oder dein Team bestätigt. Jeder Stempel steht mit Uhrzeit im Verlauf der Karte.'],
     ['Ich habe schon Pappkarten.', 'Die kannst du auslaufen lassen. Wer noch eine volle Pappkarte hat, löst sie wie gewohnt ein; neue Kunden starten digital.'],
-    ['Was ist mit Apple Wallet oder NFC?', 'Beides zeigen wir als Ausblick. Gestartet wird mit dem QR-Code im Browser – das funktioniert mit jedem Handy, das QR-Codes scannen kann.'],
+    E.pageWalletFaq,
   ],
   close: { h2: ['Zeig mir das', 'an meinem Laden.'], lead: 'Wir richten die Demo mit deinem Namen und deiner Prämie ein. Zehn Minuten, gern direkt bei dir im Laden.', subject: 'Demo-Anfrage Barber' },
 };
@@ -91,18 +92,18 @@ export const pizzeria: SubPage = {
   hero: card(pizzaBrand, 'Pizzeria da Marco', 'eine Pizza aufs Haus', 8),
   sections: [
     scene({ id: 'ablauf', eyebrow: 'Am Tresen', h2: ['Bestellung abholen.', 'Stempel mitnehmen.'], lead: 'Der Gast zeigt seine Karte beim Bezahlen, dein Team scannt und bestätigt. Bei einer großen Bestellung gibt es mehrere Stempel in einem Schritt.',
-      body: `${steps([['Einmal anmelden', 'QR-Code am Tresen scannen. Die Karte öffnet sich im Browser.'], ['Bei jeder Bestellung', 'Karte zeigen, dein Team bestätigt. Erst dann gibt es den Stempel.'], ['Beim zehnten Stempel', 'Die Pizza aufs Haus wird mit einem Tipp eingelöst.']])}<p class="fine">Gezählt wird, was über deinen Tresen geht. Bestellungen über Lieferplattformen laufen nicht über Loynara.</p>`,
+      body: `${steps([['Einmal anmelden', E.pageSignupShort], ['Bei jeder Bestellung', 'Karte zeigen, dein Team bestätigt. Erst dann gibt es den Stempel.'], ['Beim zehnten Stempel', 'Die Pizza aufs Haus wird mit einem Tipp eingelöst.']])}<p class="fine">Gezählt wird, was über deinen Tresen geht. Bestellungen über Lieferplattformen laufen nicht über Loynara.</p>`,
       visual: card(pizzaBrand, 'Pizzeria da Marco', 'eine Pizza aufs Haus', 10) }),
     scene({ id: 'empfehlung', tone: 'white', flip: true, eyebrow: 'Empfehlungen', h2: ['Wer eure Pizza liebt,', 'erzählt es weiter.'], lead: 'Dein Stammgast teilt seinen Link mit Familie oder Kollegen. Bei deren erster bestätigter Bestellung gibt es den Bonus, den du festlegst.',
       body: '<p class="fine">Teilen allein bringt nichts. Der Bonus kommt erst mit der ersten bestätigten Bestellung. <a href="/empfehlungen/">So funktionieren Empfehlungen</a></p>',
       visual: refPair(['Sabine', 'Stammgast'], ['Jan', 'neu dabei'], 5) }),
-    scene({ id: 'inhaber', eyebrow: 'Für dich als Inhaber', h2: ['Du siehst, wer regelmäßig bestellt.', 'Und wer seit Wochen fehlt.'], lead: 'Jede Karte mit Stand und letzter bestätigter Bestellung. Montag bis Donnerstag ruhig? Dann weißt du zumindest, wen du vermisst.',
-      body: '<p class="fine">Gezielte Nachrichten und Aktionen für ruhige Tage zeigen wir als Ausblick. Sie sind nicht Teil des aktuellen Pilotangebots.</p>',
-      visual: ownerToday('Stempel', [['Sabine', '6', 'vor 4 Tagen'], ['Jan', '1', 'neu, geworben'], ['Familie Weber', '9', 'vor 6 Wochen']]) }),
+    scene({ id: 'inhaber', eyebrow: 'Für dich als Inhaber', h2: ['Du siehst, wie viele wieder bestellen.', 'Und welche Karten seit Wochen ruhen.'], lead: 'Die Auswertung zählt wiederkehrende Karten. Pro Karte siehst du Stand und die letzte bestätigte Bestellung. Die Karten sind pseudonym.',
+      body: '<p class="fine">Eine Liste ruhender Karten, gezielte Nachrichten und Aktionen für ruhige Tage zeigen wir als Ausblick. Sie sind nicht Teil des aktuellen Pilotangebots.</p>',
+      visual: ownerToday('Stempel', [['Karte A', '6', 'letzte Bestellung vor 4 Tagen'], ['Karte B', '1', 'neu, geworben'], ['Karte C', '9', 'letzte Bestellung vor 6 Wochen']]) }),
     `<section class="sec sec-white" id="angebot"><div class="wrap offer-grid"><div class="offer-copy"><p class="eyebrow">Was es kostet</p><h2>Ein Preis pro Standort. <em>Keine Provision pro Bestellung.</em></h2><p class="lead">Wir zeigen dir den Ablauf an deinem eigenen Laden und besprechen den Start persönlich.</p></div>${breakEven(18, 'Bestellung')}</div></section>`,
   ],
   faq: [
-    ['Brauchen meine Gäste eine App?', 'Nein. Die Karte läuft im Browser. Einmal den QR-Code scannen, danach öffnet der gespeicherte Link die Karte.'],
+    ['Brauchen meine Gäste eine App?', E.pageAppAnswer],
     ['Und wenn es freitagabends voll ist?', 'Dann wird beim Bezahlen kurz gescannt und bestätigt, wie beim Abstempeln einer Pappkarte. Bei mehreren Pizzen vergibt dein Team mehrere Stempel in einem Schritt.'],
     ['Funktioniert das mit Lieferando und Co.?', 'Nein. Loynara zählt Bestellungen, die bei dir abgeholt oder vor Ort bezahlt werden. Eine Anbindung an Lieferplattformen oder die Kasse gibt es nicht.'],
     ['Kann jemand schummeln?', 'Einen Stempel gibt es nur, wenn dein Team bestätigt. Jeder Stempel steht mit Uhrzeit im Verlauf der Karte, und Rollen legen fest, wer was darf.'],
@@ -141,5 +142,5 @@ export const SUB_PAGES = [barber, pizzeria, referrals] as const;
 export function subPageBody(p: SubPage): string {
   const faq = `<section class="sec" id="fragen"><div class="wrap narrow"><div class="faq"><h3>Gut zu wissen</h3>${p.faq.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div></div></section>`;
   const close = `<section class="sec sec-white" id="anfrage"><div class="wrap"><div class="head"><p class="eyebrow">Demo anfragen</p><h2>${p.close.h2[0]} <em>${p.close.h2[1]}</em></h2><p class="lead">${p.close.lead}</p></div><div class="ctas"><a class="btn btn-primary" href="${mailto(p.close.subject)}">Demo anfragen ${arrow}</a><a class="btn btn-ghost" href="/">Zur Startseite</a></div><p class="fine">Die Anfrage öffnet dein E-Mail-Programm. Gesendet wird sie erst dort.</p></div></section>`;
-  return `<main id="inhalt"><section class="hero" id="hero"><div class="wrap hero-grid"><div class="hero-copy"><p class="eyebrow">${p.eyebrow}</p><h1>${p.h1[0]}<br><em>${p.h1[1]}</em></h1><p class="lead">${p.lead}</p><div class="ctas"><a class="btn btn-primary" href="#anfrage">Demo anfragen</a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s</a></div><p class="facts"><span>Ohne App für deine Kunden</span><span>Per QR-Code</span><span>${price()} / Monat / Standort</span></p></div><figure class="hero-scene hero-scene-sub" aria-label="Beispieldarstellung">${p.hero}</figure></div></section>${p.sections.join('')}${faq}${close}</main>`;
+  return `<main id="inhalt"><section class="hero" id="hero"><div class="wrap hero-grid"><div class="hero-copy"><p class="eyebrow">${p.eyebrow}</p><h1>${p.h1[0]}<br><em>${p.h1[1]}</em></h1><p class="lead">${p.lead}</p><div class="ctas"><a class="btn btn-primary" href="#anfrage">Demo anfragen</a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s</a></div><p class="facts"><span>Ohne App für deine Kunden</span><span>${E.fact}</span><span>${price()} / Monat / Standort</span></p></div><figure class="hero-scene hero-scene-sub" aria-label="Beispieldarstellung">${p.hero}</figure></div></section>${p.sections.join('')}${faq}${close}</main>`;
 }

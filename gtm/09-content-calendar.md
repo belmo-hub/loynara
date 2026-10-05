@@ -15,13 +15,13 @@
 | 2 | IG Story | Today's field route (Stadtteil only, no shop names) | Local presence | — |
 | 3 | IG Reel + TikTok | AD-01 „Fremde Jackentaschen“ | Pain recognition | Log Hold3s |
 | 4 | IG static | AD-03 „Keine App. Kein Gerät.“ | Saveable reference | — |
-| 5 | IG Story | AD-22 „Probier's selbst“ (demo QR) | Hands-on | Count demo-merchant scans |
+| 5 | IG Story | AD-16 screen recording from the isolated demo („Beispiel“). AD-22 „Probier's selbst“ only once the production demo merchant exists (D-3). | Hands-on | Count story replies |
 | 6 | IG Reel + TikTok | AD-16 „Kamera drauf“ | Show real speed | — |
 | 7 | — | Rest; review week 1 in `learning-log.csv` | | Pick the better hook: A1 or A3 |
 | 8 | IG Reel + TikTok | AD-04 „Du kennst Gesichter“ (barber) | Barber pain | — |
 | 9 | IG carousel | AD-24 „Prämien, die nichts kosten“ | Value before pitch | — |
 | 10 | IG Reel + TikTok | AD-06 „Die zehnte Pizza“ | Pizzeria ritual | — |
-| 11 | TikTok | AD-23 „Eine Frage an Barber“ | Conversation | Reply to every commenter (they started it) |
+| 11 | TikTok | AD-23 „Eine Frage an Barber“, or AD-11 „Dienstag, 15:30. Was würdest du tun?“ | Conversation | Reply to every commenter (they started it); log quiet-hours requests as FUT-08 demand |
 | 12 | IG Story | Weekly honest numbers („Diese Woche: [n] Läden, [n] Gespräche, [n] Ja“) | Transparency | Numbers from `pipeline.csv` |
 | 13 | IG Reel + TikTok | AD-09 „Barber leben von Mundpropaganda“ | Referral angle | — |
 | 14 | — | Review week 2 | | Pick the leading vertical |
@@ -49,3 +49,16 @@
 4. No shop is identifiable without written permission.
 5. Captions are burned in, since most viewers watch muted.
 6. The CTA keyword is in both the caption and the video.
+
+## Original content campaign „Was würdest du tun?“ (playbook §12), reconciled
+
+The format stays as the owner wrote it: a concrete merchant situation first, then (only where it is live) the mechanism.
+
+| Scenario (original) | Use now | Product reveal allowed |
+|---|---|---|
+| Café: „Dienstag, 15:30. 12 Stammkunden waren diesen Monat noch nicht da.“ | AD-11 as a pure question | None. Quiet-hour actions and dormant lists are FUTURE (FUT-08, FUT-01) |
+| Barber: „Sonst alle drei Wochen. Jetzt sieben. Würdest du es merken?“ | AD-18 | Per-card last visit, pseudonymous (RET-01, QUALIFIED) |
+| Pizzeria: „Bestellt normalerweise jede Woche. Seit einem Monat: nichts.“ | AD-30 | Per-card last order, pseudonymous (RET-01) |
+| „18 Kunden sind nur einen Besuch von ihrer Prämie entfernt.“ | Hold | Near-reward lists are FUTURE (FUT-03). Use only as a question, never with a product screen |
+| „Neun Kunden haben Freunde empfohlen. Welche Empfehlungen wurden echte Besuche?“ | Carousel after day 23 | Per-card referral status and count (ACQ-02, QUALIFIED) |
+

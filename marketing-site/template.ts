@@ -1,4 +1,5 @@
 /** Marketing page (Concept D): static HTML, German only. All interaction lives in src/d.ts; this file only renders the starting state. */
+import { ENTRY_COPY as E, RECOVERY_COPY as R } from './src/claims.js';
 import { SITE, industries, industryKeys } from './src/site.js';
 import { initialBrand } from './src/brand.js';
 import { EXAMPLE, compute, series, euro, signedEuro, ratioText, niceScale } from './src/calc.js';
@@ -12,7 +13,7 @@ import { subPageBody, type SubPage } from './src/pages.js';
 const TITLE = 'Loynara – Digitale Kundenkarte für lokale Geschäfte';
 const DESCRIPTION = 'Digitale Kundenbindung für lokale Geschäfte: Kunden sammeln Prämien ohne App, dein Team bestätigt jeden Besuch – und Stammkunden können den nächsten Kunden mitbringen.';
 const SOCIAL_TITLE = 'Loynara – Aus Kunden werden Stammkunden';
-const SOCIAL_DESCRIPTION = 'Digitale Kundenkarte für lokale Geschäfte. Per QR-Code, ohne App – dein Team bestätigt jeden Besuch.';
+const SOCIAL_DESCRIPTION = `Digitale Kundenkarte für lokale Geschäfte. ${E.social} – dein Team bestätigt jeden Besuch.`;
 const mark = '<img src="/assets/loynara-mark.svg" width="32" height="32" alt=""><span class="wordmark">Loynara</span>';
 const arrow = '<span aria-hidden="true">→</span>';
 const mailto = (subject: string) => `mailto:${SITE.supportEmail}?subject=${encodeURIComponent(subject)}`;
@@ -28,19 +29,19 @@ export const header = (home: boolean) => {
 export const footer = `<footer class="foot"><div class="wrap"><div class="foot-top"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><p>Wiederkommen belohnen. Weiterempfehlen leicht machen.</p></div><nav class="foot-links" aria-label="Branchen und Themen"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a></nav><nav class="foot-links" aria-label="Rechtliches und Kontakt"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><a href="mailto:${SITE.supportEmail}">${SITE.supportEmail}</a></nav><p class="foot-note">© Loynara</p></div></footer>`;
 
 const faq: Array<[string, string]> = [
-  ['Müssen meine Kunden eine App installieren?', 'Nein. Die Karte öffnet sich im Browser, sobald dein Kunde den QR-Code am Tresen scannt.'],
-  ['Was macht mein Team an der Kasse?', 'Es sieht die Anfrage oder scannt die Karte und bestätigt den Besuch. Erst dann gibt es einen Stempel, genau einmal. Bezahlt wird wie bisher; Loynara ist keine Kassenanbindung und kein Bezahlsystem.'],
-  ['Und NFC zum Antippen?', 'Das Antippen per NFC zeigen wir als Ausblick. Gestartet wird mit dem QR-Code. Er öffnet dieselbe Karte und bleibt auch später immer als Alternative.'],
+  ['Müssen meine Kunden eine App installieren?', E.appAnswer],
+  ['Was macht mein Team an der Kasse?', R.counterAnswer],
+  E.nfcFaq,
   ['Wann wird eine Empfehlung belohnt?', 'Ein Freund meldet sich über den Link des Empfehlenden an. Erst wenn dein Team seinen ersten Besuch bestätigt, wird der Bonus verbucht – für den Empfehlenden, auf Wunsch auch für den Freund. Bloßes Teilen oder Öffnen bringt nichts; auffällige Fälle, etwa dieselbe verifizierte E-Mail-Adresse, werden zur Prüfung zurückgestellt.'],
-  ['Was passiert, wenn jemand seine Karte nicht mehr findet?', 'Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat oder das Schild beziehungsweise den QR-Code erneut nutzt, kommt wieder zu seiner Karte. Eine pauschale Wiederherstellungsgarantie geben wir nicht.'],
-  ['Was gehört zum Pilotangebot – und wie geht es weiter?', 'Karte, Prämien, QR-Einstieg, Bestätigung durch dein Team, Empfehlungen, Kundenübersicht, Auswertung, Rollen und mehrere Standorte. Aufsteller, NFC-Antippen, Wallet-Karte, Logo-Darstellung sowie Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert. Nach deiner Anfrage melden wir uns, zeigen dir den Ablauf und besprechen Konditionen.'],
+  ['Was passiert, wenn jemand seine Karte nicht mehr findet?', R.lostAnswer],
+  ['Was gehört zum Pilotangebot – und wie geht es weiter?', `Karte, Prämien, ${E.pilotEntry}, Bestätigung durch dein Team, Empfehlungen, Kundenübersicht, Auswertung, Rollen und mehrere Standorte. ${E.pilotOutlook} zeigen wir als Ausblick und vereinbaren sie gesondert. Nach deiner Anfrage melden wir uns, zeigen dir den Ablauf und besprechen Konditionen.`],
 ];
 
 const brand0 = initialBrand();
 const s0 = compute(EXAMPLE, SITE.price.amount);
 const pts0 = series(s0), sc0 = niceScale(pts0[12].scenario);
 const demo0 = initialDemo('returning'), ref0 = initialRef();
-const INCLUDED = ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte'];
+const INCLUDED = ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', E.included, 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte'];
 const seg = (id: string, label: string, items: Array<[string, string]>, cls = 'seg') => `<div class="${cls}" role="tablist" aria-label="${label}" data-tabs="${id}">${items.map(([v, t], i) => `<button type="button" role="tab" id="${id}-${v}" data-view="${v}" aria-selected="${i === 0}" aria-controls="${id}" tabindex="${i ? -1 : 0}">${t}</button>`).join('')}</div>`;
 const steps = (cls: string, labels: string[], lit: number) => `<ol class="steps ${cls}">${labels.map((t, i) => `<li${i < lit ? ' class="done"' : i === lit ? ' class="now"' : ''}>${t}</li>`).join('')}</ol>`;
 
@@ -49,14 +50,14 @@ export function homePage(): string {
 <body>${header(true)}
 <main id="inhalt">
 
-<section class="hero" id="hero"><div class="wrap hero-grid"><div class="hero-copy"><p class="eyebrow">Kundenbindung für lokale Geschäfte</p><h1>Ein guter Besuch.<br><em>Ein Grund, wiederzukommen.</em></h1><p class="lead">Kunden sammeln Prämien, dein Team bestätigt jeden Besuch – und Stammkunden können den nächsten Kunden mitbringen.</p><div class="ctas"><a class="btn btn-primary" href="#anfrage">Demo anfragen</a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s</a></div><p class="facts"><span>Ohne App für deine Kunden</span><span>Per QR-Code</span><span>${price} / Monat / Standort</span></p></div>
+<section class="hero" id="hero"><div class="wrap hero-grid"><div class="hero-copy"><p class="eyebrow">Kundenbindung für lokale Geschäfte</p><h1>Ein guter Besuch.<br><em>Ein Grund, wiederzukommen.</em></h1><p class="lead">Kunden sammeln Prämien, dein Team bestätigt jeden Besuch – und Stammkunden können den nächsten Kunden mitbringen.</p><div class="ctas"><a class="btn btn-primary" href="#anfrage">Demo anfragen</a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s</a></div><p class="facts"><span>Ohne App für deine Kunden</span><span>${E.fact}</span><span>${price} / Monat / Standort</span></p></div>
 <figure class="hero-scene" aria-label="Beispieldarstellung: Aufsteller am Tresen und die Kundenkarte auf dem Handy, gerade vom Team bestätigt."><div class="scene-floor" aria-hidden="true"></div><div class="scene-stand">${standObj(brand0)}</div>${phone(browserScreen(brand0, 9, statusFor(9)), 'phone-hero')}<figcaption class="cue"><b>+1</b><span>Stempel · vom Team bestätigt</span></figcaption></figure></div></section>
 
-<section class="roles" aria-label="Wer was tut"><div class="wrap roles-grid"><div><b>Kunde</b><span>Scannt den Code, sammelt bis zur Prämie.</span></div><div><b>Team</b><span>Bestätigt den Besuch mit einem Tipp.</span></div><div><b>Inhaber</b><span>Sieht, wer wiederkommt – und wann es ruhig ist.</span></div></div></section>
+<section class="roles" aria-label="Wer was tut"><div class="wrap roles-grid"><div><b>Kunde</b><span>${E.roleCustomer}</span></div><div><b>Team</b><span>Bestätigt den Besuch mit einem Tipp.</span></div><div><b>Inhaber</b><span>Sieht, wer wiederkommt – Stand und Verlauf jeder Karte.</span></div></div></section>
 
 <section class="sec" id="ablauf"><div class="wrap scene"><div class="scene-copy"><p class="eyebrow">An der Theke</p><h2>Ein Besuch. Ein Stempel. <em>Bestätigt von deinem Team.</em></h2><p class="lead">Probier es aus: Der Stempel kommt erst, wenn dein Team bestätigt.</p>
 </div>
-<div class="scene-visual">${phone(visitScreen(demo0, brand0), 'phone-stage')}</div><div class="demo" data-visit>${steps('visit-steps', VISIT_STEPS, visitStep(demo0))}<p class="demo-caption" data-bind="visit-caption">Dein Kunde scannt den QR-Code am Tresen.</p><div class="demo-actions"><button type="button" class="btn btn-primary" data-act="visit">Karte öffnen</button><button type="button" class="text-btn" data-new-card>Mit neuer Karte</button></div><p class="owner-line"><span>Im Überblick</span><b data-bind="visit-owner">0&nbsp;bestätigte&nbsp;Besuche · 0&nbsp;Prämien&nbsp;eingelöst</b></p><p class="sr-only" data-live role="status"></p></div></div></section>
+<div class="scene-visual">${phone(visitScreen(demo0, brand0), 'phone-stage')}</div><div class="demo" data-visit>${steps('visit-steps', VISIT_STEPS, visitStep(demo0))}<p class="demo-caption" data-bind="visit-caption">${E.visitCaption}</p><div class="demo-actions"><button type="button" class="btn btn-primary" data-act="visit">Karte öffnen</button><button type="button" class="text-btn" data-new-card>Mit neuer Karte</button></div><p class="owner-line"><span>Im Überblick</span><b data-bind="visit-owner">0&nbsp;bestätigte&nbsp;Besuche · 0&nbsp;Prämien&nbsp;eingelöst</b></p><p class="sr-only" data-live role="status"></p></div></div></section>
 
 <section class="sec sec-white" id="empfehlung"><div class="wrap scene scene-flip"><div class="scene-copy"><p class="eyebrow">Empfehlungen</p><h2>Deine Stammkunden bringen den <em>nächsten Kunden</em> mit.</h2><p class="lead">Lena teilt ihren Link. Den Bonus gibt es erst, wenn dein Team den ersten Besuch von Jonas bestätigt.</p>
 </div>
@@ -77,7 +78,7 @@ export function homePage(): string {
 <div class="calc-cta"><button type="button" class="btn btn-ghost" data-calc-share>Diese Zahlen in meiner Anfrage übernehmen</button><a class="btn btn-primary" href="#anfrage">Demo anfragen</a></div><p class="sr-only" data-calc-live role="status"></p></div></div></section>
 
 <section class="sec sec-white" id="angebot"><div class="wrap offer-grid"><div class="offer-copy"><p class="eyebrow">Pilotangebot</p><h2>Ein Preis pro Standort. <em>Ohne App für deine Kunden.</em></h2><p class="lead">Nach deiner Anfrage zeigen wir dir den Ablauf und besprechen den Start.</p></div>
-<div class="price-card"><p class="price"><b>${price}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks">${INCLUDED.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">Vorläufiger Einstiegspreis. Konditionen besprechen wir vor dem Start persönlich. Aufsteller, NFC-Antippen, Wallet-Karte, Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert.</p></div>
+<div class="price-card"><p class="price"><b>${price}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks">${INCLUDED.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">Vorläufiger Einstiegspreis. Konditionen besprechen wir vor dem Start persönlich. ${E.priceOutlook} zeigen wir als Ausblick und vereinbaren sie gesondert.</p></div>
 <div class="faq"><h3>Gut zu wissen</h3>${faq.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div></div></section>
 
 <section class="sec" id="anfrage"><div class="wrap contact-grid"><div class="contact-copy"><p class="eyebrow">Demo anfragen</p><h2>Gib dem nächsten Besuch einen Grund. <em>Und der nächsten Empfehlung einen Weg.</em></h2><p class="lead">Wir zeigen dir Loynara am Beispiel deines Geschäfts.</p>

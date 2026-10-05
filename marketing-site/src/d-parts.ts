@@ -3,6 +3,7 @@
  * One phone, one counter stand, one Wallet pass: each surface explains one action. Example data only;
  * decorative patterns encode nothing and are no real QR codes.
  */
+import { ENTRY_COPY as E } from './claims.js';
 import { DEMO } from './site.js';
 import { LOGOS, initialBrand, type BrandState } from './brand.js';
 import { viewOf, type DemoState } from './demo.js';
@@ -19,7 +20,7 @@ function pattern(x: number, y: number, size: number, cls: string): string {
 
 /** Counter stand as a physical object: acrylic body, light edge, base. Gestaltungsbeispiel – no material, size or inclusion implied. */
 export function standObj(b: BrandState = initialBrand()): string {
-  return `<svg class="stand-obj" viewBox="0 0 220 300" role="img" aria-label="Aufsteller am Tresen mit QR-Code, Gestaltungsbeispiel"><ellipse class="so-shadow" cx="110" cy="284" rx="96" ry="10"/><path class="so-base" d="M22 262h176a8 8 0 0 1 8 8v4a8 8 0 0 1-8 8H22a8 8 0 0 1-8-8v-4a8 8 0 0 1 8-8z"/><path class="so-side" d="M52 22h116l20 242H32z"/><path class="so-face" d="M58 28h104l18 234H40z"/><path class="so-shine" d="M58 28h30L58 262H40z"/><circle class="so-ring" cx="110" cy="80" r="21"/><svg class="so-logo" x="95" y="65" width="30" height="30" viewBox="0 0 32 32">${inner(LOGOS[b.logo].svg)}</svg><text class="so-name" x="110" y="130" text-anchor="middle">${X.name}</text><text class="so-small" x="110" y="146" text-anchor="middle">Scannen und sammeln</text><rect class="so-qrbg" x="80" y="158" width="60" height="60" rx="7"/>${pattern(85, 163, 50, 'so-qr')}</svg>`;
+  return `<svg class="stand-obj" viewBox="0 0 220 300" role="img" aria-label="${E.standAria}"><ellipse class="so-shadow" cx="110" cy="284" rx="96" ry="10"/><path class="so-base" d="M22 262h176a8 8 0 0 1 8 8v4a8 8 0 0 1-8 8H22a8 8 0 0 1-8-8v-4a8 8 0 0 1 8-8z"/><path class="so-side" d="M52 22h116l20 242H32z"/><path class="so-face" d="M58 28h104l18 234H40z"/><path class="so-shine" d="M58 28h30L58 262H40z"/><circle class="so-ring" cx="110" cy="80" r="21"/><svg class="so-logo" x="95" y="65" width="30" height="30" viewBox="0 0 32 32">${inner(LOGOS[b.logo].svg)}</svg><text class="so-name" x="110" y="130" text-anchor="middle">${X.name}</text><text class="so-small" x="110" y="146" text-anchor="middle">${E.standText}</text><rect class="so-qrbg" x="80" y="158" width="60" height="60" rx="7"/>${pattern(85, 163, 50, 'so-qr')}</svg>`;
 }
 
 /** A phone as an object. `screen` is its whole content. */
@@ -32,7 +33,7 @@ export function visitScreen(s: DemoState, b: BrandState = initialBrand()): strin
   const v = viewOf(s);
   if (!v.hasCard) return `<p class="url" aria-hidden="true">getloynara.com/karte</p><div class="sheet sheet-new"><b>${X.name}</b><span>Neue Karte erstellen – ohne App, ohne Passwort.</span></div>`;
   const sheet = {
-    start: '<div class="sheet sheet-tap"><b>QR-Code am Tresen scannen</b><span>Die Karte öffnet sich im Browser.</span></div>',
+    start: `<div class="sheet sheet-tap"><b>${E.sheetStart[0]}</b><span>${E.sheetStart[1]}</span></div>`,
     enroll: '',
     request: '<div class="sheet sheet-wait"><b>Karte gezeigt</b><span>Dein Team scannt und bestätigt.</span></div>',
     request2: '<div class="sheet sheet-wait"><b>Karte gezeigt</b><span>Dein Team scannt und bestätigt.</span></div>',
@@ -56,13 +57,14 @@ export const REF_STEPS_D = ['Link geteilt', 'Karte erstellt', 'Erster Besuch bes
 export const refLit = (r: RefState) => ({ idle: 0, shared: 1, opened: 1, joined: 2, qualified: 4 }[r.phase]);
 
 // ---- owner: one picture, three questions --------------------------------------------------------------------------------------------
-const people: Array<[string, number, string]> = [['Lena', 9, 'fast voll'], ['Jonas', 4, 'kommt wieder'], ['Aylin', 1, 'neu']];
+// Pseudonymous like the real customer list (it shows no names), example data only.
+const people: Array<[string, number, string]> = [['Karte A', 9, 'fast voll'], ['Karte B', 4, 'kommt wieder'], ['Karte C', 1, 'neu']];
 const dots = (n: number) => `<span class="dots" aria-hidden="true">${Array.from({ length: DEMO.threshold }, (_, i) => `<i${i < n ? ' class="on"' : ''}></i>`).join('')}</span>`;
 const HOURS: Array<[string, number, boolean]> = [['10', 62, false], ['11', 88, false], ['12', 78, false], ['13', 62, false], ['14', 30, true], ['15', 26, true], ['16', 30, true], ['17', 48, false]];
 const preview = (text: string) => `<blockquote class="preview"><small>Vorschau · nicht versendet</small><p>${text}</p></blockquote>`;
 export const OUTLOOK_D = 'Plattform-Ausblick';
 export const ownerViewsD = {
-  back: `<p class="ov-meta">Diese Woche · Beispieldaten</p><p class="ov-big"><b>12</b><span>wiederholte Besuche, vom Team bestätigt</span></p><ul class="people">${people.map(([n, s, t]) => `<li><span class="avatar" aria-hidden="true">${n[0]}</span><b>${n}</b>${dots(s)}<small>${t}</small></li>`).join('')}</ul>`,
+  back: `<p class="ov-meta">Diese Woche · Beispieldaten</p><p class="ov-big"><b>12</b><span>wiederholte Besuche, vom Team bestätigt</span></p><ul class="people">${people.map(([n, s, t]) => `<li><span class="avatar" aria-hidden="true">${n.slice(-1)}</span><b>${n}</b>${dots(s)}<small>${t}</small></li>`).join('')}</ul><p class="ov-note">Pseudonyme Karten – Namen zeigt Loynara nicht.</p>`,
   gone: `<p class="ov-meta">${OUTLOOK_D} · Beispiel</p><p class="ov-title">${X.regular.who} war ${X.regular.pause} nicht da.</p><div class="pause" role="img" aria-label="Beispiel: regelmäßige Besuche, danach ${X.regular.pause} ohne bestätigten Besuch"><i></i><i></i><i></i><i></i><i></i><span>${X.regular.pause} Pause</span></div><p class="ov-note">Sonst alle 10 bis 14 Tage. Den Grund kennt nur sie.</p>${preview('Schön, dich bald wiederzusehen. Dein Stand wartet auf dich.')}`,
   quiet: `<p class="ov-meta">${OUTLOOK_D} · Beispiel</p><p class="ov-title">Dienstags ab 14 Uhr ist es ruhig.</p><div class="bars" role="img" aria-label="Beispiel: Auslastung am Dienstag. Zwischen 14 und 17 Uhr ist deutlich weniger los.">${HOURS.map(([h, v, low]) => `<span class="hbar${low ? ' low' : ''}"><i class="h${v}"></i><small>${h}</small></span>`).join('')}</div>${preview(X.quiet.message)}`,
 };

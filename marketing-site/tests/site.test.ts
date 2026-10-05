@@ -29,7 +29,7 @@ test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to 
   assert.match(home, /<a class="login" href="https:\/\/app\.getloynara\.com\/login">Anmelden<\/a>/);
 });
 test('zero interaction: roles, flow, referral rule, owner value, branding, price and next step are visible by default', () => {
-  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Scannt den Code, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – und wann es ruhig ist\./);
+  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Scannt den Code, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – Stand und Verlauf jeder Karte\./);
   assert.match(section('ablauf', 'empfehlung'), /Karte öffnen[\s\S]*Team bestätigt[\s\S]*Stempel wächst[\s\S]*Prämie einlösen/);
   assert.match(section('empfehlung', 'gestaltung'), /Link geteilt[\s\S]*Karte erstellt[\s\S]*Erster Besuch bestätigt[\s\S]*Bonus verbucht/);
   assert.match(section('empfehlung', 'gestaltung'), /Teilen, Öffnen oder Anmelden allein bringt keinen Bonus/);
@@ -129,6 +129,6 @@ test('NFC is shown only as outlook: QR is the way in today (physical NFC accepta
   assert.doesNotMatch(visible(home.slice(home.indexOf('id="hero"'), home.indexOf('id="ablauf"'))), /NFC|antippen|tippt/i);
   const mentions = text.match(/NFC[^.]*\./g) ?? [];
   assert.ok(mentions.length > 0 && mentions.every(m => /Ausblick|Antippen\?|NFC-Antippen/.test(m) || /NFC zum Antippen/.test(m)), mentions.join(' | '));
-  assert.match(text, /Das Antippen per NFC zeigen wir als Ausblick\. Gestartet wird mit dem QR-Code\./);
+  assert.match(text, /Das Antippen per NFC ist vorbereitet; wir zeigen es als Ausblick\. Gestartet wird mit dem QR-Code\./);
 });
 

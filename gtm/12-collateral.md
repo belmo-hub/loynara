@@ -23,7 +23,7 @@ Five assets, all printable on A4/A5 or sendable as plain text. Print layout:
 >
 > **Was du davon hast**
 > – Keine verlorenen oder selbst gestempelten Papierkarten mehr.
-> – Du siehst, wer wiederkommt und wer länger nicht da war.
+> – Du siehst, wie viele wiederkommen, und pro Karte den letzten Besuch.
 > – Stammkunden können Freunde werben – Bonus erst nach deren erstem bestätigten Besuch.
 
 **Back**
@@ -34,12 +34,12 @@ Five assets, all printable on A4/A5 or sendable as plain text. Print layout:
 > **Rechenbeispiel, keine Prognose:** Bei 25 € pro Haarschnitt sind 39 € zwei Haarschnitte im Monat. Bei 18 € pro Bestellung etwa drei Bestellungen.
 >
 > **Was es (noch) nicht kann – damit du's weißt:**
-> Nachrichten an Kunden, Wallet-Karte, Antippen per NFC, dein Logo auf der Karte, Anbindung an Kasse oder Lieferplattformen. Das zeigen wir als Ausblick, es ist nicht Teil des Angebots.
+> Nachrichten an Kunden, Wallet-Karte, dein Logo auf der Karte, Anbindung an Kasse oder Lieferplattformen. Das zeigen wir als Ausblick, es ist nicht Teil des Angebots. Antippen per NFC ist vorbereitet; heute startest du mit dem QR-Code.
 >
 > **Einrichtung:** Ich komm vorbei, wir legen die Prämie fest, drucken das Schild und loggen dein Team ein.
 >
 > [Name] · [Telefon] · support@getloynara.com
-> [QR zur Seite – erst nach Veröffentlichung (O-014); bis dahin: QR zur Demo-Karte, D-3]
+> [QR zur Seite – erst nach Veröffentlichung (O-014). Bis dahin kein QR auf dem Handzettel; ein QR zur Demo-Karte erst, wenn der Demo-Händler in Produktion existiert (D-3).]
 
 ---
 
@@ -47,17 +47,19 @@ Five assets, all printable on A4/A5 or sendable as plain text. Print layout:
 
 ```
 ORDER  Kunde → Tresen → Prämie → Empfehlung → Inhaber → Vertrauen → Rechnung → Preis
-1 KUNDE      Their phone scans demo QR. "Keine App."                         → let them look
+1 KUNDE      Until D-3: card on the tablet. After D-3: they scan.  "Keine App." → let them look
 2 TRESEN     Your phone: scan + Bestätigen. "Ohne dein Team kein Stempel."   → "Wer steht an der Kasse?"
 3 PRÄMIE     Filled example. "Was wäre bei dir die Prämie?"
 4 EMPFEHLUNG Bonus only after newcomer's 1st confirmed visit. Sharing = nothing.  (Barber: main step)
-5 INHABER    List: name · last visit · stamps. Point at "vor 9 Wochen".     → "Kennst du so jemanden?"
-6 VERTRAUEN  Lost link = new card + you re-book. Say the Ausblick list aloud.
+5 INHABER    Returning cards + one card (pseudonymous): last visit 9 weeks ago. → "Merkst du sowas heute?"
+6 VERTRAUEN  Before RC: lost link = new card + you re-book; reissue "kommt mit dem Update". After RC: reissue, same stand. Say the Ausblick list.
 7 RECHNUNG   Their basket → calculator. "Rechenbeispiel, keine Prognose."
 8 PREIS      "39 € pro Monat und Standort." Then SILENCE.
-CLOSE        "Wollen wir's bei dir ausprobieren? Eine halbe Stunde, wenn's ruhig ist."
+ASK          "Würde dir das bei etwas Konkretem helfen?"
+CLOSE        Before gates: "Willst du einer der ersten sein, sobald die Bedingungen stehen?" (no date, no payment)
+             After gates:  "Wollen wir's bei dir ausprobieren? Eine halbe Stunde, wenn's ruhig ist."
 
-NEVER  KI · mehr Umsatz · % · NFC/Wallet/Logo/Nachrichten as available · invented shops · "nur diese Woche" · free months
+NEVER  KI · mehr Umsatz · % · NFC/Wallet/Logo/Nachrichten as available · names on owner screens · RC features as live · invented shops · "nur diese Woche" · free months · paid-start dates before the gates
 PIZZERIA  Say: "Lieferplattform-Bestellungen laufen nicht über Loynara. Keine Kassenanbindung."
 BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 · Salon 45 € → 1   (ceil(39 / basket))
 ```
@@ -81,7 +83,7 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 >
 > **Preis:** 39 € pro Monat und Standort. Alle Bedingungen schriftlich, bevor du etwas zahlst.
 >
-> **Nächster Schritt:** [vereinbarter Termin] / Sag mir einfach einen ruhigen Nachmittag, dann richten wir's in einer halben Stunde ein.
+> **Nächster Schritt:** [vereinbarter Termin] / Vor Freigabe der Bedingungen: „Ich melde mich, sobald ich dir alles schriftlich geben kann.“ Danach: „Sag mir einen ruhigen Nachmittag, dann richten wir's in einer halben Stunde ein.“
 >
 > [Name] · [Telefon]
 
@@ -100,12 +102,12 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 | Team macht nicht mit | „Jeder hat eigenen Zugang. Ich schau in der ersten Woche mit drauf.“ |
 | Missbrauch | „Ohne Bestätigung kein Stempel. Bonus erst nach echtem Besuch.“ |
 | Datenschutz | „Pseudonym, keine Telefonnummern. Unterlagen vor dem Start.“ |
-| Hab schon was | „Bleib dabei, wenn's läuft. Siehst du, wer fehlt?“ |
+| Hab schon was | „Bleib dabei, wenn's läuft. Siehst du, wie viele wiederkommen?“ |
 | Lieferando | „Läuft nicht darüber. Wie groß ist dein Tresen-Anteil?“ |
 | Wer nutzt das schon? | „Wir fangen gerade an. Nach 3 Wochen schauen wir auf deine Zahlen.“ |
 | Nachrichten / Wallet / NFC / Logo | „Ausblick, nicht Teil des Angebots.“ |
 | Kasse? | „Keine Anbindung, läuft getrennt auf Handy/Tablet.“ |
-| Handy verloren | „Neue Karte, du buchst nach. Kartenlink speichern.“ |
+| Handy verloren | Before RC: „Kartenlink speichern; sonst neue Karte, du buchst nach. Neu ausstellen kommt mit dem Update.“ After RC: „Du stellst neu aus – gleicher Stand.“ |
 | Überleg's mir | „Was genau – Preis, Aufwand oder ob's genutzt wird?“ |
 | Zentrale entscheidet | „Dann bin ich falsch – danke dir!“ |
 
@@ -116,7 +118,7 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 **Before the visit (founder)**
 - [ ] Merchant account created through the normal path. Staff accounts are operator-provisioned until invite signup is deployed (QUALIFIED).
 - [ ] Owner verified in person. No account setup from a message alone (see `docs/pilot-recovery-runbook.md`).
-- [ ] Commercial status written down for this merchant per D-1. Nothing invented on site.
+- [ ] The owner has cleared the commercial gates for this merchant (D-1 terms, O-001/O-011/O-012/O-013 as the owner decided). Otherwise this is a demo or pilot-interest visit, not a setup. Nothing invented on site.
 - [ ] Printer access confirmed (theirs, or bring a printed sign).
 
 **On site**
@@ -128,7 +130,7 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 - [ ] Staff briefed in one sentence: „Kamera auf den Code – ist deine Karte. Ohne App. Kartenlink speichern.“
 - [ ] Owner sees their overview on their own phone.
 - [ ] First real customer scanned and confirmed while the founder is there, if possible.
-- [ ] Explained: lost card link means a new card and re-booking; forgotten password means a call to the founder (operator reset, in-person check).
+- [ ] Explained (before the RC): a lost card link means a new card and re-booking known stamps; reissue with the same balance comes with the next update. After the RC: owner/manager reissue, plus the card number when the camera fails. Forgotten password: call the founder (operator reset, in-person check).
 - [ ] Explained the Ausblick list once more, so there are no surprises.
 - [ ] Agreed: day-3 check-in, day-7 numbers, **day-21 review in person** (put it in both calendars).
 - [ ] Permission recorded for the WhatsApp/phone support channel.

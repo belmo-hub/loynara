@@ -1,0 +1,30 @@
+row,metric,A_solo,B_plus_seller,C_plus_referrals,D_plus_inbound,E_all_levers,F_all_levers_stretch_rates,type,note
+2,goal_paying_locations,100,100,100,100,100,100,input,Stretch objective for month one. Not the expected outcome.
+3,weeks_in_month,4,4,4,4,4,4,input,
+4,field_days_per_week,4,4,4,4,4,4,input,Day 5 = setups + follow-ups + review.
+5,sellers,1,2,1,1,2,2,input,B/E/F: founder + one additional seller from week 1.
+6,doors_per_seller_day,25,25,25,25,25,25,input,
+7,rate_door_to_conversation,0.45,0.45,0.45,0.45,0.45,0.55,input,Planning assumption (target scenario of funnel-model.csv); F uses its stretch value.
+8,rate_conversation_to_demo,0.5,0.5,0.5,0.5,0.5,0.6,input,
+9,rate_demo_to_close,0.35,0.35,0.35,0.35,0.35,0.45,input,Close = agrees to the €39 terms (paid start only after the owner clears the commercial gates).
+10,close_rate_factor,1,0.9,1,1,0.9,0.9,input,Blended factor for a newer second seller (assumption).
+11,rate_close_to_activated,0.75,0.75,0.75,0.75,0.75,0.85,input,Activated = live and >= 25 confirmed visits by day 14 (hypothesis).
+12,locations_per_merchant,1.1,1.1,1.1,1.1,1.1,1.2,input,
+13,referral_intros_per_activated_merchant,0,0,0.5,0,0.5,0.5,input,Introductions within the month (10-merchant-referrals.md).
+14,rate_referral_intro_to_activated,0.4,0.4,0.4,0.4,0.4,0.4,input,
+15,inbound_leads_per_week,0,0,0,10,10,10,input,Content/ads/site leads; paid ads need O-014 first.
+16,rate_inbound_lead_to_demo,0.6,0.6,0.6,0.6,0.6,0.6,input,
+17,doors,=C3*C4*C5*C6,=D3*D4*D5*D6,=E3*E4*E5*E6,=F3*F4*F5*F6,=G3*G4*G5*G6,=H3*H4*H5*H6,formula,
+18,owner_conversations,=C17*C7,=D17*D7,=E17*E7,=F17*F7,=G17*G7,=H17*H7,formula,
+19,demos_from_field,=C18*C8,=D18*D8,=E18*E8,=F18*F8,=G18*G8,=H18*H8,formula,
+20,demos_from_inbound,=C3*C15*C16,=D3*D15*D16,=E3*E15*E16,=F3*F15*F16,=G3*G15*G16,=H3*H15*H16,formula,
+21,closes,=(C19+C20)*C9*C10,=(D19+D20)*D9*D10,=(E19+E20)*E9*E10,=(F19+F20)*F9*F10,=(G19+G20)*G9*G10,=(H19+H20)*H9*H10,formula,
+22,activated_direct,=C21*C11,=D21*D11,=E21*E11,=F21*F11,=G21*G11,=H21*H11,formula,
+23,activated_from_referrals,=C22*C13*C14,=D22*D13*D14,=E22*E13*E14,=F22*F13*F14,=G22*G13*G14,=H22*H13*H14,formula,
+24,activated_merchants,=C22+C23,=D22+D23,=E22+E23,=F22+F23,=G22+G23,=H22+H23,formula,
+25,paying_locations_expected,=ROUND(C24*C12;1),=ROUND(D24*D12;1),=ROUND(E24*E12;1),=ROUND(F24*F12;1),=ROUND(G24*G12;1),=ROUND(H24*H12;1),formula,Locations that agreed to the terms and activated; paid once the gates clear.
+26,required_doors_for_goal,=ROUNDUP((C2/C12/(C9*C10*C11*(1+C13*C14))-C20)/(C7*C8);0),=ROUNDUP((D2/D12/(D9*D10*D11*(1+D13*D14))-D20)/(D7*D8);0),=ROUNDUP((E2/E12/(E9*E10*E11*(1+E13*E14))-E20)/(E7*E8);0),=ROUNDUP((F2/F12/(F9*F10*F11*(1+F13*F14))-F20)/(F7*F8);0),=ROUNDUP((G2/G12/(G9*G10*G11*(1+G13*G14))-G20)/(G7*G8);0),=ROUNDUP((H2/H12/(H9*H10*H11*(1+H13*H14))-H20)/(H7*H8);0),formula,Holding every rate above.
+27,required_doors_per_seller_field_day,=ROUND(C26/(C3*C4*C5);1),=ROUND(D26/(D3*D4*D5);1),=ROUND(E26/(E3*E4*E5);1),=ROUND(F26/(F3*F4*F5);1),=ROUND(G26/(G3*G4*G5);1),=ROUND(H26/(H3*H4*H5);1),formula,About 25 is a full field day.
+28,required_conversation_to_demo_rate,=ROUND((C2/C12/(C9*C10*C11*(1+C13*C14))-C20)/C18;2),=ROUND((D2/D12/(D9*D10*D11*(1+D13*D14))-D20)/D18;2),=ROUND((E2/E12/(E9*E10*E11*(1+E13*E14))-E20)/E18;2),=ROUND((F2/F12/(F9*F10*F11*(1+F13*F14))-F20)/F18;2),=ROUND((G2/G12/(G9*G10*G11*(1+G13*G14))-G20)/G18;2),=ROUND((H2/H12/(H9*H10*H11*(1+H13*H14))-H20)/H18;2),formula,Holding volume and the other rates. Above 1 = impossible.
+29,required_demo_to_close_rate,=ROUND(C2/C12/((C19+C20)*C10*C11*(1+C13*C14));2),=ROUND(D2/D12/((D19+D20)*D10*D11*(1+D13*D14));2),=ROUND(E2/E12/((E19+E20)*E10*E11*(1+E13*E14));2),=ROUND(F2/F12/((F19+F20)*F10*F11*(1+F13*F14));2),=ROUND(G2/G12/((G19+G20)*G10*G11*(1+G13*G14));2),=ROUND(H2/H12/((H19+H20)*H10*H11*(1+H13*H14));2),formula,Holding volume and the other rates.
+30,required_activation_rate,=ROUND(C2/C12/((C19+C20)*C9*C10*(1+C13*C14));2),=ROUND(D2/D12/((D19+D20)*D9*D10*(1+D13*D14));2),=ROUND(E2/E12/((E19+E20)*E9*E10*(1+E13*E14));2),=ROUND(F2/F12/((F19+F20)*F9*F10*(1+F13*F14));2),=ROUND(G2/G12/((G19+G20)*G9*G10*(1+G13*G14));2),=ROUND(H2/H12/((H19+H20)*H9*H10*(1+H13*H14));2),formula,Holding volume and the other rates.

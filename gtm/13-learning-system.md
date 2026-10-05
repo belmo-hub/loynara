@@ -27,7 +27,11 @@ node gtm/data/funnel.mjs --actuals gtm/data/private/pipeline.csv
   - `top_objection` uses the codes from [07-objections.md](07-objections.md).
   - `permission_words` is the owner's exact words when allowing contact. This is the evidence for UWG-safe follow-up.
   - `suppressed=yes` means never contact again.
+- `pipeline.csv` (added in the reconciliation pass):
+  - `angle_ids` lists the canonical angles you led with at that door (e.g. `CORE-03;CORE-09`). This is how the angle library gets tested in the field.
+  - `pilot_interest_date` (allowed before the commercial gates) is kept separate from `close_date` (written terms, only after the gates).
 - `learning-log.csv`:
+  - `angle_id` ties an observation to a canonical angle. Log every merchant request for a FUTURE angle (e.g. `FUT-01` win-back, `FUT-14` Wallet) as type `demo`, with the merchant's words. That is the demand signal those angles are kept for.
   - `type` is one of `walkin · demo · setup · day3 · day7 · day21 · ad · content · process`.
   - `quote_permission=yes` only with the owner's explicit OK to use the quote publicly, with or without the shop name (note which).
 - `merchant-metrics.csv`:

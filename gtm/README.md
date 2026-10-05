@@ -1,154 +1,151 @@
 # Loynara: first 100 merchants (GTM system)
 
-**Goal:** 100 paying German local-merchant locations at **€39 / Monat / Standort** (price unchanged; single source `marketing-site/src/site.ts`).
-**Motion:** founder-led, walk-in first, Kassel first. **Branch:** `marketing/gtm-first-100`, marketing-only files.
-**Written:** 2026-10-05.
+**Goal:** paying German local-merchant locations at **€39 / Monat / Standort**.
+- The price is unchanged; its single source is `marketing-site/src/site.ts`.
+- **100 paid locations in month one is the stretch objective, not the expected outcome** ([04](04-funnel.md)).
+
+**Motion:** founder-led, walk-in first (Loynara's conservative policy), Kassel first.
+
+**Branch:** `marketing/gtm-first-100`, marketing-only files.
+
+**Versions:**
+- First system: `5364478`.
+- Canonical reconciliation with the owner's original *Marketing & Acquisition Playbook* (124-angle bank): 2026-10-05.
 
 ## Verdict
 
-**FIRST 100 MERCHANT GTM SYSTEM = READY TO EXECUTE**
+**LOY NARA GTM CANONICAL SYSTEM = READY**
 
-Two stages are gated by items outside this branch:
+Ready means: the angle library, scripts, demo, pages and measurement can be used tomorrow for walk-ins, demos, feedback and pilot interest. These stages wait for gates outside this branch:
 
-| Gate | Blocks | Does not block |
-|---|---|---|
-| **D-3** demo merchant (founder creates it in the app) | The real-product hand-the-phone demo | Walk-ins with the marketing-site demos on the founder's laptop/phone via local preview |
-| **O-001 · O-011 · O-012 · O-013** (operator identity, invoice route, VAT, AGB/AVV) | The **Paid** stage, and any digital promotional follow-up footer | Doors, conversations, demos, pilot setup (per D-1) |
-| **O-014** public site | Paid ads, the site link in messages and handouts | Walk-ins, permitted follow-ups, organic content production |
+| Gate | Kind | Blocks | Does not block |
+|---|---|---|---|
+| **O-001 · O-011 · O-012 · O-013 · D-1** | Project commercial / launch gates (owner decisions; not a statement of legal requirements) | Close on written terms, payment, paid-start dates, going live with real customer data | Visits, demos, product feedback, pilot interest |
+| **O-014** public site | Project launch gate | Paid ads, site links in messages and handouts, retargeting | Walk-ins, permitted follow-ups, organic content production |
+| **RC release** | Product release gate | Selling card number, corrections and reissue as live | Saying them as „kommt mit dem nächsten Update“ |
+| **NFC acceptance** | Product + physical test gate | NFC as the primary entry claim | „Antippen per NFC ist vorbereitet“ |
+| **D-3** production demo merchant | Waits for RC rehearsal + approved deployment + production verification | A real scan on the owner's own phone | Demos on the tablet with local or isolated demo data |
 
 ## Final positioning
 
-> „Das ist deine Stempelkarte, nur auf dem Handy deiner Kunden – ohne App. Dein Team bestätigt jeden Besuch, und du siehst endlich, wer wiederkommt und wer fehlt.“
+> **Keep the customers you earned. Bring them back. Let them bring the next ones.** (original north star)
 
-**Who it's for:** owner-run barbers and pizzerias (then cafés) in Kassel that already know their regulars by face.
+> „Das ist deine Stempelkarte, nur auf dem Handy deiner Kunden – ohne App. Dein Team bestätigt jeden Besuch, und du siehst, wie viele wiederkommen und welche Empfehlung ein echter Besuch war.“
 
-**What it is not:**
-- Not marketing automation
-- Not a POS
-- Not an app
-- Not a discount platform
+Detail, message hierarchy and claim check: [02-positioning-angles.md](02-positioning-angles.md).
 
-**What it can't do yet, and we say so:**
-- Messages to customers
-- Wallet card
-- NFC tap
-- Logo on the card
-- POS or delivery-platform integration
+## Contents
 
-Detail in [02-positioning-angles.md](02-positioning-angles.md).
-
-## Deliverables
-
-| # | Deliverable | Where |
+| # | Document | What it holds |
 |---|---|---|
-| 1 | Final positioning | above · [02](02-positioning-angles.md) |
-| 2 | First two verticals + rationale | [03-verticals.md](03-verticals.md): **barber**, **pizzeria/Imbiss**; café third |
-| 3 | Angle matrix A (10 core) · B (8) · C (6) · D (5) · E (5 future, do-not-use) | [02-positioning-angles.md](02-positioning-angles.md) |
-| 4 | Sell-now / qualified / future claim matrix | [01-product-truth.md](01-product-truth.md) |
-| 5 | 100-merchant funnel: 3 scenarios, editable, diagnostic floors | [04-funnel.md](04-funnel.md) · [data/funnel-model.xlsx](data/funnel-model.xlsx) · [data/funnel.mjs](data/funnel.mjs) |
-| 6 | Daily / weekly founder plan | below |
-| 7 | Walk-in script (German) | [05 §1](05-sales-playbook.md) |
-| 8 | WhatsApp sequences | [05 §2](05-sales-playbook.md) |
-| 9 | Instagram DMs | [05 §3](05-sales-playbook.md) |
-| 10 | Email sequences | [05 §4](05-sales-playbook.md) |
-| 11 | Phone script | [05 §5](05-sales-playbook.md) |
-| 12 | Canonical demo + pizzeria / café / barber / salon | [06-demo-script.md](06-demo-script.md) |
-| 13 | Objection bank (22 objections) | [07-objections.md](07-objections.md) |
-| 14 | 32 ad concepts + 4-week test plan | [08-ad-concepts.md](08-ad-concepts.md) |
-| 15 | 30-day content calendar | [09-content-calendar.md](09-content-calendar.md) |
-| 16 | Merchant-to-merchant referral process (no cash reward) | [10-merchant-referrals.md](10-merchant-referrals.md) |
-| 17 | Website page strategy | [11-website-strategy.md](11-website-strategy.md) |
-| 18 | Implemented marketing pages | `/fuer-barber/`, `/fuer-pizzerien/`, `/empfehlungen/` in `marketing-site/` (below) |
-| 19 | Collateral: handout, demo cheat sheet, after-demo summary, objection cheat sheet, onboarding checklist | [12-collateral.md](12-collateral.md) |
-| 20 | First-merchant learning system (CSV) | [13-learning-system.md](13-learning-system.md) · `data/*-template.csv` |
-| 21 | Test / QA results | below |
-| 22 | Next 7 days | below |
+| 01 | [01-product-truth.md](01-product-truth.md) | Three evidence states: LIVE NOW / RC READY — not deployed / FUTURE, with before/after phrasing; project gates vs legal requirements |
+| 02 | [02-positioning-angles.md](02-positioning-angles.md) | Positioning + the **canonical angle library**: 76 angles (generated from `data/angle-library.csv`) |
+| 03 | [03-verticals.md](03-verticals.md) | Barber #1, pizzeria/Imbiss #2, café #3 by evidence trigger; original verticals preserved |
+| 04 | [04-funnel.md](04-funnel.md) | 100-location funnel, diagnostics, **month-one models A–F**; editable `data/funnel-model.xlsx` |
+| 05 | [05-sales-playbook.md](05-sales-playbook.md) | Outreach policy, walk-in, WhatsApp, Instagram, email, phone; original DM lines as permitted follow-ups |
+| 06 | [06-demo-script.md](06-demo-script.md) | Canonical demo + pizzeria / café / barber / salon; demo environments A/B/C |
+| 07 | [07-objections.md](07-objections.md) | 29 objections with evidence-aware answers |
+| 08 | [08-ad-concepts.md](08-ad-concepts.md) | 36 ad concepts incl. the original ads A–D (E held) + test plan |
+| 09 | [09-content-calendar.md](09-content-calendar.md) | 30-day calendar + the original „Was würdest du tun?“ series |
+| 10 | [10-merchant-referrals.md](10-merchant-referrals.md) | Merchant-to-merchant referrals (ACQ-04), no cash reward |
+| 11 | [11-website-strategy.md](11-website-strategy.md) | Page map, claim review of the built pages, next pages by trigger |
+| 12 | [12-collateral.md](12-collateral.md) | Handout, demo cheat sheet, after-demo summary, objection sheet, onboarding checklist |
+| 13 | [13-learning-system.md](13-learning-system.md) | CSV learning system, with angle tracking and FUTURE demand logging |
+| 14 | [14-angle-reconciliation.md](14-angle-reconciliation.md) | All 124 original angles + 45 other original items → canonical angle, coverage before, status |
+| 15 | [15-copy-switches.md](15-copy-switches.md) | NFC and RC copy switches: exact website strings and GTM replacements |
+| 16 | [16-execution-matrix.md](16-execution-matrix.md) | Core angles → walk-in / demo / static / 15s video / post / objection / vertical; long-tail placements |
 
-## Founder decisions needed (nothing below was decided for you)
+## Founder decisions
 
-| ID | Decision | Recommendation | Needed by |
-|---|---|---|---|
-| **D-1** | How pilots that go live before invoicing exists (O-011) are billed | Decide in writing before the first setup. These docs don't offer free months or discounts; the founder line is „Bedingungen schriftlich, bevor du etwas zahlst“. | First pilot setup |
-| **D-2** | Merchant-referral reward | Non-monetary only for now (thank-you visit, priority support). If money later: one month's credit after the referred location's first paid invoice, written into the AGB. | Pilot #10 |
-| **D-3** | Create a demo merchant („Demo – Loynara“) in production through the normal app flow, with test customers created by scanning with the founder's second phone | Yes. It's the strongest demo. It is a production change, so the founder does it personally. No demo/seed flags (the config check forbids them). | Day 1 |
-| **D-4** | Approve the homepage wording change: NFC moved from today's claim to „Ausblick“, QR-first | Approve. The old wording sold physical NFC acceptance that isn't evidenced. | Before publishing |
-| **D-5** | Publish the site (O-014) and whether to add cookieless analytics | Publish once O-001 legal data is in. Analytics optional; mailto subjects and „Wie bist du auf uns gekommen?“ suffice for now. | Week 3 |
+| ID | Decision | Status / recommendation |
+|---|---|---|
+| **D-1** | Pilot terms, and when a merchant may go live with real customer data before invoicing exists | **Open.** Decide in writing. Until then: pilot interest only. No free months or discounts are invented in these docs. |
+| **D-2** | Merchant-referral reward | Non-monetary for now. If money later: one month's credit after the referred location's first paid invoice, written into the AGB. |
+| **D-3** | Production demo merchant | **Do not create yet.** Wait until (1) the merchant-completion RC rehearsal passes, (2) production deployment is separately approved, (3) targeted production verification passes. Then create one controlled demo merchant through the normal approved product path. Until then use local, isolated or preview demo data. |
+| **D-4** | Homepage NFC wording | **Approved temporarily by the owner:** QR is the live entry claim; NFC is „vorbereitet“ / „Ausblick“. Switch plan in [15](15-copy-switches.md). |
+| **D-5** | Publish the site (O-014); cookieless analytics | Publish once O-001 legal data is in. Analytics optional. |
 
-## Founder operating plan (deliverable 6)
+## Month-one target
+
+From [04](04-funnel.md). All rates are untested planning assumptions.
+
+| Model | Expected paying locations (if the gates clear before week 1) |
+|---|---|
+| A · Solo founder | ≈ 26 |
+| B · Founder + one seller | ≈ 47 |
+| C · Founder + merchant-referral acceleration | ≈ 31 |
+| D · Founder + paid/inbound | ≈ 33 |
+| A–D combined (E) | ≈ 64 |
+| Combined at stretch rates (F) | ≈ 143 |
+
+**Operating target:**
+- **20–25 activated locations solo**, or **≈ 40–45 with a second seller from week 1**.
+- **100 stays the stretch.** It needs F: two sellers, stretch-level rates at every stage, referrals and inbound running, and gates cleared before week 1.
+
+## Founder operating plan
 
 **Week shape:**
-- **Mon:** pizzerias and Imbiss only. Many barbers are closed.
+- **Mon:** pizzerias and Imbiss only (many barbers are closed).
 - **Tue–Thu:** full field days.
-- **Fri:** setups, follow-ups, the Friday review, content batch.
-- **Sat:** no field; barbers are busiest.
+- **Fri:** follow-ups, setups (only after the gates), the Friday review, content batch.
+- **Sat:** no field.
 
 **Field day (target: 25 doors):**
 
 | Time | Block |
 |---|---|
-| 09:00–10:00 | Route from the door list (public data, `outreach/prospects-template.csv`), and permitted follow-ups only (`permission_words` filled) |
-| 10:00–12:00 | Barber walk-ins (quiet mornings) |
-| 12:00–14:30 | No walk-ins (lunch rush). Pilot setups at barbers, day-3 calls, pipeline logging. |
-| 14:30–17:00 | Pizzeria + barber walk-ins (the quiet window) |
-| 17:00–17:30 | Log every door in `data/private/pipeline.csv`; same-day permitted messages (W1/E1/I2) |
-
-**Weekly targets (target scenario):** about 100 doors · 45 conversations · 21 demos · 7 pilot setups.
+| 09:00–10:00 | Route from the door list (public data); permitted follow-ups only (`permission_words` filled) |
+| 10:00–12:00 | Barber walk-ins |
+| 12:00–14:30 | No walk-ins. Setups (after the gates), day-3 calls, logging. |
+| 14:30–17:00 | Pizzeria + barber walk-ins |
+| 17:00–17:30 | Log every door in `data/private/pipeline.csv`, with `angle_ids`; same-day permitted messages |
 
 **Friday review (15 min):**
-1. `node gtm/data/funnel.mjs --actuals gtm/data/private/pipeline.csv`
-2. Weekly scoreboard row
+1. `node gtm/data/funnel.mjs --month-one --actuals gtm/data/private/pipeline.csv`
+2. Scoreboard row
 3. Top objection
-4. **One** change for next week, logged in `learning-log.csv`
+4. Best-performing `angle_ids`
+5. **One** change for next week, in `learning-log.csv`
 
-**Pilot rhythm per merchant:** day 0 setup → day 3 check → day 7 numbers → **day 21 in-person review** (the paid decision and the referral ask).
+**Pilot rhythm (after the gates):** day 0 setup → day 3 check → day 7 numbers → **day 21 in-person review** (paid decision + ACQ-04 introduction ask).
 
-## Next 7 days (deliverable 22)
+## Next seven GTM actions
 
-| Day | Date | Exact actions | Done when |
+| # | When | Action | Done when |
 |---|---|---|---|
-| 1 | Tue 6 Oct | (a) Decide **D-1** and **D-3**. Create the demo merchant in the app, print its Tresenschild, and create 3 test cards from your second phone with stamps at 2, 7 and 10. (b) Start **O-001** (Impressum data). (c) Copy the CSV templates to `gtm/data/private/`. (d) Build the first 60-door list: barbers + pizzerias in **Kassel-Mitte** and **Vorderer Westen** from public sources. (e) Print 100 handouts ([12 §1](12-collateral.md); site QR replaced by demo-card QR) and laminate the demo cheat sheet. (f) Rehearse the 2-minute demo 10 times aloud, with a stopwatch. | Demo QR scans to a real card; door list ≥ 60 rows |
-| 2 | Wed 7 Oct | Field day: 25 doors, barber-first, Kassel-Mitte. Walk-in script [05 §1](05-sales-playbook.md). Log every door by 17:30. | 25 pipeline rows, with objections coded |
-| 3 | Thu 8 Oct | Field day: 25 doors, pizzeria-weighted, Vorderer Westen. Send W1/E1 **only** to owners who said yes to contact. | 50 rows total; permissions recorded verbatim |
-| 4 | Fri 9 Oct | AM: permitted follow-ups; book setups for any yes (≤ 5 days out). PM: 15 doors. 16:30: **first Friday review**: run `funnel.mjs --actuals`, note door → conversation rate and top objection, pick one change. | Scoreboard W1 row; one logged change |
-| 5 | Sat 10 Oct | No field. Record raw footage on the demo merchant for AD-01, AD-03, AD-14, AD-16 (labelled „Beispiel“). **Don't publish** until O-001 is done. Update [07-objections.md](07-objections.md) with any objection heard that isn't in it. | 4 raw clips; objection bank updated |
-| 6 | Sun 11 Oct | Rest. 20 minutes: re-read the claim check ([02](02-positioning-angles.md), bottom); mark any line you caught yourself saying that isn't in *Sell now*. | — |
-| 7 | Mon 12 Oct | PM: 20 pizzeria/Imbiss doors (barbers closed). First pilot setups, if booked: use the onboarding checklist. With ≈ 85 doors done, compare door → conversation against the 30 % floor (judge at 60+). | Setups done per checklist; first floor check |
+| 1 | Tue 6 Oct | Decide **D-1** in writing and start **O-001**. Write the open questions for the legal/tax review: which launch gates are legal requirements, and before what. | D-1 written; review questions sent to the advisor of your choice |
+| 2 | Tue 6 Oct | Prepare the tablet demo: marketing preview (A) + an isolated product demo with synthetic data (B). Print handouts **without** a QR code. Rehearse the canonical demo 10× aloud. Copy the CSV templates to `gtm/data/private/`. Build a 60-door list (barbers + pizzerias, Kassel-Mitte and Vorderer Westen) from public sources. | The demo runs offline-safe on the tablet; door list ≥ 60 rows |
+| 3 | Wed 7 Oct | 25 doors, barber-first. Lead with CORE-03 / CORE-04 / CORE-09. Ask for **pilot interest** only. Log `angle_ids`. | 25 rows with objection codes and angles |
+| 4 | Thu 8 Oct | 25 doors, pizzeria-weighted (VER-02 / VER-03; say the Lieferplattform sentence unprompted). Send follow-ups only to owners who said yes. | 50 rows; permissions recorded verbatim |
+| 5 | Fri 9 Oct | First Friday review with `--month-one --actuals`. Decide whether to recruit a second seller (model B), based on the door → conversation rate and your capacity. | Scoreboard W1 row; B decision noted |
+| 6 | Sat 10 Oct | Pre-produce AD-01, AD-03, AD-16 and AD-33 from the local/isolated demo (labelled „Beispiel“; **no publishing** before O-001). Add new objections and FUTURE requests (FUT-xx) to the learning log. | 4 raw clips; learning log updated |
+| 7 | Mon 12 Oct | 20 pizzeria/Imbiss doors; optional café probe of ≤ 10 doors as a learning sample. Ask the product workstream for the RC rehearsal status, so the RC and NFC copy switches ([15](15-copy-switches.md)) can be scheduled. Do not touch the RC. | ≈ 85 doors logged; first floor check; switch dates known or „pending“ |
 
-## Implemented marketing pages (deliverable 18)
+## Implemented marketing pages
 
-All in `marketing-site/`. Static and script-free; the price comes from `SITE.price`; every example is labelled.
+All in `marketing-site/`. Static, script-free supporting pages. Not published, not deployed.
 
 | Path | Content |
 |---|---|
-| `/fuer-barber/` | „Jeder Schnitt zählt.“ Example card, referral pair, owner list, break-even €25 → 2, five FAQs |
-| `/fuer-pizzerien/` | „Die zehnte Pizza kennt jeder.“ Multiple stamps in one step, Lieferplattform qualifier, break-even €18 → 3 |
-| `/empfehlungen/` | Four steps, fairness rules, causation caveat, links to both verticals |
+| `/` | Concept D. QR-first, NFC „vorbereitet“. Owner view now pseudonymous (Karte A/B/C). Roles line no longer claims day/time patterns. FAQ and price card gated in `src/claims.ts`. |
+| `/fuer-barber/` | Owner section: „Du siehst, wie viele wiederkommen. Und welche Karten länger ruhen.“ Pseudonymous rows; dormant list as Ausblick. |
+| `/fuer-pizzerien/` | Same correction („…welche Karten seit Wochen ruhen“). Lieferplattform qualifier unchanged. |
+| `/empfehlungen/` | Unchanged; claims verified against the live referral rules |
 
-**Homepage:** NFC-as-today wording replaced with QR-first plus an NFC „Ausblick“ (D-4). New footer nav to the three pages, and the pages are in `sitemap.xml`.
-
-**Not published, not deployed.**
-
-## Test / QA results (deliverable 21)
-
-Run on 2026-10-05 against the local loopback preview.
+## Test / QA results (2026-10-05, local loopback preview)
 
 | Check | Result |
 |---|---|
-| `npm run marketing:test` (node:test incl. new `tests/pages.test.ts`: claims, price source, boundaries, linking, a11y structure) | **60 / 60 pass** |
-| `npm run marketing:build` | PASS: 6 static pages, public mode off |
-| `verify.mjs` | PASS: 6 pages, 180 links/anchors/assets, metadata, private-output checks |
-| `browser-check.mjs` (homepage interactions) | **400 / 400** |
-| `pages-check.mjs` (new): 4 pages × 320/360/390/768/1280/1440, reduced motion, keyboard skip link + FAQ, 200 % text at 640 px, no-JS completeness, overflow/clipping, tap targets ≥ 24 px, console, external requests | **211 / 211** |
-| `a11y-check.mjs` (axe): 14 states incl. the three new pages, desktop + mobile | No violations |
-| Funnel model: spreadsheet formulas vs. `funnel.mjs` (independent evaluator) | Identical across all 3 scenarios |
-| `funnel.mjs --actuals` on a synthetic 20-row pipeline (quoted commas) and on the empty template | Correct rates and „too early“ verdicts |
+| `npm run marketing:test`: site, pages, claim safety, **gate switch** (`claims.test.ts`, renders every gate combination) and **angle library** (`gtm-angles.test.ts`: 124 traced, statuses, uses, claim safety, docs fresh) | **72 / 72 pass** |
+| `npm run marketing:build` (incl. `tsc`) | PASS: 6 static pages, public mode off; refuses a test gate override |
+| `npm run marketing:verify` | PASS: 6 pages, 180 links/anchors/assets |
+| `browser-check.mjs` | **400 / 400** |
+| `pages-check.mjs` (4 pages × 6 widths, reduced motion, keyboard, 200 % text, no-JS) | **211 / 211** |
+| `a11y-check.mjs` (axe, 14 states) | No serious or critical violations |
+| `node gtm/data/angles.mjs --check` | Generated angle docs up to date |
+| Funnel + month-one spreadsheet formulas vs. `funnel.mjs` (independent evaluator) | Identical |
 
-**Not covered:**
-- WebKit/Safari
-- A physical phone
-- A screen reader
-- Opening the `.xlsx` in Excel. Numbers automation timed out; formulas were verified by an evaluator instead.
-- Any production system. None was touched.
+**Not covered:** Safari/WebKit, a physical phone, a screen reader, Excel itself (the formulas were verified by an evaluator), any production system (none was touched).
 
 ## Scope kept
 
@@ -157,10 +154,8 @@ Run on 2026-10-05 against the local loopback preview.
 **Not touched:**
 - `product/merchant-completion`, RC branches
 - Auth, schema, migrations
-- Ledger, referrals, campaigns, automations
+- Ledger, referrals, campaigns, automations backends
 - NFC, Wallet
 - Railway, Cloudflare, production env
 
 **Not done:** no push, no deploy, no production mutation, no messages sent, no payments or commercial terms implemented, no Concept E.
-
-The original 124-angle bank was not found; see the note in [02](02-positioning-angles.md).

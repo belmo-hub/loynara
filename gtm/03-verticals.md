@@ -4,7 +4,9 @@
 1. **Barber shops** (#1)
 2. **Pizzerias / Imbiss with counter or pickup trade** (#2)
 
-**Cafés** are the expansion vertical (#3), entered once 10 barbers and 10 pizzerias are live.
+**Cafés** are the next expansion vertical (#3). Expansion follows an **evidence trigger**, not a fixed count of live merchants (see below).
+
+**Check against the original playbook (2026-10-05):** the original 124-angle bank lists cafés and bakeries first in several priority angles (repeat visits, reward progress), and adds car wash, gym and restaurant positioning. That is a positioning assertion, not field evidence, so it does not overturn the scoring below. Barber and pizzeria stay first. The original vertical lines are preserved as VER-01…VER-08 in [02](02-positioning-angles.md); car wash, gym and restaurant are deferred verticals.
 
 Target geography: **Kassel** first, the city the outreach tooling is configured for (`outreach/`, `targetCountry: "DE"`). Saturate one city before opening a second: density makes walk-ins cheap and lets merchants refer neighbours.
 
@@ -31,7 +33,7 @@ Salon and nails score well but sit behind barbers. They overlap in motion and me
 - **The maths is easiest to say out loud:** „39 € sind zwei Haarschnitte.“
 - **The owner is at the chair:** no gatekeeper. You can wait for a gap between cuts.
 - **Referrals are native:** a barber's growth *is* word of mouth, and our referral rules are the most differentiated sell-now feature.
-- **The "who stopped coming" view speaks to a real fear:** a 4-week regular who's been gone for 9 weeks is probably at another barber.
+- **The visit rhythm speaks to a real fear:** a 4-week regular who's been gone for 9 weeks is probably at another barber. Today this shows per card (last visit, pseudonymous); a list of dormant regulars is FUTURE (RET-01 / FUT-01).
 - **Risks:**
   - Some barbers run on booking tools (Treatwell, Booksy, Planity). Booking ≠ loyalty, so this is not a conflict, but don't claim integration.
   - Some are cash-only and not tech-minded. The browser card helps; the price may still be the objection.
@@ -45,14 +47,21 @@ Salon and nails score well but sit behind barbers. They overlap in motion and me
   - A high delivery share means fewer counter scans, so qualify on pickup/counter share in discovery.
   - Families order in groups. Use the multiple-stamps-in-one-step feature.
 
-## Why café is not first
+## Why café is not first, and when it starts
 
-The highest frequency, but:
-- Break-even needs about 7 extra coffees.
-- Queue pressure at the counter makes the staff scan the hardest moment.
-- The densest competition from free-tier digital card tools.
+The café has the highest frequency, but:
+- Break-even needs about 7 extra visits at a €6 basket.
+- Queue pressure makes the staff scan the hardest moment.
+- Free-tier digital card tools compete most densely here.
 
-Enter cafés with referrals from live barbers and pizzerias, and with a proven counter time from [13-learning-system.md](13-learning-system.md).
+**Evidence trigger for the café test.** Start café walk-ins when **all** of these hold for barbers and pizzerias combined:
+1. **Enough real conversations:** ≥ 40 owner conversations and ≥ 20 demos logged in `pipeline.csv`.
+2. **Repeatable objections:** the top three objection codes have been the same for two consecutive Friday reviews.
+3. **A viable pitch:** demo → pilot interest is at or above the 20 % floor across at least 15 demos with one stable script.
+
+A small **café probe** (about 10 doors) may run earlier as a learning sample. It does not count as entering the vertical.
+
+The **`/fuer-cafes/` page** additionally waits for a measured counter scan time from real use (`scan_seconds_sampled` in the learning system), because speed is the café owner's first question.
 
 ## Ideal merchant profile (score each walk-in on the spot)
 

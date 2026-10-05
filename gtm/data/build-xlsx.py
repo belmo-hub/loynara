@@ -1,4 +1,5 @@
-"""Builds funnel-model.xlsx from funnel-model.csv with live formulas (stdlib only). Run: python3 gtm/data/build-xlsx.py"""
+"""Builds funnel-model.xlsx (sheets: Funnel, Month one) from funnel-model.csv and month-one-model.csv with live formulas (stdlib only).
+Run: python3 gtm/data/build-xlsx.py"""
 import csv, zipfile, os
 from xml.sax.saxutils import escape
 
@@ -20,19 +21,25 @@ def cell(ref, v):
     try: return f'<c r="{ref}"><v>{float(v)}</v></c>' if v not in ('',) and v.replace('.', '', 1).isdigit() else (f'<c r="{ref}" t="inlineStr"><is><t>{escape(v)}</t></is></c>' if v else '')
     except Exception: return f'<c r="{ref}" t="inlineStr"><is><t>{escape(str(v))}</t></is></c>'
 
-out = []
-for r, row in enumerate(rows + [[]] + thresholds, start=1):
-    cells = ''.join(cell(f'{col(c)}{r}', v) for c, v in enumerate(row))
-    out.append(f'<row r="{r}">{cells}</row>')
-sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-         '<cols><col min="2" max="2" width="38" customWidth="1"/><col min="3" max="5" width="14" customWidth="1"/><col min="7" max="7" width="80" customWidth="1"/></cols>'
-         f'<sheetData>{"".join(out)}</sheetData></worksheet>')
+def sheet_xml(rows, widths):
+    out = []
+    for r, row in enumerate(rows, start=1):
+        cells = ''.join(cell(f'{col(c)}{r}', v) for c, v in enumerate(row))
+        out.append(f'<row r="{r}">{cells}</row>')
+    cols = ''.join(f'<col min="{a}" max="{b}" width="{w}" customWidth="1"/>' for a, b, w in widths)
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            f'<cols>{cols}</cols><sheetData>{"".join(out)}</sheetData></worksheet>')
+
+month = list(csv.reader(open(os.path.join(here, 'month-one-model.csv'), encoding='utf-8')))
+sheet = sheet_xml(rows + [[]] + thresholds, [(2, 2, 38), (3, 5, 14), (7, 7, 80)])
+sheet2 = sheet_xml(month, [(2, 2, 40), (3, 8, 16), (10, 10, 80)])
 files = {
-    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
     '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
-    'xl/workbook.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Funnel" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>',
-    'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/workbook.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Funnel" sheetId="1" r:id="rId1"/><sheet name="Month one" sheetId="2" r:id="rId2"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>',
+    'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>',
     'xl/worksheets/sheet1.xml': sheet,
+    'xl/worksheets/sheet2.xml': sheet2,
 }
 with zipfile.ZipFile(os.path.join(here, 'funnel-model.xlsx'), 'w', zipfile.ZIP_DEFLATED) as z:
     for name, data in files.items(): z.writestr(name, data)
