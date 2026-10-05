@@ -133,7 +133,7 @@ export class Ntag424 {
     if (!timingSafeEqual(gotMac, expected)) { this.session = undefined; throw new Error("Invalid EV2 response MAC"); }
     return body;
   }
-  async changeKey(number: number, next: Buffer, old = zero): Promise<void> {
+  async changeKey(number: number, next: Buffer, old: Buffer): Promise<void> {
     if (!Number.isInteger(number) || number < 0 || number > 4 || next.length !== 16 || old.length !== 16) throw new Error("Invalid key change");
     const payload = changeKeyPayload(number, next, old);
     await this.full(0xc4, Buffer.from([number]), payload, number === 0);
@@ -164,7 +164,7 @@ export class Ntag424 {
   async reconnect(): Promise<void> { this.session = undefined; if (this.transport.reconnect) await this.transport.reconnect(); await selectNdefApplication(this.transport); }
 }
 
-export function changeKeyPayload(number: number, next: Buffer, old = zero): Buffer {
+export function changeKeyPayload(number: number, next: Buffer, old: Buffer): Buffer {
   if (!Number.isInteger(number) || number < 0 || number > 4 || next.length !== 16 || old.length !== 16) throw new Error("Invalid key change");
   // Data sheet Table 63: key 0 uses NewKey||KeyVer; other keys use XOR||KeyVer||CRC32(NewKey).
   return number === 0 ? Buffer.concat([next, Buffer.from([1])]) : Buffer.concat([Buffer.from(next.map((byte, i) => byte ^ old[i])), Buffer.from([1]), crc32(next)]);

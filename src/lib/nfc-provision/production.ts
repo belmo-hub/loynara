@@ -45,6 +45,7 @@ export function assertProductionOperatorEnvironment(env: Record<string, string |
 }
 
 export type Binding = { tenantId: string; locationId: string; programId: string; cooldownSeconds: number };
+export const bindingSchema = z.object({ tenantId: z.uuid(), locationId: z.uuid(), programId: z.uuid(), cooldownSeconds: z.number().int().min(1).max(86400) }).strict();
 
 /** No database: the intended binding is recorded in the bundle and verified later, server-side, at registration. */
 export function offlineRepository(binding: Binding): ProvisionRepository {

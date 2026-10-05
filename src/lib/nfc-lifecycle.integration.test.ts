@@ -65,6 +65,24 @@ describe("counter-tag flow: customer tap to cashier confirmation to ledger", () 
     expect(await ledgerCount(f.member.id)).toBe(1);
   });
 
+  it("documented repeated SDM material produces one request and one award, including concurrent retries after cooldown", async () => {
+    const f = await nfcFixture(); const c = await register(f, { initialCounter: 3 });
+    const cashier = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const material = c.tap(4, { cardToken: f.member.cardToken, now: at(0) });
+    const repeated = await Promise.all(Array.from({ length: 4 }, () => processSecureTap(material)));
+    expect(new Set(repeated.map(result => result.requestId)).size).toBe(1);
+    expect(repeated.every(result => result.state === "pending_staff")).toBe(true);
+    expect(await db.select().from(tapRequests)).toHaveLength(1);
+    const requestId = repeated[0].requestId!;
+    const confirmations = await Promise.all([0, 1].map(() => confirmTapRequest({ userId: cashier, locationId: f.location.id, requestId, now: at(10) })));
+    expect(confirmations.map(result => result.state).sort()).toEqual(["already_processed", "confirmed"]);
+    const replays = await Promise.all(Array.from({ length: 4 }, () => processSecureTap({ ...material, now: at(120) })));
+    expect(replays.every(result => result.state === "confirmed")).toBe(true);
+    expect(await db.select().from(tapRequests)).toHaveLength(1);
+    expect(await ledgerCount(f.member.id)).toBe(1);
+    expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(1);
+  });
+
   it("a visitor without a card is asked to enroll, and a card for another programme is not accepted", async () => {
     const f = await nfcFixture();
     const other = await nfcFixture();

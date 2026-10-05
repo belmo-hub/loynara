@@ -47,14 +47,22 @@ Until this is decided, do not provision real production tags.
 
 Two phases so the operator machine never reaches the production database:
 
-1. **Physical (operator machine, reader attached)** — `scripts/nfc-operator.ts`. Writes NDEF, changes keys, configures SDM, verifies readback, writes a non-secret registration bundle to `var/nfc-evidence/<ref>.registration.json`. Evidence journal records intent before each key-changing operation and the stage after; an uncertain state **stops** (no blind retries). Resumable stages continue; uncertain stages allow only a bounded key-0 probe (≤ 2 attempts, typed confirmation).
+1. **Physical (operator machine, reader attached)** — `scripts/nfc-operator.ts`. Execution writes NDEF, changes keys, configures SDM, verifies readback, and saves a registration bundle to private ignored `var/nfc-evidence/<ref>.registration.json`. Without `--execute`, provision/resume print an entirely offline plan: no reader, envfile, keys, or database. Schema-2 evidence flushes each intent before mutation and records each acknowledged key change. Unknown, mixed, legacy, or interrupted write states **stop for recovery review**; no default-key probes or blind restart.
 2. **Registration (private Railway console)** — `scripts/operator-register-tag.ts`. Dry run by default. Re-verifies the sample URL with the server's keys, checks tenant/location/programme binding in the database, then registers the tag as active. Preview tags are refused on production and vice versa.
 
-Production requires: explicit `--target production`, `PRODUCTION_APPROVED_ORIGIN`, tenant/location/programme ids, a named actor, `--execute` to leave dry run, and a typed `PROVISION <UID>` confirmation. Preview safeguards are unchanged.
+Physical execution requires `--execute`, `--provenance-ref <reviewed-evidence-id>`, and `--transport-keys-file <private-custody.json>`. The custody file must be a restricted regular file (no symlink or group/world permissions), with `uid` and all five explicit current AES credentials (`key0`, `fileReadKey`, `metaReadKey`, `key3`, `key4`), each encoded as 32 hexadecimal characters. No current credential is assumed by code. A provenance reference identifies external review; it does not prove factory state. Never put actual keys in documentation or command arguments.
+
+Production additionally requires `--target production`, an approved bare HTTPS origin, validated tenant/location/programme UUIDs and cooldown, separate verification/admin masters held offline from production, and typed `PROVISION <UID>`. Preview execution uses the existing isolated device-test database and origin guards, requires the same explicit execution/custody gates, and journals changes before they occur. Preview tags cannot be restarted or rebound to production.
 
 Same-tag lifecycle (additive migration `0018_nfc_tag_lifecycle`): a UID may be re-registered after revocation (partial unique index on live tags), cancelled requests are a valid status.
 
-**Not implemented / unverified on hardware:** authenticated NDEF rewrite of an already-keyed tag (a tag in the "personalised" state is quarantined, not reconfigured); `GetFileSettings` classification and the key-0 probe behaviour on a real chip. Preview URLs written to a tag are **not** presumed changeable; a tag written with a preview origin must not be reused for production unless a reviewed reconfiguration procedure proves it.
+**Not implemented / unverified on hardware:** authenticated NDEF rewrite of an already-keyed tag, personalization, and acknowledged-state recovery. Preview URLs written to a tag are **not** presumed changeable; reuse for production needs a separately reviewed reconfiguration procedure.
+
+Final verification checks the entire expected file-2 settings (including 256-byte size, SDM offsets and access rights), authenticates once with the new key 0, then drops the session. Two consecutive reads may reuse counter and PICC padding; both must verify with the intended UID, origin and reference. An explicit application SELECT separates the next observation, whose counter must advance. The final verified counter becomes the activation/registration replay floor. This follows NXP NT4H2421Gx §§9.3.1 and 9.3.4, rather than assuming an increment on every read.
+
+Recovery is allowed only from acknowledged `settings_changed`, `key0_changed` or `readback_verified`, with the exact recorded key reference, origin, tenant, location, programme, cooldown and provenance. Configured SDM and binding are read-verified before recovery. `settings_changed` selects the supplied current key 0; `key0_changed`/`readback_verified` select only the derived key 0 and do not rewrite it. Any outstanding key-0 intent means **quarantine**, even if the chip may have completed the change. No alternate credentials are tried. A stale per-UID lock also requires review; never delete evidence to force a rerun.
+
+If completed physical provisioning loses its bundle file, do not run provision or generate new chip proofs. Recover the original verified proof locally with `registrationBundleFromEvidence(await journal.read(uid), uid)` and `deliverRegistrationBundle(bundle)`. Atomic file delivery prevents a truncated bundle from being treated as success. A stale delivery lock also needs explicit review. Keep journal and bundle private even though they contain no AES secrets.
 
 ## 5. Read-only reader check (safe; no writes)
 
@@ -70,13 +78,15 @@ Expected: PC/SC available, reader listed, with a tag `GetVersion PASS` and the U
 Before any write report to the owner: target environment and hostname, exact tag identity (UID from `tag-inspect`), the operations (NDEF write, key changes 0–4, SDM config), the recovery path and the key-custody decision (section 3), then wait for approval.
 
 1. Read-only check (section 5); record UID, chip condition, reader name.
-2. Dry run (default; writes nothing, needs the operator env file with both masters and no database URL):
-   `npx tsx scripts/nfc-operator.ts provision --target production --env-file <operator.env> --reader "<name>" --tenant-id <id> --location-id <id> --program-id <id> --cooldown-seconds 60`
-   Read the printed binding and "Would:" list.
-3. After approval: repeat with `--execute`, type `PROVISION <UID>`. Do not repeat after an error; run `tag-inspect`, then `resume` only if the journal says resumable.
+2. Offline dry run (no chip inspection or secret requirements):
+   `node --import tsx scripts/nfc-operator.ts provision --target production --dry-run`
+   This prints the sequence, not an observed tag or an allocated URL/reference. Use the separate read-only inspection evidence to review the physical target.
+3. Only after external credential provenance, key custody and a separate owner write approval: run `node --import tsx scripts/nfc-operator.ts provision --target production --execute --provenance-ref <reviewed-evidence-id> --transport-keys-file <private-custody.json> --env-file <operator.env> --reader "<name>" --tenant-id <uuid> --location-id <uuid> --program-id <uuid> --cooldown-seconds 60`, then type `PROVISION <UID>`. Do not repeat after an error. Inspect the journal; production `resume` requires the same explicit flags and binding, plus typed `RESUME <UID>`, and refuses uncertain state. Preview recovery is currently manual review only.
 4. Copy only the registration bundle to the private Railway console; run `operator-register-tag --target loynara-production --actor-user-id <id>` (dry run), then `--execute`.
 5. Physical tests: iPhone, Android, new-customer enrolment after tap, returning customer, cashier confirm/cancel, replay of a captured URL, revoked tag. Record per device.
 
 ## 7. Local test environments
 
 Everything above was exercised with synthetic masters on a disposable local Postgres: unit and integration tests (derivation, replay, confirm/cancel, lifecycle, registration, provisioning journal with a fake chip) and Playwright `e2e/nfc-flow.spec.ts`. Run with `E2E_NFC_VERIFY_MASTER=<64 hex>` on a dev server started with `NFC_KEY_PROVIDER=derived_v1 NFC_VERIFY_MASTER_KEY=<same value>`.
+
+Software correction evidence and protocol references: [NFC provisioner correction](nfc-provisioner-correction.md). This correction does not authorize TAG-01 personalization. Its batch-specific current-key provenance remains unestablished.

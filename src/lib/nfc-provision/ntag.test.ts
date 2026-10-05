@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Ntag424, changeKeyPayload, getVersion, ndefTemplate, protectedCommand, type ApduTransport } from "./ntag";
+import { Ntag424, changeKeyPayload, getVersion, ndefTemplate, protectedCommand, verifyDynamicNdef, type ApduTransport } from "./ntag";
+import { dynamicNdef } from "../nfc-test-support";
 
 describe("NXP NTAG 424 DNA operator APDUs", () => {
   it("matches official AN12196 Rev 2.0 Table 18 ChangeFileSettings vector", () => {
@@ -10,7 +11,7 @@ describe("NXP NTAG 424 DNA operator APDUs", () => {
     expect(actual.toString("hex")).toBe("905f0000190261b6d97903566e84c3ae5274467e89ead799b7c1a0ef7a0400");
   });
   it("matches official AN12196 Table 25 key-change CRC and layout", () => {
-    const payload = changeKeyPayload(2, Buffer.from("f3847d627727ed3bc9c4cc050489b966", "hex"));
+    const payload = changeKeyPayload(2, Buffer.from("f3847d627727ed3bc9c4cc050489b966", "hex"), Buffer.alloc(16));
     expect(payload.toString("hex"))
       .toBe("f3847d627727ed3bc9c4cc050489b96601789dfadc");
     expect(protectedCommand({ ins: 0xc4, header: Buffer.from([2]), plain: payload,
@@ -29,6 +30,17 @@ describe("NXP NTAG 424 DNA operator APDUs", () => {
       "9071000002000000",
       "90af00002035c3e05a752e0144bac0de51c1f22c56b34408a23d8aea266cab947ea8e0118d00",
     ]);
+  });
+  it("accepts the current-key ChangeKey 9100 response and discards the old EV2 session", async () => {
+    const replies = ["a04c124213c186f22399d33ac2a3021591af", "3fa64db5446d1f34cd6ea311167f5e4985b89690c04a05f17fa7ab2f081206639100", "9100"];
+    const sent: Buffer[] = [];
+    const tag = new Ntag424({ async transmit(data) { sent.push(data); return Buffer.from(replies.shift()!, "hex"); } }, () => Buffer.from("13c5db8a5930439fc3def9a4c675360f", "hex"));
+    await tag.authenticateFirst(0, Buffer.alloc(16));
+    await tag.changeKey(0, Buffer.alloc(16, 1), Buffer.alloc(16));
+    expect(sent.at(-1)![1]).toBe(0xc4);
+    const count = sent.length;
+    await expect(tag.changeFileSettings(Buffer.alloc(15))).rejects.toThrow("EV2 authentication required");
+    expect(sent).toHaveLength(count);
   });
   it("selects the NDEF application and validates all three GetVersion frames", async () => {
     const sent: string[] = [];
@@ -58,5 +70,33 @@ describe("NXP NTAG 424 DNA operator APDUs", () => {
     expect(writes.at(-1)!.subarray(5, 12).toString("hex")).toBe("02000000020000");
     expect(writes[0].subarray(12, 14).toString("hex")).toBe("0000");
     expect(writes.at(-1)!.subarray(12, 14).equals(image.subarray(0, 2))).toBe(true);
+  });
+  it.each([0, 1, 2, 3].flatMap(frame => ["before", "after"].map(timing => [frame, timing] as const)))("stops at interrupted NDEF frame %i %s without later writes", async (frame, timing) => {
+    const image = ndefTemplate("https://a-very-long-hostname-for-multiple-body-frames.example.test", "abcdefghijklmnopqrstuvwx").bytes;
+    const memory = Buffer.alloc(256);
+    const sent: Buffer[] = [];
+    const tag = new Ntag424({ async transmit(apdu) {
+      const index = sent.length; sent.push(apdu);
+      if (index === frame && timing === "before") throw new Error("lost write response");
+      const offset = apdu.readUIntLE(6, 3);
+      apdu.subarray(12, 12 + apdu.readUIntLE(9, 3)).copy(memory, offset);
+      if (index === frame) throw new Error("lost write response");
+      return Buffer.from("9100", "hex");
+    } });
+    await expect(tag.writeNdef(image)).rejects.toThrow("lost write response");
+    expect(sent).toHaveLength(frame + 1);
+    if (frame < 3 || timing === "before") expect(memory.readUInt16BE(0)).toBe(0);
+    else expect(memory.subarray(0, image.length)).toEqual(image);
+  });
+  it("verifies repeated synthetic material but rejects wrong crypto keys and origin/reference binding", () => {
+    const keys = { key0: Buffer.alloc(16, 1), fileReadKey: Buffer.alloc(16, 2), metaReadKey: Buffer.alloc(16, 3), key3: Buffer.alloc(16, 4), key4: Buffer.alloc(16, 5) };
+    const origin = "https://preview.getloynara.com"; const ref = "abcdefghijklmnopqrstuvwx";
+    const data = dynamicNdef(origin, ref, "04000000000001", 7, keys);
+    expect(verifyDynamicNdef(data, origin, ref, keys)).toMatchObject({ uid: "04000000000001", counter: 7 });
+    expect(verifyDynamicNdef(data, origin, ref, keys)).toMatchObject({ counter: 7 });
+    expect(() => verifyDynamicNdef(data, "https://other.example.test", ref, keys)).toThrow();
+    expect(() => verifyDynamicNdef(data, origin, "abcdefghijklmnopqrstuvwy", keys)).toThrow();
+    expect(() => verifyDynamicNdef(data, origin, ref, { ...keys, fileReadKey: Buffer.alloc(16, 6) })).toThrow();
+    expect(() => verifyDynamicNdef(data, origin, ref, { ...keys, metaReadKey: Buffer.alloc(16, 6) })).toThrow();
   });
 });

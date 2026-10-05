@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster } from "../nfc-keys";
 import { dynamicNdef } from "../nfc-test-support";
 import { verifySdm } from "../secure-tap-crypto";
@@ -9,7 +9,7 @@ import { EvidenceJournal, analyseEvidence } from "./evidence";
 import { ndefTemplate } from "./ntag";
 import { classifyFileSettings } from "./inspect";
 import { NfcOperatorRefusal, assertProductionOperatorEnvironment, assertTagOrigin, bundleSchema, PREVIEW_ORIGIN } from "./production";
-import { inspectChip, resumeProductionProvisioning, runProductionProvisioning } from "./production-run";
+import { inspectChip, registrationBundleFromEvidence, resumeProductionProvisioning, runProductionProvisioning } from "./production-run";
 
 const VERIFY_HEX = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
 const ADMIN_HEX = "c4e1a07b93d25f68b0a1c3e5d7f9021b4a6c8e0d2f4b6a8c0e1d3f5a7b9c2d4e";
@@ -18,11 +18,13 @@ const env = { PRODUCTION_APPROVED_ORIGIN: ORIGIN, NFC_VERIFY_MASTER_KEY: VERIFY_
 const binding = { tenantId: "11111111-1111-4111-8111-111111111111", locationId: "22222222-2222-4222-8222-222222222222", programId: "33333333-3333-4333-8333-333333333333", cooldownSeconds: 60 };
 const UID = "04de5f1eacc040";
 const zero = Buffer.alloc(16);
+const currentKeys = { key0: zero, fileReadKey: zero, metaReadKey: zero, key3: zero, key4: zero };
 const refusalCode = async (fn: () => unknown) => { try { await fn(); } catch (error) { return error instanceof NfcOperatorRefusal ? error.code : "OTHER"; } return "NONE"; };
 
 /** A chip that behaves like an NTAG 424 DNA for the operations the tool uses, keeps its state across tool runs, and can be interrupted. */
 class FakeChip {
   keys: Record<number, Buffer> = { 0: zero, 1: zero, 2: zero, 3: zero, 4: zero };
+  keyVersions = [0, 0, 0, 0, 0];
   configured = false;
   ndef: Buffer | null = null;
   template?: ReturnType<typeof ndefTemplate>;
@@ -31,6 +33,15 @@ class FakeChip {
   failOn?: string;                       // throw BEFORE the operation takes effect
   failAfter?: string;                    // take effect, then throw (the host loses the answer)
   presentedUid = UID;
+  dynamicUid = UID;
+  authKeys: Buffer[] = [];
+  observedCounters: number[] = [];
+  freezeCounter = false;
+  badMac = false;
+  badSettingsSize = false;
+  failAuthAfterSettings = false;
+  failReadAfterKey0 = false;
+  private consecutiveRead = false;
   private maybe(op: string, apply: () => void) {
     if (this.failOn === op) throw new Error(`interrupted before ${op}`);
     apply();
@@ -39,19 +50,26 @@ class FakeChip {
   adapter(): ProvisionTag {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- the adapter object's methods need the fake chip, not themselves
     const chip = this;
+    let authenticated = false;
     return {
-      async version() { return { uid: chip.presentedUid, hardware: "04040830001105", software: "04040201011105", production: "11223344556677" }; },
-      async reconnect() { /* no state */ },
-      async readFileSettings() { return chip.configured ? Buffer.concat([Buffer.from("004000e0000100", "hex"), chip.template!.settings.subarray(3)]) : Buffer.from("0000e0ee000100", "hex"); },
+      async version() { authenticated = false; chip.consecutiveRead = false; return { uid: chip.presentedUid, hardware: "04040830001105", software: "04040201011105", production: "11223344556677" }; },
+      async reconnect() { authenticated = false; chip.consecutiveRead = false; },
+      async readFileSettings() { if (authenticated) throw new Error("plain settings in authenticated session"); chip.consecutiveRead = false; const settings = chip.configured ? Buffer.concat([Buffer.from("004000e0000100", "hex"), chip.template!.settings.subarray(3)]) : Buffer.from("0000e0ee000100", "hex"); if (chip.badSettingsSize) settings[4] = 1; return settings; },
       async writeNdef(data: Buffer) { chip.maybe("ndef-write", () => { chip.writes.push("ndef"); chip.ndef = Buffer.from(data); chip.template = ndefTemplateFromImage(data); }); },
       async readNdef() {
+        if (authenticated) throw new Error("plain NDEF in authenticated session");
+        if (chip.failReadAfterKey0 && !chip.keys[0].equals(zero)) throw new Error("post-key0 read interrupted");
         if (!chip.configured) return chip.ndef!;
-        chip.reads += 1;
-        return dynamicNdef(ORIGIN_OF(chip), refOf(chip), UID, chip.reads + 1, { metaReadKey: chip.keys[2], fileReadKey: chip.keys[1] });
+        if (!chip.consecutiveRead && !chip.freezeCounter) chip.reads += 1;
+        chip.consecutiveRead = true;
+        chip.observedCounters.push(chip.reads + 1);
+        const data = dynamicNdef(ORIGIN_OF(chip), refOf(chip), chip.dynamicUid, chip.reads + 1, { metaReadKey: chip.keys[2], fileReadKey: chip.keys[1] });
+        if (chip.badMac) data[chip.template!.macOffset] = data[chip.template!.macOffset] === 0x30 ? 0x31 : 0x30;
+        return data;
       },
-      async authenticateFirst(number: number, key: Buffer) { if (!key.equals(chip.keys[number])) throw new Error("authentication failed"); },
-      async changeKey(number: number, next: Buffer) { chip.maybe(`change-key-${number}`, () => { chip.writes.push(`key${number}`); chip.keys[number] = Buffer.from(next); }); },
-      async changeFileSettings() { chip.maybe("change-settings", () => { chip.writes.push("settings"); chip.configured = true; }); },
+      async authenticateFirst(number: number, key: Buffer) { chip.authKeys.push(Buffer.from(key)); chip.consecutiveRead = false; if ((chip.failAuthAfterSettings && chip.configured) || !key.equals(chip.keys[number])) throw new Error("authentication failed"); authenticated = true; },
+      async changeKey(number: number, next: Buffer, old: Buffer) { if (!authenticated || !old.equals(chip.keys[number])) throw new Error("wrong current key/session"); chip.maybe(`change-key-${number}`, () => { chip.writes.push(`key${number}`); chip.keys[number] = Buffer.from(next); chip.keyVersions[number] = 1; if (number === 0) authenticated = false; }); },
+      async changeFileSettings() { if (!authenticated) throw new Error("authentication required"); chip.maybe("change-settings", () => { chip.writes.push("settings"); chip.configured = true; }); },
     } as ProvisionTag;
   }
 }
@@ -70,10 +88,12 @@ afterEach(async () => { await rm(root, { recursive: true, force: true }); });
 const run = (chip: FakeChip, options: { execute?: boolean; confirmed?: boolean } = {}) => runProductionProvisioning({
   transport: { async transmit() { throw new Error("transport must not be used directly"); } }, tagFactory: () => chip.adapter(),
   journal, env, origin: ORIGIN, binding, execute: options.execute ?? true, confirm: async () => options.confirmed ?? true,
+  provenanceRef: "cpu-fixture-custody", currentKeys, expectedUid: UID,
 });
 const resume = (chip: FakeChip, confirmed = true) => resumeProductionProvisioning({
   transport: { async transmit() { throw new Error("transport must not be used directly"); } }, tagFactory: () => chip.adapter(),
-  journal, env, origin: ORIGIN, binding, confirm: async () => confirmed,
+  journal, env, origin: ORIGIN, binding, confirm: async () => confirmed, execute: true,
+  provenanceRef: "cpu-fixture-custody", currentKeys, expectedUid: UID,
 });
 
 describe("production target guard", () => {
@@ -130,6 +150,17 @@ describe("dry run is the default and changes nothing", () => {
 });
 
 describe("execution: derived keys, evidence and a registration bundle with no secrets", () => {
+  it("rebuilds lost bundle delivery from the original proof without any reader or fresh counters", async () => {
+    const chip = new FakeChip(); const result = await run(chip);
+    if (result.mode !== "provisioned") throw Error("expected provisioned");
+    const events = await journal.read(UID); const counters = [...chip.observedCounters]; const auths = chip.authKeys.length;
+    const rebuilt = registrationBundleFromEvidence(events, UID);
+    expect(rebuilt).toMatchObject({ ...result.bundle, createdAt: expect.any(String) });
+    expect(chip.observedCounters).toEqual(counters); expect(chip.authKeys).toHaveLength(auths);
+    await expect(run(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+    expect(() => registrationBundleFromEvidence(events.slice(0, -1), UID)).toThrow();
+    expect(() => registrationBundleFromEvidence(events, "04aaaaaaaaaaaa")).toThrow("another chip");
+  });
   it("provisions with the derived keys and produces a bundle the server can verify", async () => {
     const chip = new FakeChip();
     const outcome = await run(chip);
@@ -144,6 +175,10 @@ describe("execution: derived keys, evidence and a registration bundle with no se
     const serverKeys = await new DerivedTapKeyProvider(parseMaster(VERIFY_HEX)).getKeys(bundle.keyRef, { uid: bundle.uid });
     expect(verifySdm({ encrypted: sample.searchParams.get("e")!, mac: sample.searchParams.get("c")! }, serverKeys)).toEqual({ uid: UID, counter: bundle.secondCounter });
     expect(sample.origin).toBe(ORIGIN);
+    expect(chip.writes).toEqual(["ndef", "key1", "key2", "key3", "key4", "settings", "key0"]);
+    expect(chip.keyVersions).toEqual([1, 1, 1, 1, 1]);
+    expect(chip.observedCounters).toEqual([2, 2, 3]);
+    expect(chip.authKeys.at(-1)).toEqual(keys.key0);
     expect(analyseEvidence(await journal.read(UID))).toEqual({ state: "complete" });
   });
   it("leaves no key material or master in the evidence journal or the bundle", async () => {
@@ -166,11 +201,21 @@ describe("execution: derived keys, evidence and a registration bundle with no se
 });
 
 describe("interrupted provisioning is recorded and never blindly repeated", () => {
+  it.each(["ndef-write", "change-key-1", "change-key-2", "change-key-3", "change-key-4", "change-settings", "change-key-0"].flatMap(point => ["failOn", "failAfter"].map(timing => [point, timing] as const)))("quarantines %s %s with no blind restart or authentication probe", async (point, timing) => {
+    const chip = new FakeChip(); chip[timing as "failOn" | "failAfter"] = point;
+    await expect(run(chip)).rejects.toThrow();
+    expect(await journal.verdict(UID)).toMatchObject({ state: "uncertain" });
+    const writes = [...chip.writes]; const auths = chip.authKeys.length;
+    chip.failOn = undefined; chip.failAfter = undefined;
+    await expect(run(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+    await expect(resume(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+    expect(chip.writes).toEqual(writes); expect(chip.authKeys).toHaveLength(auths);
+  });
   it.each(["change-key-1", "change-key-2", "change-key-3", "change-key-4"])("an interruption at %s leaves an uncertain record, and the next run stops before touching the chip", async point => {
     const chip = new FakeChip(); chip.failAfter = point;
     await expect(run(chip)).rejects.toThrow();
     const verdict = analyseEvidence(await journal.read(UID));
-    expect(verdict).toMatchObject({ state: "uncertain", openIntent: "changing_keys" });
+    expect(verdict).toMatchObject({ state: "uncertain", openIntent: point.replace("change-key-", "changing_key") });
     const writes = [...chip.writes];
     chip.failAfter = undefined;
     expect(await run(chip, { execute: false })).toMatchObject({ mode: "dry_run", blockedBy: expect.stringMatching(/interrupted earlier/) });
@@ -185,52 +230,110 @@ describe("interrupted provisioning is recorded and never blindly repeated", () =
     chip.failAfter = undefined;
     await expect(run(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
   });
-  it("an interruption while writing the static NDEF is safe to restart (the chip is still factory-keyed)", async () => {
+  it("an interruption while writing static NDEF requires recovery even when the host cannot prove any write happened", async () => {
     const chip = new FakeChip(); chip.failOn = "ndef-write";
     await expect(run(chip)).rejects.toThrow();
-    expect(analyseEvidence(await journal.read(UID))).toMatchObject({ state: "restartable" });
+    expect(analyseEvidence(await journal.read(UID))).toMatchObject({ state: "uncertain", openIntent: "writing_ndef" });
     chip.failOn = undefined;
-    const outcome = await run(chip);
-    expect(outcome.mode).toBe("provisioned");
+    await expect(run(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+    await expect(resume(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
   });
 });
 
-describe("resume after the settings are configured (bounded key-0 probe)", () => {
-  it("finishes when key 0 was NOT yet changed (factory key still works)", async () => {
-    const chip = new FakeChip(); chip.failOn = "change-key-0";
+describe("recovery from acknowledged key state only", () => {
+  it("finishes from acknowledged settings with the supplied current key, with no alternate-key attempt", async () => {
+    const chip = new FakeChip(); chip.failAuthAfterSettings = true;
     await expect(run(chip)).rejects.toThrow();
-    expect(analyseEvidence(await journal.read(UID))).toMatchObject({ state: "resumable", openIntent: "changing_key0" });
+    expect(analyseEvidence(await journal.read(UID))).toMatchObject({ state: "resumable", lastStage: "settings_changed" });
     await expect(run(chip, { execute: false })).resolves.toMatchObject({ blockedBy: expect.stringMatching(/resume/) });
     await expect(run(chip)).rejects.toBeInstanceOf(ProvisionUncertain);   // a restart is refused: resume only
-    chip.failOn = undefined;
+    chip.failAuthAfterSettings = false;
     const outcome = await resume(chip);
     expect(outcome.mode).toBe("resumed");
     if (outcome.mode === "resumed") expect(outcome.bundle.uid).toBe(UID);
     expect(chip.keys[0].equals(zero)).toBe(false);
     expect(analyseEvidence(await journal.read(UID))).toEqual({ state: "complete" });
   });
-  it("finishes when key 0 WAS changed but the answer was lost (derived key works)", async () => {
+  it("quarantines when key 0 WAS changed but its answer was lost; never probes", async () => {
     const chip = new FakeChip(); chip.failAfter = "change-key-0";
     await expect(run(chip)).rejects.toThrow();
     const writesBefore = chip.writes.filter(w => w === "key0").length;
-    const outcome = await resume(chip);
-    expect(outcome.mode).toBe("resumed");
+    const authBefore = chip.authKeys.length;
+    await expect(resume(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+    expect(chip.authKeys).toHaveLength(authBefore);
     expect(chip.writes.filter(w => w === "key0").length).toBe(writesBefore);   // key 0 is not changed a second time
   });
-  it("stops when key 0 matches neither the derived nor the factory key", async () => {
-    const chip = new FakeChip(); chip.failOn = "change-key-0";
+  it("stops on a wrong supplied key in a known state without fallback", async () => {
+    const chip = new FakeChip(); chip.failAuthAfterSettings = true;
     await expect(run(chip)).rejects.toThrow();
-    chip.failOn = undefined; chip.keys[0] = Buffer.alloc(16, 9);
-    await expect(resume(chip)).rejects.toThrow(/neither/);
+    chip.failAuthAfterSettings = false; chip.keys[0] = Buffer.alloc(16, 9);
+    const authBefore = chip.authKeys.length;
+    await expect(resume(chip)).rejects.toThrow(/authentication failed/);
+    expect(chip.authKeys).toHaveLength(authBefore + 1);
     expect(chip.keys[0].equals(Buffer.alloc(16, 9))).toBe(true);
   });
-  it("needs the operator's confirmation for the probe and refuses a different chip", async () => {
-    const chip = new FakeChip(); chip.failOn = "change-key-0";
+  it("needs confirmation for recovery and refuses a different chip", async () => {
+    const chip = new FakeChip(); chip.failAuthAfterSettings = true;
     await expect(run(chip)).rejects.toThrow();
-    chip.failOn = undefined;
+    chip.failAuthAfterSettings = false;
     await expect(resume(chip, false)).rejects.toThrow(/confirm/);
     chip.presentedUid = "04aaaaaaaaaaaa";
     await expect(resume(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+  });
+  it("verifies an acknowledged key-0 change without rewriting it or trying the old key", async () => {
+    const chip = new FakeChip(); chip.failReadAfterKey0 = true;
+    await expect(run(chip)).rejects.toThrow();
+    expect(await journal.verdict(UID)).toMatchObject({ state: "resumable", lastStage: "key0_changed" });
+    const writes = [...chip.writes]; const authBefore = chip.authKeys.length;
+    chip.failReadAfterKey0 = false;
+    expect((await resume(chip)).mode).toBe("resumed");
+    expect(chip.writes).toEqual(writes);
+    expect(chip.authKeys.slice(authBefore)).toEqual([chip.keys[0]]);
+  });
+});
+
+describe("post-key0 verification failures are honest and recoverable", () => {
+  it.each(["tenantId", "locationId", "programId", "cooldownSeconds"] as const)("validates %s before authentication or tag writes", async field => {
+    const chip = new FakeChip();
+    const bad = field === "cooldownSeconds" ? { ...binding, cooldownSeconds: 0 } : { ...binding, [field]: "typo" };
+    await expect(runProductionProvisioning({ transport: { async transmit() { throw Error("no hardware"); } }, tagFactory: () => chip.adapter(), journal, env, origin: ORIGIN, binding: bad, execute: true, expectedUid: UID, currentKeys, provenanceRef: "cpu-fixture-custody", confirm: async () => true })).rejects.toThrow();
+    expect(chip.authKeys).toEqual([]); expect(chip.writes).toEqual([]);
+  });
+  it("refuses recovery to another tenant/location/cooldown even when the programme matches", async () => {
+    const chip = new FakeChip(); chip.failReadAfterKey0 = true;
+    await expect(run(chip)).rejects.toThrow(); chip.failReadAfterKey0 = false;
+    const auths = chip.authKeys.length;
+    for (const bad of [{ ...binding, tenantId: "44444444-4444-4444-8444-444444444444" }, { ...binding, locationId: "55555555-5555-4555-8555-555555555555" }, { ...binding, cooldownSeconds: 61 }]) {
+      await expect(resumeProductionProvisioning({ transport: { async transmit() { throw Error("no hardware"); } }, tagFactory: () => chip.adapter(), journal, env, origin: ORIGIN, binding: bad, execute: true, expectedUid: UID, currentKeys, provenanceRef: "cpu-fixture-custody", confirm: async () => true })).rejects.toBeInstanceOf(ProvisionUncertain);
+    }
+    expect(chip.authKeys).toHaveLength(auths);
+  });
+  it.each(["dynamicUid", "badMac", "freezeCounter"] as const)("refuses %s while retaining acknowledged key0 evidence", async fault => {
+    const chip = new FakeChip();
+    if (fault === "dynamicUid") chip.dynamicUid = "04aaaaaaaaaaaa"; else chip[fault] = true;
+    await expect(run(chip)).rejects.toThrow();
+    expect(await journal.verdict(UID)).toMatchObject({ state: "resumable", lastStage: "key0_changed" });
+    expect(chip.writes.at(-1)).toBe("key0");
+  });
+  it("rejects wrong factory file size before authentication", async () => {
+    const chip = new FakeChip(); chip.badSettingsSize = true;
+    await expect(run(chip)).rejects.toThrow();
+    expect(chip.authKeys).toEqual([]);
+    expect(chip.writes).toEqual([]);
+  });
+  it("does not issue a mutation if durable intent recording fails", async () => {
+    const chip = new FakeChip(); const record = journal.record.bind(journal);
+    vi.spyOn(journal, "record").mockImplementation(async (uid, event) => { if (event.kind === "intent") throw new Error("disk failure"); return record(uid, event); });
+    await expect(run(chip)).rejects.toThrow("disk failure");
+    expect(chip.writes).toEqual([]);
+    await expect(run(chip)).rejects.toBeInstanceOf(ProvisionUncertain);
+  });
+  it("rejects absent provenance or current keys before inspection/authentication", async () => {
+    const chip = new FakeChip();
+    for (const missing of [{ provenanceRef: undefined, currentKeys }, { provenanceRef: "cpu-fixture-custody", currentKeys: undefined }]) {
+      await expect(runProductionProvisioning({ transport: { async transmit() { throw Error("no hardware"); } }, tagFactory: () => chip.adapter(), journal, env, origin: ORIGIN, binding, execute: true, expectedUid: UID, confirm: async () => true, ...missing })).rejects.toThrow();
+    }
+    expect(chip.authKeys).toEqual([]); expect(chip.writes).toEqual([]);
   });
 });
 

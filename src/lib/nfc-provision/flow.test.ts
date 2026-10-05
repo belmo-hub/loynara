@@ -24,16 +24,18 @@ function syntheticNdef(counter: number) {
   ndef.write(mac, template.macOffset, "ascii");
   return ndef;
 }
-function fixture(failAt?: string, confirmed = true) {
+function fixture(failAt?: string, confirmed = true, missingEvidence?: string) {
   const events: string[] = [];
   let settingsRead = 0;
   let ndefRead = 0;
+  let readBoundary = true;
+  let counter = 1;
   const tag: ProvisionTag = {
     async version() { events.push("version"); if (failAt === "version") throw Error("wrong tag"); return { uid, hardware: "04040830001105", software: "04040201011105", production: "11223344556677" }; },
-    async reconnect() { events.push("reconnect"); },
+    async reconnect() { events.push("reconnect"); readBoundary = true; },
     async readFileSettings() { events.push("settings-read"); return ++settingsRead === 1 ? Buffer.from("0000e0ee000100", "hex") : Buffer.concat([Buffer.from("004000e0000100", "hex"), template.settings.subarray(3)]); },
     async writeNdef() { events.push("ndef-write"); if (failAt === "ndef-write") throw Error("write failed"); },
-    async readNdef() { events.push("ndef-read"); return ++ndefRead === 1 ? template.bytes : syntheticNdef(ndefRead); },
+    async readNdef() { events.push("ndef-read"); if (++ndefRead === 1) return template.bytes; if (readBoundary) counter++; readBoundary = false; return syntheticNdef(counter); },
     async authenticateFirst(_number, key) { events.push("authenticate"); if (failAt === "authenticate" || (failAt === "new-key-auth" && !key.equals(zero))) throw Error("authentication failed"); },
     async changeKey(number) { events.push(`change-key-${number}`); if (failAt === `change-key-${number}`) throw Error("key change failed"); },
     async changeFileSettings() { events.push("change-settings"); if (failAt === "change-settings") throw Error("file settings failed"); },
@@ -42,20 +44,31 @@ function fixture(failAt?: string, confirmed = true) {
     async checkTarget() { events.push("target"); return { tenantId: "tenant", locationId: "location", programId: "programme", mode: "automatic_fixed", cooldownSeconds: 60 }; },
     async reserve() { events.push("reserve"); return { id: "tag-id", publicRef: ref }; },
     async verifyMapping() { events.push("verify-mapping"); if (failAt === "mapping") throw Error("wrong mapping"); },
-    async activate() { events.push("activate"); },
+    async activate({ initialCounter }) { expect(initialCounter).toBe(3); events.push("activate"); },
     async fail() { events.push("revoke-pending"); },
   };
   const store = { async save() { events.push("save-keys"); } };
-  const run = () => provisionPhysicalTag({
+  const run = () => {
+    const input: Parameters<typeof provisionPhysicalTag>[0] = {
     transport: { async transmit() { throw Error("mock tag used"); } }, repository, keyStore: store,
     actorUserId: "owner", programId: "programme", origin, keyRef: "dev_fixture",
+    provenanceRef: "cpu-fixture-custody", currentKeys: keys, expectedUid: uid,
+    async assertSafeToStart() {}, async onIntent() {}, async onStage() {},
     async confirm() { events.push("confirm"); return confirmed; },
     tagFactory: () => tag, keyFactory: () => failAt === "new-key-auth" ? { ...keys, key0: Buffer.alloc(16, 1) } : keys,
-  });
+    };
+    if (missingEvidence) Reflect.deleteProperty(input, missingEvidence);
+    return provisionPhysicalTag(input);
+  };
   return { run, events, repository, store };
 }
 
 describe("operator provisioning sequence with mocked PC/SC tag", () => {
+  it.each(["onStage", "onIntent", "assertSafeToStart"])("refuses missing %s at runtime before any chip operation", async missing => {
+    const f = fixture(undefined, true, missing);
+    await expect(f.run()).rejects.toThrow("evidence");
+    expect(f.events).toEqual([]);
+  });
   it("changes keys only after confirmation and pending DB reservation, then activates after dynamic readback", async () => {
     const f = fixture();
     const result = await f.run();
@@ -74,12 +87,19 @@ describe("operator provisioning sequence with mocked PC/SC tag", () => {
       expect(f.events).not.toContain("ndef-write");
     }
   });
-  it.each(["authenticate", "change-key-1", "ndef-write", "change-settings", "new-key-auth", "mapping"])("keeps failed %s provisioning inactive", async failure => {
+  it.each(["change-key-1", "ndef-write", "change-settings", "new-key-auth", "mapping"])("keeps failed %s provisioning inactive", async failure => {
     const f = fixture(failure);
     await expect(f.run()).rejects.toThrow();
     expect(f.events).toContain("reserve");
     expect(f.events).toContain("revoke-pending");
     expect(f.events).not.toContain("activate");
+  });
+  it("rejects a supplied current credential before reservation or NDEF writes, without fallback", async () => {
+    const f = fixture("authenticate");
+    await expect(f.run()).rejects.toThrow("authentication failed");
+    expect(f.events.filter(event => event === "authenticate")).toHaveLength(1);
+    expect(f.events).not.toContain("reserve");
+    expect(f.events).not.toContain("ndef-write");
   });
   it("does not expose generated key bytes in operator messages", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
