@@ -136,7 +136,7 @@ All in `marketing-site/`. Static, script-free supporting pages. Not published, n
 
 | Check | Result |
 |---|---|
-| `npm run marketing:test`: site, pages, claim safety, **gate switch** (`claims.test.ts`, renders every gate combination) and **angle library** (`gtm-angles.test.ts`: 124 traced, statuses, uses, claim safety, docs fresh) | **72 / 72 pass** |
+| `npm run marketing:test`: site, pages, claim safety, **gate switch** (`claims.test.ts`, renders every gate combination) and **angle library** (`gtm-angles.test.ts`: 124 traced, statuses, uses, claim safety, docs fresh, reconciliation sums to 124) | **73 / 73 pass** |
 | `npm run marketing:build` (incl. `tsc`) | PASS: 6 static pages, public mode off; refuses a test gate override |
 | `npm run marketing:verify` | PASS: 6 pages, 180 links/anchors/assets |
 | `browser-check.mjs` | **400 / 400** |
