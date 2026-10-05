@@ -296,6 +296,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .cashier-number-note { margin: 14px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; line-height: 1.45; }
 .invite-page { grid-template-columns: minmax(0, 1fr); justify-items: center; }
 .invite-card { min-width: 0; }
-.invite-card .auth-form { margin-top: 16px; }
+.invite-card .auth-form { margin-top: 16px; grid-template-columns: minmax(0, 1fr); }
+.invite-card .auth-form .button { white-space: normal; padding-block: 12px; }
+.invite-card .invite-links { flex-wrap: wrap; }
+.invite-card .invite-links > span { flex-basis: 100%; }
 .invite-card .auth-form input { width: 100%; min-width: 0; }
 @media (max-width: 420px) { .invite-card { padding: 22px; } .invite-card h1 { font-size: 30px; } }
+
+.cashier-preview-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }

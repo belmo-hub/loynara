@@ -154,3 +154,48 @@ test("a cashier cannot reach the owner pages, readiness or the correction and re
     } finally { await cashierContext.close(); }
   } finally { await Promise.all([owner.context.dispose(), cashier.context.dispose(), manager.context.dispose()]); }
 });
+
+test("correction and reissue dialogs fit short screens and keep their actions reachable", async ({ baseURL, browser }, testInfo) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const owner = await account(url, "dialog-owner");
+  const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
+  const context = await browser.newContext({ baseURL: url, viewport: { width: 320, height: 568 }, storageState: await owner.context.storageState() });
+  try {
+    const merchant = await shop(owner.context);
+    const joined = await guest.post("/api/enroll", { data: { slug: merchant.programSlug, acceptedTerms: true, marketingOptIn: false } });
+    expect(joined.status()).toBe(201);
+    const { cardToken } = await joined.json() as { cardToken: string };
+    const card = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { cardLocator: string; scanCode: string };
+    const { membershipId } = await (await owner.context.get(`/api/cashier/lookup?code=${encodeURIComponent(card.scanCode)}`)).json() as { membershipId: string };
+    expect((await owner.context.post("/api/cashier/award", { data: { membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() } })).status()).toBe(200);
+    const page = await context.newPage();
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(card.cardLocator);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Karte öffnen", exact: true })).toBeVisible();
+    await expect.poll(() => page.locator(".cashier-preview-actions").evaluate(element => {
+      const buttons = [...element.querySelectorAll("button")].map(button => button.getBoundingClientRect());
+      return buttons.length === 2 && (buttons[1].left - buttons[0].right >= 8 || buttons[1].top - buttons[0].bottom >= 8);
+    })).toBe(true);
+    await page.goto("/merchant/customers");
+    await page.getByRole("button", { name: new RegExp(`Karte ${card.cardLocator}`) }).click();
+    await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
+    for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 800], [1440, 900]]) {
+      await page.setViewportSize({ width, height });
+      for (const action of ["Korrigieren", "Karte neu ausstellen"]) {
+        await page.getByRole("button", { name: action, exact: true }).first().click();
+        const dialog = page.locator(".ow-dialog");
+        await expect(dialog).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath(`dialog-${width}-${action === "Korrigieren" ? "correction" : "reissue"}.png`) });
+        await expect.poll(() => dialog.evaluate(element => {
+          const box = element.getBoundingClientRect();
+          return box.top >= 0 && box.bottom <= window.innerHeight && box.left >= 0 && box.right <= window.innerWidth;
+        })).toBe(true);
+        await expect.poll(() => dialog.evaluate(element => element.scrollTop)).toBe(0);
+        await expect(dialog.getByRole("heading")).toBeInViewport();
+        await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+        await expect(dialog).toBeHidden();
+      }
+    }
+  } finally { await context.close(); await guest.dispose(); await owner.context.dispose(); }
+});

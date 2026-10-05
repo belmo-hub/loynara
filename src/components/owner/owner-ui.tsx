@@ -35,7 +35,7 @@ export function OwnerDialog({ title, children, actions, onClose, tone = "default
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const first = box.current?.querySelector<HTMLElement>("[data-autofocus]") ?? box.current?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? box.current)?.focus();
+    (first ?? box.current)?.focus({ preventScroll: true });
     return () => { if (previous && document.contains(previous)) previous.focus(); };
   }, []);
   function onKeyDown(event: React.KeyboardEvent) {

@@ -216,7 +216,7 @@
 
 /* Dialog */
 .ow-dialog-scrim { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: var(--ow-s4); background: rgba(26, 43, 37, .5); animation: ow-fade var(--ow-fast) linear; }
-.ow-dialog { width: min(100%, 460px); background: var(--ow-surface); border-radius: var(--ow-r3); padding: var(--ow-s5); box-shadow: var(--ow-shadow-2); display: flex; flex-direction: column; gap: var(--ow-s3); animation: ow-in var(--ow-panel) var(--ow-ease); }
+.ow-dialog { width: min(100%, 460px); max-height: calc(100dvh - 2 * var(--ow-s4)); overflow-y: auto; overscroll-behavior: contain; background: var(--ow-surface); border-radius: var(--ow-r3); padding: var(--ow-s5); box-shadow: var(--ow-shadow-2); display: flex; flex-direction: column; gap: var(--ow-s3); animation: ow-in var(--ow-panel) var(--ow-ease); }
 .ow-dialog h2 { font-size: 19px; }
 .ow-dialog p { color: var(--ow-ink-2); }
 .ow-dialog-actions { display: flex; gap: var(--ow-s2); justify-content: flex-end; flex-wrap: wrap; margin-top: var(--ow-s2); }

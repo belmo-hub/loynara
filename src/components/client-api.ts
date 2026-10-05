@@ -8,7 +8,9 @@ export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   catch { throw new ClientApiError(0, "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut."); }
   const result = await response.json().catch(() => null) as (T & { error?: string; message?: string; code?: string }) | null;
   if (!response.ok) {
-    const text = result?.message || result?.error || `Anfrage fehlgeschlagen (${response.status}).`;
+    const text = response.status === 429 && result?.code === "RATE_LIMIT"
+      ? "Zu viele Anfragen. Bitte warte kurz und versuche es erneut."
+      : result?.message || result?.error || `Anfrage fehlgeschlagen (${response.status}).`;
     throw new ClientApiError(response.status, text, result?.code);
   }
   if (!result) throw new ClientApiError(response.status, "Die Antwort des Servers war leer.");

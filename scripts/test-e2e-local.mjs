@@ -4,10 +4,10 @@ import { readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import pg from "pg";
 
-// The browser suite intentionally uses the synthetic local app. Several
-// independent sign-ups, enrollments, card reads and exports would otherwise exhaust shared peer
-// limits. Reset only this runner's auth/enrollment peer counters between bounded
-// shards; never change the application's limiter or a nonlocal database.
+// Independent synthetic browser fixtures share the conservative local peer identity.
+// Repeated sign-ups, card reads/binding, exports and location setup can exhaust its
+// quotas across shards. Reset only these test-owned shared peer counters; never
+// change the application's limiter, user/token quotas or a nonlocal database.
 const base = dotenv.parse(readFileSync(".env"));
 const next = dotenv.parse(readFileSync(".env.local"));
 for (const name of ["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "PUBLIC_BASE_URL", "PUBLIC_REGISTRATION_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
@@ -26,7 +26,7 @@ if (process.env.NODE_ENV === "production" || database.protocol !== "postgresql:"
 const client = new pg.Client({ connectionString: next.DATABASE_URL });
 await client.connect();
 try {
-  const scopes = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_export_peer"];
+  const scopes = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer"];
   const hashes = scopes.map(scope => createHmac("sha256", next.BETTER_AUTH_SECRET)
     .update(scope).update("\0").update("untrusted-peer").digest("hex"));
   for (let shard = 1; shard <= 3; shard++) {
