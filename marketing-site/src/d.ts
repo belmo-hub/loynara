@@ -56,9 +56,9 @@ for (const id of ['owner']) { const list = $(`[data-tabs="${id}"]`); if (list) t
 // ---- counter demo (demo.ts): one phone, one action, one owner consequence ----------------------------------------------------------
 const visitRoot = $('[data-visit]')!, stagePhone = $('.phone-stage .screen')!;
 const VISIT: Record<string, { label: string; action: DemoAction; caption: string }> = {
-  start: { label: 'Karte öffnen', action: { type: 'open' }, caption: 'Dein Kunde tippt den Aufsteller an oder scannt den QR-Code.' },
+  start: { label: 'Karte öffnen', action: { type: 'open' }, caption: 'Dein Kunde scannt den QR-Code am Tresen.' },
   enroll: { label: 'Karte erstellen', action: { type: 'enroll' }, caption: 'Eine neue Karte: ohne App und ohne Passwort, direkt im Browser.' },
-  request: { label: 'Besuch bestätigen', action: { type: 'confirm' }, caption: 'Die Anfrage liegt an der Kasse. Erst die Bestätigung deines Teams zählt.' },
+  request: { label: 'Besuch bestätigen', action: { type: 'confirm' }, caption: 'Die Karte ist offen. Erst wenn dein Team scannt und bestätigt, zählt der Besuch.' },
   confirmed: { label: 'Nächsten Besuch zeigen', action: { type: 'nextVisit' }, caption: 'Ein Stempel, genau einmal – auch bei doppeltem Tippen.' },
   request2: { label: 'Besuch bestätigen', action: { type: 'confirm' }, caption: 'Ein weiterer Besuch. Wieder bestätigt dein Team.' },
   reward: { label: 'Prämie einlösen', action: { type: 'redeem' }, caption: 'Zehn Stempel: Dein Team löst die Prämie an der Kasse ein.' },

@@ -354,6 +354,14 @@ h3{font-size:1.15rem;line-height:1.25}
 #empfehlung .person .avatar{background:var(--soft)}
 #empfehlung .ref-pair[data-phase=qualified] .person-a .avatar{background:#fff}
 
+/* Supporting pages: the hero holds one phone (or the referral pair) instead of the stand-and-phone composition. */
+.hero-scene-sub{height:auto;display:flex;justify-content:center;align-items:center;padding:8px 0}
+.hero-scene-sub .phone{position:relative;inset:auto;width:min(290px,78vw);margin:0 auto}
+.hero-scene-sub #empfehlung{width:100%}
+.wrap.narrow{max-width:760px}
+.next li a,.checks li a{text-decoration:underline;text-underline-offset:3px}
+.ref-wrap{display:grid;justify-items:center;gap:10px;width:100%}.ref-cap{margin:0;text-align:center}
+
 [data-brand="wald"]{--b-dark:#143D2E;--b-mid:#245D47;--b-accent:#F4DDD0;--b-soft:#E6EEDF}.sw-wald{--sw:#143D2E}
 [data-brand="terrakotta"]{--b-dark:#7A3320;--b-mid:#A8472B;--b-accent:#FBE6D6;--b-soft:#F6E4DA}.sw-terrakotta{--sw:#7A3320}
 [data-brand="nachtblau"]{--b-dark:#16264A;--b-mid:#26407A;--b-accent:#DCE6FA;--b-soft:#E3E9F5}.sw-nachtblau{--sw:#16264A}

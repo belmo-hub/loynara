@@ -13,10 +13,11 @@ export const rewardLine = (b: BrandState) => cap(rewardText(b, 'cafe'));
 const inner = (svg: string) => svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
 
 /** One flat loyalty card. The label is the accessible description; the visible text repeats it. */
-export function cardHtml(o: { balance: number; status: string; brand?: BrandState; size?: 'lg' | 'md' }): string {
+export function cardHtml(o: { balance: number; status: string; brand?: BrandState; size?: 'lg' | 'md'; example?: { name: string; reward: string } }): string {
   const b = o.brand ?? initialBrand(), size = o.size ?? 'lg';
+  const name = o.example?.name ?? X.name, reward = o.example ? cap(o.example.reward) : rewardLine(b);
   const stamps = Array.from({ length: DEMO.threshold }, (_, i) => `<li${i < o.balance ? ' class="on"' : ''}></li>`).join('');
-  return `<div class="lcard lcard-${size}" role="img" aria-label="Beispielkarte ${X.name}: ${o.balance} von ${DEMO.threshold} Stempeln. ${o.status}"><div class="lc-top"><span class="lc-logo">${LOGOS[b.logo].svg}</span><span class="lc-name">${X.name}</span></div><p class="lc-reward">${rewardLine(b)} · ab ${DEMO.threshold} Stempeln</p><ol class="lc-stamps" aria-hidden="true">${stamps}</ol><div class="lc-foot" aria-hidden="true"><span class="lc-bal"><b>${o.balance}</b> / ${DEMO.threshold}</span><span class="lc-status">${o.status}</span></div></div>`;
+  return `<div class="lcard lcard-${size}" role="img" aria-label="Beispielkarte ${name}: ${o.balance} von ${DEMO.threshold} Stempeln. ${o.status}"><div class="lc-top"><span class="lc-logo">${LOGOS[b.logo].svg}</span><span class="lc-name">${name}</span></div><p class="lc-reward">${reward} · ab ${DEMO.threshold} Stempeln</p><ol class="lc-stamps" aria-hidden="true">${stamps}</ol><div class="lc-foot" aria-hidden="true"><span class="lc-bal"><b>${o.balance}</b> / ${DEMO.threshold}</span><span class="lc-status">${o.status}</span></div></div>`;
 }
 export const statusFor = (balance: number, redeemed = false) => redeemed ? 'Prämie eingelöst' : balance >= DEMO.threshold ? 'Prämie bereit' : balance === DEMO.threshold - 1 ? 'Noch ein Besuch' : `Noch ${DEMO.threshold - balance} Besuche`;
 
@@ -29,7 +30,7 @@ function pattern(x: number, y: number, size: number, cls: string): string {
 }
 /** Counter stand: Gestaltungsbeispiel. No dimensions, material or inclusion is implied. */
 export function standSvg(b: BrandState = initialBrand()): string {
-  return `<svg class="stand" viewBox="0 0 200 270" role="img" aria-label="Aufsteller am Tresen, Gestaltungsbeispiel"><ellipse class="st-shadow" cx="100" cy="256" rx="88" ry="9"/><rect class="st-base" x="22" y="236" width="156" height="16" rx="8"/><path class="st-edge" d="M44 24h112l14 214H30z"/><path class="st-face" d="M50 30h100l13 206H37z"/><circle class="st-ring" cx="100" cy="74" r="19"/><svg class="st-logo" x="86" y="60" width="28" height="28" viewBox="0 0 32 32">${inner(LOGOS[b.logo].svg)}</svg><text class="st-name" x="100" y="120" text-anchor="middle">${X.name}</text><text class="st-small" x="100" y="136" text-anchor="middle">Antippen oder scannen</text><rect class="st-qrbg" x="72" y="148" width="56" height="56" rx="6"/>${pattern(77, 153, 46, 'st-qr')}<path class="st-wave" d="M92 214a10 10 0 0 1 0 12M97 210a16 16 0 0 1 0 20M102 206a22 22 0 0 1 0 28"/></svg>`;
+  return `<svg class="stand" viewBox="0 0 200 270" role="img" aria-label="Aufsteller am Tresen, Gestaltungsbeispiel"><ellipse class="st-shadow" cx="100" cy="256" rx="88" ry="9"/><rect class="st-base" x="22" y="236" width="156" height="16" rx="8"/><path class="st-edge" d="M44 24h112l14 214H30z"/><path class="st-face" d="M50 30h100l13 206H37z"/><circle class="st-ring" cx="100" cy="74" r="19"/><svg class="st-logo" x="86" y="60" width="28" height="28" viewBox="0 0 32 32">${inner(LOGOS[b.logo].svg)}</svg><text class="st-name" x="100" y="120" text-anchor="middle">${X.name}</text><text class="st-small" x="100" y="136" text-anchor="middle">Scannen und sammeln</text><rect class="st-qrbg" x="72" y="148" width="56" height="56" rx="6"/>${pattern(77, 153, 46, 'st-qr')}</svg>`;
 }
 /** Wallet-Vorschau: a design example, not a provisioned pass. */
 export function walletHtml(b: BrandState = initialBrand(), balance = 8): string {

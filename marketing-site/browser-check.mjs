@@ -70,7 +70,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   const lit = () => page.locator('.visit-steps li.done').count();
   check(`${label}: counter demo starts at 8/10, nothing confirmed`, await card() === 8 && /0 bestätigte Besuche · 0 Prämien eingelöst/.test(await owner()) && (await act.textContent()) === 'Karte öffnen');
   await act.click(); await settle(page);
-  check(`${label}: opening the card does not stamp; the request waits for the team`, await card() === 8 && /Dein Team bestätigt gleich/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Besuch bestätigen' && await lit() === 1);
+  check(`${label}: opening the card does not stamp; the request waits for the team`, await card() === 8 && /Dein Team scannt und bestätigt/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Besuch bestätigen' && await lit() === 1);
   await act.click(); await settle(page);
   check(`${label}: confirmation adds exactly one stamp (9/10) and the owner sees it`, await card() === 9 && /1 bestätigter Besuch · 0 Prämien eingelöst/.test(await owner()) && /Stempel erhalten/.test(await txt(page, '.phone-stage')));
   await page.screenshot({ path: `${out}/${label}-visit-confirmed.png` });
@@ -172,7 +172,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   // ---- offer + FAQ ----
   await jump(page, '#angebot'); await settle(page);
   const offer = await txt(page, '#angebot');
-  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /39 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
+  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /39 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /QR-Einstieg am Tresen/.test(offer) && !/NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
   check(`${label}: no invented trial, setup fee, cancellation, hardware, discount or VAT claim`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Kündigung|MwSt|zzgl\.|inkl\.|unbegrenzt/i.test(offer));
   const d = page.locator('.faq details').first(); await d.locator('summary').click(); check(`${label}: FAQ opens`, await d.evaluate(e => e.open)); await d.locator('summary').click();
   await page.screenshot({ path: `${out}/${label}-offer.png` });

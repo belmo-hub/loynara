@@ -2,7 +2,8 @@ import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { homePage, legalPage, type LegalFragments } from './template.js';
+import { homePage, legalPage, subPage, type LegalFragments } from './template.js';
+import { SUB_PAGES } from './src/pages.js';
 import { SITE } from './src/site.js';
 
 const here = import.meta.dirname, root = resolve(here, 'site');
@@ -21,8 +22,9 @@ for (const dir of ['', 'impressum', 'datenschutz']) await mkdir(resolve(root, di
 await writeFile(resolve(root, 'index.html'), homePage());
 await writeFile(resolve(root, 'impressum/index.html'), legalPage('impressum', legal));
 await writeFile(resolve(root, 'datenschutz/index.html'), legalPage('datenschutz', legal));
+for (const p of SUB_PAGES) { await mkdir(resolve(root, '.' + p.path), { recursive: true }); await writeFile(resolve(root, '.' + p.path, 'index.html'), subPage(p)); }
 await writeFile(resolve(root, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE.origin}/sitemap.xml\n`);
-await writeFile(resolve(root, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`+`<url><loc>${SITE.origin}/</loc></url>${missing.includes('impressum') ? '' : `<url><loc>${SITE.origin}/impressum/</loc></url>`}${missing.includes('datenschutz') ? '' : `<url><loc>${SITE.origin}/datenschutz/</loc></url>`}</urlset>`);
+await writeFile(resolve(root, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`+`<url><loc>${SITE.origin}/</loc></url>${SUB_PAGES.map(p => `<url><loc>${SITE.origin}${p.path}</loc></url>`).join('')}${missing.includes('impressum') ? '' : `<url><loc>${SITE.origin}/impressum/</loc></url>`}${missing.includes('datenschutz') ? '' : `<url><loc>${SITE.origin}/datenschutz/</loc></url>`}</urlset>`);
 await writeFile(resolve(root, '_headers'), `/*
   Cache-Control: public, max-age=0, must-revalidate, no-transform
   X-Content-Type-Options: nosniff
@@ -49,4 +51,4 @@ if (typecheck.status) process.exit(typecheck.status);
 const { build } = await import(resolve(here, 'node_modules/esbuild/lib/main.js'));
 await build({ entryPoints: [resolve(here, 'src/d.ts')], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: resolve(root, 'assets/app.js'), legalComments: 'none', logLevel: 'warning' });
 if (concepts) await build({ entryPoints: [resolve(here, 'src/concepts.ts')], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: resolve(root, 'assets/concepts.js'), legalComments: 'none', logLevel: 'warning' });
-console.log(`Marketing build PASS: ${missing.length ? `3 static pages (legal text pending: ${missing.join(', ')})` : '3 static pages'}, no application/database dependency. Public mode: ${process.env.MARKETING_PUBLIC === 'true' ? 'enabled' : 'disabled'}.${concepts ? ' Concept prototypes: /concepts/ (noindex, not in sitemap).' : ''}`);
+console.log(`Marketing build PASS: ${missing.length ? `${3 + SUB_PAGES.length} static pages (legal text pending: ${missing.join(', ')})` : `${3 + SUB_PAGES.length} static pages`}, no application/database dependency. Public mode: ${process.env.MARKETING_PUBLIC === 'true' ? 'enabled' : 'disabled'}.${concepts ? ' Concept prototypes: /concepts/ (noindex, not in sitemap).' : ''}`);
