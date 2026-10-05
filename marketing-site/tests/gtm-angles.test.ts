@@ -59,3 +59,12 @@ test('owner-view angles never promise names: the live customer list is pseudonym
 test('generated angle documents are up to date with the CSVs', () => {
   for (const [path, text] of render() as Array<[string, string]>) assert.equal(readFileSync(path, 'utf8'), text, `${path} is stale: run node gtm/data/angles.mjs`);
 });
+
+test('the reconciliation document counts exactly the 124 originals', () => {
+  const doc = readFileSync(new URL('../../gtm/14-angle-reconciliation.md', import.meta.url), 'utf8');
+  const n = (label: string) => Number(new RegExp(`\\| ${label} \\| (\\d+) \\|`).exec(doc)![1]);
+  assert.equal(n('Already represented') + n('Partially represented') + n('Missing'), 124);
+  assert.equal(n('SELL NOW') + n('RC READY — not deployed') + n('QUALIFIED / PREVIEW') + n('FUTURE / DO NOT SELL YET'), 124);
+  const appendix = doc.slice(doc.indexOf('## Appendix A'), doc.indexOf('## Other sections'));
+  assert.equal((appendix.match(/^\| \d+ \|/gm) ?? []).length, 124);
+});

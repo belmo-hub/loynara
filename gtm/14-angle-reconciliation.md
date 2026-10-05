@@ -8,16 +8,16 @@ Source: *Loynara Marketing & Acquisition Playbook* (Appendix A, 124 angles; plus
 
 | Appendix A (124) | Count |
 |---|---|
-| Already represented | 41 |
-| Partially represented | 39 |
-| Missing | 59 |
-| Merged into canonical angles | 62 distinct angles |
+| Already represented | 33 |
+| Partially represented | 37 |
+| Missing | 54 |
+| Merged into canonical angles | 58 distinct angles |
 
 | Status of the 124 after merge | Count |
 |---|---|
-| SELL NOW | 60 |
-| RC READY — not deployed | 13 |
-| QUALIFIED / PREVIEW | 33 |
+| SELL NOW | 49 |
+| RC READY — not deployed | 11 |
+| QUALIFIED / PREVIEW | 31 |
 | FUTURE / DO NOT SELL YET | 33 |
 
 ## Appendix A — all 124
@@ -148,21 +148,6 @@ Source: *Loynara Marketing & Acquisition Playbook* (Appendix A, 124 angles; plus
 | 122 | **Physical + digital ecosystem** — Counter, customer phone, staff workflow and owner dashboard as one system. | missing | OPS-09 Das Schild am Tresen | SELL NOW |
 | 123 | **Premium but simple** — Powerful for the owner, simple for the customer. | missing | CORE-04 Keine App | SELL NOW |
 | 124 | **Operational completeness** — Not just the card: the workflows around it. | missing | OPS-01 Gebaut für die echte Schicht | QUALIFIED / PREVIEW |
-| B-paper | **Paper cards are enough** —  | represented | CORE-03 Papierkarte ablösen | SELL NOW |
-| B-regulars | **My regulars already return** —  | missing | OBJ-01 „Meine Stammkunden kommen sowieso“ | SELL NOW |
-| B-app | **Customers won’t download an app** —  | represented | CORE-04 Keine App | SELL NOW |
-| B-staff | **Staff will hate another system** —  | represented | CORE-05 Ein Ablauf im Stress | SELL NOW |
-| B-slow | **It will slow checkout** —  | represented | CORE-05 Ein Ablauf im Stress | SELL NOW |
-| B-spam | **I don’t want to spam customers** —  | partial | TRU-06 Kein Spam an deine Kunden | QUALIFIED / PREVIEW |
-| B-instagram | **I already use Instagram** —  | missing | OBJ-02 „Ich hab doch Instagram“ | SELL NOW |
-| B-works | **I don’t know if it works** —  | represented | OBJ-04 „Ich weiß nicht, ob das funktioniert“ | SELL NOW |
-| B-39 | **€39 is another subscription** —  | represented | CORE-09 39 € mit deinen eigenen Zahlen | SELL NOW |
-| B-wrong | **What if something goes wrong?** —  | missing | OPS-01 Gebaut für die echte Schicht | QUALIFIED / PREVIEW |
-| B-employees | **I have several employees** —  | partial | OPS-05 Eigene Zugänge und Rollen | SELL NOW |
-| B-stores | **I have several stores** —  | missing | OPS-06 Mehrere Standorte | SELL NOW |
-| H-older | **My customers are older** —  | represented | OBJ-03 „Meine Kunden sind älter“ | SELL NOW |
-| H-mistake | **What if an employee makes a mistake?** —  | missing | OPS-02 Fehler korrigieren, Verlauf bleibt | RC READY — not deployed |
-| H-lost | **What if the customer loses the card?** — (original states reissue as live) | represented | OPS-04 Karte verloren: neu ausstellen, Stand bleibt | RC READY — not deployed |
 
 ## Other sections of the original playbook
 
@@ -197,6 +182,21 @@ Source: *Loynara Marketing & Acquisition Playbook* (Appendix A, 124 angles; plus
 | Content „Was würdest du tun?“ | **Pizzeria, seit einem Monat nichts** — Was machst du? | represented | RET-01 Ruhende Karten bemerken | QUALIFIED / PREVIEW |
 | Content „Was würdest du tun?“ | **18 Kunden einen Besuch vor der Prämie** — Was machst du? | missing | FUT-03 Kurz vor der Prämie / Prämie wartet | FUTURE / DO NOT SELL YET |
 | Content „Was würdest du tun?“ | **Welche Empfehlungen wurden echte Besuche?** | missing | ACQ-02 Welche Empfehlung wurde ein Besuch? | QUALIFIED / PREVIEW |
+| Objection bank B | **Paper cards are enough** | represented | CORE-03 Papierkarte ablösen | SELL NOW |
+| Objection bank B | **My regulars already return** | missing | OBJ-01 „Meine Stammkunden kommen sowieso“ | SELL NOW |
+| Objection bank B | **Customers won’t download an app** | represented | CORE-04 Keine App | SELL NOW |
+| Objection bank B | **Staff will hate another system** | represented | CORE-05 Ein Ablauf im Stress | SELL NOW |
+| Objection bank B | **It will slow checkout** | represented | CORE-05 Ein Ablauf im Stress | SELL NOW |
+| Objection bank B | **I don’t want to spam customers** | partial | TRU-06 Kein Spam an deine Kunden | QUALIFIED / PREVIEW |
+| Objection bank B | **I already use Instagram** | missing | OBJ-02 „Ich hab doch Instagram“ | SELL NOW |
+| Objection bank B | **I don’t know if it works** | represented | OBJ-04 „Ich weiß nicht, ob das funktioniert“ | SELL NOW |
+| Objection bank B | **€39 is another subscription** | represented | CORE-09 39 € mit deinen eigenen Zahlen | SELL NOW |
+| Objection bank B | **What if something goes wrong?** | missing | OPS-01 Gebaut für die echte Schicht | QUALIFIED / PREVIEW |
+| Objection bank B | **I have several employees** | partial | OPS-05 Eigene Zugänge und Rollen | SELL NOW |
+| Objection bank B | **I have several stores** | missing | OPS-06 Mehrere Standorte | SELL NOW |
+| Objection handling §9 | **My customers are older** | represented | OBJ-03 „Meine Kunden sind älter“ | SELL NOW |
+| Objection handling §9 | **What if an employee makes a mistake?** | missing | OPS-02 Fehler korrigieren, Verlauf bleibt | RC READY — not deployed |
+| Objection handling §9 | **What if the customer loses the card?** — (original states reissue as live) | represented | OPS-04 Karte verloren: neu ausstellen, Stand bleibt | RC READY — not deployed |
 | Acquisition stack §6 | **Merchant-to-merchant referrals** — Ask each new merchant for 1–2 owner introductions. | represented | ACQ-04 Händler empfehlen Händler | SELL NOW |
 
 ## Non-angle parts of the original, and where they went
