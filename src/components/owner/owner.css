@@ -385,7 +385,7 @@
 
 /* Final polish: group legends must not sit on a border line; compact radio rows; file button; auto metrics */
 .ow-group { border: 0; }
-.ow-group > legend { float: left; width: 100%; padding: 0; margin: 0 0 var(--ow-s2); }
+.ow-group > legend:not(.ow-sr) { float: left; width: 100%; padding: 0; margin: 0 0 var(--ow-s2); }
 .ow-group > legend + * { clear: both; }
 .ow-group + .ow-group { border-top: 0; margin-top: var(--ow-s4); padding-top: var(--ow-s4); box-shadow: 0 -1px 0 var(--ow-line); }
 @media (min-width: 640px) { .ow-radio-cards--row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

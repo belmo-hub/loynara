@@ -91,3 +91,33 @@ test("customer search stays applied when switching between location and tenant s
     } finally { await context.close(); }
   } finally { await f.api.dispose(); }
 });
+
+test("NFC policy keeps its accessible group name without horizontal page overflow", async ({ baseURL, browser }) => {
+  test.skip(!process.env.E2E_NFC_VERIFY_MASTER, "Requires the isolated synthetic NFC verification provider");
+  const url = baseURL ?? "http://localhost:3000";
+  const f = await owner(url);
+  const { programId } = await (await f.api.get("/api/me")).json() as { programId: string };
+  expect((await f.api.post("/api/merchant/tap", { data: { action: "policy", programId, mode: "staff_confirmed", cooldownSeconds: 60 } })).status()).toBe(200);
+  const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
+  try {
+    const page = await context.newPage();
+    await page.goto("/merchant/program");
+    const group = page.getByRole("group", { name: "Vergabe nach NFC-Berührung", exact: true });
+    await expect(group).toBeVisible();
+    for (const width of [390, 320, 768, 1280, 1440]) {
+      await page.setViewportSize({ width, height: width === 1280 ? 800 : width === 1440 ? 900 : 844 });
+      await expect(group).toHaveAccessibleName("Vergabe nach NFC-Berührung");
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+      await expect.poll(() => group.locator("legend").evaluate(element => element.getBoundingClientRect().width)).toBe(1);
+      const confirmMode = group.getByRole("radio", { name: /^Mit Bestätigung/ });
+      await confirmMode.focus();
+      await expect(confirmMode).toBeFocused();
+      const save = page.getByRole("button", { name: "NFC-Regel speichern", exact: true });
+      await expect(save).toBeVisible();
+      const bounds = await save.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    }
+  } finally { await context.close(); await f.api.dispose(); }
+});
