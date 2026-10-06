@@ -325,7 +325,7 @@
 .ow-member-id, .ow-member-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ow-member-stat { text-align: right; flex: none; }
 .ow-member small { color: var(--ow-muted); font-size: 12.5px; overflow-wrap: anywhere; }
-.ow-member-id strong { overflow-wrap: anywhere; }
+.ow-member-id strong { white-space: nowrap; overflow-wrap: anywhere; }
 .ow-cust-back { display: none; align-self: flex-start; margin-bottom: var(--ow-s2); }
 .ow-cust-detail { position: sticky; top: 72px; }
 @media (max-width: 900px) {

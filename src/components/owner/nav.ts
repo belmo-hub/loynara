@@ -40,7 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
 const under = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 
 const shown = (item: SubItem, role: OwnerRole, hidden: HiddenSurfaces) => item.roles.includes(role) && !(item.surface && hidden.includes(item.surface));
-export const groupLabel = (group: NavGroup, hidden: HiddenSurfaces = []) => group.trimmedLabel && group.items.some(item => item.surface && hidden.includes(item.surface)) ? group.trimmedLabel : group.label;
+export const groupLabel = (group: NavGroup, hidden: HiddenSurfaces = []) => group.trimmedLabel && hidden.includes("campaigns") ? group.trimmedLabel : group.label;
 
 export function visibleGroups(role: OwnerRole, hidden: HiddenSurfaces = []) {
   return NAV_GROUPS.filter(group => group.roles.includes(role) && group.items.some(item => shown(item, role, hidden)));

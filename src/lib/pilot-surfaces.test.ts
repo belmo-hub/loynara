@@ -7,9 +7,9 @@ const PROD = { PRODUCTION_ENVIRONMENT: "loynara-production" };
 const digestOf = (fn: () => unknown) => { try { fn(); } catch (error) { return String((error as { digest?: string }).digest ?? "OTHER"); } return "NONE"; };
 
 describe("pilot surfaces follow the canonical production definition", () => {
-  it("hides billing, campaigns, automations, audiences, wallet previews, the logo upload and the NFC card only on real production", () => {
-    expect(hiddenSurfaces(PROD).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cardLogo", "nfc", "walletPreviews"]);
-    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(7);
+  it("hides billing, automations, wallet previews, the logo upload and the NFC card on real production; campaigns and audiences stay draft-only visible", () => {
+    expect(hiddenSurfaces(PROD).sort()).toEqual(["automations", "billing", "cardLogo", "nfc", "walletPreviews"]);
+    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(5);
     // device-test / preview (NODE_ENV=production without the marker) and development keep every surface that does not depend on NFC keys
     expect(hiddenSurfaces({ NODE_ENV: "production" })).toEqual(["nfc"]);
     expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "device-test" })).toEqual(["nfc"]);
@@ -24,7 +24,7 @@ describe("the NFC surface follows capability", () => {
   const MASTER = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
   it("appears on real production exactly when NFC is enabled with the derived key provider, and then no other surface changes", () => {
     const configured = { ...PROD, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: MASTER };
-    expect(hiddenSurfaces(configured).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cardLogo", "walletPreviews"]);
+    expect(hiddenSurfaces(configured).sort()).toEqual(["automations", "billing", "cardLogo", "walletPreviews"]);
     expect(hiddenSurfaces({ ...configured, NFC_ENABLED: "false" })).toContain("nfc");
     expect(hiddenSurfaces({ ...configured, NFC_VERIFY_MASTER_KEY: "bad" })).toContain("nfc");
     expect(hiddenSurfaces({ ...PROD, NFC_ENABLED: "true", TAP_SYNTHETIC_KEY_FILE: "/x" })).toContain("nfc");
@@ -33,7 +33,7 @@ describe("the NFC surface follows capability", () => {
 
 describe("direct routes for withheld surfaces", () => {
   afterEach(() => vi.unstubAllEnvs());
-  const layouts = { billing: "@/app/merchant/billing/layout", campaigns: "@/app/merchant/campaigns/layout", automations: "@/app/merchant/automations/layout", audiences: "@/app/merchant/audiences/layout" };
+  const layouts = { billing: "@/app/merchant/billing/layout", automations: "@/app/merchant/automations/layout" };
   for (const [surface, path] of Object.entries(layouts)) {
     it(`${surface}: 404 on real production, available in development and on a device-test process`, async () => {
       const { default: Layout } = await import(path);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { apiJson, postJson, type PublicProgram } from "@/components/client-api";
 import type { AudienceDefinition } from "@/lib/segments";
@@ -73,11 +74,12 @@ export function CampaignsView() {
   const [list, reloadList] = useLoad<CampaignList>(`/api/merchant/campaigns?programSlug=${slug}`);
   const [program] = useLoad<PublicProgram>(`/api/program/${slug}`);
   // Overview and customer views link here with a goal and the threshold they showed, so the draft matches what the owner saw.
+  // useSearchParams (not window.location): on a client-side navigation from the overview the browser URL is not updated yet
+  // when this component first renders, which silently dropped the goal.
+  const searchParams = useSearchParams();
   const [entry] = useState(() => {
-    if (typeof window === "undefined") return { goal: null, options: {} as GoalOptions };
-    const params = new URLSearchParams(window.location.search);
-    const number = (key: string, min: number, max: number) => { const value = Number(params.get(key)); return Number.isInteger(value) && value >= min && value <= max ? value : undefined; };
-    return { goal: params.get("goal"), options: { days: number("days", 1, 3650), maxRemaining: number("maxRemaining", 1, 100000) } as GoalOptions };
+    const number = (key: string, min: number, max: number) => { const value = Number(searchParams.get(key)); return Number.isInteger(value) && value >= min && value <= max ? value : undefined; };
+    return { goal: searchParams.get("goal"), options: { days: number("days", 1, 3650), maxRemaining: number("maxRemaining", 1, 100000) } as GoalOptions };
   });
   const [builder, setBuilder] = useState<null | { step: number; editor: Editor; editingId: string | null; savedId: string | null; goal: string | null }>(() => entry.goal && GOALS[entry.goal] ? { step: 0, editor: GOALS[entry.goal].make(me.businessName, entry.options), editingId: null, savedId: null, goal: entry.goal } : null);
   const [dirty, setDirty] = useState(false);

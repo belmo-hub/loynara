@@ -62,3 +62,11 @@ npx tsx scripts/seed-demo-activity.ts   # after npm run db:seed; localhost-only 
 ```
 
 QA screenshots: `var/qa/shots-r1/` (owner/cashier/public pages at 1440/1280/768/390/320).
+
+## Final review changes
+
+- **Cashier quantity picker** is capped by `lib/award-limits` (cashier 10, manager 100, owner picker 100), the same function the server uses.
+- **Draft-only campaigns and audiences.** `campaigns` and `audiences` are no longer pilot-hidden; `automations`, `billing`, wallet previews, logo and NFC stay hidden. Safe because with production configuration delivery mode is `disabled`: no schedule control, the API answers `EMAIL_DISABLED` to scheduling, the dispatcher blocks, and the UI says nothing was sent. `lib/campaign-draft-only.test.ts` pins this.
+  Required production configuration: `PROMOTIONAL_EXTERNAL_EMAIL_ENABLED=false`, `MAILGUN_PROMOTIONAL_SEND_APPROVED=false`, `EXTERNAL_EMAIL_ENABLED=false`, `TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED=false`, `MAILGUN_SEND_APPROVED=false` (plus the existing `PRODUCTION_ENVIRONMENT=loynara-production`, `NODE_ENV=production`, `TRUSTED_INGRESS=cloudflare_tunnel`).
+  Note: the campaign and audience API routes were never surface-gated (only role and tenant); only pages and navigation were. This change does not alter API reachability.
+- **Bug fixed:** goal and filter parameters on overview links were dropped on client-side navigation (worked only on a full page load). Now read with `useSearchParams`; regression spec `e2e/merchant-insight-links.spec.ts`.

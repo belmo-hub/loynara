@@ -7,8 +7,11 @@ import { nfcCapability } from "./nfc-keys";
  * in the code base and stay available on development, preview and device-test processes.
  *
  * - billing: no approved price, no checkout and no invoicing.
- * - campaigns / automations: production e-mail delivery is disabled, so they could only be drafted, never sent.
- * - audiences: a segment preview whose only purpose is to feed campaigns.
+ * - automations: production e-mail delivery is disabled, so rules could only be configured, never run to a result.
+ * - campaigns / audiences: NOT withheld. With production e-mail delivery disabled they are draft-only: the audience
+ *   preview and campaign composer work, drafts are saved, and the schedule control does not exist while
+ *   promotionalEmailMode() is "disabled" (the server also refuses scheduling with EMAIL_DISABLED and the dispatcher
+ *   blocks any job). Nothing can be sent or shown as sent.
  * - walletPreviews: Apple/Google Wallet previews in the card studio; both wallets are off in the pilot.
  * - nfc: NFC settings, readiness and the cashier confirmation panel. Unlike the others this follows CAPABILITY, not the
  *   environment name: it is withheld wherever no verification-key provider is configured (lib/nfc-keys), so nothing is
@@ -18,7 +21,7 @@ import { nfcCapability } from "./nfc-keys";
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
 export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo"];
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations", "walletPreviews", "cardLogo"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 

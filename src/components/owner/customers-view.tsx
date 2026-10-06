@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { apiJson } from "@/components/client-api";
 import { parseCardLocator } from "@/lib/card-locator";
@@ -31,9 +32,7 @@ function activityRule(activity: Activity, days: Days, unit: string) {
 }
 
 /** Filters from the address bar, so overview insights can link straight to the matching cards. */
-function filtersFromUrl(): Filters {
-  if (typeof window === "undefined") return INITIAL;
-  const params = new URLSearchParams(window.location.search);
+function filtersFromParams(params: URLSearchParams): Filters {
   const raw = params.get("activity");
   const activity = raw === "none" ? "never" : ACTIVITY.some(([value]) => value === raw) ? raw as Activity : "all";
   const days = Number(params.get("days"));
@@ -65,7 +64,9 @@ function isLocalOrigin(url?: string) {
 export function CustomersView() {
   const owner = useOwner();
   const me = owner.me!;
-  const [start] = useState(filtersFromUrl);
+  // useSearchParams, not window.location: a client-side navigation from the overview has not updated the URL at first render.
+  const searchParams = useSearchParams();
+  const [start] = useState(() => filtersFromParams(searchParams));
   const [filters, setFilters] = useState<Filters>(start);
   const [applied, setApplied] = useState<Filters>(start);
   const [allLocations, setAllLocations] = useState(false);

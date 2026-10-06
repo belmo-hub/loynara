@@ -2,15 +2,19 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 
-const ALL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
-const HIDDEN_HREFS = ["/merchant/billing", "/merchant/campaigns", "/merchant/automations", "/merchant/audiences"];
+const ALL = ["billing", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
+const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
+const HIDDEN_HREFS = ["/merchant/billing", "/merchant/automations"];
+const DRAFT_HREFS = ["/merchant/campaigns", "/merchant/audiences"];
 
 describe("navigation with pilot-withheld surfaces", () => {
-  it("owner: no entry for billing, campaigns, automations or audiences, and the reports group is relabelled", () => {
+  it("owner: no entry for billing or automations; campaigns and audiences are present and the group keeps its name", () => {
     const groups = visibleGroups("owner", ALL);
-    expect(groups.map(group => groupLabel(group, ALL))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Auswertung", "Einstellungen"]);
+    expect(groups.map(group => groupLabel(group, ALL))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = groups.flatMap(group => visibleItems(group, "owner", ALL).map(item => item.href));
     for (const hidden of HIDDEN_HREFS) expect(hrefs).not.toContain(hidden);
+    expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
+    expect(visibleGroups("owner", FULL).length).toBe(5);
     expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/staff"]));
   });
   it("every visible entry leads to an existing page (no dead navigation), for owner and manager", () => {
@@ -21,10 +25,11 @@ describe("navigation with pilot-withheld surfaces", () => {
       }
     }
   });
-  it("manager keeps overview, programme and customers only", () => {
+  it("manager keeps overview, programme and customers (with audience counts) only", () => {
     const groups = visibleGroups("manager", ALL);
     expect(groups.map(group => group.id)).toEqual(["overview", "program", "customers"]);
-    expect(visibleItems(groups[2], "manager", ALL).map(item => item.href)).toEqual(["/merchant/customers"]);
+    // Audience counts are pseudonymous and location-scoped for managers on the server; no campaign access.
+    expect(visibleItems(groups[2], "manager", ALL).map(item => item.href)).toEqual(["/merchant/customers", "/merchant/audiences"]);
   });
   it("without hidden surfaces nothing changes (development, preview, device test)", () => {
     expect(visibleGroups("owner").map(group => groupLabel(group))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
