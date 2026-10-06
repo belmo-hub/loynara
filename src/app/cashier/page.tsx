@@ -1,5 +1,6 @@
 "use client";
 
+import type { StaffRole } from "@/lib/award-limits";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
@@ -22,6 +23,7 @@ export default function CashierPage() {
   const [locationName, setLocationName] = useState("");
   const [locale, setLocale] = useState<UiLocale>("de");
   const [showOverview, setShowOverview] = useState(true);
+  const [role, setRole] = useState<StaffRole | undefined>(undefined);
   const [accessState, setAccessState] = useState<"loading" | "ready" | "blocked">("loading");
   const [accessMessage, setAccessMessage] = useState("");
   const [card, setCard] = useState<CashierCard | null>(null);
@@ -43,7 +45,7 @@ export default function CashierPage() {
   useEffect(() => {
     void apiJson<MeResponse>("/api/me").then(me => {
       if (!me.tenantId || !me.locationId || !me.role) { setAccessState("blocked"); setAccessMessage("Dieses Konto hat keinen aktiven Standortzugang. Eine Inhaberin oder ein Inhaber kann den Teamzugang prüfen."); return; }
-      setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
+      setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setRole(me.role); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
       try { setOfflineEvents(readOfflineEvents(localStorage, me.userId)); }
       catch (error) { setOfflineError(error instanceof Error ? error.message : "Offline queue unavailable"); }
       setAccessState("ready");
@@ -160,5 +162,5 @@ export default function CashierPage() {
   }
 
   if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <><a href="/login" className="button button--outline">Zur Anmeldung</a><LogoutButton className="button button--outline" /></>}</div></main>;
-  return <><CashierView key={`${card?.id ?? (preview ? "preview" : "empty")}:${completedTransaction}`} locationName={locationName} card={card} preview={preview} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setPreview(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <CashierTapPanel />}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
+  return <><CashierView key={`${card?.id ?? (preview ? "preview" : "empty")}:${completedTransaction}`} locationName={locationName} card={card} preview={preview} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={lookup} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={queueOffline} offlineLeaseExpiresAt={offlineLease && card && offlineLease.membershipId === card.id ? offlineLease.expiresAt : undefined} offlinePanel={<OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} />} onClear={() => { setCard(null); setPreview(null); setOfflineLease(null); setStatus("idle"); setMessage(""); pendingRef.current = null; }} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <CashierTapPanel />}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
 }

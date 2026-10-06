@@ -1,3 +1,4 @@
+import { manualAwardLimit, type StaffRole } from "./award-limits";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
@@ -79,7 +80,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       if (!Number.isInteger(input.quantity) || input.quantity === undefined || input.quantity < 1) throw new DomainError("INVALID_QUANTITY", "Quantity must be a positive integer");
       quantity = input.quantity;
     }
-    const manualLimit = trustedTap ? 1 : staff?.role === "cashier" ? 10 : staff?.role === "manager" ? 100 : 1000;
+    const manualLimit = trustedTap ? 1 : manualAwardLimit(staff?.role as StaffRole | undefined);
     const purchaseAmountLimit = staff?.role === "cashier" ? 50_000 : staff?.role === "manager" ? 200_000 : 1_000_000;
     const purchasePointsLimit = staff?.role === "cashier" ? 500 : staff?.role === "manager" ? 2_000 : 10_000;
     if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
