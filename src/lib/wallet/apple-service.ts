@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { db } from "@/db";
 import { appleDevices, appleRegistrations, walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
@@ -73,19 +74,26 @@ export async function unregisterAppleDevice(input: Omit<RegistrationInput, "push
 }
 
 /**
- * Serials changed since the device's last tag. Revoked passes are included so the device fetches their voided version.
+ * An opaque tag describes the device's complete registered state, including revoked passes. On any change return all
+ * registered serials: a timestamp maximum can lose another card's equal/older update. SQL text preserves microseconds.
  * The device library identifier acts as the secret here (Apple sends no pass token on this call): it is never logged
  * by the application and the route is rate limited per device and peer.
  */
 export async function listUpdatedApplePasses(deviceId: string, passTypeId: string, previousLastUpdated?: string): Promise<{ serialNumbers: string[]; lastUpdated: string } | null> {
   if (!validAppleDeviceId(deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
-  const since = previousLastUpdated === undefined || previousLastUpdated === "" ? -1 : Number(previousLastUpdated);
-  if (!Number.isSafeInteger(since) || since < -1) throw new DomainError("INVALID_TAG", "Invalid update tag");
-  const rows = await db.select({ serialNumber: appleRegistrations.serialNumber, updatedAt: walletPasses.updatedAt })
+  const previous = previousLastUpdated ?? "";
+  const legacy = /^(?:-1|\d{1,16})$/.test(previous) && Number.isSafeInteger(Number(previous));
+  if (previous !== "" && !legacy && !/^s1_[a-f0-9]{64}$/.test(previous)) throw new DomainError("INVALID_TAG", "Invalid update tag");
+  const rows = await db.select({ serialNumber: appleRegistrations.serialNumber, updatedAt: sql<string>`${walletPasses.updatedAt}::text`,
+    revokedAt: sql<string | null>`${walletPasses.revokedAt}::text`, revokeReason: walletPasses.revokeReason,
+    status: walletPasses.status, credentialHash: walletPasses.credentialHash })
     .from(appleRegistrations)
     .innerJoin(walletPasses, and(sql`${walletPasses.id}::text = ${appleRegistrations.serialNumber}`, eq(walletPasses.tenantId, appleRegistrations.tenantId), eq(walletPasses.membershipId, appleRegistrations.membershipId), eq(walletPasses.provider, "apple")))
     .where(and(eq(appleRegistrations.deviceLibraryIdentifier, deviceId), eq(appleRegistrations.passTypeIdentifier, passTypeId)));
-  const changed = rows.filter((row) => row.updatedAt.getTime() > since);
-  if (!changed.length) return null;
-  return { serialNumbers: changed.map((row) => row.serialNumber), lastUpdated: String(Math.max(...changed.map((row) => row.updatedAt.getTime()))) };
+  if (!rows.length) return null;
+  rows.sort((a, b) => a.serialNumber.localeCompare(b.serialNumber));
+  const lastUpdated = `s1_${createHash("sha256").update(JSON.stringify([deviceId, passTypeId, rows])).digest("hex")}`;
+  if (previous === lastUpdated) return null;
+  // Legacy numeric tags get one complete refresh and switch to the opaque format.
+  return { serialNumbers: rows.map(row => row.serialNumber), lastUpdated };
 }

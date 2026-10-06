@@ -26,6 +26,32 @@ const auth = (serial: string) => `ApplePass ${applePassToken(serial, config)}`;
 const registration = (serial: string, deviceId = "fixture-device") => ({ deviceId, passTypeId: config.passTypeId, serial, authorization: auth(serial), pushToken: "a".repeat(64) });
 
 describe("Apple pass web service", () => {
+  it("does not lose another registered pass update below or equal to a previously returned timestamp maximum", async () => {
+    const a = await createMember("First pass");
+    const b = await createMember("Second pass");
+    await registerAppleDevice(registration(a.pass.id), config);
+    await registerAppleDevice(registration(b.pass.id), config);
+    await pool.query("UPDATE wallet_passes SET updated_at = $2::timestamptz WHERE id = $1", [a.pass.id, "2030-01-01T00:00:00.000Z"]);
+    await pool.query("UPDATE wallet_passes SET updated_at = $2::timestamptz WHERE id = $1", [b.pass.id, "2029-01-01T00:00:00.000Z"]);
+    let tag = (await listUpdatedApplePasses("fixture-device", config.passTypeId))!.lastUpdated;
+    expect(tag).toMatch(/^s1_[a-f0-9]{64}$/);
+    for (const time of ["2029-06-01T00:00:00.000Z", "2030-01-01T00:00:00.000Z", "2030-01-01T00:00:00.000001Z"]) {
+      await pool.query("UPDATE wallet_passes SET updated_at = $2::timestamptz WHERE id = $1", [b.pass.id, time]);
+      const changed = await listUpdatedApplePasses("fixture-device", config.passTypeId, tag);
+      expect(changed?.serialNumbers).toEqual(expect.arrayContaining([a.pass.id, b.pass.id]));
+      expect(changed?.lastUpdated).not.toBe(tag);
+      tag = changed!.lastUpdated;
+      expect(await listUpdatedApplePasses("fixture-device", config.passTypeId, tag)).toBeNull();
+    }
+    expect((await listUpdatedApplePasses("fixture-device", config.passTypeId, "1893456000000"))?.serialNumbers).toEqual(expect.arrayContaining([a.pass.id, b.pass.id]));
+    // Revocation must change the state even when its lifecycle timestamp equals the previous row timestamp exactly.
+    await pool.query("UPDATE wallet_passes SET revoked_at = updated_at, revoke_reason = 'closed', status = 'revoked' WHERE id = $1", [b.pass.id]);
+    const revoked = await listUpdatedApplePasses("fixture-device", config.passTypeId, tag);
+    expect(revoked?.serialNumbers).toEqual(expect.arrayContaining([a.pass.id, b.pass.id]));
+    expect(revoked?.lastUpdated).not.toBe(tag);
+    await expect(listUpdatedApplePasses("fixture-device", config.passTypeId, "s1_invalid")).rejects.toMatchObject({ code: "INVALID_TAG" });
+  });
+
   it("authenticates registration, lists changed serials by tag and removes the device on unregistration", async () => {
     const { member, pass } = await createMember();
     expect(await registerAppleDevice(registration(pass.id), config)).toBe(201);
