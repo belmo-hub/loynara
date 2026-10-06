@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     }
     const result = await enroll(input as Parameters<typeof enroll>[0]);
     headers.append("Set-Cookie", tapCookieHeader(result.programId, result.cardToken, request.url));
-    headers.append("Set-Cookie", returningCardCookieHeader(result.programId, result.cardToken, request.url));
+    const remember = returningCardCookieHeader(result.programId, result.cardToken, request.url);
+    if (remember) headers.append("Set-Cookie", remember);
     return Response.json({ cardToken: result.cardToken }, { status: 201, headers });
   } catch (error) { return respondError(error); }
 }

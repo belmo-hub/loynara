@@ -32,8 +32,9 @@ function secureAttribute(requestUrl: string) {
   return new URL(process.env.PUBLIC_BASE_URL ?? requestUrl).protocol === "https:" ? "; Secure" : "";
 }
 
-export function returningCardCookieHeader(programId: string, cardToken: string, requestUrl: string) {
-  if (!cardTokenPattern.test(cardToken)) throw new Error("Invalid card token");
+/** Null for anything that is not a card token of a programme: remembering is best effort and never fails a request. */
+export function returningCardCookieHeader(programId: string, cardToken: string, requestUrl: string): string | null {
+  if (!cardTokenPattern.test(cardToken) || !programIdPattern.test(programId)) return null;
   return `${returningCardCookieName(programId)}=${cardToken}; Path=${RETURNING_CARD_COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=${ONE_YEAR_SECONDS}${secureAttribute(requestUrl)}`;
 }
 

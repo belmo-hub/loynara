@@ -13,7 +13,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const programId = await bindTapCard(token);
     const headers = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
     headers.append("Set-Cookie", tapCookieHeader(programId, token, request.url));
-    headers.append("Set-Cookie", returningCardCookieHeader(programId, token, request.url));
+    const remember = returningCardCookieHeader(programId, token, request.url);
+    if (remember) headers.append("Set-Cookie", remember);
     return Response.json({ bound: true }, { headers });
   } catch (error) { return respondError(error); }
 }
