@@ -33,7 +33,7 @@ export function sourceLabel(source: string) {
  * acting person are stored with the correction. An unclear network result keeps the same idempotency key, so
  * retrying cannot book the correction twice.
  */
-export function CorrectionDialog({ entry, unit, locationId, onClose, onDone }: { entry: Entry; unit: Unit; locationId: string; onClose: () => void; onDone: () => void }) {
+export function CorrectionDialog({ entry, unit, locationId, balance, onClose, onDone }: { entry: Entry; unit: Unit; locationId: string; balance?: number; onClose: () => void; onDone: () => void }) {
   const [reason, setReason] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "uncertain" | "error">("idle");
   const [error, setError] = useState("");
@@ -61,11 +61,16 @@ export function CorrectionDialog({ entry, unit, locationId, onClose, onDone }: {
       <button type="button" className="ow-btn ow-btn--primary" onClick={() => void submit()} disabled={!valid || state === "saving"} aria-busy={state === "saving"}>{state === "saving" ? "Wird gebucht …" : state === "uncertain" ? "Erneut senden" : "Korrektur buchen"}</button>
     </>}>
       <p>{entry.kind === "award" ? "Gutschrift" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unit}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p>
+      {balance !== undefined && <div className="ow-readonly ow-row" style={{ justifyContent: "space-between" }} aria-label="Auswirkung auf den Kartenstand"><span>Stand jetzt <strong className="ow-num">{balance} {unit}</strong></span><span aria-hidden="true">→</span><span>nach Korrektur <strong className="ow-num">{balance + effect} {unit}</strong></span></div>}
       <p className="ow-muted">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unit}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Kassenvorgang für Empfehlungen" : ""}.</p>
-      <div className="ow-field"><label htmlFor="corr-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="corr-reason" className="ow-textarea" data-autofocus rows={3} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Versehentlich zwei Stempel statt einem vergeben" /></div>
+      <div className="ow-field"><label htmlFor="corr-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="corr-reason" className="ow-textarea" data-autofocus rows={3} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Versehentlich zwei Stempel statt einem vergeben" aria-describedby="corr-reason-n" /><ReasonHint id="corr-reason-n" length={reason.trim().length} /></div>
       {error && <Notice tone={state === "uncertain" ? "warn" : "danger"} role="alert">{error}</Notice>}
     </OwnerDialog>
   );
+}
+
+function ReasonHint({ id, length }: { id: string; length: number }) {
+  return <span id={id} className="ow-hint ow-num">{length >= 10 ? "Grund reicht aus. Er wird mit deinem Namen im Kartenverlauf gespeichert." : `Noch ${10 - length} Zeichen bis zum Mindestumfang.`}</span>;
 }
 
 const METHOD_LABEL = { card_link: "Vorhandener Kartenlink", stored_contact: "Hinterlegter Kontakt", other_check: "Andere nachvollziehbare Prüfung" } as const;
@@ -133,7 +138,7 @@ export function ReissueDialog({ membershipId, cardLocator, onClose, onDone }: { 
           {(Object.keys(METHOD_LABEL) as Method[]).map(value => <option key={value} value={value}>{METHOD_LABEL[value]}</option>)}
         </select>
         <span className="ow-hint">Das ist dein Vermerk. Loynara prüft die Person nicht selbst; Vermerk, Grund und dein Name werden im Verlauf der Karte gespeichert.</span></div>
-      <div className="ow-field"><label htmlFor="reissue-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="reissue-reason" className="ow-textarea" rows={3} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Neues Handy, alten Kartenlink auf dem alten Gerät gezeigt" /></div>
+      <div className="ow-field"><label htmlFor="reissue-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="reissue-reason" className="ow-textarea" rows={3} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Neues Handy, alten Kartenlink auf dem alten Gerät gezeigt" aria-describedby="reissue-reason-n" /><ReasonHint id="reissue-reason-n" length={reason.trim().length} /></div>
       {error && <Notice tone={state === "error" ? "danger" : "warn"} role="alert">{error}</Notice>}
     </OwnerDialog>
   );
