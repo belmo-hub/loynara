@@ -35,12 +35,17 @@ test("cashier browser confirms purchase points and selected reward before card r
       await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
       await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("4,99 EUR");
       await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
+      await expect(cashier.locator(".cashier-booked")).toContainText("14 Punkte für K-");
+      await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 14 Punkte");
+      await cashier.getByRole("button", { name: "Andere Karte" }).click();
+      await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+      await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
       await expect(cashier.locator(".balance-display strong")).toContainText("14 Punkte");
       await expect(cashier.getByLabel("Kaufbetrag (EUR)")).toHaveValue("");
       await cashier.locator(".reward-action-list button").filter({ hasText: "Kaffee" }).click();
       await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText("Kaffee");
       await cashier.getByRole("button", { name: "Ja, einlösen" }).click();
-      await expect(cashier.locator(".balance-display strong")).toContainText("0 Punkte");
+      await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 0 Punkte");
 
       const card = await browserContext.newPage();
       await card.goto(`/card/${encodeURIComponent(cardToken)}`);

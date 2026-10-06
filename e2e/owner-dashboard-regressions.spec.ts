@@ -70,7 +70,7 @@ test("customer search stays applied when switching between location and tenant s
   const f = await owner(url);
   try {
     expect((await f.api.post("/api/merchant/locations", { data: f.locationInput })).status()).toBe(201);
-    for (let n = 0; n < 2; n++) expect((await f.api.post("/api/enroll", { data: { slug: f.programSlug, acceptedTerms: true, marketingOptIn: false } })).status()).toBe(201);
+    for (let n = 0; n < 2; n++) expect((await f.api.post("/api/enroll", { data: { slug: f.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true } })).status()).toBe(201);
     const { members } = await (await f.api.get("/api/merchant/customers")).json() as { members: Array<{ id: string; pseudonym: string }> };
     const wanted = members[0];
     const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });

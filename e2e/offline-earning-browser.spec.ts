@@ -23,12 +23,23 @@ test("cashier queues an explicit offline award without credit, reloads, and sync
       const page = await context.newPage();
       await page.goto("/cashier");
       await page.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+      const leased = page.waitForResponse(response => response.url().includes("/api/cashier/offline/lease") && response.ok());
       await page.getByRole("button", { name: "Prüfen", exact: true }).click();
-      await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toBeVisible();
-      await context.setOffline(true);
+      await leased;
+      // Online, the offline fallback is not offered at all.
+      await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "Offline-Vergaben" })).toHaveCount(0);
       await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+      await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
+      await page.getByRole("button", { name: "Abbrechen" }).click();
+      await context.setOffline(true);
+      await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toBeVisible();
+      await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+      await expect(page.getByText("Verbindung zum Server gestört.", { exact: false })).toBeVisible();
       await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();
       await expect(page.getByText("1 ausstehend", { exact: false })).toBeVisible();
+      await expect(page.locator(".cashier-booked")).toContainText("Vorgemerkt, noch nicht gebucht");
+      await expect(page.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
       await page.screenshot({ path: "screenshots/platform-after-offline-pending.png", fullPage: true });
       expect((await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json()).balance).toBe(0);
       await context.setOffline(false);

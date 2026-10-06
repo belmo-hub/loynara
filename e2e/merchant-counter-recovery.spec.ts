@@ -55,7 +55,7 @@ test("the counter finds a card by its random number, a mistake is corrected, and
     expect(lookups[1]).toContain("confirm=1");
     await counter.getByRole("button", { name: "Vergabe prüfen" }).click();
     await counter.getByRole("button", { name: "Ja, vergeben" }).click();
-    await expect(counter.getByText("1 Stempel vergeben.")).toBeVisible();
+    await expect(counter.getByText(`1 Stempel für ${cardLocator} vergeben.`)).toBeVisible();
     // An unknown or look-alike number gets a plain German answer, not a server message.
     await counter.getByRole("button", { name: /Andere Karte/ }).click();
     await counter.getByLabel("Kartennummer oder Kartencode").fill("K-AAAAAA");

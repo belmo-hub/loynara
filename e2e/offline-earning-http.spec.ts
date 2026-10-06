@@ -44,11 +44,15 @@ test("offline award lease is cashier-scoped and revoked staff sees a reviewable 
     const page = await cashierBrowser.newPage();
     await page.goto("/cashier");
     await page.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+    const leased = page.waitForResponse(response => response.url().includes("/api/cashier/offline/lease") && response.ok());
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await leased;
+    await cashierBrowser.setOffline(true);
     await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Vergabe prüfen" }).click();
     await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();
     await expect(page.getByText("1 ausstehend", { exact: false })).toBeVisible();
+    await cashierBrowser.setOffline(false);
     expect((await owner.post("/api/staff/revoke", { data: { userId: (await cashier.get("/api/me").then(response => response.json())).userId } })).status()).toBe(200);
     const revoked = await cashier.post("/api/cashier/offline/sync", { data: { ...firstEvent, eventId: randomUUID(), eventAt: new Date().toISOString() } });
     expect(revoked.status()).toBe(200);
@@ -58,7 +62,8 @@ test("offline award lease is cashier-scoped and revoked staff sees a reviewable 
     await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
     await page.screenshot({ path: "screenshots/platform-after-offline-rejected.png", fullPage: true });
     await page.getByRole("button", { name: "Geprüft, aus Liste entfernen" }).click();
-    await expect(page.getByText("0 ausstehend", { exact: false })).toBeVisible();
+    // Nothing left to review and no connection trouble: the offline panel leaves the counter.
+    await expect(page.getByRole("region", { name: "Offline-Vergaben" })).toHaveCount(0);
     expect((await guest.get(`/api/card/${encodeURIComponent(cardToken)}`).then(response => response.json())).balance).toBe(1);
     await cashierBrowser.close();
   } finally { await Promise.all([owner.dispose(), cashier.dispose(), guest.dispose()]); }

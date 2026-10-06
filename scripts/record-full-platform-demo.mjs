@@ -75,7 +75,7 @@ try {
   await json(await owner.post("/api/merchant/referrals/settings", { data: { programSlug, enabled: true, referrerBonus: 1, referredBonus: 1 } }));
   const { cardToken: referrerToken } = await json(await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true } }), 201);
   const referral = await json(await guest.get(`/api/card/${referrerToken}/referral`));
-  const { cardToken: referredToken } = await json(await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, referralCode: new URL(referral.shareUrl).searchParams.get("ref") } }), 201);
+  const { cardToken: referredToken } = await json(await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, additionalCard: true, referralCode: new URL(referral.shareUrl).searchParams.get("ref") } }), 201);
   const referred = await json(await guest.get(`/api/card/${referredToken}`));
   const referredLookup = await json(await cashier.get(`/api/cashier/lookup?code=${encodeURIComponent(referred.scanCode)}`));
   await json(await cashier.post("/api/cashier/award", { data: { membershipId: referredLookup.membershipId, quantity: 1, requestId: randomUUID(), idempotencyKey: randomUUID() } }));

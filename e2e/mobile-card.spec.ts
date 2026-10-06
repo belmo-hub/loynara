@@ -37,7 +37,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const response = await page.request.get(`/api/card/${encodeURIComponent(demo.cardToken)}`);
   expect(response.ok()).toBe(true);
-  const card = await response.json() as { merchantName: string; balance: number; rewards: { title: string; cost: number }[] };
+  const card = await response.json() as { merchantName: string; cardLocator: string; balance: number; rewards: { title: string; cost: number }[] };
   const reward = card.rewards[0];
   await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
   await expect(page.locator(".customer-header-merchant")).toHaveText(card.merchantName);
@@ -47,7 +47,8 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   if (reward && card.balance < reward.cost) {
     await expect(page.locator(".reward-remaining")).toContainText(`Noch ${reward.cost - card.balance} Stempel für „${reward.title}“`);
   }
-  await expect(page.locator(".customer-wallet")).toContainText("Nach einer Berechtigungsprüfung");
+  await expect(page.locator(".customer-wallet")).toContainText(`Notiere dir deine Kartennummer ${card.cardLocator}.`);
+  await expect(page.locator(".customer-wallet")).toContainText("nach einer Prüfung einen neuen Kartenlink geben");
   await expect(page.locator(".customer-wallet")).not.toContainText("nicht wiederherstellbar");
   await page.getByRole("button", { name: "Kartenlink kopieren" }).click();
   await expect(page.getByRole("status")).toContainText("Kartenlink kopiert");

@@ -31,8 +31,9 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
     await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} für „${program.rewardTitle}“`);
-    await page.getByRole("button", { name: "Kartencode anzeigen" }).click();
-    const scanCode = await page.locator(".customer-qr-panel code").innerText();
+    // The card no longer reveals the raw scan code as text; the QR image carries it, as a camera would read it.
+    await expect(page.getByRole("button", { name: "Kartencode anzeigen" })).toHaveCount(0);
+    const scanCode = new URL(await page.locator(".customer-qr img").getAttribute("src") ?? "", "http://localhost").searchParams.get("value") ?? "";
     expect(scanCode.startsWith("sc_")).toBe(true);
     await expect.poll(() => page.locator(".customer-qr img").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 
@@ -59,6 +60,13 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
     await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toBeVisible();
     await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
+    // The card closes right after booking; the confirmation names the card number and the new balance.
+    await expect(cashier.locator(".cashier-booked")).toContainText(`Neuer Stand: ${program.rewardCost} ${unit}`);
+    await expect(cashier.locator(".cashier-booked")).toContainText("Prämie verfügbar. Zum Einlösen die Karte erneut scannen.");
+    await expect(cashier.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+    await cashier.getByRole("button", { name: "Andere Karte" }).click();
+    await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+    await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(cashier.locator(".balance-display strong")).toHaveText(`${program.rewardCost} ${unit}`);
     await expect(cashier.locator(".quantity-row output")).toHaveText("1");
     await expect(cashier.locator(".reward-action-list button").first()).toBeEnabled();
@@ -71,6 +79,10 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await cashier.locator(".reward-action-list button").first().click();
     await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toBeVisible();
     await cashier.getByRole("button", { name: "Ja, einlösen" }).click();
+    await expect(cashier.locator(".cashier-booked")).toContainText(`Neuer Stand: 0 ${unit}`);
+    await cashier.getByRole("button", { name: "Andere Karte" }).click();
+    await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+    await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(cashier.locator(".balance-display strong")).toHaveText(`0 ${unit}`);
     await cashier.getByRole("button", { name: "Menge erhöhen" }).click();
     await cashier.getByRole("button", { name: "Menge erhöhen" }).click();

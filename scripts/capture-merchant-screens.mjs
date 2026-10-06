@@ -36,7 +36,8 @@ try {
   const add = await owner.post("/api/merchant/program/rewards", { data: { action: "create", programSlug, title: "Frühstücksteller", cost: 45, termsText: "Ein Teller pro Einlösung." } });
   assert.equal(add.status(), 201);
   const enroll = async () => {
-    const response = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } });
+    // One API context stands in for many guests; each further card is requested deliberately.
+    const response = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true } });
     assert.equal(response.status(), 201);
     return (await response.json()).cardToken;
   };

@@ -25,6 +25,7 @@ test("synthetic referral link earns once after checkout and reverses with its qu
 
     const ownerBrowser = await browser.newContext({ baseURL: url, storageState: await owner.storageState() });
     const guestBrowser = await browser.newContext({ baseURL: url });
+    const friendBrowser = await browser.newContext({ baseURL: url });
     try {
       const merchantPage = await ownerBrowser.newPage();
       await merchantPage.goto("/merchant/referrals");
@@ -40,7 +41,8 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       await expect(referrerPage.getByRole("heading", { name: "Karte empfehlen" })).toBeVisible();
       const shareUrl = await referrerPage.getByLabel("Link zum Teilen").inputValue();
       expect(shareUrl).toContain(`/join/${programSlug}?ref=ref_`);
-      const publicPage = await guestBrowser.newPage();
+      // The friend uses their own phone. (In the referrer's own browser the join page would offer the referrer's card.)
+      const publicPage = await friendBrowser.newPage();
       await publicPage.goto(shareUrl);
       await expect(publicPage.getByText(/Empfehlungslink:/)).toBeVisible();
       await publicPage.getByRole("checkbox").check();
@@ -77,6 +79,6 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       await expect(merchantPage.getByText("Nach Korrektur zurückgenommen")).toBeVisible();
       await expect(merchantPage.getByText("Über Empfehlungslink angemeldet")).toBeVisible();
       await merchantPage.screenshot({ path: "screenshots/platform-after-referral-analytics.png", fullPage: true });
-    } finally { await ownerBrowser.close(); await guestBrowser.close(); }
+    } finally { await ownerBrowser.close(); await guestBrowser.close(); await friendBrowser.close(); }
   } finally { await owner.dispose(); await guest.dispose(); }
 });

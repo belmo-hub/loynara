@@ -12,8 +12,9 @@ test("a cashier's quantity picker stops at the server limit of 10", async ({ bro
     await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
-    await page.getByRole("button", { name: "Kartencode anzeigen" }).click();
-    const scanCode = await page.locator(".customer-qr-panel code").innerText();
+    // The card no longer reveals the raw scan code as text; the QR image carries it, as a camera would read it.
+    await expect(page.getByRole("button", { name: "Kartencode anzeigen" })).toHaveCount(0);
+    const scanCode = new URL(await page.locator(".customer-qr img").getAttribute("src") ?? "", "http://localhost").searchParams.get("value") ?? "";
 
     await cashier.goto("/login");
     await cashier.getByLabel("E-Mail-Adresse").fill(demo.cashierEmail);
