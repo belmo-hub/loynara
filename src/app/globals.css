@@ -329,8 +329,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .cashier-booked h2 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.04em; }
 .cashier-booked-detail { margin: 0 auto; max-width: 420px; color: #31503c; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
 .cashier-booked-hint { margin: 12px auto 0; max-width: 420px; padding: 10px 12px; border-radius: 9px; background: #eef5ea; color: #2f5b3e; font-size: 13px; font-weight: 700; }
-.cashier-booked .button { margin-top: 20px; min-height: 52px; }
-.cashier-booked small { display: block; margin-top: 10px; color: #809080; font-size: 12px; }
+.cashier-booked .button { margin-top: 18px; min-height: 46px; }
+.cashier-booked + .cashier-scan-card { margin-top: 16px; }
 .confirm-dialog p.confirm-offline-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; }
 .confirm-actions { flex-wrap: wrap; }
 .confirm-actions .button { flex: 1 1 120px; min-width: 0; white-space: normal; text-align: center; }

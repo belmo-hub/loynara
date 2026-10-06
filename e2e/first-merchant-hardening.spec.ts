@@ -196,8 +196,9 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(page.getByRole("button", { name: "Menge erhöhen" })).toHaveCount(0);
     await expect(page.locator(".balance-display")).toHaveCount(0);
     await expect(booked).not.toContainText("sc_");
-    // ... and the counter returns to the scan screen on its own, keeping the last booking as a note.
-    await expect(page.getByRole("heading", { name: "Bereit für die nächste Karte" })).toBeVisible({ timeout: 8_000 });
+    // The next card can be scanned at once; the confirmation hides on its own, keeping the last booking as a note.
+    await expect(page.getByRole("heading", { name: "Bereit für die nächste Karte" })).toBeVisible();
+    await expect(booked).toHaveCount(0, { timeout: 8_000 });
     await expect(page.locator(".cashier-status")).toContainText(`für ${card.cardLocator} vergeben`);
     expect(await balanceOf(url, card.cardToken)).toBe(1);
 
@@ -215,7 +216,7 @@ test("after a booking the card closes, shows its number, and the counter returns
     await page.getByRole("button", { name: "Vergabe prüfen" }).click();
     await page.getByRole("button", { name: "Ja, vergeben" }).dblclick();
     await expect(booked).toContainText("Neuer Stand: 3 Stempel.");
-    await expect(page.getByRole("heading", { name: "Bereit für die nächste Karte" })).toBeVisible({ timeout: 8_000 });
+    await expect(booked).toHaveCount(0, { timeout: 8_000 });
     expect(await balanceOf(url, card.cardToken)).toBe(3);
 
     // A slow answer that arrives after the cashier already moved on never reopens or closes anything.
@@ -274,6 +275,23 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(booked).toContainText(`Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`);
     await page.unroute("**/api/cashier/award");
     expect(await balanceOf(url, card.cardToken)).toBe(6);
+
+    // A handheld scanner: right after a booking the code field has the focus, so the next guest's code goes straight in.
+    const next = await guestCard(url, shop.programSlug);
+    await openCard(page, card.scanCode);
+    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await expect(booked).toContainText(`für ${card.cardLocator} vergeben`);
+    await expect(page.getByLabel("Kartennummer oder Kartencode")).toBeFocused();
+    await page.keyboard.type(next.scanCode);
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: next.cardLocator })).toBeVisible();
+    await expect(booked).toHaveCount(0);
+    await expect(page.locator(".balance-display")).toContainText("0");
+    await page.waitForTimeout(4_500);
+    await expect(page.getByRole("heading", { name: next.cardLocator })).toBeVisible();
+    expect(await balanceOf(url, card.cardToken)).toBe(7);
+    expect(await balanceOf(url, next.cardToken)).toBe(0);
   } finally { await counter.close(); await shop.owner.dispose(); }
 });
 
