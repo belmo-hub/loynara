@@ -43,8 +43,8 @@ export default function MerchantAudiencesPage() {
   // Owners can continue from a previewed audience to a draft with the same threshold; managers cannot manage campaigns.
   const campaignLink = me.role !== "owner" || (me.hiddenSurfaces ?? []).includes("campaigns") ? null
     : kind === "inactive" ? `/merchant/campaigns?goal=winback&days=${Number(daysSinceLast) || 30}`
-    : kind === "close_to_reward" ? `/merchant/campaigns?goal=near-reward&maxRemaining=${Number(maxRemaining) || 2}`
-    : kind === "recently_active" ? "/merchant/campaigns?goal=quiet" : null;
+    : kind === "close_to_reward" ? `/merchant/campaigns?goal=near-reward&maxRemaining=${Number(maxRemaining) || 2}${rewardId ? `&rewardId=${encodeURIComponent(rewardId)}` : ""}`
+    : kind === "recently_active" ? `/merchant/campaigns?goal=quiet&withinDays=${Number(withinDays) || 30}` : null;
   const change = <T,>(setter: (value: T) => void) => (value: T) => { setter(value); setPreview(null); };
 
   return (
