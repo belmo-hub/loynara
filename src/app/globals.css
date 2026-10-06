@@ -304,3 +304,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width: 420px) { .invite-card { padding: 22px; } .invite-card h1 { font-size: 30px; } }
 
 .cashier-preview-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
+
+/* Customer card: Add to Wallet. Shown only when the server reports a provider available. */
+.customer-wallet-add { margin-top: 16px; border: 1px solid #e0e9dc; background: #fff; border-radius: 14px; padding: 22px; }
+.customer-wallet-add h2 { font-size: 18px; letter-spacing: -.035em; margin: 0 0 8px; }
+.customer-wallet-add > p { margin: 0; color: #718475; font-size: 12px; line-height: 1.5; }
+.wallet-add-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
+.wallet-add { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; padding: 0 18px; border: 0; border-radius: 12px; background: #111; color: #fff; font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -.01em; cursor: pointer; }
+.wallet-add span { min-width: 0; overflow-wrap: anywhere; text-align: center; }
+.wallet-add:hover:not(:disabled) { background: #2b2b2b; }
+.wallet-add:focus-visible { outline: 3px solid #56a46a; outline-offset: 2px; }
+.wallet-add:disabled { opacity: .7; cursor: progress; }

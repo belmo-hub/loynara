@@ -4,10 +4,11 @@ import Image from "next/image";
 import { GuardedLink } from "./owner-shell";
 import { useMemo, useRef, useState } from "react";
 import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
-import { HEX_COLOR as HEX, readableInk, whiteContrast } from "./color";
+import { HEX_COLOR as HEX, readableInk } from "./color";
 import { useDirtyGuard, useOwner } from "./owner-context";
-import { Notice, OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
+import { OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
 import { SurfacePreview, type Surface } from "./wallet-previews";
+import { WalletReadiness } from "./wallet-readiness";
 
 export type Brand = { businessName: string; locationName: string; brandColor: string; logoData: string | null };
 const SWATCHES: Array<{ name: string; hex: string }> = [
@@ -32,6 +33,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   const [surface, setSurface] = useState<Surface>("browser");
   const [demo, setDemo] = useState<Demo>("close");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
+  const [savedVersion, setSavedVersion] = useState(0);
   const saving = useRef(false);
 
   const colorValid = HEX.test(draft.brandColor);
@@ -63,7 +65,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
       // logoData: omitted = keep, null = remove, string = replace. Only send the image when it changed.
       const logoChanged = draft.logoData !== saved.logoData;
       const result = await postJson<Brand>("/api/merchant/program/brand", { programSlug: me.programSlug, businessName: draft.businessName.trim(), locationName: draft.locationName.trim(), brandColor: draft.brandColor, ...(logoChanged ? { logoData: draft.logoData } : {}) });
-      setSaved(result); setDraft(result); setState("saved"); onSaved(result);
+      setSaved(result); setDraft(result); setState("saved"); onSaved(result); setSavedVersion(value => value + 1);
       owner.announce("Kundenkarte gespeichert.");
       void owner.refresh();
     } catch (cause) {
@@ -72,7 +74,6 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   }
   function discard() { setDraft(saved); setState("clean"); setError(""); setLogoError(""); }
 
-  const appleContrast = whiteContrast(draft.brandColor);
   const logoIsPng = draft.logoData?.startsWith("data:image/png;base64,") ?? false;
   return (
     <div className="ow-stack" style={{ gap: 0 }}>
@@ -99,8 +100,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
                 <div className="ow-field"><label htmlFor="cs-hex" className="ow-hint">Farbwert (Hex)</label><input id="cs-hex" className="ow-input" value={draft.brandColor} maxLength={7} spellCheck={false} onChange={event => edit({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} aria-invalid={!colorValid} aria-describedby={colorValid ? undefined : "cs-hex-err"} /></div>
               </div>
               {!colorValid && <span id="cs-hex-err" className="ow-error">Bitte einen Farbwert wie #1F4A3A eingeben.</span>}
-              {!walletsHidden && colorValid && appleContrast < 4.5 && <Notice tone="warn">Apple Wallet setzt weiße Schrift. Auf dieser Farbe ist sie schwer lesbar (Kontrast {appleContrast.toFixed(1).replace(".", ",")} : 1). Eine dunklere Farbe liest sich besser.</Notice>}
-              {!walletsHidden && colorValid && appleContrast >= 4.5 && readableInk(draft.brandColor) === "#000000" && <span className="ow-hint">Browserkarte und Google Wallet wählen automatisch dunkle Schrift.</span>}
+              {colorValid && readableInk(draft.brandColor) === "#000000" && <span className="ow-hint">{walletsHidden ? "Die Browserkarte wählt automatisch dunkle Schrift." : "Browserkarte und Wallet-Karten wählen automatisch dunkle Schrift."}</span>}
             </div>
             {!logoHidden && (
             <div className="ow-field">
@@ -112,7 +112,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
               </div>
               <span className="ow-hint">PNG, JPG oder WebP bis 2 MB.</span>
               {logoError && <span className="ow-error" role="alert">{logoError}</span>}
-              {draft.logoData && <span className="ow-hint">Das Logo wird auf der Browserkarte und im Apple-Pass derzeit nicht angezeigt. Google Wallet nutzt nur PNG-Logos und nur, wenn die Bildfreigabe für Google eingerichtet ist{logoIsPng ? "" : ". Dieses Bild ist kein PNG"}.</span>}
+              {draft.logoData && <span className="ow-hint">Das Logo erscheint auf der Wallet-Karte{logoIsPng ? "" : ", sobald es als PNG vorliegt (dieses Bild ist kein PNG)"}. Die Browserkarte zeigt deinen Geschäftsnamen.</span>}
             </div>
             )}
           </fieldset>
@@ -121,6 +121,11 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
             <div className="ow-readonly"><dl className="ow-dl"><dt>Programm</dt><dd>{program.programName}</dd><dt>Prämie</dt><dd>{program.rewardCost} {program.programType === "stamp" ? "Stempel" : "Punkte"} → {program.rewardTitle}</dd></dl></div>
             <p className="ow-hint">Programmname, Prämien und Regeln pflegst du unter <GuardedLink className="ow-link" href="/merchant/program">Sammelregeln &amp; Prämien</GuardedLink>.</p>
           </fieldset>
+          {!walletsHidden && <fieldset className="ow-group">
+            <legend>Apple &amp; Google Wallet</legend>
+            <WalletReadiness programSlug={me.programSlug} version={savedVersion} />
+            <p className="ow-hint">Wallet-Karten zeigen eine Kopie aus Loynara und aktualisieren sich nach jeder Buchung. Was zählt, entscheidet immer die Kasse.</p>
+          </fieldset>}
         </div>
 
         <div className="ow-studio-preview">
