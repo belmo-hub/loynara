@@ -304,3 +304,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width: 420px) { .invite-card { padding: 22px; } .invite-card h1 { font-size: 30px; } }
 
 .cashier-preview-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
+
+/* First-merchant hardening: returning customers on the join page. */
+.join-returning > .button { margin-top: 20px; min-height: 52px; }
+.join-card-number { display: flex; flex-direction: column; gap: 3px; margin: 18px 0 0; padding: 14px 16px; border-radius: 12px; background: #eff5eb; }
+.join-card-number span { color: #4f6355; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.join-card-number strong { color: #1d3a2a; font-size: 24px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.join-another-link { min-height: 44px; margin-top: 14px; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+.join-panel > p.join-another-warning { margin: 0 0 14px; padding: 12px 14px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 13px; }
+.join-panel > .button + .join-contact-note, .join-panel > .join-contact-note { margin-top: 16px; }
+.join-checking { margin: 0; color: #617362; font-size: 12px; }
