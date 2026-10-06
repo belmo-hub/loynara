@@ -17,7 +17,9 @@ const PERMISSIONS: Array<[string, boolean, boolean]> = [
   ["Kundenkarten und ihren Verlauf ansehen", false, true],
   ["Fehlbuchungen korrigieren (bis 100 je Vorgang)", false, true],
   ["Verlorene Karte neu ausstellen", false, true],
-  ["Programm, Prämien, Empfehlungen und Auswertungen ändern oder ansehen", false, false],
+  ["Sammelregeln und Prämien ansehen", false, true],
+  ["Programm und Prämien ändern", false, false],
+  ["Empfehlungen verwalten und Auswertungen ansehen", false, false],
   ["Team einladen und sperren", false, false],
 ];
 const ROLE_HINT = { cashier: "Bucht an der Kasse. Bis 10 Stempel je Vorgang, sieht keine Kundenliste und keine Zahlen.", manager: "Alles von Kasse, dazu Kundenkarten, Korrekturen und Neuausstellung für diesen Standort." } as const;

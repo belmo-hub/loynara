@@ -79,7 +79,7 @@ export async function getCardReferralShare(cardToken: string) {
     url.searchParams.set("ref", code.code);
     // The card's own progress only: counts, never who signed up.
     const [progress] = await tx.select({
-      signedUp: sql<number>`count(*) FILTER (WHERE ${referrals.status} <> 'rejected')::int`,
+      signedUp: sql<number>`count(*)::int`,
       qualified: sql<number>`count(*) FILTER (WHERE ${referrals.status} = 'qualified')::int`,
     }).from(referrals).where(and(eq(referrals.tenantId, row.member.tenantId), eq(referrals.referrerMembershipId, row.member.id)));
     return { shareUrl: url.toString(), referrerBonus: setting.referrerBonus, referredBonus: setting.referredBonus, programType: row.program.type,

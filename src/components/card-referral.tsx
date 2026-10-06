@@ -49,8 +49,8 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
           : `Beim ersten bestätigten Einkauf: ${share.referrerBonus} ${unit} für dich, ${share.referredBonus} ${unit} für die neue Karte.`}</li>
       </ol>
       {share.progress && share.progress.signedUp > 0 && <p className={styles.progress} role="status">{french
-        ? `${share.progress.signedUp} carte(s) créée(s) avec votre lien, dont ${share.progress.qualified} confirmée(s) en caisse.`
-        : `${share.progress.signedUp} ${share.progress.signedUp === 1 ? "Anmeldung" : "Anmeldungen"} über deinen Link, davon ${share.progress.qualified} an der Kasse bestätigt.`}</p>}
+        ? `${share.progress.signedUp} carte(s) créée(s) avec votre lien, dont ${share.progress.qualified} avec un bonus crédité.`
+        : `${share.progress.signedUp} ${share.progress.signedUp === 1 ? "Anmeldung" : "Anmeldungen"} über deinen Link, davon ${share.progress.qualified} mit gutgeschriebenem Bonus.`}</p>}
       <div className={styles.actions}>
         {canShare && <button type="button" className="button" onClick={() => void nativeShare()}>{french ? "Partager" : "Teilen"}</button>}
         <button type="button" className="button button--outline" onClick={() => void copy()}>{french ? "Copier le lien" : "Link kopieren"}</button>

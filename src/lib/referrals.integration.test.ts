@@ -78,8 +78,13 @@ describe("referral lifecycle with synthetic cards", () => {
     expect(flagged).toMatchObject({ status: "review", reviewReason: "same_verified_email" });
     expect(JSON.stringify(flagged)).not.toContain("same@example.test");
     expect((await db.select().from(memberships).where(eq(memberships.id, referrer.id)))[0].balance).toBe(0);
+    // A real checkout held for review must not be presented as a credited referral.
+    expect((await getCardReferralShare(referrer.cardToken)).progress).toEqual({ signedUp: 1, qualified: 0 });
     await reviewReferral({ actorUserId: ownerId, referralId: flagged.id, action: "reject", reason: "Confirmed same verified owner" });
     expect((await db.select().from(referrals))[0].status).toBe("rejected");
+    // Rejecting the bonus does not erase the recorded signup from the funnel.
+    expect((await getCardReferralShare(referrer.cardToken)).progress).toEqual({ signedUp: 1, qualified: 0 });
+    expect(await listReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug })).toHaveLength(1);
   });
 
   it("awards the referral bonus only once for simultaneous distinct checkout requests", async () => {
