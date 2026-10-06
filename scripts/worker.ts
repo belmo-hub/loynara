@@ -3,6 +3,7 @@ import { pool } from "../src/db";
 import { claimOutboxJob, deferOutboxJob, markOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
+import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 
 type Job = OutboxJob;
@@ -159,7 +160,7 @@ async function replay(jobId: string) {
 }
 
 async function main() {
-  const configurationIssues = productionConfigIssues(process.env);
+  const configurationIssues = [...productionConfigIssues(process.env), ...productionWalletRuntimeIssues(process.env)];
   if (process.env.NODE_ENV === "production" && !validHeartbeatUrl(process.env.WORKER_HEARTBEAT_URL)) {
     configurationIssues.push("Production worker requires a reviewed HTTPS heartbeat monitor URL");
   }
