@@ -1,4 +1,22 @@
-# Wallet: architecture, lifecycle and launch readiness
+# Wallet — PassFast is canonical
+
+Product correction, 2026-10-07: **PassFast is Loynara's intended production Wallet provider. Managed signing by PassFast was explicitly confirmed by the owner.** The prior recommendation to deploy direct native Apple/Google integrations is superseded.
+
+Canonical flow: **Loynara ledger/membership -> generation-bound Wallet projection/outbox -> PassFast -> Apple Wallet + Google Wallet.** Provider state never determines loyalty balance, rewards, identity, referral qualification, K-locator or reissue/closure state.
+
+This branch currently implements the direct native adapters, **not a PassFast adapter**. Their software/runtime evidence remains useful as historical evidence and fallback reference. It is not evidence that PassFast issuance, update or void is implemented or accepted. Do not enable direct provider flags as a substitute for PassFast.
+
+PassFast's current official [getting-started documentation](https://passfa.st/docs) confirms generation for both wallets, opaque external references and `get_or_create`; its [API tool reference](https://passfa.st/docs/mcp) confirms update/void and serial-based operations. Exact wire contracts, partial-platform failure, void behavior, recovery and asset/template semantics must be verified from the official API reference before implementation. No real provider calls were made in this reconciliation.
+
+With the confirmed managed-signing choice, Loynara does not need to operate Apple certificates/WWDR/APNs or a direct Google issuer/service account as its normal production architecture. Remaining gates belong to the PassFast app, approved published template, secret key, managed platform readiness, account/quota, data-processing review and physical-device acceptance. No account state, credential or flag was changed.
+
+The prior arbitrary-legacy-native-Apple migration acceptance blocker is superseded by a **fresh production read-only inventory preflight**. Production schema 0019 and exactly 20 canonical journal entries must be verified; native Wallet pass/device/registration state must be zero before the providers-off pilot. Any actual native state requires a deliberate transition; never delete it to pass a guard. Preserve reviewed 0020 projection/coalescing hardening; add a narrow PassFast mapping migration after the adapter contract is verified, rather than rewriting already-tested migration history.
+
+The native-specific material below is **historical implementation/fallback reference**, not the canonical PassFast launch checklist. Provider-independent invariants and physical acceptance scenarios still apply.
+
+---
+
+# Native implementation reference
 
 The browser card at `/card/[token]` is the membership card. Apple Wallet and Google Wallet passes are **display copies**: the
 membership row and the append-only ledger are the only source of truth for balance, reward eligibility, identity,
@@ -217,17 +235,11 @@ Prefer stopping new rollout and repairing/replaying on the current lifecycle mod
 revocation service. Preserve committed loyalty changes. If a paired downgrade is specifically approved, keep the named previous
 images and backup available, verify web/worker health and checkout afterwards, and tell affected testers that re-adding is required.
 
-## PassFast decision
+## PassFast decision — canonical correction
 
-There is no PassFast adapter in this repository; the historical PassFast proof was a separate proof of concept. Recommendation:
-**native Apple now** (option A). The native adapter is implemented, owns serials, tokens, revocation and voiding, keeps
-customer data in Loynara's own processing, and has no per-pass vendor pricing or lock-in. A PassFast bridge would add a
-data processor and vendor lifecycle dependency, requiring a separate review of data handling, serial ownership, revocation,
-pricing and export. [PassFast's current documentation](https://passfa.st/docs) offers managed signing without the customer's
-own certificates, as well as custom signing with the customer's Apple certificate/Google service account. Managed signing can
-therefore reduce certificate operations; it does not replace device acceptance or prove compatibility with Loynara's credential
-rotation. Native Apple remains the recommendation because this repository implements its lifecycle directly. Reconsider a
-managed service if operating certificates/APNs cannot be staffed; that would be a new reviewed adapter, not a configuration switch.
+PassFast is canonical, with managed signing confirmed by the owner. No integrated adapter exists at this checkpoint. Retain generation-bound lifecycle, transaction/outbox isolation, retries, tenant checks and honest product UX; replace native transport with a verified PassFast adapter. Do not spend further implementation effort on theoretical legacy native data or direct certificate/issuer onboarding.
+
+Native Google demo instructions below are dormant historical reference and do not authorize native Google enablement.
 
 ### Separate device-test Google Demo gate
 
