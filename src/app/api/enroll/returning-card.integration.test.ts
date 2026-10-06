@@ -1,0 +1,216 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { db, pool } from "@/db";
+import { memberships } from "@/db/schema";
+import { closeCard } from "@/lib/card-lifecycle";
+import { reissueCardByStaff } from "@/lib/card-reissue";
+import { createMerchant, getCard } from "@/lib/product";
+import { returningCardCookieName } from "@/lib/returning-card";
+import { POST as bindCard } from "../card/[token]/tap-session/route";
+import { GET as existing } from "./existing/route";
+import { GET as openCard } from "./open/route";
+import { POST as enrollRoute } from "./route";
+
+if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
+
+const base = "http://localhost:3000";
+const originalBaseUrl = process.env.PUBLIC_BASE_URL;
+
+/** A minimal cookie jar: what a browser would send back to paths under /api/enroll. */
+class Jar {
+  private cookies = new Map<string, { value: string; path: string }>();
+  take(response: Response) {
+    for (const header of response.headers.getSetCookie()) {
+      const [pair, ...attributes] = header.split(";").map(part => part.trim());
+      const name = pair.slice(0, pair.indexOf("="));
+      const value = pair.slice(pair.indexOf("=") + 1);
+      const path = attributes.find(item => item.toLowerCase().startsWith("path="))?.slice(5) ?? "/";
+      const expired = attributes.some(item => item.toLowerCase() === "max-age=0");
+      if (expired) this.cookies.delete(`${path}|${name}`); else this.cookies.set(`${path}|${name}`, { value, path });
+    }
+    return response;
+  }
+  set(name: string, value: string, path = "/api/enroll") { this.cookies.set(`${path}|${name}`, { value, path }); }
+  header(requestPath: string) {
+    return [...this.cookies.entries()].filter(([, cookie]) => requestPath === cookie.path || requestPath.startsWith(`${cookie.path}/`))
+      .map(([key, cookie]) => `${key.split("|")[1]}=${cookie.value}`).join("; ");
+  }
+  value(name: string, path = "/api/enroll") { return this.cookies.get(`${path}|${name}`)?.value; }
+}
+
+function request(jar: Jar, path: string, init: { method?: string; body?: object } = {}) {
+  const url = new URL(path, base);
+  const cookie = jar.header(url.pathname);
+  return new Request(url, {
+    method: init.method ?? "GET",
+    headers: { origin: base, ...(init.body ? { "content-type": "application/json" } : {}), ...(cookie ? { cookie } : {}) },
+    body: init.body ? JSON.stringify(init.body) : undefined,
+  });
+}
+
+const join = (jar: Jar, slug: string, extra: object = {}) => enrollRoute(request(jar, "/api/enroll", { method: "POST", body: { slug, acceptedTerms: true, ...extra } })).then(response => jar.take(response));
+const check = (jar: Jar, slug: string) => existing(request(jar, `/api/enroll/existing?slug=${encodeURIComponent(slug)}`)).then(response => jar.take(response));
+const open = (jar: Jar, slug: string) => openCard(request(jar, `/api/enroll/open?slug=${encodeURIComponent(slug)}`)).then(response => jar.take(response));
+const bind = (jar: Jar, token: string) => bindCard(request(jar, `/api/card/${token}/tap-session`, { method: "POST" }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
+
+async function owner() {
+  const id = randomUUID();
+  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [id, "Synthetic owner", `${id}@example.test`]);
+  return id;
+}
+const shop = async (name = "Synthetic Return Café") => {
+  const userId = await owner();
+  const merchant = await createMerchant({ userId, businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: `${name} Karte`, programType: "stamp", rulesText: "Ein Stempel pro Besuch.", rewardTitle: "Kaffee gratis", rewardCost: 5 });
+  return { ...merchant, ownerId: userId };
+};
+const cardCount = async (programId: string) => (await db.select({ id: memberships.id }).from(memberships).where(eq(memberships.programId, programId))).length;
+
+beforeEach(async () => {
+  process.env.PUBLIC_BASE_URL = base;
+  await pool.query('TRUNCATE TABLE tenants, "user", rate_limits CASCADE');
+});
+afterAll(async () => {
+  if (originalBaseUrl === undefined) delete process.env.PUBLIC_BASE_URL; else process.env.PUBLIC_BASE_URL = originalBaseUrl;
+  await pool.end();
+});
+
+describe("returning customer on the join page", () => {
+  it("creates the first card, then offers it again instead of silently creating a second one", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    expect(await (await check(jar, merchant.programSlug)).json()).toEqual({ existing: false, stale: false });
+
+    const first = await join(jar, merchant.programSlug);
+    expect(first.status).toBe(201);
+    const { cardToken } = await first.json() as { cardToken: string };
+    const remembered = first.headers.getSetCookie().find(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`));
+    expect(remembered).toBeDefined();
+    expect(remembered).toContain("Path=/api/enroll");
+    expect(remembered).toContain("HttpOnly");
+    expect(remembered).toContain("SameSite=Lax");
+
+    // Scanning the counter QR again: the existing card is recognised; only its number is disclosed.
+    const again = await check(jar, merchant.programSlug);
+    const body = await again.text();
+    expect(JSON.parse(body)).toEqual({ existing: true, cardLocator: (await getCard(cardToken)).cardLocator });
+    expect(body).not.toContain("card_");
+    expect(body).not.toContain("sc_");
+    expect(again.headers.get("cache-control")).toBe("no-store");
+
+    // Pressing "create" anyway (stale page, double submit, failed check) is refused by the server.
+    const duplicate = await join(jar, merchant.programSlug);
+    expect(duplicate.status).toBe(409);
+    expect(await duplicate.json()).toMatchObject({ code: "CARD_EXISTS" });
+    expect(await cardCount(merchant.programId)).toBe(1);
+
+    // "Meine Karte öffnen" is a server redirect to the remembered, re-validated card.
+    const opened = await open(jar, merchant.programSlug);
+    expect(opened.status).toBe(303);
+    expect(opened.headers.get("location")).toBe(`/card/${encodeURIComponent(cardToken)}`);
+    expect(opened.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+
+  it("creates another card only on a deliberate request, and then remembers the newest card", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    const first = await (await join(jar, merchant.programSlug)).json() as { cardToken: string };
+    const invalid = await join(jar, merchant.programSlug, { additionalCard: "yes" });
+    expect(invalid.status).toBe(400);
+    expect(await cardCount(merchant.programId)).toBe(1);
+
+    const second = await join(jar, merchant.programSlug, { additionalCard: true });
+    expect(second.status).toBe(201);
+    const { cardToken } = await second.json() as { cardToken: string };
+    expect(cardToken).not.toBe(first.cardToken);
+    expect(await cardCount(merchant.programId)).toBe(2);
+    expect(jar.value(returningCardCookieName(merchant.programId))).toBe(cardToken);
+    expect((await open(jar, merchant.programSlug)).headers.get("location")).toBe(`/card/${encodeURIComponent(cardToken)}`);
+  });
+
+  it("does not offer a closed card and forgets it", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    const { cardToken } = await (await join(jar, merchant.programSlug)).json() as { cardToken: string };
+    await closeCard(cardToken);
+
+    const after = await check(jar, merchant.programSlug);
+    expect(await after.json()).toEqual({ existing: false, stale: true });
+    expect(after.headers.getSetCookie().join("\n")).toMatch(new RegExp(`${returningCardCookieName(merchant.programId)}=;.*Max-Age=0`));
+    expect(jar.value(returningCardCookieName(merchant.programId))).toBeUndefined();
+    expect((await open(jar, merchant.programSlug)).headers.get("location")).toBe(`/join/${encodeURIComponent(merchant.programSlug)}`);
+    expect((await join(jar, merchant.programSlug)).status).toBe(201);
+  });
+
+  it("treats a reissued (rotated) link as stale and recognises the card again once the new link is opened", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    const { cardToken } = await (await join(jar, merchant.programSlug)).json() as { cardToken: string };
+    const [member] = await db.select().from(memberships).where(eq(memberships.cardToken, cardToken));
+    const reissued = await reissueCardByStaff({ actorUserId: merchant.ownerId, locationId: merchant.locationId, membershipId: member.id, reason: "Neues Handy, Kartennummer genannt", verificationMethod: "other_check", entitlementConfirmed: true, idempotencyKey: randomUUID() });
+
+    const stale = await check(jar, merchant.programSlug);
+    expect(await stale.json()).toEqual({ existing: false, stale: true });
+    const blocked = await open(jar, merchant.programSlug);
+    expect(blocked.headers.get("location")).toBe(`/join/${encodeURIComponent(merchant.programSlug)}`);
+    expect(blocked.headers.get("location")).not.toContain(cardToken);
+
+    // Opening the new link on this phone binds it again; the card number is unchanged.
+    expect((await bind(jar, reissued.cardToken)).status).toBe(200);
+    expect(await (await check(jar, merchant.programSlug)).json()).toEqual({ existing: true, cardLocator: `K-${member.cardLocator}` });
+    expect((await open(jar, merchant.programSlug)).headers.get("location")).toBe(`/card/${encodeURIComponent(reissued.cardToken)}`);
+  });
+
+  it("keeps programmes apart: one programme's card is never offered for another", async () => {
+    const coffee = await shop("Synthetic Coffee");
+    const barber = await shop("Synthetic Barber");
+    const jar = new Jar();
+    const { cardToken } = await (await join(jar, coffee.programSlug)).json() as { cardToken: string };
+    expect(await (await check(jar, barber.programSlug)).json()).toEqual({ existing: false, stale: false });
+    expect((await join(jar, barber.programSlug)).status).toBe(201);
+
+    // Both programmes are remembered independently on the same device.
+    expect(await (await check(jar, coffee.programSlug)).json()).toMatchObject({ existing: true });
+    expect(await (await check(jar, barber.programSlug)).json()).toMatchObject({ existing: true });
+
+    // A coffee card placed under the barber programme's cookie name is not accepted there.
+    const forged = new Jar();
+    forged.set(returningCardCookieName(barber.programId), cardToken);
+    expect(await (await check(forged, barber.programSlug)).json()).toEqual({ existing: false, stale: true });
+    expect((await open(forged, barber.programSlug)).headers.get("location")).toBe(`/join/${encodeURIComponent(barber.programSlug)}`);
+    expect((await join(forged, barber.programSlug)).status).toBe(201);
+  });
+
+  it("survives corrupted or unknown remembered values and unknown programmes", async () => {
+    const merchant = await shop();
+    const name = returningCardCookieName(merchant.programId);
+    for (const value of ["", "garbage", "card_short", `card_${"x".repeat(40)}`, "sc_abcdefghijklmnopqrstuvwx", "%00%3B"]) {
+      const jar = new Jar();
+      jar.set(name, value);
+      const response = await check(jar, merchant.programSlug);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ existing: false, stale: true });
+    }
+    const jar = new Jar();
+    jar.set(name, "garbage");
+    expect((await join(jar, merchant.programSlug)).status).toBe(201);
+    expect(await (await check(jar, merchant.programSlug)).json()).toMatchObject({ existing: true });
+
+    expect(await (await check(new Jar(), "does-not-exist")).json()).toEqual({ existing: false, stale: false });
+    expect((await open(new Jar(), "does-not-exist")).headers.get("location")).toBe("/");
+    expect(await (await check(new Jar(), "")).json()).toEqual({ existing: false, stale: false });
+  });
+
+  it("remembers a card that was created before this release once its link is opened", async () => {
+    const merchant = await shop();
+    const creator = new Jar();
+    const { cardToken } = await (await join(creator, merchant.programSlug)).json() as { cardToken: string };
+    const otherBrowser = new Jar();
+    expect(await (await check(otherBrowser, merchant.programSlug)).json()).toEqual({ existing: false, stale: false });
+    const bound = await bind(otherBrowser, cardToken);
+    expect(bound.status).toBe(200);
+    expect(bound.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api/enroll") && header.includes("HttpOnly"))).toBe(true);
+    expect(bound.headers.getSetCookie().some(header => header.includes("Path=/api/tap"))).toBe(true);
+    expect(await (await check(otherBrowser, merchant.programSlug)).json()).toMatchObject({ existing: true });
+  });
+});
