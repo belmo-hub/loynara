@@ -11,9 +11,19 @@ type InviteResult = { token: string; expiresAt: string; email: string; role: "ma
 type AuditEvent = { id: string; action: "invite_created" | "invite_accepted" | "access_revoked"; actorUserId: string; subjectUserId: string | null; locationId: string | null; role: "manager" | "cashier"; createdAt: string };
 const AUDIT_LABEL = { invite_created: "Einladung erstellt", invite_accepted: "Einladung angenommen", access_revoked: "Zugang gesperrt" } as const;
 const ROLE_LABEL = { owner: "Inhaber:in", manager: "Leitung", cashier: "Kasse" } as const;
+/** Mirrors the server checks (lib/loyalty, card-reissue, merchant-members, owner-only APIs); the server stays the authority. */
+const PERMISSIONS: Array<[string, boolean, boolean]> = [
+  ["Stempel oder Punkte vergeben und Prämien einlösen", true, true],
+  ["Kundenkarten und ihren Verlauf ansehen", false, true],
+  ["Fehlbuchungen korrigieren (bis 100 je Vorgang)", false, true],
+  ["Verlorene Karte neu ausstellen", false, true],
+  ["Programm, Prämien, Empfehlungen und Auswertungen ändern oder ansehen", false, false],
+  ["Team einladen und sperren", false, false],
+];
+const ROLE_HINT = { cashier: "Bucht an der Kasse. Bis 10 Stempel je Vorgang, sieht keine Kundenliste und keine Zahlen.", manager: "Alles von Kasse, dazu Kundenkarten, Korrekturen und Neuausstellung für diesen Standort." } as const;
 
 export default function StaffPage() {
-  const { me } = useOwner();
+  const { me, locations } = useOwner();
   const owner = me?.role === "owner";
   const [staff, reloadStaff] = useLoad<{ staff: StaffMember[]; accountCreation?: "public" | "invite" | "operator" }>(owner ? "/api/staff" : null);
   const [audit, reloadAudit] = useLoad<{ events: AuditEvent[] }>(owner ? "/api/staff/audit" : null);
@@ -69,7 +79,7 @@ export default function StaffPage() {
           <div><h2 id="st-invite">Person einladen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Der Link wird einmalig angezeigt und nicht automatisch versendet. Zugriff gilt für {me.locationName}.</p></div>
           <form className="ow-stack" onSubmit={createInvite}>
             <div className="ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" className="ow-input" type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required placeholder="team@geschaeft.de" /></div>
-            <div className="ow-field"><label htmlFor="st-role">Rolle</label><select id="st-role" className="ow-select" value={role} onChange={event => setRole(event.target.value as "manager" | "cashier")}><option value="cashier">Kasse · Buchungen</option><option value="manager">Leitung · Berichte & Kasse</option></select></div>
+            <div className="ow-field"><label htmlFor="st-role">Rolle</label><select id="st-role" className="ow-select" value={role} onChange={event => setRole(event.target.value as "manager" | "cashier")}><option value="cashier">Kasse</option><option value="manager">Leitung</option></select><span className="ow-hint">{ROLE_HINT[role]}</span></div>
             <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy}>Einladungslink erstellen</button></div>
           </form>
           {invite && (
@@ -84,11 +94,18 @@ export default function StaffPage() {
           <div><h2 id="st-list">Aktuelle Zugänge</h2><p className="ow-muted" style={{ fontSize: 14 }}>Gesperrte Teammitglieder können nicht mehr buchen.</p></div>
           {staff.state === "loading" ? <LoadingBlock rows={2} height={48} /> : (
             <ul className="ow-feed">{people.map(item => (
-              <li key={item.userId}><span><strong>{item.email || "E-Mail nicht verfügbar"}</strong><br /><span className="ow-muted" style={{ fontSize: 13 }}>{ROLE_LABEL[item.role]} · {item.active ? "Aktiv" : "Gesperrt"}</span></span>
+              <li key={item.userId} style={item.active ? undefined : { opacity: .7 }}><span><strong>{item.email || "E-Mail nicht verfügbar"}</strong>{item.userId === me.userId && <span className="ow-muted"> (du)</span>}<br /><span className="ow-row" style={{ gap: 6, marginTop: 4 }}><span className={`ow-chip ${item.role === "owner" ? "ow-chip--ok" : item.role === "manager" ? "ow-chip--info" : ""}`}>{ROLE_LABEL[item.role]}</span><span className="ow-muted" style={{ fontSize: 13 }}>{item.role === "owner" ? "Alle Standorte" : locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {item.active ? "Aktiv" : "Gesperrt"}</span></span></span>
                 {item.role !== "owner" && item.active && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setRevokeTarget(item)}>Sperren</button>}</li>))}</ul>
           )}
         </section>
       </div>
+      <section className="ow-card ow-stack" aria-labelledby="st-perm">
+        <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Kasse und Leitung arbeiten nur an ihrem Standort. Die Rechte prüft Loynara bei jeder Buchung auf dem Server.</p></div>
+        <div className="ow-table-wrap"><table className="ow-perm">
+          <thead><tr><th scope="col">Aufgabe</th><th scope="col">Kasse</th><th scope="col">Leitung</th><th scope="col">Inhaber:in</th></tr></thead>
+          <tbody>{PERMISSIONS.map(([task, cashier, manager]) => <tr key={task}><th scope="row">{task}</th>{[cashier, manager, true].map((allowed, index) => <td key={index}>{allowed ? <span className="ow-perm-yes" aria-label="erlaubt">✓</span> : <span className="ow-perm-no" aria-label="nicht erlaubt">–</span>}</td>)}</tr>)}</tbody>
+        </table></div>
+      </section>
       <section className="ow-card ow-stack" aria-labelledby="staff-audit-title">
         <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die letzten 50 Teamereignisse dieses Betriebs. Ältere Einträge stehen im Inhaberexport.</p></div>
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
