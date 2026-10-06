@@ -15,6 +15,7 @@ import { GET as walletStatus } from "@/app/api/wallet/status/route";
 import { reissueCardByStaff } from "@/lib/card-reissue";
 import { createMerchant, enroll } from "@/lib/product";
 import { applePassToken } from "./apple";
+import * as appleAdapter from "./apple";
 import { ownerWalletReadiness } from "./readiness";
 import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 
@@ -22,7 +23,7 @@ if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Int
 
 const origin = "http://localhost:3000";
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices, rate_limits CASCADE'); });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(async () => { await pool.query("TRUNCATE TABLE apple_devices, rate_limits CASCADE"); await pool.end(); });
 
 async function createMember() {
@@ -60,6 +61,48 @@ describe("public Wallet status and issuance errors leak no diagnostics", () => {
 });
 
 describe("Apple issuance: bearer in the body, short-lived ticket in the URL", () => {
+  it("returns a safe navigation page for an expired ticket and JSON for an API caller", async () => {
+    const apple = appleFixture();
+    try {
+      await withEnv({ ...apple.env, PUBLIC_BASE_URL: origin }, async () => {
+        const navigation = await appleDownload(new Request(`${origin}/api/wallet/apple/download/expired`, { headers: { accept: "text/html" } }), params({ ticket: "expired" }));
+        expect(navigation.status).toBe(404);
+        expect(navigation.headers.get("content-type")).toContain("text/html");
+        expect(navigation.headers.get("cache-control")).toBe("no-store");
+        expect(navigation.headers.get("content-security-policy")).toContain("default-src 'none'");
+        const html = await navigation.text();
+        expect(html).toContain("Zurück zur Karte");
+        expect(html).toContain("history.back()");
+        expect(html).not.toContain("NOT_FOUND");
+        const api = await appleDownload(new Request(`${origin}/api/wallet/apple/download/expired`, { headers: { accept: "application/json" } }), params({ ticket: "expired" }));
+        expect(api.status).toBe(404);
+        expect(await api.json()).toMatchObject({ code: "NOT_FOUND" });
+      });
+    } finally { apple.cleanup(); }
+  });
+
+  it("refuses a freshly signed archive if staff reissued the card during signing", async () => {
+    const apple = appleFixture();
+    try {
+      await withEnv({ ...apple.env, PUBLIC_BASE_URL: origin }, async () => {
+        const { owner, merchant, member } = await createMember();
+        const { url } = await (await appleIssue(post("/api/wallet/apple", { token: member.cardToken }))).json() as { url: string };
+        const sign = appleAdapter.applePassArchive;
+        vi.spyOn(appleAdapter, "applePassArchive").mockImplementationOnce(async (...args) => {
+          const archive = await sign(...args);
+          await reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: member.id, reason: "Neues Handy, Link gezeigt", verificationMethod: "card_link", entitlementConfirmed: true, idempotencyKey: randomUUID() });
+          return archive;
+        });
+        const response = await appleDownload(new Request(`${origin}${url}`, { headers: { accept: "application/json" } }), params({ ticket: url.split("/").pop()! }));
+        expect(response.status).toBe(404);
+        expect(await response.json()).toMatchObject({ code: "NOT_FOUND" });
+        const row = (await pool.query("SELECT status, revoked_at FROM wallet_passes WHERE membership_id = $1 AND provider = 'apple'", [member.id])).rows[0];
+        expect(row.revoked_at).not.toBeNull();
+        expect(row.status).toBe("revoked"); // it was never delivered; do not promote it to downloaded
+      });
+    } finally { apple.cleanup(); }
+  });
+
   it("issues a ticketed download whose URL carries no card credential, and caps its use", async () => {
     const apple = appleFixture();
     try {
