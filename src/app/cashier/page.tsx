@@ -24,6 +24,8 @@ type Booked = { tone: "success" | "pending"; title: string; detail: string; hint
  * card. The previous card is never left open with booking controls, so a second tap cannot credit the wrong guest.
  */
 const NEXT_CUSTOMER_DELAY_MS = 4_000;
+/** How long an unclear booking stays attached to its card, so that reopening the card resumes the same request. */
+const UNRESOLVED_TTL_MS = 10 * 60_000;
 const isNetworkFailure = (cause: unknown) => cause instanceof ClientApiError && cause.status === 0;
 
 export default function CashierPage() {
@@ -49,6 +51,9 @@ export default function CashierPage() {
   // The NFC confirmation panel only means something where the programme uses staff-confirmed NFC taps; otherwise it is dead weight on the counter screen.
   const [staffTapEnabled, setStaffTapEnabled] = useState(false);
   const pendingRef = useRef<PendingOperation | null>(null);
+  // A booking whose result stayed unclear is remembered per card for a while. Reopening that card (after "Andere Karte"
+  // or a new scan) resumes the same request id, so retrying it still cannot book twice.
+  const unresolvedRef = useRef(new Map<string, { pending: PendingOperation; label: string; at: number }>());
   const [booked, setBooked] = useState<Booked | null>(null);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeCardId = useRef<string | null>(null);
@@ -113,7 +118,15 @@ export default function CashierPage() {
       setPreview(null);
       activeCardId.current = result.membershipId;
       setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
-      pendingRef.current = null;
+      const unresolved = unresolvedRef.current.get(result.membershipId);
+      if (unresolved && Date.now() - unresolved.at < UNRESOLVED_TTL_MS) {
+        pendingRef.current = unresolved.pending;
+        setUncertain(true); setStatus("pending");
+        setMessage(locale === "fr" ? `La dernière opération pour ${result.cardLocator} a un résultat incertain (${unresolved.label}). Vérifiez le solde. Si vous confirmez exactement cette opération à nouveau, elle garde son identifiant et ne sera pas comptée deux fois.` : `Der letzte Vorgang für ${result.cardLocator} hat ein unklares Ergebnis (${unresolved.label}). Prüfe den Kontostand. Bestätigst du genau diesen Vorgang erneut, behält er seine Anfragekennung und wird nicht doppelt gebucht.`);
+      } else {
+        unresolvedRef.current.delete(result.membershipId);
+        pendingRef.current = null;
+      }
       try {
         const deviceId = getOfflineDeviceId(localStorage);
         const lease = await postJson<{ leaseId: string; expiresAt: string }>("/api/cashier/offline/lease", { membershipId: result.membershipId, deviceId });
@@ -202,12 +215,18 @@ export default function CashierPage() {
     try { pending = operationFor(signature); }
     catch (cause) { setStatus("rejected"); setMessage(cause instanceof Error ? cause.message : "Buchung nicht möglich."); return; }
     const fr = locale === "fr";
+    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity} ${unitLabel(selectedCard, operation.award.quantity, fr)}` : `${(operation.award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}`;
+    const settle = (unclear: boolean) => {
+      if (unclear) unresolvedRef.current.set(selectedCard.id, { pending, label, at: Date.now() });
+      else if (unresolvedRef.current.get(selectedCard.id)?.pending.signature === signature) unresolvedRef.current.delete(selectedCard.id);
+    };
     setBusy(true); setStatus("pending"); setMessage(fr ? "Le serveur vérifie l’opération." : "Der Server prüft die Buchung.");
     try {
       const result = await postJson<TransactionResult>(`/api/cashier/${operation.kind}`, operation.kind === "award"
         ? { membershipId: selectedCard.id, ...operation.award, idempotencyKey: pending.idempotencyKey, requestId: pending.requestId, deviceAt: new Date().toISOString() }
         : { membershipId: selectedCard.id, rewardVersionId: operation.reward.id, idempotencyKey: pending.idempotencyKey, requestId: pending.requestId, deviceAt: new Date().toISOString() });
       setNetworkTrouble(false);
+      settle(false);
       const summary = bookingSummary(selectedCard, operation, result, fr);
       if (activeCardId.current !== selectedCard.id) {
         // The cashier already moved on; never close or change another card. Report the result only on an empty counter.
@@ -220,6 +239,7 @@ export default function CashierPage() {
       if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
       const unclear = cause instanceof ClientApiError && (cause.status === 0 || cause.status >= 500);
+      settle(unclear);
       if (activeCardId.current !== selectedCard.id) {
         // The cashier already moved on, so this card cannot be retried from here. Say so plainly, only on an empty counter.
         if (pendingRef.current?.signature === signature) pendingRef.current = null;

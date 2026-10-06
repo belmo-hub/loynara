@@ -251,6 +251,29 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(booked).toContainText(`Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`);
     await page.unroute("**/api/cashier/award");
     expect(await balanceOf(url, card.cardToken)).toBe(5);
+
+    // The cashier gives up on an unclear booking and moves on; when the card is opened again, the same request is
+    // resumed, so confirming it again still books only once.
+    await openCard(page, card.scanCode);
+    dropped = false;
+    await page.route("**/api/cashier/award", async route => {
+      if (dropped) return route.continue();
+      dropped = true;
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await expect(page.locator(".cashier-status")).toContainText("Ergebnis unklar");
+    await page.locator(".card-result-head").getByRole("button", { name: "Andere Karte" }).click();
+    await openCard(page, card.scanCode);
+    await expect(page.locator(".cashier-status")).toContainText(`Der letzte Vorgang für ${card.cardLocator} hat ein unklares Ergebnis (1 Stempel).`);
+    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await expect(booked).toContainText(`Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`);
+    await page.unroute("**/api/cashier/award");
+    expect(await balanceOf(url, card.cardToken)).toBe(6);
   } finally { await counter.close(); await shop.owner.dispose(); }
 });
 
