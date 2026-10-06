@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
+import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
@@ -71,8 +72,10 @@ export async function listAutomations(raw: { actorUserId: string; programSlug: s
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   const rows = await db.select().from(automationRules).where(and(eq(automationRules.tenantId, program.tenantId), eq(automationRules.programId, program.id))).orderBy(automationRules.triggerKind);
   const ids = rows.map(row => row.id);
-  const runs = ids.length ? await db.select({ id: automationRuns.id, ruleId: automationRuns.ruleId, membershipId: automationRuns.membershipId, triggerKey: automationRuns.triggerKey, status: automationRuns.status, reason: automationRuns.reason, attempts: automationRuns.attempts, createdAt: automationRuns.createdAt, sentAt: automationRuns.sentAt })
-    .from(automationRuns).where(and(eq(automationRuns.tenantId, program.tenantId), inArray(automationRuns.ruleId, ids))).orderBy(desc(automationRuns.createdAt)).limit(100) : [];
+  const runs = ids.length ? await db.select({ id: automationRuns.id, ruleId: automationRuns.ruleId, membershipId: automationRuns.membershipId, cardLocator: memberships.cardLocator, triggerKey: automationRuns.triggerKey, status: automationRuns.status, reason: automationRuns.reason, attempts: automationRuns.attempts, createdAt: automationRuns.createdAt, sentAt: automationRuns.sentAt })
+    .from(automationRuns).leftJoin(memberships, and(eq(memberships.tenantId, automationRuns.tenantId), eq(memberships.id, automationRuns.membershipId)))
+    .where(and(eq(automationRuns.tenantId, program.tenantId), inArray(automationRuns.ruleId, ids))).orderBy(desc(automationRuns.createdAt)).limit(100)
+    .then(rows => rows.map(row => ({ ...row, cardLocator: row.cardLocator ? formatCardLocator(row.cardLocator) : null }))) : [];
   return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode() };
 }
 

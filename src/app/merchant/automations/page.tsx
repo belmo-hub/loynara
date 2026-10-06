@@ -9,7 +9,7 @@ import { useLoad } from "@/components/owner/use-load";
 type Kind = "first_checkout" | "inactive";
 type Editor = { triggerKind: Kind; enabled: boolean; subject: string; body: string; inactivityDays?: number; cooldownDays: number; dailyCap: number };
 type Rule = Editor & { id: string; revision: number; nextScanAt: string | null };
-type Run = { id: string; ruleId: string; membershipId: string; triggerKey: string; status: string; reason: string | null; attempts: number; createdAt: string; sentAt: string | null };
+type Run = { id: string; ruleId: string; membershipId: string; cardLocator: string | null; triggerKey: string; status: string; reason: string | null; attempts: number; createdAt: string; sentAt: string | null };
 type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[] };
 
 const defaults: Record<Kind, Editor> = {
@@ -32,10 +32,13 @@ export default function AutomationsPage() {
   return (
     <div className="ow-page">
       {head}
+      {d.deliveryMode === "disabled"
+        ? <Notice tone="warn"><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Regeln vorbereiten und speichern. Solange der Versand nicht freigegeben ist, wird keine Nachricht verschickt, auch nicht bei aktiver Regel.</Notice>
+        : d.deliveryMode === "mailpit" ? <Notice>Lokaler Testkanal: Nachrichten gehen nur an synthetische .test-Adressen in Mailpit.</Notice> : null}
       <div className="ow-two">
         <div className="ow-stack">
-          <RuleEditor title="Erster Kassenvorgang" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
-          <RuleEditor title="Inaktive Karte" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
+          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
+          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
@@ -47,7 +50,7 @@ export default function AutomationsPage() {
         <h2 id="au-runs">Letzte Ausführungen</h2>
         {d.runs.length === 0 ? <p className="ow-muted">Noch keine Ausführungen. Neue Regeln sind zunächst deaktiviert.</p> : (
           <table className="ow-table"><thead><tr><th>Regel</th><th>Karte</th><th>Zeit (UTC)</th><th>Status</th><th>Grund</th></tr></thead>
-            <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : "Erster Vorgang"}</td><td data-label="Karte">…{run.membershipId.slice(-8)}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
+            <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : "Erster Vorgang"}</td><td data-label="Karte">{run.cardLocator ?? "Karte entfernt"}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
         )}
       </section>
     </div>

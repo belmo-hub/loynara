@@ -158,6 +158,8 @@ describe("bounded local automations", () => {
     expect(runs).toHaveLength(1);
     expect([old.id, anotherOld.id]).toContain(runs[0].membershipId);
     expect((await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"))).length).toBe(1);
+    const listedRuns = (await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).runs;
+    expect(listedRuns).toEqual([expect.objectContaining({ membershipId: runs[0].membershipId, cardLocator: expect.stringMatching(/^K-[0-9A-Z]{6}$/) })]);
     expect(await processAutomationScan({ id: scan.id, tenantId: scan.tenantId, payload: scan.payload })).toMatchObject({ status: "suppressed" });
     await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: runs[0].membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
