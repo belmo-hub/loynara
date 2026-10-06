@@ -1,31 +1,155 @@
-# Wallet integration status and setup
+# Wallet: architecture, lifecycle and launch readiness
 
-The browser card at `/card/[token]` is the default membership card. Apple and Google buttons are offered only when their server-side configuration reports ready. Wallet balances are display copies; checkout always reads and changes the PostgreSQL membership balance.
+The browser card at `/card/[token]` is the membership card. Apple Wallet and Google Wallet passes are **display copies**: the
+membership row and the append-only ledger are the only source of truth for balance, reward eligibility, identity,
+referral state and card lifecycle. No provider value is ever read back. Checkout always reads and changes PostgreSQL.
 
-## Current verification
+Production state at the time of writing: Wallet is **disabled** in production. Nothing in this branch enables it.
 
-| Area | State | Evidence |
+## Readiness at a glance
+
+| Layer | State | Evidence |
 | --- | --- | --- |
-| Apple pass JSON, generated icons, manifest, detached CMS signature, `.pkpass` ZIP | Fixture verified | `src/lib/wallet/wallet.test.ts` creates a temporary self-signed test certificate, checks SHA-1 file hashes, and verifies the detached signature with OpenSSL. The fixture is not an Apple-issued certificate. |
-| Apple device register/list/unregister and authentication | Local database test | `src/lib/wallet/apple-service.integration.test.ts`. |
-| Google class/object mapping, RSA Save JWT, REST create/patch flow | Fixture verified | `src/lib/wallet/wallet.test.ts` signs with a temporary test key and uses a test HTTP responder. No Google endpoint is contacted. |
-| Merchant-specific Google PNG logo lookup | Local fixture verified, route disabled | A saved merchant PNG resolves to a versioned per-program URL and the class uses it in preference to the global fallback. `src/lib/merchant-brand.integration.test.ts` checks the gated route returns the saved PNG only when explicitly enabled. No public asset was published or fetched by Google. |
-| Transactional update queue | Local database test | Ledger transactions enqueue `wallet.refresh`; the worker retries transient provider failures and keeps blocked jobs for controlled replay. `src/lib/wallet/refresh.integration.test.ts` verifies disabled-provider behavior. |
-| Real Apple Wallet install, APNs push, pass fetch, lock-screen relevance | **NOT RUN** | Requires Apple Developer pass certificate, production HTTPS, and physical Apple device. |
-| Real Google Save, object update, nearby notification, publishing | **NOT RUN** | Requires issuer/service account, public HTTPS logo, account approval, and physical Android device. |
+| Software (this branch) | Implemented and tested locally | `src/lib/wallet/*.test.ts`, `routes.integration.test.ts`, `scripts/config-check.test.ts`, migration rehearsal |
+| Production image | Signs and chain-verifies a pass as the `node` user | `Dockerfile` installs `openssl` + `zip`; `scripts/wallet-runtime-check.ts` run inside the built image |
+| Apple provider account | **NOT READY** | Needs Apple-issued Pass Type ID certificate, WWDR intermediate, team ID, public HTTPS web-service routing |
+| Google provider account | **NOT READY** | Needs issuer account, service account, public HTTPS logo; Demo Mode until Google grants publishing |
+| Real device acceptance | **NOT RUN** | Procedures below; required before enabling for customers |
 
-## Physical-provider handoff
+## Model
 
-| Provider | Exact account/credential requirement | Required environment variables | Test device/account | Public endpoint | Next verification action |
-| --- | --- | --- | --- | --- | --- |
-| Apple | Apple Developer team with registered Pass Type ID; **Apple-issued** matching Pass Type ID signing certificate/private key and WWDR chain. A self-signed fixture only proves archive construction, not Apple trust. | `APPLE_WALLET_ENABLED`, `APPLE_PASS_TYPE_ID`, `APPLE_TEAM_ID`, `APPLE_SIGNING_CERT_PATH`, `APPLE_SIGNING_KEY_PATH`, `APPLE_WWDR_CERT_PATH`, `APPLE_WALLET_AUTH_SECRET`, `APPLE_WALLET_WEB_SERVICE_URL` | Physical iPhone with Wallet; designated test operator. | Public HTTPS base `APPLE_WALLET_WEB_SERVICE_URL=https://<approved-host>/api/apple` for device registration, update listing and pass fetch; APNs outbound reachability. | With approved credentials and permission, inspect `/api/wallet/status`, download/install a pass, register device, award/redeem, confirm APNs and updated pass/QR on the iPhone. |
-| Google | Google Wallet issuer in Console; enabled Google Wallet API; issuer-authorized Developer service account with securely stored JSON key. New issuers start in **Demo Mode**; test-account issuance is separate from public publishing approval. | `GOOGLE_WALLET_ENABLED`, `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_FILE`, `GOOGLE_WALLET_PROGRAM_LOGO_URL`, `GOOGLE_WALLET_PUBLISHING_STATUS=demo` (until approved) | Designated Google Wallet tester account on a physical Android device. | Public HTTPS logo URL fetchable by Google; application endpoint under an approved HTTPS origin for a device journey. | With approved credentials and tester, perform actual Save, scan, award/redeem and object-update checks. Request publishing access only after the issuer's separate approval prerequisites; never relabel a Demo Mode test as public issuance. |
+`wallet_passes` (migration 0020): one row per issued pass **per card credential generation**.
 
-No issuer credentials, designated provider testers, or permission to call live providers were supplied, so both rows remain **NOT RUN** for real provider/device operation. Store certificate/key and service-account files outside Git and `public/` with restricted local permissions; never paste private keys in chat or logs. The browser-card preview needs neither provider.
+- Apple serial = `wallet_passes.id` (random UUID). Google object id = `<issuer>.loynara_<wallet_passes.id>`.
+- `credential_hash` = SHA-256 of the scan code at issuance. A row that no longer matches the card is never refreshed with
+  live data; it is revoked (defence in depth on top of explicit revocation).
+- At most one **unrevoked** row per card and provider (partial unique index). Re-adding the same card returns the same
+  serial/object, so Wallet replaces rather than duplicates the pass.
+- Revocation keeps history: `revoked_at`, `revoke_reason` (`reissued`, `closed`, `superseded`), status
+  `revocation_pending` → `revoked` once the provider was told.
+- Apple web-service token = HMAC(`APPLE_WALLET_AUTH_SECRET`, pass type + serial). It proves possession of one pass and is
+  never the card link or scan code. What it unlocks is decided server-side from the row.
 
-An Access-gated browser preview does not automatically make Apple device callbacks reachable or a Google logo fetchable. Those provider-facing URLs need their own reviewed public HTTPS routing and token-path log policy before real provider tests. Do not open them merely to make a fixture test pass.
+## Lifecycle
 
-For the first approved Android test, keep Google in **Demo Mode** and authorize the designated Android Google account as an issuer tester. The current adapter has no inbound Google callback, but it still lacks a provider-fetchable HTTPS PNG logo; the Access-protected browser origin alone cannot supply that asset. The current custom Save button also needs Google's supplied artwork before public use. [Google logo guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/faq) and [brand guidance](https://developers.google.com/wallet/retail/loyalty-cards/resources/brand-guidelines) are separate from fixture success. Mark the device test passed only after a pass actually installs and its displayed balance updates after both an award and redemption; a generated Save URL or REST-created object is insufficient. Google notes that display updates may take up to 24 hours in [prelaunch testing](https://developers.google.com/wallet/retail/loyalty-cards/test-and-go-live/prelaunch-testing).
+| Event | Loynara (authoritative) | Wallet copy |
+| --- | --- | --- |
+| Award, redemption, correction, referral bonus | Ledger + balance in one transaction | One coalesced `wallet.refresh` queued in the same transaction, only if the card has an unrevoked pass |
+| Programme name/rules, reward create/edit/reorder/archive, merchant name/colour/logo | Saved | Coalesced refresh for every card of the programme (merchant: tenant) that holds a pass |
+| Staff reissue | New card link + scan code; balance, history, locator unchanged | Every pass revoked: Apple devices pushed and served a **voided** pass (no QR, no balance, no locator); Google object replaced with `INACTIVE` and no barcode. New link → new serial/object |
+| E-mail recovery | New card link only (scan code unchanged) | Pass stays valid: it never contained the link |
+| Closure | Credentials retired, contact erased, ledger kept | Every pass revoked as above (reason `closed`); Apple registrations kept 7 days to deliver the void, then pruned by the worker |
+
+Refresh rules (`src/lib/wallet/enqueue.ts`, `refresh.ts`, `scripts/worker.ts`):
+
+- Coalescing: at most one **pending** refresh per card; the worker reads current state, so one job covers every earlier change.
+- Provider failure never touches loyalty. Wallet jobs retry after 1, 4, 16, 60 minutes (5 attempts), then `failed`.
+- A provider that is not configured blocks the job (`blocked`, operator replay: `npm run worker -- --replay <id>`).
+- A later successful refresh of the same card marks older `failed`/`blocked` refreshes `suppressed`, so open failures
+  always mean "a Wallet copy is behind now".
+- Apple: a strictly increasing `updated_at` is the update tag; APNs push is empty (`apns-push-type: background`).
+
+## HTTP surface
+
+| Route | Purpose | Protection |
+| --- | --- | --- |
+| `GET /api/wallet/status` | Which buttons the card page may show: `{apple: available\|unavailable, google: available\|test_only\|unavailable}` | No reasons, names, dates, versions or paths |
+| `POST /api/wallet/apple` | Body `{token}` → two-minute download URL | Same-origin; peer 30 / card 10 per 15 min |
+| `GET /api/wallet/apple/download/[ticket]` | Signed `.pkpass` | HMAC ticket (pass id + expiry + nonce), 2 uses, re-checks current credential; peer 60 / 15 min |
+| `POST /api/wallet/google` | Body `{token}` → creates/aligns object, returns Save link referencing it **by id only** | Same-origin; peer 30 / card 10 per 15 min |
+| `/api/apple/v1/devices/.../registrations/...` | Register / unregister / list updated serials | Pass token (HMAC per serial); peer 600 + device 60 (register) or 120 (list) per 15 min |
+| `GET /api/apple/v1/passes/[type]/[serial]` | Latest pass: live, or voided after reissue/closure | Pass token; peer 600 + serial 60 per 15 min |
+| `POST /api/apple/v1/log` | Accepted and discarded | Peer 30 per 15 min |
+| `GET /api/merchant/program/wallet` | Owner readiness in product terms | Owner session |
+
+Card bearer tokens no longer appear in any Wallet URL. Apple web-service errors are bare status codes; customer issuance
+errors are `WALLET_UNAVAILABLE` (503) or `WALLET_PROVIDER_ERROR` (502) without provider detail.
+
+Operators keep full diagnostics: `npm run diagnose` and the production guard print the precise configuration reason.
+
+## Pass content
+
+Merchant first, Loynara nowhere on the pass. German, French when the merchant locale is `fr`.
+
+- Apple store card: merchant logo (PNG ≤ 500 KB, ≤ 2048 px; otherwise the merchant name as logo text), brand colour with
+  automatic light/dark text, header `STEMPEL 7 / 10`, primary `NÄCHSTE PRÄMIE` / `PRÄMIE BEREIT` + reward, status
+  `Noch 3 Stempel` / `An der Kasse einlösen` (the only field with a change message, so one lock-screen notice per
+  update), `KARTE K-XXXXXX`, location; QR with the K-number as alt text; back: programme, last booking time, note that
+  bookings happen at the counter; `sharingProhibited`; merchant coordinates only if the merchant saved them.
+- Google loyalty object: class per programme (merchant name, programme, colour, logo, `ONE_USER_ALL_DEVICES`); object per
+  pass with `7 / 10`, the K-number as account id, QR with alt text, reward text module. Google lays the card out itself.
+
+## Configuration (names only)
+
+Apple: `APPLE_WALLET_ENABLED`, `APPLE_PASS_TYPE_ID`, `APPLE_TEAM_ID`, `APPLE_SIGNING_CERT_PATH`, `APPLE_SIGNING_KEY_PATH`,
+`APPLE_WWDR_CERT_PATH`, `APPLE_WALLET_AUTH_SECRET`, `APPLE_WALLET_WEB_SERVICE_URL`.
+Google: `GOOGLE_WALLET_ENABLED`, `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_FILE`,
+`GOOGLE_WALLET_PROGRAM_LOGO_URL`, `GOOGLE_WALLET_PUBLISHING_STATUS`, optional `GOOGLE_WALLET_ASSET_ENABLED`,
+`GOOGLE_WALLET_ASSET_ORIGIN`.
+Production gate: `WALLET_PRODUCTION_APPROVED`.
+
+Production refuses to start (`scripts/config-check.ts`) unless, for each enabled provider: `WALLET_PRODUCTION_APPROVED=true`;
+flags are exactly `true`/`false`; no device-test Wallet approvals are present; credential files are absolute paths outside
+public/fixture/preview/device-test/test locations; the pass type ID is a registered reverse-DNS ID and the team ID has 10
+characters; the auth secret has ≥ 32 varied characters, is no placeholder and is not reused; the web-service URL is exactly
+`<PRODUCTION_APPROVED_ORIGIN>/api/apple`; Google is `published` (Demo Mode is not production), its issuer ID is numeric
+and its logo/asset origins are public HTTPS. Messages name settings, never values. Changing `APPLE_WALLET_AUTH_SECRET`
+after issuance invalidates every installed pass's web-service token; keep it stable.
+
+## Runtime image
+
+`openssl` and `zip` are required at runtime and are not in `node:26-bookworm-slim`. The runtime stage installs them.
+Verify any built image (no credentials, no network, no database):
+
+    docker run --rm --entrypoint npx <image> tsx scripts/wallet-runtime-check.ts
+
+Note: the image's OpenSSL 3.0 refuses a signer certificate repeated as its own chain file; production uses Apple's
+distinct WWDR intermediate, and all fixtures mirror that.
+
+## Physical device acceptance (prepare only; requires approved credentials, a synthetic card and a named tester)
+
+Record for each step: time, device/OS, expected vs observed, screenshot without QR detail. A step that was not run is
+**NOT RUN**, never "passed".
+
+### Apple / iPhone
+
+1. Open an approved synthetic Loynara card on the iPhone in Safari. Expect "In Wallet speichern" with one Apple button.
+2. Tap "Zu Apple Wallet hinzufügen". Expect the system Add Pass sheet within a few seconds.
+3. Add. Expect the merchant logo or name, brand colour with readable text, `STEMPEL 0 / n`, next reward, K-number.
+4. Confirm the device registered (operator: `apple_registrations` row for the serial; no customer data needed).
+5. Book one test stamp at the counter. Expect a lock-screen notice ("Noch … Stempel") and `1 / n` on the pass. Note delay.
+6. Book up to the reward. Expect `PRÄMIE BEREIT` and "An der Kasse einlösen".
+7. Redeem, then correct a test booking as approved. Expect each state on the pass after each refresh.
+8. Scan the pass QR at the counter. Expect the same card to open.
+9. Staff reissue for the card. Expect the installed pass to turn void (no QR) after the push; old card link dead.
+10. Try to re-add from the OLD link: refused. Add from the NEW link: a separate pass with the new QR; balance unchanged.
+11. Close the card. Expect the new pass to turn void; customer page shows the closure text.
+12. Remove the pass on the iPhone. Expect the unregister call (registration row gone).
+
+### Google / Android
+
+1. Same synthetic card on the Android tester account in Chrome. Expect one Google button and, in Demo Mode, the test note.
+2. Tap "Zu Google Wallet hinzufügen". Expect Google's save screen; save.
+3. Expect merchant name/logo, programme, `0 / n`, K-number, reward module.
+4.–8. As Apple 5–8 (Google may take minutes to display updates; record the delay, up to 24 h is documented by Google).
+9. Staff reissue. Expect the saved object to move to inactive/expired passes without barcode.
+10. Old link refused; new link saves a new object with the new QR.
+11. Close the card. Expect the new object inactive.
+
+Only after both lists pass on real devices may anyone propose enabling Wallet for customers, and that remains a separate
+production approval.
+
+Before public launch, the text buttons on the card page must be replaced by Apple's official "Add to Apple Wallet" badge and
+Google's "Add to Google Wallet" button in German (provider artwork under their usage terms; not downloaded in this branch).
+
+## PassFast decision
+
+There is no PassFast adapter in this repository; the historical PassFast proof was a separate proof of concept. Recommendation:
+**native Apple now** (option A). The native adapter is implemented, owns serials, tokens, revocation and voiding, keeps
+customer data in Loynara's own processing, and has no per-pass vendor pricing or lock-in. A PassFast bridge would add a
+data processor (DPA diligence), hand over serial/update control, and still need the same Apple certificate and device
+acceptance. Reconsider only if Apple certificate/APNs operation cannot be staffed; that would be a new reviewed adapter,
+not a configuration switch.
 
 ### Separate device-test Google Demo gate
 
@@ -45,42 +169,3 @@ The browser origin and Access checks remain mandatory. Approval covers only the 
 
 Before provider enablement, save the synthetic merchant's PNG through the existing brand editor and check the exact asset locally. The seed has no uploaded logo. Google's current guidance recommends at least 660×660 with the required safe margin; use its supplied localized Add-to-Wallet artwork. Once the narrow route is separately approved and live, verify Google can fetch the merchant logo, then perform Save → Wallet QR scan → award → observed displayed update → redeem → observed displayed update. Record elapsed provider display times separately from the committed ledger time. Real provider and hardware results remain **NOT RUN**. Apple stays disabled in this launcher until its own certificate/callback/device setup is supplied and specifically reviewed.
 
-## Apple configuration
-
-Set `APPLE_WALLET_ENABLED=true` only after placing credentials outside the repository and configuring:
-
-- `APPLE_PASS_TYPE_ID`: the registered Pass Type ID, such as `pass.example.loyalty`.
-- `APPLE_TEAM_ID`: the team that owns that ID.
-- `APPLE_SIGNING_CERT_PATH`, `APPLE_SIGNING_KEY_PATH`, `APPLE_WWDR_CERT_PATH`: absolute paths to PEM files. The first two must match. Never place these files in `public/`, Git, or a client environment variable.
-- `APPLE_WALLET_AUTH_SECRET`: at least 32 random characters. Keep it stable after issuance; changing it invalidates pass web-service tokens.
-- `APPLE_WALLET_WEB_SERVICE_URL`: the public HTTPS **base** URL ending in `/api/apple`, without `/v1`. Wallet appends `/v1/devices/...` or `/v1/passes/...`.
-
-The customer endpoint `/api/wallet/apple/[cardToken]` signs and downloads one pass. The Apple web-service handlers live under `/api/apple/v1`. They accept a pass-specific `ApplePass` token for registration and pass downloads and a device library identifier for change listing. The worker sends empty APNs change notifications using the pass certificate and HTTP/2. Invalid push tokens are removed. Apple controls notification delivery and lock-screen relevance; neither is guaranteed.
-
-`GET /api/wallet/status` shows the OpenSSL and zip versions, certificate expiry, and missing configuration. Readiness is false if either executable is unavailable. Local checks validate the PEM files and key match, but cannot prove that Apple recognizes the certificate, pass ID, or APNs topic. A real device test remains mandatory before enabling this for customers.
-
-Apple readiness checks are cached for five minutes per server process so public status requests do not repeatedly run synchronous certificate/tool checks. Restart the web and worker processes after credential rotation; recheck status and certificate expiry before serving passes. Treat the device library identifier in Apple registration URLs as a secret and redact it from access logs.
-
-## Google configuration
-
-Set `GOOGLE_WALLET_ENABLED=true` only after configuring:
-
-- `GOOGLE_WALLET_ISSUER_ID`: numeric issuer ID from the Google Wallet Business Console.
-- `GOOGLE_WALLET_SERVICE_ACCOUNT_FILE`: absolute path to a service-account JSON key. Authorize that account as a Developer for the issuer and enable the Google Wallet API.
-- `GOOGLE_WALLET_PROGRAM_LOGO_URL`: a fallback public HTTPS PNG URL. The adapter now selects a merchant's stored PNG through a versioned per-program URL when `GOOGLE_WALLET_ASSET_ENABLED=true` and `GOOGLE_WALLET_ASSET_ORIGIN` is an exact HTTPS origin. The image handler exists but is **disabled by default**, including in the protected preview and device-test launchers. The owner-uploaded logo can also be JPEG or WebP for the local preview; Google selection currently requires PNG. The operator must approve the exact provider-facing hostname, minimal route, proxy logging and asset exposure before enabling it. Browser Access protection remains in place. Local class/route tests do not prove Google can fetch the image; no asset was published in this pass.
-- `GOOGLE_WALLET_PUBLISHING_STATUS`: `demo` until Google grants publishing access; set `published` only after approval. This is an operator-declared status, not an API verification.
-
-The customer endpoint `/api/wallet/google/[cardToken]` creates a deterministic class per program and object per member, then returns a server-signed Save URL. An object being created does **not** prove that a customer saved it. Demo-mode issuers are limited to designated testers. After committed loyalty transactions, the worker patches only the barcode and balance fields of existing objects; it does not send marketing messages.
-
-## Location relevance and privacy
-
-Onboarding may save a merchant location's optional latitude and longitude. Both coordinates are required together. Apple and Google pass payloads include them only when supplied. The application does not store customer locations. Provider proximity behavior depends on device settings and provider policy; no notification radius or appearance is promised.
-
-## Operator checks before live rollout
-
-1. Run `npm run diagnose` and inspect `/api/wallet/status`; resolve any missing values or certificate-expiry warning.
-2. Use one Apple test device to install, register, award, receive an APNs change indication, list updates, and fetch a newly signed pass. Verify the displayed balance and QR scan. Repeat after redemption.
-3. Use one designated Google demo tester on Android to save the pass, scan the QR, award, and confirm the updated displayed balance. Only then request publishing access and re-test with an approved account.
-4. Inspect blocked/retry jobs via the worker diagnostics. Replay after repairing credentials or provider availability. A provider failure must not reverse a committed award or redemption.
-
-Official provider references are recorded in [SOURCES.md](SOURCES.md). Tests in this repository make no claim of live provider or physical-device verification.
