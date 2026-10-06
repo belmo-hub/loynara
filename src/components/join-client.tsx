@@ -74,7 +74,18 @@ export function JoinClient({ slug }: { slug: string }) {
     setBusy(true);
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
-      const result = await postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...(existing ? { additionalCard: true } : {}) });
+      // The server recognises this browser only once its card cookie exists, so two tabs (or the counter QR scanned again
+      // while the first request is slow) could each create a first card. Creations for a programme therefore run one at a
+      // time across this browser's tabs, and each looks again first whether another tab has just created the card.
+      const create = async () => {
+        if (!existing) {
+          const latest = await checkReturning(slug);
+          if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
+        }
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...(existing ? { additionalCard: true } : {}) });
+      };
+      const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
+      if (!result) return;
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
       if (continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation)) router.push(continuation);

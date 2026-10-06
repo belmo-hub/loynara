@@ -124,6 +124,28 @@ test("a returning guest is offered the saved card instead of a silent second car
   } finally { await phone.close(); await shop.owner.dispose(); }
 });
 
+test("two tabs of one browser pressing create at the same time make one card", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const shop = await merchant(url, "Synthetic Zwei Tabs Pizzeria");
+  const phone = await browser.newContext({ baseURL: url });
+  try {
+    const posts: string[] = [];
+    phone.on("request", request => { if (request.method() === "POST" && new URL(request.url()).pathname === "/api/enroll") posts.push(request.url()); });
+    // A slow network: the first creation is still on its way when the second tab presses create.
+    await phone.route("**/api/enroll", async route => { await new Promise(resolve => setTimeout(resolve, 1_500)); await route.continue(); });
+    const [first, second] = [await phone.newPage(), await phone.newPage()];
+    for (const tab of [first, second]) {
+      await tab.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
+      await tab.getByRole("checkbox").first().check();
+      await expect(tab.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
+    }
+    await Promise.all([first.getByRole("button", { name: "Meine Karte erstellen" }).click(), second.getByRole("button", { name: "Meine Karte erstellen" }).click()]);
+    const pages = [first, second];
+    await expect.poll(async () => (await Promise.all(pages.map(async tab => new URL(tab.url()).pathname.startsWith("/card/") || await tab.getByRole("heading", { name: "Willkommen zurück." }).isVisible()))).every(Boolean), { timeout: 10_000 }).toBe(true);
+    expect(posts).toHaveLength(1);
+  } finally { await phone.close(); await shop.owner.dispose(); }
+});
+
 test("a card from one programme is never offered on another programme's join page", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const pizza = await merchant(url, "Synthetic Pizza Nord");
