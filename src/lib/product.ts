@@ -264,7 +264,7 @@ export async function getCard(token: string) {
     .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(10);
-  return { scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
+  return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
 }
 
 type CounterCard = { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; tenant: typeof tenants.$inferSelect; by: "code" | "locator" };

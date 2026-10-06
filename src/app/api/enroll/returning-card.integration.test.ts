@@ -7,6 +7,7 @@ import { closeCard } from "@/lib/card-lifecycle";
 import { reissueCardByStaff } from "@/lib/card-reissue";
 import { createMerchant, getCard } from "@/lib/product";
 import { returningCardCookieName } from "@/lib/returning-card";
+import { GET as readCard } from "../card/[token]/route";
 import { POST as bindCard } from "../card/[token]/tap-session/route";
 import { GET as existing } from "./existing/route";
 import { GET as openCard } from "./open/route";
@@ -39,12 +40,12 @@ class Jar {
   value(name: string, path = "/api/enroll") { return this.cookies.get(`${path}|${name}`)?.value; }
 }
 
-function request(jar: Jar, path: string, init: { method?: string; body?: object } = {}) {
+function request(jar: Jar, path: string, init: { method?: string; body?: object; headers?: Record<string, string> } = {}) {
   const url = new URL(path, base);
   const cookie = jar.header(url.pathname);
   return new Request(url, {
     method: init.method ?? "GET",
-    headers: { origin: base, ...(init.body ? { "content-type": "application/json" } : {}), ...(cookie ? { cookie } : {}) },
+    headers: { origin: base, ...(init.body ? { "content-type": "application/json" } : {}), ...(cookie ? { cookie } : {}), ...init.headers },
     body: init.body ? JSON.stringify(init.body) : undefined,
   });
 }
@@ -52,6 +53,7 @@ function request(jar: Jar, path: string, init: { method?: string; body?: object 
 const join = (jar: Jar, slug: string, extra: object = {}) => enrollRoute(request(jar, "/api/enroll", { method: "POST", body: { slug, acceptedTerms: true, ...extra } })).then(response => jar.take(response));
 const check = (jar: Jar, slug: string) => existing(request(jar, `/api/enroll/existing?slug=${encodeURIComponent(slug)}`)).then(response => jar.take(response));
 const open = (jar: Jar, slug: string) => openCard(request(jar, `/api/enroll/open?slug=${encodeURIComponent(slug)}`)).then(response => jar.take(response));
+const read = (jar: Jar, token: string, fetchSite?: string) => readCard(request(jar, `/api/card/${token}`, { headers: fetchSite ? { "sec-fetch-site": fetchSite } : {} }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
 const bind = (jar: Jar, token: string) => bindCard(request(jar, `/api/card/${token}/tap-session`, { method: "POST" }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
 
 async function owner() {
@@ -212,5 +214,35 @@ describe("returning customer on the join page", () => {
     expect(bound.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api/enroll") && header.includes("HttpOnly"))).toBe(true);
     expect(bound.headers.getSetCookie().some(header => header.includes("Path=/api/tap"))).toBe(true);
     expect(await (await check(otherBrowser, merchant.programSlug)).json()).toMatchObject({ existing: true });
+  });
+
+  it("refuses every concurrent repeat once the browser holds the card", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    expect((await join(jar, merchant.programSlug)).status).toBe(201);
+    const repeats = await Promise.all(Array.from({ length: 5 }, () => enrollRoute(request(jar, "/api/enroll", { method: "POST", body: { slug: merchant.programSlug, acceptedTerms: true } }))));
+    expect(repeats.map(response => response.status)).toEqual([409, 409, 409, 409, 409]);
+    expect(await cardCount(merchant.programId)).toBe(1);
+  });
+
+  it("remembers a card when its own page reads it, but not when a link opens the endpoint from elsewhere", async () => {
+    const merchant = await shop();
+    const { cardToken } = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
+
+    const page = new Jar();
+    const own = await read(page, cardToken, "same-origin");
+    expect(own.status).toBe(200);
+    const body = await own.json() as Record<string, unknown>;
+    expect(body).not.toHaveProperty("programId");
+    expect(own.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api/enroll") && header.includes("HttpOnly"))).toBe(true);
+    expect(await (await check(page, merchant.programSlug)).json()).toMatchObject({ existing: true });
+
+    for (const site of ["cross-site", "none", undefined]) {
+      const elsewhere = new Jar();
+      const response = await read(elsewhere, cardToken, site);
+      expect(response.status).toBe(200);
+      expect(response.headers.getSetCookie()).toEqual([]);
+      expect(await (await check(elsewhere, merchant.programSlug)).json()).toEqual({ existing: false, stale: false });
+    }
   });
 });
