@@ -1,9 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { ledgerEntries, membershipContacts, memberships, outboxJobs, programs, referralCodes, referralSettings, referrals, staffRoles } from "@/db/schema";
 import { validCardToken } from "./card-lifecycle";
+import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -76,7 +77,13 @@ export async function getCardReferralShare(cardToken: string) {
     if (!code) throw new Error("Referral code could not be created");
     const url = new URL(`/join/${encodeURIComponent(row.program.slug)}`, origin);
     url.searchParams.set("ref", code.code);
-    return { shareUrl: url.toString(), referrerBonus: setting.referrerBonus, referredBonus: setting.referredBonus, programType: row.program.type };
+    // The card's own progress only: counts, never who signed up.
+    const [progress] = await tx.select({
+      signedUp: sql<number>`count(*) FILTER (WHERE ${referrals.status} <> 'rejected')::int`,
+      qualified: sql<number>`count(*) FILTER (WHERE ${referrals.status} = 'qualified')::int`,
+    }).from(referrals).where(and(eq(referrals.tenantId, row.member.tenantId), eq(referrals.referrerMembershipId, row.member.id)));
+    return { shareUrl: url.toString(), referrerBonus: setting.referrerBonus, referredBonus: setting.referredBonus, programType: row.program.type,
+      progress: { signedUp: progress?.signedUp ?? 0, qualified: progress?.qualified ?? 0 } };
   });
 }
 
@@ -200,8 +207,12 @@ export async function listReferrals(input: { actorUserId: string; programSlug: s
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
     const rows = await tx.select().from(referrals).where(and(eq(referrals.tenantId, program.tenantId), eq(referrals.programId, program.id)))
       .orderBy(desc(referrals.createdAt)).limit(100);
+    // Show the same card numbers (K-XXXXXX) the owner sees under Customers and the cashier sees on the card.
+    const ids = [...new Set(rows.flatMap(row => [row.referrerMembershipId, row.referredMembershipId]))];
+    const locators = new Map(ids.length ? (await tx.select({ id: memberships.id, locator: memberships.cardLocator }).from(memberships)
+      .where(and(eq(memberships.tenantId, program.tenantId), inArray(memberships.id, ids)))).map(row => [row.id, formatCardLocator(row.locator)]) : []);
     return rows.map(row => ({
-      id: row.id, status: row.status, referrerCard: row.referrerMembershipId.slice(0, 12), referredCard: row.referredMembershipId.slice(0, 12),
+      id: row.id, status: row.status, referrerCard: locators.get(row.referrerMembershipId) ?? "unbekannt", referredCard: locators.get(row.referredMembershipId) ?? "unbekannt",
       referrerBonus: row.referrerBonus, referredBonus: row.referredBonus, reviewReason: row.reviewReason,
       hasCreditedBonus: Boolean(row.referrerBonusEntryId || row.referredBonusEntryId),
       createdAt: row.createdAt.toISOString(), qualifiedAt: row.qualifiedAt?.toISOString() ?? null,

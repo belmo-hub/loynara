@@ -8,6 +8,8 @@ export function ReferralSummary({ enabled, referrerBonus, referredBonus, program
   const signedUp = referrals.length;
   const waiting = referrals.filter(item => item.status === "pending").length;
   const qualified = referrals.filter(item => item.status === "qualified").length;
+  const review = referrals.filter(item => item.status === "review").length;
+  const settled = referrals.filter(item => item.status !== "rejected").length;
   const rule = !enabled
     ? "Empfehlungen sind ausgeschaltet."
     : `Nach dem ersten bestätigten Kassenvorgang der neuen Karte erhält die empfehlende Karte ${referrerBonus} ${unit} und die neue Karte ${referredBonus} ${unit}.`;
@@ -16,9 +18,10 @@ export function ReferralSummary({ enabled, referrerBonus, referredBonus, program
     <section className="ow-card ow-stack" aria-label="Empfehlungen im Überblick" style={{ marginBottom: 16 }}>
       <p><strong>Regel:</strong> {rule}</p>
       <dl className="ow-metrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        {stat("Angemeldet über Link", signedUp, "Neue Karten, noch kein Bonus")}
-        {stat("Wartet auf ersten Vorgang", waiting, "Noch kein bestätigter Kassenvorgang")}
-        {stat("Bonus gutgeschrieben", qualified, "Erster Kassenvorgang bestätigt")}
+        {stat("1 · Über Link angemeldet", signedUp, "Geteilt und angemeldet, noch kein Erfolg")}
+        {stat("2 · Wartet auf ersten Einkauf", waiting, "Noch kein bestätigter Kassenvorgang")}
+        {stat("3 · Bonus gutgeschrieben", qualified, settled > 0 ? `${Math.round(qualified / settled * 100)} % der Anmeldungen kamen wirklich an die Kasse` : "Erst hier zählt eine Empfehlung")}
+        {review > 0 && stat("Braucht deine Prüfung", review, "Bonus angehalten, siehe unten")}
       </dl>
       <p className="ow-hint">Grundlage sind die letzten 100 Empfehlungen. Einladungen, die niemand öffnet, werden nicht erfasst.</p>
     </section>

@@ -10,7 +10,7 @@ import { useLoad } from "@/components/owner/use-load";
 type Settings = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
 type Referral = { id: string; status: string; referrerCard: string; referredCard: string; referrerBonus: number; referredBonus: number; reviewReason: string | null; hasCreditedBonus: boolean; createdAt: string; qualifiedAt: string | null };
 
-const STATUS: Record<string, string> = { pending: "Wartet auf ersten Kassenauftrag", qualified: "Bonus gebucht", review: "Prüfung nötig", rejected: "Abgelehnt", reversed: "Bonus korrigiert" };
+const STATUS: Record<string, string> = { pending: "Wartet auf den ersten Kassenvorgang", qualified: "Bonus gebucht", review: "Prüfung nötig", rejected: "Abgelehnt", reversed: "Bonus korrigiert" };
 const status = (value: string) => STATUS[value] ?? value;
 function reviewReason(value: string | null) {
   switch (value) {
@@ -30,7 +30,7 @@ export default function MerchantReferralsPage() {
   const [rule, reloadRule] = useLoad<Settings>(owner && slug ? `/api/merchant/referrals/settings?programSlug=${slug}` : null);
   const [list, reloadList] = useLoad<{ referrals: Referral[] }>(owner && slug ? `/api/merchant/referrals?programSlug=${slug}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Treueprogramm · Empfehlungen" title="Empfehlungen" lead="Eine Empfehlung wird erst nach dem ersten bestätigten Kassenauftrag der neuen Karte gutgeschrieben." />;
+  const head = <PageHead eyebrow="Treueprogramm · Empfehlungen" title="Empfehlungen" lead="Geteilt ist noch nicht gewonnen: Ein Bonus fließt erst, wenn die neue Karte zum ersten Mal an deiner Kasse bestätigt wird." />;
   if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Empfehlungen können nur von Inhaber:innen verwaltet werden.</Notice></div>;
   if (rule.state === "error") return <div className="ow-page">{head}<ErrorNotice message={rule.message} onRetry={reloadRule} /></div>;
   if (rule.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={2} /></div>;
@@ -94,7 +94,7 @@ function Loaded({ slug, businessName, locationName, head, settings, list, reload
           <SaveBar asSubmit state={shown} onDiscard={() => { setEnabled(saved.enabled); setReferrerBonus(String(saved.referrerBonus)); setReferredBonus(String(saved.referredBonus)); setState("clean"); setError(""); }} canSave={changed && ruleOk} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Empfehlungsregel gespeichert. Änderungen gelten für neue Anmeldungen mit Empfehlungslink." : shown === "dirty" && !ruleOk ? "Bei aktiver Regel muss ein Bonus größer als null sein." : undefined} />
         </form>
         <section className="ow-card ow-stack" aria-labelledby="rf-how"><h2 id="rf-how">So funktioniert es</h2>
-          <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Ein berechtigter erster Kassenauftrag wird bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol>
+          <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Der erste Kassenvorgang der neuen Karte wird an deiner Kasse bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol>
           <p className="ow-hint">Gleiche verifizierte E-Mail-Adressen werden zur Prüfung angehalten. Pseudonyme Karten lassen sich nicht zuverlässig derselben Person zuordnen; Missbrauch kann daher nicht vollständig ausgeschlossen werden.</p></section>
       </div>
       <section className="ow-card ow-stack" aria-labelledby="rf-hist">

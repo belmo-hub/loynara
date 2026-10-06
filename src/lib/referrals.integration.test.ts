@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, membershipContacts, memberships, referrals, staffRoles } from "@/db/schema";
+import { formatCardLocator } from "./card-locator";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll, getMerchantRewards } from "./product";
 import { configureReferrals, getCardReferralShare, getReferralSettings, listReferrals, reviewReferral } from "./referrals";
@@ -146,5 +147,33 @@ describe("referral lifecycle with synthetic cards", () => {
     await expect(enroll({ slug: a.programSlug, acceptedTerms: true, referralCode: code })).rejects.toMatchObject({ code: "INVALID_REFERRAL" });
     expect((await getReferralSettings({ actorUserId: ownerA, programSlug: a.programSlug })).enabled).toBe(false);
     expect((await db.select().from(memberships).where(eq(memberships.tenantId, a.tenantId)))).toHaveLength(0);
+  });
+});
+
+describe("referral progress shown to merchant and customer", () => {
+  it("shows sign-up versus qualified progress only for the sharing card, and card numbers to the owner", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId);
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const referrer = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const bystander = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    expect((await getCardReferralShare(referrer.cardToken)).progress).toEqual({ signedUp: 0, qualified: 0 });
+    const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+    const first = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: code });
+    await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: code });
+    // Signing up is not success: nothing qualified until a checkout is confirmed.
+    expect((await getCardReferralShare(referrer.cardToken)).progress).toEqual({ signedUp: 2, qualified: 0 });
+    await awardOne({ ownerId, locationId: merchant.locationId, membershipId: first.id });
+    expect((await getCardReferralShare(referrer.cardToken)).progress).toEqual({ signedUp: 2, qualified: 1 });
+    expect((await getCardReferralShare(bystander.cardToken)).progress).toEqual({ signedUp: 0, qualified: 0 });
+
+    const listed = await listReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug });
+    const [referrerRow] = await db.select({ locator: memberships.cardLocator }).from(memberships).where(eq(memberships.id, referrer.id));
+    expect(listed).toHaveLength(2);
+    for (const row of listed) {
+      expect(row.referrerCard).toMatch(/^K-[0-9A-Z]{6}$/);
+      expect(row.referrerCard).toBe(formatCardLocator(referrerRow.locator));
+      expect(JSON.stringify(row)).not.toContain(referrer.id);
+    }
   });
 });
