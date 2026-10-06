@@ -34,6 +34,7 @@ const faq: Array<[string, string]> = [
   E.nfcFaq,
   ['Wann wird eine Empfehlung belohnt?', 'Ein Freund meldet sich über den Link des Empfehlenden an. Erst wenn dein Team seinen ersten Besuch bestätigt, wird der Bonus verbucht – für den Empfehlenden, auf Wunsch auch für den Freund. Bloßes Teilen oder Öffnen bringt nichts; auffällige Fälle, etwa dieselbe verifizierte E-Mail-Adresse, werden zur Prüfung zurückgestellt.'],
   ['Was passiert, wenn jemand seine Karte nicht mehr findet?', R.lostAnswer],
+  ['Was passiert bei einem falsch gebuchten Stempel?', R.correctionAnswer],
   ['Was gehört zum Pilotangebot – und wie geht es weiter?', `Karte, Prämien, ${E.pilotEntry}, Bestätigung durch dein Team, Empfehlungen, Kundenübersicht, Auswertung, Rollen und mehrere Standorte. ${E.pilotOutlook} zeigen wir als Ausblick und vereinbaren sie gesondert. Nach deiner Anfrage melden wir uns, zeigen dir den Ablauf und besprechen Konditionen.`],
 ];
 
@@ -50,7 +51,7 @@ export function homePage(): string {
 <body>${header(true)}
 <main id="inhalt">
 
-<section class="hero" id="hero"><div class="wrap hero-grid"><div class="hero-copy"><p class="eyebrow">Kundenbindung für lokale Geschäfte</p><h1>Ein guter Besuch.<br><em>Ein Grund, wiederzukommen.</em></h1><p class="lead">Kunden sammeln Prämien, dein Team bestätigt jeden Besuch – und Stammkunden können den nächsten Kunden mitbringen.</p><div class="ctas"><a class="btn btn-primary" href="#anfrage">Demo anfragen</a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s</a></div><p class="facts"><span>Ohne App für deine Kunden</span><span>${E.fact}</span><span>${price} / Monat / Standort</span></p></div>
+<section class="hero" id="hero"><div class="wrap hero-grid"><div class="hero-copy"><p class="eyebrow">Kundenbindung für lokale Geschäfte</p><h1>Ein guter Besuch.<br><em>Ein Grund, wiederzukommen.</em></h1><p class="lead">Behalte die Kunden, die du gewonnen hast. Bring sie zurück. Lass sie die nächsten mitbringen.</p><div class="ctas"><a class="btn btn-primary" href="#anfrage">Demo anfragen</a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s</a></div><p class="facts"><span>Ohne App für deine Kunden</span><span>${E.fact}</span><span>${price} / Monat / Standort</span></p></div>
 <figure class="hero-scene" aria-label="Beispieldarstellung: Aufsteller am Tresen und die Kundenkarte auf dem Handy, gerade vom Team bestätigt."><div class="scene-floor" aria-hidden="true"></div><div class="scene-stand">${standObj(brand0)}</div>${phone(browserScreen(brand0, 9, statusFor(9)), 'phone-hero')}<figcaption class="cue"><b>+1</b><span>Stempel · vom Team bestätigt</span></figcaption></figure></div></section>
 
 <section class="roles" aria-label="Wer was tut"><div class="wrap roles-grid"><div><b>Kunde</b><span>${E.roleCustomer}</span></div><div><b>Team</b><span>Bestätigt den Besuch mit einem Tipp.</span></div><div><b>Inhaber</b><span>Sieht, wer wiederkommt – Stand und Verlauf jeder Karte.</span></div></div></section>

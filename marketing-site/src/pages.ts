@@ -4,7 +4,7 @@
  * Claims follow the same boundary as the home page: QR today, NFC/Wallet/messages only as outlook,
  * example data labelled as such, no proof, results or availability that the product cannot show.
  */
-import { ENTRY_COPY as E } from './claims.js';
+import { ENTRY_COPY as E, RECOVERY_COPY as R } from './claims.js';
 import { SITE } from './site.js';
 import { initialBrand, type BrandState } from './brand.js';
 import { cardHtml, statusFor } from './final-parts.js';
@@ -74,6 +74,9 @@ export const barber: SubPage = {
     ['Brauchen meine Kunden eine App?', E.pageAppAnswer],
     ['Was, wenn ich gerade schneide?', 'Bestätigt wird beim Bezahlen, nicht mitten im Schnitt. Das dauert nicht länger, als eine Pappkarte zu stempeln.'],
     ['Kann ein Kunde sich selbst stempeln?', 'Nein. Einen Stempel gibt es nur, wenn du oder dein Team bestätigt. Jeder Stempel steht mit Uhrzeit im Verlauf der Karte.'],
+    ['Was, wenn der Scan nicht klappt?', R.counterAnswer],
+    ['Was passiert bei einem falsch gebuchten Stempel?', R.correctionAnswer],
+    ['Was, wenn der Kartenlink verloren geht?', R.lostAnswer],
     ['Ich habe schon Pappkarten.', 'Die kannst du auslaufen lassen. Wer noch eine volle Pappkarte hat, löst sie wie gewohnt ein; neue Kunden starten digital.'],
     E.pageWalletFaq,
   ],
@@ -107,6 +110,9 @@ export const pizzeria: SubPage = {
     ['Und wenn es freitagabends voll ist?', 'Dann wird beim Bezahlen kurz gescannt und bestätigt, wie beim Abstempeln einer Pappkarte. Bei mehreren Pizzen vergibt dein Team mehrere Stempel in einem Schritt.'],
     ['Funktioniert das mit Lieferando und Co.?', 'Nein. Loynara zählt Bestellungen, die bei dir abgeholt oder vor Ort bezahlt werden. Eine Anbindung an Lieferplattformen oder die Kasse gibt es nicht.'],
     ['Kann jemand schummeln?', 'Einen Stempel gibt es nur, wenn dein Team bestätigt. Jeder Stempel steht mit Uhrzeit im Verlauf der Karte, und Rollen legen fest, wer was darf.'],
+    ['Was, wenn der Scan nicht klappt?', R.counterAnswer],
+    ['Was passiert bei einem falsch gebuchten Stempel?', R.correctionAnswer],
+    ['Was, wenn der Kartenlink verloren geht?', R.lostAnswer],
     ['Ich habe schon Pappkarten.', 'Lass sie auslaufen. Volle Pappkarten löst du wie gewohnt ein; neue Gäste starten digital.'],
   ],
   close: { h2: ['Zeig mir das', 'mit meiner Pizza.'], lead: 'Wir richten die Demo mit deinem Namen und deiner Prämie ein. Zehn Minuten, gern direkt bei dir am Tresen.', subject: 'Demo-Anfrage Pizzeria' },

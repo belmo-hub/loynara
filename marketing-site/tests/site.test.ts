@@ -17,7 +17,7 @@ test('the page has the Concept D scene order with exactly one h1 and the approve
   assert.ok(ids.every(i => i > 0)); assert.deepEqual([...ids].sort((a, b) => a - b), ids);
   assert.equal((home.match(/<h1[ >]/g) ?? []).length, 1);
   assert.match(text, /Ein guter Besuch\. Ein Grund, wiederzukommen\./);
-  assert.match(section('hero', 'ablauf'), /Kunden sammeln Prämien, dein Team bestätigt jeden Besuch – und Stammkunden können den nächsten Kunden mitbringen\./);
+  assert.match(section('hero', 'ablauf'), /Behalte die Kunden, die du gewonnen hast\. Bring sie zurück\. Lass sie die nächsten mitbringen\./);
   for (const h of ['Ein Besuch. Ein Stempel. Bestätigt von deinem Team.', 'Deine Stammkunden bringen den nächsten Kunden mit.', 'Deine Marke. Vom Tresen bis zur Kundenkarte.', 'Du siehst, wer wiederkommt. Und wann du etwas tun kannst.', 'Was wäre ein zusätzlicher Besuch wert?', 'Ein Preis pro Standort. Ohne App für deine Kunden.', 'Gib dem nächsten Besuch einen Grund. Und der nächsten Empfehlung einen Weg.']) assert.ok(text.includes(h), h);
 });
 test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to the contact section', () => {
@@ -92,7 +92,7 @@ test('offer: what 39 € means, what is included, the pilot qualifier and what h
   assert.match(offer, /39 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
   for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
   assert.match(offer, /Vorläufiger Einstiegspreis\. Konditionen besprechen wir vor dem Start persönlich\./);
-  assert.equal((home.match(/<details><summary>/g) ?? []).length, 6, 'six FAQ disclosures');
+  assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');
   assert.match(visible(home.slice(home.indexOf('id="anfrage"'))), /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/);
 });
 test('the contact section states the honest mail-draft behaviour and promises no response time', () => {

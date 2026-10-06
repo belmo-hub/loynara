@@ -9,6 +9,10 @@ Two product gates change what Loynara may say. The website switches with **one l
 
 The gates are independent: the RC can ship before NFC acceptance passes.
 
+## Public website release state · 2026-10-06
+
+The owner confirmed canonical application `c822d2381dc67544a0ba0c898bf2ddcf98035943` healthy in production, including manual K-XXXXXX lookup, correction and secure same-membership reissue. The public website gate is now `rcDeployed: true`, `nfcAccepted: false`. TAG-01 passed physical acceptance in preview only; production NFC, Wallet and promotional sending remain disabled. The historical before/after tables below describe the transition; printed collateral and sales-kit updates are a separate workstream.
+
 ## Positioning rule for NFC
 
 - **Pre-NFC-acceptance (now):** QR is primary. NFC is qualified as „vorbereitet“ / „Ausblick“ (owner-approved temporary wording). NFC stays a **major** angle (CORE-11), not a demoted one.

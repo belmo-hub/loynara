@@ -48,7 +48,7 @@ test('claim safety: QR today; NFC, Wallet and messages only as outlook; no proof
     for (const m of text.match(/[^.?]*(?:NFC|Wallet)[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|\?$/, `${p.path}: ${m}`);
     for (const m of text.match(/[^.]*(?:Nachrichten|Aktionen)[^.]*\./g) ?? []) assert.match(m, /Ausblick|nicht Teil/, `${p.path}: ${m}`);
     assert.doesNotMatch(text, /Testimonial|Referenzkunde|bereits im Einsatz|vertrauen uns|zufriedene Kunden|\bgarantiert\b|Garantie|mehr Umsatz|Umsatzplus|ROI\b|Rendite|\d+\s?% mehr|verdoppel/i, p.path);
-    assert.doesNotMatch(text, /Zu Wallet hinzufügen|Add to Wallet|Apple Pay|Google Pay|Kampagne starten|Nachricht senden|automatisch (?:verschickt|gesendet)|Kassenanbindung inklusive|Kartennummer/i, p.path);
+    assert.doesNotMatch(text, /Zu Wallet hinzufügen|Add to Wallet|Apple Pay|Google Pay|Kampagne starten|Nachricht senden|automatisch (?:verschickt|gesendet)|Kassenanbindung inklusive/i, p.path);
     assert.doesNotMatch(text, /kostenlos|gratis testen|Testphase|Probemonat|nur noch|begrenzt|Einrichtungsgebühr|Rabatt/i, p.path);
     assert.doesNotMatch(text, /LoopLocal|synthetisch|synthetic|Testdaten|in Vorbereitung/i, p.path);
     assert.match(text, /Beispieldaten/, `${p.path}: example data is labelled`);

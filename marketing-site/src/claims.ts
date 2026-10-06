@@ -1,14 +1,14 @@
 /**
  * Release-gated copy. Every sentence that must change when a product gate passes lives here, in both versions,
- * so the switch is one line and both versions stay tested (tests/claims.test.ts). See gtm/15-copy-switches.md.
+ * so the release state is explicit and both versions stay tested (tests/claims.test.ts). See gtm/15-copy-switches.md.
  *
  * nfcAccepted: flip to true only after the merchant-completion RC is deployed AND the physical NFC tag acceptance
  *              test has passed in production. Until then QR is the entry claim and NFC is "Ausblick".
  * rcDeployed:  flip to true only after the merchant-completion RC is deployed and its targeted production
- *              verification passed (card locator, staff reissue keeping balance/history/locator, corrections).
+ *              verification passed (card locator, owner/manager reissue keeping membership/balance/history/locator, corrections).
  */
 export interface Gates { nfcAccepted: boolean; rcDeployed: boolean }
-export const RELEASED_GATES: Gates = { nfcAccepted: false, rcDeployed: false };
+export const RELEASED_GATES: Gates = { nfcAccepted: false, rcDeployed: true };
 
 /** Test-only override ("nfcAccepted,rcDeployed"). build.mts refuses to run while it is set. */
 const testOverride: string | undefined = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.LOYNARA_TEST_GATES;
@@ -56,14 +56,18 @@ const ENTRY = {
   },
 };
 
+// Production truth confirmed by owner: canonical application c822d2381dc67544a0ba0c898bf2ddcf98035943.
+// TAG-01 preview acceptance does not enable the independent production NFC gate.
 const RECOVERY = {
   live: {
-    counterAnswer: 'Es sieht die Anfrage oder scannt die Karte und bestätigt den Besuch. Erst dann gibt es einen Stempel, genau einmal. Bezahlt wird wie bisher; Loynara ist keine Kassenanbindung und kein Bezahlsystem.',
+    counterAnswer: 'Dein Team sieht die Anfrage oder scannt die Karte und bestätigt den Besuch. Erst dann gibt es einen Stempel, genau einmal. Bezahlt wird wie bisher; Loynara ist keine Kassenanbindung und kein Bezahlsystem.',
+    correctionAnswer: 'Bei einem falsch gebuchten Stempel wendest du dich an die Leitung.',
     lostAnswer: 'Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat oder das Schild beziehungsweise den QR-Code erneut nutzt, kommt wieder zu seiner Karte. Eine pauschale Wiederherstellungsgarantie geben wir nicht.',
   },
   rc: {
-    counterAnswer: 'Es sieht die Anfrage oder scannt die Karte und bestätigt den Besuch. Klappt der Scan nicht, findet dein Team die Karte über ihre kurze Kartennummer. Erst dann gibt es einen Stempel, genau einmal. Bezahlt wird wie bisher; Loynara ist keine Kassenanbindung und kein Bezahlsystem.',
-    lostAnswer: 'Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat, kommt jederzeit wieder zu seiner Karte. Ist er verloren, stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr.',
+    correctionAnswer: 'Als Inhaber oder Leitung korrigierst du eine falsche Buchung mit Begründung. Die ursprüngliche Buchung und die Korrektur bleiben im Verlauf nachvollziehbar.',
+    counterAnswer: 'Dein Team sieht die Anfrage oder scannt die Karte und bestätigt den Besuch. Klappt der Scan nicht, findet dein Team die Karte über ihre kurze Kartennummer im Format K-XXXXXX. Erst dann gibt es einen Stempel, genau einmal. Bezahlt wird wie bisher; Loynara ist keine Kassenanbindung und kein Bezahlsystem.',
+    lostAnswer: 'Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat, kommt jederzeit wieder zu seiner Karte. Ist er verloren, stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr.',
   },
 };
 
