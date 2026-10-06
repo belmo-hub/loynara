@@ -337,8 +337,9 @@
 }
 
 /* Campaigns */
-.ow-goals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ow-s4); }
-@media (max-width: 900px) { .ow-goals { grid-template-columns: minmax(0, 1fr); } }
+.ow-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ow-s4); }
+@media (max-width: 1280px) { .ow-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .ow-goals { grid-template-columns: minmax(0, 1fr); } }
 .ow-goal { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: var(--ow-s4) var(--ow-s5); border: 1px solid var(--ow-line); border-radius: var(--ow-r3); background: var(--ow-surface); font: inherit; color: inherit; cursor: pointer; box-shadow: var(--ow-shadow-1); transition: border-color var(--ow-fast), transform var(--ow-fast) var(--ow-ease); }
 .ow-goal:hover { border-color: var(--ow-accent); transform: translateY(-1px); }
 .ow-goal strong { font-size: 16px; }
