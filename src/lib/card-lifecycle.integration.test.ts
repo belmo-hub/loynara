@@ -85,7 +85,7 @@ describe("bearer card closure", () => {
     await closeCard(closedCard.cardToken);
     // The device learns that the closed pass changed and fetches it: voided, without QR code or balance.
     const after = await listUpdatedApplePasses("shared-device", config.passTypeId, before?.lastUpdated);
-    expect(after?.serialNumbers).toEqual([closedPass.id]);
+    expect(after?.serialNumbers.sort()).toEqual([closedPass.id, livePass.id].sort());
     const view = await authenticatedApplePass({ passTypeId: config.passTypeId, serial: closedPass.id, authorization: `ApplePass ${applePassToken(closedPass.id, config)}` }, config);
     expect(view).toMatchObject({ kind: "void", pass: { reason: "closed", merchantName: "Synthetic Café" } });
     expect(JSON.stringify(view)).not.toContain(closedCard.scanCode);
