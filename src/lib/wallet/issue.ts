@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, like } from "drizzle-orm";
 import { db } from "@/db";
 import { memberships, walletPasses } from "@/db/schema";
 import { validCardToken } from "@/lib/card-lifecycle";
@@ -7,6 +7,7 @@ import { DomainError } from "@/lib/loyalty";
 import { credentialHash } from "./data";
 import { enqueueWalletRefresh } from "./enqueue";
 import type { WalletProvider } from "./types";
+import { isPassFastObjectId } from "./passfast";
 
 export type IssuedPass = typeof walletPasses.$inferSelect;
 
@@ -25,13 +26,23 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
     const hash = credentialHash(member.scanCode);
     const [active] = await tx.select().from(walletPasses)
       .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id), eq(walletPasses.provider, provider), isNull(walletPasses.revokedAt)));
-    if (active?.credentialHash === hash) return active;
+    if (active?.credentialHash === hash && isPassFastObjectId(active.providerObjectId) === isPassFastObjectId(objectIdFor(active.id))) return active;
     if (active) {
-      await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: "superseded", status: provider === "apple" && active.status === "pending" ? "revoked" : "revocation_pending", updatedAt: new Date() }).where(eq(walletPasses.id, active.id));
+      await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: "superseded", status: active.status === "pending" && (provider === "apple" || isPassFastObjectId(active.providerObjectId)) ? "revoked" : "revocation_pending", updatedAt: new Date() }).where(eq(walletPasses.id, active.id));
       await enqueueWalletRefresh(tx, member.tenantId, member.id);
     }
     const id = randomUUID();
-    const [created] = await tx.insert(walletPasses).values({ id, tenantId: member.tenantId, membershipId: member.id, provider, providerObjectId: objectIdFor(id), status: "pending", credentialHash: hash }).returning();
+    let providerObjectId = objectIdFor(id);
+    if (isPassFastObjectId(providerObjectId)) {
+      // One opaque generation serial across both platforms, with separate local rows and explicit API wallet_type.
+      // The membership lock serializes first issuance. A revoked/older-generation row can never donate its serial.
+      const [sibling] = await tx.select({ providerObjectId: walletPasses.providerObjectId }).from(walletPasses)
+        .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id),
+          eq(walletPasses.credentialHash, hash), isNull(walletPasses.revokedAt), like(walletPasses.providerObjectId, "passfast:%"))).limit(1);
+      if (sibling) providerObjectId = sibling.providerObjectId;
+    }
+    const [created] = await tx.insert(walletPasses).values({ id, tenantId: member.tenantId, membershipId: member.id, provider, providerObjectId, status: "pending", credentialHash: hash }).returning();
+    if (isPassFastObjectId(created.providerObjectId)) await enqueueWalletRefresh(tx, member.tenantId, member.id);
     return created;
   });
 }

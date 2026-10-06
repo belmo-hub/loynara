@@ -194,11 +194,11 @@ describe("production configuration gate", () => {
     };
     const refused = (env: NodeJS.ProcessEnv, pattern: RegExp) => expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));
 
-    it("accepts Wallet off, and complete approved Apple or Google configurations", () => {
+    it("accepts Wallet off and refuses dormant direct native providers", () => {
       expect(productionConfigIssues({ ...safe, APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false" })).toEqual([]);
-      expect(productionConfigIssues(apple)).toEqual([]);
-      expect(productionConfigIssues(google)).toEqual([]);
-      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual([]);
+      expect(productionConfigIssues(apple)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues(google)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
     });
 
     it("requires a separate approval and refuses a stray approval or ambiguous flags", () => {

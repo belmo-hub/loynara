@@ -1,5 +1,6 @@
 import { appleWalletStatus } from "./apple";
 import { googleWalletStatus } from "./google";
+import { passFastConfig, passFastStatus } from "./passfast";
 
 /**
  * Everything a browser may learn about Wallet: whether each provider can issue a pass on this deployment. No reasons,
@@ -9,6 +10,11 @@ import { googleWalletStatus } from "./google";
 export type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable" };
 
 export function walletAvailability(env: Record<string, string | undefined> = process.env): WalletAvailability {
+  if (env.NODE_ENV === "production" || env.PASSFAST_ENABLED === "true") {
+    const ready = passFastStatus(env).ready;
+    const platforms = ready ? passFastConfig(env).platforms : [];
+    return { apple: platforms.includes("apple") ? "available" : "unavailable", google: platforms.includes("google") ? "available" : "unavailable" };
+  }
   const google = googleWalletStatus(env);
   return {
     apple: appleWalletStatus(env).ready ? "available" : "unavailable",

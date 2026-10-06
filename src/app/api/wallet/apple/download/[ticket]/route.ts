@@ -9,6 +9,8 @@ import { credentialHash, walletCardSnapshot } from "@/lib/wallet/data";
 import { noStore, walletDownloadFailure, walletIssueError, walletUnavailable } from "@/lib/wallet/http";
 import { activeApplePass } from "@/lib/wallet/issue";
 import { readDownloadTicket, TICKET_TTL_SECONDS } from "@/lib/wallet/ticket";
+import { isPassFastObjectId, PassFastClient, passFastConfig, passFastSerial } from "@/lib/wallet/passfast";
+import { syncPassFastPass } from "@/lib/wallet/passfast-lifecycle";
 
 /**
  * Step 2: Safari navigates here and receives the signed pass. The ticket is short-lived and use-capped, and the pass
@@ -28,8 +30,14 @@ export async function GET(request: Request, context: { params: Promise<{ ticket:
     if (!row) throw new DomainError("NOT_FOUND", "Download link expired");
     const snapshot = await walletCardSnapshot(row.membershipId);
     if (!snapshot.open || snapshot.credentialHash !== row.credentialHash) throw new DomainError("NOT_FOUND", "Download link expired");
-    const config = appleSigningConfig();
-    const bytes = await applePassArchive(applePassJson(snapshot.pass, row.id, config), snapshot.pass, config);
+    let bytes: Buffer;
+    if (isPassFastObjectId(row.providerObjectId)) {
+      await syncPassFastPass(row.id, { tenantId: row.tenantId });
+      bytes = await new PassFastClient(passFastConfig()).download(passFastSerial(row.providerObjectId));
+    } else {
+      const config = appleSigningConfig();
+      bytes = await applePassArchive(applePassJson(snapshot.pass, row.id, config), snapshot.pass, config);
+    }
     // Signing may outlast a staff reissue or closure. Recheck under the same membership lock as those operations,
     // after signing, before releasing any archive. Already downloaded/registered rows remain valid without a status change.
     await db.transaction(async tx => {

@@ -7,6 +7,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateRawSync } from "node:zlib";
 import { resetAppleWalletStatusCache } from "./apple";
 import { resetGoogleWalletStatusCache } from "./google";
 
@@ -75,4 +76,20 @@ export function fakeGoogleApi(options: { failWith?: number } = {}) {
     return new Response(null, { status: 405 });
   };
   return { fetcher, calls, classes, objects };
+}
+
+/** Unsigned synthetic ZIP for provider-response tests; never represents physical-device acceptance. */
+export function syntheticPassFastArchive(pass: Record<string, unknown>, compressed = false): Buffer {
+  const name=Buffer.from("pass.json"), plain=Buffer.from(JSON.stringify(pass));
+  const body=compressed?deflateRawSync(plain):plain;
+  let checksum=0xffffffff;
+  for(const byte of plain){checksum^=byte;for(let bit=0;bit<8;bit++)checksum=(checksum>>>1)^(checksum&1?0xedb88320:0);}
+  checksum=(checksum^0xffffffff)>>>0;
+  const local=Buffer.alloc(30); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20,4);
+  local.writeUInt32LE(checksum,14); local.writeUInt16LE(compressed?8:0,8); local.writeUInt32LE(body.length,18); local.writeUInt32LE(plain.length,22); local.writeUInt16LE(name.length,26);
+  const central=Buffer.alloc(46); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(20,4); central.writeUInt16LE(20,6);
+  central.writeUInt32LE(checksum,16); central.writeUInt16LE(compressed?8:0,10); central.writeUInt32LE(body.length,20); central.writeUInt32LE(plain.length,24); central.writeUInt16LE(name.length,28);
+  const end=Buffer.alloc(22); end.writeUInt32LE(0x06054b50); end.writeUInt16LE(1,8); end.writeUInt16LE(1,10);
+  end.writeUInt32LE(central.length+name.length,12); end.writeUInt32LE(local.length+name.length+body.length,16);
+  return Buffer.concat([local,name,body,central,name,end]);
 }

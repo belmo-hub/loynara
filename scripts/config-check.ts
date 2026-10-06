@@ -1,4 +1,5 @@
 import path from "node:path";
+import { passFastStatus } from "../src/lib/wallet/passfast";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -110,7 +111,7 @@ const placeholder = /replace|placeholder|example|changeme|test-secret/i;
  */
 function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): string[] {
   const issues: string[] = [];
-  for (const name of ["APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED"]) {
+  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED"]) {
     if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
   }
   if (["DEVICE_TEST_APPROVED_WALLET_PROVIDER", "DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL", "DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID"].some(name => env[name])) {
@@ -118,8 +119,11 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   }
   const apple = env.APPLE_WALLET_ENABLED === "true";
   const google = env.GOOGLE_WALLET_ENABLED === "true";
-  if ((apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
-  if (!apple && !google && env.WALLET_PRODUCTION_APPROVED === "true") issues.push("WALLET_PRODUCTION_APPROVED is set while no Wallet provider is enabled");
+  const passfast = env.PASSFAST_ENABLED === "true";
+  if (apple || google) issues.push("Direct native Wallet providers are dormant; production uses PassFast");
+  if (passfast && !passFastStatus(env).ready) issues.push("PassFast enabled without complete approved configuration");
+  if ((passfast || apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
+  if (!passfast && !apple && !google && env.WALLET_PRODUCTION_APPROVED === "true") issues.push("WALLET_PRODUCTION_APPROVED is set while no Wallet provider is enabled");
   const credentialPath = (name: string) => {
     const value = env[name];
     if (!value || !path.isAbsolute(value) || nonProductionPath.test(value)) issues.push(`${name} must be an absolute path outside public, preview, fixture and device-test locations`);

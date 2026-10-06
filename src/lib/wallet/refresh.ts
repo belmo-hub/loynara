@@ -8,6 +8,8 @@ import { walletCardSnapshot } from "./data";
 import { googleConfig, googleWalletStatus, GoogleWalletClient } from "./google";
 import type { RevokeReason, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
+import { isPassFastObjectId, passFastStatus, PassFastError, type PassFastClient } from "./passfast";
+import { syncPassFastPass } from "./passfast-lifecycle";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
 type PassRow = typeof walletPasses.$inferSelect;
@@ -19,14 +21,21 @@ type PassRow = typeof walletPasses.$inferSelect;
  * Google objects are set INACTIVE without barcode. Loyalty state is never touched here, so a provider failure can only
  * delay the Wallet copy; the worker retries with backoff and an operator can replay blocked jobs.
  */
-export async function refreshWalletForMembership(membershipId: string, deps: { google?: GoogleWalletClient; applePush?: typeof sendApplePassNotifications; expectedTenantId?: string } = {}): Promise<WalletRefreshResult> {
+export async function refreshWalletForMembership(membershipId: string, deps: { google?: GoogleWalletClient; applePush?: typeof sendApplePassNotifications; expectedTenantId?: string; passfast?: PassFastClient } = {}): Promise<WalletRefreshResult> {
   // Worker payloads have no membership FK. Bind their lookup to the outbox tenant before reading or contacting a provider.
   const rows = await db.select().from(walletPasses).where(and(eq(walletPasses.membershipId, membershipId), ne(walletPasses.status, "revoked"), deps.expectedTenantId ? eq(walletPasses.tenantId, deps.expectedTenantId) : undefined));
   if (!rows.length) return { status: "complete" };
   const snapshot = await walletCardSnapshot(membershipId);
   const blocked: string[] = [];
   let google = deps.google;
+  let passFastFailed = false;
   for (const original of rows) {
+    if (isPassFastObjectId(original.providerObjectId)) {
+      if (!passFastStatus().ready && !deps.passfast) { blocked.push("Wallet provider unavailable"); continue; }
+      try { await syncPassFastPass(original.id, { client: deps.passfast, tenantId: original.tenantId }); }
+      catch { passFastFailed = true; } // Still retire the other platform; retain this job for bounded retry.
+      continue;
+    }
     if (original.provider === "google") {
       await withGooglePassLock(original.id, async (tx, current) => {
         if (!current || current.status === "revoked") return;
@@ -87,6 +96,7 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
       else await db.update(walletPasses).set({ syncedAt: new Date() }).where(eq(walletPasses.id, row.id));
     }
   }
+  if (passFastFailed) throw new PassFastError();
   return blocked.length ? { status: "blocked", reason: blocked.join("; ") } : { status: "complete" };
 }
 

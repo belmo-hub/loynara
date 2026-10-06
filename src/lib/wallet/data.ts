@@ -35,6 +35,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
   const appleLogo = appleLogoFromData(row.location.logoData);
   const googleLogoUrl = merchantGoogleLogoUrl(row.program.id, row.location.logoData);
   const brand: WalletBrand & { membershipId: string } = {
+    programType: row.program.type === "points" ? "points" : "stamp",
     tenantId: row.tenant.id,
     membershipId: row.member.id,
     programId: row.program.id,

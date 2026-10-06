@@ -14,11 +14,11 @@ import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl } from 
 export type OwnerWalletReadiness = {
   apple: "ready" | "not_set_up";
   google: "ready" | "test_only" | "not_set_up";
-  logo: "ready" | "needs_png" | "too_large" | "missing";
+  logo: "ready" | "needs_png" | "too_large" | "missing" | "needs_review";
   /** Whether Google shows the merchant's own logo or the neutral Loynara fallback. */
   googleLogo: "merchant" | "fallback";
   ink: "light" | "dark";
-  /** Unrevoked issued rows, including pending issuance. Neither a download nor a Google object proves a device save. */
+  /** Unrevoked created projections; never-started/uncertain PassFast issuance is excluded. Neither a download nor a Google object proves a device save. */
   passes: { apple: number; google: number };
   /** Cards whose Wallet copy is currently behind because a provider update is waiting or failed. */
   delayedUpdates: number;
@@ -40,6 +40,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
   const counts = await db.execute<{ provider: string; n: number }>(sql`
     SELECT p.provider, count(*)::int AS n FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id
     WHERE p.tenant_id = ${program.tenantId}::uuid AND m.program_id = ${program.id}::uuid AND p.revoked_at IS NULL AND m.closed_at IS NULL
+      AND (p.provider_object_id NOT LIKE 'passfast:%' OR p.status NOT IN ('pending', 'creating'))
     GROUP BY p.provider`);
   const delayed = await db.execute<{ n: number }>(sql`
     SELECT count(DISTINCT j.payload ->> 'membershipId')::int AS n FROM outbox_jobs j
@@ -50,7 +51,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
   return {
     apple: availability.apple === "available" ? "ready" : "not_set_up",
     google: availability.google === "available" ? "ready" : availability.google === "test_only" ? "test_only" : "not_set_up",
-    logo,
+    logo: process.env.NODE_ENV === "production" || process.env.PASSFAST_ENABLED === "true" ? "needs_review" : logo,
     googleLogo: merchantGoogleLogoUrl(program.id, program.logoData) ? "merchant" : "fallback",
     ink: passInk(program.brandColor),
     passes: { apple: byProvider.apple ?? 0, google: byProvider.google ?? 0 },

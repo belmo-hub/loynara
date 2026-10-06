@@ -136,7 +136,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
           <div className="ow-seg" role="group" aria-label="Beispielzustand">
             {DEMOS.map(item => <button key={item.id} type="button" aria-pressed={demo === item.id} onClick={() => setDemo(item.id)}>{item.label}</button>)}
           </div>
-          <p className="ow-hint">Vorschau – Darstellung auf dem Gerät kann abweichen. Alle Ansichten nutzen denselben Entwurf.</p>
+          <p className="ow-hint">Wallet-Vorschauen sind Entwürfe. Darstellung auf dem Gerät kann abweichen; Logo und Farben werden vor der Wallet-Freigabe gesondert geprüft und übernommen.</p>
         </div>
       </div>
       <SaveBar state={shownState} onSave={() => void save()} onDiscard={discard} canSave={colorValid && nameValid && changed} saveLabel="Kundenkarte speichern" detail={shownState === "error" ? `${error} Deine Änderungen sind noch da.` : shownState === "dirty" && !(colorValid && nameValid) ? "Bitte Eingaben prüfen." : undefined} />

@@ -4,6 +4,7 @@ export type RevokeReason = "reissued" | "closed" | "superseded";
 
 /** Merchant and programme presentation shared by every pass of a programme, valid or revoked. */
 export type WalletBrand = {
+  programType?: "stamp" | "points";
   tenantId: string;
   programId: string;
   merchantName: string;

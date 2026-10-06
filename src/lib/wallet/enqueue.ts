@@ -32,7 +32,7 @@ export async function enqueueWalletRefresh(tx: Query, tenantId: string, membersh
 export async function revokeCardWalletPasses(tx: Query, tenantId: string, membershipId: string, reason: "reissued" | "closed"): Promise<void> {
   await tx.execute(sql`
     UPDATE wallet_passes SET revoked_at = now(), revoke_reason = ${reason}, updated_at = now(),
-      status = CASE WHEN provider = 'apple' AND status = 'pending' THEN 'revoked' ELSE 'revocation_pending' END
+      status = CASE WHEN status = 'pending' AND (provider = 'apple' OR provider_object_id LIKE 'passfast:%') THEN 'revoked' ELSE 'revocation_pending' END
     WHERE tenant_id = ${tenantId}::uuid AND membership_id = ${membershipId}::uuid AND revoked_at IS NULL`);
   await enqueueWalletRefresh(tx, tenantId, membershipId);
 }
