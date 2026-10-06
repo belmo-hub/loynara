@@ -93,6 +93,11 @@ describe("bearer card closure", () => {
     await expect(register(closedPass.id, "new-device", "c".repeat(64))).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "new-device"))).toHaveLength(0);
 
+    // A provider outage must retain registrations even with a zero-day retention override.
+    await pruneRevokedAppleRegistrations(pool, 0);
+    expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, closedCard.id))).toHaveLength(2);
+    // Model a completed revocation push, then retention can expire without touching the shared live pass.
+    await pool.query("UPDATE wallet_passes SET status = 'revoked', synced_at = now() - interval '1 second' WHERE id = $1", [closedPass.id]);
     await pruneRevokedAppleRegistrations(pool, 0);
     expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, closedCard.id))).toHaveLength(0);
     expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "closed-only-device"))).toHaveLength(0);

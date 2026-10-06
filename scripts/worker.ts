@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { pool } from "../src/db";
 import { claimOutboxJob, deferOutboxJob, markOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
+import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 
@@ -132,7 +133,7 @@ async function processJob(job: Job) {
 
   try {
     const { refreshWalletForMembership, supersedeOlderWalletRefreshes } = await import("../src/lib/wallet/refresh");
-    const result = await refreshWalletForMembership(membershipId);
+    const result = await refreshWalletForMembership(membershipId, { expectedTenantId: job.tenantId });
     if (result.status === "blocked") {
       await mark(job, "blocked", result.reason);
       return "blocked";
@@ -153,13 +154,8 @@ async function processJob(job: Job) {
 }
 
 async function replay(jobId: string) {
-  if (!uuidPattern.test(jobId)) throw new Error("Replay requires a job UUID");
-  const result = await pool.query(
-    "UPDATE outbox_jobs SET status = 'pending', attempts = 0, next_attempt_at = now(), last_error = NULL WHERE id = $1 AND status IN ('blocked', 'failed') RETURNING id",
-    [jobId],
-  );
-  if (result.rowCount !== 1) throw new Error("Job is not blocked or failed, or it does not exist");
-  console.log(`Requeued job ${jobId}`);
+  const status = await replayOutboxJob(pool, jobId);
+  console.log(status === "suppressed" ? `Job ${jobId} is covered by an existing Wallet refresh` : `Requeued job ${jobId}`);
 }
 
 async function main() {

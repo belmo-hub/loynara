@@ -24,8 +24,8 @@ export type WalletCardSnapshot =
  * The single read path for every Wallet build and refresh: the membership row, its programme, location and merchant,
  * the target reward and the latest ledger time. A closed card yields only its branding, never balance or codes.
  */
-export async function walletCardSnapshot(membershipId: string): Promise<WalletCardSnapshot> {
-  const [row] = await db.select({ member: memberships, program: programs, location: locations, tenant: tenants })
+export async function walletCardSnapshot(membershipId: string, reader: Pick<typeof db, "select"> = db): Promise<WalletCardSnapshot> {
+  const [row] = await reader.select({ member: memberships, program: programs, location: locations, tenant: tenants })
     .from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
@@ -49,8 +49,8 @@ export async function walletCardSnapshot(membershipId: string): Promise<WalletCa
     ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
   };
   if (row.member.closedAt) return { open: false, brand };
-  const [target] = await currentRewards(row.member.tenantId, row.program.id);
-  const [latest] = await db.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
+  const [target] = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const [latest] = await reader.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
   return {

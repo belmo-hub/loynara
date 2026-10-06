@@ -169,8 +169,8 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
 }
 
 /** Active rewards in the merchant's order. The browser card and the Wallet pass both show the first as the target. */
-export async function currentRewards(tenantId: string, programId: string) {
-  const rows = await db.select({ reward: rewards, version: rewardVersions }).from(rewards)
+export async function currentRewards(tenantId: string, programId: string, reader: Pick<typeof db, "select"> = db) {
+  const rows = await reader.select({ reward: rewards, version: rewardVersions }).from(rewards)
     .innerJoin(rewardVersions, and(eq(rewardVersions.rewardId, rewards.id), eq(rewardVersions.tenantId, rewards.tenantId)))
     .where(and(eq(rewards.tenantId, tenantId), eq(rewards.programId, programId), eq(rewards.active, true), sql`${rewardVersions.effectiveAt} <= now()`))
     .orderBy(desc(rewardVersions.version));

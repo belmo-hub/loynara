@@ -84,6 +84,18 @@ describe("wallet refresh queue", () => {
 });
 
 describe("Google Wallet follows every loyalty change (fake provider)", () => {
+  it("a worker job belonging to another tenant cannot refresh this membership", async () => {
+    await withGoogle(async (api, client) => {
+      const first = await createMember();
+      const other = await createMember();
+      const pass = await issueWalletPass(first.member.cardToken, "google", id => googleObjectId(id, issuer));
+      expect(await refreshWalletForMembership(first.member.id, { google: client, expectedTenantId: other.merchant.tenantId })).toEqual({ status: "complete" });
+      expect(api.objects.size).toBe(0);
+      expect(api.calls).toHaveLength(0);
+      expect((await db.select().from(walletPasses).where(eq(walletPasses.id, pass.id)))[0]).toMatchObject({ status: "pending", syncedAt: null });
+    });
+  });
+
   it("award, redemption, correction and referral bonus are reflected from Loynara state", async () => {
     await withGoogle(async (api, client) => {
       const { owner, merchant, member } = await createMember();

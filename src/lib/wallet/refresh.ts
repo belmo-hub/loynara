@@ -7,6 +7,7 @@ import { sendApplePassNotifications } from "./apple-push";
 import { walletCardSnapshot } from "./data";
 import { googleConfig, googleWalletStatus, GoogleWalletClient } from "./google";
 import type { RevokeReason, WalletRevokedData } from "./types";
+import { withGooglePassLock } from "./write";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
 type PassRow = typeof walletPasses.$inferSelect;
@@ -18,13 +19,39 @@ type PassRow = typeof walletPasses.$inferSelect;
  * Google objects are set INACTIVE without barcode. Loyalty state is never touched here, so a provider failure can only
  * delay the Wallet copy; the worker retries with backoff and an operator can replay blocked jobs.
  */
-export async function refreshWalletForMembership(membershipId: string, deps: { google?: GoogleWalletClient; applePush?: typeof sendApplePassNotifications } = {}): Promise<WalletRefreshResult> {
-  const rows = await db.select().from(walletPasses).where(and(eq(walletPasses.membershipId, membershipId), ne(walletPasses.status, "revoked")));
+export async function refreshWalletForMembership(membershipId: string, deps: { google?: GoogleWalletClient; applePush?: typeof sendApplePassNotifications; expectedTenantId?: string } = {}): Promise<WalletRefreshResult> {
+  // Worker payloads have no membership FK. Bind their lookup to the outbox tenant before reading or contacting a provider.
+  const rows = await db.select().from(walletPasses).where(and(eq(walletPasses.membershipId, membershipId), ne(walletPasses.status, "revoked"), deps.expectedTenantId ? eq(walletPasses.tenantId, deps.expectedTenantId) : undefined));
   if (!rows.length) return { status: "complete" };
   const snapshot = await walletCardSnapshot(membershipId);
   const blocked: string[] = [];
   let google = deps.google;
   for (const original of rows) {
+    if (original.provider === "google") {
+      await withGooglePassLock(original.id, async (tx, current) => {
+        if (!current || current.status === "revoked") return;
+        let row = current;
+        // A waiting worker must read again AFTER the previous provider write and any committed lifecycle change.
+        const latest = await walletCardSnapshot(row.membershipId, tx);
+        const live = latest.open && row.revokedAt === null && row.credentialHash === latest.credentialHash;
+        if (!live && row.revokedAt === null) {
+          [row] = await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: latest.open ? "superseded" : "closed", status: "revocation_pending" })
+            .where(eq(walletPasses.id, row.id)).returning();
+        }
+        const status = googleWalletStatus();
+        if (!status.ready) { blocked.push(`Google Wallet: ${status.reason}`); return; }
+        const config = googleConfig();
+        google ??= new GoogleWalletClient(config);
+        if (!live) {
+          await google.revoke(revokedView(row, latest), row.providerObjectId, config);
+          await tx.update(walletPasses).set({ status: "revoked", syncedAt: new Date() }).where(eq(walletPasses.id, row.id));
+        } else if (latest.open) {
+          await google.upsert(latest.pass, row.id, config);
+          await tx.update(walletPasses).set({ status: row.status === "pending" ? "created" : row.status, syncedAt: new Date(), updatedAt: new Date() }).where(eq(walletPasses.id, row.id));
+        }
+      });
+      continue;
+    }
     let row = original;
     const live = snapshot.open && row.revokedAt === null && row.credentialHash === snapshot.credentialHash;
     if (!live && row.revokedAt === null) {
@@ -39,19 +66,7 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
     // An Apple pass that was never downloaded has nothing to withdraw.
     if (row.status === "revoked") continue;
     const revoked: WalletRevokedData | null = live ? null : revokedView(row, snapshot);
-    if (row.provider === "google") {
-      const status = googleWalletStatus();
-      if (!status.ready) { blocked.push(`Google Wallet: ${status.reason}`); continue; }
-      const config = googleConfig();
-      google ??= new GoogleWalletClient(config);
-      if (revoked) {
-        await google.revoke(revoked, row.providerObjectId, config);
-        await finishRevocation(row);
-      } else if (snapshot.open) {
-        await google.upsert(snapshot.pass, row.id, config);
-        await db.update(walletPasses).set({ status: row.status === "pending" ? "created" : row.status, syncedAt: new Date(), updatedAt: new Date() }).where(eq(walletPasses.id, row.id));
-      }
-    } else if (row.provider === "apple") {
+    if (row.provider === "apple") {
       const status = appleWalletStatus();
       if (!status.ready) { blocked.push(`Apple Wallet: ${status.reason}`); continue; }
       const config = appleSigningConfig();
@@ -100,14 +115,24 @@ export async function supersedeOlderWalletRefreshes(pool: Pick<Pool, "query">, j
 }
 
 /**
- * Device identifiers and push tokens of revoked passes are kept only long enough to deliver the voided pass. A week
- * covers devices that were offline; afterwards they are deleted (the voided pass on the device keeps working offline).
+ * Keep registrations throughout a provider outage and for a week after a successful revocation push. Each sweep
+ * removes at most 1000 registrations and 1000 orphan devices, so retention maintenance cannot monopolize the worker.
  */
 export async function pruneRevokedAppleRegistrations(pool: Pick<Pool, "query">, olderThanDays = 7) {
   await pool.query(
-    `DELETE FROM apple_registrations r USING wallet_passes p
-     WHERE p.provider = 'apple' AND p.id::text = r.serial_number AND p.revoked_at IS NOT NULL AND p.revoked_at < now() - make_interval(days => $1::int)`,
+    `WITH expired AS (
+       SELECT r.ctid FROM apple_registrations r
+       JOIN wallet_passes p ON p.id::text = r.serial_number AND p.tenant_id = r.tenant_id AND p.membership_id = r.membership_id
+       WHERE p.provider = 'apple' AND p.status = 'revoked' AND p.revoked_at IS NOT NULL
+         AND p.synced_at < now() - make_interval(days => $1::int)
+       ORDER BY r.device_library_identifier, r.pass_type_identifier, r.serial_number
+       LIMIT 1000 FOR UPDATE OF r SKIP LOCKED
+     ) DELETE FROM apple_registrations r USING expired WHERE r.ctid = expired.ctid`,
     [olderThanDays],
   );
-  await pool.query("DELETE FROM apple_devices d WHERE NOT EXISTS (SELECT 1 FROM apple_registrations r WHERE r.device_library_identifier = d.device_library_identifier)");
+  await pool.query(`WITH orphaned AS (
+    SELECT d.device_library_identifier FROM apple_devices d
+    WHERE NOT EXISTS (SELECT 1 FROM apple_registrations r WHERE r.device_library_identifier = d.device_library_identifier)
+    ORDER BY d.device_library_identifier LIMIT 1000 FOR UPDATE OF d SKIP LOCKED
+  ) DELETE FROM apple_devices d USING orphaned WHERE d.device_library_identifier = orphaned.device_library_identifier`);
 }
