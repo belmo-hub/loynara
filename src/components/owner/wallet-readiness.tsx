@@ -40,7 +40,7 @@ export function WalletReadiness({ programSlug, version }: { programSlug: string;
   const apple = PROVIDER[wallet.apple];
   const google = PROVIDER[wallet.google];
   const logo = LOGO[wallet.logo];
-  const holders = wallet.passes.apple + wallet.passes.google;
+  const issued = wallet.passes.apple + wallet.passes.google;
   return (
     <div className="ow-stack ow-wallet-ready" aria-live="polite">
       <dl className="ow-wallet-ready-list">
@@ -48,8 +48,8 @@ export function WalletReadiness({ programSlug, version }: { programSlug: string;
         <div><dt>Google Wallet</dt><dd><Chip tone={google.tone}>{google.label}</Chip><span className="ow-hint">{google.hint}</span></dd></div>
         <div><dt>Logo</dt><dd><Chip tone={logo.tone}>{logo.label}</Chip><span className="ow-hint">{logo.hint}{wallet.logo === "ready" && wallet.googleLogo === "fallback" && wallet.google !== "not_set_up" ? " Google Wallet zeigt es, sobald Loynara die Bildfreigabe eingerichtet hat." : ""}</span></dd></div>
       </dl>
-      {(wallet.apple !== "not_set_up" || wallet.google !== "not_set_up") && <p className="ow-hint">{holders === 0 ? "Noch hat niemand die Karte in Wallet gespeichert." : `${nf.format(holders)} ${holders === 1 ? "Karte ist" : "Karten sind"} in Wallet gespeichert (Apple ${nf.format(wallet.passes.apple)}, Google ${nf.format(wallet.passes.google)}).`}</p>}
-      {wallet.delayedUpdates > 0 && <Notice tone="warn">Bei {nf.format(wallet.delayedUpdates)} {wallet.delayedUpdates === 1 ? "Karte" : "Karten"} ist die Wallet-Anzeige gerade nicht aktuell. Stand und Prämien in Loynara stimmen; an der Kasse zählt immer Loynara. Die Anzeige wird automatisch nachgezogen.</Notice>}
+      {(wallet.apple !== "not_set_up" || wallet.google !== "not_set_up") && <p className="ow-hint">{issued === 0 ? "Noch wurden keine Wallet-Karten erstellt." : `${nf.format(issued)} ${issued === 1 ? "Wallet-Karte wurde" : "Wallet-Karten wurden"} erstellt (Apple ${nf.format(wallet.passes.apple)}, Google ${nf.format(wallet.passes.google)}). Ob sie auf dem Gerät gespeichert wurden, ist hier nicht bestätigt.`}</p>}
+      {wallet.delayedUpdates > 0 && <Notice tone="warn">Bei {nf.format(wallet.delayedUpdates)} {wallet.delayedUpdates === 1 ? "Karte" : "Karten"} ist die Wallet-Anzeige gerade nicht aktuell. Stand und Prämien in Loynara stimmen; an der Kasse zählt immer Loynara. Bei anhaltenden Verzögerungen wende dich an Loynara: Eine festgefahrene Aktualisierung muss geprüft und erneut gestartet werden.</Notice>}
     </div>
   );
 }

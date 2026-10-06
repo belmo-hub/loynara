@@ -266,9 +266,10 @@
 .ow-pass-module small { font-size: 11px; opacity: .85; }
 .ow-pass--google { border-radius: 22px; min-height: 300px; }
 .ow-pass-issuer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; }
+.ow-pass-issuer strong { min-width: 0; overflow-wrap: anywhere; }
+.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; flex: none; }
 .ow-pass-initial { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .85); color: #1a2b25; font-weight: 700; }
-.ow-pass-program { font-size: 13px; opacity: .9; }
+.ow-pass-program { font-size: 13px; opacity: .9; overflow-wrap: anywhere; }
 .ow-pass-big { display: flex; flex-direction: column; }
 .ow-pass-big small { font-size: 12px; opacity: .85; }
 .ow-pass-big b { font-size: 40px; line-height: 1.05; letter-spacing: -.02em; }

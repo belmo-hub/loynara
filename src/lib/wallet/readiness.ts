@@ -18,6 +18,7 @@ export type OwnerWalletReadiness = {
   /** Whether Google shows the merchant's own logo or the neutral Loynara fallback. */
   googleLogo: "merchant" | "fallback";
   ink: "light" | "dark";
+  /** Unrevoked issued rows, including pending issuance. Neither a download nor a Google object proves a device save. */
   passes: { apple: number; google: number };
   /** Cards whose Wallet copy is currently behind because a provider update is waiting or failed. */
   delayedUpdates: number;
