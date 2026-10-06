@@ -4,10 +4,10 @@ import { promisify } from "node:util";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
-import { createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
+import { createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
 import { unsubscribeMarketing } from "./unsubscribe";
@@ -259,5 +259,93 @@ describe("local campaign core", () => {
     expect(dispatch.status).toBe("complete");
     expect((await db.select().from(campaigns))[0]).toMatchObject({ status: "complete", audienceCount: 1, queuedCount: 0 });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+  });
+});
+
+describe("win-back and announcement workflow", () => {
+  const DAY = 86_400_000;
+  async function checkoutAt(f: Awaited<ReturnType<typeof fixture>>, membershipId: string, at: Date) {
+    await db.insert(ledgerEntries).values({ tenantId: f.merchant.tenantId, locationId: f.merchant.locationId, membershipId, actorUserId: f.ownerId, createdAt: at,
+      requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1 });
+  }
+  const winback = { kind: "inactive" as const, daysSinceLast: 30 };
+
+  it("counts zero, one and many lapsed cards and follows eligibility changes", async () => {
+    const f = await fixture();
+    const preview = () => previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: winback });
+    const regular = await member(f.merchant.programSlug, "regular@example.test", true, true);
+    await checkoutAt(f, regular.id, new Date(Date.now() - 2 * DAY));
+    await member(f.merchant.programSlug, "never@example.test", true, true);
+    expect(await preview()).toMatchObject({ total: 0, eligibleCount: 0 });
+
+    const lapsed = await member(f.merchant.programSlug, "lapsed@example.test", true, true);
+    await checkoutAt(f, lapsed.id, new Date(Date.now() - 45 * DAY));
+    expect(await preview()).toMatchObject({ total: 1, eligibleCount: 1 });
+
+    for (let index = 0; index < 4; index++) {
+      const card = await member(f.merchant.programSlug, `lapsed-${index}@example.test`, true, index % 2 === 0);
+      await checkoutAt(f, card.id, new Date(Date.now() - (40 + index) * DAY));
+    }
+    expect(await preview()).toMatchObject({ total: 5, eligibleCount: 3, excludedCountsByReason: { noConsent: 2 } });
+
+    // Coming back moves a card out of the win-back audience.
+    await checkoutAt(f, lapsed.id, new Date());
+    expect(await preview()).toMatchObject({ total: 4, eligibleCount: 2 });
+  });
+
+  it("saves a complete win-back draft when delivery is disabled but refuses to schedule it", async () => {
+    process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "true"; // enabled flag without an approved provider means: disabled
+    const f = await fixture();
+    expect(await previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: winback })).toMatchObject({ deliveryMode: "disabled", localOnly: false });
+    const draft = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, audienceDefinition: winback });
+    await expect(scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: new Date(Date.now() + 60_000) })).rejects.toMatchObject({ code: "EMAIL_DISABLED" });
+    const listed = await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug });
+    expect(listed).toEqual([expect.objectContaining({ id: draft.id, status: "draft", audienceDefinition: winback, queuedCount: 0 })]);
+    expect(await db.select().from(outboxJobs)).toHaveLength(0);
+  });
+
+  it("returns the existing draft for an identical double submit, but not for a changed one", async () => {
+    const f = await fixture();
+    const input = { actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, audienceDefinition: winback };
+    const [first, second] = await Promise.all([createDraftCampaign(input), createDraftCampaign(input)]);
+    expect(second.id).toBe(first.id);
+    const changed = await createDraftCampaign({ ...input, audienceDefinition: { kind: "inactive", daysSinceLast: 60 } });
+    expect(changed.id).not.toBe(first.id);
+    expect(await db.select().from(campaigns)).toHaveLength(2);
+  });
+
+  it("keeps drafts, previews and details inside the owner's tenant and rejects invalid audiences", async () => {
+    const f = await fixture();
+    const other = await fixture();
+    const draft = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, audienceDefinition: winback });
+    await expect(getCampaign({ actorUserId: other.ownerId, campaignId: draft.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(editDraftCampaign({ actorUserId: other.ownerId, campaignId: draft.id, ...draftFields })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(previewCampaign({ actorUserId: other.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: winback })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(createDraftCampaign({ actorUserId: other.ownerId, programSlug: f.merchant.programSlug, ...draftFields })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, audienceDefinition: { kind: "inactive", daysSinceLast: 0 } })).rejects.toThrow();
+    await expect(createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, audienceDefinition: { kind: "all", extra: true } as unknown as typeof winback })).rejects.toThrow();
+    await expect(createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, subject: "Line\nbreak" })).rejects.toThrow();
+  });
+
+  it("announces to all open cards and reports, without attribution, who came back after the send", async () => {
+    const f = await fixture();
+    const back = await member(f.merchant.programSlug, "back@example.test", true, true);
+    await member(f.merchant.programSlug, "quiet@example.test", true, true);
+    const closed = await member(f.merchant.programSlug, "closed@example.test", true, true);
+    await closeCard(closed.cardToken);
+    const all = { kind: "all" as const };
+    expect(await previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: all })).toMatchObject({ total: 2, eligibleCount: 2 });
+    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields, audienceDefinition: all });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+    const [dispatchJob] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    expect(await dispatchCampaign({ id: dispatchJob.id, tenantId: f.merchant.tenantId, payload: dispatchJob.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "complete", queuedCount: 2 });
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    for (const job of await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))) {
+      await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, send);
+    }
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).outcome).toEqual({ sent: 2, returnedAfterSend: 0 });
+    await checkoutAt(f, back.id, new Date(Date.now() + 1_000));
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).outcome).toEqual({ sent: 2, returnedAfterSend: 1 });
   });
 });

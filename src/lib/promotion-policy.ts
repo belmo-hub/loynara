@@ -4,8 +4,9 @@ import { db } from "@/db";
 type Query = Pick<typeof db, "execute">;
 
 export function promotionalLimits(env = process.env) {
-  const monthly = Number(env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT ?? "100");
-  const frequencyHours = Number(env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS ?? "24");
+  // Empty values (as shipped in .env.example) mean "use the default", not zero.
+  const monthly = Number(env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT?.trim() || "100");
+  const frequencyHours = Number(env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS?.trim() || "24");
   if (!Number.isSafeInteger(monthly) || monthly < 1 || monthly > 100_000 || !Number.isSafeInteger(frequencyHours) || frequencyHours < 1 || frequencyHours > 24 * 365) throw new Error("Invalid promotional safety limits");
   return { monthly, frequencyHours };
 }

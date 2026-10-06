@@ -111,8 +111,17 @@ export async function previewCampaign(raw: { actorUserId: string; programSlug: s
 export async function createDraftCampaign(raw: { actorUserId: string; programSlug: string; title: string; subject: string; body: string; audienceDefinition: AudienceDefinition }) {
   const input = contentSchema.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
-  const [campaign] = await db.insert(campaigns).values({ tenantId: program.tenantId, programId: program.id, createdByUserId: input.actorUserId, title: input.title, subject: input.subject, body: input.body, audienceDefinition: input.audienceDefinition }).returning();
-  return campaign;
+  return db.transaction(async tx => {
+    // A double submit (slow network, second click) must not leave two identical drafts: an identical draft by the same
+    // owner within two minutes is returned instead. Serialised per programme so two parallel requests cannot both miss it.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`campaign-draft:${program.id}`}))`);
+    const [duplicate] = await tx.select().from(campaigns).where(and(eq(campaigns.tenantId, program.tenantId), eq(campaigns.programId, program.id),
+      eq(campaigns.createdByUserId, input.actorUserId), eq(campaigns.status, "draft"), eq(campaigns.title, input.title), eq(campaigns.subject, input.subject),
+      eq(campaigns.body, input.body), sql`${campaigns.audienceDefinition} = ${JSON.stringify(input.audienceDefinition)}::jsonb`, sql`${campaigns.createdAt} > now() - interval '2 minutes'`)).limit(1);
+    if (duplicate) return duplicate;
+    const [campaign] = await tx.insert(campaigns).values({ tenantId: program.tenantId, programId: program.id, createdByUserId: input.actorUserId, title: input.title, subject: input.subject, body: input.body, audienceDefinition: input.audienceDefinition }).returning();
+    return campaign;
+  });
 }
 
 export async function editDraftCampaign(raw: { actorUserId: string; campaignId: string; title: string; subject: string; body: string; audienceDefinition: AudienceDefinition }) {
@@ -164,7 +173,7 @@ export async function listCampaigns(raw: { actorUserId: string; programSlug: str
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   const rows = await db.select().from(campaigns).where(and(eq(campaigns.tenantId, program.tenantId), eq(campaigns.programId, program.id))).orderBy(desc(campaigns.createdAt)).limit(100);
-  return rows.map(({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt }));
+  return rows.map(({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }));
 }
 
 export async function getCampaign(raw: { actorUserId: string; campaignId: string }) {
@@ -188,7 +197,20 @@ export async function getCampaign(raw: { actorUserId: string; campaignId: string
   const providerStates = [...new Map(providerRows.map(row => [row.jobId, row.status])).values()];
   summary.delivered = providerStates.filter(status => status === "delivered").length;
   summary.providerFailed = providerStates.filter(status => ["permanent_failure", "complained", "unsubscribed"].includes(status)).length;
-  return { campaign, summary, attempts };
+  // Outcome: of the cards that were sent the message, how many recorded a qualifying checkout afterwards. This is
+  // observation, not attribution: they might have come anyway.
+  const [outcome] = await db.execute<{ sent: number; returned: number }>(sql`
+    SELECT count(*)::int AS sent,
+      count(*) FILTER (WHERE EXISTS (
+        SELECT 1 FROM ledger_entries e
+        WHERE e.tenant_id = r.tenant_id AND e.membership_id = r.membership_id AND e.created_at > r.sent_at
+          AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)
+      ))::int AS returned
+    FROM campaign_recipients r
+    WHERE r.tenant_id = ${campaign.tenantId} AND r.campaign_id = ${campaign.id} AND r.status = 'complete' AND r.sent_at IS NOT NULL
+  `).then(result => result.rows);
+  return { campaign, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
 }
 
 export async function dispatchCampaign(job: DispatchJob, now?: Date): Promise<{ status: "complete" | "suppressed" | "blocked"; reason?: string; queuedCount?: number }> {

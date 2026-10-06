@@ -6,6 +6,7 @@ import { DomainError } from "./loyalty";
 
 const days = z.number().int().min(1).max(3650);
 export const audienceDefinitionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("all") }).strict(),
   z.object({ kind: z.literal("new"), withinDays: days }).strict(),
   z.object({ kind: z.literal("recently_active"), withinDays: days }).strict(),
   z.object({ kind: z.literal("inactive"), daysSinceLast: days }).strict(),
@@ -98,6 +99,7 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
   let join = "";
   let predicate: string;
   switch (definition.kind) {
+    case "all": predicate = "true"; break;
     case "new": predicate = "m.created_at >= p.cutoff"; break;
     case "recently_active": join = activityJoin; predicate = "activity.last_at >= p.cutoff"; break;
     case "inactive": join = activityJoin; predicate = "activity.last_at IS NOT NULL AND activity.last_at < p.cutoff"; break;
