@@ -314,3 +314,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .join-panel > p.join-another-warning { margin: 0 0 14px; padding: 12px 14px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 13px; }
 .join-panel > .button + .join-contact-note, .join-panel > .join-contact-note { margin-top: 16px; }
 .join-checking { margin: 0; color: #617362; font-size: 12px; }
+
+/* First-merchant hardening: how a guest finds the card again. */
+.customer-return-steps { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 9px; color: #425849; font-size: 13px; line-height: 1.55; }
+.customer-return-steps strong { color: #1d3a2a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.customer-wallet p.customer-link-warning { margin-top: 12px; color: #6c806f; font-size: 12px; }
+.customer-card-number strong { font-size: 26px; }

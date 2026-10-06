@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { apiJson, postJson, type CardResponse } from "./client-api";
+import { useEffect, useRef, useState } from "react";
+import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
+import { createRefreshGate } from "@/lib/refresh-gate";
 import { BrandMark, CustomerCardView } from "./loyalty-ui";
 import { CardContact } from "./card-contact";
 import { CardReferral } from "./card-referral";
@@ -11,6 +12,15 @@ type WalletStatus = {
   apple: { ready: boolean };
   google: { ready: boolean; publishingStatus: "demo" | "published" };
 };
+
+/** Never re-read the card more often than this when the guest comes back to the page. */
+const REFRESH_INTERVAL_MS = 5_000;
+const GONE_MESSAGE = "Dieser Kartenlink ist nicht mehr gültig. Wurde deine Karte neu ausgestellt, öffne bitte den neuen Link. Sonst wende dich mit deiner Kartennummer an das Geschäft.";
+
+function cardError(cause: unknown) {
+  if (cause instanceof ClientApiError && cause.status === 404) return GONE_MESSAGE;
+  return cause instanceof Error ? cause.message : "Karte nicht gefunden.";
+}
 
 // A tap that found no card binding stored its path in this tab; once the card has bound this browser, continue it.
 function continueTap() {
@@ -30,10 +40,31 @@ export function CardClient({ token }: { token: string }) {
   const [closeBusy, setCloseBusy] = useState(false);
   const [closeError, setCloseError] = useState("");
   const [closed, setClosed] = useState(false);
+  const gate = useRef(createRefreshGate(REFRESH_INTERVAL_MS));
+  const live = useRef(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); } void apiJson(`/api/card/${encodeURIComponent(token)}/tap-session`, { method: "POST" }).then(() => continueTap()).catch(() => {}); }).catch(cause => { if (mounted) { setError(cause instanceof Error ? cause.message : "Karte nicht gefunden."); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setLoading(false); live.current = true; gate.current.markLoaded(); } void apiJson(`/api/card/${encodeURIComponent(token)}/tap-session`, { method: "POST" }).then(() => continueTap()).catch(() => {}); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
+  }, [token]);
+  // The guest shows the phone, the cashier books, the guest looks again: re-read the balance when the page becomes
+  // visible or focused again (also after a back navigation), coalesced and at most every REFRESH_INTERVAL_MS. A card
+  // that stopped existing (closed or reissued elsewhere) is replaced by a plain message; network trouble keeps the
+  // last known state.
+  useEffect(() => {
+    let mounted = true;
+    function refresh() {
+      if (!live.current || document.visibilityState !== "visible" || !gate.current.tryStart()) return;
+      void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`)
+        .then(result => { if (mounted && live.current) setCard(result); })
+        .catch(cause => { if (mounted && cause instanceof ClientApiError && cause.status === 404) { live.current = false; setCard(null); setError(GONE_MESSAGE); } })
+        .finally(() => gate.current.finish());
+    }
+    function onPageShow(event: PageTransitionEvent) { if (event.persisted) refresh(); }
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", onPageShow);
+    return () => { mounted = false; document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); window.removeEventListener("pageshow", onPageShow); };
   }, [token]);
   useEffect(() => {
     let mounted = true;
@@ -55,6 +86,7 @@ export function CardClient({ token }: { token: string }) {
     setCloseBusy(true); setCloseError("");
     try {
       await postJson<{ closed: true }>(`/api/card/${encodeURIComponent(token)}/close`, { confirm: "CLOSE_CARD" });
+      live.current = false;
       setClosed(true);
       setCard(null);
     } catch (cause) {
@@ -68,7 +100,7 @@ export function CardClient({ token }: { token: string }) {
   const firstReward = card.rewards[0];
   const french = card.locale === "fr";
   const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
-  return <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} rewards={card.rewards} cardCode={card.scanCode} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} appleWalletUrl={walletStatus?.apple.ready ? `/api/wallet/apple/${encodeURIComponent(token)}` : undefined} onGoogleWallet={walletStatus?.google.ready ? openGoogleWallet : undefined} googleWalletBusy={walletBusy} googlePublishingStatus={walletStatus?.google.publishingStatus} walletError={walletError} />;
+  return <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} rewards={card.rewards} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} appleWalletUrl={walletStatus?.apple.ready ? `/api/wallet/apple/${encodeURIComponent(token)}` : undefined} onGoogleWallet={walletStatus?.google.ready ? openGoogleWallet : undefined} googleWalletBusy={walletBusy} googlePublishingStatus={walletStatus?.google.publishingStatus} walletError={walletError} />;
 }
 
 function CardState({ title, message }: { title: string; message: string }) {
