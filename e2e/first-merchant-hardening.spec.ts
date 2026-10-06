@@ -312,6 +312,12 @@ test("the offline fallback appears only with real connection trouble and still q
 
     await counter.setOffline(true);
     await expect(page.getByRole("region", { name: "Offline-Vergaben" })).toBeVisible();
+    // Trying online first while the browser has no network sends nothing, so the result is certain and the offline
+    // fallback stays available (an unclear result would block it).
+    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await expect(page.locator(".cashier-status")).toContainText("Es wurde nichts gesendet und nichts gebucht.");
+    await expect(page.locator(".balance-display")).toBeVisible();
     await page.getByRole("button", { name: "Vergabe prüfen" }).click();
     await expect(page.getByText("Verbindung zum Server gestört.", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();

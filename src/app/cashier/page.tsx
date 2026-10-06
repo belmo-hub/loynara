@@ -213,6 +213,14 @@ export default function CashierPage() {
   async function transact(selectedCard: CashierCard, operation: { kind: "award"; award: CashierAward } | { kind: "redeem"; reward: CashierReward }) {
     if (busy || activeCardId.current !== selectedCard.id) return;
     const signature = operation.kind === "award" ? `award:${selectedCard.id}:${"quantity" in operation.award ? `quantity:${operation.award.quantity}` : `purchase:${operation.award.purchaseAmountMinor}:${operation.award.ruleVersionId}`}` : `redeem:${selectedCard.id}:${operation.reward.id}`;
+    // While the browser reports no network at all it does not send the request, so nothing can have been booked: say so
+    // and keep the offline fallback, instead of turning a certain "not sent" into an unclear result. A booking that is
+    // already unclear goes through the normal path, so its request id is kept.
+    if (navigator.onLine === false && !pendingRef.current) {
+      setNetworkTrouble(true); setStatus("offline");
+      setMessage(locale === "fr" ? "Pas de connexion : rien n’a été envoyé ni enregistré. Réessayez quand la connexion revient." : "Keine Verbindung: Es wurde nichts gesendet und nichts gebucht. Erneut versuchen, sobald die Verbindung zurück ist.");
+      return;
+    }
     let pending: PendingOperation;
     try { pending = operationFor(signature); }
     catch (cause) { setStatus("rejected"); setMessage(cause instanceof Error ? cause.message : "Buchung nicht möglich."); return; }
