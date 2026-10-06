@@ -1,3 +1,4 @@
+import path from "node:path";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -94,5 +95,57 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
+  issues.push(...walletConfigIssues(env, approved));
+  return issues;
+}
+
+// Credential material that belongs to a fixture, preview or device test, never to production.
+const nonProductionPath = /(^|[/\\._-])(public|fixtures?|preview|device[-_]?test|demo|synthetic|self[-_]?signed|test)([/\\._-]|$)/i;
+const placeholder = /replace|placeholder|example|changeme|test-secret/i;
+
+/**
+ * Wallet fails closed. Each provider is off unless it is exactly "true", and then it needs a separate production
+ * approval, complete credentials outside preview/test locations, and HTTPS endpoints on the approved origin. Messages
+ * name settings only, never values.
+ */
+function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): string[] {
+  const issues: string[] = [];
+  for (const name of ["APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED"]) {
+    if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
+  }
+  if (["DEVICE_TEST_APPROVED_WALLET_PROVIDER", "DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL", "DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID"].some(name => env[name])) {
+    issues.push("Device-test Wallet approvals are forbidden in production");
+  }
+  const apple = env.APPLE_WALLET_ENABLED === "true";
+  const google = env.GOOGLE_WALLET_ENABLED === "true";
+  if ((apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
+  if (!apple && !google && env.WALLET_PRODUCTION_APPROVED === "true") issues.push("WALLET_PRODUCTION_APPROVED is set while no Wallet provider is enabled");
+  const credentialPath = (name: string) => {
+    const value = env[name];
+    if (!value || !path.isAbsolute(value) || nonProductionPath.test(value)) issues.push(`${name} must be an absolute path outside public, preview, fixture and device-test locations`);
+  };
+  if (apple) {
+    for (const name of ["APPLE_SIGNING_CERT_PATH", "APPLE_SIGNING_KEY_PATH", "APPLE_WWDR_CERT_PATH"]) credentialPath(name);
+    if (!/^pass(\.[A-Za-z0-9-]+){2,}$/.test(env.APPLE_PASS_TYPE_ID ?? "") || /\.(local|test|example|invalid)(\.|$)/i.test(env.APPLE_PASS_TYPE_ID ?? "")) issues.push("APPLE_PASS_TYPE_ID must be a registered reverse-DNS Pass Type ID");
+    if (!/^[A-Z0-9]{10}$/.test(env.APPLE_TEAM_ID ?? "")) issues.push("APPLE_TEAM_ID must be a 10-character Apple team identifier");
+    const secret = env.APPLE_WALLET_AUTH_SECRET ?? "";
+    if (secret.length < 32 || placeholder.test(secret) || new Set(secret).size < 12) issues.push("APPLE_WALLET_AUTH_SECRET must be at least 32 random characters");
+    if (secret && [env.BETTER_AUTH_SECRET, env.NFC_VERIFY_MASTER_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY].includes(secret)) issues.push("APPLE_WALLET_AUTH_SECRET must not be reused as another secret");
+    // Apple devices call this URL directly; it must be the approved app origin, not a preview or tunnel host.
+    if (!approved || env.APPLE_WALLET_WEB_SERVICE_URL !== `${approved.origin}/api/apple`) issues.push("APPLE_WALLET_WEB_SERVICE_URL must be exactly the approved HTTPS origin followed by /api/apple");
+  }
+  if (google) {
+    credentialPath("GOOGLE_WALLET_SERVICE_ACCOUNT_FILE");
+    if (!/^\d{10,25}$/.test(env.GOOGLE_WALLET_ISSUER_ID ?? "")) issues.push("GOOGLE_WALLET_ISSUER_ID must be the numeric Google Wallet issuer ID");
+    if (env.GOOGLE_WALLET_PUBLISHING_STATUS !== "published") issues.push("Google Wallet publishing must be approved (GOOGLE_WALLET_PUBLISHING_STATUS=published); Demo Mode is not production");
+    const logo = parsedUrl(env.GOOGLE_WALLET_PROGRAM_LOGO_URL);
+    if (!logo || logo.protocol !== "https:" || localHosts.has(logo.hostname) || logo.username || logo.password || /preview|device[-_]?test|example|\.invalid$/i.test(logo.hostname)) issues.push("GOOGLE_WALLET_PROGRAM_LOGO_URL must be a public HTTPS image URL");
+  }
+  if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") {
+    const origin = parsedUrl(env.GOOGLE_WALLET_ASSET_ORIGIN);
+    if (!google || !origin || origin.protocol !== "https:" || origin.origin !== env.GOOGLE_WALLET_ASSET_ORIGIN || localHosts.has(origin.hostname) || /preview|device[-_]?test/i.test(origin.hostname)) {
+      issues.push("Google Wallet merchant logos require Google Wallet and an exact public HTTPS GOOGLE_WALLET_ASSET_ORIGIN");
+    }
+  }
   return issues;
 }
