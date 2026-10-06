@@ -8,4 +8,3 @@ export function retentionCustomerHref(summary: Pick<RetentionSummary, "inactiveD
   if (summary.locationId) params.set("locationId", summary.locationId); else params.set("scope", "all");
   return `/merchant/customers?${params}`;
 }
-
