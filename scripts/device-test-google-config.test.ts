@@ -78,7 +78,7 @@ describe("explicitly approved Google Demo device-test gate", () => {
   });
 
   it("carries the approved program and path through config to the actual versioned merchant logo", () => {
-    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y5pQ4sAAAAASUVORK5CYII=";
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQ83H9DwADCgG307XiNAAAAABJRU5ErkJggg==";
     const selected = merchantGoogleLogoUrl(pass.programId, png, approved);
     expect(selected).toMatch(/\.png\?v=[0-9a-f]{16}$/);
     const config = googleConfig(approved);

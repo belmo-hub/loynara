@@ -3,7 +3,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { deflateSync } from "node:zlib";
+import { describe, expect, it, vi } from "vitest";
 import { applePassArchive, applePassJson, applePassToken, appleVoidedPassJson, appleWalletStatus, validApplePassToken } from "./apple";
 import { apnsPassUpdateRequest } from "./apple-push";
 import { walletAvailability } from "./capability";
@@ -33,16 +34,59 @@ const pass: WalletPassData = {
 const serial = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const revoked: WalletRevokedData = { tenantId: pass.tenantId, programId: pass.programId, merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName, brandColor: pass.brandColor, country: "DE", locale: "de", membershipId: pass.membershipId, reason: "reissued" };
 const appleConfig = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "a".repeat(40) };
-// 1x1 PNG and a 40x20 PNG built from raw IHDR bytes (only the header matters for the size checks).
-const tinyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y5pQ4sAAAAASUVORK5CYII=";
+const tinyPng = pngOfSize(1, 1);
+function pngChunk(type: string, data: Buffer) {
+  const label = Buffer.from(type), length = Buffer.alloc(4), checksum = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  let crc = 0xffffffff;
+  for (const byte of Buffer.concat([label, data])) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+  return Buffer.concat([length, label, data, checksum]);
+}
 function pngOfSize(width: number, height: number, extra = 0) {
-  const bytes = Buffer.alloc(33 + extra);
-  Buffer.from("89504e470d0a1a0a", "hex").copy(bytes, 0);
-  bytes.writeUInt32BE(13, 8); bytes.write("IHDR", 12, "ascii"); bytes.writeUInt32BE(width, 16); bytes.writeUInt32BE(height, 20);
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 6;
+  const bytes = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), pngChunk("IHDR", header),
+    ...(extra ? [pngChunk("tEXt", Buffer.concat([Buffer.from("padding\0"), Buffer.alloc(extra, 65)]))] : []),
+    pngChunk("IDAT", deflateSync(Buffer.alloc((width * 4 + 1) * height))), pngChunk("IEND", Buffer.alloc(0))]);
   return `data:image/png;base64,${bytes.toString("base64")}`;
 }
 
 describe("Apple Wallet configuration status (operator diagnostics)", () => {
+  it("rejects a duplicated signer, malformed intermediate and unrelated intermediate", () => {
+    const apple = appleFixture();
+    const other = appleFixture();
+    try {
+      const invalid = join(apple.dir, "invalid-wwdr.pem");
+      writeFileSync(invalid, "not a certificate");
+      for (const wwdr of [apple.config.certPath, invalid, other.config.wwdrPath]) {
+        expect(appleWalletStatus({ ...apple.env, APPLE_WWDR_CERT_PATH: wwdr }).ready, wwdr).toBe(false);
+      }
+    } finally { apple.cleanup(); other.cleanup(); }
+  });
+
+  it("refuses certificates before their validity interval and after expiry", () => {
+    const apple = appleFixture();
+    const now = Date.now();
+    try {
+      for (const time of [now - 2 * 86_400_000, now + 2 * 86_400_000]) {
+        const clock = vi.spyOn(Date, "now").mockReturnValue(time);
+        try { expect(appleWalletStatus({ ...apple.env, APPLE_WWDR_CERT_PATH: apple.config.wwdrPath }).ready).toBe(false); }
+        finally { clock.mockRestore(); }
+      }
+    } finally { apple.cleanup(); }
+  });
+
+  it("rejects synthetic signing certificates in production despite plausible environment identifiers", () => {
+    const apple = appleFixture();
+    try {
+      expect(appleWalletStatus({ ...apple.env, APPLE_WWDR_CERT_PATH: apple.config.wwdrPath, NODE_ENV: "production", APPLE_PASS_TYPE_ID: "pass.com.getloynara.loyalty" }).ready).toBe(false);
+    } finally { apple.cleanup(); }
+  });
+
   it("is not ready without signing inputs and names what is missing only in the operator reason", () => {
     const status = appleWalletStatus({ APPLE_WALLET_ENABLED: "true" });
     expect(status.ready).toBe(false);
@@ -195,6 +239,26 @@ describe("Apple pass", () => {
 });
 
 describe("merchant logo handling", () => {
+  it("falls back for truncated, checksum-corrupted, invalid image data and decompression bombs", () => {
+    const valid = Buffer.from(pngOfSize(32, 32).split(",")[1], "base64");
+    const badCrc = Buffer.from(valid); badCrc[29] ^= 1;
+    const header = valid.subarray(16, 29);
+    const image = (data: Buffer, ihdr = header) => Buffer.concat([valid.subarray(0, 8), pngChunk("IHDR", ihdr), pngChunk("IDAT", data), pngChunk("IEND", Buffer.alloc(0))]);
+    const illegalHeader = Buffer.from(header); illegalHeader[8] = 3;
+    const hugeHeader = Buffer.from(header); hugeHeader.writeUInt32BE(1_000_000, 0); hugeHeader.writeUInt32BE(1_000_000, 4);
+    const env = { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.example.test" };
+    for (const bytes of [valid.subarray(0, 24), valid.subarray(0, -12), badCrc, Buffer.concat([valid, Buffer.from("trailing")]),
+      image(Buffer.from("broken zlib")), image(Buffer.concat([deflateSync(Buffer.alloc(32 * 129)), Buffer.from("extra stream data")])),
+      image(deflateSync(Buffer.alloc(10_000))), image(deflateSync(Buffer.alloc(32 * 129)), illegalHeader),
+      image(deflateSync(Buffer.alloc(32 * 129, 5))),
+      image(deflateSync(Buffer.alloc(1_000_000)), hugeHeader)]) {
+      const data = `data:image/png;base64,${bytes.toString("base64")}`;
+      expect(decodeMerchantLogoPng(data)).toBeNull();
+      expect(appleLogoFromData(data)).toBeUndefined();
+      expect(merchantGoogleLogoUrl(pass.programId, data, env)).toBeUndefined();
+    }
+  });
+
   it("accepts a reasonable PNG for Apple and falls back for anything else", () => {
     expect(pngDimensions(decodeMerchantLogoPng(pngOfSize(320, 100))!)).toEqual({ width: 320, height: 100 });
     expect(appleLogoFromData(pngOfSize(320, 100))).toMatchObject({ width: 320, height: 100 });

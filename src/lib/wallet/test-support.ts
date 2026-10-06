@@ -25,7 +25,7 @@ export function appleFixture() {
   const config = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "fixture-secret-".padEnd(48, "x"), certPath: cert, keyPath: key, wwdrPath: ca };
   const env: Env = {
     APPLE_WALLET_ENABLED: "true", APPLE_PASS_TYPE_ID: config.passTypeId, APPLE_TEAM_ID: config.teamId, APPLE_SIGNING_CERT_PATH: cert,
-    APPLE_SIGNING_KEY_PATH: key, APPLE_WWDR_CERT_PATH: cert, APPLE_WALLET_AUTH_SECRET: config.authSecret, APPLE_WALLET_WEB_SERVICE_URL: config.webServiceUrl,
+    APPLE_SIGNING_KEY_PATH: key, APPLE_WWDR_CERT_PATH: ca, APPLE_WALLET_AUTH_SECRET: config.authSecret, APPLE_WALLET_WEB_SERVICE_URL: config.webServiceUrl,
   };
   return { dir, config, env, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }

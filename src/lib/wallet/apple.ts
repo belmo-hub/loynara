@@ -57,9 +57,28 @@ function inspectAppleWallet(env: Record<string, string | undefined>): AppleWalle
     const challenge = Buffer.from("wallet-configuration-check");
     const signature = createSign("RSA-SHA256").update(challenge).end().sign(key);
     if (!verify("RSA-SHA256", challenge, cert.publicKey, signature)) return { enabled: true, ready: false, reason: "Apple-Zertifikat und privater Schlüssel passen nicht zusammen", ...versions };
-    readFileSync(env.APPLE_WWDR_CERT_PATH!);
-    const days = Math.floor((Date.parse(cert.validTo) - Date.now()) / 86_400_000);
-    if (days < 0) return { enabled: true, ready: false, reason: "Apple-Signaturzertifikat ist abgelaufen", certificateExpiresAt: cert.validTo, certificateDaysRemaining: days, ...versions };
+    const wwdr = new X509Certificate(readFileSync(env.APPLE_WWDR_CERT_PATH!));
+    if (cert.fingerprint256 === wwdr.fingerprint256 || !wwdr.ca || !cert.checkIssued(wwdr) || !cert.verify(wwdr.publicKey)) {
+      return { enabled: true, ready: false, reason: "Apple-Signaturzertifikat benötigt das passende separate WWDR-Zwischenzertifikat", ...versions };
+    }
+    const now = Date.now();
+    const days = Math.floor((Date.parse(cert.validTo) - now) / 86_400_000);
+    if ([cert, wwdr].some(value => Date.parse(value.validFrom) > now || Date.parse(value.validTo) <= now)) {
+      return { enabled: true, ready: false, reason: "Apple-Signaturzertifikat oder WWDR-Zwischenzertifikat ist noch nicht gültig oder abgelaufen", certificateExpiresAt: cert.validTo, certificateDaysRemaining: days, ...versions };
+    }
+    if (env.NODE_ENV === "production") {
+      // These checks prevent ordinary fixture certificates and wrong pass/team credentials. Subject fields do not
+      // establish Apple root trust: operators must verify the supplied WWDR chain against Apple's approved root.
+      const subject = (value: X509Certificate) => Object.fromEntries(value.subject.split("\n").map(field => {
+        const split = field.indexOf("=");
+        return [field.slice(0, split), field.slice(split + 1)];
+      }));
+      const leaf = subject(cert), intermediate = subject(wwdr);
+      if (leaf.UID !== env.APPLE_PASS_TYPE_ID || leaf.OU !== env.APPLE_TEAM_ID || intermediate.O !== "Apple Inc."
+        || !/^Apple Worldwide Developer Relations Certification Authority(?: G\d+)?$/.test(intermediate.CN ?? "")) {
+        return { enabled: true, ready: false, reason: "Apple-Produktionszertifikat muss zum Pass Type ID, Team und Apple-WWDR-Aussteller passen", ...versions };
+      }
+    }
     const url = new URL(env.APPLE_WALLET_WEB_SERVICE_URL!);
     if (url.protocol !== "https:" && !(url.protocol === "http:" && url.hostname === "localhost")) return { enabled: true, ready: false, reason: "Apple-Webservice benötigt HTTPS (außer localhost)", ...versions };
     if (!/^pass(\.[A-Za-z0-9-]+){2,}$/.test(env.APPLE_PASS_TYPE_ID!) || !/^[A-Z0-9]{10}$/.test(env.APPLE_TEAM_ID!)) return { enabled: true, ready: false, reason: "APPLE_PASS_TYPE_ID oder APPLE_TEAM_ID hat kein gültiges Format", ...versions };
