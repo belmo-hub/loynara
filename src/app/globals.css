@@ -316,7 +316,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .join-checking { margin: 0; color: #617362; font-size: 12px; }
 
 /* First-merchant hardening: how a guest finds the card again. */
-.customer-return-steps { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 9px; color: #425849; font-size: 13px; line-height: 1.55; }
+.customer-return-steps { margin: 4px 0 0; padding-left: 20px; list-style: decimal; display: grid; gap: 9px; color: #425849; font-size: 13px; line-height: 1.55; }
 .customer-return-steps strong { color: #1d3a2a; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .customer-wallet p.customer-link-warning { margin-top: 12px; color: #6c806f; font-size: 12px; }
 .customer-card-number strong { font-size: 26px; }
@@ -333,4 +333,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .cashier-booked small { display: block; margin-top: 10px; color: #809080; font-size: 12px; }
 .confirm-dialog p.confirm-offline-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; }
 .confirm-actions { flex-wrap: wrap; }
-.confirm-actions .button { min-width: 0; }
+.confirm-actions .button { flex: 1 1 120px; min-width: 0; white-space: normal; text-align: center; }
+
+/* Narrow phones (320 px): the counter header wraps its actions instead of pushing the page sideways. */
+@media (max-width: 380px) { .cashier-header { height: auto; min-height: 70px; flex-wrap: wrap; row-gap: 6px; padding-block: 10px; } .cashier-header-actions { flex-wrap: wrap; justify-content: flex-end; margin-left: auto; } }

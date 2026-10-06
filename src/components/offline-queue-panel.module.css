@@ -1,10 +1,10 @@
-.panel { display: grid; gap: 12px; margin-top: 18px; }
+.panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 18px; }
 .panel h2, .panel p { margin: 0; }
 .panel h2 { font-size: 19px; }
 .panel p { color: #3c5746; line-height: 1.5; }
-.panel > button { justify-self: start; }
+.panel > button { justify-self: start; max-width: 100%; white-space: normal; text-align: left; }
 .list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.item { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid #dce6da; border-radius: 9px; line-height: 1.4; }
+.item { display: grid; min-width: 0; overflow-wrap: anywhere; gap: 4px; padding: 12px 14px; border: 1px solid #dce6da; border-radius: 9px; line-height: 1.4; }
 .item small { color: #657a68; }
 .item button { justify-self: start; margin-top: 4px; }
 .state { color: #285b3f; }
