@@ -36,8 +36,8 @@ test("owner previews an audience and saves a campaign draft without claiming del
       await page.getByLabel("Nachricht", { exact: true }).fill("Dies ist eine lokale synthetische Kampagnenvorschau.");
       await page.getByRole("button", { name: "Weiter", exact: true }).click();
 
-      await expect(page.getByRole("heading", { name: "Vorschau & prüfen" })).toBeVisible();
-      await expect(page.getByText("E-Mail-Adresse nicht bestätigt")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Prüfen & speichern" })).toBeVisible();
+      await expect(page.getByText("Keine bestätigte E-Mail-Adresse")).toBeVisible();
       await page.getByRole("button", { name: "Entwurf speichern" }).click();
       await expect(page.getByText("Entwurf gespeichert. Es wurde nichts versendet.")).toBeVisible();
       await page.getByRole("button", { name: "Zur Kampagnenliste" }).click();

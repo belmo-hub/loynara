@@ -73,9 +73,9 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       expect(analytics.status()).toBe(200);
       expect((await analytics.json() as { referrals: { attributed: number; qualified: number; reversed: number } }).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
       await merchantPage.goto("/merchant/analytics");
-      await expect(merchantPage.getByRole("heading", { name: "Empfehlungsereignisse" })).toBeVisible();
-      await expect(merchantPage.getByText("Korrigierte Empfehlungen")).toBeVisible();
-      await expect(merchantPage.getByText("Zugeordnete Beitritte")).toBeVisible();
+      await expect(merchantPage.getByRole("heading", { name: "Empfehlungen im Zeitraum" })).toBeVisible();
+      await expect(merchantPage.getByText("Nach Korrektur zurückgenommen")).toBeVisible();
+      await expect(merchantPage.getByText("Über Empfehlungslink angemeldet")).toBeVisible();
       await merchantPage.screenshot({ path: "screenshots/platform-after-referral-analytics.png", fullPage: true });
     } finally { await ownerBrowser.close(); await guestBrowser.close(); }
   } finally { await owner.dispose(); await guest.dispose(); }
