@@ -371,6 +371,13 @@ test("the guest's open card catches up after a booking when they look at it agai
     await page.waitForTimeout(800);
     expect(reads).toHaveLength(initial + 1);
 
+    // The guest can also ask for the current balance while the card stays open.
+    await awardViaApi(shop.owner, card.scanCode);
+    await page.waitForTimeout(5_200);
+    await page.getByRole("button", { name: "Kontostand aktualisieren" }).click();
+    await expect(page.locator(".customer-balance-line strong")).toHaveText("2 Stempel");
+    expect(reads).toHaveLength(initial + 2);
+
     // A link that was reissued elsewhere stops showing the old card and says what to do.
     const reissue = await shop.owner.post(`/api/merchant/customers/${membershipId}/reissue`, { data: { reason: "Neues Handy, Kartennummer genannt", verificationMethod: "other_check", entitlementConfirmed: true, idempotencyKey: randomUUID() } });
     expect(reissue.status()).toBe(200);
