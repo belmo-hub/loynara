@@ -2955,14 +2955,20 @@
           "name": "outbox_wallet_pending_member_idx",
           "columns": [
             {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "(\"payload\" ->> 'membershipId')",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
             }
           ],
-          "isUnique": false,
-          "where": "\"outbox_jobs\".\"kind\" = 'wallet.refresh' and \"outbox_jobs\".\"status\" = 'pending'",
+          "isUnique": true,
+          "where": "\"outbox_jobs\".\"kind\" = 'wallet.refresh' and \"outbox_jobs\".\"status\" = 'pending' and \"outbox_jobs\".\"payload\" ->> 'coalescingVersion' = '1'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5282,7 +5288,7 @@
         },
         "wallet_pass_revoke_valid": {
           "name": "wallet_pass_revoke_valid",
-          "value": "(\"wallet_passes\".\"revoked_at\" is null and \"wallet_passes\".\"revoke_reason\" is null) or (\"wallet_passes\".\"revoked_at\" is not null and \"wallet_passes\".\"revoke_reason\" in ('reissued','closed','superseded'))"
+          "value": "(\"wallet_passes\".\"revoked_at\" is null and \"wallet_passes\".\"revoke_reason\" is null) or (\"wallet_passes\".\"revoked_at\" is not null and \"wallet_passes\".\"revoke_reason\" is not null and \"wallet_passes\".\"revoke_reason\" in ('reissued','closed','superseded'))"
         }
       },
       "isRLSEnabled": false

@@ -428,7 +428,7 @@ export const outboxJobs = pgTable("outbox_jobs", {
 }, (t) => [
   index("outbox_due_idx").on(t.status, t.nextAttemptAt),
   // Coalescing lookup for lib/wallet/enqueue: at most one not-yet-claimed wallet refresh per card.
-  index("outbox_wallet_pending_member_idx").on(sql`(${t.payload} ->> 'membershipId')`).where(sql`${t.kind} = 'wallet.refresh' and ${t.status} = 'pending'`),
+  uniqueIndex("outbox_wallet_pending_member_idx").on(t.tenantId, sql`(${t.payload} ->> 'membershipId')`).where(sql`${t.kind} = 'wallet.refresh' and ${t.status} = 'pending' and ${t.payload} ->> 'coalescingVersion' = '1'`),
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
 ]);
 
@@ -601,7 +601,7 @@ export const walletPasses = pgTable("wallet_passes", {
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
   index("wallet_pass_member_idx").on(t.tenantId, t.membershipId),
   check("wallet_pass_provider_valid", sql`${t.provider} in ('apple','google')`),
-  check("wallet_pass_revoke_valid", sql`(${t.revokedAt} is null and ${t.revokeReason} is null) or (${t.revokedAt} is not null and ${t.revokeReason} in ('reissued','closed','superseded'))`),
+  check("wallet_pass_revoke_valid", sql`(${t.revokedAt} is null and ${t.revokeReason} is null) or (${t.revokedAt} is not null and ${t.revokeReason} is not null and ${t.revokeReason} in ('reissued','closed','superseded'))`),
 ]);
 
 export const appleDevices = pgTable("apple_devices", {

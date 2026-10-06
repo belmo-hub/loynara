@@ -11,7 +11,23 @@
 -- customers to add their Wallet pass again.
 --
 -- Run once, inside a transaction, with the web and worker services stopped:
---   psql "$DATABASE_URL" --single-transaction -f docs/rollback/0020-wallet-pass-lifecycle-down.sql
+--   psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --single-transaction -f docs/rollback/0020-wallet-pass-lifecycle-down.sql
+
+-- Fail closed BEFORE deleting history or changing the schema. Keep the journal stable throughout this transaction;
+-- this script is only the paired rollback from exactly 0020, never a downgrade from later or inconsistent bookkeeping.
+LOCK TABLE drizzle.__drizzle_migrations IN EXCLUSIVE MODE;
+DO $rollback$
+DECLARE
+  journal_count bigint;
+  final_timestamp bigint;
+BEGIN
+  SELECT count(*) INTO journal_count FROM drizzle.__drizzle_migrations;
+  SELECT created_at INTO final_timestamp FROM drizzle.__drizzle_migrations ORDER BY id DESC LIMIT 1;
+  IF journal_count <> 21 OR final_timestamp IS DISTINCT FROM 1791296519073::bigint THEN
+    RAISE EXCEPTION '0020 rollback refused: journal must contain exactly 21 entries ending at timestamp 1791296519073';
+  END IF;
+END
+$rollback$;
 
 DELETE FROM apple_registrations r WHERE NOT EXISTS (
   SELECT 1 FROM wallet_passes p WHERE p.provider = 'apple' AND p.revoked_at IS NULL AND p.id::text = r.serial_number);
@@ -29,6 +45,6 @@ ALTER TABLE wallet_passes DROP COLUMN revoked_at;
 ALTER TABLE wallet_passes DROP COLUMN credential_hash;
 ALTER TABLE wallet_passes ADD CONSTRAINT wallet_pass_member_provider_uq UNIQUE (membership_id, provider);
 
--- Forget that 0020 was applied (guard: only if the newest bookkeeping row is 0020's).
+-- Forget that 0020 was applied; the preflight lock and timestamp guard still hold.
 DELETE FROM drizzle.__drizzle_migrations WHERE id = (SELECT max(id) FROM drizzle.__drizzle_migrations)
-  AND (SELECT count(*) FROM drizzle.__drizzle_migrations) = 21;
+  AND created_at = 1791296519073 AND (SELECT count(*) FROM drizzle.__drizzle_migrations) = 21;
