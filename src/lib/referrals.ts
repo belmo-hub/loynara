@@ -2,10 +2,11 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { ledgerEntries, membershipContacts, memberships, outboxJobs, programs, referralCodes, referralSettings, referrals, staffRoles } from "@/db/schema";
+import { ledgerEntries, membershipContacts, memberships, programs, referralCodes, referralSettings, referrals, staffRoles } from "@/db/schema";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
+import { enqueueWalletRefresh } from "./wallet/enqueue";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Referral = typeof referrals.$inferSelect;
@@ -160,7 +161,7 @@ export async function qualifyReferralOnAward(tx: Transaction, input: {
   const referredBonusEntryId = await postBonus(tx, { referral, membershipId: referred!.id, amount: referral.referredBonus, recipient: "referred", locationId: input.locationId, actorUserId: input.actorUserId });
   if (referral.referrerBonus) {
     await tx.update(memberships).set({ balance: referrer!.balance + referral.referrerBonus }).where(eq(memberships.id, referrer!.id));
-    await tx.insert(outboxJobs).values({ tenantId: input.tenantId, kind: "wallet.refresh", payload: { membershipId: referrer!.id } });
+    await enqueueWalletRefresh(tx, input.tenantId, referrer!.id);
   }
   if (referral.referredBonus) await tx.update(memberships).set({ balance: referred!.balance + referral.referredBonus }).where(eq(memberships.id, referred!.id));
   await tx.update(referrals).set({ status: "qualified", qualifyingEntryId: input.awardEntryId, referrerBonusEntryId, referredBonusEntryId, qualifiedAt: new Date() }).where(eq(referrals.id, referral.id));
@@ -186,7 +187,7 @@ async function reverseOutstandingBonuses(tx: Transaction, referral: Referral, in
       reason: "Referral bonus reversed after checkout correction",
     });
     await tx.update(memberships).set({ balance: member.balance - bonus.delta }).where(eq(memberships.id, member.id));
-    await tx.insert(outboxJobs).values({ tenantId: referral.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
+    await enqueueWalletRefresh(tx, referral.tenantId, member.id);
   }
   const next = unresolvedReason ? "review" : "reversed";
   await tx.update(referrals).set({ status: next, reviewReason: unresolvedReason, reversedAt: unresolvedReason ? null : new Date() }).where(eq(referrals.id, referral.id));

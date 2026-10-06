@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { automationRules, ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
+import { enqueueWalletRefresh } from "./wallet/enqueue";
 
 export class DomainError extends Error {
   constructor(public code: string, message: string) {
@@ -106,7 +107,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     }
     const balance = member.balance + quantity;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
-    await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
+    await enqueueWalletRefresh(tx, member.tenantId, member.id);
     const referral = (entry.source === "staff_online" || entry.source === "staff_offline") ? await qualifyReferralOnAward(tx, {
       tenantId: member.tenantId, programId: program.id, locationId: input.locationId,
       referredMembershipId: member.id, awardEntryId: entry.id, actorUserId: input.userId,
@@ -172,7 +173,7 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
     const balance = member.balance - selected.version.cost;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await tx.insert(redemptions).values({ tenantId: member.tenantId, membershipId: member.id, ledgerEntryId: entry.id, rewardVersionId: selected.version.id, rewardTitle: selected.version.title, cost: selected.version.cost });
-    await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
+    await enqueueWalletRefresh(tx, member.tenantId, member.id);
     return { balance, duplicate: false, entryId: entry.id };
   });
 }
@@ -210,7 +211,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     if (balance < 0) throw new DomainError("INSUFFICIENT_BALANCE", "Correction would make the balance negative");
     const [entry] = await tx.insert(ledgerEntries).values({ tenantId: original.tenantId, locationId: original.locationId, membershipId: member.id, delta: -original.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: input.idempotencyKey, reason, reversalOfId: original.id }).returning();
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
-    await tx.insert(outboxJobs).values({ tenantId: original.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
+    await enqueueWalletRefresh(tx, original.tenantId, member.id);
     if (original.kind === "award" && (original.source === "staff_online" || original.source === "staff_offline")) {
       await reverseReferralForCheckout(tx, { qualifyingEntryId: original.id, tenantId: original.tenantId, actorUserId: input.userId, allowLargeBonus: staff.role === "owner" });
     }

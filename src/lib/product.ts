@@ -11,6 +11,7 @@ import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
 import { hiddenSurfaces } from "./pilot-surfaces";
+import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -131,6 +132,7 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     if (ruleChanged) {
       await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit }).where(eq(programs.id, program.id));
       await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name: input.name, type: nextType, rulesText: input.rulesText, earningMode, pointsPerCurrencyUnit });
+      await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     }
     return { programSlug: program.slug, programType: nextType, ruleVersion: latestRule.version + Number(ruleChanged) };
   });
@@ -166,7 +168,8 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
   });
 }
 
-async function currentRewards(tenantId: string, programId: string) {
+/** Active rewards in the merchant's order. The browser card and the Wallet pass both show the first as the target. */
+export async function currentRewards(tenantId: string, programId: string) {
   const rows = await db.select({ reward: rewards, version: rewardVersions }).from(rewards)
     .innerJoin(rewardVersions, and(eq(rewardVersions.rewardId, rewards.id), eq(rewardVersions.tenantId, rewards.tenantId)))
     .where(and(eq(rewards.tenantId, tenantId), eq(rewards.programId, programId), eq(rewards.active, true), sql`${rewardVersions.effectiveAt} <= now()`))
@@ -210,6 +213,7 @@ export async function createReward(raw: { actorUserId: string; programSlug: stri
     const [highest] = await tx.select({ sortOrder: rewards.sortOrder }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id))).orderBy(desc(rewards.sortOrder)).limit(1);
     const [reward] = await tx.insert(rewards).values({ tenantId: program.tenantId, programId: program.id, sortOrder: (highest?.sortOrder ?? -1) + 1 }).returning();
     const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: 1, title: input.title, cost: input.cost, termsText: input.termsText }).returning();
+    await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: reward.id, versionId: version.id };
   });
 }
@@ -224,6 +228,7 @@ export async function editReward(raw: { actorUserId: string; programSlug: string
     if (!latest) throw new DomainError("NOT_FOUND", "Reward version not found");
     if (latest.title === input.title && latest.cost === input.cost && latest.termsText === input.termsText) return { rewardId: reward.id, versionId: latest.id, version: latest.version };
     const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: latest.version + 1, title: input.title, cost: input.cost, termsText: input.termsText }).returning();
+    await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: reward.id, versionId: version.id, version: version.version };
   });
 }
@@ -235,6 +240,7 @@ export async function reorderRewards(raw: { actorUserId: string; programSlug: st
     const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
     if (input.rewardIds.length !== active.length || new Set(input.rewardIds).size !== active.length || active.some(row => !input.rewardIds.includes(row.id))) throw new DomainError("INVALID_REWARD_ORDER", "Order must include every active reward once");
     for (const [index, id] of input.rewardIds.entries()) await tx.update(rewards).set({ sortOrder: index }).where(eq(rewards.id, id));
+    await enqueueWalletProgramRefresh(tx, program.tenantId, program.id); // the first reward is the pass's target
     return { rewardIds: input.rewardIds };
   });
 }
@@ -247,6 +253,7 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
     if (!active.some(row => row.id === input.rewardId)) throw new DomainError("NOT_FOUND", "Active reward not found");
     if (active.length === 1) throw new DomainError("LAST_ACTIVE_REWARD", "At least one active reward is required");
     await tx.update(rewards).set({ active: false }).where(eq(rewards.id, input.rewardId));
+    await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: input.rewardId, archived: true };
   });
 }

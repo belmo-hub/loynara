@@ -141,6 +141,13 @@
       "when": 1791127119079,
       "tag": "0019_card_locators",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791296519073,
+      "tag": "0020_wallet_pass_lifecycle",
+      "breakpoints": true
     }
   ]
 }

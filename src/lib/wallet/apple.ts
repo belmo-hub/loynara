@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { deflateSync } from "node:zlib";
-import type { WalletPassData, WalletStatus } from "./types";
+import { hexToRgb, passInk, walletProgress, walletText } from "./content";
+import type { WalletPassData, WalletRevokedData, WalletStatus } from "./types";
 
 export type ApplePassConfig = {
   passTypeId: string;
@@ -23,7 +24,8 @@ export type AppleSigningConfig = ApplePassConfig & {
 
 const required = ["APPLE_PASS_TYPE_ID", "APPLE_TEAM_ID", "APPLE_SIGNING_CERT_PATH", "APPLE_SIGNING_KEY_PATH", "APPLE_WWDR_CERT_PATH", "APPLE_WALLET_AUTH_SECRET", "APPLE_WALLET_WEB_SERVICE_URL"] as const;
 
-type AppleWalletStatus = WalletStatus & { certificateExpiresAt?: string; certificateDaysRemaining?: number; opensslVersion?: string; zipVersion?: string };
+/** Operator diagnostics (npm run diagnose, production guard). Never returned to a browser: see capability.ts. */
+export type AppleWalletStatus = WalletStatus & { certificateExpiresAt?: string; certificateDaysRemaining?: number; opensslVersion?: string; zipVersion?: string };
 let cachedStatus: { value: AppleWalletStatus; until: number } | undefined;
 
 export function appleWalletStatus(env: Record<string, string | undefined> = process.env): AppleWalletStatus {
@@ -32,6 +34,9 @@ export function appleWalletStatus(env: Record<string, string | undefined> = proc
   if (env === process.env) cachedStatus = { value, until: Date.now() + 300_000 };
   return value;
 }
+
+/** Tests and operator tooling that change the environment in-process. */
+export function resetAppleWalletStatusCache() { cachedStatus = undefined; }
 
 function inspectAppleWallet(env: Record<string, string | undefined>): AppleWalletStatus {
   if (env.APPLE_WALLET_ENABLED !== "true") return { enabled: false, ready: false, reason: "Apple Wallet ist deaktiviert" };
@@ -57,6 +62,7 @@ function inspectAppleWallet(env: Record<string, string | undefined>): AppleWalle
     if (days < 0) return { enabled: true, ready: false, reason: "Apple-Signaturzertifikat ist abgelaufen", certificateExpiresAt: cert.validTo, certificateDaysRemaining: days, ...versions };
     const url = new URL(env.APPLE_WALLET_WEB_SERVICE_URL!);
     if (url.protocol !== "https:" && !(url.protocol === "http:" && url.hostname === "localhost")) return { enabled: true, ready: false, reason: "Apple-Webservice benötigt HTTPS (außer localhost)", ...versions };
+    if (!/^pass(\.[A-Za-z0-9-]+){2,}$/.test(env.APPLE_PASS_TYPE_ID!) || !/^[A-Z0-9]{10}$/.test(env.APPLE_TEAM_ID!)) return { enabled: true, ready: false, reason: "APPLE_PASS_TYPE_ID oder APPLE_TEAM_ID hat kein gültiges Format", ...versions };
     return { enabled: true, ready: true, reason: null, certificateExpiresAt: cert.validTo, certificateDaysRemaining: days, ...versions };
   } catch {
     return { enabled: true, ready: false, reason: "Apple-Zertifikat, Schlüssel oder WWDR-Datei ist nicht lesbar", ...versions };
@@ -65,7 +71,7 @@ function inspectAppleWallet(env: Record<string, string | undefined>): AppleWalle
 
 export function appleSigningConfig(env: Record<string, string | undefined> = process.env): AppleSigningConfig {
   const status = appleWalletStatus(env);
-  if (!status.ready) throw new Error(status.reason ?? "Apple Wallet nicht verfügbar");
+  if (!status.ready) throw new Error("Apple Wallet is not available");
   return {
     passTypeId: env.APPLE_PASS_TYPE_ID!, teamId: env.APPLE_TEAM_ID!, webServiceUrl: env.APPLE_WALLET_WEB_SERVICE_URL!,
     authSecret: env.APPLE_WALLET_AUTH_SECRET!, certPath: env.APPLE_SIGNING_CERT_PATH!, keyPath: env.APPLE_SIGNING_KEY_PATH!, wwdrPath: env.APPLE_WWDR_CERT_PATH!,
@@ -73,63 +79,101 @@ export function appleSigningConfig(env: Record<string, string | undefined> = pro
 }
 
 /**
- * The pass web-service token is bound to the card's CURRENT scan code. A staff reissue rotates the scan code, so a pass
- * installed before the reissue (for example on a lost phone) stops authenticating and cannot fetch the updated pass,
- * which would carry the new QR code.
+ * The pass web-service token proves possession of ONE issued pass: it is bound to that pass's serial (a random
+ * wallet_passes id), never to the card's bearer link or scan code. What the token unlocks is decided server-side from the
+ * pass row: the live card for an active pass, a voided pass without QR code or balance once the card was reissued or
+ * closed. A reissued card gets a NEW serial and token, so an old pass can never fetch the new QR code.
  */
-export function applePassToken(membershipId: string, scanCode: string, config: ApplePassConfig): string {
-  return createHmac("sha256", config.authSecret).update(`${config.passTypeId}:${membershipId}:${scanCode}`).digest("base64url");
+export function applePassToken(serial: string, config: ApplePassConfig): string {
+  return createHmac("sha256", config.authSecret).update(`loynara-apple-pass-v2:${config.passTypeId}:${serial}`).digest("base64url");
 }
 
-export function validApplePassToken(membershipId: string, scanCode: string, token: string, config: ApplePassConfig): boolean {
-  const expected = Buffer.from(applePassToken(membershipId, scanCode, config));
+export function validApplePassToken(serial: string, token: string, config: ApplePassConfig): boolean {
+  const expected = Buffer.from(applePassToken(serial, config));
   const supplied = Buffer.from(token);
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
-export function applePassJson(pass: WalletPassData, config: ApplePassConfig) {
-  const unit = pass.programType === "points" ? "Punkte" : "Stempel";
-  const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: `${pass.merchantName} ist in der Nähe` }] : undefined;
+function colors(brandColor: string) {
+  const light = passInk(brandColor) === "light";
+  return { foregroundColor: light ? "rgb(255, 255, 255)" : "rgb(17, 17, 17)", labelColor: light ? "rgb(232, 236, 234)" : "rgb(52, 52, 52)", backgroundColor: hexToRgb(brandColor) };
+}
+
+function common(pass: WalletPassData | WalletRevokedData, serial: string, config: ApplePassConfig) {
+  // A wordmark logo already carries the name; a square mark gets the name beside it.
+  const wideLogo = pass.appleLogo ? pass.appleLogo.width / pass.appleLogo.height >= 2.2 : false;
   return {
     formatVersion: 1,
     passTypeIdentifier: config.passTypeId,
-    serialNumber: pass.membershipId,
+    serialNumber: serial,
     teamIdentifier: config.teamId,
     organizationName: pass.merchantName,
-    description: `${pass.programName} · ${pass.locationName}`,
-    logoText: pass.merchantName,
-    foregroundColor: "rgb(255, 255, 255)",
-    backgroundColor: hexToRgb(pass.brandColor),
-    labelColor: "rgb(230, 240, 237)",
+    description: `${pass.programName} · ${pass.merchantName}`,
+    ...(wideLogo ? {} : { logoText: pass.merchantName }),
+    ...colors(pass.brandColor),
     webServiceURL: config.webServiceUrl,
-    authenticationToken: applePassToken(pass.membershipId, pass.scanCode, config),
-    barcodes: [{ format: "PKBarcodeFormatQR", message: pass.scanCode, messageEncoding: "iso-8859-1" }],
+    authenticationToken: applePassToken(serial, config),
+    sharingProhibited: true,
+  };
+}
+
+export function applePassJson(pass: WalletPassData, serial: string, config: ApplePassConfig) {
+  const t = walletText(pass.locale);
+  const progress = walletProgress(pass);
+  const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: pass.merchantName }] : undefined;
+  // One change message per update: on the progress line when there is a target reward, otherwise on the balance.
+  const balanceField = { key: "balance", label: progress.unit.toUpperCase(), value: progress.balanceText, ...(progress.statusText ? {} : { changeMessage: "%@" }) };
+  return {
+    ...common(pass, serial, config),
+    barcodes: [{ format: "PKBarcodeFormatQR", message: pass.scanCode, messageEncoding: "iso-8859-1", altText: pass.cardLocator }],
     storeCard: {
-      primaryFields: [{ key: "balance", label: unit.toUpperCase(), value: pass.balance }],
-      secondaryFields: [{ key: "location", label: "STANDORT", value: pass.locationName }],
-      auxiliaryFields: [{ key: "member", label: "KARTE", value: pass.membershipId.slice(0, 8).toUpperCase() }],
-      backFields: [{ key: "terms", label: "Hinweis", value: "Guthaben wird beim Kassenvorgang im System geprüft. Diese Karte ist nur eine Anzeige." }],
+      headerFields: [balanceField],
+      primaryFields: progress.rewardTitle ? [{ key: "reward", label: (progress.ready ? t.rewardReady : t.nextReward).toUpperCase(), value: progress.rewardTitle }] : [{ key: "programme", label: t.programme.toUpperCase(), value: pass.programName }],
+      secondaryFields: [
+        ...(progress.statusText ? [{ key: "status", label: t.status.toUpperCase(), value: progress.statusText, changeMessage: "%@" }] : []),
+        { key: "card", label: t.card.toUpperCase(), value: pass.cardLocator, textAlignment: "PKTextAlignmentRight" },
+      ],
+      auxiliaryFields: [{ key: "location", label: t.location.toUpperCase(), value: pass.locationName }],
+      backFields: [
+        { key: "programme", label: t.programme, value: pass.programName },
+        ...(pass.lastActivityAt ? [{ key: "updated", label: t.updated, value: pass.lastActivityAt.toISOString(), dateStyle: "PKDateStyleMedium", timeStyle: "PKDateStyleShort" }] : []),
+        { key: "note", label: t.note, value: t.noteBody },
+      ],
     },
     ...(locations ? { locations } : {}),
   };
 }
 
-function hexToRgb(hex: string): string {
-  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error("Invalid brand color");
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
+/** A revoked pass: marked void by Wallet, no QR code, no balance, no locator. Only the reason and the merchant remain. */
+export function appleVoidedPassJson(pass: WalletRevokedData, serial: string, config: ApplePassConfig) {
+  const t = walletText(pass.locale);
+  return {
+    ...common(pass, serial, config),
+    voided: true,
+    storeCard: {
+      primaryFields: [{ key: "state", label: t.revokedLabel.toUpperCase(), value: t.revoked[pass.reason], changeMessage: "%@" }],
+      auxiliaryFields: [{ key: "programme", label: t.programme.toUpperCase(), value: pass.programName }],
+      backFields: [{ key: "note", label: t.invalid, value: t.revokedBody[pass.reason] }],
+    },
+  };
 }
 
 const run = promisify(execFile);
 
-export async function applePassArchive(pass: WalletPassData, config: AppleSigningConfig): Promise<Buffer> {
-  const dir = await mkdtemp(join(tmpdir(), "looplocal-pass-"));
+/** Signs and zips one pass. OpenSSL and zip must exist in the runtime image (see Dockerfile and scripts/wallet-runtime-check.ts). */
+export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo">, config: AppleSigningConfig): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "loynara-pass-"));
   try {
     const files = new Map<string, Buffer>();
-    files.set("pass.json", Buffer.from(JSON.stringify(applePassJson(pass, config))));
-    files.set("icon.png", iconPng(29, pass.brandColor));
-    files.set("icon@2x.png", iconPng(58, pass.brandColor));
-    files.set("icon@3x.png", iconPng(87, pass.brandColor));
+    files.set("pass.json", Buffer.from(JSON.stringify(passJson)));
+    files.set("icon.png", iconPng(29, brand.brandColor));
+    files.set("icon@2x.png", iconPng(58, brand.brandColor));
+    files.set("icon@3x.png", iconPng(87, brand.brandColor));
+    if (brand.appleLogo) {
+      // Wallet scales the logo into its 160 x 50 pt slot; one checked PNG serves every density.
+      files.set("logo.png", brand.appleLogo.png);
+      files.set("logo@2x.png", brand.appleLogo.png);
+    }
     for (const [name, bytes] of files) await writeFile(join(dir, name), bytes);
     const manifest = Object.fromEntries([...files].map(([name, bytes]) => [name, createHash("sha1").update(bytes).digest("hex")]));
     await writeFile(join(dir, "manifest.json"), JSON.stringify(manifest));
@@ -141,8 +185,7 @@ export async function applePassArchive(pass: WalletPassData, config: AppleSignin
   }
 }
 
-// A minimal opaque PNG icon. Merchant branding belongs in the pass text and colors;
-// no externally hosted logo or customer data is embedded in this asset.
+// A minimal opaque PNG icon in the merchant colour (lock screen and notifications). No customer data in any asset.
 function iconPng(size: number, color: string): Buffer {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
   const stride = size * 4 + 1;

@@ -34,7 +34,7 @@ const approved = {
 const pass: WalletPassData = {
   tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", membershipId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   programId: "12345678-1234-1234-1234-123456789abc", merchantName: "Synthetic Café", programName: "Coffee",
-  locationName: "Kassel", programType: "stamp", balance: 1, scanCode: "sc_synthetic-fixture-only", brandColor: "#264C45", country: "DE",
+  locationName: "Kassel", programType: "stamp", balance: 1, scanCode: "sc_synthetic-fixture-only", cardLocator: "K-AAAAAA", brandColor: "#264C45", country: "DE", locale: "de",
 };
 
 describe("explicitly approved Google Demo device-test gate", () => {
@@ -100,7 +100,7 @@ describe("explicitly approved Google Demo device-test gate", () => {
         `${logoUrl}?v=0123456789abcdef#unapproved`, `${logoUrl}?v=0123456789abcdef&v=0123456789abcdef`,
       ].map(googleLogoUrl => ({ ...pass, googleLogoUrl })),
     ];
-    for (const candidate of unapproved) await expect(client.upsert(candidate, config)).rejects.toThrow(/approved/i);
+    for (const candidate of unapproved) await expect(client.upsert(candidate, "dddddddd-dddd-4ddd-8ddd-dddddddddddd", config)).rejects.toThrow(/approved/i);
     expect(transportCalls).toBe(0);
   });
 

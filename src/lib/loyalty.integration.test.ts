@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, locations, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants, walletPasses } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) {
@@ -31,6 +31,8 @@ afterAll(async () => { await pool.end(); });
 describe("loyalty ledger", () => {
   it("awards once when a cashier retries the same request", async () => {
     const f = await fixture();
+    // The card has a saved Wallet pass, so an award queues exactly one provider refresh (none without a pass).
+    await db.insert(walletPasses).values({ tenantId: f.tenant.id, membershipId: f.member.id, provider: "google", providerObjectId: `123456.loynara_${randomUUID()}`, status: "created" });
     const request = { userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() };
     const first = await award(request);
     const second = await award(request);

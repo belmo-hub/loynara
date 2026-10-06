@@ -4,7 +4,7 @@ import { db, pool } from "@/db";
 import { staffRoles } from "@/db/schema";
 import { createMerchant, enroll, getCard, getPublicProgram } from "./product";
 import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
-import { walletPassDataByCardToken } from "./wallet/data";
+import { walletPassDataByMembershipId } from "./wallet/data";
 import { GET as getGoogleLogo } from "@/app/api/wallet/assets/google-logo/[programId]/route";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Brand tests require looplocal_test");
@@ -63,7 +63,7 @@ describe("merchant brand editor", () => {
     try {
       process.env.GOOGLE_WALLET_ASSET_ENABLED = "true";
       process.env.GOOGLE_WALLET_ASSET_ORIGIN = "https://assets.example.test";
-      const pass = await walletPassDataByCardToken(card.cardToken);
+      const pass = await walletPassDataByMembershipId(card.id);
       expect(pass.googleLogoUrl).toMatch(new RegExp(`/api/wallet/assets/google-logo/${merchant.programId}\\.png\\?v=`));
       const response = await getGoogleLogo(request, routeContext);
       expect(response.status).toBe(200);

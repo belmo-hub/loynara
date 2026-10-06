@@ -131,17 +131,20 @@ async function processJob(job: Job) {
   }
 
   try {
-    const { refreshWalletForMembership } = await import("../src/lib/wallet/refresh");
+    const { refreshWalletForMembership, supersedeOlderWalletRefreshes } = await import("../src/lib/wallet/refresh");
     const result = await refreshWalletForMembership(membershipId);
     if (result.status === "blocked") {
       await mark(job, "blocked", result.reason);
       return "blocked";
     }
     await mark(job, "complete");
+    await supersedeOlderWalletRefreshes(pool, job);
     return "complete";
   } catch (error) {
     const permanent = job.attempts >= maxAttempts;
-    const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
+    // Provider outages last minutes to hours: 1, 4, 16 and 60 minutes span about 80 minutes before the job fails. A
+    // later loyalty change queues a fresh refresh anyway, and its success supersedes this one.
+    const delay = Math.min(3600, 60 * 4 ** (job.attempts - 1));
     // Provider messages can contain request details. Keep the stored error generic.
     await mark(job, permanent ? "failed" : "retry", "Wallet provider update failed", permanent ? 0 : delay);
     console.error(`Wallet job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
@@ -177,6 +180,8 @@ async function main() {
     if (Date.now() - recoveryPrunedAt >= 60 * 60_000) {
       await pool.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
       await pool.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+      const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
+      await pruneRevokedAppleRegistrations(pool);
       recoveryPrunedAt = Date.now();
     }
     let processed = 0;

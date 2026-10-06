@@ -8,7 +8,9 @@ import { getCustomerExport, getMerchantExport } from "./export";
 import { award } from "./loyalty";
 import { createMerchant, enroll, getCard, lookupCard } from "./product";
 import { applePassToken } from "./wallet/apple";
-import { listUpdatedApplePasses, registerAppleDevice } from "./wallet/apple-service";
+import { authenticatedApplePass, listUpdatedApplePasses, registerAppleDevice } from "./wallet/apple-service";
+import { issueWalletPass } from "./wallet/issue";
+import { pruneRevokedAppleRegistrations } from "./wallet/refresh";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -42,10 +44,11 @@ describe("bearer card closure", () => {
     expect(consent).toHaveLength(2);
     expect(consent).toEqual(expect.arrayContaining([expect.objectContaining({ granted: false, source: "card_closure" })]));
     const jobs = await db.select().from(outboxJobs).where(eq(outboxJobs.tenantId, merchant.tenantId));
-    expect(jobs.every(job => job.status === "suppressed")).toBe(true);
+    // Everything queued before the closure is suppressed; the one new job withdraws the saved Wallet pass.
+    expect(jobs.filter(job => job.status !== "suppressed")).toMatchObject([{ kind: "wallet.refresh", status: "pending", payload: { membershipId: card.id } }]);
     expect(JSON.stringify(jobs)).not.toContain("Synthetic private message");
     expect(JSON.stringify(jobs)).not.toContain("Synthetic content");
-    expect(await db.select().from(walletPasses).where(eq(walletPasses.membershipId, card.id))).toMatchObject([{ status: "revocation_pending" }]);
+    expect(await db.select().from(walletPasses).where(eq(walletPasses.membershipId, card.id))).toMatchObject([{ status: "revocation_pending", revokeReason: "closed", revokedAt: expect.any(Date) }]);
 
     await expect(getCard(card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(getCard(stored.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -63,34 +66,39 @@ describe("bearer card closure", () => {
     expect(JSON.stringify(merchantExport)).not.toContain(card.scanCode);
   });
 
-  it("removes closed-card Apple registrations and orphan push tokens while keeping a shared device's live card", async () => {
+  it("keeps closed-card Apple registrations only to deliver the voided pass, then prunes them without touching a shared device's live card", async () => {
     const userId = randomUUID();
     await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1,$2,$3,false)', [userId, "Synthetic owner", `${userId}@example.test`]);
     const merchant = await createMerchant({ userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic card", programType: "stamp", rulesText: "One synthetic stamp per confirmed visit.", rewardTitle: "Synthetic reward", rewardCost: 5 });
     const closedCard = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     const liveCard = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-    await db.insert(walletPasses).values([
-      { tenantId: merchant.tenantId, membershipId: closedCard.id, provider: "apple", providerObjectId: closedCard.id, status: "issued" },
-      { tenantId: merchant.tenantId, membershipId: liveCard.id, provider: "apple", providerObjectId: liveCard.id, status: "issued" },
-    ]);
-    await db.insert(appleDevices).values([
-      { deviceLibraryIdentifier: "closed-only-device", pushToken: "a".repeat(64) },
-      { deviceLibraryIdentifier: "shared-device", pushToken: "b".repeat(64) },
-    ]);
-    await db.insert(appleRegistrations).values([
-      { deviceLibraryIdentifier: "closed-only-device", tenantId: merchant.tenantId, membershipId: closedCard.id, passTypeIdentifier: "pass.local.loop", serialNumber: closedCard.id },
-      { deviceLibraryIdentifier: "shared-device", tenantId: merchant.tenantId, membershipId: closedCard.id, passTypeIdentifier: "pass.local.loop", serialNumber: closedCard.id },
-      { deviceLibraryIdentifier: "shared-device", tenantId: merchant.tenantId, membershipId: liveCard.id, passTypeIdentifier: "pass.local.loop", serialNumber: liveCard.id },
-    ]);
-    expect((await listUpdatedApplePasses("shared-device", "pass.local.loop"))?.serialNumbers.sort()).toEqual([closedCard.id, liveCard.id].sort());
+    const config = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "secret".repeat(8) };
+    const closedPass = await issueWalletPass(closedCard.cardToken, "apple", id => id);
+    const livePass = await issueWalletPass(liveCard.cardToken, "apple", id => id);
+    const register = (serial: string, deviceId: string, pushToken: string) => registerAppleDevice({ deviceId, passTypeId: config.passTypeId, serial, authorization: `ApplePass ${applePassToken(serial, config)}`, pushToken }, config);
+    await register(closedPass.id, "closed-only-device", "a".repeat(64));
+    await register(closedPass.id, "shared-device", "b".repeat(64));
+    await register(livePass.id, "shared-device", "b".repeat(64));
+    const before = await listUpdatedApplePasses("shared-device", config.passTypeId);
+    expect(before?.serialNumbers.sort()).toEqual([closedPass.id, livePass.id].sort());
 
     await closeCard(closedCard.cardToken);
+    // The device learns that the closed pass changed and fetches it: voided, without QR code or balance.
+    const after = await listUpdatedApplePasses("shared-device", config.passTypeId, before?.lastUpdated);
+    expect(after?.serialNumbers).toEqual([closedPass.id]);
+    const view = await authenticatedApplePass({ passTypeId: config.passTypeId, serial: closedPass.id, authorization: `ApplePass ${applePassToken(closedPass.id, config)}` }, config);
+    expect(view).toMatchObject({ kind: "void", pass: { reason: "closed", merchantName: "Synthetic Café" } });
+    expect(JSON.stringify(view)).not.toContain(closedCard.scanCode);
+    // No new device can subscribe to a closed card's pass.
+    await expect(register(closedPass.id, "new-device", "c".repeat(64))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "new-device"))).toHaveLength(0);
+
+    await pruneRevokedAppleRegistrations(pool, 0);
     expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, closedCard.id))).toHaveLength(0);
     expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "closed-only-device"))).toHaveLength(0);
     expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "shared-device"))).toMatchObject([{ pushToken: "b".repeat(64) }]);
-    expect((await listUpdatedApplePasses("shared-device", "pass.local.loop"))?.serialNumbers).toEqual([liveCard.id]);
-    const config = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "secret".repeat(8) };
-    await expect(registerAppleDevice({ deviceId: "new-device", passTypeId: config.passTypeId, serial: closedCard.id, authorization: `ApplePass ${applePassToken(closedCard.id, closedCard.scanCode, config)}`, pushToken: "c".repeat(64) }, config)).rejects.toMatchObject({ code: "FORBIDDEN" }); // closing retires the scan code, so the pass token no longer authenticates
-    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "new-device"))).toHaveLength(0);
+    expect((await listUpdatedApplePasses("shared-device", config.passTypeId))?.serialNumbers).toEqual([livePass.id]);
+    // The pass history row itself is kept.
+    expect(await db.select().from(walletPasses).where(eq(walletPasses.id, closedPass.id))).toMatchObject([{ revokeReason: "closed" }]);
   });
 });

@@ -12,6 +12,27 @@ export function decodeMerchantLogoPng(logoData: string | null | undefined): Buff
   return bytes;
 }
 
+/** PNG pixel size from the IHDR chunk, which the PNG format requires to come first. */
+export function pngDimensions(bytes: Buffer): { width: number; height: number } | null {
+  if (bytes.length < 24 || bytes.toString("ascii", 12, 16) !== "IHDR") return null;
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+const APPLE_LOGO_MAX_BYTES = 512_000;
+
+/**
+ * The merchant logo for the Apple pass, or undefined so the pass falls back to the merchant name as logo text. Wallet
+ * scales the image into a 160 x 50 pt area; very large or oddly shaped files are left out instead of bloating every pass
+ * download. JPEG/WebP uploads are not converted: the Card Studio asks for a PNG.
+ */
+export function appleLogoFromData(logoData: string | null | undefined): { png: Buffer; width: number; height: number } | undefined {
+  const png = decodeMerchantLogoPng(logoData);
+  if (!png || png.length > APPLE_LOGO_MAX_BYTES) return undefined;
+  const size = pngDimensions(png);
+  if (!size || size.width < 16 || size.height < 16 || size.width > 2048 || size.height > 2048 || size.width / size.height > 8 || size.height / size.width > 4) return undefined;
+  return { png, ...size };
+}
+
 export function approvedGoogleAssetOrigin(env: Record<string, string | undefined> = process.env): string | undefined {
   if (env.GOOGLE_WALLET_ASSET_ENABLED !== "true") return undefined;
   try {

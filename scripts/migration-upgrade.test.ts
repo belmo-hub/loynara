@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 /**
  * Migration rehearsal on throwaway databases on the isolated test server (never the shared test DB itself):
  *  - FRESH: every migration on an empty database;
- *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then 0018 and 0019.
+ *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then 0018-0020.
  * The upgraded schema must equal the fresh one, and no historical value may change.
  */
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Migration rehearsal requires the isolated looplocal_test server");
@@ -155,12 +155,13 @@ async function seedHistory(pool: Pool) {
 }
 
 describe("migration journal", () => {
-  it("is contiguous from 0000, timestamps strictly increase, and 0018 precedes 0019", () => {
+  it("is contiguous from 0000, timestamps strictly increase, and 0018-0020 are the newest", () => {
     const journal = JSON.parse(readFileSync(path.join(migrationsDir, "meta", "_journal.json"), "utf8")) as { entries: Array<{ idx: number; tag: string; when: number }> };
     journal.entries.forEach((entry, index) => { expect(entry.idx).toBe(index); expect(entry.tag.startsWith(String(index).padStart(4, "0"))).toBe(true); });
     for (let i = 1; i < journal.entries.length; i++) expect(journal.entries[i].when, journal.entries[i].tag).toBeGreaterThan(journal.entries[i - 1].when);
-    expect(journal.entries.at(-2)?.tag).toBe("0018_nfc_tag_lifecycle");
-    expect(journal.entries.at(-1)?.tag).toBe("0019_card_locators");
+    expect(journal.entries.at(-3)?.tag).toBe("0018_nfc_tag_lifecycle");
+    expect(journal.entries.at(-2)?.tag).toBe("0019_card_locators");
+    expect(journal.entries.at(-1)?.tag).toBe("0020_wallet_pass_lifecycle");
     const sqlFiles = readdirSync(migrationsDir).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort();
     expect(sqlFiles).toEqual(journal.entries.map(entry => `${entry.tag}.sql`));
   });
@@ -182,7 +183,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect(before.memberships.rows).toBe(404);
       expect(before.ledger_entries.rows).toBe(7);
 
-      await run(upgrade, migrationsDir); // 0018 + 0019
+      await run(upgrade, migrationsDir); // 0018 + 0019 + 0020
       const after = await fingerprint(upgrade);
       expect(after).toEqual(before); // no lost rows, no changed values, ledger untouched
       expect((await upgrade.query("SELECT id, balance FROM memberships ORDER BY id")).rows).toEqual(balancesBefore);
@@ -221,7 +222,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(20);
+      expect(applied).toBe(21);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -247,7 +248,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       await seedHistory(pool);
       const before = await fingerprint(pool);
 
-      await run(pool, migrationsDir); // 0019
+      await run(pool, folderThrough(19)); // 0019
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
       await pool.query(readFileSync(path.join(root, "docs", "rollback", "0019-card-locators-down.sql"), "utf8"));
       expect(await structure(pool)).toEqual(schema18);
@@ -255,9 +256,50 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(19);
 
       // Forward again: new locators are drawn, history is unchanged.
-      await run(pool, migrationsDir);
+      await run(pool, folderThrough(19));
       expect(await fingerprint(pool)).toEqual(before);
       expect((await pool.query("SELECT count(DISTINCT (tenant_id, card_locator))::int AS n FROM memberships")).rows[0].n).toBe(404);
+    } finally { await pool.end(); await reference.end(); }
+  }, 180_000);
+
+  it("retires legacy Wallet rows on 0020, allows a new generation per card, and rolls back to the exact 0019 schema", async () => {
+    const pool = await scratchDatabase("wallet20");
+    const reference = await scratchDatabase("ref19");
+    try {
+      await run(reference, folderThrough(19));
+      const schema19 = await structure(reference);
+      await run(pool, folderThrough(19));
+      const seeded = await seedHistory(pool);
+      // Legacy model: Apple serial = membership id, one row per card and provider, a closed card pending revocation.
+      await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2::uuid, 'apple', $2::text, 'registered'), ($1, $2::uuid, 'google', $3, 'created'), ($1, $4, 'google', $5, 'revocation_pending')",
+        [seeded.tenants[0], seeded.cards.a, `123.member_${seeded.cards.a}`, seeded.cards.closed, `123.member_${seeded.cards.closed}`]);
+      await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ('legacy-device', $1)", ["a".repeat(64)]);
+      await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ('legacy-device', $1, $2::uuid, 'pass.local.loop', $2::text)", [seeded.tenants[0], seeded.cards.a]);
+      const before = await fingerprint(pool);
+
+      await run(pool, migrationsDir); // 0020
+      expect(await fingerprint(pool)).toEqual(before); // no ledger/card/history value changes
+      const rows = (await pool.query("SELECT membership_id, provider, status, revoke_reason, revoked_at IS NOT NULL AS revoked FROM wallet_passes ORDER BY membership_id, provider")).rows;
+      expect(rows).toEqual(expect.arrayContaining([
+        { membership_id: seeded.cards.a, provider: "apple", status: "revoked", revoke_reason: "superseded", revoked: true },
+        { membership_id: seeded.cards.a, provider: "google", status: "revocation_pending", revoke_reason: "superseded", revoked: true },
+        { membership_id: seeded.cards.closed, provider: "google", status: "revocation_pending", revoke_reason: "closed", revoked: true },
+      ]));
+      expect((await pool.query("SELECT 1 FROM apple_registrations")).rowCount).toBe(0);
+      expect((await pool.query("SELECT 1 FROM apple_devices")).rowCount).toBe(0);
+      // A fresh generation for the same card and provider is allowed; a second ACTIVE one is not.
+      const insertActive = () => pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status, credential_hash) VALUES ($1, $2, 'google', $3, 'created', $4)", [seeded.tenants[0], seeded.cards.a, `123.loynara_${randomUUID()}`, "f".repeat(64)]);
+      await insertActive();
+      await expect(insertActive()).rejects.toThrow(/wallet_pass_active_member_provider_uq/);
+      await expect(pool.query("UPDATE wallet_passes SET revoke_reason = 'stolen', revoked_at = now() WHERE revoked_at IS NULL")).rejects.toThrow(/wallet_pass_revoke_valid/);
+
+      await pool.query(readFileSync(path.join(root, "docs", "rollback", "0020-wallet-pass-lifecycle-down.sql"), "utf8"));
+      expect(await structure(pool)).toEqual(schema19);
+      expect(await fingerprint(pool)).toEqual(before);
+      expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(1); // only the active row survives
+      expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
+      await run(pool, migrationsDir);
+      expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(21);
     } finally { await pool.end(); await reference.end(); }
   }, 180_000);
 });

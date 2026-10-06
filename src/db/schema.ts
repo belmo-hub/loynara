@@ -427,6 +427,8 @@ export const outboxJobs = pgTable("outbox_jobs", {
   createdAt: createdAt(),
 }, (t) => [
   index("outbox_due_idx").on(t.status, t.nextAttemptAt),
+  // Coalescing lookup for lib/wallet/enqueue: at most one not-yet-claimed wallet refresh per card.
+  index("outbox_wallet_pending_member_idx").on(sql`(${t.payload} ->> 'membershipId')`).where(sql`${t.kind} = 'wallet.refresh' and ${t.status} = 'pending'`),
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
 ]);
 
@@ -573,6 +575,13 @@ export const automationRuns = pgTable("automation_runs", {
   check("automation_run_attempts_valid", sql`${t.attempts} >= 0`),
 ]);
 
+/**
+ * One Wallet pass (Apple) or object (Google) issued for one card CREDENTIAL GENERATION. A display copy only: the
+ * membership row and ledger stay authoritative. A staff reissue or a closure revokes every row of the card; a pass added
+ * afterwards is a new row with a new Apple serial / Google object, so an old pass can never receive the new QR code.
+ * credentialHash = sha256(scan code at issuance); a row whose hash no longer matches the card is treated as revoked.
+ * Apple serial = id. status: pending | downloaded | registered | created | revocation_pending | revoked.
+ */
 export const walletPasses = pgTable("wallet_passes", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
@@ -580,12 +589,19 @@ export const walletPasses = pgTable("wallet_passes", {
   provider: varchar("provider", { length: 8 }).notNull(),
   providerObjectId: varchar("provider_object_id", { length: 240 }).notNull(),
   status: varchar("status", { length: 24 }).notNull().default("pending"),
+  credentialHash: varchar("credential_hash", { length: 64 }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokeReason: varchar("revoke_reason", { length: 16 }),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  unique("wallet_pass_member_provider_uq").on(t.membershipId, t.provider),
+  uniqueIndex("wallet_pass_active_member_provider_uq").on(t.membershipId, t.provider).where(sql`${t.revokedAt} is null`),
   unique("wallet_pass_provider_object_uq").on(t.provider, t.providerObjectId),
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("wallet_pass_member_idx").on(t.tenantId, t.membershipId),
   check("wallet_pass_provider_valid", sql`${t.provider} in ('apple','google')`),
+  check("wallet_pass_revoke_valid", sql`(${t.revokedAt} is null and ${t.revokeReason} is null) or (${t.revokedAt} is not null and ${t.revokeReason} in ('reissued','closed','superseded'))`),
 ]);
 
 export const appleDevices = pgTable("apple_devices", {
