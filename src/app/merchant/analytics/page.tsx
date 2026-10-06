@@ -8,6 +8,7 @@ import { useLoad } from "@/components/owner/use-load";
 import Link from "next/link";
 import { CardBase } from "@/components/owner/retention-insights";
 import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-analytics";
+import { retentionCustomerHref } from "@/lib/retention-links";
 import type { RetentionDays, RetentionSummary } from "@/lib/retention";
 
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
@@ -36,21 +37,21 @@ export default function MerchantAnalyticsPage() {
             <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Aktuell nicht geschlossene Karten." />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
             <Metric label="Bestätigte Kassenvorgänge" value={r.qualifyingCheckouts} note="Vom Team bestätigte Vergaben, ohne vollständig rückgängig gemachte." />
-            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang kamen im Zeitraum mehrmals.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
+            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Kassenvorgänge.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
           </div>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-ret">
-          <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Wer kommt wieder, wer bleibt weg?</p></div>
+          <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Kassenvorgänge sind erfasst?</p></div>
             <div className="ow-field"><label htmlFor="an-lapse" className="ow-sr">Als weggeblieben gilt nach</label><select id="an-lapse" className="ow-select" value={lapseDays} onChange={event => setLapseDays(Number(event.target.value) as RetentionDays)}>{([14, 30, 60, 90] as const).map(days => <option key={days} value={days}>Weg nach {days} Tagen</option>)}</select></div></div>
           {retention.state === "error" && <ErrorNotice message={retention.message} onRetry={reloadRetention} />}
           {retention.state === "loading" && <LoadingBlock rows={1} height={64} />}
           {retention.state === "ok" && <>
             <CardBase summary={retention.data} />
             <div className="ow-metrics">
-              <RetentionMetric label="Länger nicht da" value={retention.data.drifting} note={`Früher an der Kasse, seit ${retention.data.inactiveDays}+ Tagen nicht mehr. Vor einer Woche: ${retention.data.driftingWeekAgo}.`} href={`/merchant/customers?activity=drifting&days=${retention.data.inactiveDays}`} />
-              <RetentionMetric label="Prämie verdient, nicht abgeholt" value={retention.data.rewardReady} note="Ein Anlass, die Prämie beim nächsten Besuch anzubieten." href="/merchant/customers?activity=reward_ready" />
-              <RetentionMetric label="Kurz vor der Prämie" value={retention.data.nearReward} note="Höchstens ein Viertel fehlt bis zur günstigsten Prämie." href="/merchant/customers?activity=near_reward" />
-              <RetentionMetric label="Noch nie an der Kasse" value={retention.data.never} note={`${retention.data.neverAfterWeek} davon seit über einer Woche angemeldet.`} href="/merchant/customers?activity=never" />
+              <RetentionMetric label="Länger nicht da" value={retention.data.drifting} note={`Früher bestätigte Kassenvorgänge, seit ${retention.data.inactiveDays}+ Tagen keiner mehr. Vor einer Woche: ${retention.data.driftingWeekAgo}.`} href={retentionCustomerHref(retention.data, "drifting")} />
+              <RetentionMetric label="Prämie jetzt einlösbar" value={retention.data.rewardReady} note="Ein Anlass, die Prämie beim nächsten Besuch anzubieten." href={retentionCustomerHref(retention.data, "reward_ready")} />
+              <RetentionMetric label="Kurz vor der Prämie" value={retention.data.nearReward} note="Höchstens ein Viertel fehlt bis zur günstigsten Prämie, auf ganze Einheiten aufgerundet." href={retentionCustomerHref(retention.data, "near_reward")} />
+              <RetentionMetric label="Noch nie an der Kasse" value={retention.data.never} note={`${retention.data.neverAfterWeek} davon seit über einer Woche angemeldet.`} href={retentionCustomerHref(retention.data, "never")} />
             </div>
           </>}
         </section>

@@ -26,7 +26,7 @@ describe("retention signals in rule-based advice", () => {
 
   it("flags growing lapsed cards only when the count actually grew, with a link to those cards", () => {
     const grew = buildRuleBasedAdvice(active, retention({ drifting: 6, driftingWeekAgo: 3 }));
-    expect(grew.find(item => item.id === "lapsed_growing")).toMatchObject({ observed: [{ value: 6 }, { value: 3 }], link: { href: "/merchant/customers?activity=drifting&days=30" } });
+    expect(grew.find(item => item.id === "lapsed_growing")).toMatchObject({ observed: [{ value: 6 }, { value: 3 }], link: { href: "/merchant/customers?activity=drifting&days=30&scope=all" } });
     expect(buildRuleBasedAdvice(active, retention({ drifting: 6, driftingWeekAgo: 6 })).map(item => item.id)).not.toContain("lapsed_growing");
     expect(buildRuleBasedAdvice(active, retention({ drifting: 2, driftingWeekAgo: 0 })).map(item => item.id)).not.toContain("lapsed_growing");
   });
@@ -42,6 +42,7 @@ describe("retention signals in rule-based advice", () => {
     const advice = buildRuleBasedAdvice(active, retention({ neverAfterWeek: 6, openCards: 20 }));
     const item = advice.find(entry => entry.id === "signup_not_stamped");
     expect(item?.missingInformation.join(" ")).toContain("nicht unterscheidbar");
+    expect(item?.link?.href).toBe("/merchant/customers?activity=never&minAgeDays=7&scope=all");
     expect(buildRuleBasedAdvice(active, retention({ neverAfterWeek: 3, openCards: 40 })).map(entry => entry.id)).not.toContain("signup_not_stamped");
   });
 });

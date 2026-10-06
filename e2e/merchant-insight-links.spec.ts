@@ -22,6 +22,9 @@ test("insight links keep their goal and filter on client-side navigation", async
       await expect(page.getByLabel("Ansicht")).toHaveValue("drifting");
       await expect(page.getByLabel("Zeitraum")).toHaveValue("60");
       await expect(page.getByText("Warum diese Karten?")).toBeVisible();
+      await push("/merchant/customers?activity=recent&days=14&scope=all");
+      await expect(page.getByLabel("Ansicht")).toHaveValue("recent");
+      await expect(page.getByLabel("Zeitraum")).toHaveValue("14");
 
       await push("/merchant/campaigns?goal=winback&days=60");
       await expect(page.getByText("Ziel:")).toContainText("Kunden zurückholen");

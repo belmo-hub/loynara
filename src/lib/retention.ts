@@ -35,6 +35,10 @@ export type RetentionSummary = {
   driftingWeekAgo: number;
   /** Threshold used for near reward when exactly one programme is in scope (for campaign links), else null. */
   nearRewardMaxRemaining: number | null;
+  /** Exact cheapest active reward for a single programme; drafts preserve this reward definition. */
+  nearRewardId?: string | null;
+  /** Campaign drafts are programme-specific, so combined counts must not offer a draft shortcut. */
+  programCount?: number;
   rules: { drifting: string; never: string; nearReward: string; rewardReady: string };
 };
 
@@ -82,9 +86,9 @@ export function retentionPredicate(filter: RetentionFilter, cutoff: string) {
 
 export const RETENTION_RULES = {
   drifting: "Karten mit mindestens einem bestätigten Kassenvorgang, aber keinem innerhalb der gewählten Tage.",
-  never: "Angemeldete Karten ohne bestätigten Kassenvorgang. Es kann am Team liegen (nicht gestempelt) oder an der Person.",
-  nearReward: "Karten, denen höchstens ein Viertel der günstigsten aktiven Prämie fehlt, bei 8 Stempeln also 1 bis 2.",
-  rewardReady: "Karten, deren Stand bereits für die günstigste aktive Prämie reicht, die aber noch nicht eingelöst haben.",
+  never: "Angemeldete Karten ohne bestätigten Kassenvorgang. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.",
+  nearReward: "Karten, denen höchstens ein Viertel der günstigsten aktiven Prämie fehlt, auf ganze Einheiten aufgerundet; bei 8 Stempeln also 1 bis 2.",
+  rewardReady: "Karten, deren aktueller Stand für die günstigste aktive Prämie reicht.",
 } as const;
 
 async function retentionScope(actorUserId: string, requestedLocationId?: string | null) {
@@ -136,11 +140,13 @@ export async function getRetentionSummary(actorUserId: string, options: { inacti
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
         AND (m.closed_at IS NULL OR m.closed_at > $3) AND m.created_at <= $3
     `, [scope.tenantId, scope.locationId, weekAgo, cutoff(weekAgo)]),
-    pool.query<{ cost: number | null }>(`
-      SELECT (SELECT min(latest.cost)::int FROM rewards r
+    pool.query<{ cost: number | null; rewardId: string | null }>(`
+      SELECT selected.cost, selected.reward_id AS "rewardId" FROM programs p
+      LEFT JOIN LATERAL (SELECT r.id AS reward_id, latest.cost FROM rewards r
         JOIN LATERAL (SELECT rv.cost FROM reward_versions rv WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= $3 ORDER BY rv.version DESC LIMIT 1) latest ON true
-        WHERE r.tenant_id = p.tenant_id AND r.program_id = p.id AND r.active = true) AS cost
-      FROM programs p WHERE p.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
+        WHERE r.tenant_id = p.tenant_id AND r.program_id = p.id AND r.active = true
+        ORDER BY latest.cost, r.id LIMIT 1) selected ON true
+      WHERE p.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
     `, [scope.tenantId, scope.locationId, asOf]),
   ]);
   const row = now.rows[0];
@@ -158,6 +164,8 @@ export async function getRetentionSummary(actorUserId: string, options: { inacti
     rewardReady: row.rewardReady,
     driftingWeekAgo: then.rows[0].drifting,
     nearRewardMaxRemaining: only ? Math.max(1, Math.ceil(only / 4)) : null,
+    nearRewardId: programmes.rows.length === 1 ? programmes.rows[0].rewardId : null,
+    programCount: programmes.rows.length,
     rules: RETENTION_RULES,
   };
 }

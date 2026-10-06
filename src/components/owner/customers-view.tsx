@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { apiJson } from "@/components/client-api";
 import { parseCardLocator } from "@/lib/card-locator";
 import type { MerchantMember, MerchantMemberDetail, MerchantMemberList } from "@/lib/merchant-members";
@@ -12,21 +12,20 @@ import { germanDate, Notice, Skeleton } from "./owner-ui";
 
 type Activity = "all" | "recent" | "drifting" | "never" | "near_reward" | "reward_ready";
 type Days = 14 | 30 | 60 | 90;
-type Filters = { q: string; status: "all" | "active" | "closed"; activity: Activity; days: Days };
-const INITIAL: Filters = { q: "", status: "all", activity: "all", days: 30 };
+type Filters = { q: string; status: "all" | "active" | "closed"; activity: Activity; days: Days; minAgeDays: 0 | 7 };
+const INITIAL: Filters = { q: "", status: "all", activity: "all", days: 30, minAgeDays: 0 };
 const STATUS: Array<[Filters["status"], string]> = [["all", "Alle"], ["active", "Aktiv"], ["closed", "Geschlossen"]];
 const ACTIVITY: Array<[Activity, string]> = [["all", "Alle Karten"], ["recent", "Kürzlich aktiv"], ["drifting", "Länger nicht da"], ["never", "Noch nie an der Kasse"], ["near_reward", "Kurz vor Prämie"], ["reward_ready", "Prämie verdient"]];
 const DAYS: Days[] = [14, 30, 60, 90];
-const MAX_AUTO_PAGES = 6;
 
 /** Why a card is in the chosen view, in the same words the overview uses. */
 function activityRule(activity: Activity, days: Days, unit: string) {
   switch (activity) {
     case "recent": return `Mindestens ein bestätigter Kassenvorgang in den letzten ${days} Tagen.`;
     case "drifting": return `Früher bestätigte Kassenvorgänge, aber keiner in den letzten ${days} Tagen. Warum, wissen wir nicht. Geschlossene Karten zählen nicht.`;
-    case "never": return "Angemeldet, aber noch kein bestätigter Kassenvorgang. Vielleicht kam die Person nicht wieder, vielleicht wurde an der Kasse nicht gestempelt.";
-    case "near_reward": return `Bis zur günstigsten aktiven Prämie fehlt höchstens ein Viertel, bei 8 ${unit} also 1 bis 2.`;
-    case "reward_ready": return "Der Stand reicht für die günstigste aktive Prämie, eingelöst wurde sie noch nicht.";
+    case "never": return "Angemeldet, aber noch kein bestätigter Kassenvorgang. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.";
+    case "near_reward": return `Bis zur günstigsten aktiven Prämie fehlt höchstens ein Viertel, auf ganze Einheiten aufgerundet; bei 8 ${unit} also 1 bis 2.`;
+    case "reward_ready": return "Der aktuelle Stand reicht für die günstigste aktive Prämie.";
     default: return "";
   }
 }
@@ -36,7 +35,8 @@ function filtersFromParams(params: URLSearchParams): Filters {
   const raw = params.get("activity");
   const activity = raw === "none" ? "never" : ACTIVITY.some(([value]) => value === raw) ? raw as Activity : "all";
   const days = Number(params.get("days"));
-  return { ...INITIAL, activity, days: DAYS.includes(days as Days) ? days as Days : 30 };
+  const status = params.get("status");
+  return { ...INITIAL, q: params.get("q") ?? "", status: status === "active" || status === "closed" ? status : "all", activity, days: DAYS.includes(days as Days) ? days as Days : 30, minAgeDays: activity === "never" && params.get("minAgeDays") === "7" ? 7 : 0 };
 }
 
 function sinceLast(value: string | null) {
@@ -69,7 +69,8 @@ export function CustomersView() {
   const [start] = useState(() => filtersFromParams(searchParams));
   const [filters, setFilters] = useState<Filters>(start);
   const [applied, setApplied] = useState<Filters>(start);
-  const [allLocations, setAllLocations] = useState(false);
+  const [allLocations] = useState(me.role === "owner" && searchParams.get("scope") === "all");
+  const [scopeLocationId] = useState(() => searchParams.get("locationId") || me.locationId);
   const [members, setMembers] = useState<MerchantMember[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,44 +87,36 @@ export function CustomersView() {
   const token = useRef(0);
   const detailToken = useRef(0);
 
-  // The API returns every location for owners and exposes only the location name. Narrowing by name is only safe
-  // when the name is unique, so the "active location" scope is offered only then.
   const multi = me.role === "owner" && owner.locations.length > 1;
-  const nameUnique = owner.locations.filter(location => location.name === me.locationName).length === 1;
-  const narrow = multi && nameUnique && !allLocations;
-  const visible = useMemo(() => narrow ? members.filter(member => member.locationName === me.locationName) : members, [members, narrow, me.locationName]);
-
-  const fetchPage = useCallback((chosen: Filters, cursor?: string) => {
+  const narrow = !allLocations;
+  const narrowId = narrow ? scopeLocationId : null;
+  const scopeName = owner.locations.find(location => location.id === scopeLocationId)?.name ?? me.locationName;
+  // The server validates and filters location IDs, so equal names and pagination cannot broaden this view.
+  const visible = members;
+  const fetchPage = useCallback((chosen: Filters, cursor?: string, locationId?: string | null) => {
     const params = new URLSearchParams({ status: chosen.activity === "all" ? chosen.status : "active", activity: chosen.activity, days: String(chosen.days) });
+    if (chosen.minAgeDays) params.set("minAgeDays", String(chosen.minAgeDays));
+    if (locationId) params.set("locationId", locationId);
     if (chosen.q.trim()) params.set("q", chosen.q.trim());
     if (cursor) params.set("cursor", cursor);
     return apiJson<MerchantMemberList>(`/api/merchant/customers?${params}`);
   }, []);
-
-  // Pages until at least one card of the wanted location is visible (bounded), or a single page when not narrowing.
-  const fetchVisible = useCallback(async (chosen: Filters, start: string | undefined, onlyLocation: string | null) => {
-    let cursor: string | null | undefined = start; let collected: MerchantMember[] = []; let pages = 0;
-    do {
-      const page: MerchantMemberList = await fetchPage(chosen, cursor ?? undefined);
-      collected = collected.concat(page.members); cursor = page.nextCursor; pages++;
-    } while (cursor && onlyLocation && pages < MAX_AUTO_PAGES && !collected.some(member => member.locationName === onlyLocation));
-    return { members: collected, next: cursor ?? null };
+  const fetchVisible = useCallback(async (chosen: Filters, cursor: string | undefined, locationId: string | null) => {
+    const page = await fetchPage(chosen, cursor, locationId);
+    return { members: page.members, next: page.nextCursor };
   }, [fetchPage]);
-  const narrowName = narrow ? me.locationName : null;
-  // The shell remounts this view when the active location changes. Scope buttons
-  // run their own filtered request; they must not trigger this initial load again.
-  const initialScope = useRef(narrowName);
+  const initialScope = useRef(narrowId);
 
   const run = useCallback(async (chosen: Filters, override?: string | null) => {
     const mine = ++token.current;
     setLoading(true); setError(""); setSelected(null); setDetail(null); detailToken.current++;
     try {
-      const page = await fetchVisible(chosen, undefined, override === undefined ? narrowName : override);
+      const page = await fetchVisible(chosen, undefined, override === undefined ? narrowId : override);
       if (token.current !== mine) return;
       setMembers(page.members); setNext(page.next); setApplied(chosen);
     } catch (cause) { if (token.current === mine) setError(reason(cause)); }
     finally { if (token.current === mine) setLoading(false); }
-  }, [fetchVisible, narrowName]);
+  }, [fetchVisible, narrowId]);
 
   useEffect(() => {
     let live = true;
@@ -138,21 +131,28 @@ export function CustomersView() {
     setMore(true); setError("");
     const mine = token.current;
     try {
-      const page = await fetchVisible(applied, next, narrowName);
+      const page = await fetchVisible(applied, next, narrowId);
       if (token.current !== mine) return;
       setMembers(current => [...current, ...page.members]); setNext(page.next);
     } catch (cause) { setError(reason(cause)); }
     finally { setMore(false); }
   }
 
-  function submit(event: FormEvent) { event.preventDefault(); void run(filters); }
-  function pick(patch: Partial<Filters>) {
-    const chosen = { ...filters, ...patch }; setFilters(chosen); void run(chosen);
-    // Keep the address shareable and the back button meaningful without a navigation.
+  function updateAddress(chosen: Filters, all = allLocations) {
     const params = new URLSearchParams();
+    if (chosen.q.trim()) params.set("q", chosen.q.trim());
+    if (chosen.status !== "all") params.set("status", chosen.status);
     if (chosen.activity !== "all") params.set("activity", chosen.activity);
     if (chosen.activity === "recent" || chosen.activity === "drifting") params.set("days", String(chosen.days));
+    if (chosen.minAgeDays) params.set("minAgeDays", String(chosen.minAgeDays));
+    if (all) params.set("scope", "all"); else params.set("locationId", scopeLocationId);
+    // The page remounts for URL changes, so direct links, browser traversal and local picks use the same load.
     window.history.replaceState(null, "", `/merchant/customers${params.size ? `?${params}` : ""}`);
+  }
+  function submit(event: FormEvent) { event.preventDefault(); updateAddress(filters); }
+  function pick(patch: Partial<Filters>) {
+    const chosen = { ...filters, ...patch, minAgeDays: patch.activity ? 0 as const : filters.minAgeDays };
+    setFilters(chosen); updateAddress(chosen);
   }
 
   async function open(id: string, keepNotice = false) {
@@ -199,25 +199,23 @@ export function CustomersView() {
 
       {multi && (
         <div className="ow-row">
-          {nameUnique
-            ? <div className="ow-seg" role="group" aria-label="Umfang"><button type="button" aria-pressed={!allLocations} onClick={() => { setAllLocations(false); void run(applied, me.locationName); }}>{me.locationName}</button><button type="button" aria-pressed={allLocations} onClick={() => { setAllLocations(true); void run(applied, null); }}>Alle Standorte</button></div>
-            : <Notice tone="warn">Die Liste zeigt alle Standorte. Zwei Standorte heißen gleich, deshalb ist keine Eingrenzung möglich.</Notice>}
+          <div className="ow-seg" role="group" aria-label="Umfang"><button type="button" aria-pressed={!allLocations} onClick={() => { updateAddress(applied, false); }}>{scopeName}</button><button type="button" aria-pressed={allLocations} onClick={() => { updateAddress(applied, true); }}>Alle Standorte</button></div>
         </div>
       )}
       {error && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => void run(applied)}>Erneut laden</button>}>{error}</Notice>}
 
       {applied.activity !== "all" && (
-        <Notice tone="info" actions={applied.activity === "drifting" && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
+        <Notice tone="info" actions={applied.activity === "drifting" && !applied.q.trim() && !allLocations && scopeLocationId === me.locationId && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
           ? <Link className="ow-btn ow-btn--sm ow-btn--primary" href={`/merchant/campaigns?goal=winback&days=${applied.days}`}>Rückhol-Aktion vorbereiten</Link> : undefined}>
-          <strong>Warum diese Karten?</strong> {activityRule(applied.activity, applied.days, me.programType === "points" ? "Punkten" : "Stempeln")}
+          <strong>Warum diese Karten?</strong> {activityRule(applied.activity, applied.days, me.programType === "points" ? "Punkten" : "Stempeln")}{applied.minAgeDays === 7 && " Angezeigt werden nur Karten, die vor über sieben Tagen angelegt wurden."}
         </Notice>
       )}
 
       <div className="ow-cust" data-detail={selected ? "open" : "closed"}>
         <section className="ow-card ow-cust-list" aria-labelledby="cu-h" aria-busy={loading}>
-          <div className="ow-card-head" style={{ marginBottom: 12 }}><div><h2 id="cu-h">Karten</h2><p>{loading ? "Wird geladen …" : `${visible.length}${next ? "+" : ""} ${visible.length === 1 && !next ? "Karte" : "Karten"}${narrow ? ` am Standort ${me.locationName}` : ""}`}</p></div></div>
+          <div className="ow-card-head" style={{ marginBottom: 12 }}><div><h2 id="cu-h">Karten</h2><p>{loading ? "Wird geladen …" : `${visible.length}${next ? "+" : ""} ${visible.length === 1 && !next ? "Karte" : "Karten"}${narrow ? ` am Standort ${scopeName}` : ""}`}</p></div></div>
           {loading ? <div className="ow-stack"><Skeleton height={56} /><Skeleton height={56} /><Skeleton height={56} /></div>
-            : visible.length === 0 ? <div className="ow-empty"><strong>{applied.activity === "drifting" ? "Niemand ist länger weggeblieben." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}</strong>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Alle Karten mit früheren Vorgängen waren in den letzten ${applied.days} Tagen an der Kasse.` : "Für diese Auswahl gibt es keine Karten."}</div>
+            : visible.length === 0 ? <div className="ow-empty"><strong>{applied.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}</strong>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Kassenvorgängen und keinem in den letzten ${applied.days} Tagen.` : "Für diese Auswahl gibt es keine Karten."}</div>
             : <ul className="ow-members">{visible.map(member => (
               <li key={member.id}><button type="button" className="ow-member" aria-current={selected === member.id ? "true" : undefined} onClick={() => void open(member.id)}>
                 <span className="ow-member-id"><strong>{member.pseudonym}</strong><small>{member.programName}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>

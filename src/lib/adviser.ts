@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DomainError } from "./loyalty";
 import { getMerchantAnalytics, type AnalyticsWindowDays, type MerchantAnalytics } from "./merchant-analytics";
+import { retentionCustomerHref } from "./retention-links";
 import { getRetentionSummary, type RetentionSummary } from "./retention";
 
 const observedMetricSchema = z.object({ label: z.string().min(1).max(80), value: z.number().int().min(0).max(1_000_000_000) }).strict();
@@ -62,20 +63,20 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     nextAction: "Mit einer eigenen Karte einen bestätigten Kassenvorgang und den neuen Saldo prüfen.",
   });
   if (r && r.rewardReady > 0) suggestions.push({
-    id: "reward_waiting", title: "Verdiente Prämien werden nicht abgeholt",
+    id: "reward_waiting", title: "Prämien sind jetzt einlösbar",
     observed: [{ label: "Karten mit verdienter Prämie", value: r.rewardReady }, { label: "Einlösungen im Zeitraum", value: m.redemptions }],
-    reasoning: "Diese Karten haben genug für die günstigste aktive Prämie, eingelöst wurde sie noch nicht. Unabgeholte Prämien wirken für Kund:innen oft wie vergessen.",
+    reasoning: "Der aktuelle Kartenstand reicht für die günstigste aktive Prämie. Ob und wann vorher Prämien eingelöst wurden, sagt dieser Bestand nicht.",
     missingInformation: ["Ob die Person die Prämie kennt oder bewusst spart, zeigen die Daten nicht."],
     nextAction: "Dein Team bitten, die Prämie beim nächsten Besuch aktiv anzubieten; die Karten stehen unter Kunden.",
-    link: { label: "Karten mit verdienter Prämie", href: "/merchant/customers?activity=reward_ready" },
+    link: { label: "Karten mit verdienter Prämie", href: retentionCustomerHref(r, "reward_ready") },
   });
   if (r && r.drifting >= 3 && r.drifting > r.driftingWeekAgo) suggestions.push({
     id: "lapsed_growing", title: "Mehr Karten bleiben weg",
     observed: [{ label: `Ohne Kassenvorgang seit ${r.inactiveDays}+ Tagen`, value: r.drifting }, { label: "Vor einer Woche", value: r.driftingWeekAgo }],
-    reasoning: `Die Zahl der Karten, die früher kamen und seit über ${r.inactiveDays} Tagen nicht mehr an der Kasse waren, ist binnen einer Woche gestiegen.`,
+    reasoning: `Die Zahl der Karten mit früheren bestätigten Kassenvorgängen und keinem erfassten Vorgang seit über ${r.inactiveDays} Tagen ist binnen einer Woche gestiegen.`,
     missingInformation: ["Warum jemand nicht mehr kommt (Urlaub, Umzug, Konkurrenz), weiß Loynara nicht.", "Besuche ohne vorgezeigte Karte fehlen in den Daten."],
     nextAction: "Die betroffenen Karten ansehen und entscheiden, ob eine Rückhol-Aktion passt.",
-    link: { label: "Länger nicht da", href: `/merchant/customers?activity=drifting&days=${r.inactiveDays}` },
+    link: { label: "Länger nicht da", href: retentionCustomerHref(r, "drifting") },
   });
   if (r && r.neverAfterWeek >= 3 && r.neverAfterWeek * 4 >= r.openCards) suggestions.push({
     id: "signup_not_stamped", title: "Anmeldungen ohne Kassenvorgang",
@@ -83,7 +84,7 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     reasoning: "Mindestens ein Viertel der Karten wurde vor über einer Woche angelegt, aber nie an der Kasse bestätigt.",
     missingInformation: ["Ob die Person nicht wiederkam oder an der Kasse nicht gestempelt wurde, ist nicht unterscheidbar."],
     nextAction: "Mit dem Team kurz durchgehen, dass jede Karte beim Bezahlen gescannt oder per Kartennummer gesucht wird.",
-    link: { label: "Noch nie an der Kasse", href: "/merchant/customers?activity=never" },
+    link: { label: "Noch nie an der Kasse", href: retentionCustomerHref(r, "never", 7) },
   });
   if (m.failedOrBlockedAttempts > 0) suggestions.push({
     id: "delivery_failures", title: "Zustellfehler prüfen",

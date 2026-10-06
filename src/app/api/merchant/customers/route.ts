@@ -14,6 +14,8 @@ export async function GET(request: Request) {
       status: (query.get("status") ?? undefined) as "all" | "active" | "closed" | undefined,
       activity: (query.get("activity") ?? undefined) as MemberActivityFilter | undefined,
       inactiveDays: parseRetentionDays(query.get("days")),
+      locationId: query.get("locationId") || null,
+      minAgeDays: Number(query.get("minAgeDays") ?? 0) as 0 | 7,
       cursor: query.get("cursor") ?? undefined,
     });
     return Response.json(result, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });

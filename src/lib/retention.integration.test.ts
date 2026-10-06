@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, memberships, staffRoles } from "@/db/schema";
+import { ledgerEntries, memberships, staffRoles, programs, locations } from "@/db/schema";
 import { listMerchantMembers } from "./merchant-members";
 import { createMerchant, enroll } from "./product";
 import { getRetentionSummary } from "./retention";
+import { createAdditionalLocation } from "./locations";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Retention tests require looplocal_test");
 
@@ -60,8 +61,9 @@ describe("retention summary", () => {
     expect(summary).toMatchObject({ openCards: 5, recent: 1, drifting: 2, never: 2, neverAfterWeek: 1, nearReward: 2, rewardReady: 1, nearRewardMaxRemaining: 2, inactiveDays: 30, locationId: null });
     // Seven days earlier: the 33-day card was still recent, the closed card was open and drifting, the 45-day one drifting.
     expect(summary.driftingWeekAgo).toBe(2);
-    const longer = await getRetentionSummary(ownerId, { asOf, inactiveDays: 60 });
-    expect(longer).toMatchObject({ recent: 3, drifting: 0 });
+    for (const [inactiveDays, recent, drifting] of [[14, 1, 2], [30, 1, 2], [60, 3, 0], [90, 3, 0]] as const) {
+      expect(await getRetentionSummary(ownerId, { asOf, inactiveDays })).toMatchObject({ recent, drifting });
+    }
   });
 
   it("enforces role, tenant and location scope", async () => {
@@ -125,5 +127,41 @@ describe("customer list retention filters", () => {
     const cashierId = await user();
     await db.insert(staffRoles).values({ tenantId: merchant.tenantId, locationId: merchant.locationId, userId: cashierId, role: "cashier" });
     await expect(listMerchantMembers(cashierId, { activity: "drifting" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("retention destination reconciliation", () => {
+  it("matches older unvisited insight cards and excludes inactive programs", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId, "Synthetic Age Café");
+    const old = await card(merchant, new Date(Date.now() - 10 * DAY));
+    await card(merchant, new Date(Date.now() - 2 * DAY));
+    const list = await listMerchantMembers(ownerId, { activity: "never", minAgeDays: 7 });
+    expect(list.members.map(member => member.id)).toEqual([old.id]);
+    expect((await getRetentionSummary(ownerId)).neverAfterWeek).toBe(list.members.length);
+    await db.update(programs).set({ status: "archived" }).where(eq(programs.id, old.programId));
+    expect((await listMerchantMembers(ownerId, { activity: "never" })).members).toEqual([]);
+    expect((await getRetentionSummary(ownerId)).never).toBe(0);
+  });
+
+  it("filters by location ID even when location names collide and prevents manager scope escape", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId, "Synthetic Location Café");
+    const own = await card(merchant, new Date(Date.now() - 10 * DAY));
+    const second = await createAdditionalLocation(ownerId, { name: "Other location", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Other card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 });
+    await card({ ...merchant, ...second }, new Date(Date.now() - 10 * DAY));
+    await db.update(locations).set({ name: "Same name" }).where(eq(locations.id, second.locationId));
+    await db.update(locations).set({ name: "Same name" }).where(eq(locations.id, merchant.locationId));
+    const list = await listMerchantMembers(ownerId, { activity: "never", locationId: merchant.locationId });
+    expect(list.members.map(member => member.id)).toEqual([own.id]);
+    const managerId = await user();
+    await db.insert(staffRoles).values({ tenantId: merchant.tenantId, locationId: merchant.locationId, userId: managerId, role: "manager" });
+    await expect(listMerchantMembers(managerId, { activity: "never", locationId: second.locationId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(listMerchantMembers(ownerId, { activity: "never", locationId: "not-a-uuid" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await listMerchantMembers(managerId, { activity: "never", locationId: null })).members.map(member => member.id)).toEqual([own.id]);
+    const foreignOwner = await user();
+    const foreign = await shop(foreignOwner, "Synthetic Foreign Scope Café");
+    await expect(listMerchantMembers(ownerId, { activity: "never", locationId: foreign.locationId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(listMerchantMembers(ownerId, { activity: "never", minAgeDays: 8 as 7 })).rejects.toMatchObject({ code: "INVALID_FILTER" });
   });
 });

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { staffRoles } from "@/db/schema";
+import { locations, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { formatCardLocator, parseCardLocator } from "./card-locator";
 import { RETENTION_DAYS, retentionJoins, retentionPredicate, type RetentionDays, type RetentionFilter } from "./retention";
@@ -139,8 +139,19 @@ const memberFields = `
 export type MemberActivityFilter = "all" | "recorded" | "none" | RetentionFilter;
 const RETENTION_FILTERS: RetentionFilter[] = ["recent", "drifting", "never", "near_reward", "reward_ready"];
 
-export async function listMerchantMembers(actorUserId: string, options: { status?: "active" | "closed" | "all"; activity?: MemberActivityFilter; inactiveDays?: RetentionDays; query?: string; cursor?: string; limit?: number }): Promise<MerchantMemberList> {
+export async function listMerchantMembers(actorUserId: string, options: { locationId?: string | null; minAgeDays?: 0 | 7; status?: "active" | "closed" | "all"; activity?: MemberActivityFilter; inactiveDays?: RetentionDays; query?: string; cursor?: string; limit?: number }): Promise<MerchantMemberList> {
   const scope = await memberScope(actorUserId);
+  if (options.locationId) {
+    if (!uuidPattern.test(options.locationId) || (scope.locationId && options.locationId !== scope.locationId)) {
+      throw new DomainError("NOT_FOUND", "Location not found in your scope");
+    }
+    const [location] = await db.select({ id: locations.id }).from(locations)
+      .where(and(eq(locations.id, options.locationId), eq(locations.tenantId, scope.tenantId))).limit(1);
+    if (!location) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+    scope.locationId = location.id;
+  }
+  const minAgeDays = options.minAgeDays ?? 0;
+  if (minAgeDays !== 0 && minAgeDays !== 7) throw new DomainError("INVALID_FILTER", "Invalid minimum card age");
   const activity = options.activity ?? "all";
   if (!["all", "recorded", "none", ...RETENTION_FILTERS].includes(activity)) throw new DomainError("INVALID_FILTER", "Invalid activity filter");
   const retention = RETENTION_FILTERS.includes(activity as RetentionFilter) ? activity as RetentionFilter : null;
@@ -168,7 +179,8 @@ export async function listMerchantMembers(actorUserId: string, options: { status
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = m.tenant_id
       ${retention ? retentionJoins("now()") : ""}
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2)
-        ${retention ? `AND ${retentionPredicate(retention, "(now() - make_interval(days => $10::int))")}` : ""}
+        ${retention ? `AND p.status = 'active' AND m.created_at <= now() AND ${retentionPredicate(retention, "(now() - $10::int * interval '24 hours')")}` : ""}
+        ${minAgeDays ? "AND m.created_at < now() - interval '168 hours'" : ""}
         AND ($3::text = 'all' OR ($3 = 'active' AND m.closed_at IS NULL) OR ($3 = 'closed' AND m.closed_at IS NOT NULL))
         AND ($4::text IS NULL OR m.id::text LIKE $4)
         AND ($9::text IS NULL OR m.card_locator = $9)
