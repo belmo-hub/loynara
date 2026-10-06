@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DomainError } from "./loyalty";
 import { getMerchantAnalytics, type AnalyticsWindowDays, type MerchantAnalytics } from "./merchant-analytics";
+import { getRetentionSummary, type RetentionSummary } from "./retention";
 
 const observedMetricSchema = z.object({ label: z.string().min(1).max(80), value: z.number().int().min(0).max(1_000_000_000) }).strict();
 const recommendationSchema = z.object({
@@ -12,7 +13,8 @@ const recommendationSchema = z.object({
   nextAction: z.string().trim().min(10).max(220),
 }).strict();
 
-export type AdviceRecommendation = z.infer<typeof recommendationSchema>;
+/** Deterministic advice may carry a link to the page where the owner can check it; model output never does. */
+export type AdviceRecommendation = z.infer<typeof recommendationSchema> & { link?: { label: string; href: string } };
 export type MerchantAdvice = {
   mode: "rule_based";
   windowDays: AnalyticsWindowDays;
@@ -41,9 +43,10 @@ function metrics(report: MerchantAnalytics): MerchantAdvice["metrics"] {
 }
 
 /** Suggestions are read-only and derived from persisted, tenant-scoped activity. */
-export function buildRuleBasedAdvice(report: MerchantAnalytics): AdviceRecommendation[] {
+export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: RetentionSummary): AdviceRecommendation[] {
   const m = metrics(report);
   const suggestions: AdviceRecommendation[] = [];
+  const r = retention;
   if (m.currentActiveCards === 0) suggestions.push({
     id: "enrolment_start", title: "Erste Karte im Betrieb prüfen",
     observed: [{ label: "Aktive Karten", value: 0 }, { label: "Neue Karten", value: m.newCards }],
@@ -57,6 +60,30 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics): AdviceRecommend
     reasoning: "Bei vorhandenen Karten und 0 bestätigten Kassenvorgängen ist der digitale Ablauf noch nicht belegt.",
     missingInformation: ["Papierkäufe und nicht erfasste Besuche sind unbekannt."],
     nextAction: "Mit einer eigenen Karte einen bestätigten Kassenvorgang und den neuen Saldo prüfen.",
+  });
+  if (r && r.rewardReady > 0) suggestions.push({
+    id: "reward_waiting", title: "Verdiente Prämien werden nicht abgeholt",
+    observed: [{ label: "Karten mit verdienter Prämie", value: r.rewardReady }, { label: "Einlösungen im Zeitraum", value: m.redemptions }],
+    reasoning: "Diese Karten haben genug für die günstigste aktive Prämie, eingelöst wurde sie noch nicht. Unabgeholte Prämien wirken für Kund:innen oft wie vergessen.",
+    missingInformation: ["Ob die Person die Prämie kennt oder bewusst spart, zeigen die Daten nicht."],
+    nextAction: "Dein Team bitten, die Prämie beim nächsten Besuch aktiv anzubieten; die Karten stehen unter Kunden.",
+    link: { label: "Karten mit verdienter Prämie", href: "/merchant/customers?activity=reward_ready" },
+  });
+  if (r && r.drifting >= 3 && r.drifting > r.driftingWeekAgo) suggestions.push({
+    id: "lapsed_growing", title: "Mehr Karten bleiben weg",
+    observed: [{ label: `Ohne Kassenvorgang seit ${r.inactiveDays}+ Tagen`, value: r.drifting }, { label: "Vor einer Woche", value: r.driftingWeekAgo }],
+    reasoning: `Die Zahl der Karten, die früher kamen und seit über ${r.inactiveDays} Tagen nicht mehr an der Kasse waren, ist binnen einer Woche gestiegen.`,
+    missingInformation: ["Warum jemand nicht mehr kommt (Urlaub, Umzug, Konkurrenz), weiß Loynara nicht.", "Besuche ohne vorgezeigte Karte fehlen in den Daten."],
+    nextAction: "Die betroffenen Karten ansehen und entscheiden, ob eine Rückhol-Aktion passt.",
+    link: { label: "Länger nicht da", href: `/merchant/customers?activity=drifting&days=${r.inactiveDays}` },
+  });
+  if (r && r.neverAfterWeek >= 3 && r.neverAfterWeek * 4 >= r.openCards) suggestions.push({
+    id: "signup_not_stamped", title: "Anmeldungen ohne Kassenvorgang",
+    observed: [{ label: "Seit über 7 Tagen ohne Kassenvorgang", value: r.neverAfterWeek }, { label: "Offene Karten", value: r.openCards }],
+    reasoning: "Mindestens ein Viertel der Karten wurde vor über einer Woche angelegt, aber nie an der Kasse bestätigt.",
+    missingInformation: ["Ob die Person nicht wiederkam oder an der Kasse nicht gestempelt wurde, ist nicht unterscheidbar."],
+    nextAction: "Mit dem Team kurz durchgehen, dass jede Karte beim Bezahlen gescannt oder per Kartennummer gesucht wird.",
+    link: { label: "Noch nie an der Kasse", href: "/merchant/customers?activity=never" },
   });
   if (m.failedOrBlockedAttempts > 0) suggestions.push({
     id: "delivery_failures", title: "Zustellfehler prüfen",
@@ -72,11 +99,11 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics): AdviceRecommend
     missingInformation: ["Die Daten zeigen keine Kaufhäufigkeit außerhalb dieser digitalen Karte und keine Ursache für Wiederkehr."],
     nextAction: "Das Prämienziel und den Kassenablauf mit dem Team ansehen; Änderungen erst nach eigener Prüfung vornehmen.",
   });
-  if (m.qualifyingCheckouts >= 3 && m.redemptions === 0) suggestions.push({
+  if (m.qualifyingCheckouts >= 3 && m.redemptions === 0 && !(r && r.rewardReady > 0)) suggestions.push({
     id: "reward_path", title: "Prämienweg prüfen",
     observed: [{ label: "Bestätigte Kassenvorgänge", value: m.qualifyingCheckouts }, { label: "Einlösungen", value: 0 }],
     reasoning: "Bei mindestens drei bestätigten Kassenvorgängen ist im Zeitraum keine Einlösung erfasst.",
-    missingInformation: ["Der Bericht zeigt nicht, ob einzelne Karten bereits genug Guthaben für eine Prämie haben."],
+    missingInformation: [r ? "Noch hat keine Karte genug für eine Prämie; der Weg dorthin könnte zu lang sein." : "Der Bericht zeigt nicht, ob einzelne Karten bereits genug Guthaben für eine Prämie haben."],
     nextAction: "Prämienkosten, Kartentexte und den Einlösevorgang im Programm prüfen.",
   });
   if (suggestions.length === 0) suggestions.push({
@@ -86,14 +113,15 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics): AdviceRecommend
     missingInformation: ["Die App kennt keine Verkäufe außerhalb der erfassten Vorgänge und keine inkrementelle Wirkung."],
     nextAction: "Den 30- und 90-Tage-Verlauf vergleichen und bei Bedarf eine konkrete Regel manuell prüfen.",
   });
-  return suggestions.slice(0, 3);
+  return suggestions.slice(0, 4);
 }
 
 export async function getMerchantAdvice(actorUserId: string, options: { windowDays: AnalyticsWindowDays; asOf?: Date }): Promise<MerchantAdvice> {
   const report = await getMerchantAnalytics(actorUserId, options);
+  const retention = await getRetentionSummary(actorUserId, { inactiveDays: 30, asOf: new Date(report.asOf) });
   return {
     mode: "rule_based", windowDays: report.windowDays, from: report.from, asOf: report.asOf,
-    metrics: metrics(report), recommendations: buildRuleBasedAdvice(report),
+    metrics: metrics(report), recommendations: buildRuleBasedAdvice(report, retention),
     limitations: [
       "Die Vorschläge beruhen nur auf bestätigten Vorgängen dieses Händlers und dem gewählten Zeitraum.",
       "Erfasste Aktivität beweist keine zusätzlichen Verkäufe.",

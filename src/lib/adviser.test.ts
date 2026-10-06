@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MerchantAnalytics } from "./merchant-analytics";
 import { buildRuleBasedAdvice, runModelAdvice, type AdviceModelProvider } from "./adviser";
+import { RETENTION_RULES, type RetentionSummary } from "./retention";
+
+function retention(overrides: Partial<RetentionSummary> = {}): RetentionSummary {
+  return { asOf: "2030-01-31T00:00:00.000Z", inactiveDays: 30, locationId: null, openCards: 20, recent: 20, drifting: 0, never: 0, neverAfterWeek: 0,
+    nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 2, rules: RETENTION_RULES, ...overrides };
+}
 
 function report(overrides: Partial<MerchantAnalytics> = {}): MerchantAnalytics {
   return {
@@ -14,6 +20,31 @@ function report(overrides: Partial<MerchantAnalytics> = {}): MerchantAnalytics {
     ...overrides,
   };
 }
+
+describe("retention signals in rule-based advice", () => {
+  const active = report({ currentActiveCards: 20, participatingCards: 12, repeatCards: 8, qualifyingCheckouts: 30, rewards: { redemptions: 0, topTitles: [] } });
+
+  it("flags growing lapsed cards only when the count actually grew, with a link to those cards", () => {
+    const grew = buildRuleBasedAdvice(active, retention({ drifting: 6, driftingWeekAgo: 3 }));
+    expect(grew.find(item => item.id === "lapsed_growing")).toMatchObject({ observed: [{ value: 6 }, { value: 3 }], link: { href: "/merchant/customers?activity=drifting&days=30" } });
+    expect(buildRuleBasedAdvice(active, retention({ drifting: 6, driftingWeekAgo: 6 })).map(item => item.id)).not.toContain("lapsed_growing");
+    expect(buildRuleBasedAdvice(active, retention({ drifting: 2, driftingWeekAgo: 0 })).map(item => item.id)).not.toContain("lapsed_growing");
+  });
+
+  it("replaces the generic reward-path hint with waiting rewards when cards already qualify", () => {
+    const waiting = buildRuleBasedAdvice(active, retention({ rewardReady: 2 })).map(item => item.id);
+    expect(waiting).toContain("reward_waiting");
+    expect(waiting).not.toContain("reward_path");
+    expect(buildRuleBasedAdvice(active, retention()).map(item => item.id)).toContain("reward_path");
+  });
+
+  it("points at the counter process when many sign-ups were never stamped, and never claims a cause", () => {
+    const advice = buildRuleBasedAdvice(active, retention({ neverAfterWeek: 6, openCards: 20 }));
+    const item = advice.find(entry => entry.id === "signup_not_stamped");
+    expect(item?.missingInformation.join(" ")).toContain("nicht unterscheidbar");
+    expect(buildRuleBasedAdvice(active, retention({ neverAfterWeek: 3, openCards: 40 })).map(entry => entry.id)).not.toContain("signup_not_stamped");
+  });
+});
 
 describe("rule-based merchant advice", () => {
   it("uses recorded checkout counts and states when unrecorded visits are unknown", () => {

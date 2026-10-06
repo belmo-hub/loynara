@@ -37,7 +37,7 @@ export default function MerchantAdviserPage() {
               <dl className="ow-dl">{item.observed.map(observation => [<dt key={`${observation.label}-t`}>{observation.label}</dt>, <dd key={`${observation.label}-d`}>{observation.value}</dd>])}</dl>
               <div><h4 className="ow-label">Warum dieser Hinweis?</h4><p>{item.reasoning}</p></div>
               <div><h4 className="ow-label">Was fehlt?</h4><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{item.missingInformation.map(value => <li key={value}>{value}</li>)}</ul></div>
-              <div className="ow-readonly"><h4 className="ow-label">Nächster Schritt zur Prüfung</h4><p>{item.nextAction}</p></div>
+              <div className="ow-readonly"><h4 className="ow-label">Nächster Schritt zur Prüfung</h4><p>{item.nextAction}</p>{item.link && <p style={{ marginTop: 8 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={item.link.href}>{item.link.label}</Link></p>}</div>
             </article>
           ))}
         </section>
