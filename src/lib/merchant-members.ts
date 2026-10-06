@@ -3,6 +3,7 @@ import { db, pool } from "@/db";
 import { staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { formatCardLocator, parseCardLocator } from "./card-locator";
+import { RETENTION_DAYS, retentionJoins, retentionPredicate, type RetentionDays, type RetentionFilter } from "./retention";
 
 const memberLimit = 25;
 const timelineLimit = 30;
@@ -135,12 +136,20 @@ const memberFields = `
   ) AS "emailMarketingEligible"
 `;
 
-export async function listMerchantMembers(actorUserId: string, options: { status?: "active" | "closed" | "all"; activity?: "recorded" | "none" | "all"; query?: string; cursor?: string; limit?: number }): Promise<MerchantMemberList> {
+export type MemberActivityFilter = "all" | "recorded" | "none" | RetentionFilter;
+const RETENTION_FILTERS: RetentionFilter[] = ["recent", "drifting", "never", "near_reward", "reward_ready"];
+
+export async function listMerchantMembers(actorUserId: string, options: { status?: "active" | "closed" | "all"; activity?: MemberActivityFilter; inactiveDays?: RetentionDays; query?: string; cursor?: string; limit?: number }): Promise<MerchantMemberList> {
   const scope = await memberScope(actorUserId);
-  const status = options.status ?? "all";
-  if (!["all", "active", "closed"].includes(status)) throw new DomainError("INVALID_FILTER", "Invalid card status filter");
   const activity = options.activity ?? "all";
-  if (!["all", "recorded", "none"].includes(activity)) throw new DomainError("INVALID_FILTER", "Invalid activity filter");
+  if (!["all", "recorded", "none", ...RETENTION_FILTERS].includes(activity)) throw new DomainError("INVALID_FILTER", "Invalid activity filter");
+  const retention = RETENTION_FILTERS.includes(activity as RetentionFilter) ? activity as RetentionFilter : null;
+  const usesCutoff = retention === "recent" || retention === "drifting";
+  // Retention states describe open cards only, so they imply the "active" card status.
+  const status = retention ? "active" : options.status ?? "all";
+  if (!["all", "active", "closed"].includes(status)) throw new DomainError("INVALID_FILTER", "Invalid card status filter");
+  const inactiveDays = options.inactiveDays ?? 30;
+  if (!RETENTION_DAYS.includes(inactiveDays)) throw new DomainError("INVALID_FILTER", "Choose 14, 30, 60 or 90 days");
   const raw = options.query?.trim().toLowerCase() || null;
   // A card locator ("K-7QX2MA") matches exactly; otherwise the query is a prefix of the internal card ID.
   const locator = raw ? parseCardLocator(raw) : null;
@@ -157,11 +166,13 @@ export async function listMerchantMembers(actorUserId: string, options: { status
       FROM memberships m
       JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = m.tenant_id
+      ${retention ? retentionJoins("now()") : ""}
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2)
+        ${retention ? `AND ${retentionPredicate(retention, "(now() - make_interval(days => $10::int))")}` : ""}
         AND ($3::text = 'all' OR ($3 = 'active' AND m.closed_at IS NULL) OR ($3 = 'closed' AND m.closed_at IS NOT NULL))
         AND ($4::text IS NULL OR m.id::text LIKE $4)
         AND ($9::text IS NULL OR m.card_locator = $9)
-        AND ($5::text = 'all' OR ($5 = 'recorded') = EXISTS (
+        AND ($5::text NOT IN ('recorded', 'none') OR ($5 = 'recorded') = EXISTS (
           SELECT 1 FROM ledger_entries activity WHERE activity.tenant_id = m.tenant_id AND activity.membership_id = m.id
             AND activity.kind = 'award' AND activity.source in ('staff_online','staff_offline')
             AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = activity.tenant_id AND undo.reversal_of_id = activity.id)
@@ -171,7 +182,7 @@ export async function listMerchantMembers(actorUserId: string, options: { status
     )
     SELECT ${memberFields} FROM page LEFT JOIN LATERAL (${activitySummary}) summary ON true
     ORDER BY page."createdAt" DESC, page.id DESC
-  `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1, locator]);
+  `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1, locator, ...(usesCutoff ? [inactiveDays] : [])]);
   const hasMore = rows.rows.length > limit;
   const page = rows.rows.slice(0, limit);
   return { members: page.map(row => memberView(row)), nextCursor: hasMore ? encodeCursor(page.at(-1)!) : null };

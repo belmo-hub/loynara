@@ -9,11 +9,42 @@ import { useOwner } from "./owner-context";
 import { CorrectionDialog, correctable, ReissueDialog, sourceLabel } from "./card-actions";
 import { germanDate, Notice, Skeleton } from "./owner-ui";
 
-type Filters = { q: string; status: "all" | "active" | "closed"; activity: "all" | "recorded" | "none" };
-const INITIAL: Filters = { q: "", status: "all", activity: "all" };
+type Activity = "all" | "recent" | "drifting" | "never" | "near_reward" | "reward_ready";
+type Days = 14 | 30 | 60 | 90;
+type Filters = { q: string; status: "all" | "active" | "closed"; activity: Activity; days: Days };
+const INITIAL: Filters = { q: "", status: "all", activity: "all", days: 30 };
 const STATUS: Array<[Filters["status"], string]> = [["all", "Alle"], ["active", "Aktiv"], ["closed", "Geschlossen"]];
-const ACTIVITY: Array<[Filters["activity"], string]> = [["all", "Alle"], ["recorded", "Mit Vorgang"], ["none", "Ohne Vorgang"]];
+const ACTIVITY: Array<[Activity, string]> = [["all", "Alle Karten"], ["recent", "Kürzlich aktiv"], ["drifting", "Länger nicht da"], ["never", "Noch nie an der Kasse"], ["near_reward", "Kurz vor Prämie"], ["reward_ready", "Prämie verdient"]];
+const DAYS: Days[] = [14, 30, 60, 90];
 const MAX_AUTO_PAGES = 6;
+
+/** Why a card is in the chosen view, in the same words the overview uses. */
+function activityRule(activity: Activity, days: Days, unit: string) {
+  switch (activity) {
+    case "recent": return `Mindestens ein bestätigter Kassenvorgang in den letzten ${days} Tagen.`;
+    case "drifting": return `Früher bestätigte Kassenvorgänge, aber keiner in den letzten ${days} Tagen. Warum, wissen wir nicht. Geschlossene Karten zählen nicht.`;
+    case "never": return "Angemeldet, aber noch kein bestätigter Kassenvorgang. Vielleicht kam die Person nicht wieder, vielleicht wurde an der Kasse nicht gestempelt.";
+    case "near_reward": return `Bis zur günstigsten aktiven Prämie fehlt höchstens ein Viertel, bei 8 ${unit} also 1 bis 2.`;
+    case "reward_ready": return "Der Stand reicht für die günstigste aktive Prämie, eingelöst wurde sie noch nicht.";
+    default: return "";
+  }
+}
+
+/** Filters from the address bar, so overview insights can link straight to the matching cards. */
+function filtersFromUrl(): Filters {
+  if (typeof window === "undefined") return INITIAL;
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("activity");
+  const activity = raw === "none" ? "never" : ACTIVITY.some(([value]) => value === raw) ? raw as Activity : "all";
+  const days = Number(params.get("days"));
+  return { ...INITIAL, activity, days: DAYS.includes(days as Days) ? days as Days : 30 };
+}
+
+function sinceLast(value: string | null) {
+  if (!value) return "Noch nie an der Kasse";
+  const days = Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000);
+  return days <= 0 ? "Zuletzt heute" : days === 1 ? "Zuletzt gestern" : `Zuletzt vor ${days} Tagen`;
+}
 
 const unitOf = (m: Pick<MerchantMember, "programType">) => m.programType === "stamp" ? "Stempel" : "Punkte";
 const when = (value: string | null) => value ? germanDate(value, true) : "Noch kein bestätigter Vorgang";
@@ -34,8 +65,9 @@ function isLocalOrigin(url?: string) {
 export function CustomersView() {
   const owner = useOwner();
   const me = owner.me!;
-  const [filters, setFilters] = useState<Filters>(INITIAL);
-  const [applied, setApplied] = useState<Filters>(INITIAL);
+  const [start] = useState(filtersFromUrl);
+  const [filters, setFilters] = useState<Filters>(start);
+  const [applied, setApplied] = useState<Filters>(start);
   const [allLocations, setAllLocations] = useState(false);
   const [members, setMembers] = useState<MerchantMember[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -61,7 +93,7 @@ export function CustomersView() {
   const visible = useMemo(() => narrow ? members.filter(member => member.locationName === me.locationName) : members, [members, narrow, me.locationName]);
 
   const fetchPage = useCallback((chosen: Filters, cursor?: string) => {
-    const params = new URLSearchParams({ status: chosen.status, activity: chosen.activity });
+    const params = new URLSearchParams({ status: chosen.activity === "all" ? chosen.status : "active", activity: chosen.activity, days: String(chosen.days) });
     if (chosen.q.trim()) params.set("q", chosen.q.trim());
     if (cursor) params.set("cursor", cursor);
     return apiJson<MerchantMemberList>(`/api/merchant/customers?${params}`);
@@ -95,10 +127,10 @@ export function CustomersView() {
   useEffect(() => {
     let live = true;
     const mine = ++token.current;
-    void fetchVisible(INITIAL, undefined, initialScope.current).then(page => { if (live && token.current === mine) { setMembers(page.members); setNext(page.next); setLoading(false); } })
+    void fetchVisible(start, undefined, initialScope.current).then(page => { if (live && token.current === mine) { setMembers(page.members); setNext(page.next); setLoading(false); } })
       .catch(cause => { if (live && token.current === mine) { setError(reason(cause)); setLoading(false); } });
     return () => { live = false; };
-  }, [fetchVisible]);
+  }, [fetchVisible, start]);
 
   async function loadMore() {
     if (!next || more) return;
@@ -113,7 +145,14 @@ export function CustomersView() {
   }
 
   function submit(event: FormEvent) { event.preventDefault(); void run(filters); }
-  function pick(patch: Partial<Filters>) { const chosen = { ...filters, ...patch }; setFilters(chosen); void run(chosen); }
+  function pick(patch: Partial<Filters>) {
+    const chosen = { ...filters, ...patch }; setFilters(chosen); void run(chosen);
+    // Keep the address shareable and the back button meaningful without a navigation.
+    const params = new URLSearchParams();
+    if (chosen.activity !== "all") params.set("activity", chosen.activity);
+    if (chosen.activity === "recent" || chosen.activity === "drifting") params.set("days", String(chosen.days));
+    window.history.replaceState(null, "", `/merchant/customers${params.size ? `?${params}` : ""}`);
+  }
 
   async function open(id: string, keepNotice = false) {
     const mine = ++detailToken.current;
@@ -151,8 +190,9 @@ export function CustomersView() {
 
       <form className="ow-card ow-filters" onSubmit={submit} role="search" aria-label="Karten filtern">
         <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor="cu-q">Kartennummer suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="z. B. K-7QX2MA" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Vollständige Kartennummer oder mindestens 3 Zeichen der internen ID.</span>}</div>
-        <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>
-        <div className="ow-field"><span className="ow-label" id="cu-a">Kassenaktivität</span><div className="ow-seg" role="group" aria-labelledby="cu-a">{ACTIVITY.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.activity === value} onClick={() => pick({ activity: value })}>{label}</button>)}</div></div>
+        <div className="ow-field"><label htmlFor="cu-a">Ansicht</label><select id="cu-a" className="ow-select" value={filters.activity} onChange={event => pick({ activity: event.target.value as Activity })}>{ACTIVITY.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+        {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-field"><label htmlFor="cu-d">Zeitraum</label><select id="cu-d" className="ow-select" value={filters.days} onChange={event => pick({ days: Number(event.target.value) as Days })}>{DAYS.map(days => <option key={days} value={days}>{days} Tage</option>)}</select></div>}
+        {filters.activity === "all" && <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>}
         <button type="submit" className="ow-btn ow-btn--primary" disabled={loading}>Suchen</button>
       </form>
 
@@ -165,15 +205,22 @@ export function CustomersView() {
       )}
       {error && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => void run(applied)}>Erneut laden</button>}>{error}</Notice>}
 
+      {applied.activity !== "all" && (
+        <Notice tone="info" actions={applied.activity === "drifting" && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
+          ? <Link className="ow-btn ow-btn--sm ow-btn--primary" href={`/merchant/campaigns?goal=winback&days=${applied.days}`}>Rückhol-Aktion vorbereiten</Link> : undefined}>
+          <strong>Warum diese Karten?</strong> {activityRule(applied.activity, applied.days, me.programType === "points" ? "Punkten" : "Stempeln")}
+        </Notice>
+      )}
+
       <div className="ow-cust" data-detail={selected ? "open" : "closed"}>
         <section className="ow-card ow-cust-list" aria-labelledby="cu-h" aria-busy={loading}>
           <div className="ow-card-head" style={{ marginBottom: 12 }}><div><h2 id="cu-h">Karten</h2><p>{loading ? "Wird geladen …" : `${visible.length}${next ? "+" : ""} ${visible.length === 1 && !next ? "Karte" : "Karten"}${narrow ? ` am Standort ${me.locationName}` : ""}`}</p></div></div>
           {loading ? <div className="ow-stack"><Skeleton height={56} /><Skeleton height={56} /><Skeleton height={56} /></div>
-            : visible.length === 0 ? <div className="ow-empty"><strong>Keine Karten gefunden.</strong>{next ? "Weitere Karten sind noch nicht geladen." : "Für diese Auswahl gibt es keine Karten."}</div>
+            : visible.length === 0 ? <div className="ow-empty"><strong>{applied.activity === "drifting" ? "Niemand ist länger weggeblieben." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}</strong>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Alle Karten mit früheren Vorgängen waren in den letzten ${applied.days} Tagen an der Kasse.` : "Für diese Auswahl gibt es keine Karten."}</div>
             : <ul className="ow-members">{visible.map(member => (
               <li key={member.id}><button type="button" className="ow-member" aria-current={selected === member.id ? "true" : undefined} onClick={() => void open(member.id)}>
                 <span className="ow-member-id"><strong>{member.pseudonym}</strong><small>{member.programName}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
-                <span className="ow-member-stat"><strong className="ow-num">{member.balance} {unitOf(member)}</strong><small>{member.qualifyingCheckouts} {member.qualifyingCheckouts === 1 ? "Vorgang" : "Vorgänge"} · {member.closedAt ? "geschlossen" : "aktiv"}</small></span>
+                <span className="ow-member-stat"><strong className="ow-num">{member.balance} {unitOf(member)}</strong><small>{member.closedAt ? "Geschlossen" : sinceLast(member.lastQualifyingAt)} · {member.qualifyingCheckouts} {member.qualifyingCheckouts === 1 ? "Vorgang" : "Vorgänge"}</small></span>
               </button></li>))}</ul>}
           {next && !loading && <div style={{ marginTop: 12 }}><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void loadMore()} disabled={more} aria-busy={more}>{more ? "Wird geladen …" : "Weitere Karten laden"}</button></div>}
         </section>

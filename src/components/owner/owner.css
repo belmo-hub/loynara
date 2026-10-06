@@ -406,3 +406,15 @@ details.ow-readiness > summary { cursor: pointer; min-height: 24px; list-style-p
 .ow-entitlement { border: 1px solid var(--ow-line-strong); border-radius: var(--ow-r2); padding: var(--ow-s3) var(--ow-s4); margin: 0; display: grid; gap: var(--ow-s2); }
 .ow-entitlement legend { font-weight: 700; padding-inline: 6px; }
 .ow-entitlement p { margin: 0; }
+
+/* Retention: card base bar and insight list (overview). */
+.ow-insights { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ow-base { display: grid; gap: 10px; }
+.ow-base-bar { display: flex; gap: 3px; height: 12px; border-radius: 999px; overflow: hidden; background: var(--ow-surface-2); }
+.ow-base-seg { display: block; min-width: 6px; height: 100%; }
+.ow-base-seg--recent { background: var(--ow-accent); }
+.ow-base-seg--drifting { background: var(--ow-spark); }
+.ow-base-seg--never { background: var(--ow-line-strong); }
+.ow-base-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--ow-ink-2); }
+.ow-base-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.ow-base-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }

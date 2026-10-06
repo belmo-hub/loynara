@@ -1,5 +1,6 @@
 import { respondError, sessionUser } from "@/lib/http";
-import { listMerchantMembers } from "@/lib/merchant-members";
+import { listMerchantMembers, type MemberActivityFilter } from "@/lib/merchant-members";
+import { parseRetentionDays } from "@/lib/retention";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
@@ -11,7 +12,8 @@ export async function GET(request: Request) {
     const result = await listMerchantMembers(user.id, {
       query: query.get("q") ?? undefined,
       status: (query.get("status") ?? undefined) as "all" | "active" | "closed" | undefined,
-      activity: (query.get("activity") ?? undefined) as "all" | "recorded" | "none" | undefined,
+      activity: (query.get("activity") ?? undefined) as MemberActivityFilter | undefined,
+      inactiveDays: parseRetentionDays(query.get("days")),
       cursor: query.get("cursor") ?? undefined,
     });
     return Response.json(result, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });

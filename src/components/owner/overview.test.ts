@@ -8,6 +8,8 @@ vi.mock("./owner-context", () => ({ useOwner: () => ({ me: state.me, locations: 
 
 import { Overview } from "./overview";
 import { germanDate } from "./owner-ui";
+import { buildInsights } from "./retention-insights";
+import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 
 function renderActivity(activity: NonNullable<MeResponse["activity"]>) {
   state.me = {
@@ -72,7 +74,7 @@ describe("Overview programme call to action follows the role", () => {
   });
 });
 
-describe("Overview next-actions card follows the withheld surfaces", () => {
+describe("Overview retention card follows the withheld surfaces", () => {
   const render = (hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences">) => {
     state.me = {
       userId: "u", tenantId: "tenant", locationId: "location", role: "owner",
@@ -82,11 +84,36 @@ describe("Overview next-actions card follows the withheld surfaces", () => {
     };
     return renderToStaticMarkup(createElement(Overview));
   };
-  it("is shown where campaigns exist", () => { expect(render()).toContain("Als Nächstes"); });
-  it("is omitted where campaigns and audiences are withheld (pilot production)", () => {
+  it("is shown where campaigns exist", () => { expect(render()).toContain("Was jetzt zählt"); });
+  it("stays visible in pilot production, without campaign or audience links", () => {
     const html = render(["billing", "campaigns", "automations", "audiences"]);
-    expect(html).not.toContain("Als Nächstes");
+    expect(html).toContain("Was jetzt zählt");
     expect(html).not.toContain("/merchant/campaigns");
     expect(html).not.toContain("/merchant/audiences");
+  });
+});
+
+describe("buildInsights", () => {
+  const summary: RetentionSummary = { asOf: "2030-01-01T00:00:00.000Z", inactiveDays: 30, locationId: null, openCards: 20, recent: 10, drifting: 6, never: 4,
+    neverAfterWeek: 3, nearReward: 2, rewardReady: 1, driftingWeekAgo: 4, nearRewardMaxRemaining: 2, rules: RETENTION_RULES };
+  const hrefs = (items: ReturnType<typeof buildInsights>) => items.flatMap(item => item.actions.map(action => action.href));
+
+  it("turns each observation into a real destination and orders actionable items first", () => {
+    const items = buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: [{ status: "review" }, { status: "pending" }, { status: "qualified" }] });
+    expect(items.map(item => item.id)).toEqual(["referral-review", "reward-ready", "drifting", "near-reward", "never", "referral-waiting"]);
+    expect(hrefs(items)).toContain("/merchant/campaigns?goal=winback&days=30");
+    expect(hrefs(items)).toContain("/merchant/customers?activity=drifting&days=30");
+    expect(items.find(item => item.id === "drifting")?.why).toContain("Vor einer Woche waren es 4.");
+    expect(items.find(item => item.id === "reward-ready")?.title).toBe("1 Karte hat eine Prämie verdient, aber noch nicht eingelöst");
+  });
+
+  it("never links to campaigns where they are withheld or for managers", () => {
+    expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: false, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
+    expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: false, campaigns: true, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
+  });
+
+  it("says nothing when the data shows nothing", () => {
+    const quiet = { ...summary, drifting: 0, neverAfterWeek: 0, nearReward: 0, rewardReady: 0 };
+    expect(buildInsights({ summary: quiet, unit: "Stempel", isOwner: true, campaigns: true, referrals: [{ status: "qualified" }] })).toEqual([]);
   });
 });

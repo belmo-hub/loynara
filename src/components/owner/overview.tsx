@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useState } from "react";
 import type { MeResponse } from "@/components/client-api";
 import type { LaunchReadiness } from "@/lib/readiness";
+import type { RetentionSummary } from "@/lib/retention";
 import { BrowserCardPreview } from "./card-preview";
 import { JoinCard } from "./join-card";
 import { ReadinessCard } from "./readiness-card";
+import { RetentionInsights, type ReferralRow } from "./retention-insights";
 import { useOwner } from "./owner-context";
-import { germanDate, nf, Notice, Skeleton } from "./owner-ui";
+import { germanDate, nf, Skeleton } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 type Analytics = { currentActiveCards: number; newCards: number; qualifyingCheckouts: number; participatingCards: number; repeatCards: number; rewards: { redemptions: number }; asOf: string; countingRule: string };
-type AudienceCount = { total: number; asOf: string };
 type Brand = { brandColor: string; logoData: string | null };
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
@@ -60,18 +61,17 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [analytics, reloadAnalytics] = useLoad<Analytics>(periodMode ? `/api/merchant/analytics?window=${windowDays}` : null);
   const slug = encodeURIComponent(me.programSlug);
-  // "Als Nächstes" proposes campaigns and audiences; where those surfaces are withheld (pilot production) the card and its requests are omitted.
-  const showNext = !(me.hiddenSurfaces ?? []).some(surface => surface === "campaigns" || surface === "audiences");
-  const [inactive, reloadInactive] = useLoad<AudienceCount>(showNext ? `/api/merchant/audiences/preview?programSlug=${slug}&kind=inactive&daysSinceLast=30` : null);
-  const [close, reloadClose] = useLoad<AudienceCount>(showNext ? `/api/merchant/audiences/preview?programSlug=${slug}&kind=close_to_reward&maxRemaining=2` : null);
+  // Retention insights need no campaign surface: they read recorded checkouts and link to real pages (customers,
+  // referrals; campaign drafts only where that surface is offered).
+  const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
+  const [referrals, reloadReferrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${slug}` : null);
   const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
   const [refreshing, setRefreshing] = useState(false);
-  const unit = unitOf(me);
 
   async function refreshAll() {
     setRefreshing(true);
     await owner.refresh();
-    reloadAnalytics(); reloadInactive(); reloadClose(); reloadReadiness();
+    reloadAnalytics(); reloadRetention(); reloadReferrals(); reloadReadiness();
     setRefreshing(false);
     owner.announce("Übersicht aktualisiert.");
   }
@@ -98,8 +98,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
       <div className="ow-two">
         <div className="ow-stack">
+          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} />
           <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} compact />
-          {showNext && <NextActions me={me} inactive={inactive} close={close} reloadInactive={reloadInactive} reloadClose={reloadClose} unit={unit} />}
           <RecentActivity me={me} />
         </div>
         <aside className="ow-stack" aria-label="Programm und Einladung">
@@ -142,32 +142,6 @@ function LifetimeMetrics({ me }: { me: MeResponse }) {
       <Metric label="Gutschrift-Buchungen" note="Stempel- oder Punktebuchungen, kein Umsatz.">{value(ok(stats?.awards))}</Metric>
       <Metric label="Eingelöste Prämien" note="Seit Programmstart">{value(ok(stats?.redemptions))}</Metric>
     </dl>
-  );
-}
-
-function NextActions({ me, inactive, close, reloadInactive, reloadClose, unit }: { me: MeResponse; inactive: Loadable<AudienceCount>; close: Loadable<AudienceCount>; reloadInactive: () => void; reloadClose: () => void; unit: string }) {
-  const isOwner = me.role === "owner";
-  const loading = inactive.state === "loading" || close.state === "loading";
-  const candidates: Array<{ id: string; title: string; reason: string; cta: string; href: string }> = [];
-  if (inactive.state === "ok" && inactive.data.total > 0) candidates.push({ id: "winback", title: `${nf.format(inactive.data.total)} ${inactive.data.total === 1 ? "Karte war" : "Karten waren"} seit 30 Tagen nicht aktiv`, reason: "Für sie gab es seit mindestens 30 Tagen keine bestätigte Gutschrift. Ob du sie per E-Mail erreichen darfst, prüft der Assistent im nächsten Schritt.", cta: isOwner ? "Kunden zurückholen" : "Zielgruppe ansehen", href: isOwner ? "/merchant/campaigns?goal=winback" : "/merchant/audiences" });
-  if (close.state === "ok" && close.data.total > 0) candidates.push({ id: "close", title: `${nf.format(close.data.total)} ${close.data.total === 1 ? "Karte fehlt" : "Karten fehlen"} höchstens 2 ${unit} bis zur Prämie`, reason: "Ein kleiner Anstoß kann jetzt die nächste Einlösung auslösen. Die Prämie wird erst an der Kasse bestätigt.", cta: isOwner ? "Kurz vor der Prämie ansprechen" : "Zielgruppe ansehen", href: isOwner ? "/merchant/campaigns?goal=near-reward" : "/merchant/audiences" });
-  const failed = [inactive, close].some(item => item.state === "error");
-  return (
-    <section className="ow-card" aria-labelledby="ow-next-title" aria-busy={loading}>
-      <div className="ow-card-head"><div><h2 id="ow-next-title">Als Nächstes</h2><p>Vorschläge nur dort, wo Daten sie stützen.</p></div></div>
-      {loading && candidates.length === 0 ? <div className="ow-stack"><Skeleton height={72} /><Skeleton height={72} /></div> : (
-        <div className="ow-stack" style={{ gap: 12 }}>
-          {candidates.map((candidate, index) => (
-            <div key={candidate.id} className={`ow-action${index === 0 ? " ow-action--lead" : ""}`}>
-              <h3>{candidate.title}</h3><p>{candidate.reason}</p>
-              <div><Link className={`ow-btn ow-btn--sm ${index === 0 ? "ow-btn--primary" : "ow-btn--secondary"}`} href={candidate.href}>{candidate.cta}</Link></div>
-            </div>
-          ))}
-          {failed && <Notice tone="warn" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => { if (inactive.state === "error") reloadInactive(); if (close.state === "error") reloadClose(); }}>Erneut laden</button>}>Ein Teil der Zielgruppen konnte nicht berechnet werden. Fehlende Werte bedeuten nicht, dass niemand betroffen ist.</Notice>}
-          {!loading && candidates.length === 0 && !failed && <div className="ow-empty"><strong>Gerade gibt es keine auffällige Zielgruppe.</strong>Berücksichtigt: Karten ohne Gutschrift seit 30 Tagen und Karten kurz vor der Prämie.</div>}
-        </div>
-      )}
-    </section>
   );
 }
 
