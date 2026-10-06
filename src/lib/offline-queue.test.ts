@@ -30,6 +30,19 @@ describe("bounded offline browser queue", () => {
     expect(readOfflineEvents(storage, actor)).toEqual([]);
   });
 
+  it("keeps only the human card number for display, never a scan code, and still reads older events without one", () => {
+    const storage = memoryStorage();
+    const actor = randomUUID();
+    const older = pending(actor);
+    addOfflineEvent(storage, older);
+    const labelled = { ...pending(actor), cardLocator: "K-7QX2MA" };
+    addOfflineEvent(storage, labelled);
+    expect(readOfflineEvents(storage, actor).map(item => item.cardLocator)).toEqual([undefined, "K-7QX2MA"]);
+    expect(() => addOfflineEvent(storage, { ...pending(actor), cardLocator: "sc_abcdefghijklmnopqrstuvwx" })).toThrow();
+    expect(() => addOfflineEvent(storage, { ...pending(actor), cardLocator: "K-0O1IL2" })).toThrow();
+    expect(readOfflineEvents(storage, actor)).toHaveLength(2);
+  });
+
   it("caps unreviewed events and refuses a corrupt store instead of silently discarding awards", () => {
     const storage = memoryStorage();
     const actor = randomUUID();

@@ -23,7 +23,7 @@ export function OfflineQueuePanel({ events, busy, error, onSync, onAcknowledge, 
     {error && <p role="alert" className="inline-message inline-message--error">{error}</p>}
     {events.length > 0 && <ul className={styles.list}>{events.map(item => <li className={styles.item} key={item.eventId}>
       <strong>{"quantity" in item.award ? `${locale === "fr" ? "Quantité" : "Menge"}: ${item.award.quantity}` : `${locale === "fr" ? "Achat" : "Kaufbetrag"}: ${(item.award.purchaseAmountMinor / 100).toFixed(2)}`}</strong>
-      <small>{locale === "fr" ? "Carte" : "Karte"} {item.membershipId.slice(0, 8)} · {new Date(item.eventAt).toLocaleString(locale === "fr" ? "fr-FR" : "de-DE")}</small>
+      <small>{item.cardLocator ?? (locale === "fr" ? "Carte sans numéro" : "Karte ohne Nummer")} · {new Date(item.eventAt).toLocaleString(locale === "fr" ? "fr-FR" : "de-DE")}</small>
       <span className={item.state === "rejected" ? styles.rejected : styles.state}>{item.state === "pending" ? locale === "fr" ? "En attente du serveur" : "Wartet auf Server" : item.state === "accepted" ? locale === "fr" ? "Accepté par le serveur" : "Vom Server angenommen" : locale === "fr" ? `Refusé : ${item.reason ?? "inconnu"}` : `Abgelehnt: ${reasons[item.reason ?? ""] ?? item.reason ?? "Unbekannter Grund"} (${item.reason ?? "UNKNOWN"})`}</span>
       {item.state !== "pending" && <button type="button" className="text-button" onClick={() => onAcknowledge(item.eventId)}>{locale === "fr" ? "Vérifié, retirer" : "Geprüft, aus Liste entfernen"}</button>}
     </li>)}</ul>}

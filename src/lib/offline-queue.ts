@@ -8,6 +8,8 @@ const award = z.union([
 ]);
 const event = z.object({
   eventId: z.uuid(), leaseId: z.uuid(), actorUserId: z.string().min(1), membershipId: z.uuid(),
+  // Display only: the card number the cashier saw. Never a credential; events stored before it existed have none.
+  cardLocator: z.string().regex(/^K-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/).optional(),
   eventAt: z.iso.datetime(), award,
   state: z.enum(["pending", "accepted", "rejected"]), reason: z.string().max(48).optional(),
 }).strict();

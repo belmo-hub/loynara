@@ -320,3 +320,17 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .customer-return-steps strong { color: #1d3a2a; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .customer-wallet p.customer-link-warning { margin-top: 12px; color: #6c806f; font-size: 12px; }
 .customer-card-number strong { font-size: 26px; }
+
+/* First-merchant hardening: confirmation after a booking; the card is already closed. */
+.cashier-booked { padding: 30px; text-align: center; background: #fff; border: 1px solid #cfe3cf; border-radius: 19px; box-shadow: 0 15px 32px rgba(20, 60, 30, .055); }
+.cashier-booked--pending { border-color: #ecd9ae; }
+.cashier-booked-icon { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; background: #e1f2e4; color: #286b43; }
+.cashier-booked--pending .cashier-booked-icon { background: #fff4dc; color: #916d2e; }
+.cashier-booked h2 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.04em; }
+.cashier-booked-detail { margin: 0 auto; max-width: 420px; color: #31503c; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.cashier-booked-hint { margin: 12px auto 0; max-width: 420px; padding: 10px 12px; border-radius: 9px; background: #eef5ea; color: #2f5b3e; font-size: 13px; font-weight: 700; }
+.cashier-booked .button { margin-top: 20px; min-height: 52px; }
+.cashier-booked small { display: block; margin-top: 10px; color: #809080; font-size: 12px; }
+.confirm-dialog p.confirm-offline-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; }
+.confirm-actions { flex-wrap: wrap; }
+.confirm-actions .button { min-width: 0; }
