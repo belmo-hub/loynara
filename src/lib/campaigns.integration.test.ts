@@ -289,7 +289,9 @@ describe("win-back and announcement workflow", () => {
     expect(await preview()).toMatchObject({ total: 5, eligibleCount: 3, excludedCountsByReason: { noConsent: 2 } });
 
     // Coming back moves a card out of the win-back audience.
-    await checkoutAt(f, lapsed.id, new Date());
+    // Use the database clock: a host timestamp a few milliseconds ahead is correctly excluded as future activity.
+    const databaseNow = (await pool.query<{ at: Date }>("SELECT clock_timestamp() AS at")).rows[0].at;
+    await checkoutAt(f, lapsed.id, databaseNow);
     expect(await preview()).toMatchObject({ total: 4, eligibleCount: 2 });
   });
 
