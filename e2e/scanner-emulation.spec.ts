@@ -27,30 +27,31 @@ test("camera errors explain permission, busy device, and missing camera with ret
   });
   await signInCashier(page);
   await page.getByRole("button", { name: "Kamera öffnen" }).click();
-  await expect(page.locator(".scanner-content p[role=alert]")).toContainText("Kamerazugriff abgelehnt");
+  await expect(page.locator(".counter-camera p[role=alert]")).toContainText("Kamerazugriff abgelehnt");
   await page.evaluate(() => { (window as unknown as { cameraFailure: string }).cameraFailure = "NotReadableError"; });
   await page.getByRole("button", { name: "Kamera erneut versuchen" }).click();
-  await expect(page.locator(".scanner-content p[role=alert]")).toContainText("Kamera ist belegt");
+  await expect(page.locator(".counter-camera p[role=alert]")).toContainText("Kamera ist belegt");
   await page.evaluate(() => { (window as unknown as { cameraFailure: string }).cameraFailure = "NotFoundError"; });
   await page.getByRole("button", { name: "Kamera erneut versuchen" }).click();
-  await expect(page.locator(".scanner-content p[role=alert]")).toContainText("Keine Kamera gefunden");
-  await page.getByRole("button", { name: "Code manuell eingeben" }).click();
-  await expect(page.getByRole("dialog", { name: "QR-Code scannen" })).toHaveCount(0);
+  await expect(page.locator(".counter-camera p[role=alert]")).toContainText("Keine Kamera gefunden");
+  await page.getByRole("button", { name: "Kamera ausschalten" }).click();
+  await expect(page.getByRole("region", { name: "Kassenkamera" })).toHaveCount(0);
+  await expect(page.getByLabel("Kartennummer oder Kartencode")).toBeVisible();
 });
 
 test("insecure context and absent camera API show a manual path", async ({ page }) => {
   await signInCashier(page);
   await page.evaluate(() => { Object.defineProperty(window, "isSecureContext", { configurable: true, value: false }); });
   await page.getByRole("button", { name: "Kamera öffnen" }).click();
-  await expect(page.locator(".scanner-content p[role=alert]")).toContainText("sichere HTTPS-Seite oder localhost");
-  await page.getByRole("button", { name: "Code manuell eingeben" }).click();
+  await expect(page.locator(".counter-camera p[role=alert]")).toContainText("sichere HTTPS-Seite oder localhost");
+  await page.getByRole("button", { name: "Kamera ausschalten" }).click();
   await page.evaluate(() => {
     Object.defineProperty(window, "isSecureContext", { configurable: true, value: true });
     Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: undefined });
   });
   await page.getByRole("button", { name: "Kamera öffnen" }).click();
-  await expect(page.locator(".scanner-content p[role=alert]")).toContainText("bietet keine Kamera");
-  await page.getByRole("button", { name: "Code manuell eingeben" }).click();
+  await expect(page.locator(".counter-camera p[role=alert]")).toContainText("bietet keine Kamera");
+  await page.getByRole("button", { name: "Kamera ausschalten" }).click();
   await expect(page.getByLabel("Kartennummer oder Kartencode")).toBeVisible();
 });
 
@@ -63,7 +64,7 @@ test("fake camera stream stops on restart and close; no real hardware is used", 
     const page = await context.newPage();
     await signInCashier(page);
     await page.getByRole("button", { name: "Kamera öffnen" }).click();
-    await expect(page.getByRole("status")).toContainText("Halte den QR-Code vollständig in den Rahmen.");
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
     const firstTrack = await page.locator(".scanner-video-wrap video").evaluate(video => {
       const track = ((video as HTMLVideoElement).srcObject as MediaStream).getVideoTracks()[0];
       (window as unknown as { firstCameraTrack: MediaStreamTrack }).firstCameraTrack = track;
@@ -73,11 +74,11 @@ test("fake camera stream stops on restart and close; no real hardware is used", 
 
     await page.getByRole("button", { name: "Kamera neu starten" }).click();
     await expect.poll(() => page.evaluate(() => (window as unknown as { firstCameraTrack: MediaStreamTrack }).firstCameraTrack.readyState)).toBe("ended");
-    await expect(page.getByRole("status")).toContainText("Halte den QR-Code vollständig in den Rahmen.");
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
     await page.locator(".scanner-video-wrap video").evaluate(video => {
       (window as unknown as { secondCameraTrack: MediaStreamTrack }).secondCameraTrack = ((video as HTMLVideoElement).srcObject as MediaStream).getVideoTracks()[0];
     });
-    await page.getByRole("button", { name: "Kamera schließen" }).click();
+    await page.getByRole("button", { name: "Kamera ausschalten" }).click();
     await expect.poll(() => page.evaluate(() => (window as unknown as { secondCameraTrack: MediaStreamTrack }).secondCameraTrack.readyState)).toBe("ended");
   } finally {
     await context.close();

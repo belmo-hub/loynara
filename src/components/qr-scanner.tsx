@@ -2,7 +2,7 @@
 
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { useEffect, useRef, useState } from "react";
-import { Icon, type UiLocale } from "./loyalty-ui";
+import type { UiLocale } from "./loyalty-ui";
 
 type CameraState = "starting" | "ready" | "error";
 
@@ -32,21 +32,38 @@ function mayRetryWithoutFacingPreference(cause: unknown): boolean {
   return cause instanceof Error && ["OverconstrainedError", "ConstraintNotSatisfiedError", "NotFoundError"].includes(cause.name);
 }
 
-export function QrScanner({ onDetected, onClose, locale = "de" }: { onDetected: (text: string) => void; onClose: () => void; locale?: UiLocale }) {
+type QrScannerProps = {
+  /**
+   * Every read, several per second while a code is in view: the camera keeps running from one customer to the next.
+   * The caller decides what a read means and ignores reads while a card is open.
+   */
+  onDetected: (text: string) => void;
+  onClose: () => void;
+  locale?: UiLocale;
+  /** Hides the preview while a card is open, without stopping the camera. */
+  paused?: boolean;
+  /** Called when the camera cannot start (permission, busy device, no camera). */
+  onFailure?: (cause: unknown) => void;
+};
+
+/** The counter camera: inline on the cashier screen and kept running between customers. */
+export function QrScanner({ onDetected, onClose, locale = "de", paused = false, onFailure }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const callbackRef = useRef(onDetected);
+  const failureRef = useRef(onFailure);
   const stopRef = useRef<(() => void) | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<CameraState>("starting");
   const [error, setError] = useState("");
   const french = locale === "fr";
 
-  useEffect(() => { callbackRef.current = onDetected; }, [onDetected]);
+  useEffect(() => { callbackRef.current = onDetected; failureRef.current = onFailure; }, [onDetected, onFailure]);
+  // A preview that was hidden may have been paused by the browser; resume it when the counter is ready again.
+  useEffect(() => { if (!paused) videoRef.current?.play().catch(() => {}); }, [paused]);
 
   useEffect(() => {
     const video = videoRef.current;
     let cancelled = false;
-    let delivered = false;
     let stream: MediaStream | null = null;
     let controls: IScannerControls | null = null;
     const stop = () => {
@@ -91,12 +108,8 @@ export function QrScanner({ onDetected, onClose, locale = "de" }: { onDetected: 
           }
           if (cancelled) { stream.getTracks().forEach(track => track.stop()); return; }
           const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 250 });
-          const startedControls = await reader.decodeFromStream(stream, video, (result, _decodeError, scanControls) => {
-            if (!result || cancelled || delivered) return;
-            delivered = true;
-            scanControls.stop();
-            stop();
-            callbackRef.current(result.getText());
+          const startedControls = await reader.decodeFromStream(stream, video, result => {
+            if (result && !cancelled) callbackRef.current(result.getText());
           });
           if (cancelled) startedControls.stop();
           else { controls = startedControls; setState("ready"); }
@@ -105,6 +118,7 @@ export function QrScanner({ onDetected, onClose, locale = "de" }: { onDetected: 
           stop();
           setState("error");
           setError(cameraErrorMessage(cause, french));
+          failureRef.current?.(cause);
         }
       };
       void start();
@@ -128,5 +142,6 @@ export function QrScanner({ onDetected, onClose, locale = "de" }: { onDetected: 
     setAttempt(value => value + 1);
   }
 
-  return <div className="scanner-modal" role="dialog" aria-modal="true" aria-labelledby="scanner-title" lang={locale}><div className="scanner-content"><div className="scanner-head"><div><span className="tiny-label">{french ? "SCAN CAMÉRA" : "KAMERA-SCAN"}</span><h2 id="scanner-title">{french ? "Scanner le QR code" : "QR-Code scannen"}</h2></div><button type="button" className="scanner-close" onClick={closeScanner} aria-label={french ? "Fermer la caméra" : "Kamera schließen"}><Icon name="close" size={20} /></button></div><div className="scanner-video-wrap"><video ref={videoRef} autoPlay muted playsInline aria-label={french ? "Aperçu de la caméra" : "Kameravorschau für den QR-Code"} /><span className="scanner-sight" aria-hidden="true" /></div><p role={state === "error" ? "alert" : "status"}>{state === "starting" ? french ? "Démarrage de la caméra …" : "Kamera wird gestartet …" : state === "ready" ? french ? "Placez le QR code entièrement dans le cadre." : "Halte den QR-Code vollständig in den Rahmen." : error}</p>{state !== "starting" && <button type="button" className="button button--outline button--full" onClick={restartScanner} style={{ marginBottom: 8 }}>{state === "error" ? french ? "Réessayer la caméra" : "Kamera erneut versuchen" : french ? "Redémarrer la caméra" : "Kamera neu starten"}</button>}<button type="button" className="button button--outline button--full" onClick={closeScanner}>{french ? "Saisir le code manuellement" : "Code manuell eingeben"}</button></div></div>;
+  const status = state === "starting" ? french ? "Démarrage de la caméra …" : "Kamera wird gestartet …" : state === "ready" ? french ? "Caméra prête. Présentez le QR code de la carte suivante." : "Kamera bereit. QR-Code der nächsten Karte in den Rahmen halten." : error;
+  return <section className="counter-camera" aria-label={french ? "Caméra de caisse" : "Kassenkamera"} lang={locale} hidden={paused}><div className="scanner-video-wrap"><video ref={videoRef} autoPlay muted playsInline aria-label={french ? "Aperçu de la caméra" : "Kameravorschau für den QR-Code"} /><span className="scanner-sight" aria-hidden="true" /></div><p role={state === "error" ? "alert" : "status"}>{status}</p><div className="counter-camera-actions">{state === "error" && <button type="button" className="button button--outline" onClick={restartScanner}>{french ? "Réessayer la caméra" : "Kamera erneut versuchen"}</button>}{state === "ready" && <button type="button" className="text-button" onClick={restartScanner}>{french ? "Redémarrer la caméra" : "Kamera neu starten"}</button>}<button type="button" className="text-button" onClick={closeScanner}>{french ? "Éteindre la caméra" : "Kamera ausschalten"}</button></div></section>;
 }
