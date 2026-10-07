@@ -123,7 +123,6 @@ test("the camera stays on between customers and one tap books a stamp", async ({
 
     // A passing failure is retried while the code stays in view: the first lookup for guest 3 is answered 503.
     const third = await guestCard(url, shop.programSlug);
-    await page.getByRole("button", { name: "Andere Karte" }).click().catch(() => {});
     let failedOnce = false;
     await page.route("**/api/cashier/lookup**", async route => {
       if (failedOnce) return route.continue();
