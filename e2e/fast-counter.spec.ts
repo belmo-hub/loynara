@@ -87,10 +87,17 @@ test("the camera stays on between customers and one tap books a stamp", async ({
     await page.waitForTimeout(800);
     expect(lookups).toHaveLength(0);
 
+    // A code the previous decoder never read on a clean, static frame is read (it belongs to no card here).
+    const hardToRead = "sc_cFPoK0b8uK7vNEw49nZNXr6yF6sVUs3k";
+    await show(page, hardToRead);
+    await expect.poll(() => lookups.some(entry => entry.includes(encodeURIComponent(hardToRead)))).toBe(true);
+    await expect(page.locator(".cashier-status")).toContainText("Keine aktive Karte");
+
     // Guest 1 shows the card: it opens at once; the offline lease is not waited for; one tap books one stamp.
     await page.route("**/api/cashier/offline/lease", async route => { await new Promise(resolve => setTimeout(resolve, 3_000)); await route.continue().catch(() => {}); });
     await show(page, first.scanCode);
     await expect(page.getByRole("heading", { name: first.cardLocator }), `lookup statuses: ${JSON.stringify(lookupStatuses)}`).toBeVisible();
+    expect(lookups.filter(entry => entry.includes(encodeURIComponent(hardToRead)))).toHaveLength(1);
     await expect(camera).toBeHidden();
     const stamp = page.getByRole("button", { name: "1 Stempel vergeben" });
     await expect(stamp).toBeEnabled({ timeout: 1_000 });

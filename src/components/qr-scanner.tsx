@@ -1,10 +1,15 @@
 "use client";
 
-import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
+import jsQR from "jsqr";
 import { useEffect, useRef, useState } from "react";
 import type { UiLocale } from "./loyalty-ui";
 
 type CameraState = "starting" | "ready" | "error";
+
+/** How often a camera frame is decoded. */
+const SCAN_INTERVAL_MS = 150;
+/** Frames are scaled down to this width before decoding, which keeps older phones responsive. */
+const MAX_FRAME_WIDTH = 640;
 
 function cameraErrorMessage(cause: unknown, french: boolean): string {
   const name = cause instanceof Error ? cause.name : "";
@@ -51,6 +56,7 @@ export function QrScanner({ onDetected, onClose, locale = "de", paused = false, 
   const videoRef = useRef<HTMLVideoElement>(null);
   const callbackRef = useRef(onDetected);
   const failureRef = useRef(onFailure);
+  const pausedRef = useRef(paused);
   const stopRef = useRef<(() => void) | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<CameraState>("starting");
@@ -59,17 +65,16 @@ export function QrScanner({ onDetected, onClose, locale = "de", paused = false, 
 
   useEffect(() => { callbackRef.current = onDetected; failureRef.current = onFailure; }, [onDetected, onFailure]);
   // A preview that was hidden may have been paused by the browser; resume it when the counter is ready again.
-  useEffect(() => { if (!paused) videoRef.current?.play().catch(() => {}); }, [paused]);
+  useEffect(() => { pausedRef.current = paused; if (!paused) videoRef.current?.play().catch(() => {}); }, [paused]);
 
   useEffect(() => {
     const video = videoRef.current;
     let cancelled = false;
     let stream: MediaStream | null = null;
-    let controls: IScannerControls | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const stop = () => {
       cancelled = true;
-      controls?.stop();
-      controls = null;
+      clearTimeout(timer);
       stream?.getTracks().forEach(track => track.stop());
       stream = null;
       if (video) {
@@ -107,12 +112,28 @@ export function QrScanner({ onDetected, onClose, locale = "de", paused = false, 
             stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
           }
           if (cancelled) { stream.getTracks().forEach(track => track.stop()); return; }
-          const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 250 });
-          const startedControls = await reader.decodeFromStream(stream, video, result => {
-            if (result && !cancelled) callbackRef.current(result.getText());
-          });
-          if (cancelled) startedControls.stop();
-          else { controls = startedControls; setState("ready"); }
+          video.srcObject = stream;
+          await video.play();
+          if (cancelled) return;
+          setState("ready");
+          // jsQR decodes every card code; the previous decoder missed about one in sixteen perfectly rendered ones. The
+          // frame size is read on every pass, so a camera that delivers its first frame late is still decoded.
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (!context) throw new Error("Canvas unavailable");
+          const scan = () => {
+            if (cancelled) return;
+            if (!pausedRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
+              const scale = Math.min(1, MAX_FRAME_WIDTH / video.videoWidth);
+              const width = Math.round(video.videoWidth * scale), height = Math.round(video.videoHeight * scale);
+              if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+              context.drawImage(video, 0, 0, width, height);
+              const found = jsQR(context.getImageData(0, 0, width, height).data, width, height, { inversionAttempts: "dontInvert" });
+              if (found?.data && !cancelled) callbackRef.current(found.data);
+            }
+            timer = setTimeout(scan, SCAN_INTERVAL_MS);
+          };
+          scan();
         } catch (cause) {
           if (cancelled) return;
           stop();
