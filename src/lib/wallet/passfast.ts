@@ -1,4 +1,5 @@
 import { inflateRawSync } from "node:zlib";
+import { walletText } from "./content";
 import type { WalletPassData, WalletProvider, WalletStatus } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -36,13 +37,18 @@ export function passFastStatus(env: Record<string, string | undefined> = process
 }
 
 /** Exact approved-template data contract; never includes bearer, contact, tenant/member IDs, ledger or referral history. */
-export function passFastData(pass: WalletPassData): Record<string, string | number | boolean> {
+export type PassFastData = {
+  merchantName: string; programName: string; locationName: string; locale: string; programType: string;
+  balance: number; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: number; rewardReady: string;
+};
+export function passFastData(pass: WalletPassData): PassFastData {
+  const rewardReady = Boolean(pass.reward && pass.balance >= pass.reward.cost);
   return { merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName,
     locale: pass.locale, programType: pass.programType, balance: pass.balance, cardLocator: pass.cardLocator,
     scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: pass.reward?.cost ?? 0,
-    rewardReady: Boolean(pass.reward && pass.balance >= pass.reward.cost) };
+    rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "" };
 }
-export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: false } as const;
+export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: "" } as const satisfies Partial<PassFastData>;
 
 type RemotePass = { id: string; status: "active" | "invalidated" | "expired"; saveUrl?: string };
 const record = (value: unknown): Record<string, unknown> => {

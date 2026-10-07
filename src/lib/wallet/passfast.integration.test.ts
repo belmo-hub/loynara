@@ -64,10 +64,10 @@ async function fake(input: string | URL | Request, options?: RequestInit): Promi
   if (url.pathname.endsWith("/download")) { if (pauseDownload) await pauseDownload(); return pkpass(row); }
   return Response.json(row);
 }
-async function fixture() {
+async function fixture(locale: "de" | "fr" = "de") {
   const owner = randomUUID();
   await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [owner,"Synthetic PassFast owner",`${owner}@example.test`]);
-  const merchant = await createMerchant({ userId: owner, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Coffee", programType: "stamp", rulesText: "One per purchase", rewardTitle: "Coffee", rewardCost: 5 });
+  const merchant = await createMerchant({ userId: owner, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Coffee", programType: "stamp", rulesText: "One per purchase", rewardTitle: "Coffee", rewardCost: 5 });
   const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   return { owner, merchant, member };
 }
@@ -183,6 +183,53 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(200);
     expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
   }
+  const rewardLocales = [{ locale: "de", text: "Prämie bereit" }, { locale: "fr", text: "Récompense disponible" }] as const;
+  it.each(rewardLocales)("updates and clears $locale reward text on both platforms without changing loyalty", async ({ locale, text }) => {
+    const f = await fixture(locale); await issueBoth(f);
+    expect([...rows.values()].map(row => row.dynamic_data.rewardReady)).toEqual(["", ""]);
+    const entry = await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const awarded = await snapshot(f.member.id);
+    await refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId });
+    expect([...rows.values()].map(row => row.dynamic_data.rewardReady)).toEqual([text, text]);
+    expect(await snapshot(f.member.id)).toEqual(awarded);
+    await reverseEntry({ userId: f.owner, locationId: f.merchant.locationId, entryId: entry.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const reversed = await snapshot(f.member.id);
+    await refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId });
+    expect([...rows.values()].map(row => row.dynamic_data.rewardReady)).toEqual(["", ""]);
+    expect(await snapshot(f.member.id)).toEqual(reversed);
+    expect(calls.filter(call => call.body?.data).every(call => typeof (call.body!.data as Record<string, unknown>).rewardReady === "string")).toBe(true);
+  });
+  it.each(rewardLocales)("clears retired $locale reward text and uses current reward state on replacement and closure", async ({ locale, text }) => {
+    const f = await fixture(locale);
+    await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    await issueBoth(f); const old = [...rows.values()];
+    expect(old.map(row => row.dynamic_data.rewardReady)).toEqual([text, text]);
+    const next = await reissue(f);
+    await refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId });
+    expect(old.map(row => ({ status: row.status, rewardReady: row.dynamic_data.rewardReady }))).toEqual([
+      { status: "invalidated", rewardReady: "" }, { status: "invalidated", rewardReady: "" },
+    ]);
+    await issueBoth({ ...f, member: { ...f.member, cardToken: next.cardToken } });
+    expect([...rows.values()].filter(row => row.status === "active").map(row => row.dynamic_data.rewardReady)).toEqual([text, text]);
+    const boundary = calls.length;
+    for (const row of (await pool.query("SELECT id FROM wallet_passes WHERE status='revoked'")).rows) await syncPassFastPass(row.id);
+    expect(calls).toHaveLength(boundary);
+    await closeCard(next.cardToken);
+    await refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId });
+    expect([...rows.values()].every(row => row.status === "invalidated" && row.dynamic_data.rewardReady === "" && row.dynamic_data.scanCode === "")).toBe(true);
+  });
+  it.each(rewardLocales)("reconciles a stale $locale generation after lost acknowledgement without restoring reward text", async ({ locale, text }) => {
+    const f = await fixture(locale);
+    const entry = await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    loseGenerate = true;
+    expect((await googleIssue(post(f.member.cardToken))).status).toBe(502);
+    expect([...rows.values()][0].dynamic_data.rewardReady).toBe(text);
+    await reverseEntry({ userId: f.owner, locationId: f.merchant.locationId, entryId: entry.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
+    expect(rows.size).toBe(1);
+    expect([...rows.values()][0].dynamic_data).toMatchObject({ balance: 0, rewardReady: "" });
+    expect(calls.filter(call => call.path.endsWith("generate-pass"))).toHaveLength(1);
+  });
   it.each([{failed:[]},{failed:["apple"]},{failed:["google"]},{failed:["apple","google"]}])("attempts and tracks each platform independently when void fails for $failed", async ({failed}) => {
     const f=await fixture(); await issueBoth(f); await closeCard(f.member.cardToken);
     const before=await snapshot(f.member.id); failingVoids=new Set(failed);
@@ -267,7 +314,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     for(const row of rows.values()) {
       const prior=originals.find(old=>old.serial===row.serial_number&&old.platform===row.wallet_type)!;
       if(row.serial_number!==ownSerial) {expect(row.dynamic_data).toEqual(prior.data);continue;}
-      expect(row.dynamic_data).toMatchObject({merchantName:"Updated Café",locationName:"Updated Location",programName:"Updated Coffee",rewardTitle:"Updated Reward",rewardCost:3,rewardReady:false,balance:2,scanCode:prior.data.scanCode,cardLocator:prior.data.cardLocator});
+      expect(row.dynamic_data).toMatchObject({merchantName:"Updated Café",locationName:"Updated Location",programName:"Updated Coffee",rewardTitle:"Updated Reward",rewardCost:3,rewardReady:"",balance:2,scanCode:prior.data.scanCode,cardLocator:prior.data.cardLocator});
       expect(row.dynamic_data).not.toHaveProperty("brandColor");
     }
     expect((await ownerWalletReadiness({actorUserId:f.owner,programSlug:f.merchant.programSlug})).logo).toBe("needs_review");

@@ -132,7 +132,7 @@ describe("PassFast managed transport, fake responses only", () => {
   });
   it("sends only required pseudonymous display/scan fields", () => {
     const data = passFastData({ tenantId: "private-tenant", membershipId: "private-member", programId: "private-program", merchantName: "Café", programName: "Coffee", locationName: "Mitte", brandColor: "#214739", country: "DE", locale: "de", programType: "stamp", balance: 2, scanCode: "sc_synthetic", cardLocator: "K-ABCDEF", reward: { title: "Coffee", cost: 5 } });
-    expect(data).toMatchObject({ scanCode: "sc_synthetic", cardLocator: "K-ABCDEF", balance: 2, rewardReady: false });
+    expect(data).toMatchObject({ scanCode: "sc_synthetic", cardLocator: "K-ABCDEF", balance: 2, rewardReady: "" });
     expect(Object.keys(data)).not.toContain("tenantId");
     expect(JSON.stringify(data)).not.toContain("private-");
   });
