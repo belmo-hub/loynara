@@ -344,8 +344,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .customer-wallet-add h2 { font-size: 18px; letter-spacing: -.035em; margin: 0 0 8px; }
 .customer-wallet-add > p { margin: 0; color: #718475; font-size: 12px; line-height: 1.5; }
 .wallet-add-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
-.wallet-add { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; padding: 0 18px; border: 0; border-radius: 12px; background: #111; color: #fff; font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -.01em; cursor: pointer; }
-.wallet-add span { min-width: 0; overflow-wrap: anywhere; text-align: center; }
-.wallet-add:hover:not(:disabled) { background: #2b2b2b; }
+.wallet-add { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 8px; border: 0; border-radius: 0; background: transparent; cursor: pointer; }
+.wallet-add-badge { display: block; height: 56px; width: auto; flex-shrink: 0; }
 .wallet-add:focus-visible { outline: 3px solid #56a46a; outline-offset: 2px; }
-.wallet-add:disabled { opacity: .7; cursor: progress; }
+.wallet-add:disabled { opacity: 1; cursor: progress; }
+.wallet-loading { margin-top: 8px !important; text-align: center; }
