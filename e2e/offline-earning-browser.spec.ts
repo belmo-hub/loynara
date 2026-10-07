@@ -29,17 +29,17 @@ test("cashier queues an explicit offline award without credit, reloads, and sync
       // Online, the offline fallback is not offered at all.
       await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toHaveCount(0);
       await expect(page.getByRole("region", { name: "Offline-Vergaben" })).toHaveCount(0);
-      await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+      // Online, one stamp is booked with one tap; there is no offline choice to make.
+      await expect(page.locator(".cashier-award-now")).toHaveText("1 Stempel vergeben");
       await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
-      await page.getByRole("button", { name: "Abbrechen" }).click();
       await context.setOffline(true);
       await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toBeVisible();
-      await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+      await page.locator(".cashier-award-now").click();
       await expect(page.getByText("Verbindung zum Server gestört.", { exact: false })).toBeVisible();
       await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();
       await expect(page.getByText("1 ausstehend", { exact: false })).toBeVisible();
       await expect(page.locator(".cashier-booked")).toContainText("Vorgemerkt, noch nicht gebucht");
-      await expect(page.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+      await expect(page.locator(".cashier-award-now")).toHaveCount(0);
       await page.screenshot({ path: "screenshots/platform-after-offline-pending.png", fullPage: true });
       expect((await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json()).balance).toBe(0);
       await context.setOffline(false);

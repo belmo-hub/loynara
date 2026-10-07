@@ -57,13 +57,14 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     for (let stamp = 1; stamp < program.rewardCost; stamp++) {
       await cashier.getByRole("button", { name: "Menge erhöhen" }).click();
     }
-    await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
+    // More than one stamp at once still asks for confirmation.
+    await cashier.locator(".cashier-award-now").click();
     await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toBeVisible();
     await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
     // The card closes right after booking; the confirmation names the card number and the new balance.
     await expect(cashier.locator(".cashier-booked")).toContainText(`Neuer Stand: ${program.rewardCost} ${unit}`);
     await expect(cashier.locator(".cashier-booked")).toContainText("Prämie verfügbar. Zum Einlösen die Karte erneut scannen.");
-    await expect(cashier.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+    await expect(cashier.locator(".cashier-award-now")).toHaveCount(0);
     await cashier.getByRole("button", { name: "Andere Karte" }).click();
     await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
     await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
