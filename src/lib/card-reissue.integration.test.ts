@@ -13,7 +13,8 @@ import { createMerchant, enroll, getCard, lookupCard } from "./product";
 import { configureReferrals, getCardReferralShare } from "./referrals";
 import { bindTapCard } from "./secure-tap";
 import { applePassToken } from "./wallet/apple";
-import { registerAppleDevice, registeredApplePass } from "./wallet/apple-service";
+import { authenticatedApplePass, listUpdatedApplePasses, registerAppleDevice } from "./wallet/apple-service";
+import { issueWalletPass } from "./wallet/issue";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -182,38 +183,46 @@ describe("staff-assisted card reissue", () => {
     expect((await db.select().from(referrals).where(eq(referrals.referredMembershipId, referred.id)))[0].status).toBe("qualified");
   });
 
-  it("revokes obsolete bindings: tap cookie token, Apple registrations and the Apple pass token", async () => {
+  it("revokes obsolete bindings: the tap cookie token and every saved Wallet pass, without touching other cards", async () => {
     const owner = await user();
     const merchant = await shop(owner);
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     const keep = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-    for (const member of [card, keep]) await db.insert(walletPasses).values({ tenantId: merchant.tenantId, membershipId: member.id, provider: "apple", providerObjectId: member.id, status: "issued" });
-    const auth = (member: { id: string }, scanCode: string) => `ApplePass ${applePassToken(member.id, scanCode, appleConfig)}`;
-    const device = (member: { id: string }, scanCode: string, deviceId: string) => ({ deviceId, passTypeId: appleConfig.passTypeId, serial: member.id, authorization: auth(member, scanCode), pushToken: "a".repeat(64) });
-    await registerAppleDevice(device(card, card.scanCode, "lost-phone"), appleConfig);
-    await registerAppleDevice(device(card, card.scanCode, "shared-tablet"), appleConfig);
-    await registerAppleDevice(device(keep, keep.scanCode, "shared-tablet"), appleConfig);
+    const oldPass = await issueWalletPass(card.cardToken, "apple", id => id);
+    const keepPass = await issueWalletPass(keep.cardToken, "apple", id => id);
+    const auth = (serial: string) => `ApplePass ${applePassToken(serial, appleConfig)}`;
+    const device = (serial: string, deviceId: string) => ({ deviceId, passTypeId: appleConfig.passTypeId, serial, authorization: auth(serial), pushToken: "a".repeat(64) });
+    await registerAppleDevice(device(oldPass.id, "lost-phone"), appleConfig);
+    await registerAppleDevice(device(keepPass.id, "shared-tablet"), appleConfig);
     expect(await bindTapCard(card.cardToken)).toBe(await bindTapCard(keep.cardToken));
+    const tag = await listUpdatedApplePasses("lost-phone", appleConfig.passTypeId);
 
     const { cardToken } = await reissueCardByStaff(request(owner, merchant.locationId, card.id));
     const fresh = (await credentials(card.id)).scanCode;
 
     await expect(bindTapCard(card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" }); // an NFC cookie holding the old token stops resolving
     expect(await bindTapCard(cardToken)).toBeTruthy();
-    expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, card.id))).toHaveLength(0);
-    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "lost-phone"))).toHaveLength(0);
-    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "shared-tablet"))).toHaveLength(1);
+    // The old pass is revoked, not updated: the lost phone is told it changed and can only fetch a voided pass.
+    expect((await db.select().from(walletPasses).where(eq(walletPasses.id, oldPass.id)))[0]).toMatchObject({ revokeReason: "reissued", status: "revocation_pending" });
+    expect((await listUpdatedApplePasses("lost-phone", appleConfig.passTypeId, tag?.lastUpdated))?.serialNumbers).toEqual([oldPass.id]);
+    const stale = await authenticatedApplePass({ passTypeId: appleConfig.passTypeId, serial: oldPass.id, authorization: auth(oldPass.id) }, appleConfig);
+    expect(stale).toMatchObject({ kind: "void", pass: { reason: "reissued" } });
+    expect(JSON.stringify(stale)).not.toContain(fresh);
+    expect(JSON.stringify(stale)).not.toContain(card.scanCode);
+    await expect(registerAppleDevice(device(oldPass.id, "another-phone"), appleConfig)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // The old card link cannot mint a new pass; the new link mints a NEW serial that carries the new QR code.
+    await expect(issueWalletPass(card.cardToken, "apple", id => id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const newPass = await issueWalletPass(cardToken, "apple", id => id);
+    expect(newPass.id).not.toBe(oldPass.id);
+    const current = await authenticatedApplePass({ passTypeId: appleConfig.passTypeId, serial: newPass.id, authorization: auth(newPass.id) }, appleConfig);
+    expect(current).toMatchObject({ kind: "active", pass: { scanCode: fresh, balance: 0 } });
+    expect(await registerAppleDevice(device(newPass.id, "new-phone"), appleConfig)).toBe(201);
+    // Another card's pass on a shared device is untouched.
+    expect(await authenticatedApplePass({ passTypeId: appleConfig.passTypeId, serial: keepPass.id, authorization: auth(keepPass.id) }, appleConfig)).toMatchObject({ kind: "active", pass: { membershipId: keep.id } });
     expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.membershipId, keep.id))).toHaveLength(1);
-    // The pass installed before the reissue can neither fetch the updated pass (with the new QR) nor re-register.
-    const stale = { passTypeId: appleConfig.passTypeId, serial: card.id, authorization: auth(card, card.scanCode) };
-    await expect(registeredApplePass(stale, appleConfig)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(registerAppleDevice(device(card, card.scanCode, "lost-phone"), appleConfig)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "lost-phone"))).toHaveLength(0);
-    // A pass downloaded from the new link authenticates; another card's pass is untouched.
-    expect((await registeredApplePass({ ...stale, authorization: auth(card, fresh) }, appleConfig)).scanCode).toBe(fresh);
-    expect(await registerAppleDevice(device(card, fresh, "new-phone"), appleConfig)).toBe(201);
-    expect((await registeredApplePass({ passTypeId: appleConfig.passTypeId, serial: keep.id, authorization: auth(keep, keep.scanCode) }, appleConfig)).membershipId).toBe(keep.id);
-    expect((await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "wallet.refresh"))).length).toBeGreaterThan(0);
+    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, "shared-tablet"))).toHaveLength(1);
+    // Exactly one provider job for the card: the revocation.
+    expect(await db.select().from(outboxJobs).where(and(eq(outboxJobs.kind, "wallet.refresh"), eq(outboxJobs.status, "pending")))).toMatchObject([{ payload: { membershipId: card.id } }]);
   });
 
   it("keeps an append-only audit trail with actor, time, reason and method, and exports it without credentials", async () => {

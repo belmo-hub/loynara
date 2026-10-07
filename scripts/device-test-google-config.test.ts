@@ -34,7 +34,7 @@ const approved = {
 const pass: WalletPassData = {
   tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", membershipId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   programId: "12345678-1234-1234-1234-123456789abc", merchantName: "Synthetic Café", programName: "Coffee",
-  locationName: "Kassel", programType: "stamp", balance: 1, scanCode: "sc_synthetic-fixture-only", brandColor: "#264C45", country: "DE",
+  locationName: "Kassel", programType: "stamp", balance: 1, scanCode: "sc_synthetic-fixture-only", cardLocator: "K-AAAAAA", brandColor: "#264C45", country: "DE", locale: "de",
 };
 
 describe("explicitly approved Google Demo device-test gate", () => {
@@ -78,7 +78,7 @@ describe("explicitly approved Google Demo device-test gate", () => {
   });
 
   it("carries the approved program and path through config to the actual versioned merchant logo", () => {
-    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y5pQ4sAAAAASUVORK5CYII=";
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQ83H9DwADCgG307XiNAAAAABJRU5ErkJggg==";
     const selected = merchantGoogleLogoUrl(pass.programId, png, approved);
     expect(selected).toMatch(/\.png\?v=[0-9a-f]{16}$/);
     const config = googleConfig(approved);
@@ -100,7 +100,7 @@ describe("explicitly approved Google Demo device-test gate", () => {
         `${logoUrl}?v=0123456789abcdef#unapproved`, `${logoUrl}?v=0123456789abcdef&v=0123456789abcdef`,
       ].map(googleLogoUrl => ({ ...pass, googleLogoUrl })),
     ];
-    for (const candidate of unapproved) await expect(client.upsert(candidate, config)).rejects.toThrow(/approved/i);
+    for (const candidate of unapproved) await expect(client.upsert(candidate, "dddddddd-dddd-4ddd-8ddd-dddddddddddd", config)).rejects.toThrow(/approved/i);
     expect(transportCalls).toBe(0);
   });
 

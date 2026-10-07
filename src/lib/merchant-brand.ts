@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { locations, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 
 const name = z.string().trim().min(2).max(180);
 export const brandUpdateSchema = z.object({
@@ -61,6 +62,8 @@ export async function updateMerchantBrand(raw: z.input<typeof inputSchema>) {
       name: input.locationName, brandColor: input.brandColor,
       ...(logoData !== undefined ? { logoData } : {}),
     }).where(and(eq(locations.id, location.id), eq(locations.tenantId, program.tenantId)));
+    // The merchant name appears on every programme's passes; colour and logo on this location's. Coalesced per card.
+    await enqueueWalletProgramRefresh(tx, program.tenantId);
     const [brand] = await tx.select({ businessName: tenants.name, locationName: locations.name, brandColor: locations.brandColor, logoData: locations.logoData })
       .from(locations).innerJoin(tenants, eq(tenants.id, locations.tenantId))
       .where(eq(locations.id, location.id)).limit(1);

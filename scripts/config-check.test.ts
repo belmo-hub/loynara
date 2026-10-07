@@ -181,6 +181,66 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...safe, NFC_ENABLED: "TRUE" })).toEqual(expect.arrayContaining([expect.stringMatching(/exactly true or false/)]));
     });
   });
+
+  describe("Wallet fails closed", () => {
+    const apple: NodeJS.ProcessEnv = {
+      ...safe, WALLET_PRODUCTION_APPROVED: "true", APPLE_WALLET_ENABLED: "true", APPLE_PASS_TYPE_ID: "pass.com.getloynara.loyalty", APPLE_TEAM_ID: "AB12CD34EF",
+      APPLE_SIGNING_CERT_PATH: "/run/secrets/apple/pass-cert.pem", APPLE_SIGNING_KEY_PATH: "/run/secrets/apple/pass-key.pem", APPLE_WWDR_CERT_PATH: "/run/secrets/apple/wwdr.pem",
+      APPLE_WALLET_AUTH_SECRET: "Qm7v2Kx9pL4tR8wZ1nY6cB3hF5jD0sGa", APPLE_WALLET_WEB_SERVICE_URL: "https://app.getloynara.com/api/apple",
+    };
+    const google: NodeJS.ProcessEnv = {
+      ...safe, WALLET_PRODUCTION_APPROVED: "true", GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_ISSUER_ID: "3388000000022123456",
+      GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: "/run/secrets/google/wallet-issuer.json", GOOGLE_WALLET_PROGRAM_LOGO_URL: "https://cdn.getloynara.com/wallet/logo.png", GOOGLE_WALLET_PUBLISHING_STATUS: "published",
+    };
+    const refused = (env: NodeJS.ProcessEnv, pattern: RegExp) => expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));
+
+    it("accepts Wallet off and refuses dormant direct native providers", () => {
+      expect(productionConfigIssues({ ...safe, APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false" })).toEqual([]);
+      expect(productionConfigIssues(apple)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues(google)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+    });
+
+    it("requires a separate approval and refuses a stray approval or ambiguous flags", () => {
+      refused({ ...apple, WALLET_PRODUCTION_APPROVED: undefined }, /production approval/);
+      refused({ ...safe, WALLET_PRODUCTION_APPROVED: "true" }, /no Wallet provider/);
+      refused({ ...safe, APPLE_WALLET_ENABLED: "yes" }, /APPLE_WALLET_ENABLED must be exactly/);
+      refused({ ...safe, GOOGLE_WALLET_ASSET_ENABLED: "1" }, /GOOGLE_WALLET_ASSET_ENABLED must be exactly/);
+    });
+
+    it.each([
+      ["device-test approval", { DEVICE_TEST_APPROVED_WALLET_PROVIDER: "google-demo" }, /Device-test Wallet/],
+      ["fixture certificate", { APPLE_SIGNING_CERT_PATH: "/app/fixtures/cert.pem" }, /APPLE_SIGNING_CERT_PATH/],
+      ["public key file", { APPLE_SIGNING_KEY_PATH: "/app/public/key.pem" }, /APPLE_SIGNING_KEY_PATH/],
+      ["relative WWDR path", { APPLE_WWDR_CERT_PATH: "wwdr.pem" }, /APPLE_WWDR_CERT_PATH/],
+      ["test pass type", { APPLE_PASS_TYPE_ID: "pass.local.loop" }, /Pass Type ID/],
+      ["malformed team", { APPLE_TEAM_ID: "team" }, /APPLE_TEAM_ID/],
+      ["short secret", { APPLE_WALLET_AUTH_SECRET: "short" }, /AUTH_SECRET must be/],
+      ["placeholder secret", { APPLE_WALLET_AUTH_SECRET: "replace-me-with-a-random-value-123456" }, /AUTH_SECRET must be/],
+      ["repeated-character secret", { APPLE_WALLET_AUTH_SECRET: "a".repeat(40) }, /AUTH_SECRET must be/],
+      ["secret reused", { APPLE_WALLET_AUTH_SECRET: "a".repeat(64) }, /reused|AUTH_SECRET must be/],
+      ["HTTP web service", { APPLE_WALLET_WEB_SERVICE_URL: "http://app.getloynara.com/api/apple" }, /WEB_SERVICE_URL/],
+      ["preview web service", { APPLE_WALLET_WEB_SERVICE_URL: "https://preview.getloynara.com/api/apple" }, /WEB_SERVICE_URL/],
+      ["web service with /v1", { APPLE_WALLET_WEB_SERVICE_URL: "https://app.getloynara.com/api/apple/v1" }, /WEB_SERVICE_URL/],
+    ])("refuses Apple with %s", (_name, override, pattern) => refused({ ...apple, ...override }, pattern));
+
+    it.each([
+      ["Demo Mode", { GOOGLE_WALLET_PUBLISHING_STATUS: "demo" }, /Demo Mode is not production/],
+      ["missing publishing status", { GOOGLE_WALLET_PUBLISHING_STATUS: undefined }, /publishing must be approved/],
+      ["synthetic issuer", { GOOGLE_WALLET_ISSUER_ID: "123456" }, /ISSUER_ID/],
+      ["device-test credential", { GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: "/srv/device-test/google.json" }, /SERVICE_ACCOUNT_FILE/],
+      ["HTTP logo", { GOOGLE_WALLET_PROGRAM_LOGO_URL: "http://cdn.getloynara.com/logo.png" }, /PROGRAM_LOGO_URL/],
+      ["example logo host", { GOOGLE_WALLET_PROGRAM_LOGO_URL: "https://wallet.example.com/logo.png" }, /PROGRAM_LOGO_URL/],
+      ["asset origin with path", { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com/x" }, /ASSET_ORIGIN/],
+      ["local asset origin", { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://localhost" }, /ASSET_ORIGIN/],
+    ])("refuses Google with %s", (_name, override, pattern) => refused({ ...google, ...override }, pattern));
+
+    it("never echoes a secret value or credential path in its messages", () => {
+      const issues = productionConfigIssues({ ...apple, APPLE_WALLET_AUTH_SECRET: "short-secret-value", APPLE_SIGNING_KEY_PATH: "/app/public/very-private.pem" });
+      expect(issues.join(" ")).not.toContain("short-secret-value");
+      expect(issues.join(" ")).not.toContain("very-private");
+    });
+  });
 });
 
 // The real startup gate (`npm start` runs scripts/production-guard.ts first), executed as a process from an empty directory so

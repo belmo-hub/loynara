@@ -1,7 +1,9 @@
 import "dotenv/config";
 import { pool } from "../src/db";
 import { claimOutboxJob, deferOutboxJob, markOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
+import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
+import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 
 type Job = OutboxJob;
@@ -131,17 +133,20 @@ async function processJob(job: Job) {
   }
 
   try {
-    const { refreshWalletForMembership } = await import("../src/lib/wallet/refresh");
-    const result = await refreshWalletForMembership(membershipId);
+    const { refreshWalletForMembership, supersedeOlderWalletRefreshes } = await import("../src/lib/wallet/refresh");
+    const result = await refreshWalletForMembership(membershipId, { expectedTenantId: job.tenantId });
     if (result.status === "blocked") {
       await mark(job, "blocked", result.reason);
       return "blocked";
     }
     await mark(job, "complete");
+    await supersedeOlderWalletRefreshes(pool, job);
     return "complete";
   } catch (error) {
     const permanent = job.attempts >= maxAttempts;
-    const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
+    // Provider outages last minutes to hours: 1, 4, 16 and 60 minutes span about 80 minutes before the job fails. A
+    // later loyalty change queues a fresh refresh anyway, and its success supersedes this one.
+    const delay = Math.min(3600, 60 * 4 ** (job.attempts - 1));
     // Provider messages can contain request details. Keep the stored error generic.
     await mark(job, permanent ? "failed" : "retry", "Wallet provider update failed", permanent ? 0 : delay);
     console.error(`Wallet job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
@@ -150,17 +155,12 @@ async function processJob(job: Job) {
 }
 
 async function replay(jobId: string) {
-  if (!uuidPattern.test(jobId)) throw new Error("Replay requires a job UUID");
-  const result = await pool.query(
-    "UPDATE outbox_jobs SET status = 'pending', attempts = 0, next_attempt_at = now(), last_error = NULL WHERE id = $1 AND status IN ('blocked', 'failed') RETURNING id",
-    [jobId],
-  );
-  if (result.rowCount !== 1) throw new Error("Job is not blocked or failed, or it does not exist");
-  console.log(`Requeued job ${jobId}`);
+  const status = await replayOutboxJob(pool, jobId);
+  console.log(status === "suppressed" ? `Job ${jobId} is covered by an existing Wallet refresh` : `Requeued job ${jobId}`);
 }
 
 async function main() {
-  const configurationIssues = productionConfigIssues(process.env);
+  const configurationIssues = [...productionConfigIssues(process.env), ...productionWalletRuntimeIssues(process.env)];
   if (process.env.NODE_ENV === "production" && !validHeartbeatUrl(process.env.WORKER_HEARTBEAT_URL)) {
     configurationIssues.push("Production worker requires a reviewed HTTPS heartbeat monitor URL");
   }
@@ -177,6 +177,8 @@ async function main() {
     if (Date.now() - recoveryPrunedAt >= 60 * 60_000) {
       await pool.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
       await pool.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+      const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
+      await pruneRevokedAppleRegistrations(pool);
       recoveryPrunedAt = Date.now();
     }
     let processed = 0;

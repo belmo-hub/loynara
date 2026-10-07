@@ -31,6 +31,17 @@ describe("the NFC surface follows capability", () => {
   });
 });
 
+describe("Wallet surfaces follow capability", () => {
+  it("appear on real production only once a Wallet provider can issue a pass", async () => {
+    const { appleFixture } = await import("./wallet/test-support");
+    const apple = appleFixture();
+    try {
+      expect(hiddenSurfaces({ ...PROD, APPLE_WALLET_ENABLED: "true" })).toEqual(expect.arrayContaining(["walletPreviews", "cardLogo"]));
+      expect(hiddenSurfaces({ ...PROD, ...apple.env }).sort()).toEqual(["automations", "billing", "nfc"]);
+    } finally { apple.cleanup(); }
+  });
+});
+
 describe("direct routes for withheld surfaces", () => {
   afterEach(() => vi.unstubAllEnvs());
   const layouts = { billing: "@/app/merchant/billing/layout", automations: "@/app/merchant/automations/layout" };

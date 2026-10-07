@@ -1,50 +1,71 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { db } from "@/db";
-import { appleDevices, appleRegistrations, memberships, walletPasses } from "@/db/schema";
+import { appleDevices, appleRegistrations, walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { validApplePassToken, type ApplePassConfig } from "./apple";
-import { walletPassDataByMembershipId } from "./data";
+import { walletCardSnapshot } from "./data";
+import type { RevokeReason, WalletPassData, WalletRevokedData } from "./types";
 
-type RegistrationInput = { deviceId: string; passTypeId: string; serial: string; authorization: string; pushToken: string };
+type PassInput = { passTypeId: string; serial: string; authorization: string };
+type RegistrationInput = PassInput & { deviceId: string; pushToken: string };
 
 const serialPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const devicePattern = /^[A-Za-z0-9._-]{1,200}$/;
 
-/** Format checks only; the token itself is verified against the card's current scan code in registeredApplePass. */
-function authorized(input: Omit<RegistrationInput, "pushToken">, config: ApplePassConfig) {
-  if (input.passTypeId !== config.passTypeId || !/^ApplePass [A-Za-z0-9_-]+$/.test(input.authorization)) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
-  if (!/^[A-Za-z0-9._-]{1,200}$/.test(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
+export type ApplePassView =
+  | { kind: "active"; passId: string; updatedAt: Date; pass: WalletPassData }
+  | { kind: "void"; passId: string; updatedAt: Date; pass: WalletRevokedData };
+
+export function validAppleDeviceId(deviceId: string) { return devicePattern.test(deviceId); }
+
+/**
+ * Authenticates one pass and decides what it may show. Format, serial and token are checked before any lookup, and an
+ * unknown serial and a wrong token fail identically, so serials cannot be probed. The token is bound to the serial
+ * (HMAC), and the serial is a random pass-row id, so one tenant's token can never open another tenant's pass.
+ * The pass shows the live card only while its row is unrevoked AND still matches the card's current credential;
+ * otherwise it is served voided, without QR code or balance.
+ */
+export async function authenticatedApplePass(input: PassInput, config: ApplePassConfig): Promise<ApplePassView> {
+  const token = /^ApplePass ([A-Za-z0-9_-]{16,100})$/.exec(input.authorization)?.[1];
+  if (input.passTypeId !== config.passTypeId || !token || !serialPattern.test(input.serial) || !validApplePassToken(input.serial, token, config)) {
+    throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  }
+  const [row] = await db.select().from(walletPasses).where(and(eq(walletPasses.id, input.serial), eq(walletPasses.provider, "apple")));
+  if (!row) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  const snapshot = await walletCardSnapshot(row.membershipId);
+  if (row.revokedAt === null && snapshot.open && row.credentialHash === snapshot.credentialHash) {
+    return { kind: "active", passId: row.id, updatedAt: row.updatedAt, pass: snapshot.pass };
+  }
+  const reason: RevokeReason = (row.revokeReason as RevokeReason | null) ?? (snapshot.open ? "superseded" : "closed");
+  const brand = snapshot.open ? snapshot.pass : snapshot.brand;
+  const { tenantId, programId, merchantName, programName, locationName, brandColor, country, locale, appleLogo } = brand;
+  return { kind: "void", passId: row.id, updatedAt: row.updatedAt, pass: { tenantId, programId, merchantName, programName, locationName, brandColor, country, locale, membershipId: row.membershipId, reason, ...(appleLogo ? { appleLogo } : {}) } };
 }
 
-export async function registeredApplePass(input: Omit<RegistrationInput, "deviceId" | "pushToken">, config: ApplePassConfig) {
-  if (input.passTypeId !== config.passTypeId || !/^ApplePass [A-Za-z0-9_-]+$/.test(input.authorization) || !serialPattern.test(input.serial)) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
-  const [current] = await db.select({ scanCode: memberships.scanCode }).from(memberships).where(eq(memberships.id, input.serial));
-  // An unknown card and a wrong token look the same; a reissued or closed card has a new scan code, so old tokens fail here.
-  if (!current || !validApplePassToken(input.serial, current.scanCode, input.authorization.slice(10), config)) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
-  const [issued] = await db.select().from(walletPasses).where(and(eq(walletPasses.membershipId, input.serial), eq(walletPasses.provider, "apple")));
-  if (!issued) throw new DomainError("NOT_FOUND", "Pass not found");
-  return walletPassDataByMembershipId(input.serial);
-}
-
+/** Wallet registers a device for update pushes. Only an active pass may register; a voided one has nothing to receive. */
 export async function registerAppleDevice(input: RegistrationInput, config: ApplePassConfig): Promise<200 | 201> {
-  authorized(input, config);
+  if (!validAppleDeviceId(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
   if (!/^[a-f0-9]{32,300}$/i.test(input.pushToken)) throw new DomainError("INVALID_TOKEN", "Invalid Apple push token");
-  const pass = await registeredApplePass(input, config);
+  const view = await authenticatedApplePass(input, config);
+  if (view.kind !== "active") throw new DomainError("FORBIDDEN", "Invalid pass authentication");
   return db.transaction(async (tx) => {
-    const [member] = await tx.select({ id: memberships.id, closedAt: memberships.closedAt }).from(memberships)
-      .where(and(eq(memberships.tenantId, pass.tenantId), eq(memberships.id, pass.membershipId))).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Pass not found");
-    await tx.update(walletPasses).set({ status: "registered" }).where(and(eq(walletPasses.membershipId, pass.membershipId), eq(walletPasses.provider, "apple")));
+    // Lock the pass row: a concurrent reissue/closure revokes it, and then no new registration may appear.
+    const [row] = await tx.select().from(walletPasses).where(eq(walletPasses.id, view.passId)).for("update");
+    if (!row || row.revokedAt) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+    if (row.status === "pending" || row.status === "downloaded") await tx.update(walletPasses).set({ status: "registered" }).where(eq(walletPasses.id, row.id));
     await tx.insert(appleDevices).values({ deviceLibraryIdentifier: input.deviceId, pushToken: input.pushToken })
       .onConflictDoUpdate({ target: appleDevices.deviceLibraryIdentifier, set: { pushToken: input.pushToken, updatedAt: new Date() } });
-    const inserted = await tx.insert(appleRegistrations).values({ deviceLibraryIdentifier: input.deviceId, tenantId: pass.tenantId, membershipId: pass.membershipId, passTypeIdentifier: input.passTypeId, serialNumber: input.serial })
+    const inserted = await tx.insert(appleRegistrations).values({ deviceLibraryIdentifier: input.deviceId, tenantId: row.tenantId, membershipId: row.membershipId, passTypeIdentifier: input.passTypeId, serialNumber: row.id })
       .onConflictDoNothing().returning({ deviceLibraryIdentifier: appleRegistrations.deviceLibraryIdentifier });
     return inserted.length ? 201 : 200;
   });
 }
 
+/** Removing a pass from Wallet. Allowed for voided passes too, so devices clean up after a reissue or closure. */
 export async function unregisterAppleDevice(input: Omit<RegistrationInput, "pushToken">, config: ApplePassConfig): Promise<void> {
-  authorized(input, config);
-  await registeredApplePass(input, config);
+  if (!validAppleDeviceId(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
+  await authenticatedApplePass(input, config);
   await db.transaction(async (tx) => {
     await tx.delete(appleRegistrations).where(and(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId), eq(appleRegistrations.passTypeIdentifier, input.passTypeId), eq(appleRegistrations.serialNumber, input.serial)));
     const other = await tx.select({ id: appleRegistrations.deviceLibraryIdentifier }).from(appleRegistrations).where(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId)).limit(1);
@@ -52,16 +73,27 @@ export async function unregisterAppleDevice(input: Omit<RegistrationInput, "push
   });
 }
 
+/**
+ * An opaque tag describes the device's complete registered state, including revoked passes. On any change return all
+ * registered serials: a timestamp maximum can lose another card's equal/older update. SQL text preserves microseconds.
+ * The device library identifier acts as the secret here (Apple sends no pass token on this call): it is never logged
+ * by the application and the route is rate limited per device and peer.
+ */
 export async function listUpdatedApplePasses(deviceId: string, passTypeId: string, previousLastUpdated?: string): Promise<{ serialNumbers: string[]; lastUpdated: string } | null> {
-  if (!/^[A-Za-z0-9._-]{1,200}$/.test(deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
-  const since = previousLastUpdated === undefined ? -1 : Number(previousLastUpdated);
-  if (!Number.isSafeInteger(since) || since < -1) throw new DomainError("INVALID_TAG", "Invalid update tag");
-  const rows = await db.select({ serialNumber: appleRegistrations.serialNumber, updatedAt: walletPasses.updatedAt })
+  if (!validAppleDeviceId(deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
+  const previous = previousLastUpdated ?? "";
+  const legacy = /^(?:-1|\d{1,16})$/.test(previous) && Number.isSafeInteger(Number(previous));
+  if (previous !== "" && !legacy && !/^s1_[a-f0-9]{64}$/.test(previous)) throw new DomainError("INVALID_TAG", "Invalid update tag");
+  const rows = await db.select({ serialNumber: appleRegistrations.serialNumber, updatedAt: sql<string>`${walletPasses.updatedAt}::text`,
+    revokedAt: sql<string | null>`${walletPasses.revokedAt}::text`, revokeReason: walletPasses.revokeReason,
+    status: walletPasses.status, credentialHash: walletPasses.credentialHash })
     .from(appleRegistrations)
-    .innerJoin(walletPasses, and(eq(walletPasses.membershipId, appleRegistrations.membershipId), eq(walletPasses.tenantId, appleRegistrations.tenantId), eq(walletPasses.provider, "apple")))
-    .innerJoin(memberships, and(eq(memberships.id, appleRegistrations.membershipId), eq(memberships.tenantId, appleRegistrations.tenantId)))
-    .where(and(eq(appleRegistrations.deviceLibraryIdentifier, deviceId), eq(appleRegistrations.passTypeIdentifier, passTypeId), isNull(memberships.closedAt)));
-  const changed = rows.filter((row) => row.updatedAt.getTime() > since);
-  if (!changed.length) return null;
-  return { serialNumbers: changed.map((row) => row.serialNumber), lastUpdated: String(Math.max(...changed.map((row) => row.updatedAt.getTime()))) };
+    .innerJoin(walletPasses, and(sql`${walletPasses.id}::text = ${appleRegistrations.serialNumber}`, eq(walletPasses.tenantId, appleRegistrations.tenantId), eq(walletPasses.membershipId, appleRegistrations.membershipId), eq(walletPasses.provider, "apple")))
+    .where(and(eq(appleRegistrations.deviceLibraryIdentifier, deviceId), eq(appleRegistrations.passTypeIdentifier, passTypeId)));
+  if (!rows.length) return null;
+  rows.sort((a, b) => a.serialNumber.localeCompare(b.serialNumber));
+  const lastUpdated = `s1_${createHash("sha256").update(JSON.stringify([deviceId, passTypeId, rows])).digest("hex")}`;
+  if (previous === lastUpdated) return null;
+  // Legacy numeric tags get one complete refresh and switch to the opaque format.
+  return { serialNumbers: rows.map(row => row.serialNumber), lastUpdated };
 }

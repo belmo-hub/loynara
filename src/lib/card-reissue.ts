@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, inArray, isNull, notExists } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { appleDevices, appleRegistrations, cardSecurityEvents, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
+import { cardSecurityEvents, memberships, programs, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { revokeCardWalletPasses } from "./wallet/enqueue";
 
 /** How the merchant satisfied themselves that the person belongs to the card. A merchant statement, never proof by Loynara. */
 export const VERIFICATION_METHODS = ["card_link", "stored_contact", "other_check"] as const;
@@ -29,9 +30,9 @@ export type ReissueResult = { membershipId: string; cardToken: string; duplicate
  * another card, no visit is recorded, so analytics and referral qualification are unaffected. Only bearer access rotates:
  *  - the card token (link) and the scan code (QR) are replaced, so the old link and QR stop working everywhere;
  *  - an NFC tap cookie carries the old card token and therefore no longer resolves to the card;
- *  - Apple Wallet registrations of the old pass are removed, and the Apple pass token is bound to the scan code, so an
- *    old pass can no longer fetch updates (which would otherwise carry the new QR code).
- * Google Wallet objects live in the customer's Google account and cannot be revoked from here (ledger O-026).
+ *  - every saved Wallet pass is revoked (lib/wallet/enqueue): an old Apple pass can only ever fetch a voided version
+ *    without QR code or balance, an old Google object is set INACTIVE without barcode. A pass added from the new link is
+ *    a new Apple serial / Google object, so Wallet never becomes a way around the reissue.
  *
  * Human boundary: Loynara cannot see who is standing at the counter. The owner or manager states that entitlement was
  * checked, names how, and gives a reason; actor, time, reason and method are kept in the append-only card_security_events.
@@ -61,20 +62,13 @@ export async function reissueCardByStaff(raw: z.input<typeof input>): Promise<Re
     const cardToken = `card_${randomBytes(32).toString("base64url")}`;
     const scanCode = `sc_${randomBytes(24).toString("base64url")}`;
     await tx.update(memberships).set({ cardToken, scanCode }).where(and(eq(memberships.id, member.id), eq(memberships.tenantId, member.tenantId), isNull(memberships.closedAt)));
-    const dropped = await tx.delete(appleRegistrations).where(and(eq(appleRegistrations.tenantId, member.tenantId), eq(appleRegistrations.membershipId, member.id))).returning({ deviceId: appleRegistrations.deviceLibraryIdentifier });
-    if (dropped.length) {
-      // A device that served only this card has no reason to stay on file; devices that hold other cards keep them.
-      await tx.delete(appleDevices).where(and(
-        inArray(appleDevices.deviceLibraryIdentifier, dropped.map(row => row.deviceId)),
-        notExists(tx.select({ one: appleRegistrations.deviceLibraryIdentifier }).from(appleRegistrations).where(eq(appleRegistrations.deviceLibraryIdentifier, appleDevices.deviceLibraryIdentifier))),
-      ));
-    }
     await tx.insert(cardSecurityEvents).values({
       tenantId: member.tenantId, membershipId: member.id, action: "card_reissued_by_staff", actorUserId: parsed.actorUserId,
       reason: parsed.reason, verificationMethod: parsed.verificationMethod, idempotencyKey: parsed.idempotencyKey,
     });
-    // Saved Wallet passes carry the old scan code; the refresh job replaces it where a provider is configured.
-    await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "wallet.refresh", payload: { membershipId: member.id } });
+    // Saved Wallet passes belong to the OLD credential and may sit on the lost phone. They are revoked, never updated:
+    // Apple devices fetch a voided pass, Google objects are deactivated. The customer adds a new pass from the new link.
+    await revokeCardWalletPasses(tx, member.tenantId, member.id, "reissued");
     return { membershipId: member.id, cardToken, duplicate: false };
   });
 }

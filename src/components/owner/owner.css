@@ -254,16 +254,22 @@
 .ow-pass-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ow-pass-field small { font-size: 10px; letter-spacing: .08em; font-weight: 600; }
 .ow-pass-field b { font-size: 15px; overflow-wrap: anywhere; }
-.ow-pass--apple .ow-pass-row:first-child .ow-pass-field { text-align: right; }
-.ow-pass--apple .ow-pass-row:first-child .ow-pass-field b { font-size: 34px; line-height: 1; letter-spacing: -.02em; }
-.ow-pass-row--sec { padding-top: 6px; }
-.ow-pass-codewrap { align-self: center; margin-top: 4px; padding: 10px; border-radius: 10px; background: #fff; }
+.ow-pass-field--end { text-align: right; align-items: flex-end; }
+.ow-pass--apple .ow-pass-row:first-child .ow-pass-field b { font-size: 22px; line-height: 1.05; letter-spacing: -.01em; white-space: nowrap; }
+.ow-pass-primary b { font-size: 24px; line-height: 1.15; letter-spacing: -.02em; font-weight: 600; }
+.ow-pass-logo { border-radius: 6px; object-fit: contain; flex: none; }
+.ow-pass-row--sec { padding-top: 2px; }
+.ow-pass-codewrap { align-self: center; margin-top: 4px; padding: 10px 10px 6px; border-radius: 10px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ow-pass-code { display: block; width: 96px; height: 96px; fill: #111; }
+.ow-pass-alt { color: #111; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.ow-pass-module { display: flex; flex-direction: column; gap: 2px; font-size: 13px; overflow-wrap: anywhere; }
+.ow-pass-module small { font-size: 11px; opacity: .85; }
 .ow-pass--google { border-radius: 22px; min-height: 300px; }
 .ow-pass-issuer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; }
+.ow-pass-issuer strong { min-width: 0; overflow-wrap: anywhere; }
+.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; flex: none; }
 .ow-pass-initial { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .85); color: #1a2b25; font-weight: 700; }
-.ow-pass-program { font-size: 13px; opacity: .9; }
+.ow-pass-program { font-size: 13px; opacity: .9; overflow-wrap: anywhere; }
 .ow-pass-big { display: flex; flex-direction: column; }
 .ow-pass-big small { font-size: 12px; opacity: .85; }
 .ow-pass-big b { font-size: 40px; line-height: 1.05; letter-spacing: -.02em; }
@@ -286,6 +292,11 @@
 .ow-mobile-switch { display: none; }
 .ow-readonly { padding: var(--ow-s3) var(--ow-s4); border-radius: var(--ow-r2); background: var(--ow-surface-2); font-size: 14px; }
 .ow-readonly dl { margin: 0; }
+.ow-wallet-ready-list { margin: 0; display: flex; flex-direction: column; gap: var(--ow-s3); }
+.ow-wallet-ready-list > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--ow-s2) var(--ow-s3); align-items: start; }
+.ow-wallet-ready-list dt { font-size: 14px; font-weight: 600; padding-top: 3px; }
+.ow-wallet-ready-list dd { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+@media (max-width: 420px) { .ow-wallet-ready-list > div { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) {
   .ow-studio { grid-template-columns: minmax(0, 1fr); }
   .ow-mobile-switch { display: inline-flex; }

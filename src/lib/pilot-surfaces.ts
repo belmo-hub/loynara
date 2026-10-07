@@ -1,5 +1,6 @@
 import { isProductionDeployment } from "./pilot-policy";
 import { nfcCapability } from "./nfc-keys";
+import { anyWalletAvailable } from "./wallet/capability";
 
 /**
  * First-merchant pilot: merchant surfaces that cannot yet do their main job on the real production
@@ -12,21 +13,24 @@ import { nfcCapability } from "./nfc-keys";
  *   preview and campaign composer work, drafts are saved, and the schedule control does not exist while
  *   promotionalEmailMode() is "disabled" (the server also refuses scheduling with EMAIL_DISABLED and the dispatcher
  *   blocks any job). Nothing can be sent or shown as sent.
- * - walletPreviews: Apple/Google Wallet previews in the card studio; both wallets are off in the pilot.
+ * - walletPreviews / cardLogo: Apple/Google Wallet previews, Wallet readiness and the logo upload in the card studio.
+ *   Like NFC these follow CAPABILITY on real production: withheld while no Wallet provider can issue a pass (the browser
+ *   card does not show a logo, the Apple pass does), shown automatically once Apple or Google Wallet is configured.
  * - nfc: NFC settings, readiness and the cashier confirmation panel. Unlike the others this follows CAPABILITY, not the
  *   environment name: it is withheld wherever no verification-key provider is configured (lib/nfc-keys), so nothing is
  *   offered that could not work, and it appears automatically once production NFC is configured.
- * - cardLogo: the logo upload; the browser card does not show an uploaded logo yet, so the control would do nothing visible.
  *
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
 export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations", "walletPreviews", "cardLogo"];
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 
 export function hiddenSurfaces(env: SurfaceEnv = process.env): PilotSurface[] {
-  const hidden: PilotSurface[] = isProductionDeployment(env) ? [...PILOT_HIDDEN_SURFACES] : [];
+  const production = isProductionDeployment(env);
+  const hidden: PilotSurface[] = production ? [...PILOT_HIDDEN_SURFACES] : [];
+  if (production && !anyWalletAvailable(env)) hidden.push("walletPreviews", "cardLogo");
   if (!nfcCapability(env).available) hidden.push("nfc");
   return hidden;
 }

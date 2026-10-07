@@ -117,7 +117,7 @@ export function ReissueDialog({ membershipId, cardLocator, onClose, onDone }: { 
         <Notice tone="ok" role="status">Der alte Link und der alte QR-Code funktionieren nicht mehr. Guthaben, Kartennummer und Verlauf sind unverändert.</Notice>
         <p>Lass die Person diesen Code mit dem eigenen Handy scannen und die Karte speichern. Dieser Link wird nur jetzt angezeigt.</p>
         {qr && <div style={{ display: "grid", placeItems: "center" }}><Image unoptimized src={qr} alt={`QR-Code für den neuen Link von Karte ${cardLocator}`} width={200} height={200} /></div>}
-        <p className="ow-hint">Eine bereits gespeicherte Wallet-Karte muss neu hinzugefügt werden.</p>
+        <p className="ow-hint">Eine bereits in Apple oder Google Wallet gespeicherte Karte wird ungültig. Die Person fügt sie über den neuen Link erneut hinzu.</p>
         <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { void navigator.clipboard.writeText(link).then(() => setCopied("Link kopiert."), () => setCopied("Kopieren nicht möglich.")); }}>Link kopieren</button>{copied && <span className="ow-hint" role="status">{copied}</span>}</div>
       </OwnerDialog>
     );
