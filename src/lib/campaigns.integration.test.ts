@@ -264,6 +264,7 @@ describe("local campaign core", () => {
 
 describe("win-back and announcement workflow", () => {
   const DAY = 86_400_000;
+  // Backdated history only: the host stamps these, so keep them days (not ms) away from the cutoff.
   async function checkoutAt(f: Awaited<ReturnType<typeof fixture>>, membershipId: string, at: Date) {
     await db.insert(ledgerEntries).values({ tenantId: f.merchant.tenantId, locationId: f.merchant.locationId, membershipId, actorUserId: f.ownerId, createdAt: at,
       requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1 });
@@ -288,9 +289,26 @@ describe("win-back and announcement workflow", () => {
     }
     expect(await preview()).toMatchObject({ total: 5, eligibleCount: 3, excludedCountsByReason: { noConsent: 2 } });
 
-    // Coming back moves a card out of the win-back audience.
-    await checkoutAt(f, lapsed.id, new Date());
+    // Coming back moves a card out of the win-back audience. Book it like the cashier does, so the
+    // database stamps it: a host-stamped "now" lands after the preview's database asOf whenever
+    // the host clock runs ahead (the Colima VM routinely lags the Mac by up to 100 ms).
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: lapsed.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect(await preview()).toMatchObject({ total: 4, eligibleCount: 2 });
+  });
+
+  it("drops a card that checks in right now from win-back even when the app host clock runs ahead of the database", async () => {
+    const f = await fixture();
+    const lapsed = await member(f.merchant.programSlug, "lapsed@example.test", true, true);
+    await checkoutAt(f, lapsed.id, new Date(Date.now() - 45 * DAY));
+    const preview = () => previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: winback });
+    expect(await preview()).toMatchObject({ total: 1, eligibleCount: 1 });
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 5 * 60_000 });
+    try {
+      await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: lapsed.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+      expect(await preview()).toMatchObject({ total: 0, eligibleCount: 0 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("saves a complete win-back draft when delivery is disabled but refuses to schedule it", async () => {
