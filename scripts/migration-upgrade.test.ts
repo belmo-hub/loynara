@@ -262,6 +262,37 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
     } finally { await pool.end(); await reference.end(); }
   }, 180_000);
 
+  it("upgrades populated exact production 0019 with zero Wallet state from 20 to 21 without loyalty or K-number drift", async () => {
+    const target = await scratchDatabase("production19");
+    const fresh = await scratchDatabase("combined_fresh");
+    try {
+      await run(target, folderThrough(19));
+      await seedHistory(target);
+      const before = await fingerprint(target);
+      const members = (await target.query("SELECT to_jsonb(m) AS v FROM memberships m ORDER BY id")).rows;
+      const journal = (await target.query("SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      expect(journal).toHaveLength(20);
+      for (const table of ["wallet_passes", "apple_devices", "apple_registrations"]) {
+        expect((await target.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n).toBe(0);
+      }
+      await run(target, migrationsDir);
+      expect(await fingerprint(target)).toEqual(before);
+      expect((await target.query("SELECT to_jsonb(m) AS v FROM memberships m ORDER BY id")).rows).toEqual(members);
+      const after = (await target.query("SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      expect(after).toHaveLength(21);
+      expect(after.slice(0, 20)).toEqual(journal);
+      expect((await target.query("SELECT m.id FROM memberships m JOIN ledger_entries e ON e.membership_id=m.id GROUP BY m.id,m.balance HAVING m.balance <> sum(e.delta)")).rows).toHaveLength(0);
+      expect((await target.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(0);
+      expect((await target.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind='wallet.refresh'")).rows[0].n).toBe(0);
+      await run(fresh, migrationsDir);
+      expect(await structure(target)).toEqual(await structure(fresh));
+      await expect(target.query("UPDATE ledger_entries SET delta=99")).rejects.toThrow(/append-only/);
+      await expect(target.query("UPDATE memberships SET card_locator='ZZZZZZ'")).rejects.toThrow(/immutable/);
+      await run(target, migrationsDir);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(21);
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+
   it("rehearses empty 0019 to 0020 and proves DDL waits for old readers without a partial journal commit", async () => {
     const target = await scratchDatabase("empty19");
     try {

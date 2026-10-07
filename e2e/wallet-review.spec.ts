@@ -49,7 +49,7 @@ test.beforeAll(async ({ baseURL }) => {
   cardTokens = [cardToken];
   // Development StrictMode reads the card twice per mount; keep each width below the real per-card read limit.
   for (let i = 1; i < sizes.length; i++) {
-    const additional = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } });
+    const additional = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true } });
     expect(additional.status()).toBe(201);
     cardTokens.push((await additional.json()).cardToken);
   }
@@ -82,6 +82,8 @@ test("customer availability and platform matrix fits five viewports (75 combinat
     try {
       await localOnly(context);
       const page = await context.newPage();
+      // This matrix exercises Wallet presentation, not referrals; avoid spending the real shared-IP referral quota 150 times.
+      await page.route("**/api/card/*/referral", route => route.fulfill({ json: { enabled: false } }));
       let state: typeof states[number] = states[0];
       await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: state.apple, google: state.google } }));
       for (state of states) {
@@ -239,4 +241,18 @@ test("real readiness API authorizes owners and rejects manager, cashier and gues
       expect((await staff.context.get(`/api/merchant/program/wallet?programSlug=${programSlug}`)).status()).toBe(403);
     } finally { await staff.context.dispose(); }
   }
+});
+
+
+test("Wallet OFF preserves hardened closure guidance and confirmation", async ({ page }) => {
+  const joined = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, additionalCard: true } });
+  expect(joined.status()).toBe(201);
+  const token = (await joined.json()).cardToken;
+  await cardReady(page, token);
+  await expect(page.locator(".customer-wallet-add")).toHaveCount(0);
+  await page.getByRole("button", { name: "Karte schließen", exact: true }).click();
+  await expect(page.locator(".customer-close-confirm")).not.toContainText("Wallet");
+  await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
+  await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+  await expect(page.locator(".card-state-page")).not.toContainText("Wallet");
 });
