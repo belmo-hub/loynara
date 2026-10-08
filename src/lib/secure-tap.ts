@@ -6,6 +6,8 @@ import { locations, memberships, programs, secureTags, staffRoles, tapRequests, 
 import { DomainError, awardTapInTransaction, awardInTransaction } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
+import { formatCardLocator } from "./card-locator";
+import { enqueueTapPush } from "./staff-push";
 import { derivedProviderFromEnv, type TapKeyContext, type TapKeyProvider, type TapKeys } from "./nfc-keys";
 
 export type { TapKeyProvider, TapKeys };
@@ -129,7 +131,11 @@ export async function replaceSecureTag(input: { actorUserId: string; tagId: stri
 }
 
 type TapInput = { tagRef: string; fields: { encrypted: string; mac: string }; cardToken?: string; keyProvider?: TapKeyProvider; now?: Date };
-export type TapResult = { state: "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled"; expiresAt?: Date; merchantName: string; locationName: string; programName: string; programSlug: string; balance?: number; requestId?: string };
+export type TapResult = { state: "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled"; expiresAt?: Date; merchantName: string; locationName: string; programName: string; programSlug: string; balance?: number; requestId?: string;
+  /** The card number, so the guest can tell the cashier which waiting request is theirs. Never a credential. */
+  cardLocator?: string;
+  /** Server-internal: the wake-up job created with a new pending request, sent right after commit. Never sent to the browser. */
+  pushJobId?: string };
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
@@ -164,33 +170,37 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     if (program.tapMode === "disabled" || !program.tapCooldownSeconds) return { ...base, state: "disabled" };
     const [member] = input.cardToken ? await tx.select().from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId))).for("update") : [];
     if (!member || member.closedAt) return { ...base, state: "needs_enrollment" };
+    const cardLocator = formatCardLocator(member.cardLocator);
     if (counter <= tag.lastCounter) {
       const [old] = await tx.select().from(tapRequests).where(and(eq(tapRequests.tagId, tag.id), eq(tapRequests.counter, counter)));
       // The same tap seen again (reload, retry, polling) reports where that request stands. It never books anything.
       if (old?.membershipId === member.id) {
-        if (old.status === "awarded") return { ...base, state: "already_processed", balance: member.balance };
-        if (old.status === "confirmed") return { ...base, state: "confirmed", balance: member.balance };
+        if (old.status === "awarded") return { ...base, state: "already_processed", balance: member.balance, cardLocator };
+        if (old.status === "confirmed") return { ...base, state: "confirmed", balance: member.balance, cardLocator };
         if (old.status === "cooldown") return { ...base, state: "cooldown", balance: member.balance };
         if (old.status === "cancelled") return { ...base, state: "cancelled", balance: member.balance };
         if (old.status === "expired") return { ...base, state: "expired", balance: member.balance };
-        if (old.status === "pending_staff") return old.expiresAt > now ? { ...base, state: "pending_staff", balance: member.balance, requestId: old.id, expiresAt: old.expiresAt } : { ...base, state: "expired", balance: member.balance };
+        if (old.status === "pending_staff") return old.expiresAt > now ? { ...base, state: "pending_staff", balance: member.balance, requestId: old.id, expiresAt: old.expiresAt, cardLocator } : { ...base, state: "expired", balance: member.balance };
       }
       throw new DomainError("REPLAYED_TAP", "Tap already used");
     }
     const [pending] = await tx.select().from(tapRequests).where(and(eq(tapRequests.tenantId, tag.tenantId), eq(tapRequests.locationId, tag.locationId), eq(tapRequests.programId, tag.programId), eq(tapRequests.membershipId, member.id), eq(tapRequests.status, "pending_staff"))).orderBy(desc(tapRequests.createdAt)).limit(1);
-    if (pending && pending.expiresAt > now) return { ...base, state: "pending_staff", balance: member.balance, requestId: pending.id, expiresAt: pending.expiresAt };
+    if (pending && pending.expiresAt > now) return { ...base, state: "pending_staff", balance: member.balance, requestId: pending.id, expiresAt: pending.expiresAt, cardLocator };
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, tag.tenantId), eq(tapRequests.programId, tag.programId), eq(tapRequests.membershipId, member.id), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     const onCooldown = Boolean(recent && now.getTime() - recent.createdAt.getTime() < program.tapCooldownSeconds * 1000);
     if (onCooldown || program.tapMode === "staff_confirmed" || !automaticTapAllowed()) { // pilot policy: never award automatically on the production deployment
       const status = onCooldown ? "cooldown" : "pending_staff";
       const [request] = await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now }).returning();
       await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
-      return { ...base, state: status, balance: member.balance, requestId: status === "pending_staff" ? request.id : undefined, expiresAt: status === "pending_staff" ? request.expiresAt : undefined };
+      if (status !== "pending_staff") return { ...base, state: status, balance: member.balance };
+      // Wake the location's cashier phones. Queued in this transaction, so it exists exactly when the request does.
+      const pushJobId = await enqueueTapPush(tx, { tenantId: tag.tenantId, tapRequestId: request.id }) ?? undefined;
+      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, pushJobId };
     }
     const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
     await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
-    return { ...base, state: "awarded", balance: booked.balance };
+    return { ...base, state: "awarded", balance: booked.balance, cardLocator };
   });
 }
 
@@ -205,10 +215,12 @@ export async function pendingTapRequests(input: { userId: string; locationId: st
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
   if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
   const now = input.now ?? new Date();
-  return db.select({ id: tapRequests.id, createdAt: tapRequests.createdAt, expiresAt: tapRequests.expiresAt, balance: memberships.balance, scanCode: memberships.scanCode }).from(tapRequests)
+  // The card number only: the scan code is a credential and never leaves the server here.
+  const rows = await db.select({ id: tapRequests.id, createdAt: tapRequests.createdAt, expiresAt: tapRequests.expiresAt, balance: memberships.balance, locator: memberships.cardLocator }).from(tapRequests)
     .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId)))
     .where(and(eq(tapRequests.tenantId, role.tenantId), eq(tapRequests.locationId, input.locationId), eq(tapRequests.status, "pending_staff"), gt(tapRequests.expiresAt, now), isNull(memberships.closedAt)))
     .orderBy(desc(tapRequests.createdAt)).limit(20);
+  return rows.map(({ locator, ...row }) => ({ ...row, cardLocator: formatCardLocator(locator) }));
 }
 
 export async function confirmTapRequest(input: { userId: string; locationId: string; requestId: string; now?: Date }) {

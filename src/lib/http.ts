@@ -9,6 +9,13 @@ export async function sessionUser(request: Request) {
   return session.user;
 }
 
+/** The signed-in user together with the login session id (device subscriptions are bound to the session). */
+export async function sessionWithUser(request: Request) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) throw new DomainError("UNAUTHENTICATED", "Sign in required");
+  return { user: session.user, sessionId: session.session.id };
+}
+
 export function requireSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const expected = new URL(process.env.PUBLIC_BASE_URL ?? request.url).origin;

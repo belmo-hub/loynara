@@ -59,7 +59,9 @@ describe("counter-tag flow: customer tap to cashier confirmation to ledger", () 
 
     const pending = await pendingTapRequests({ userId: cashier, locationId: f.location.id, now: at(10) });
     expect(pending.map(p => p.id)).toEqual([first.requestId]);
-    expect(pending[0]).toMatchObject({ scanCode: f.member.scanCode, balance: 0 });
+    // The cashier sees the card number, never the scan code (a credential).
+    expect(pending[0]).toMatchObject({ cardLocator: expect.stringMatching(/^K-[A-Z2-9]{6}$/), balance: 0 });
+    expect(JSON.stringify(pending)).not.toContain(f.member.scanCode);
 
     expect(await confirmTapRequest({ userId: cashier, locationId: f.location.id, requestId: first.requestId!, now: at(20) })).toMatchObject({ state: "confirmed", balance: 1 });
     // double tap on the button, retried request, second device: still one award

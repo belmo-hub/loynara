@@ -122,6 +122,21 @@ async function processJob(job: Job) {
       return permanent ? "failed" : "retry";
     }
   }
+  if (job.kind === "push.tap_pending") {
+    // NFC wake-up for cashier phones. Usually already sent by the web process right after the tap; this is the retry path.
+    try {
+      const { deliverTapPush } = await import("../src/lib/staff-push");
+      const outcome = await deliverTapPush(job);
+      const status = outcome.status === "retry" && job.attempts >= maxAttempts ? "failed" : outcome.status;
+      await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 15 : 0);
+      return status;
+    } catch (error) {
+      const permanent = job.attempts >= maxAttempts;
+      await mark(job, permanent ? "failed" : "retry", "NFC push delivery failed", permanent ? 0 : 15);
+      console.error(`NFC push job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return permanent ? "failed" : "retry";
+    }
+  }
   if (job.kind !== "wallet.refresh") {
     await mark(job, "failed", "Unknown job kind");
     return "failed";
