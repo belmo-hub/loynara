@@ -71,9 +71,9 @@ describe("hasNewRequest", () => {
 
 describe("tapErrorText", () => {
   it("uses the German texts by default", () => {
-    expect(tapErrorText(new ClientApiError(409, "x", "TAP_EXPIRED"))).toBe("Diese Anfrage ist abgelaufen. Die Kundin oder der Kunde berührt das Schild einfach erneut.");
+    expect(tapErrorText(new ClientApiError(409, "x", "TAP_EXPIRED"))).toBe("Diese Anfrage ist abgelaufen. Bitte die Kundin oder den Kunden das NFC-Schild erneut berühren lassen.");
     expect(tapErrorText(new ClientApiError(409, "x", "TAP_COOLDOWN"))).toBe("Diese Karte hat gerade erst einen Stempel bekommen. Bitte noch nicht bestätigen.");
-    expect(tapErrorText(new ClientApiError(403, "x"))).toBe("Für diesen Standort fehlt die Berechtigung.");
+    expect(tapErrorText(new ClientApiError(403, "x"))).toBe("Für diesen Standort fehlt dir die Berechtigung. Bitte die Geschäftsleitung fragen.");
   });
 
   it("reports an already confirmed request without implying a second booking", () => {
@@ -84,7 +84,7 @@ describe("tapErrorText", () => {
 
   it("translates to French", () => {
     expect(tapErrorText(new ClientApiError(409, "x", "TAP_ALREADY_CONFIRMED"), "fr")).toBe("Déjà confirmé par quelqu’un d’autre. Rien n’a été enregistré en double.");
-    expect(tapErrorText(new ClientApiError(403, "x"), "fr")).toBe("Il manque l’autorisation pour cet établissement.");
+    expect(tapErrorText(new ClientApiError(403, "x"), "fr")).toBe("Il manque l’autorisation pour cet établissement. Demandez-la à la direction.");
     expect(tapErrorText(new ClientApiError(409, "x", "TAP_COOLDOWN"), "fr")).toBe("Cette carte vient de recevoir un tampon. Ne confirmez pas encore.");
   });
 
@@ -95,6 +95,6 @@ describe("tapErrorText", () => {
   it("hides server text in French and falls back to a generic French message", () => {
     expect(tapErrorText(new ClientApiError(500, "Serverfehler"), "fr")).toBe("L’action a échoué. Veuillez réessayer.");
     expect(tapErrorText(new Error("boom"), "fr")).toBe("L’action a échoué. Veuillez réessayer.");
-    expect(tapErrorText("odd")).toBe("Aktion fehlgeschlagen.");
+    expect(tapErrorText("odd")).toBe("Das hat nicht geklappt. Bitte versuche es erneut.");
   });
 });
