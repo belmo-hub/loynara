@@ -7,7 +7,9 @@ import { BrandMark } from "./loyalty-ui";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardPath?: string };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
-type Result = { state: TapState; balance?: number; expiresAt?: string };
+type Result = { state: TapState; balance?: number; expiresAt?: string; cardLocator?: string };
+/** States in which the server also returns the card number, so the cashier can match the right request. */
+const STATES_WITH_CARD_NUMBER: ReadonlyArray<TapState> = ["pending_staff", "confirmed", "awarded", "already_processed"];
 
 const POLL_MS = 4000;
 export const TAP_RETURN_KEY = "loynara_tap_return";
@@ -81,6 +83,7 @@ export function TapClient({ refId }: { refId: string }) {
   return <main className="card-state-page" style={{ minHeight: "100vh", background: "#f7f4ec", padding: "24px" }}><div style={{ maxWidth: 480, margin: "auto", padding: "28px", borderRadius: 20, background: "white", color: "#17372c" }}><BrandMark />
     {preview && <p style={{ borderLeft: `4px solid ${preview.brandColor || "#214739"}`, paddingLeft: 12 }}><strong>{preview.merchantName}</strong><br />{preview.locationName} · {preview.programName}</p>}
     <h1>{title}</h1><p role={state === "error" ? "alert" : "status"} aria-live="polite">{detail}</p>
+    {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p style={{ fontSize: "1rem", fontWeight: 700 }}>Deine Kartennummer: <span translate="no" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", letterSpacing: ".06em", overflowWrap: "anywhere" }}>{result.cardLocator}</span></p>}
     {waiting && <p className="ow-muted" style={{ fontSize: 14 }}>Diese Seite aktualisiert sich selbst, sobald das Team bestätigt hat.</p>}
     {typeof result?.balance === "number" && state !== "needs_enrollment" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
     {nextReward && typeof result?.balance === "number" && (state === "confirmed" || state === "awarded" || state === "already_processed") && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}

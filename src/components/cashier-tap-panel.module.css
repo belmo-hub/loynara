@@ -1,0 +1,195 @@
+.panel {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid #cfe0d2;
+  border-radius: 16px;
+  background: #fff;
+  color: #1d302a;
+  box-shadow: 0 10px 24px rgba(20, 60, 30, .05);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 32px;
+}
+
+.title {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #ec7954;
+  color: #1e332c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* The empty state stays on the same line as the heading so the panel is one row high. */
+.emptyInline {
+  margin: 0;
+  color: #5d7266;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #fff4dc;
+  color: #7a5a1f;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.intro {
+  margin: 8px 0 0;
+  color: #5d7266;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dce6da;
+  border-radius: 14px;
+  background: #fbfdfa;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cardLabel {
+  color: #5d7266;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.locator {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(26px, 8vw, 34px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: .06em;
+  color: #17372e;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: #4f675a;
+  font-size: 13px;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.meta strong {
+  color: #17372e;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Selectors are two classes deep so they win over the global .button rules (white-space: nowrap). */
+.panel .primary,
+.panel .secondary {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+
+.panel .primary:disabled,
+.panel .secondary:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (min-width: 420px) {
+  .actions {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+}
+
+.outcome {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.outcomeSuccess {
+  background: #e1f2e4;
+  color: #286b43;
+}
+
+.outcomeNeutral {
+  background: #eef3ef;
+  color: #3c5746;
+}
+
+.outcomeError {
+  background: #fff0e9;
+  color: #9c512f;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
