@@ -98,3 +98,16 @@ describe("tapErrorText", () => {
     expect(tapErrorText("odd")).toBe("Das hat nicht geklappt. Bitte versuche es erneut.");
   });
 });
+
+describe("server timing re-anchored to the phone clock", () => {
+  it("uses the server's remaining and elapsed time, whatever the phone's clock says", async () => {
+    const { anchorToLocalClock } = await import("./cashier-tap-panel");
+    const skewedPhoneNow = Date.parse("2030-01-01T00:00:00Z");
+    const item = { id: "r1", createdAt: "2026-10-08T10:00:00Z", expiresAt: "2026-10-08T10:05:00Z", balance: 2, cardLocator: "K-7QX2MA", expiresInMs: 120_000, ageMs: 180_000 };
+    const anchored = anchorToLocalClock(item, skewedPhoneNow);
+    expect(Date.parse(anchored.expiresAt) - skewedPhoneNow).toBe(120_000);
+    expect(skewedPhoneNow - Date.parse(anchored.createdAt)).toBe(180_000);
+    const legacy = { id: "r2", createdAt: "a", expiresAt: "b", balance: 0, cardLocator: "K-AAAAAA" };
+    expect(anchorToLocalClock(legacy, skewedPhoneNow)).toBe(legacy);
+  });
+});
