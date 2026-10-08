@@ -16,6 +16,8 @@ import {
 } from "@/lib/cashier-push-client";
 
 type Copy = {
+  /** Short accessible name of the card; the explanations below are too long for a label. */
+  label: string;
   on: string;
   off: string;
   enable: string;
@@ -29,6 +31,7 @@ type Copy = {
 
 const COPY: Record<CashierLocale, Copy> = {
   de: {
+    label: "Benachrichtigungen",
     on: "Benachrichtigungen an",
     off: "Bei neuen NFC-Anfragen kann sich dieses Handy auch bei gesperrtem Bildschirm melden. Je nach Einstellung (z. B. Fokus-Modus) kommt keine Meldung. Die Meldung zeigt keine Kundendaten. Bestätigt wird nur in der geöffneten Kasse.",
     enable: "Benachrichtigungen einschalten",
@@ -40,6 +43,7 @@ const COPY: Record<CashierLocale, Copy> = {
     failed: "Benachrichtigungen konnten nicht geändert werden. Bitte versuche es erneut.",
   },
   fr: {
+    label: "Notifications",
     on: "Notifications activées",
     off: "Pour les nouvelles demandes NFC, ce téléphone peut vous alerter même à écran verrouillé. Selon les réglages (par ex. le mode concentration), aucune alerte n’arrive. La notification n’affiche aucune donnée client. La confirmation se fait uniquement dans la caisse ouverte.",
     enable: "Activer les notifications",
@@ -103,7 +107,7 @@ export function CashierNotifications({ locale }: { locale: CashierLocale }) {
 
   if (state === "on") {
     return (
-      <section className={styles.card} aria-label={copy.on}>
+      <section className={styles.card} aria-label={copy.label}>
         <div className={styles.row}>
           <p className={styles.title}>{copy.on}</p>
           <button type="button" className={`${styles.button} ${styles.secondary}`} disabled={busy} onClick={() => void run(disableCashierPush)}>
@@ -116,7 +120,7 @@ export function CashierNotifications({ locale }: { locale: CashierLocale }) {
   }
 
   return (
-    <section className={styles.card} aria-label={copy.off}>
+    <section className={styles.card} aria-label={copy.label}>
       {state === "off" ? (
         <div className={styles.row}>
           <p className={styles.text}>{copy.off}</p>
