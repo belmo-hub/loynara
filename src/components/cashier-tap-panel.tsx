@@ -7,7 +7,16 @@ import styles from "./cashier-tap-panel.module.css";
 export type TapPanelLocale = "de" | "fr";
 
 /** One open NFC request. The server never sends a scan code; only the card number (cardLocator) is shown. */
-export type PendingTapRequest = { id: string; createdAt: string; expiresAt: string; balance: number; cardLocator: string };
+export type PendingTapRequest = { id: string; createdAt: string; expiresAt: string; balance: number; cardLocator: string; expiresInMs?: number; ageMs?: number };
+
+/**
+ * Re-anchors the server's timing to this phone's clock at the moment the list arrived. The server sends how long each
+ * request has left and how old it is, so a phone whose clock is off still hides and counts down at the right time.
+ */
+export function anchorToLocalClock(item: PendingTapRequest, receivedAt: number): PendingTapRequest {
+  if (typeof item.expiresInMs !== "number" || typeof item.ageMs !== "number") return item;
+  return { ...item, expiresAt: new Date(receivedAt + item.expiresInMs).toISOString(), createdAt: new Date(receivedAt - item.ageMs).toISOString() };
+}
 
 type Outcome = { tone: "success" | "neutral" | "error"; text: string };
 
@@ -20,7 +29,7 @@ export const TAP_REFRESH_EVENT = "loynara:tap-refresh";
 const STRINGS: Record<TapPanelLocale, {
   title: string; empty: string; intro: string; offline: string; loadError: string;
   cardLabel: string; balanceLabel: string; ago: (seconds: number) => string; expires: (countdown: string) => string;
-  confirm: string; reject: string; newRequest: string;
+  confirm: string; reject: string; newRequest: string; signedOut: string;
   confirmed: (cardLocator: string, balance: string) => string;
   rejected: string; alreadyProcessed: string;
   expired: string; cooldown: string; forbidden: string; notFound: string; rateLimited: string; network: string; failed: string;
@@ -35,6 +44,7 @@ const STRINGS: Record<TapPanelLocale, {
     balanceLabel: "Stand",
     ago: seconds => `vor ${seconds} s`,
     expires: countdown => `läuft ab in ${countdown}`,
+    signedOut: "Du bist nicht mehr angemeldet. Bitte melde dich neu an, um NFC-Anfragen zu sehen.",
     confirm: "Stempel bestätigen",
     reject: "Ablehnen",
     newRequest: "Neue NFC-Anfrage eingegangen.",
@@ -59,6 +69,7 @@ const STRINGS: Record<TapPanelLocale, {
     balanceLabel: "Solde",
     ago: seconds => `il y a ${seconds} s`,
     expires: countdown => `expire dans ${countdown}`,
+    signedOut: "Vous n’êtes plus connecté(e). Reconnectez-vous pour voir les demandes NFC.",
     confirm: "Confirmer le tampon",
     reject: "Refuser",
     newRequest: "Nouvelle demande NFC reçue.",
@@ -160,6 +171,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [signedOut, setSignedOut] = useState<"signedOut" | "forbidden" | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -182,12 +194,13 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
     try {
       const received = await apiJson<PendingTapRequest[]>("/api/cashier/tap/pending", { signal: controller.signal });
       if (seq !== refreshSeq.current) return;
-      const list = Array.isArray(received) ? received : [];
       const at = Date.now();
+      const list = (Array.isArray(received) ? received : []).map(item => anchorToLocalClock(item, at));
       setItems(list);
       setNow(at);
       setOffline(false);
       setLoadFailed(false);
+      setSignedOut(null);
       const previous = knownIdsRef.current;
       const openIds = list.filter(item => isOpenRequest(item, at)).map(item => item.id);
       if (previous && hasNewRequest(previous, openIds)) {
@@ -199,6 +212,10 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       if (seq !== refreshSeq.current) return;
       // The last list stays on screen; only the notice changes.
       if (error instanceof ClientApiError && error.status === 0) setOffline(true);
+      else if (error instanceof ClientApiError && (error.status === 401 || error.status === 403)) {
+        // Signed out elsewhere or access withdrawn: nothing stays on screen that could be acted on.
+        setItems([]); knownIdsRef.current = null; setSignedOut(error.status === 401 ? "signedOut" : "forbidden");
+      }
       else setLoadFailed(true);
     } finally {
       clearTimeout(timer);
@@ -308,6 +325,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       </div>
       {offline && <p className={styles.notice} role="status">{t.offline}</p>}
       {!offline && loadFailed && <p className={styles.notice} role="status">{t.loadError}</p>}
+      {signedOut && <p className={styles.notice} role="alert">{signedOut === "signedOut" ? t.signedOut : t.forbidden}</p>}
       {openCount > 0 && <>
         <p className={styles.intro}>{t.intro}</p>
         <ul className={styles.list}>

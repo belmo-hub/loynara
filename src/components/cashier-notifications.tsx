@@ -78,8 +78,9 @@ export function CashierNotifications({ locale }: { locale: CashierLocale }) {
       if (document.visibilityState === "visible") void clearTapNotifications();
       const next = await getPushState().catch((): CashierPushState => "unavailable");
       // "On" in this browser does not prove the server still has the device (it is bound to the login session).
-      if (next === "on") await syncCashierPush(locale).catch(() => undefined);
-      if (active) setState(next);
+      // If the server cannot take the device back, say "off" so the cashier can switch it on again, never a false "on".
+      const synced = next === "on" ? await syncCashierPush(locale).then(() => true, () => false) : true;
+      if (active) setState(synced ? next : "off");
     })();
 
     return () => {
