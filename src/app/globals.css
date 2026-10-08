@@ -160,10 +160,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .customer-card-bottom strong, .customer-qr-panel code { overflow-wrap: anywhere; word-break: break-all; }.customer-card-bottom strong { max-width: 76%; text-align: right; font-size: 10px; letter-spacing: 0; }.customer-rules { margin-top: 17px; padding: 21px; border: 1px solid #e0e9dc; background: #fff; border-radius: 14px; }.customer-rules h2 { margin: 0 0 9px; font-size: 17px; }.customer-rules p { margin: 0 0 11px; white-space: pre-wrap; color: #667b69; font-size: 11px; line-height: 1.55; }.customer-rules a { color: #428253; font-size: 11px; font-weight: 800; text-decoration: underline; }
 
 /* Camera modal */
-.scanner-modal { position: fixed; z-index: 101; inset: 0; display: grid; place-items: center; padding: 15px; background: rgba(7, 30, 18, .75); }.scanner-content { width: min(100%, 510px); padding: 20px; border-radius: 17px; background: #fff; box-shadow: 0 25px 60px rgba(0,0,0,.23); }.scanner-head { display: flex; align-items: start; justify-content: space-between; gap: 15px; }.scanner-head h2 { margin: 6px 0 14px; font-size: 23px; letter-spacing: -.04em; }.scanner-close { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: #edf3e9; color: #3c6247; }.scanner-video-wrap { position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 10px; background: #10251b; overflow: hidden; }.scanner-video-wrap video { width: 100%; height: 100%; object-fit: cover; }.scanner-sight { position: absolute; inset: 19%; border: 2px solid #eaf8df; border-radius: 10px; box-shadow: 0 0 0 999px rgba(0,0,0,.15); pointer-events: none; }.scanner-content > p { color: #6b806f; font-size: 12px; line-height: 1.45; margin: 14px 0; }
+.scanner-video-wrap { position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 10px; background: #10251b; overflow: hidden; }.scanner-video-wrap video { width: 100%; height: 100%; object-fit: cover; }.scanner-sight { position: absolute; inset: 19%; border: 2px solid #eaf8df; border-radius: 10px; box-shadow: 0 0 0 999px rgba(0,0,0,.15); pointer-events: none; }
 
 @media (max-width: 850px) { .auth-page { grid-template-columns: 1fr; }.auth-side { min-height: auto; padding: 21px 25px; }.auth-side-copy, .auth-side > small { display: none; }.auth-side .brand-lockup { width: fit-content; }.auth-content { min-height: calc(100vh - 70px); padding: 45px 22px; }.program-view-grid { grid-template-columns: 1fr; }.program-view-side { width: min(100%, 360px); } }
-@media (max-width: 560px) { .auth-content { align-items: start; }.auth-card h1 { font-size: 34px; }.join-header { padding-inline: 17px; }.join-header > span { font-size: 8px; }.join-main { padding-top: 15px; }.join-hero { min-height: 180px; }.join-panel { padding: 22px; }.program-view { padding-block: 35px 70px; }.program-details { grid-template-columns: 1fr; }.program-view-side { width: 100%; }.customer-card-bottom strong { font-size: 8px; }.scanner-content { padding: 15px; } }
+@media (max-width: 560px) { .auth-content { align-items: start; }.auth-card h1 { font-size: 34px; }.join-header { padding-inline: 17px; }.join-header > span { font-size: 8px; }.join-main { padding-top: 15px; }.join-hero { min-height: 180px; }.join-panel { padding: 22px; }.program-view { padding-block: 35px 70px; }.program-details { grid-template-columns: 1fr; }.program-view-side { width: 100%; }.customer-card-bottom strong { font-size: 8px; } }
 .wallet-mode-note { margin-top: 11px !important; color: #94703a !important; }.wallet-error { margin-top: 11px !important; color: #a44932 !important; }.join-inactive { margin-top: 20px; border-radius: 9px; padding: 11px 13px; background: #fff3df; color: #865f31; font-size: 11px; line-height: 1.45; }
 .program-edit-panel { margin-top: 17px; }.program-edit-form { display: grid; gap: 19px; }.program-edit-form label { display: flex; flex-direction: column; gap: 7px; color: #2d4734; font-size: 12px; font-weight: 800; }.program-edit-form input, .program-edit-form select, .program-edit-form textarea { width: 100%; min-height: 44px; border: 1px solid #dce5da; border-radius: 9px; background: #fff; color: var(--ink); padding: 10px 12px; font-size: 13px; font-weight: 500; }.program-edit-form textarea { resize: vertical; }.program-edit-form small { color: #89988a; font-size: 10px; font-weight: 500; }.program-edit-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border-radius: 9px; background: #eef5ea; color: #5d755f; font-size: 11px; line-height: 1.45; }.program-edit-note svg { flex: none; }.program-edit-form > .button { width: fit-content; }
 @media (max-width: 560px) { .program-edit-form .field-grid { grid-template-columns: 1fr; }.program-edit-form > .button { width: 100%; } }
@@ -331,7 +331,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .cashier-booked-detail { margin: 0 auto; max-width: 420px; color: #31503c; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
 .cashier-booked-hint { margin: 12px auto 0; max-width: 420px; padding: 10px 12px; border-radius: 9px; background: #eef5ea; color: #2f5b3e; font-size: 13px; font-weight: 700; }
 .cashier-booked .button { margin-top: 18px; min-height: 46px; }
-.cashier-booked + .cashier-scan-card { margin-top: 16px; }
+.cashier-booked + .cashier-scan-card, .cashier-booked + .counter-camera { margin-top: 16px; }
 .confirm-dialog p.confirm-offline-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; background: #fff4dc; color: #7a5a1f; font-size: 12px; }
 .confirm-actions { flex-wrap: wrap; }
 .confirm-actions .button { flex: 1 1 120px; min-width: 0; white-space: normal; text-align: center; }
@@ -349,3 +349,19 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .wallet-add:hover:not(:disabled) { background: #2b2b2b; }
 .wallet-add:focus-visible { outline: 3px solid #56a46a; outline-offset: 2px; }
 .wallet-add:disabled { opacity: .7; cursor: progress; }
+/* Fast counter: the camera stays on between customers, one tap books a stamp. */
+.counter-camera { margin-bottom: 16px; padding: 14px; background: #fff; border: 1px solid #dfe8dc; border-radius: 19px; box-shadow: 0 15px 32px rgba(20, 60, 30, .055); text-align: center; }
+.counter-camera[hidden] { display: none; }
+.counter-camera .scanner-video-wrap { max-height: 300px; }
+.counter-camera > p { margin: 12px 0 4px; color: #4f6355; font-size: 13px; line-height: 1.45; }
+.counter-camera-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; }
+.counter-camera-actions .button { min-height: 44px; }
+.counter-camera-actions .text-button { min-height: 44px; }
+.counter-camera--sleeping { display: grid; gap: 6px; justify-items: center; }
+.cashier-award-now { margin-top: 14px; min-height: 58px; font-size: 18px; }
+/* With the camera on, the booking confirmation stays short so the camera remains in view for the next guest. */
+.cashier-booked--compact { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 14px; padding: 16px 18px; text-align: left; }
+.cashier-booked--compact .cashier-booked-icon { grid-row: span 2; width: 44px; height: 44px; margin: 0; }
+.cashier-booked--compact h2 { margin: 0; font-size: 20px; }
+.cashier-booked--compact .cashier-booked-detail { margin: 0; font-size: 13px; }
+.cashier-booked--compact .cashier-booked-hint { grid-column: 1 / -1; margin: 8px 0 0; }

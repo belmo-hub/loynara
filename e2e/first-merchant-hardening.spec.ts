@@ -182,17 +182,15 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(page.getByRole("region", { name: "Offline-Vergaben" })).toHaveCount(0);
     await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    const dialog = page.getByRole("dialog", { name: "Vergabe bestätigen?" });
-    await expect(dialog).toContainText(`1 Stempel für Karte ${card.cardLocator}.`);
-    await expect(dialog).not.toContainText("sc_");
+    // One stamp is one tap: no dialog, and no offline choice while online.
     await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
     const booked = page.locator(".cashier-booked");
     await expect(booked).toContainText(`1 Stempel für ${card.cardLocator} vergeben. Neuer Stand: 1 Stempel.`);
     // Nothing on the previous card is actionable any more.
-    await expect(page.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+    await expect(page.locator(".cashier-award-now")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Menge erhöhen" })).toHaveCount(0);
     await expect(page.locator(".balance-display")).toHaveCount(0);
     await expect(booked).not.toContainText("sc_");
@@ -204,8 +202,7 @@ test("after a booking the card closes, shows its number, and the counter returns
 
     // "Andere Karte" moves on immediately, without waiting.
     await openCard(page, card.scanCode);
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(booked).toBeVisible();
     await page.getByRole("button", { name: "Andere Karte" }).click();
     await expect(page.getByRole("button", { name: "Kamera öffnen" })).toBeVisible({ timeout: 1_000 });
@@ -213,8 +210,7 @@ test("after a booking the card closes, shows its number, and the counter returns
 
     // A double click on the confirmation books once.
     await openCard(page, card.scanCode);
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await page.getByRole("button", { name: "Ja, vergeben" }).dblclick();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).dblclick();
     await expect(booked).toContainText("Neuer Stand: 3 Stempel.");
     await expect(booked).toHaveCount(0, { timeout: 8_000 });
     expect(await balanceOf(url, card.cardToken)).toBe(3);
@@ -222,8 +218,7 @@ test("after a booking the card closes, shows its number, and the counter returns
     // A slow answer that arrives after the cashier already moved on never reopens or closes anything.
     await openCard(page, card.scanCode);
     await page.route("**/api/cashier/award", async route => { await new Promise(resolve => setTimeout(resolve, 1_500)); await route.continue(); });
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await page.locator(".card-result-head").getByRole("button", { name: "Andere Karte" }).click();
     await expect(page.getByRole("button", { name: "Kamera öffnen" })).toBeVisible();
     await expect(page.locator(".cashier-status")).toContainText(`für ${card.cardLocator} vergeben`, { timeout: 5_000 });
@@ -242,13 +237,11 @@ test("after a booking the card closes, shows its number, and the counter returns
       await route.fetch(); // the server books it ...
       await route.abort("internetdisconnected"); // ... but the answer never reaches the counter
     });
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(page.locator(".cashier-status")).toContainText("Ergebnis unklar");
     await expect(page.locator(".balance-display")).toBeVisible();
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
     await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(booked).toContainText(`Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`);
     await page.unroute("**/api/cashier/award");
     expect(await balanceOf(url, card.cardToken)).toBe(5);
@@ -263,15 +256,13 @@ test("after a booking the card closes, shows its number, and the counter returns
       await route.fetch();
       await route.abort("internetdisconnected");
     });
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(page.locator(".cashier-status")).toContainText("Ergebnis unklar");
     await page.locator(".card-result-head").getByRole("button", { name: "Andere Karte" }).click();
     await openCard(page, card.scanCode);
     await expect(page.locator(".cashier-status")).toContainText(`Der letzte Vorgang für ${card.cardLocator} hat ein unklares Ergebnis (1 Stempel).`);
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
     await expect(page.getByRole("button", { name: "Offline-Vergabe vormerken" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(booked).toContainText(`Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`);
     await page.unroute("**/api/cashier/award");
     expect(await balanceOf(url, card.cardToken)).toBe(6);
@@ -279,8 +270,7 @@ test("after a booking the card closes, shows its number, and the counter returns
     // A handheld scanner: right after a booking the code field has the focus, so the next guest's code goes straight in.
     const next = await guestCard(url, shop.programSlug);
     await openCard(page, card.scanCode);
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(booked).toContainText(`für ${card.cardLocator} vergeben`);
     await expect(page.getByLabel("Kartennummer oder Kartencode")).toBeFocused();
     await page.keyboard.type(next.scanCode);
@@ -314,15 +304,15 @@ test("the offline fallback appears only with real connection trouble and still q
     await expect(page.getByRole("region", { name: "Offline-Vergaben" })).toBeVisible();
     // Trying online first while the browser has no network sends nothing, so the result is certain and the offline
     // fallback stays available (an unclear result would block it).
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await page.getByRole("button", { name: "1 Stempel prüfen" }).click();
     await page.getByRole("button", { name: "Ja, vergeben" }).click();
     await expect(page.locator(".cashier-status")).toContainText("Es wurde nichts gesendet und nichts gebucht.");
     await expect(page.locator(".balance-display")).toBeVisible();
-    await page.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await page.getByRole("button", { name: "1 Stempel prüfen" }).click();
     await expect(page.getByText("Verbindung zum Server gestört.", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();
     await expect(page.locator(".cashier-booked")).toContainText(`1 Stempel für ${card.cardLocator} offline vorgemerkt.`);
-    await expect(page.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+    await expect(page.locator(".cashier-award-now")).toHaveCount(0);
     const queue = page.getByRole("region", { name: "Offline-Vergaben" });
     await expect(queue).toContainText("1 ausstehend");
     await expect(queue).toContainText(card.cardLocator);
