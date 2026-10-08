@@ -341,6 +341,32 @@ export const tapRequests = pgTable("tap_requests", {
   check("tap_request_status_valid", sql`${t.status} in ('awarded','cooldown','pending_staff','confirmed','expired','cancelled')`),
 ]);
 
+/**
+ * Web Push subscriptions of staff devices, used only to wake a cashier phone when an NFC tap waits for confirmation.
+ * One row per browser endpoint. Bound to the login session that created it: signing out (or the session expiring and
+ * being deleted) removes the row through the foreign key added in migration 0021 (the auth tables live outside this
+ * schema, in drizzle/auth.sql). Every send re-checks that the user still has an active role at the location.
+ */
+export const staffPushSubscriptions = pgTable("staff_push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  locationId: uuid("location_id").notNull(),
+  userId: text("user_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: varchar("p256dh", { length: 100 }).notNull(),
+  auth: varchar("auth", { length: 40 }).notNull(),
+  locale: varchar("locale", { length: 2 }).notNull().default("de"),
+  failureCount: integer("failure_count").notNull().default(0),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  index("staff_push_location_idx").on(t.tenantId, t.locationId),
+  check("staff_push_locale_valid", sql`${t.locale} in ('de','fr')`),
+  check("staff_push_endpoint_https", sql`${t.endpoint} like 'https://%'`),
+]);
+
 // A lease is issued only while the cashier and card are online. It is scoped
 // to one staff member, browser device, location and membership.
 export const offlineAwardLeases = pgTable("offline_award_leases", {
