@@ -21,11 +21,11 @@ export function tapCopy(state: TapState | "loading" | "error", error?: ClientApi
     case "loading": return { title: "NFC-Berührung wird geprüft", detail: "Einen Moment bitte." };
     case "needs_enrollment": return { title: "Deine Karte erstellen", detail: "Mit einer kostenlosen Karte im Browser sammelst du Stempel. Du brauchst keine App." };
     case "pending_staff": return { title: "Warte auf das Team", detail: "Das Team an der Kasse bestätigt deinen Stempel. Du musst nichts weiter tun." };
-    case "confirmed": return { title: "Stempel erhalten", detail: "Das Team hat deinen Stempel bestätigt und deinem Konto gutgeschrieben." };
-    case "awarded": return { title: "Stempel erhalten", detail: "Ein Stempel wurde bestätigt und deinem Konto gutgeschrieben." };
+    case "confirmed": return { title: "Stempel erhalten", detail: "Das Team hat deinen Stempel bestätigt. Er ist auf deiner Karte gebucht." };
+    case "awarded": return { title: "Stempel erhalten", detail: "Ein Stempel wurde bestätigt und auf deiner Karte gebucht." };
     case "already_processed": return { title: "Schon erledigt", detail: "Diese Berührung wurde bereits verarbeitet. Es wurde nichts doppelt gebucht." };
-    case "cooldown": return { title: "Bitte noch einen Moment", detail: "Für diese Karte gab es gerade erst einen Stempel. Berühre das Schild beim nächsten Besuch erneut." };
-    case "expired": return { title: "Anfrage abgelaufen", detail: "Das Team hat diese Anfrage nicht rechtzeitig bestätigt. Berühre das Schild erneut." };
+    case "cooldown": return { title: "Gerade erst gestempelt", detail: "Auf deiner Karte wurde gerade erst ein Stempel gebucht. Beim nächsten Besuch kannst du das Schild wieder berühren." };
+    case "expired": return { title: "Anfrage abgelaufen", detail: "Das Team hat diese Anfrage nicht rechtzeitig bestätigt. Berühre das Schild noch einmal, um es erneut zu versuchen." };
     case "cancelled": return { title: "Nicht bestätigt", detail: "Das Team hat diese Anfrage nicht bestätigt. Frage bitte an der Kasse nach." };
     case "disabled": return { title: "NFC ist hier aus", detail: "Für dieses Programm ist die NFC-Berührung gerade ausgeschaltet. Zeige stattdessen deinen Kartencode an der Kasse." };
     case "error":
@@ -83,8 +83,8 @@ export function TapClient({ refId }: { refId: string }) {
   return <main className="card-state-page" style={{ minHeight: "100vh", background: "#f7f4ec", padding: "24px" }}><div style={{ maxWidth: 480, margin: "auto", padding: "28px", borderRadius: 20, background: "white", color: "#17372c" }}><BrandMark />
     {preview && <p style={{ borderLeft: `4px solid ${preview.brandColor || "#214739"}`, paddingLeft: 12 }}><strong>{preview.merchantName}</strong><br />{preview.locationName} · {preview.programName}</p>}
     <h1>{title}</h1><p role={state === "error" ? "alert" : "status"} aria-live="polite">{detail}</p>
-    {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p style={{ fontSize: "1rem", fontWeight: 700 }}>Deine Kartennummer: <span translate="no" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", letterSpacing: ".06em", overflowWrap: "anywhere" }}>{result.cardLocator}</span></p>}
-    {waiting && <p className="ow-muted" style={{ fontSize: 14 }}>Diese Seite aktualisiert sich selbst, sobald das Team bestätigt hat.</p>}
+    {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p style={{ fontSize: "1rem", fontWeight: 700 }}>Deine Kartennummer (das Team sieht sie an der Kasse): <span translate="no" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", letterSpacing: ".06em", overflowWrap: "anywhere" }}>{result.cardLocator}</span></p>}
+    {waiting && <p className="ow-muted" style={{ fontSize: 14 }}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
     {typeof result?.balance === "number" && state !== "needs_enrollment" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
     {nextReward && typeof result?.balance === "number" && (state === "confirmed" || state === "awarded" || state === "already_processed") && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
     {preview && state === "needs_enrollment" && <>

@@ -30,7 +30,7 @@ type CashierPushConfig = { available: boolean; publicKey?: string };
 
 /** Decodes a VAPID public key (base64url, no padding) into the bytes PushManager.subscribe expects. */
 export function base64UrlToUint8Array(value: string): Uint8Array<ArrayBuffer> {
-  if (!BASE64URL_PATTERN.test(value)) throw new Error("Ungültiger Schlüssel für Benachrichtigungen.");
+  if (!BASE64URL_PATTERN.test(value)) throw new Error("Die Benachrichtigungen sind nicht richtig eingerichtet. Bitte lade die Kasse neu.");
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -176,7 +176,7 @@ export async function enableCashierPush(locale: CashierLocale): Promise<CashierP
 
   try {
     const result = await postJson<{ subscribed: boolean }>(SUBSCRIPTION_PATH, { ...subscription.toJSON(), locale });
-    if (result.subscribed !== true) throw new Error("Benachrichtigungen konnten nicht gespeichert werden.");
+    if (result.subscribed !== true) throw new Error("Benachrichtigungen konnten nicht gespeichert werden. Bitte versuche es erneut.");
   } catch (cause) {
     await subscription.unsubscribe().catch(() => false);
     throw cause;

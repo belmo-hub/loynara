@@ -11,8 +11,8 @@ const CLEAR_MESSAGE = "loynara:clear-tap-notifications";
 const ICON_URL = "/cashier-icon-192.png";
 
 const TEXT = {
-  de: { title: "Neue NFC-Anfrage", body: "Öffne die Kasse und bestätige den Stempel." },
-  fr: { title: "Nouvelle demande NFC", body: "Ouvrez la caisse et confirmez le tampon." },
+  de: { title: "Neue NFC-Anfrage", body: "Öffne die Kasse und prüfe den Einkauf." },
+  fr: { title: "Nouvelle demande NFC", body: "Ouvrez la caisse et vérifiez l’achat." },
 };
 
 function textForPayload(event) {
