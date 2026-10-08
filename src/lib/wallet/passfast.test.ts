@@ -5,7 +5,7 @@ const serial = "11111111-1111-4111-8111-111111111111";
 const id = "22222222-2222-4222-8222-222222222222";
 const env = { PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: id, PASSFAST_TEMPLATE_ID: serial };
 const config = () => passFastConfig(env);
-const pass = (platform = "google", status = "active") => ({ id, serial_number: serial, wallet_type: platform, status, google_save_url: "https://pay.google.com/gp/v/save/synthetic" });
+const pass = (platform = "google", status = "active") => ({ id, serial_number: serial, external_id: serial, app_id: id, template_id: serial, wallet_type: platform, status, google_save_url: "https://pay.google.com/gp/v/save/synthetic" });
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 
 describe("PassFast managed transport, fake responses only", () => {

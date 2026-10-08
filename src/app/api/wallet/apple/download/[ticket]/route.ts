@@ -9,7 +9,7 @@ import { credentialHash, walletCardSnapshot } from "@/lib/wallet/data";
 import { noStore, walletDownloadFailure, walletIssueError, walletUnavailable } from "@/lib/wallet/http";
 import { activeApplePass } from "@/lib/wallet/issue";
 import { readDownloadTicket, TICKET_TTL_SECONDS } from "@/lib/wallet/ticket";
-import { isPassFastObjectId, PassFastClient, passFastConfig, passFastSerial } from "@/lib/wallet/passfast";
+import { isPassFastObjectId, PassFastClient, passFastConfig, passFastSerial, PASSFAST_OPERATION_MS } from "@/lib/wallet/passfast";
 import { syncPassFastPass } from "@/lib/wallet/passfast-lifecycle";
 
 /**
@@ -29,11 +29,12 @@ export async function GET(request: Request, context: { params: Promise<{ ticket:
     const row = await activeApplePass(parsed.passId);
     if (!row) throw new DomainError("NOT_FOUND", "Download link expired");
     const snapshot = await walletCardSnapshot(row.membershipId);
-    if (!snapshot.open || snapshot.credentialHash !== row.credentialHash) throw new DomainError("NOT_FOUND", "Download link expired");
+    if (!snapshot.open || snapshot.credentialHash !== row.credentialHash || snapshot.pass.tenantId !== row.tenantId) throw new DomainError("NOT_FOUND", "Download link expired");
     let bytes: Buffer;
     if (isPassFastObjectId(row.providerObjectId)) {
-      await syncPassFastPass(row.id, { tenantId: row.tenantId });
-      bytes = await new PassFastClient(passFastConfig()).download(passFastSerial(row.providerObjectId));
+      const deadline = Date.now() + PASSFAST_OPERATION_MS;
+      await syncPassFastPass(row.id, { tenantId: row.tenantId, deadline });
+      bytes = await new PassFastClient(passFastConfig(process.env, row.tenantId), fetch, deadline).download(passFastSerial(row.providerObjectId));
     } else {
       const config = appleSigningConfig();
       bytes = await applePassArchive(applePassJson(snapshot.pass, row.id, config), snapshot.pass, config);

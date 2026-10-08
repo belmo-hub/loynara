@@ -1,0 +1,136 @@
+{
+  "id": "0d283e79-17ba-48ca-9b2d-438487644190",
+  "app_id": "fe0f1e68-4655-41d2-b805-813281911f79",
+  "is_published": true,
+  "is_archived": false,
+  "wallet_types": [
+    "apple",
+    "google"
+  ],
+  "pass_style": "storeCard",
+  "field_schema": {
+    "locale": {
+      "type": "string",
+      "required": true
+    },
+    "balance": {
+      "type": "number",
+      "required": true
+    },
+    "scanCode": {
+      "type": "string",
+      "required": true,
+      "description": "Barcode content"
+    },
+    "rewardCost": {
+      "type": "number",
+      "required": true
+    },
+    "cardLocator": {
+      "type": "string",
+      "required": true
+    },
+    "programName": {
+      "type": "string",
+      "required": true
+    },
+    "programType": {
+      "type": "string",
+      "required": true
+    },
+    "rewardReady": {
+      "type": "string",
+      "required": true
+    },
+    "rewardTitle": {
+      "type": "string",
+      "required": true
+    },
+    "locationName": {
+      "type": "string",
+      "required": true
+    },
+    "merchantName": {
+      "type": "string",
+      "required": true
+    }
+  },
+  "structure": {
+    "barcode": {
+      "format": "PKBarcodeFormatQR",
+      "altTextDataKey": "cardLocator",
+      "messageDataKey": "scanCode"
+    },
+    "logoText": "Mit Loynara",
+    "backFields": [
+      {
+        "key": "locationName",
+        "label": "Standort",
+        "dataKey": "locationName"
+      },
+      {
+        "key": "locale",
+        "label": "Sprache",
+        "dataKey": "locale"
+      },
+      {
+        "key": "programType",
+        "label": "Programmtyp",
+        "dataKey": "programType"
+      },
+      {
+        "key": "rewardReady",
+        "label": "",
+        "dataKey": "rewardReady"
+      }
+    ],
+    "labelColor": "#D6E9DF",
+    "description": "Treuekarte",
+    "headerFields": [
+      {
+        "key": "balance",
+        "label": "Kontostand",
+        "dataKey": "balance",
+        "numberStyle": "PKNumberStyleDecimal"
+      }
+    ],
+    "primaryFields": [
+      {
+        "key": "merchantName",
+        "label": "Geschäft",
+        "dataKey": "merchantName"
+      }
+    ],
+    "googleLogoText": "Mit Loynara",
+    "auxiliaryFields": [
+      {
+        "key": "rewardTitle",
+        "label": "Prämie",
+        "dataKey": "rewardTitle"
+      },
+      {
+        "key": "rewardCost",
+        "label": "Ziel",
+        "dataKey": "rewardCost",
+        "numberStyle": "PKNumberStyleDecimal"
+      }
+    ],
+    "backgroundColor": "#1F4A3A",
+    "foregroundColor": "#FFFFFF",
+    "secondaryFields": [
+      {
+        "key": "programName",
+        "label": "Programm",
+        "dataKey": "programName"
+      },
+      {
+        "key": "cardLocator",
+        "label": "Kartennummer",
+        "dataKey": "cardLocator"
+      }
+    ],
+    "organizationName": "Loynara",
+    "loyaltyPointsLabel": "Kontostand",
+    "loyaltyPointsDataKey": "balance"
+  }
+}

@@ -7,7 +7,7 @@ import { DomainError } from "@/lib/loyalty";
 import { credentialHash } from "./data";
 import { enqueueWalletRefresh } from "./enqueue";
 import type { WalletProvider } from "./types";
-import { isPassFastObjectId } from "./passfast";
+import { isPassFastObjectId, passFastConfig } from "./passfast";
 
 export type IssuedPass = typeof walletPasses.$inferSelect;
 
@@ -23,6 +23,11 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
   return db.transaction(async tx => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    // Refuse unmapped tenants before changing any projection or enqueueing work.
+    if (isPassFastObjectId(objectIdFor(member.id))) {
+      const config = passFastConfig(process.env, member.tenantId);
+      if (!config.platforms.includes(provider)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+    }
     const hash = credentialHash(member.scanCode);
     const [active] = await tx.select().from(walletPasses)
       .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id), eq(walletPasses.provider, provider), isNull(walletPasses.revokedAt)));

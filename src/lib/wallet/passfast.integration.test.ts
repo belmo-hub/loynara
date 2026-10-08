@@ -23,7 +23,7 @@ import { syntheticPassFastArchive } from "./test-support";
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Requires isolated looplocal_test");
 const origin = "http://localhost:3000";
 const post = (token: string, platform = "google") => new Request(`${origin}/api/wallet/${platform}`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ token }) });
-type Remote = { id: string; serial_number: string; wallet_type: string; status: string; dynamic_data: Record<string, unknown>; google_save_url?: string };
+type Remote = { app_id: string; template_id: string; external_id: string; id: string; serial_number: string; wallet_type: string; status: string; dynamic_data: Record<string, unknown>; google_save_url?: string };
 let outagePlatform: string | undefined;
 let failingVoids = new Set<string>();
 let pauseUpdate: (() => Promise<void>) | undefined, pauseDownload: (() => Promise<void>) | undefined;
@@ -41,7 +41,7 @@ async function fake(input: string | URL | Request, options?: RequestInit): Promi
   if (url.pathname.endsWith("/generate-pass")) {
     const serial = String(body?.serial_number), platform = String(body?.wallet_type), key = serial + platform;
     let row = rows.get(key);
-    if (!row) { row = { id: randomUUID(), serial_number: serial, wallet_type: platform, status: "active", dynamic_data: body!.data as Record<string, unknown>, ...(platform === "google" ? { google_save_url: "https://pay.google.com/gp/v/save/synthetic" } : {}) }; rows.set(key, row); }
+    if (!row) { row = { app_id:process.env.PASSFAST_APP_ID!, template_id:String(body?.template_id), external_id:serial, id: randomUUID(), serial_number: serial, wallet_type: platform, status: "active", dynamic_data: body!.data as Record<string, unknown>, ...(platform === "google" ? { google_save_url: "https://pay.google.com/gp/v/save/synthetic" } : {}) }; rows.set(key, row); }
     if (loseGenerate) { loseGenerate = false; throw new DOMException("Synthetic timeout after create", "TimeoutError"); }
     return platform === "apple" ? pkpass(row) : Response.json({ save_url: row.google_save_url }, { status: 201 });
   }
@@ -505,5 +505,87 @@ describe("combined remembered browser and PassFast generation security", () => {
     outage = false;
     await refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId });
     expect([...rows.values()].every(row => row.status === "invalidated")).toBe(true);
+  });
+});
+
+describe("server-only merchant template isolation", () => {
+  async function bind(fixtures: Awaited<ReturnType<typeof fixture>>[]) {
+    const bindings=fixtures.map(f=>({tenantId:f.merchant.tenantId,templateId:randomUUID()}));
+    vi.stubEnv("PASSFAST_TENANT_TEMPLATES",JSON.stringify(bindings));
+    return bindings;
+  }
+  it("uses each tenant's template even when the request supplies another merchant's template and serial", async () => {
+    const a=await fixture(), b=await fixture(); const bindings=await bind([a,b]);
+    const request=new Request(`${origin}/api/wallet/google`,{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify({token:a.member.cardToken,templateId:bindings[1].templateId,serial:b.member.id,apiKey:"customer-supplied"})});
+    expect((await googleIssue(request)).status).toBe(200);
+    expect((await googleIssue(post(b.member.cardToken))).status).toBe(200);
+    const generated=calls.filter(c=>c.path.endsWith("generate-pass"));
+    expect(generated.map(c=>c.body?.template_id)).toEqual(bindings.map(b=>b.templateId));
+    expect(generated[0].body?.serial_number).not.toBe(b.member.id);
+    expect(generated.every(c=>!JSON.stringify(c.body).includes("customer-supplied"))).toBe(true);
+    expect(rows.size).toBe(2);
+  });
+  it("refuses an unmapped merchant before projection creation or any provider request", async () => {
+    const a=await fixture(), b=await fixture(); await bind([a]);
+    const before=await snapshot(b.member.id);
+    expect((await googleIssue(post(b.member.cardToken))).status).toBe(502);
+    expect(calls).toHaveLength(0);
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(0);
+    expect(await snapshot(b.member.id)).toEqual(before);
+    expect((await ownerWalletReadiness({actorUserId:b.owner,programSlug:b.merchant.programSlug})).apple).toBe("not_set_up");
+  });
+  it.each(["app_id","template_id","external_id"])("does not update an existing pass with foreign %s", async field => {
+    const f=await fixture(); await bind([f]); await googleIssue(post(f.member.cardToken));
+    const row=rows.values().next().value!;
+    row[field as "app_id"|"template_id"|"external_id"]=randomUUID();
+    calls=[]; const before=await snapshot(f.member.id);
+    await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
+    expect(calls).toHaveLength(1); expect(calls[0].body).toBeNull();
+    expect(await snapshot(f.member.id)).toEqual(before);
+    expect(rows.size).toBe(1);
+  });
+  it("the database rejects a cross-tenant projection/member pointer and worker lookup remains tenant-bound", async () => {
+    const a=await fixture(), b=await fixture(); await bind([a,b]);
+    await appleIssue(post(a.member.cardToken,"apple"));
+    await expect(pool.query("UPDATE wallet_passes SET tenant_id=$1 WHERE membership_id=$2",[b.merchant.tenantId,a.member.id])).rejects.toMatchObject({code:"23503"});
+    calls=[];
+    expect(await refreshWalletForMembership(a.member.id,{expectedTenantId:b.merchant.tenantId})).toEqual({status:"complete"});
+    expect(calls).toHaveLength(0);
+  });
+  it("a mapping change fails closed without generating a replacement identity", async () => {
+    const f=await fixture(); await bind([f]); await googleIssue(post(f.member.cardToken));
+    const previous=[...rows.values()].map(r=>r.serial_number); await bind([f]); calls=[];
+    await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
+    expect([...rows.values()].map(r=>r.serial_number)).toEqual(previous);
+    expect(calls.some(c=>c.path.endsWith("generate-pass"))).toBe(false);
+    expect(calls.every(c=>c.body===null)).toBe(true);
+  });
+  it("shares one operation budget across Apple and Google", async () => {
+    const f=await fixture(); await bind([f]);
+    await appleIssue(post(f.member.cardToken,"apple")); await googleIssue(post(f.member.cardToken));
+    await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
+    calls=[]; let now=Date.now();
+    vi.spyOn(Date,"now").mockImplementation(()=>now);
+    vi.stubGlobal("fetch",async(input:string|URL|Request,init?:RequestInit)=>{
+      const response=await fake(input,init);
+      if(init?.method==="PATCH") now+=240001;
+      return response;
+    });
+    try {
+      await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
+      expect(calls.filter(c=>c.body!==null)).toHaveLength(1);
+      expect(calls).toHaveLength(2);
+    } finally {vi.restoreAllMocks();}
+  });
+  it("bounds a pending pass row lock before any provider attempt", async () => {
+    const f=await fixture(); await bind([f]);
+    const row=await issueWalletPass(f.member.cardToken,"apple",passFastObjectId);
+    const lock=await pool.connect();
+    await lock.query("BEGIN"); await lock.query("SELECT id FROM wallet_passes WHERE id=$1 FOR UPDATE",[row.id]);
+    try {
+      const result=syncPassFastPass(row.id,{tenantId:f.merchant.tenantId});
+      await expect(result).rejects.toMatchObject({cause:{code:"55P03"}});
+      expect(calls).toHaveLength(0);
+    } finally {await lock.query("ROLLBACK");lock.release();}
   });
 });

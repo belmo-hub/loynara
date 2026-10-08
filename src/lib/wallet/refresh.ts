@@ -8,7 +8,7 @@ import { walletCardSnapshot } from "./data";
 import { googleConfig, googleWalletStatus, GoogleWalletClient } from "./google";
 import type { RevokeReason, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
-import { isPassFastObjectId, passFastStatus, PassFastError, type PassFastClient } from "./passfast";
+import { isPassFastObjectId, passFastStatus, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
@@ -22,6 +22,7 @@ type PassRow = typeof walletPasses.$inferSelect;
  * delay the Wallet copy; the worker retries with backoff and an operator can replay blocked jobs.
  */
 export async function refreshWalletForMembership(membershipId: string, deps: { google?: GoogleWalletClient; applePush?: typeof sendApplePassNotifications; expectedTenantId?: string; passfast?: PassFastClient } = {}): Promise<WalletRefreshResult> {
+  const passFastDeadline = Date.now() + PASSFAST_OPERATION_MS;
   // Worker payloads have no membership FK. Bind their lookup to the outbox tenant before reading or contacting a provider.
   const rows = await db.select().from(walletPasses).where(and(eq(walletPasses.membershipId, membershipId), ne(walletPasses.status, "revoked"), deps.expectedTenantId ? eq(walletPasses.tenantId, deps.expectedTenantId) : undefined));
   if (!rows.length) return { status: "complete" };
@@ -31,8 +32,8 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
   let passFastFailed = false;
   for (const original of rows) {
     if (isPassFastObjectId(original.providerObjectId)) {
-      if (!passFastStatus().ready && !deps.passfast) { blocked.push("Wallet provider unavailable"); continue; }
-      try { await syncPassFastPass(original.id, { client: deps.passfast, tenantId: original.tenantId }); }
+      if (!passFastStatus(process.env, original.tenantId).ready && !deps.passfast) { blocked.push("Wallet provider unavailable"); continue; }
+      try { await syncPassFastPass(original.id, { client: deps.passfast, tenantId: original.tenantId, deadline: passFastDeadline }); }
       catch { passFastFailed = true; } // Still retire the other platform; retain this job for bounded retry.
       continue;
     }

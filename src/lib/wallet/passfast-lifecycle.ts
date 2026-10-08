@@ -1,26 +1,39 @@
-import { and, eq, isNull, like } from "drizzle-orm";
+import { and, eq, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletCardSnapshot } from "./data";
-import { PassFastClient, PassFastError, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidData } from "./passfast";
+import { PassFastClient, PassFastError, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidData, PASSFAST_OPERATION_MS } from "./passfast";
 
 /** Same pass lock for initial creation and every refresh. Never take a member lock here (lifecycle takes member -> pass).
  * Pending identity and recovery job committed before any provider request. On a lost response we look up the same serial,
  * not a new credential or pass. Reissue/closure never invoke generate or send the replacement credential to an old serial.
  */
-export async function syncPassFastPass(passId: string, deps: { client?: PassFastClient; tenantId?: string } = {}): Promise<{ saveUrl?: string }> {
-  const client = deps.client ?? new PassFastClient(passFastConfig());
+export async function syncPassFastPass(passId: string, deps: { client?: PassFastClient; tenantId?: string; deadline?: number } = {}): Promise<{ saveUrl?: string }> {
+  const deadline = deps.deadline ?? Date.now() + PASSFAST_OPERATION_MS;
   // Commit uncertainty before any remote operation. A rolled-back transaction must not erase a possible create.
-  await db.update(walletPasses).set({ status: "creating" }).where(and(eq(walletPasses.id, passId),
-    deps.tenantId ? eq(walletPasses.tenantId, deps.tenantId) : undefined, eq(walletPasses.status, "pending"),
-    isNull(walletPasses.revokedAt), like(walletPasses.providerObjectId, "passfast:%")));
+  await db.transaction(async tx => {
+    if (deadline <= Date.now()) throw new PassFastError();
+    await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+    await tx.execute(sql`SET LOCAL statement_timeout = '10s'`);
+    await tx.update(walletPasses).set({ status: "creating" }).where(and(eq(walletPasses.id, passId),
+      deps.tenantId ? eq(walletPasses.tenantId, deps.tenantId) : undefined, eq(walletPasses.status, "pending"),
+      isNull(walletPasses.revokedAt), like(walletPasses.providerObjectId, "passfast:%")));
+  });
   return db.transaction(async tx => {
+    if (deadline <= Date.now()) throw new PassFastError();
+    await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+    await tx.execute(sql`SET LOCAL statement_timeout = '10s'`);
     const [row] = await tx.select().from(walletPasses).where(and(eq(walletPasses.id, passId), deps.tenantId ? eq(walletPasses.tenantId, deps.tenantId) : undefined)).for("update");
     if (!row || !isPassFastObjectId(row.providerObjectId)) throw new DomainError("NOT_FOUND", "Card not found");
     if (row.status === "revoked") return {};
+    const config = passFastConfig(process.env, row.tenantId);
+    const client = deps.client ?? new PassFastClient(config, fetch, deadline);
+    if (client.config.appId !== config.appId || client.config.templateId !== config.templateId
+      || (client.config.tenantId && client.config.tenantId !== row.tenantId)) throw new PassFastError();
     const serial = passFastSerial(row.providerObjectId);
     const snapshot = await walletCardSnapshot(row.membershipId, tx);
+    if ((snapshot.open ? snapshot.pass : snapshot.brand).tenantId !== row.tenantId) throw new PassFastError();
     const live = snapshot.open && row.revokedAt === null && snapshot.credentialHash === row.credentialHash;
     if (!live) {
       const existing = await client.get(serial, row.provider as "apple" | "google");

@@ -5,7 +5,7 @@ import type { WalletPassData, WalletProvider, WalletStatus } from "./types";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BASE = "https://api.passfa.st/functions/v1";
 const PREFIX = "passfast:";
-export type PassFastConfig = { apiKey: string; appId: string; templateId: string; platforms: WalletProvider[] };
+export type PassFastConfig = { apiKey: string; appId: string; templateId: string; platforms: WalletProvider[]; tenantId?: string };
 export class PassFastError extends Error {
   constructor(readonly status?: number) { super("PassFast operation failed"); this.name = "PassFastError"; }
 }
@@ -20,20 +20,57 @@ export function passFastSerial(value: string): string {
   return value.slice(PREFIX.length);
 }
 
-export function passFastConfig(env: Record<string, string | undefined> = process.env): PassFastConfig {
-  const apiKey = env.PASSFAST_API_KEY ?? "", appId = env.PASSFAST_APP_ID ?? "", templateId = env.PASSFAST_TEMPLATE_ID ?? "";
+/** Operator-only allowlist. No per-merchant keys, browser-selected template or production global fallback. */
+function tenantTemplates(raw: string | undefined): Map<string, string> | undefined {
+  if (raw === undefined) return undefined;
+  try {
+    if (raw.length > 65536) throw new PassFastError();
+    const values: unknown = JSON.parse(raw);
+    if (!Array.isArray(values) || !values.length || values.length > 500) throw new PassFastError();
+    const bindings = new Map<string, string>(), templates = new Set<string>();
+    for (const value of values) {
+      const row = record(value);
+      if (Object.keys(row).sort().join(",") !== "templateId,tenantId"
+        || typeof row.tenantId !== "string" || !UUID.test(row.tenantId)
+        || typeof row.templateId !== "string" || !UUID.test(row.templateId)) throw new PassFastError();
+      const tenant = row.tenantId.toLowerCase(), template = row.templateId.toLowerCase();
+      if (bindings.has(tenant) || templates.has(template)) throw new PassFastError();
+      bindings.set(tenant, template); templates.add(template);
+    }
+    return bindings;
+  } catch { throw new PassFastError(); }
+}
+export function passFastConfig(env: Record<string, string | undefined> = process.env, tenantId?: string): PassFastConfig {
+  const bindings = tenantTemplates(env.PASSFAST_TENANT_TEMPLATES);
+  const apiKey = env.PASSFAST_API_KEY ?? "", appId = env.PASSFAST_APP_ID ?? "";
+  // No-tenant resolution is used only for deployment capability checks; issuance always resolves its DB tenant.
+  const templateId = bindings ? (tenantId ? bindings.get(tenantId.toLowerCase()) : bindings.values().next().value) ?? "" : env.PASSFAST_TEMPLATE_ID ?? "";
   const types = env.PASSFAST_WALLET_TYPES ?? "both";
   if (env.PASSFAST_ENABLED !== "true" || !/^sk_live_[A-Za-z0-9_-]{24,}$/.test(apiKey) || /replace|placeholder|changeme/i.test(apiKey)
     || !UUID.test(appId) || !UUID.test(templateId) || !["apple", "google", "both"].includes(types)
     || apiKey === env.BETTER_AUTH_SECRET || apiKey === env.PROMOTIONAL_UNSUBSCRIBE_SECRET
-    || (env.NODE_ENV === "production" && (env.WALLET_PRODUCTION_APPROVED !== "true" || /^sk_live_(synthetic|fixture|test_|example)/i.test(apiKey)))) throw new PassFastError();
-  return { apiKey, appId, templateId, platforms: types === "both" ? ["apple", "google"] : [types as WalletProvider] };
+    || (env.NODE_ENV === "production" && (!bindings || env.WALLET_PRODUCTION_APPROVED !== "true" || /^sk_live_(synthetic|fixture|test_|example)/i.test(apiKey)))) throw new PassFastError();
+  return { apiKey, appId, templateId, ...(bindings && tenantId ? {tenantId: tenantId.toLowerCase()} : {}), platforms: types === "both" ? ["apple", "google"] : [types as WalletProvider] };
 }
-export function passFastStatus(env: Record<string, string | undefined> = process.env): WalletStatus {
+export function passFastStatus(env: Record<string, string | undefined> = process.env, tenantId?: string): WalletStatus {
   const enabled = env.PASSFAST_ENABLED === "true";
   if (!enabled) return { enabled: false, ready: false, reason: "PassFast is disabled" };
-  try { passFastConfig(env); return { enabled, ready: true, reason: null }; }
+  try { passFastConfig(env, tenantId); return { enabled, ready: true, reason: null }; }
   catch { return { enabled, ready: false, reason: "PassFast requires valid server key, app, published template, wallet types and production approval" }; }
+}
+
+export const PASSFAST_REQUEST_MS = 45000;
+// Shared across both platforms of a refresh; leaves a minute for DB cleanup under the worker's five-minute lease.
+export const PASSFAST_OPERATION_MS = 240000;
+async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) throw new PassFastError();
+  let abort!: () => void;
+  const failure = new Promise<never>((_resolve, reject) => {
+    abort = () => reject(new PassFastError());
+    signal.addEventListener("abort", abort, {once:true});
+  });
+  try { return await Promise.race([work, failure]); }
+  finally { signal.removeEventListener("abort", abort); }
 }
 
 /** Exact approved-template data contract; never includes bearer, contact, tenant/member IDs, ledger or referral history. */
@@ -108,33 +145,46 @@ function voidedAppleArchive(bytes: Buffer, serial: string): boolean {
  * No alternate credential destination, redirects, provider logs, browser-side secret or invented idempotency header.
  */
 export class PassFastClient {
-  constructor(readonly config: PassFastConfig, private readonly fetcher: typeof fetch = fetch) {}
+  constructor(readonly config: PassFastConfig, private readonly fetcher: typeof fetch = fetch, private readonly deadline = Date.now() + PASSFAST_OPERATION_MS) {}
   private path(serial: string, platform: WalletProvider, suffix = "") {
     if (!UUID.test(serial) || !["apple", "google"].includes(platform)) throw new PassFastError();
     return `/manage-passes/serial/${serial}${suffix}?wallet_type=${platform}`;
   }
   private async request(path: string, method = "GET", body?: unknown): Promise<Response> {
+    const remaining = Math.min(PASSFAST_REQUEST_MS, this.deadline - Date.now());
+    if (remaining <= 0) throw new PassFastError();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), remaining);
+    timer.unref();
     try {
-      return await this.fetcher(BASE + path, { method, redirect: "error", signal: AbortSignal.timeout(10000),
+      const response = await abortable(this.fetcher(BASE + path, { method, redirect: "error", cache: "no-store", signal: controller.signal,
         headers: { Authorization: `Bearer ${this.config.apiKey}`, "X-App-Id": this.config.appId, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), controller.signal);
+      // The same timeout covers headers AND the entire bounded body, including a stalled stream.
+      const max = response.headers.get("content-type")?.includes("application/vnd.apple.pkpass") ? 5 * 1024 * 1024 : 65536;
+      const bytes = await this.bytes(response, max, controller.signal);
+      return new Response(response.status === 204 || response.status === 304 ? null : new Uint8Array(bytes), { status: response.status, headers: response.headers });
     } catch { throw new PassFastError(); }
+    finally { clearTimeout(timer); }
   }
-  private async bytes(response: Response, max: number): Promise<Buffer> {
+  private async bytes(response: Response, max: number, signal?: AbortSignal): Promise<Buffer> {
     if (!response.body) throw new PassFastError();
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
     try {
       for (;;) {
-        const { done, value } = await reader.read();
+        const { done, value } = await (signal ? abortable(reader.read(), signal) : reader.read());
         if (done) break;
         size += value.length;
-        if (size > max) { await reader.cancel(); throw new PassFastError(); }
+        if (size > max) throw new PassFastError();
         chunks.push(value);
       }
       return Buffer.concat(chunks);
-    } catch { throw new PassFastError(); }
+    } catch {
+      void reader.cancel().catch(() => {});
+      throw new PassFastError();
+    } finally { reader.releaseLock(); }
   }
   private async json(response: Response): Promise<Record<string, unknown>> {
     if (!response.headers.get("content-type")?.includes("application/json")) throw new PassFastError();
@@ -154,7 +204,7 @@ export class PassFastClient {
     const value = await this.json(response);
     if (typeof value.id !== "string" || !UUID.test(value.id) || value.serial_number !== serial || value.wallet_type !== platform
       || !["active", "invalidated", "expired"].includes(String(value.status))
-      || (value.app_id !== undefined && value.app_id !== this.config.appId)) throw new PassFastError();
+      || value.app_id !== this.config.appId || value.template_id !== this.config.templateId || value.external_id !== serial) throw new PassFastError();
     return { id: value.id, status: value.status as RemotePass["status"],
       ...(platform === "google" && value.status === "active" ? { saveUrl: saveUrl(value.google_save_url) } : {}) };
   }

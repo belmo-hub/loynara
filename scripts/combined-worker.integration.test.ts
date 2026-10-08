@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "../src/db";
 import { createMerchant, enroll } from "../src/lib/product";
 import { award } from "../src/lib/loyalty";
@@ -53,7 +53,10 @@ async function fixture() {
   expect(jobs).toHaveLength(1);
   return { merchant, member, job: jobs[0].id };
 }
-beforeEach(async () => { await pool.query('TRUNCATE tenants, "user", rate_limits, apple_devices CASCADE'); writeFileSync(callLog, ""); });
+beforeEach(async () => {
+  for(const [key,value] of Object.entries({PASSFAST_ENABLED:"true",PASSFAST_API_KEY:"sk_live_synthetic_0123456789abcdef0123456789",PASSFAST_APP_ID:"11111111-1111-4111-8111-111111111111",PASSFAST_TEMPLATE_ID:"22222222-2222-4222-8222-222222222222"})) vi.stubEnv(key,value);
+  await pool.query('TRUNCATE tenants, "user", rate_limits, apple_devices CASCADE'); writeFileSync(callLog, ""); });
+afterEach(()=>vi.unstubAllEnvs());
 afterAll(async () => { await pool.end(); rmSync(dir, { recursive: true, force: true }); });
 
 describe("actual combined worker process with fake HTTP only", () => {

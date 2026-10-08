@@ -9,10 +9,10 @@ import { passFastConfig, passFastStatus } from "./passfast";
  */
 export type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable" };
 
-export function walletAvailability(env: Record<string, string | undefined> = process.env): WalletAvailability {
+export function walletAvailability(env: Record<string, string | undefined> = process.env, tenantId?: string): WalletAvailability {
   if (env.NODE_ENV === "production" || env.PASSFAST_ENABLED === "true") {
-    const ready = passFastStatus(env).ready;
-    const platforms = ready ? passFastConfig(env).platforms : [];
+    const ready = passFastStatus(env, tenantId).ready;
+    const platforms = ready ? passFastConfig(env, tenantId).platforms : [];
     return { apple: platforms.includes("apple") ? "available" : "unavailable", google: platforms.includes("google") ? "available" : "unavailable" };
   }
   const google = googleWalletStatus(env);
