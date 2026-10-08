@@ -23,13 +23,22 @@ const RETRY_DELAY_SECONDS = 15;
  * Browser push services only. The endpoint comes from the browser, so without this list the server could be made to
  * POST to any URL (SSRF). Hosts: Chrome/Edge/Android (FCM), Firefox (Mozilla autopush), Safari/iOS (Apple), Windows.
  */
-const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^web\.push\.apple\.com$/, /^[a-z0-9-]+\.push\.apple\.com$/, /^[a-z0-9-]+\.notify\.windows\.com$/];
+const PUSH_SERVICES: Array<{ host: RegExp; path: RegExp; query: RegExp }> = [
+  { host: /^fcm\.googleapis\.com$/, path: /^\/(fcm\/send|wp)\/[A-Za-z0-9_:%-]{16,}$/, query: /^$/ },
+  { host: /^android\.googleapis\.com$/, path: /^\/gcm\/send\/[A-Za-z0-9_:%-]{16,}$/, query: /^$/ },
+  { host: /^updates\.push\.services\.mozilla\.com$/, path: /^\/wpush\/v[12]\/[A-Za-z0-9_=%-]{16,}$/, query: /^$/ },
+  { host: /^(web|[a-z0-9-]+)\.push\.apple\.com$/, path: /^\/[A-Za-z0-9_-]{16,}$/, query: /^$/ },
+  { host: /^[a-z0-9-]+\.notify\.windows\.com$/, path: /^\/w\/$/, query: /^\?token=[A-Za-z0-9%_.=-]{16,}$/ },
+];
 
 export function validPushEndpoint(raw: string): boolean {
   if (raw.length > 1000) return false;
   try {
     const url = new URL(raw);
-    return url.protocol === "https:" && !url.username && !url.password && (url.port === "" || url.port === "443") && PUSH_HOSTS.some(host => host.test(url.hostname));
+    if (url.protocol !== "https:" || url.username || url.password || (url.port !== "" && url.port !== "443") || url.hash) return false;
+    // Each service's own endpoint shape, so the server never posts to other paths on these hosts. Only WNS uses a query.
+    const service = PUSH_SERVICES.find(entry => entry.host.test(url.hostname));
+    return Boolean(service && service.path.test(url.pathname) && service.query.test(url.search));
   } catch { return false; }
 }
 
@@ -65,13 +74,20 @@ export async function saveStaffPushSubscription(input: { userId: string; session
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // One endpoint is one browser: when another person signs in on the same phone, the device now belongs to them.
-    await client.query(`
+    // One endpoint is one browser: when another person of the same business signs in on the phone, the device now belongs
+    // to them. A device of ANOTHER business is taken over only once its old login is gone (signed out or expired), so
+    // knowing someone's endpoint is not enough to redirect their wake-ups. Re-registering also refreshes the device's
+    // place in the per-user cap (created_at), so a phone in daily use is not the one evicted.
+    const saved = await client.query(`
       INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth, locale)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (endpoint) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, location_id = EXCLUDED.location_id, user_id = EXCLUDED.user_id,
-        session_id = EXCLUDED.session_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, locale = EXCLUDED.locale, failure_count = 0`,
+        session_id = EXCLUDED.session_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, locale = EXCLUDED.locale, failure_count = 0, created_at = now()
+      WHERE staff_push_subscriptions.tenant_id = EXCLUDED.tenant_id
+        OR NOT EXISTS (SELECT 1 FROM "session" se WHERE se.id = staff_push_subscriptions.session_id AND se."expiresAt" > now())
+      RETURNING id`,
     [input.tenantId, input.locationId, input.userId, input.sessionId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, subscription.locale]);
+    if (saved.rowCount !== 1) throw new DomainError("PUSH_DEVICE_IN_USE", "Dieses Gerät ist noch bei einem anderen Geschäft angemeldet.");
     await client.query(`
       DELETE FROM staff_push_subscriptions WHERE user_id = $1 AND id NOT IN (
         SELECT id FROM staff_push_subscriptions WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT ${MAX_DEVICES_PER_USER})`, [input.userId]);
@@ -122,15 +138,17 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
   if (!details) return { status: "suppressed", reason: "Push not configured", sent: 0 };
   const tapRequestId = job.payload?.tapRequestId;
   if (typeof tapRequestId !== "string" || !/^[0-9a-f-]{36}$/.test(tapRequestId)) return { status: "failed", reason: "Invalid push job payload", sent: 0 };
-  const { rows: requests } = await pool.query<{ tenant_id: string; location_id: string; waiting: boolean }>(
-    "SELECT tenant_id, location_id, (status = 'pending_staff' AND expires_at > now()) AS waiting FROM tap_requests WHERE id = $1", [tapRequestId]);
+  const { rows: requests } = await pool.query<{ tenant_id: string; location_id: string; created_at: Date; waiting: boolean }>(
+    "SELECT tenant_id, location_id, created_at, (status = 'pending_staff' AND expires_at > now()) AS waiting FROM tap_requests WHERE id = $1", [tapRequestId]);
   const request = requests[0];
   if (!request?.waiting) return { status: "suppressed", reason: "Request no longer waiting", sent: 0 };
   const { rows: recipients } = await pool.query<Recipient>(`
     SELECT s.id, s.endpoint, s.p256dh, s.auth, s.locale FROM staff_push_subscriptions s
     JOIN staff_roles r ON r.user_id = s.user_id AND r.tenant_id = s.tenant_id AND r.active
     JOIN "session" se ON se.id = s.session_id AND se."userId" = s.user_id AND se."expiresAt" > now()
-    WHERE s.tenant_id = $1 AND s.location_id = $2 AND (r.role = 'owner' OR r.location_id = $2)`, [request.tenant_id, request.location_id]);
+    WHERE s.tenant_id = $1 AND s.location_id = $2 AND (r.role = 'owner' OR r.location_id = $2)
+      -- A device woken since this request exists already shows it when opened: a retry does not ring it again.
+      AND (s.last_success_at IS NULL OR s.last_success_at < $3)`, [request.tenant_id, request.location_id, request.created_at]);
   const send: Sender = deps.send ?? ((subscription, payload, options) => webpush.sendNotification(subscription, payload, options));
   let sent = 0, transient = 0;
   for (const recipient of recipients) {
@@ -144,8 +162,10 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
     } catch (error) {
       const status = error instanceof WebPushError ? error.statusCode : 0;
       if (status === 404 || status === 410) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
-      const permanent = status >= 400 && status < 500 && status !== 429;
-      if (!permanent) transient += 1;
+      // Only definitive refusals of this device count towards dropping it; an outage or rate limit at the push service
+      // (timeouts, 429, 5xx) is retried and never removes a location's phones.
+      const definitive = status >= 400 && status < 500 && status !== 429;
+      if (!definitive) { transient += 1; continue; }
       await pool.query(`DELETE FROM staff_push_subscriptions WHERE id = $1 AND failure_count + 1 >= ${MAX_FAILURES}`, [recipient.id]);
       await pool.query("UPDATE staff_push_subscriptions SET failure_count = failure_count + 1 WHERE id = $1", [recipient.id]);
     }
@@ -160,17 +180,21 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
  * whatever fails here is retried by the worker. Never throws.
  */
 export async function dispatchTapPushNow(jobId: string, deps: { send?: Sender; env?: PushEnv } = {}): Promise<void> {
+  let job: { id: string; attempts: number; payload: Record<string, unknown> } | undefined;
   try {
     const { rows } = await pool.query<{ id: string; attempts: number; payload: Record<string, unknown> }>(`
       UPDATE outbox_jobs SET status = 'processing', attempts = attempts + 1, next_attempt_at = now() + interval '5 minutes', last_error = NULL
       WHERE id = $1 AND kind = $2 AND status = 'pending' RETURNING id, attempts, payload`, [jobId, PUSH_JOB_KIND]);
-    const job = rows[0];
+    job = rows[0];
     if (!job) return;
     const outcome = await deliverTapPush(job, deps);
     await pool.query("UPDATE outbox_jobs SET status = $2, last_error = $3, next_attempt_at = now() + $4::int * interval '1 second' WHERE id = $1 AND status = 'processing' AND attempts = $5",
       [job.id, outcome.status, outcome.reason?.slice(0, 300) ?? null, outcome.delaySeconds ?? 0, job.attempts]);
   } catch (error) {
     console.error(`Immediate NFC push failed (${error instanceof Error ? error.name : "error"}); the worker retries it`);
+    // Give the claimed job back for a prompt retry: its 5-minute lease would outlive the request it is meant to announce.
+    if (job) await pool.query("UPDATE outbox_jobs SET status = 'retry', last_error = 'Immediate send failed', next_attempt_at = now() + $3::int * interval '1 second' WHERE id = $1 AND status = 'processing' AND attempts = $2",
+      [job.id, job.attempts, RETRY_DELAY_SECONDS]).catch(() => undefined);
   }
 }
 

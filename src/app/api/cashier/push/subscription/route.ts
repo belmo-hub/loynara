@@ -13,7 +13,8 @@ export async function POST(request: Request) {
   try {
     requireSameOrigin(request);
     const { user, sessionId } = await sessionWithUser(request);
-    await enforceRateLimit({ scope: "push_subscribe_user", identity: user.id, max: 30, windowSeconds: 60 * 60 });
+    // Every counter load re-registers the device (it is bound to the login session), so allow a busy day of reloads.
+    await enforceRateLimit({ scope: "push_subscribe_user", identity: user.id, max: 120, windowSeconds: 60 * 60 });
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
     if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
     const subscription = await jsonBody(request, 4_000);

@@ -19,9 +19,9 @@ describe("push endpoint allow-list", () => {
   });
 
   it("accepts the real endpoint shapes of Chrome, Safari and Firefox", () => {
-    expect(validPushEndpoint("https://fcm.googleapis.com/fcm/send/abc:APA91b")).toBe(true);
-    expect(validPushEndpoint("https://web.push.apple.com/QGq8abc")).toBe(true);
-    expect(validPushEndpoint("https://updates.push.services.mozilla.com/wpush/v2/gAAAAAB")).toBe(true);
+    expect(validPushEndpoint("https://fcm.googleapis.com/fcm/send/abc:APA91bExampleTokenValue")).toBe(true);
+    expect(validPushEndpoint("https://web.push.apple.com/QGq8abcExampleToken_123")).toBe(true);
+    expect(validPushEndpoint("https://updates.push.services.mozilla.com/wpush/v2/gAAAAABexampleTokenValue")).toBe(true);
   });
 
   it("rejects look-alike hosts, trailing-dot hosts, credentials, non-443 ports and non-HTTPS schemes (sound)", () => {

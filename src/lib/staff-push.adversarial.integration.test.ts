@@ -21,7 +21,7 @@ if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Ded
 const vapid = { VAPID_PUBLIC_KEY: `B${"A".repeat(86)}`, VAPID_PRIVATE_KEY: "C".repeat(43), VAPID_SUBJECT: "mailto:ops@example.test" };
 const keys = { p256dh: `B${"x".repeat(86)}`, auth: "a".repeat(22) };
 const otherKeys = { p256dh: `B${"y".repeat(86)}`, auth: "b".repeat(22) };
-const endpoint = (name: string) => `https://fcm.googleapis.com/fcm/send/${name}`;
+const endpoint = (name: string) => `https://fcm.googleapis.com/fcm/send/${name.padEnd(16, "0")}`;
 const original = { ...process.env };
 
 async function session(userId: string, expiresInSeconds = 3600) {

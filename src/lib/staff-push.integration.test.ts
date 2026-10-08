@@ -13,7 +13,7 @@ if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Ded
 // Synthetic VAPID-shaped values: only their format is checked here, the sender is replaced by a recorder.
 const vapid = { VAPID_PUBLIC_KEY: `B${"A".repeat(86)}`, VAPID_PRIVATE_KEY: "C".repeat(43), VAPID_SUBJECT: "mailto:ops@example.test" };
 const keys = { p256dh: `B${"x".repeat(86)}`, auth: "a".repeat(22) };
-const endpoint = (name: string) => `https://fcm.googleapis.com/fcm/send/${name}`;
+const endpoint = (name: string) => `https://fcm.googleapis.com/fcm/send/${name.padEnd(16, "0")}`;
 const original = { ...process.env };
 
 async function session(userId: string, expiresInSeconds = 3600) {
@@ -46,9 +46,9 @@ afterAll(async () => { await pool.end(); });
 
 describe("push endpoint and configuration", () => {
   it("accepts only browser push services over HTTPS (no SSRF to arbitrary hosts)", () => {
-    expect(validPushEndpoint("https://fcm.googleapis.com/fcm/send/abc")).toBe(true);
-    expect(validPushEndpoint("https://web.push.apple.com/QGq")).toBe(true);
-    expect(validPushEndpoint("https://updates.push.services.mozilla.com/wpush/v2/x")).toBe(true);
+    expect(validPushEndpoint("https://fcm.googleapis.com/fcm/send/cH4nn3l-iD:APA91bHk2_example_token_value")).toBe(true);
+    expect(validPushEndpoint("https://web.push.apple.com/QGqExampleToken_value-123")).toBe(true);
+    expect(validPushEndpoint("https://updates.push.services.mozilla.com/wpush/v2/gAAAAABexampleTokenValue")).toBe(true);
     for (const bad of ["http://fcm.googleapis.com/x", "https://fcm.googleapis.com.evil.test/x", "https://user:pw@fcm.googleapis.com/x", "https://fcm.googleapis.com:8443/x",
       "https://169.254.169.254/latest", "https://localhost/x", "https://evil.test/fcm.googleapis.com", "javascript:alert(1)", `https://fcm.googleapis.com/${"x".repeat(1000)}`]) {
       expect(validPushEndpoint(bad), bad).toBe(false);
@@ -142,20 +142,25 @@ describe("delivery", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("drops gone devices at once, retries temporary failures and drops a device after repeated failures", async () => {
+  it("drops gone devices at once, retries an outage without ringing woken devices again, and drops a refusing device", async () => {
     const f = await nfcFixture();
     const owner = await session(f.userId);
-    for (const name of ["gone", "flaky", "fine"]) await saveStaffPushSubscription({ userId: f.userId, sessionId: owner, tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint(name), keys } });
+    for (const name of ["gone-device-endpoint", "outage-device-endpoint", "refused-device-endpoint", "fine-device-endpoint"]) await saveStaffPushSubscription({ userId: f.userId, sessionId: owner, tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint(name), keys } });
     const request = await pendingRequest(f);
+    const calls: string[] = [];
     const send = vi.fn(async (subscription: { endpoint: string }) => {
-      if (subscription.endpoint === endpoint("gone")) throw new WebPushError("Gone", 410, {}, "", subscription.endpoint);
-      if (subscription.endpoint === endpoint("flaky")) throw new WebPushError("Unavailable", 503, {}, "", subscription.endpoint);
+      calls.push(subscription.endpoint);
+      if (subscription.endpoint === endpoint("gone-device-endpoint")) throw new WebPushError("Gone", 410, {}, "", subscription.endpoint);
+      if (subscription.endpoint === endpoint("outage-device-endpoint")) throw new WebPushError("Unavailable", 503, {}, "", subscription.endpoint);
+      if (subscription.endpoint === endpoint("refused-device-endpoint")) throw new WebPushError("Bad request", 400, {}, "", subscription.endpoint);
       return { statusCode: 201, body: "", headers: {} };
     });
     expect(await deliverTapPush({ payload: { tapRequestId: request } }, { send })).toMatchObject({ status: "retry", sent: 1, delaySeconds: 15 });
-    expect((await pool.query("SELECT endpoint FROM staff_push_subscriptions ORDER BY endpoint")).rows.map(row => row.endpoint)).toEqual([endpoint("fine"), endpoint("flaky")]);
-    for (let attempt = 0; attempt < 4; attempt++) await deliverTapPush({ payload: { tapRequestId: request } }, { send });
-    expect((await pool.query("SELECT endpoint FROM staff_push_subscriptions")).rows.map(row => row.endpoint)).toEqual([endpoint("fine")]);
+    for (let attempt = 0; attempt < 5; attempt++) await deliverTapPush({ payload: { tapRequestId: request } }, { send });
+    // The working device was rung once; the outage device is kept and retried; the refusing device is dropped after five refusals.
+    expect(calls.filter(call => call === endpoint("fine-device-endpoint"))).toHaveLength(1);
+    expect(calls.filter(call => call === endpoint("outage-device-endpoint"))).toHaveLength(6);
+    expect((await pool.query("SELECT endpoint FROM staff_push_subscriptions ORDER BY endpoint")).rows.map(row => row.endpoint)).toEqual([endpoint("fine-device-endpoint"), endpoint("outage-device-endpoint")]);
   });
 });
 
@@ -196,7 +201,10 @@ describe("queueing with the tap", () => {
 
     const pending = await pendingTapRequests({ userId: f.userId, locationId: f.location.id });
     expect(pending).toHaveLength(1);
-    expect(pending[0]).toEqual({ id: first.requestId, createdAt: expect.any(Date), expiresAt: expect.any(Date), balance: 0, cardLocator: first.cardLocator });
+    expect(pending[0]).toEqual({ id: first.requestId, createdAt: expect.any(Date), expiresAt: expect.any(Date), balance: 0, cardLocator: first.cardLocator, expiresInMs: expect.any(Number), ageMs: expect.any(Number) });
+    // Timing is computed by the server, so a cashier phone with a wrong clock still counts down correctly.
+    expect(pending[0].expiresInMs).toBeGreaterThan(290_000);
+    expect(pending[0].expiresInMs).toBeLessThanOrEqual(300_000);
     expect(JSON.stringify(pending)).not.toContain(f.member.scanCode);
     // Confirming afterwards books once; a wake-up for the confirmed request would be suppressed.
     await confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: first.requestId! });
