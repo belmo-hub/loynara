@@ -9,6 +9,7 @@ import {
   getPushState,
   listenForTapRefresh,
   registerCashierWorker,
+  syncCashierPush,
   TAP_REFRESH_EVENT,
   type CashierLocale,
   type CashierPushState,
@@ -72,6 +73,8 @@ export function CashierNotifications({ locale }: { locale: CashierLocale }) {
       if (!active) return;
       if (document.visibilityState === "visible") void clearTapNotifications();
       const next = await getPushState().catch((): CashierPushState => "unavailable");
+      // "On" in this browser does not prove the server still has the device (it is bound to the login session).
+      if (next === "on") await syncCashierPush(locale).catch(() => undefined);
       if (active) setState(next);
     })();
 
@@ -80,7 +83,7 @@ export function CashierNotifications({ locale }: { locale: CashierLocale }) {
       stopListening();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, []);
+  }, [locale]);
 
   // The action runs synchronously from the click, so the permission prompt keeps the user gesture.
   async function run(action: () => Promise<CashierPushState>) {

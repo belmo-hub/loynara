@@ -184,6 +184,21 @@ export async function enableCashierPush(locale: CashierLocale): Promise<CashierP
   return "on";
 }
 
+/**
+ * Re-registers this browser's existing subscription with the server. The server binds a device to the login session,
+ * so after signing out and in again (or an expired session) the browser still holds a subscription the server no longer
+ * knows. Called when the counter opens with notifications on; no permission prompt, idempotent on the server.
+ */
+export async function syncCashierPush(locale: CashierLocale): Promise<void> {
+  if (!readPushFeatures() || readPermission() !== "granted") return;
+  const config = await fetchPushConfig();
+  if (!config.available || !config.publicKey) return;
+  const registration = await currentRegistration();
+  const subscription = registration ? await registration.pushManager.getSubscription() : null;
+  if (!subscription || !sameApplicationServerKey(subscription.options.applicationServerKey, base64UrlToUint8Array(config.publicKey))) return;
+  await postJson<{ subscribed: boolean }>(SUBSCRIPTION_PATH, { ...subscription.toJSON(), locale });
+}
+
 /** Removes the server record first, then the browser subscription, so a failed request leaves the state unchanged. */
 export async function disableCashierPush(): Promise<CashierPushState> {
   const registration = await currentRegistration();

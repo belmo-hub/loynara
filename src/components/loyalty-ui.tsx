@@ -261,6 +261,11 @@ export type CashierViewProps = {
    * present the scan form offers no separate "Kamera öffnen".
    */
   camera?: ReactNode;
+  /**
+   * NFC confirmations (pending taps and the notification switch), shown at the top in a fixed place whatever the QR
+   * counter is doing, so new taps stay visible and the panel keeps polling while cards are scanned below.
+   */
+  nfcPanel?: ReactNode;
   /** Changes after every booking: clears the quantity, amount and open dialog without remounting the camera. */
   resetToken?: number;
   onStartCamera?: () => void;
@@ -283,7 +288,7 @@ function previewMonth(isoMonth: string, locale: UiLocale) {
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale === "fr" ? "fr-FR" : "de-DE", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-export function CashierView({ locationName, card, preview, booked, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, focusCodeInput = false, camera, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
+export function CashierView({ locationName, card, preview, booked, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
   const [code, setCode] = useState("");
   const [quantity, setQuantity] = useState(1);
   const maxQuantity = quantityPickerMax(role);
@@ -334,6 +339,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
   return <div className="cashier-page" lang={locale}>
     <header className="cashier-header"><BrandMark /><span className="cashier-location">{locationName}</span><div className="cashier-header-actions">{onLocaleChange && <select aria-label={locale === "fr" ? "Langue" : "Sprache"} value={locale} onChange={event => onLocaleChange(event.target.value as UiLocale)}><option value="de">DE</option><option value="fr">FR</option></select>}{showOverview && <Link href="/merchant" className="cashier-exit">{t.overview} <Icon name="arrow" size={16} /></Link>}{logoutControl}</div></header>
     <main className="cashier-main"><div className="cashier-intro"><span className="eyebrow"><span className="eyebrow-dot" />{t.mode}</span><h1>{card ? t.found : t.scanTitle}</h1><p>{card ? t.foundIntro : t.scanIntro}</p></div>
+      {nfcPanel}
       {status !== "idle" && !booked && <div className={`cashier-status cashier-status--${status}`} role="status" aria-live="polite"><Icon name={status === "success" ? "check" : status === "offline" ? "clock" : "shield"} size={22} /><span><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <small>{message}</small>}</span></div>}
       {booked && <section className={`cashier-booked cashier-booked--${booked.tone}${camera ? " cashier-booked--compact" : ""}`} role="status" aria-live="polite"><span className="cashier-booked-icon"><Icon name={booked.tone === "success" ? "check" : "clock"} size={26} /></span><h2>{booked.title}</h2><p className="cashier-booked-detail">{booked.detail}</p>{booked.hint && <p className="cashier-booked-hint">{booked.hint}</p>}{!camera && <button type="button" className="button button--outline button--full" onClick={onClear}>{t.other}</button>}</section>}
       {camera}
