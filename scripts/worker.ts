@@ -1,10 +1,14 @@
 import "dotenv/config";
+import { Pool } from "pg";
 import { pool } from "../src/db";
-import { claimOutboxJob, deferOutboxJob, markOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
+import { claimOutboxJob, completeWalletOutboxJob, deferOutboxJob, markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
 import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
+import { boundedWorkerDatabase } from "./worker-database";
+import { startWorkerMonitor } from "./worker-monitor";
+import { superviseWalletJob, walletJobLifetimeMs } from "./worker-supervisor";
 
 type Job = OutboxJob;
 
@@ -15,15 +19,19 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 let stopping = false;
 let recoveryPrunedAt = 0;
-let heartbeatSentAt = 0;
-process.on("SIGINT", () => { stopping = true; });
-process.on("SIGTERM", () => { stopping = true; });
+const shutdown = new AbortController();
+const stop = () => { stopping = true; shutdown.abort(); };
+process.on("SIGINT", stop);
+process.on("SIGTERM", stop);
+const workerDatabase = boundedWorkerDatabase(pool);
+// Monitoring never occupies the parent pool needed to renew an active job.
+const monitorPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 });
 
-const claimJob = () => claimOutboxJob(pool, { maxAttempts, leaseMinutes });
-const mark = (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => markOutboxJob(pool, job, status, reason, delaySeconds);
-const defer = (job: Job, reason: string, until: Date) => deferOutboxJob(pool, job, reason, until);
+const claimJob = () => claimOutboxJob(workerDatabase, { maxAttempts, leaseMinutes });
+const mark = (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => markOutboxJob(workerDatabase, job, status, reason, delaySeconds);
+const defer = (job: Job, reason: string, until: Date) => deferOutboxJob(workerDatabase, job, reason, until);
 
-async function processJob(job: Job) {
+async function processJob(job: Job, claimedAt: number) {
   if (job.kind === "email.verify") {
     try {
       const { deliverVerificationEmail } = await import("../src/lib/contact-verification-delivery");
@@ -132,26 +140,28 @@ async function processJob(job: Job) {
     return "failed";
   }
 
-  try {
-    const { refreshWalletForMembership, supersedeOlderWalletRefreshes } = await import("../src/lib/wallet/refresh");
-    const result = await refreshWalletForMembership(membershipId, { expectedTenantId: job.tenantId });
-    if (result.status === "blocked") {
-      await mark(job, "blocked", result.reason);
-      return "blocked";
-    }
-    await mark(job, "complete");
-    await supersedeOlderWalletRefreshes(pool, job);
-    return "complete";
-  } catch (error) {
-    const permanent = job.attempts >= maxAttempts;
-    // Provider outages last minutes to hours: 1, 4, 16 and 60 minutes span about 80 minutes before the job fails. A
-    // later loyalty change queues a fresh refresh anyway, and its success supersedes this one.
-    const delay = Math.min(3600, 60 * 4 ** (job.attempts - 1));
-    // Provider messages can contain request details. Keep the stored error generic.
-    await mark(job, permanent ? "failed" : "retry", "Wallet provider update failed", permanent ? 0 : delay);
-    console.error(`Wallet job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-    return permanent ? "failed" : "retry";
+  const deadline = claimedAt + walletJobLifetimeMs;
+  const walletDatabase = boundedWorkerDatabase(pool, { deadline });
+  const outcome = await superviseWalletJob({ job, deadline, signal: shutdown.signal,
+    renew: () => renewOutboxJob(walletDatabase, job, leaseMinutes),
+  });
+  if (outcome.status === "lease_lost") {
+    // An unknown renewal result also loses local ownership. Reconciliation belongs to a later durable claim.
+    stop();
+    return "lease_lost";
   }
+  if (outcome.status === "complete") {
+    const owned = await completeWalletOutboxJob(walletDatabase, job);
+    if (!owned) stop();
+    return owned ? "complete" : "lease_lost";
+  }
+  const permanent = job.attempts >= maxAttempts;
+  const status = outcome.status === "blocked" ? "blocked" : permanent ? "failed" : "retry";
+  const delay = status === "retry" ? Math.min(3600, 60 * 4 ** (job.attempts - 1)) : 0;
+  const owned = await markOutboxJob(walletDatabase, job, status,
+    status === "blocked" ? "Wallet provider unavailable" : "Wallet provider update failed or is uncertain", delay);
+  if (!owned) stop();
+  return owned ? status : "lease_lost";
 }
 
 async function replay(jobId: string) {
@@ -173,38 +183,54 @@ async function main() {
   }
   if (args.length > 1 || (args.length === 1 && args[0] !== "--once")) throw new Error("Usage: npm run worker -- [--once | --replay <job-uuid>]");
   const once = args[0] === "--once";
-  do {
-    if (Date.now() - recoveryPrunedAt >= 60 * 60_000) {
-      await pool.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
-      await pool.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
-      const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
-      await pruneRevokedAppleRegistrations(pool);
-      recoveryPrunedAt = Date.now();
-    }
-    let processed = 0;
-    const counts: Record<string, number> = {};
-    while (!stopping && processed < 1000) {
-      const job = await claimJob();
-      if (!job) break;
-      const outcome = await processJob(job);
-      counts[outcome] = (counts[outcome] ?? 0) + 1;
-      processed += 1;
-    }
-    if (!once && process.env.NODE_ENV === "production" && Date.now() - heartbeatSentAt >= 60_000) {
-      await pool.query("select 1");
-      await sendWorkerHeartbeat(process.env.WORKER_HEARTBEAT_URL);
-      heartbeatSentAt = Date.now();
-    }
-    if (once) {
-      console.log(`Worker examined ${processed} due job(s): ${JSON.stringify(counts)}`);
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, pollMilliseconds));
-  } while (!stopping);
+  const stopMonitor = !once && process.env.NODE_ENV === "production" ? startWorkerMonitor({
+    heartbeat: async signal => {
+      await boundedWorkerDatabase(monitorPool, { signal }).query("select 1");
+      if (!signal.aborted) await sendWorkerHeartbeat(process.env.WORKER_HEARTBEAT_URL, fetch, signal);
+    },
+    onFailure: () => { console.error("Worker monitoring deadline exceeded"); stop(); },
+  }) : async () => {};
+  try {
+    do {
+      if (Date.now() - recoveryPrunedAt >= 60 * 60_000) {
+        await workerDatabase.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+        await workerDatabase.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+        const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
+        await pruneRevokedAppleRegistrations(workerDatabase);
+        recoveryPrunedAt = Date.now();
+      }
+      let processed = 0;
+      const counts: Record<string, number> = {};
+      while (!stopping && processed < 1000) {
+        const claimedAt = Date.now();
+        const job = await claimJob();
+        if (!job) break;
+        const outcome = await processJob(job, claimedAt);
+        counts[outcome] = (counts[outcome] ?? 0) + 1;
+        processed += 1;
+      }
+      if (once) {
+        console.log(`Worker examined ${processed} due job(s): ${JSON.stringify(counts)}`);
+        break;
+      }
+      if (!stopping) await new Promise<void>(resolve => {
+        const onStop = () => { clearTimeout(timer); resolve(); };
+        const timer = setTimeout(() => { shutdown.signal.removeEventListener("abort", onStop); resolve(); }, pollMilliseconds);
+        shutdown.signal.addEventListener("abort", onStop, { once: true });
+      });
+    } while (!stopping);
+  } finally { await stopMonitor(); }
 }
 
-main().then(() => pool.end(), async (error) => {
-  console.error(error instanceof Error ? error.message : "Worker failed");
-  await pool.end();
+async function closePools() {
+  const timer = setTimeout(() => process.exit(1), 5000);
+  await Promise.all([pool.end(), monitorPool.end()]);
+  clearTimeout(timer);
+}
+main().then(closePools, async () => {
+  // Failures can originate in database connection strings; log only a fixed message.
+  console.error("Worker failed; check reviewed configuration and database availability");
+  stop();
+  await closePools();
   process.exitCode = 1;
 });

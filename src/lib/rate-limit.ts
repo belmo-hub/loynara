@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 import { pool } from "@/db";
+import type { Pool } from "pg";
 import { DomainError } from "./loyalty";
 
 type Limit = { scope: string; identity: string; max: number; windowSeconds: number };
@@ -71,12 +72,12 @@ export function peerIdentity(request: Request): string {
   return `peer:${rateKey("trusted_peer_identity", canonical)}`;
 }
 
-export async function enforceRateLimit({ scope, identity, max, windowSeconds }: Limit): Promise<void> {
+export async function enforceRateLimit({ scope, identity, max, windowSeconds }: Limit, queries: Pick<Pool, "query"> = pool): Promise<void> {
   if (!/^[a-z_]{3,64}$/.test(scope) || !identity || !Number.isSafeInteger(max) || max < 1 || !Number.isSafeInteger(windowSeconds) || windowSeconds < 1) {
     throw new Error("Invalid rate limit configuration");
   }
   const keyHash = rateKey(scope, identity);
-  const result = await pool.query<{ hits: number; reset_at: Date }>(`
+  const result = await queries.query<{ hits: number; reset_at: Date }>(`
     INSERT INTO rate_limits (key_hash, hits, reset_at, updated_at)
     VALUES ($1, 1, now() + $2::integer * interval '1 second', now())
     ON CONFLICT (key_hash) DO UPDATE SET
@@ -90,6 +91,6 @@ export async function enforceRateLimit({ scope, identity, max, windowSeconds }: 
   if (row.hits > max) throw new RateLimitError(Math.max(1, Math.ceil((row.reset_at.getTime() - Date.now()) / 1000)));
 }
 
-export function enforcePeerLimit(request: Request, scope: string, max: number, windowSeconds: number) {
-  return enforceRateLimit({ scope, identity: peerIdentity(request), max, windowSeconds });
+export function enforcePeerLimit(request: Request, scope: string, max: number, windowSeconds: number, queries: Pick<Pool, "query"> = pool) {
+  return enforceRateLimit({ scope, identity: peerIdentity(request), max, windowSeconds }, queries);
 }

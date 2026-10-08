@@ -6,6 +6,8 @@ export type RevokeReason = "reissued" | "closed" | "superseded";
 export type WalletBrand = {
   programType?: "stamp" | "points";
   tenantId: string;
+  /** Database-resolved programme location. Legacy native fixture builders may omit it. */
+  locationId?: string;
   programId: string;
   merchantName: string;
   programName: string;

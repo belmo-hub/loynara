@@ -148,7 +148,7 @@ test("failed Google Save is explained on the card without a provider redirect", 
 test("real disabled-provider download renders safe navigation HTML and Back restores the card", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "unavailable" } }));
-  await page.route("**/api/wallet/apple", route => route.fulfill({ json: { url: "/api/wallet/apple/download/synthetic-expired-ticket" } }));
+  await page.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-expired-ticket" } }));
   await cardReady(page);
   const responsePromise = page.waitForResponse(response => response.url().includes("/api/wallet/apple/download/"));
   await page.locator(".wallet-add--apple").click();
@@ -255,4 +255,27 @@ test("Wallet OFF preserves hardened closure guidance and confirmation", async ({
   await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
   await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
   await expect(page.locator(".card-state-page")).not.toContainText("Wallet");
+});
+
+
+test("asynchronous pending polls the protected status without repeating issuance and obtains a fresh archive ticket", async ({ page }, testInfo) => {
+  let checks=0,issues=0;
+  await page.route("**/api/wallet/status",async route=>{
+    expect(route.request().method()).toBe("POST"); expect(route.request().postDataJSON()).toEqual({token:cardToken}); checks++;
+    await route.fulfill({json:{apple:"available",google:"unavailable",applePass:checks<3?{status:"pending"}:{status:"ready",url:"/api/wallet/apple/download/browser-ready-ticket"}}});
+  });
+  await page.route("**/api/wallet/apple",route=>{issues++;return route.fulfill({status:202,json:{status:"pending"}});});
+  await page.route("**/api/wallet/apple/download/browser-ready-ticket",route=>route.fulfill({contentType:"text/html",body:"<html><body><h1>Synthetic archive handoff</h1></body></html>"}));
+  await cardReady(page); const button=page.locator(".wallet-add--apple"); await button.click();
+  await expect(button).toHaveText("Wird vorbereitet …"); await expect(button).toBeDisabled(); await expect(page.locator(".wallet-add--google")).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath("apple-pending.png"),fullPage:true,mask:[page.locator(".customer-qr img")]});
+  await expect(page.getByRole("heading",{name:"Synthetic archive handoff"})).toBeVisible({timeout:20_000});expect(issues).toBe(1);expect(checks).toBe(3);
+});
+
+test("actual providers-OFF card hides actions and direct issuance is unavailable while returning join works",async({page})=>{
+  await cardReady(page);await expect(page.locator(".customer-wallet-add")).toHaveCount(0);
+  for(const provider of ["apple","google"]){const response=await guest.post(`/api/wallet/${provider}`,{data:{token:cardToken}});expect(response.status()).toBe(503);}
+  const status=await guest.post("/api/wallet/status",{data:{token:cardToken}});expect(await status.json()).toMatchObject({apple:"unavailable",google:"unavailable",applePass:{status:"unavailable"}});
+  await page.goto(`/join/${encodeURIComponent(programSlug)}`);await expect(page.getByRole("heading",{name:"Willkommen zurück."})).toBeVisible();await expect(page.getByRole("button",{name:"Meine Karte erstellen"})).toHaveCount(0);await page.getByRole("link",{name:"Meine Karte öffnen"}).click();await page.waitForURL(/\/card\//);await expect(page.locator(".customer-card-business strong")).toHaveText("Synthetic Wallet Café");
+  await page.goto(`/join/${encodeURIComponent(programSlug)}`);await expect(page.getByRole("heading",{name:"Willkommen zurück."})).toBeVisible();await page.getByRole("link",{name:"Meine Karte öffnen"}).click();await page.waitForURL(/\/card\//);await expect(page.locator(".customer-card-business strong")).toHaveText("Synthetic Wallet Café");
 });

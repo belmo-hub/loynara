@@ -1,30 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PassFastClient, passFastConfig, passFastStatus } from "./passfast";
 const tenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const location = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const template = "0d283e79-17ba-48ca-9b2d-438487644190";
 const app = "fe0f1e68-4655-41d2-b805-813281911f79";
 const serial = "e8586555-738e-4b7a-879c-90708acb5c52";
-const env = { PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: app, PASSFAST_TEMPLATE_ID: serial };
-const bindings = JSON.stringify([{tenantId:tenant, templateId:template}]);
+const env = { PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: app, PASSFAST_TENANT_TEMPLATES: JSON.stringify([{tenantId:tenant,locationId:location,templateId:serial}]) };
+const bindings = JSON.stringify([{tenantId:tenant, locationId:location, templateId:template}]);
 const remote = {id:tenant, serial_number:serial, external_id:serial, app_id:app, template_id:serial, wallet_type:"apple", status:"active"};
 afterEach(() => vi.restoreAllMocks());
 describe("PassFast production readiness boundaries, no network", () => {
   it("selects only the database-resolved tenant's server template", () => {
-    expect(passFastConfig({...env, PASSFAST_TENANT_TEMPLATES:bindings},tenant).templateId).toBe(template);
-    expect(() => passFastConfig({...env, PASSFAST_TENANT_TEMPLATES:bindings},other)).toThrow();
+    expect(passFastConfig({...env, PASSFAST_TENANT_TEMPLATES:bindings},tenant,location).templateId).toBe(template);
+    expect(() => passFastConfig({...env, PASSFAST_TENANT_TEMPLATES:bindings},other,location)).toThrow();
   });
   it.each([
-    JSON.stringify([{tenantId:tenant,templateId:template},{tenantId:tenant,templateId:serial}]),
-    JSON.stringify([{tenantId:tenant,templateId:template},{tenantId:other,templateId:template}]),
-    JSON.stringify([{tenantId:tenant,templateId:template,apiKey:env.PASSFAST_API_KEY}]),
+    JSON.stringify([{tenantId:tenant,locationId:location,templateId:template},{tenantId:tenant,locationId:location,templateId:serial}]),
+    JSON.stringify([{tenantId:tenant,locationId:location,templateId:template},{tenantId:other,locationId:location,templateId:template}]),
+    JSON.stringify([{tenantId:tenant,locationId:location,templateId:template,apiKey:env.PASSFAST_API_KEY}]),
     '{}', '[]', 'not-json'
   ])("rejects ambiguous, shared or credential-bearing bindings %s", value => {
     expect(passFastStatus({...env, PASSFAST_TENANT_TEMPLATES:value}).ready).toBe(false);
   });
   it("requires an explicit production allowlist even with an approved global template", () => {
     const production = {...env, NODE_ENV:"production", WALLET_PRODUCTION_APPROVED:"true", PASSFAST_API_KEY:"sk_live_0123456789abcdef0123456789abcdef"};
-    expect(passFastStatus(production).ready).toBe(false);
+    expect(passFastStatus({...production,PASSFAST_TENANT_TEMPLATES:undefined}).ready).toBe(false);
     expect(passFastStatus({...production,PASSFAST_TENANT_TEMPLATES:bindings}).ready).toBe(true);
     expect(passFastStatus({...production,PASSFAST_TENANT_TEMPLATES:bindings,PASSFAST_ENABLED:"false"}).ready).toBe(false);
   });

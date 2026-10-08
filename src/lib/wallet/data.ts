@@ -37,6 +37,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
   const brand: WalletBrand & { membershipId: string } = {
     programType: row.program.type === "points" ? "points" : "stamp",
     tenantId: row.tenant.id,
+    locationId: row.location.id,
     membershipId: row.member.id,
     programId: row.program.id,
     merchantName: row.tenant.name,

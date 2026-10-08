@@ -26,7 +26,7 @@ export type OwnerWalletReadiness = {
 
 export async function ownerWalletReadiness(raw: { actorUserId: string; programSlug: string }): Promise<OwnerWalletReadiness> {
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
-  const [program] = await db.select({ id: programs.id, tenantId: programs.tenantId, brandColor: locations.brandColor, logoData: locations.logoData })
+  const [program] = await db.select({ id: programs.id, tenantId: programs.tenantId, locationId: locations.id, brandColor: locations.brandColor, logoData: locations.logoData })
     .from(programs).innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).limit(1);
   if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
@@ -34,7 +34,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
     .where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
   if (!role) throw new DomainError("FORBIDDEN", "Owner access required");
 
-  const availability = walletAvailability(process.env, program.tenantId);
+  const availability = walletAvailability(process.env, program.tenantId, program.locationId);
   const png = decodeMerchantLogoPng(program.logoData);
   const logo = !program.logoData ? "missing" : !png ? "needs_png" : appleLogoFromData(program.logoData) ? "ready" : "too_large";
   const counts = await db.execute<{ provider: string; n: number }>(sql`

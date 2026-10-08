@@ -1,23 +1,30 @@
-import { jsonBody, requireSameOrigin } from "@/lib/http";
+import { requireSameOrigin } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
-import { walletAvailability } from "@/lib/wallet/capability";
+import { walletJsonBody } from "@/lib/wallet/body";
+import { WALLET_HTTP_MS, withWalletDatabase } from "@/lib/wallet/database";
+import { walletCardEligibility } from "@/lib/wallet/eligibility";
 import { cardTokenFrom, noStore, walletIssueError, walletUnavailable } from "@/lib/wallet/http";
 import { issueWalletPass } from "@/lib/wallet/issue";
-import { createDownloadTicket } from "@/lib/wallet/ticket";
 import { passFastObjectId } from "@/lib/wallet/passfast";
+import { applePreparation, walletDeploymentAvailability } from "@/lib/wallet/preparation";
 
-/**
- * Step 1 of "Add to Apple Wallet": the card page POSTs its bearer token (body, never URL) and receives a two-minute
- * download URL for this card's current pass. The pass archive itself is signed in step 2 (download/[ticket]).
- */
+/** Commit a stable local projection/outbox job promptly. Provider synchronization belongs exclusively to the worker. */
 export async function POST(request: Request) {
-  if (walletAvailability().apple !== "available") return walletUnavailable();
+  if (walletDeploymentAvailability().apple !== "available") return walletUnavailable();
+  const deadline = Date.now() + WALLET_HTTP_MS;
   try {
     requireSameOrigin(request);
-    await enforcePeerLimit(request, "wallet_apple_peer", 30, 15 * 60);
-    const token = cardTokenFrom(await jsonBody(request, 1000));
-    await enforceRateLimit({ scope: "wallet_apple_token", identity: token, max: 10, windowSeconds: 15 * 60 });
-    const pass = await issueWalletPass(token, "apple", process.env.PASSFAST_ENABLED === "true" ? passFastObjectId : id => id);
-    return Response.json({ url: `/api/wallet/apple/download/${createDownloadTicket(pass.id)}` }, { headers: noStore });
+    const token = cardTokenFrom(await walletJsonBody(request,deadline));
+    return await withWalletDatabase(async (database,client) => {
+      await enforcePeerLimit(request,"wallet_apple_peer",30,15*60,client);
+      await enforceRateLimit({scope:"wallet_apple_token",identity:token,max:10,windowSeconds:15*60},client);
+      const eligibility = await walletCardEligibility(token,database);
+      if (eligibility.availability.apple !== "available") return walletUnavailable();
+      await issueWalletPass(token,"apple",process.env.PASSFAST_ENABLED === "true" ? passFastObjectId : id => id,database);
+      const prepared = await applePreparation(eligibility,database);
+      if (prepared.status === "ready") return Response.json({status:"ready",url:prepared.url},{headers:noStore});
+      if (prepared.status !== "pending") return walletUnavailable();
+      return Response.json({status:"pending"},{status:202,headers:{...noStore,"Retry-After":"5"}});
+    },deadline-Date.now());
   } catch (error) { return walletIssueError(error); }
 }

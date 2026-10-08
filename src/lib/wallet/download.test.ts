@@ -24,6 +24,13 @@ vi.mock("@/db", () => ({
     update: () => ({ set: () => ({ where: boundary.update }) }),
   },
 }));
+vi.mock("./database", async importOriginal => ({
+  ...await importOriginal<typeof import("./database")>(),
+  withWalletDatabase: async (work: (database: unknown, client: unknown, deadline: number) => Promise<unknown>) => {
+    const { db, pool } = await import("@/db");
+    return work(db, pool, Date.now() + 65_000);
+  },
+}));
 vi.mock("@/lib/rate-limit", async importOriginal => ({
   ...await importOriginal<typeof import("@/lib/rate-limit")>(),
   enforcePeerLimit: vi.fn(), enforceRateLimit: vi.fn(),

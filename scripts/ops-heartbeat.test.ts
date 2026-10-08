@@ -21,4 +21,17 @@ describe("worker heartbeat", () => {
     expect(log.mock.calls.flat().join(" ")).not.toContain("m123-abc");
     log.mockRestore();
   });
+  it("aborts a pending monitor request during worker shutdown", async () => {
+    const controller = new AbortController();
+    const request: typeof fetch = async (_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+    });
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const pending = sendWorkerHeartbeat("https://heartbeat.uptimerobot.com/m123-abc", request, controller.signal);
+    controller.abort();
+    try {
+      expect(await Promise.race([pending.then(() => true), new Promise(resolve => setTimeout(() => resolve(false),30))])).toBe(true);
+    } finally { log.mockRestore(); }
+  });
+
 });

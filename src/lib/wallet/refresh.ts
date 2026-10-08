@@ -8,7 +8,7 @@ import { walletCardSnapshot } from "./data";
 import { googleConfig, googleWalletStatus, GoogleWalletClient } from "./google";
 import type { RevokeReason, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
-import { isPassFastObjectId, passFastStatus, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
+import { isPassFastObjectId, passFastStatus, passFastConfig, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
@@ -32,7 +32,9 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
   let passFastFailed = false;
   for (const original of rows) {
     if (isPassFastObjectId(original.providerObjectId)) {
-      if (!passFastStatus(process.env, original.tenantId).ready && !deps.passfast) { blocked.push("Wallet provider unavailable"); continue; }
+      const brand = snapshot.open ? snapshot.pass : snapshot.brand;
+      if (brand.tenantId !== original.tenantId || !passFastStatus(process.env, original.tenantId, brand.locationId).ready
+        || !passFastConfig(process.env, original.tenantId, brand.locationId).platforms.includes(original.provider as "apple" | "google")) { blocked.push("Wallet provider unavailable"); continue; }
       try { await syncPassFastPass(original.id, { client: deps.passfast, tenantId: original.tenantId, deadline: passFastDeadline }); }
       catch { passFastFailed = true; } // Still retire the other platform; retain this job for bounded retry.
       continue;
@@ -103,8 +105,8 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
 
 function revokedView(row: PassRow, snapshot: Awaited<ReturnType<typeof walletCardSnapshot>>): WalletRevokedData {
   const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-  const { tenantId, programId, merchantName, programName, locationName, brandColor, country, locale, appleLogo } = brand;
-  return { tenantId, programId, merchantName, programName, locationName, brandColor, country, locale, membershipId: row.membershipId, reason: (row.revokeReason as RevokeReason | null) ?? "superseded", ...(appleLogo ? { appleLogo } : {}) };
+  const { tenantId, locationId, programId, merchantName, programName, locationName, brandColor, country, locale, appleLogo } = brand;
+  return { tenantId, locationId, programId, merchantName, programName, locationName, brandColor, country, locale, membershipId: row.membershipId, reason: (row.revokeReason as RevokeReason | null) ?? "superseded", ...(appleLogo ? { appleLogo } : {}) };
 }
 
 async function finishRevocation(row: PassRow) {

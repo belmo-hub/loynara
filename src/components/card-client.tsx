@@ -7,6 +7,7 @@ import { createRefreshGate } from "@/lib/refresh-gate";
 import { BrandMark, CustomerCardView } from "./loyalty-ui";
 import { CardContact } from "./card-contact";
 import { CardReferral } from "./card-referral";
+import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
 
 type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable" };
 
@@ -53,10 +54,13 @@ export function CardClient({ token }: { token: string }) {
   const [card, setCard] = useState<CardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [wallet, setWallet] = useState<WalletAvailability | null>(null);
+  const [walletScope, setWalletScope] = useState<{ token: string; availability: WalletAvailability } | null>(null);
+  const wallet = walletScope?.token === token ? walletScope.availability : null;
   const [platform, setPlatform] = useState<"ios" | "android" | "other">("other");
   const [walletBusy, setWalletBusy] = useState<"apple" | "google" | null>(null);
   const [walletError, setWalletError] = useState("");
+  const walletOperation = useRef<AbortController | null>(null);
+  const downloadReset = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
   const [closeError, setCloseError] = useState("");
   const [closed, setClosed] = useState(false);
@@ -103,22 +107,29 @@ export function CardClient({ token }: { token: string }) {
   }, [token]);
   useEffect(() => {
     let mounted = true;
-    // No status, no buttons: a failed check never shows an action that might not work.
-    void apiJson<WalletAvailability>("/api/wallet/status").then(result => { if (mounted) { setPlatform(walletPlatform()); setWallet(result); } }).catch(() => {});
-    return () => { mounted = false; };
-  }, []);
+    const controller = new AbortController();
+    // Capability belongs to this card's tenant/location. A failed check leaves the action hidden.
+    void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setPlatform(walletPlatform()); setWalletScope({ token, availability: result }); setWalletBusy(null); } }).catch(() => {});
+    return () => {
+      mounted = false; controller.abort(); walletOperation.current?.abort(); walletOperation.current = null;
+      if (downloadReset.current) clearTimeout(downloadReset.current);
+    };
+  }, [token]);
 
-  // The card token goes in the POST body. Apple: a two-minute download link for Safari; Google: a Save link that names
-  // the prepared Wallet object only.
+  // Only a ready projection yields a fresh two-minute download ticket. Pending work stays in the worker.
   async function addToAppleWallet() {
+    if (walletOperation.current) return;
+    const controller = new AbortController(); walletOperation.current = controller;
     setWalletBusy("apple"); setWalletError("");
     try {
-      const { url } = await postJson<{ url: string }>("/api/wallet/apple", { token });
-      if (!/^\/api\/wallet\/apple\/download\/[A-Za-z0-9_.-]+$/.test(url)) throw new Error("Unexpected download link");
+      const url = await prepareAppleWallet(token, controller.signal);
+      if (controller.signal.aborted) return;
       window.location.assign(url);
-      // A pass download keeps this page open; release the button once Safari has taken over.
-      window.setTimeout(() => setWalletBusy(null), 4000);
-    } catch (cause) { setWalletError(walletMessage(cause, card?.locale === "fr")); setWalletBusy(null); }
+      downloadReset.current = setTimeout(() => { walletOperation.current = null; setWalletBusy(null); }, 4000);
+    } catch (cause) {
+      if (!controller.signal.aborted) { setWalletError(walletMessage(cause, card?.locale === "fr")); setWalletBusy(null); }
+      walletOperation.current = null;
+    }
   }
 
   async function addToGoogleWallet() {
@@ -136,6 +147,7 @@ export function CardClient({ token }: { token: string }) {
     try {
       await postJson<{ closed: true }>(`/api/card/${encodeURIComponent(token)}/close`, { confirm: "CLOSE_CARD" });
       live.current = false;
+      walletOperation.current?.abort();
       setClosed(true);
       setCard(null);
     } catch (cause) {

@@ -41,10 +41,16 @@ export async function claimOutboxJob(pool: Pick<Pool, "query">, { maxAttempts, l
 
 /** Records the outcome of the claimed attempt; ignored when the lease has since passed to another worker. */
 export async function markOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts">, status: OutboxStatus, reason?: string, delaySeconds = 0) {
-  await pool.query(
-    "UPDATE outbox_jobs SET status = $2, last_error = $3, next_attempt_at = now() + $4::int * interval '1 second' WHERE id = $1 AND status = 'processing' AND attempts = $5",
+  const result = await pool.query(
+    `WITH locked AS MATERIALIZED (
+       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND status = 'processing' AND attempts = $5 FOR UPDATE
+     ), owned AS MATERIALIZED (
+       SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
+     ) UPDATE outbox_jobs SET status = $2, last_error = $3, next_attempt_at = clock_timestamp() + $4::int * interval '1 second'
+       FROM owned WHERE outbox_jobs.id = owned.id`,
     [job.id, status, reason?.slice(0, 300) ?? null, delaySeconds, job.attempts],
   );
+  return result.rowCount === 1;
 }
 
 /**
@@ -56,4 +62,41 @@ export async function deferOutboxJob(pool: Pick<Pool, "query">, job: Pick<Outbox
     "UPDATE outbox_jobs SET status = 'retry', attempts = attempts - 1, last_error = $2, next_attempt_at = $3 WHERE id = $1 AND status = 'processing' AND attempts = $4",
     [job.id, reason.slice(0, 300), until, job.attempts],
   );
+}
+
+/** Renewal cannot revive an expired claim, even if no replacement worker has claimed it yet. */
+export async function renewOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts">, leaseMinutes = 5): Promise<boolean> {
+  const result = await pool.query(
+    `WITH locked AS MATERIALIZED (
+       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND attempts = $2 AND status = 'processing' FOR UPDATE
+     ), owned AS MATERIALIZED (
+       SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
+     ) UPDATE outbox_jobs SET next_attempt_at = clock_timestamp() + $3::int * interval '1 minute'
+       FROM owned WHERE outbox_jobs.id = owned.id`,
+    [job.id, job.attempts, leaseMinutes],
+  );
+  return result.rowCount === 1;
+}
+
+/** Completion and suppression share the same atomic ownership fence. */
+export async function completeWalletOutboxJob(pool: Pick<Pool, "query">, job: OutboxJob): Promise<boolean> {
+  const result = await pool.query<{ owned: boolean }>(`
+    WITH locked AS MATERIALIZED (
+      SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND kind = 'wallet.refresh'
+        AND tenant_id = $3 AND status = 'processing' AND attempts = $2 FOR UPDATE
+    ), owned AS MATERIALIZED (
+      SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
+    ), completed AS (
+      UPDATE outbox_jobs SET status = 'complete', last_error = NULL, next_attempt_at = clock_timestamp()
+      FROM owned WHERE outbox_jobs.id = owned.id
+      RETURNING outbox_jobs.created_at
+    ), suppressed AS (
+      UPDATE outbox_jobs AS older SET status = 'suppressed', last_error = 'Superseded by a later successful wallet refresh'
+      FROM completed WHERE older.kind = 'wallet.refresh' AND older.status IN ('failed', 'blocked')
+        AND older.tenant_id = $3 AND older.payload ->> 'membershipId' = $4 AND older.id <> $1
+        AND older.created_at <= completed.created_at
+      RETURNING older.id
+    ) SELECT EXISTS(SELECT 1 FROM completed) AS owned
+  `, [job.id, job.attempts, job.tenantId, String(job.payload.membershipId)]);
+  return result.rows[0]?.owned === true;
 }

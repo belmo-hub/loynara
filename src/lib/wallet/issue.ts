@@ -7,7 +7,8 @@ import { DomainError } from "@/lib/loyalty";
 import { credentialHash } from "./data";
 import { enqueueWalletRefresh } from "./enqueue";
 import type { WalletProvider } from "./types";
-import { isPassFastObjectId, passFastConfig } from "./passfast";
+import { isPassFastObjectId, passFastConfig, bindPassFastObjectId, assertPassFastBinding, type PassFastConfig, passFastSerial } from "./passfast";
+import { walletCardEligibility } from "./eligibility";
 
 export type IssuedPass = typeof walletPasses.$inferSelect;
 
@@ -18,33 +19,39 @@ export type IssuedPass = typeof walletPasses.$inferSelect;
  *  - Older credential still marked active (should not happen; defence in depth): it is revoked and a refresh queued.
  * The provider object itself is created by the caller AFTER commit; provider latency never holds the card lock.
  */
-export async function issueWalletPass(cardToken: string, provider: WalletProvider, objectIdFor: (passId: string) => string): Promise<IssuedPass> {
+export async function issueWalletPass(cardToken: string, provider: WalletProvider, objectIdFor: (passId: string) => string, database: Pick<typeof db, "transaction"> = db): Promise<IssuedPass> {
   if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
-  return db.transaction(async tx => {
+  return database.transaction(async tx => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    let managedConfig: PassFastConfig | undefined;
     // Refuse unmapped tenants before changing any projection or enqueueing work.
     if (isPassFastObjectId(objectIdFor(member.id))) {
-      const config = passFastConfig(process.env, member.tenantId);
-      if (!config.platforms.includes(provider)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      const eligibility = await walletCardEligibility(cardToken, tx);
+      if (eligibility.availability[provider] !== "available") throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      managedConfig = passFastConfig(process.env, eligibility.tenantId, eligibility.locationId);
     }
     const hash = credentialHash(member.scanCode);
     const [active] = await tx.select().from(walletPasses)
       .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id), eq(walletPasses.provider, provider), isNull(walletPasses.revokedAt)));
-    if (active?.credentialHash === hash && isPassFastObjectId(active.providerObjectId) === isPassFastObjectId(objectIdFor(active.id))) return active;
+    if (active?.credentialHash === hash && isPassFastObjectId(active.providerObjectId) === isPassFastObjectId(objectIdFor(active.id))) {
+      if (managedConfig) assertPassFastBinding(active.providerObjectId, managedConfig);
+      return active;
+    }
     if (active) {
       await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: "superseded", status: active.status === "pending" && (provider === "apple" || isPassFastObjectId(active.providerObjectId)) ? "revoked" : "revocation_pending", updatedAt: new Date() }).where(eq(walletPasses.id, active.id));
       await enqueueWalletRefresh(tx, member.tenantId, member.id);
     }
     const id = randomUUID();
     let providerObjectId = objectIdFor(id);
-    if (isPassFastObjectId(providerObjectId)) {
+    if (managedConfig) {
+      providerObjectId = bindPassFastObjectId(passFastSerial(providerObjectId), managedConfig);
       // One opaque generation serial across both platforms, with separate local rows and explicit API wallet_type.
       // The membership lock serializes first issuance. A revoked/older-generation row can never donate its serial.
       const [sibling] = await tx.select({ providerObjectId: walletPasses.providerObjectId }).from(walletPasses)
         .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id),
           eq(walletPasses.credentialHash, hash), isNull(walletPasses.revokedAt), like(walletPasses.providerObjectId, "passfast:%"))).limit(1);
-      if (sibling) providerObjectId = sibling.providerObjectId;
+      if (sibling) { assertPassFastBinding(sibling.providerObjectId, managedConfig); providerObjectId = sibling.providerObjectId; }
     }
     const [created] = await tx.insert(walletPasses).values({ id, tenantId: member.tenantId, membershipId: member.id, provider, providerObjectId, status: "pending", credentialHash: hash }).returning();
     if (isPassFastObjectId(created.providerObjectId)) await enqueueWalletRefresh(tx, member.tenantId, member.id);
@@ -53,7 +60,7 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
 }
 
 /** The active row behind a download ticket, only while it still belongs to the card's current credential. */
-export async function activeApplePass(passId: string): Promise<IssuedPass | null> {
-  const [row] = await db.select().from(walletPasses).where(and(eq(walletPasses.id, passId), eq(walletPasses.provider, "apple"), isNull(walletPasses.revokedAt)));
+export async function activeApplePass(passId: string, reader: Pick<typeof db, "select"> = db): Promise<IssuedPass | null> {
+  const [row] = await reader.select().from(walletPasses).where(and(eq(walletPasses.id, passId), eq(walletPasses.provider, "apple"), isNull(walletPasses.revokedAt)));
   return row ?? null;
 }

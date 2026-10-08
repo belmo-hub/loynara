@@ -3,7 +3,7 @@ import { PassFastClient, passFastConfig, passFastObjectId, passFastStatus, passF
 import { syntheticPassFastArchive } from "./test-support";
 const serial = "11111111-1111-4111-8111-111111111111";
 const id = "22222222-2222-4222-8222-222222222222";
-const env = { PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: id, PASSFAST_TEMPLATE_ID: serial };
+const env = { PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: id, PASSFAST_TENANT_TEMPLATES: JSON.stringify([{tenantId:id,locationId:"33333333-3333-4333-8333-333333333333",templateId:serial}]) };
 const config = () => passFastConfig(env);
 const pass = (platform = "google", status = "active") => ({ id, serial_number: serial, external_id: serial, app_id: id, template_id: serial, wallet_type: platform, status, google_save_url: "https://pay.google.com/gp/v/save/synthetic" });
 const json = (value: unknown, status = 200) => Response.json(value, { status });
@@ -17,7 +17,7 @@ describe("PassFast managed transport, fake responses only", () => {
   it.each([undefined, "false", "TRUE"])("stays off for flag %s", flag => {
     expect(passFastStatus({ ...env, PASSFAST_ENABLED: flag }).ready).toBe(false);
   });
-  it.each(["PASSFAST_API_KEY", "PASSFAST_APP_ID", "PASSFAST_TEMPLATE_ID"])("refuses missing %s", name => {
+  it.each(["PASSFAST_API_KEY", "PASSFAST_APP_ID", "PASSFAST_TENANT_TEMPLATES"])("refuses missing %s", name => {
     expect(passFastStatus({ ...env, [name]: "" }).ready).toBe(false);
   });
   it("requires a server secret, never a publishable key", () => {
@@ -119,12 +119,14 @@ describe("PassFast managed transport, fake responses only", () => {
       .mockResolvedValueOnce(new Response(new Uint8Array(bytes),{headers:{"content-type":"application/vnd.apple.pkpass"}}));
     await expect(new PassFastClient(config(),fetch).void(serial,"apple")).rejects.toThrow();
   });
-  it("keeps existing-platform revocation possible when new issuance is disabled for that platform", async () => {
-    const fetch = vi.fn().mockResolvedValueOnce(json({status:"invalidated"})).mockResolvedValueOnce(json(pass("google","invalidated")));
+  it("never contacts Google when only Apple is permitted, including existing-pass cleanup", async () => {
+    const fetch = vi.fn().mockResolvedValue(json(pass("google","invalidated")));
     const client = new PassFastClient({...config(),platforms:["apple"]},fetch);
     await expect(client.generate(serial,"google",{})).rejects.toThrow();
+    await expect(client.get(serial,"google")).rejects.toThrow();
+    await expect(client.update(serial,"google",{})).rejects.toThrow();
+    await expect(client.void(serial,"google")).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
-    await expect(client.void(serial,"google")).resolves.toBeUndefined();
   });
   it("bounds provider JSON responses", async () => {
     const fetch = vi.fn().mockResolvedValue(json({ ...pass(), privatePadding: "x".repeat(70000) }));

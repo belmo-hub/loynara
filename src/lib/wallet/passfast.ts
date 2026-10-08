@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
 import { walletText } from "./content";
 import type { WalletPassData, WalletProvider, WalletStatus } from "./types";
@@ -5,7 +6,7 @@ import type { WalletPassData, WalletProvider, WalletStatus } from "./types";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BASE = "https://api.passfa.st/functions/v1";
 const PREFIX = "passfast:";
-export type PassFastConfig = { apiKey: string; appId: string; templateId: string; platforms: WalletProvider[]; tenantId?: string };
+export type PassFastConfig = { apiKey: string; appId: string; templateId: string; platforms: WalletProvider[]; tenantId?: string; locationId?: string };
 export class PassFastError extends Error {
   constructor(readonly status?: number) { super("PassFast operation failed"); this.name = "PassFastError"; }
 }
@@ -16,51 +17,68 @@ export function passFastObjectId(id: string): string {
 }
 export function isPassFastObjectId(value: unknown): value is string { return typeof value === "string" && value.startsWith(PREFIX); }
 export function passFastSerial(value: string): string {
-  if (!isPassFastObjectId(value) || !UUID.test(value.slice(PREFIX.length))) throw new PassFastError();
-  return value.slice(PREFIX.length);
+  if (!isPassFastObjectId(value)) throw new PassFastError();
+  const parts = value.slice(PREFIX.length).split(":");
+  if (!UUID.test(parts[0]) || parts.length > 2 || (parts.length === 2 && !/^[0-9a-f]{64}$/.test(parts[1]))) throw new PassFastError();
+  return parts[0];
+}
+/** Freeze the issuing scope in the existing opaque identity while preserving the provider's original serial. */
+export function bindPassFastObjectId(id: string, config: PassFastConfig): string {
+  const scope = [config.tenantId, config.locationId, config.appId, config.templateId];
+  if (!scope.every(value => typeof value === "string" && UUID.test(value))) throw new PassFastError();
+  const binding = createHash("sha256").update("loynara-passfast-binding-v1\0").update(scope.map(value => value!.toLowerCase()).join("\0")).digest("hex");
+  return `${passFastObjectId(id)}:${binding}`;
+}
+/** Legacy unbound projections and operator remaps cannot authorize archive access or remote sync. */
+export function assertPassFastBinding(objectId: string, config: PassFastConfig): void {
+  const expected = bindPassFastObjectId(passFastSerial(objectId), config);
+  const actualBytes = Buffer.from(objectId), expectedBytes = Buffer.from(expected);
+  if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) throw new PassFastError();
 }
 
-/** Operator-only allowlist. No per-merchant keys, browser-selected template or production global fallback. */
-function tenantTemplates(raw: string | undefined): Map<string, string> | undefined {
-  if (raw === undefined) return undefined;
+/** Operator-only allowlist: exact tenant/location scopes, distinct templates and no global fallback. */
+function tenantTemplates(raw: string | undefined): Map<string, { tenantId: string; locationId: string; templateId: string }> {
   try {
-    if (raw.length > 65536) throw new PassFastError();
+    if (!raw || raw.length > 65536) throw new PassFastError();
     const values: unknown = JSON.parse(raw);
     if (!Array.isArray(values) || !values.length || values.length > 500) throw new PassFastError();
-    const bindings = new Map<string, string>(), templates = new Set<string>();
+    const bindings = new Map<string, { tenantId: string; locationId: string; templateId: string }>(), templates = new Set<string>();
     for (const value of values) {
       const row = record(value);
-      if (Object.keys(row).sort().join(",") !== "templateId,tenantId"
+      if (Object.keys(row).sort().join(",") !== "locationId,templateId,tenantId"
         || typeof row.tenantId !== "string" || !UUID.test(row.tenantId)
+        || typeof row.locationId !== "string" || !UUID.test(row.locationId)
         || typeof row.templateId !== "string" || !UUID.test(row.templateId)) throw new PassFastError();
-      const tenant = row.tenantId.toLowerCase(), template = row.templateId.toLowerCase();
-      if (bindings.has(tenant) || templates.has(template)) throw new PassFastError();
-      bindings.set(tenant, template); templates.add(template);
+      const tenantId = row.tenantId.toLowerCase(), locationId = row.locationId.toLowerCase(), templateId = row.templateId.toLowerCase();
+      const scope = `${tenantId}/${locationId}`;
+      if (bindings.has(scope) || templates.has(templateId)) throw new PassFastError();
+      bindings.set(scope, { tenantId, locationId, templateId }); templates.add(templateId);
     }
     return bindings;
   } catch { throw new PassFastError(); }
 }
-export function passFastConfig(env: Record<string, string | undefined> = process.env, tenantId?: string): PassFastConfig {
+export function passFastConfig(env: Record<string, string | undefined> = process.env, tenantId?: string, locationId?: string): PassFastConfig {
   const bindings = tenantTemplates(env.PASSFAST_TENANT_TEMPLATES);
   const apiKey = env.PASSFAST_API_KEY ?? "", appId = env.PASSFAST_APP_ID ?? "";
-  // No-tenant resolution is used only for deployment capability checks; issuance always resolves its DB tenant.
-  const templateId = bindings ? (tenantId ? bindings.get(tenantId.toLowerCase()) : bindings.values().next().value) ?? "" : env.PASSFAST_TEMPLATE_ID ?? "";
+  // Only startup validation may inspect one binding without a scope. A partial scope is always invalid.
+  const unscoped = tenantId === undefined && locationId === undefined;
+  const binding = unscoped ? bindings.values().next().value : tenantId && locationId ? bindings.get(`${tenantId.toLowerCase()}/${locationId.toLowerCase()}`) : undefined;
   const types = env.PASSFAST_WALLET_TYPES ?? "both";
   if (env.PASSFAST_ENABLED !== "true" || !/^sk_live_[A-Za-z0-9_-]{24,}$/.test(apiKey) || /replace|placeholder|changeme/i.test(apiKey)
-    || !UUID.test(appId) || !UUID.test(templateId) || !["apple", "google", "both"].includes(types)
+    || !UUID.test(appId) || !binding || !["apple", "google", "both"].includes(types)
     || apiKey === env.BETTER_AUTH_SECRET || apiKey === env.PROMOTIONAL_UNSUBSCRIBE_SECRET
-    || (env.NODE_ENV === "production" && (!bindings || env.WALLET_PRODUCTION_APPROVED !== "true" || /^sk_live_(synthetic|fixture|test_|example)/i.test(apiKey)))) throw new PassFastError();
-  return { apiKey, appId, templateId, ...(bindings && tenantId ? {tenantId: tenantId.toLowerCase()} : {}), platforms: types === "both" ? ["apple", "google"] : [types as WalletProvider] };
+    || (env.NODE_ENV === "production" && (env.WALLET_PRODUCTION_APPROVED !== "true" || /^sk_live_(synthetic|fixture|test_|example)/i.test(apiKey)))) throw new PassFastError();
+  return { apiKey, appId, ...binding, platforms: types === "both" ? ["apple", "google"] : [types as WalletProvider] };
 }
-export function passFastStatus(env: Record<string, string | undefined> = process.env, tenantId?: string): WalletStatus {
+export function passFastStatus(env: Record<string, string | undefined> = process.env, tenantId?: string, locationId?: string): WalletStatus {
   const enabled = env.PASSFAST_ENABLED === "true";
   if (!enabled) return { enabled: false, ready: false, reason: "PassFast is disabled" };
-  try { passFastConfig(env, tenantId); return { enabled, ready: true, reason: null }; }
-  catch { return { enabled, ready: false, reason: "PassFast requires valid server key, app, published template, wallet types and production approval" }; }
+  try { passFastConfig(env, tenantId, locationId); return { enabled, ready: true, reason: null }; }
+  catch { return { enabled, ready: false, reason: "PassFast requires valid server key, app, published location template, wallet types and production approval" }; }
 }
 
 export const PASSFAST_REQUEST_MS = 45000;
-// Shared across both platforms of a refresh; leaves a minute for DB cleanup under the worker's five-minute lease.
+// Shared provider budget across platforms; the supervised worker separately bounds DB/startup/cleanup overhead.
 export const PASSFAST_OPERATION_MS = 240000;
 async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) throw new PassFastError();
@@ -147,7 +165,7 @@ function voidedAppleArchive(bytes: Buffer, serial: string): boolean {
 export class PassFastClient {
   constructor(readonly config: PassFastConfig, private readonly fetcher: typeof fetch = fetch, private readonly deadline = Date.now() + PASSFAST_OPERATION_MS) {}
   private path(serial: string, platform: WalletProvider, suffix = "") {
-    if (!UUID.test(serial) || !["apple", "google"].includes(platform)) throw new PassFastError();
+    if (!UUID.test(serial) || !["apple", "google"].includes(platform) || !this.config.platforms.includes(platform)) throw new PassFastError();
     return `/manage-passes/serial/${serial}${suffix}?wallet_type=${platform}`;
   }
   private async request(path: string, method = "GET", body?: unknown): Promise<Response> {

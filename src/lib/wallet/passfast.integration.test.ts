@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/db";
+import { claimOutboxJob, markOutboxJob } from "@/lib/outbox";
 import { closeCard } from "@/lib/card-lifecycle";
 import { reissueCardByStaff } from "@/lib/card-reissue";
 import { award, redeem, reverseEntry } from "@/lib/loyalty";
 import { updateMerchantBrand } from "@/lib/merchant-brand";
 import { createMerchant, enroll, updateProgram, editReward } from "@/lib/product";
 import { POST as googleIssue } from "@/app/api/wallet/google/route";
+import { POST as walletStatus } from "@/app/api/wallet/status/route";
+import { createDownloadTicket } from "./ticket";
 import { POST as appleIssue } from "@/app/api/wallet/apple/route";
 import { GET as download } from "@/app/api/wallet/apple/download/[ticket]/route";
 import { configureReferrals, getCardReferralShare } from "@/lib/referrals";
@@ -16,7 +19,7 @@ import { POST as enrollRoute } from "@/app/api/enroll/route";
 import { issueWalletPass } from "./issue";
 import { ownerWalletReadiness } from "./readiness";
 import { refreshWalletForMembership } from "./refresh";
-import { passFastObjectId } from "./passfast";
+import { passFastObjectId, passFastSerial } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
 import { syntheticPassFastArchive } from "./test-support";
 
@@ -29,6 +32,7 @@ let failingVoids = new Set<string>();
 let pauseUpdate: (() => Promise<void>) | undefined, pauseDownload: (() => Promise<void>) | undefined;
 let rows: Map<string, Remote>, calls: Array<{ path: string; body: Record<string, unknown> | null }>, loseGenerate: boolean, loseVoid: boolean, outage: boolean;
 let failedAppleRebuild = false;
+let templateBindings: Array<{ tenantId: string; locationId: string; templateId: string }>;
 const pkpass = (row: Remote) => new Response(new Uint8Array(syntheticPassFastArchive({serialNumber:row.serial_number,
   voided:row.status==="invalidated"&&!failedAppleRebuild,barcodes:row.dynamic_data.scanCode?[{message:row.dynamic_data.scanCode}]:[]})),
   { headers: { "Content-Type": "application/vnd.apple.pkpass" } });
@@ -69,14 +73,44 @@ async function fixture(locale: "de" | "fr" = "de") {
   await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [owner,"Synthetic PassFast owner",`${owner}@example.test`]);
   const merchant = await createMerchant({ userId: owner, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Coffee", programType: "stamp", rulesText: "One per purchase", rewardTitle: "Coffee", rewardCost: 5 });
   const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+  templateBindings.push({ tenantId: merchant.tenantId, locationId: merchant.locationId, templateId: randomUUID() });
+  vi.stubEnv("PASSFAST_TENANT_TEMPLATES", JSON.stringify(templateBindings));
   return { owner, merchant, member };
+}
+/** Exercise the durable worker boundary before requesting a fresh ready ticket. */
+async function processWalletJobs() {
+  for (;;) {
+    const job = await claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 });
+    if (!job) return;
+    expect(job.kind).toBe("wallet.refresh");
+    try {
+      const result = await refreshWalletForMembership(String(job.payload.membershipId), { expectedTenantId: job.tenantId });
+      expect(await markOutboxJob(pool, job, result.status, "reason" in result ? result.reason : undefined)).toBe(true);
+    } catch (error) {
+      await markOutboxJob(pool, job, "retry", "Synthetic provider failure", 60);
+      throw error;
+    }
+  }
+}
+async function readyApple(f: Awaited<ReturnType<typeof fixture>>) {
+  const issued = await appleIssue(post(f.member.cardToken, "apple"));
+  expect(issued.status).toBe(202);
+  expect(await issued.json()).toEqual({ status: "pending" });
+  await processWalletJobs();
+  const status = await walletStatus(post(f.member.cardToken, "status"));
+  expect(status.status).toBe(200);
+  const body = await status.json();
+  expect(body.applePass.status).toBe("ready");
+  expect(body.applePass.url).toMatch(/^\/api\/wallet\/apple\/download\//);
+  return { url: body.applePass.url as string };
 }
 const reissue = (f: Awaited<ReturnType<typeof fixture>>) => reissueCardByStaff({ actorUserId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, reason: "Synthetic lost phone verification", verificationMethod: "card_link", entitlementConfirmed: true, idempotencyKey: randomUUID() });
 const snapshot = async (member: string) => (await pool.query("SELECT to_jsonb(m) AS member, (SELECT coalesce(jsonb_agg(to_jsonb(l) ORDER BY id), '[]') FROM ledger_entries l WHERE membership_id=$1) AS ledger FROM memberships m WHERE id=$1", [member])).rows[0];
 beforeEach(async () => {
   await pool.query('TRUNCATE tenants, "user", demo_requests, apple_devices, rate_limits CASCADE');
+  templateBindings = [];
   rows = new Map(); calls = []; loseGenerate = loseVoid = outage = false; pauseUpdate = pauseDownload = undefined; outagePlatform = undefined; failingVoids = new Set(); failedAppleRebuild = false;
-  for (const [name,value] of Object.entries({ PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: randomUUID(), PASSFAST_TEMPLATE_ID: randomUUID(), PUBLIC_BASE_URL: origin })) vi.stubEnv(name,value);
+  for (const [name,value] of Object.entries({ PASSFAST_ENABLED: "true", PASSFAST_API_KEY: "sk_live_synthetic_0123456789abcdef0123456789", PASSFAST_APP_ID: randomUUID(), PASSFAST_WALLET_TYPES: "both", PASSFAST_TENANT_TEMPLATES: "[]", APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false", PUBLIC_BASE_URL: origin })) vi.stubEnv(name,value);
   vi.stubGlobal("fetch", vi.fn(fake));
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
@@ -147,12 +181,18 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect((await googleIssue(post(f.member.cardToken))).status).toBe(404);
     expect(await snapshot(f.member.id)).toEqual(before);
   });
-  it("does not skip uncertain pending Apple revocation after creation timeout", async () => {
+  it("does not skip uncertain pending Apple revocation after worker creation timeout", async () => {
     const f = await fixture();
     const issued = await appleIssue(post(f.member.cardToken,"apple"));
-    const { url } = await issued.json(); loseGenerate = true;
-    const ticket = String(url).split("/").at(-1)!;
-    expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(502);
+    expect(issued.status).toBe(202);
+    const pass = (await pool.query("SELECT id FROM wallet_passes WHERE membership_id=$1", [f.member.id])).rows[0];
+    const ticket = createDownloadTicket(pass.id), url = `/api/wallet/apple/download/${ticket}`;
+    loseGenerate = true;
+    await expect(processWalletJobs()).rejects.toThrow();
+    expect(rows.size).toBe(1);
+    const before = calls.length;
+    expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(503);
+    expect(calls).toHaveLength(before);
     await reissue(f);
     expect((await pool.query("SELECT status FROM wallet_passes")).rows[0].status).toBe("revocation_pending");
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
@@ -168,7 +208,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes WHERE status <> 'revoked'")).rows[0].n).toBe(0);
   });
   it("completes the other platform's revocation during a single-platform outage", async () => {
-    const f=await fixture(); const {url}=await (await appleIssue(post(f.member.cardToken,"apple"))).json();
+    const f=await fixture(); const {url}=await readyApple(f);
     const ticket=String(url).split("/").at(-1)!;
     expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(200);
     await googleIssue(post(f.member.cardToken)); await closeCard(f.member.cardToken); outagePlatform="apple";
@@ -178,7 +218,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).resolves.toEqual({status:"complete"});
   });
   async function issueBoth(f: Awaited<ReturnType<typeof fixture>>) {
-    const {url}=await (await appleIssue(post(f.member.cardToken,"apple"))).json();
+    const {url}=await readyApple(f);
     const ticket=String(url).split("/").at(-1)!;
     expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(200);
     expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
@@ -283,12 +323,12 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const boundary=calls.length;
     for(const row of old) await syncPassFastPass(row.id,{tenantId:f.merchant.tenantId});
     expect(calls).toHaveLength(boundary);
-    const serial=old[0].provider_object_id.slice("passfast:".length);
+    const serial=passFastSerial(old[0].provider_object_id);
     expect([...rows.values()].filter(row=>row.serial_number===serial).every(row=>row.status==="invalidated"&&row.dynamic_data.scanCode==="")).toBe(true);
     expect([...rows.values()].filter(row=>row.status==="active").every(row=>row.serial_number!==serial&&row.dynamic_data.scanCode===after.member.scan_code)).toBe(true);
   });
   it("retires a never-started Google request without blocking an issued Apple pass", async () => {
-    const f=await fixture(); const {url}=await (await appleIssue(post(f.member.cardToken,"apple"))).json();
+    const f=await fixture(); const {url}=await readyApple(f);
     const ticket=String(url).split("/").at(-1)!;
     await download(new Request(origin+url),{params:Promise.resolve({ticket})});
     await issueWalletPass(f.member.cardToken,"google",passFastObjectId); await closeCard(f.member.cardToken);
@@ -360,7 +400,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect(rows.size).toBe(2);
   });
   it("rejects a pass download if reissue commits while PassFast serves it", async () => {
-    const f=await fixture(); const response=await appleIssue(post(f.member.cardToken,"apple")); const {url}=await response.json();
+    const f=await fixture(); const {url}=await readyApple(f);
     pauseDownload=async()=>{await reissue(f);};
     const ticket=String(url).split("/").at(-1)!;
     const result=await download(new Request(origin+url),{params:Promise.resolve({ticket})});
@@ -383,7 +423,7 @@ describe("combined remembered browser and PassFast generation security", () => {
   it("projects redemption, correction and referral bonuses on both platforms without provider authority over loyalty", async () => {
     const f = await fixture();
     await googleIssue(post(f.member.cardToken));
-    const { url } = await (await appleIssue(post(f.member.cardToken, "apple"))).json();
+    const { url } = await readyApple(f);
     const ticket = String(url).split("/").at(-1)!;
     expect((await download(new Request(origin + url), { params: Promise.resolve({ ticket }) })).status).toBe(200);
     const originals = [...rows.values()].map(row => row.serial_number + row.wallet_type);
@@ -457,7 +497,7 @@ describe("combined remembered browser and PassFast generation security", () => {
     const f = await fixture();
     await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
     await googleIssue(post(f.member.cardToken));
-    const { url } = await (await appleIssue(post(f.member.cardToken, "apple"))).json();
+    const { url } = await readyApple(f);
     const ticket = String(url).split("/").at(-1)!;
     expect((await download(new Request(origin + url), { params: Promise.resolve({ ticket }) })).status).toBe(200);
     const old = await snapshot(f.member.id);
@@ -510,7 +550,8 @@ describe("combined remembered browser and PassFast generation security", () => {
 
 describe("server-only merchant template isolation", () => {
   async function bind(fixtures: Awaited<ReturnType<typeof fixture>>[]) {
-    const bindings=fixtures.map(f=>({tenantId:f.merchant.tenantId,templateId:randomUUID()}));
+    const bindings=fixtures.map(f=>({tenantId:f.merchant.tenantId,locationId:f.merchant.locationId,templateId:randomUUID()}));
+    templateBindings = bindings;
     vi.stubEnv("PASSFAST_TENANT_TEMPLATES",JSON.stringify(bindings));
     return bindings;
   }
@@ -528,7 +569,7 @@ describe("server-only merchant template isolation", () => {
   it("refuses an unmapped merchant before projection creation or any provider request", async () => {
     const a=await fixture(), b=await fixture(); await bind([a]);
     const before=await snapshot(b.member.id);
-    expect((await googleIssue(post(b.member.cardToken))).status).toBe(502);
+    expect((await googleIssue(post(b.member.cardToken))).status).toBe(503);
     expect(calls).toHaveLength(0);
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(0);
     expect(await snapshot(b.member.id)).toEqual(before);

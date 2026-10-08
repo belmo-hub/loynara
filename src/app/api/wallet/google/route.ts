@@ -3,7 +3,8 @@ import { walletPasses } from "@/db/schema";
 import { jsonBody, requireSameOrigin } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
-import { walletAvailability } from "@/lib/wallet/capability";
+import { walletDeploymentAvailability } from "@/lib/wallet/preparation";
+import { walletCardEligibility } from "@/lib/wallet/eligibility";
 import { walletCardSnapshot } from "@/lib/wallet/data";
 import { googleConfig, googleObjectId, googleSaveUrl, GoogleWalletClient } from "@/lib/wallet/google";
 import { cardTokenFrom, noStore, walletIssueError, walletUnavailable } from "@/lib/wallet/http";
@@ -17,12 +18,14 @@ import { syncPassFastPass } from "@/lib/wallet/passfast-lifecycle";
  * is created or aligned through the REST API first; the returned Save link references it by id only.
  */
 export async function POST(request: Request) {
-  if (walletAvailability().google === "unavailable") return walletUnavailable();
+  if (walletDeploymentAvailability().google === "unavailable") return walletUnavailable();
   try {
     requireSameOrigin(request);
     await enforcePeerLimit(request, "wallet_google_peer", 30, 15 * 60);
     const token = cardTokenFrom(await jsonBody(request, 1000));
     await enforceRateLimit({ scope: "wallet_google_token", identity: token, max: 10, windowSeconds: 15 * 60 });
+    const eligibility = await walletCardEligibility(token);
+    if (eligibility.availability.google === "unavailable") return walletUnavailable();
     if (process.env.PASSFAST_ENABLED === "true") {
       const pass = await issueWalletPass(token, "google", passFastObjectId);
       const result = await syncPassFastPass(pass.id, { tenantId: pass.tenantId });
