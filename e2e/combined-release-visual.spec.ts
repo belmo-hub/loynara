@@ -72,10 +72,10 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
         await expect(cashier.getByRole("heading", { name: card.cardLocator })).toBeVisible();
         await capture(cashier, "cashier-card", viewport.width);
-        await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
-        await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
+        // One stamp is one tap on the fast counter.
+        await cashier.getByRole("button", { name: "1 Stempel vergeben" }).click();
         await expect(cashier.locator(".cashier-booked")).toContainText(card.cardLocator);
-        await expect(cashier.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+        await expect(cashier.locator(".cashier-award-now")).toHaveCount(0);
         await capture(cashier, "cashier-success", viewport.width);
         await cashier.getByLabel("Kartennummer oder Kartencode").fill(cardB.scanCode);
         const leased = cashier.waitForResponse(response => response.url().includes("/api/cashier/offline/lease") && response.ok());
@@ -85,7 +85,8 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         await capture(cashier, "cashier-immediate-next", viewport.width);
         await counter.setOffline(true);
         await expect(cashier.getByRole("region", { name: "Offline-Vergaben" })).toBeVisible();
-        await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
+        // With the offline fallback available, the stamp button opens the online/offline choice.
+        await cashier.getByRole("button", { name: "1 Stempel prüfen" }).click();
         await expect(cashier.getByRole("button", { name: "Offline-Vergabe vormerken" })).toBeVisible();
         await capture(cashier, "cashier-offline-fallback", viewport.width);
         await counter.setOffline(false);
