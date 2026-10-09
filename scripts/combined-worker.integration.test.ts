@@ -115,6 +115,18 @@ describe("actual combined worker process with fake HTTP only", () => {
       expect(new Set(calls().map(call=>call.path)).size).toBe(1);
     } finally { child.kill("SIGKILL"); try { process.kill(providerPid,"SIGKILL"); } catch {} }
   }, 15000);
+  it("processes an NFC wake-up alongside Wallet work with push disabled and no provider calls", async () => {
+    const f = await fixture();
+    const push = (await pool.query("INSERT INTO outbox_jobs (tenant_id,kind,payload) VALUES ($1,'push.tap_pending',jsonb_build_object('tapRequestId',$2::text)) RETURNING id", [f.merchant.tenantId, randomUUID()])).rows[0].id;
+    vi.stubEnv("VAPID_PUBLIC_KEY", "");
+    vi.stubEnv("VAPID_PRIVATE_KEY", "");
+    runWorker(false);
+    expect((await pool.query("SELECT status,attempts FROM outbox_jobs WHERE id=$1", [push])).rows[0]).toEqual({status:"suppressed",attempts:1});
+    expect((await pool.query("SELECT status FROM outbox_jobs WHERE id=$1", [f.job])).rows[0].status).toBe("blocked");
+    expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [f.member.id])).rows[0].balance).toBe(2);
+    expect(calls()).toHaveLength(0);
+  });
+
   it("starts providers OFF and blocks a synthetic existing Wallet job without contacting either platform or changing balance", async () => {
     const f = await fixture();
     runWorker(false);

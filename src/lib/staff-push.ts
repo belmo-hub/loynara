@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, pool } from "@/db";
 import { outboxJobs } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import type { OutboxJob, OutboxStatus } from "./outbox";
+import { markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "./outbox";
 
 /**
  * Web Push wake-ups for cashier phones: when an NFC tap waits for staff confirmation, every signed-in staff device of
@@ -133,13 +133,13 @@ export type TapPushOutcome = { status: OutboxStatus; reason?: string; delaySecon
  * the role must still be active and cover the location, and the login session that subscribed must still be valid.
  * Nothing is sent once the request is no longer waiting. Gone endpoints are removed; repeated failures drop a device.
  */
-export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { send?: Sender; env?: PushEnv } = {}): Promise<TapPushOutcome> {
+export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { send?: Sender; env?: PushEnv; renew?: () => Promise<boolean> } = {}): Promise<TapPushOutcome> {
   const details = vapidDetails(deps.env);
   if (!details) return { status: "suppressed", reason: "Push not configured", sent: 0 };
   const tapRequestId = job.payload?.tapRequestId;
   if (typeof tapRequestId !== "string" || !/^[0-9a-f-]{36}$/.test(tapRequestId)) return { status: "failed", reason: "Invalid push job payload", sent: 0 };
-  const { rows: requests } = await pool.query<{ tenant_id: string; location_id: string; created_at: Date; waiting: boolean }>(
-    "SELECT tenant_id, location_id, created_at, (status = 'pending_staff' AND expires_at > now()) AS waiting FROM tap_requests WHERE id = $1", [tapRequestId]);
+  const { rows: requests } = await pool.query<{ tenant_id: string; location_id: string; created_at: Date; expires_at: Date; waiting: boolean }>(
+    "SELECT tenant_id, location_id, created_at, expires_at, (status = 'pending_staff' AND expires_at > now()) AS waiting FROM tap_requests WHERE id = $1", [tapRequestId]);
   const request = requests[0];
   if (!request?.waiting) return { status: "suppressed", reason: "Request no longer waiting", sent: 0 };
   const { rows: recipients } = await pool.query<Recipient>(`
@@ -152,11 +152,15 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
   const send: Sender = deps.send ?? ((subscription, payload, options) => webpush.sendNotification(subscription, payload, options));
   let sent = 0, transient = 0;
   for (const recipient of recipients) {
+    // Renew and fence before each network send. A dead process is reclaimable in 30s; a live fan-out keeps its claim.
+    if (deps.renew && !await deps.renew()) return { status: "retry", reason: "Push lease lost", delaySeconds: RETRY_DELAY_SECONDS, sent };
+    const { rows: current } = await pool.query("SELECT 1 FROM tap_requests WHERE id = $1 AND status = 'pending_staff' AND expires_at > clock_timestamp()", [tapRequestId]);
+    if (!current.length) return { status: "suppressed", reason: "Request no longer waiting", sent };
     if (!validPushEndpoint(recipient.endpoint)) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
     const payload = JSON.stringify({ v: 1, kind: "tap_pending", locale: recipient.locale === "fr" ? "fr" : "de" });
     try {
       await send({ endpoint: recipient.endpoint, keys: { p256dh: recipient.p256dh, auth: recipient.auth } }, payload,
-        { vapidDetails: details, TTL: PUSH_TTL_SECONDS, urgency: "high", topic: "loynara-tap", timeout: 5_000 });
+        { vapidDetails: details, TTL: Math.max(1, Math.min(PUSH_TTL_SECONDS, Math.floor((request.expires_at.getTime() - Date.now()) / 1000))), urgency: "high", topic: "loynara-tap", timeout: 5_000 });
       sent += 1;
       await pool.query("UPDATE staff_push_subscriptions SET failure_count = 0, last_success_at = now() WHERE id = $1", [recipient.id]);
     } catch (error) {
@@ -183,18 +187,17 @@ export async function dispatchTapPushNow(jobId: string, deps: { send?: Sender; e
   let job: { id: string; attempts: number; payload: Record<string, unknown> } | undefined;
   try {
     const { rows } = await pool.query<{ id: string; attempts: number; payload: Record<string, unknown> }>(`
-      UPDATE outbox_jobs SET status = 'processing', attempts = attempts + 1, next_attempt_at = now() + interval '5 minutes', last_error = NULL
+      UPDATE outbox_jobs SET status = 'processing', attempts = attempts + 1, next_attempt_at = now() + interval '30 seconds', last_error = NULL
       WHERE id = $1 AND kind = $2 AND status = 'pending' RETURNING id, attempts, payload`, [jobId, PUSH_JOB_KIND]);
     job = rows[0];
     if (!job) return;
-    const outcome = await deliverTapPush(job, deps);
-    await pool.query("UPDATE outbox_jobs SET status = $2, last_error = $3, next_attempt_at = now() + $4::int * interval '1 second' WHERE id = $1 AND status = 'processing' AND attempts = $5",
-      [job.id, outcome.status, outcome.reason?.slice(0, 300) ?? null, outcome.delaySeconds ?? 0, job.attempts]);
+    const ownedJob = job;
+    const outcome = await deliverTapPush(job, { ...deps, renew: () => renewOutboxJob(pool, ownedJob, 0.5) });
+    await markOutboxJob(pool, job, outcome.status, outcome.reason, outcome.delaySeconds ?? 0);
   } catch (error) {
     console.error(`Immediate NFC push failed (${error instanceof Error ? error.name : "error"}); the worker retries it`);
-    // Give the claimed job back for a prompt retry: its 5-minute lease would outlive the request it is meant to announce.
-    if (job) await pool.query("UPDATE outbox_jobs SET status = 'retry', last_error = 'Immediate send failed', next_attempt_at = now() + $3::int * interval '1 second' WHERE id = $1 AND status = 'processing' AND attempts = $2",
-      [job.id, job.attempts, RETRY_DELAY_SECONDS]).catch(() => undefined);
+    // Give a still-owned claim back for a prompt retry; process death is covered by the short lease.
+    if (job) await markOutboxJob(pool, job, "retry", "Immediate send failed", RETRY_DELAY_SECONDS).catch(() => undefined);
   }
 }
 

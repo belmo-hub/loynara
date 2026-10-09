@@ -211,3 +211,47 @@ describe("queueing with the tap", () => {
     expect(await deliverTapPush({ payload: { tapRequestId: first.requestId! } }, { send })).toMatchObject({ status: "suppressed" });
   });
 });
+
+
+describe("push crash recovery", () => {
+  it("reclaims a crashed push after 31 seconds while the pending request can still be confirmed", async () => {
+    const f = await nfcFixture();
+    await saveStaffPushSubscription({ userId: f.userId, sessionId: await session(f.userId), tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint("crash"), keys } });
+    const tapRequestId = await pendingRequest(f);
+    await pool.query("INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES ($1, 'push.tap_pending', $2)", [f.tenant.id, { tapRequestId }]);
+    const crashed = await claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 });
+    expect(crashed).not.toBeNull();
+    // Advance persisted lease and request times together, without sleeping or bypassing the claim predicate.
+    await pool.query("UPDATE outbox_jobs SET next_attempt_at = next_attempt_at - interval '31 seconds' WHERE id = $1", [crashed!.id]);
+    await pool.query("UPDATE tap_requests SET expires_at = expires_at - interval '31 seconds' WHERE id = $1", [tapRequestId]);
+    const recovered = await claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 });
+    expect(recovered?.id).toBe(crashed!.id);
+    expect(recovered?.attempts).toBe(2);
+    const { sent, send } = recorder();
+    expect(await deliverTapPush(recovered!, { send })).toMatchObject({ status: "complete", sent: 1 });
+    expect(sent).toHaveLength(1);
+    expect((await pool.query("SELECT balance FROM memberships WHERE id = $1", [f.member.id])).rows[0].balance).toBe(0);
+  });
+
+  it("gives immediate sends a recoverable lease and never sends to another recipient after losing ownership", async () => {
+    const f = await nfcFixture();
+    const sessionId = await session(f.userId);
+    for (const name of ["first-crash", "second-crash"]) await saveStaffPushSubscription({ userId: f.userId, sessionId, tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint(name), keys } });
+    const tapRequestId = await pendingRequest(f);
+    const { rows } = await pool.query("INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES ($1, 'push.tap_pending', $2) RETURNING id", [f.tenant.id, { tapRequestId }]);
+    let sent = 0;
+    const leases: number[] = [];
+    await dispatchTapPushNow(rows[0].id, { send: async () => {
+      sent += 1;
+      const lease = await pool.query("SELECT extract(epoch FROM next_attempt_at - now())::float AS seconds FROM outbox_jobs WHERE id = $1", [rows[0].id]);
+      leases.push(lease.rows[0].seconds);
+      await pool.query("UPDATE outbox_jobs SET next_attempt_at = now() - interval '1 second' WHERE id = $1", [rows[0].id]);
+      return { statusCode: 201, body: "", headers: {} };
+    } });
+    expect(leases).toHaveLength(1);
+    expect(leases[0]).toBeLessThanOrEqual(30);
+    expect(sent).toBe(1);
+    const recovered = await claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 });
+    expect(recovered?.id).toBe(rows[0].id);
+  });
+});

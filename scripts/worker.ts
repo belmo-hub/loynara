@@ -134,7 +134,7 @@ async function processJob(job: Job, claimedAt: number) {
     // NFC wake-up for cashier phones. Usually already sent by the web process right after the tap; this is the retry path.
     try {
       const { deliverTapPush } = await import("../src/lib/staff-push");
-      const outcome = await deliverTapPush(job);
+      const outcome = await deliverTapPush(job, { renew: () => renewOutboxJob(workerDatabase, job, 0.5) });
       const status = outcome.status === "retry" && job.attempts >= maxAttempts ? "failed" : outcome.status;
       await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 15 : 0);
       return status;

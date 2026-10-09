@@ -31,7 +31,7 @@ export async function claimOutboxJob(pool: Pick<Pool, "query">, { maxAttempts, l
     )
     UPDATE outbox_jobs AS job
     SET status = 'processing', attempts = job.attempts + 1,
-        next_attempt_at = now() + interval '${Number(leaseMinutes)} minutes', last_error = NULL
+        next_attempt_at = now() + CASE WHEN job.kind = 'push.tap_pending' THEN interval '30 seconds' ELSE interval '${Number(leaseMinutes)} minutes' END, last_error = NULL
     FROM candidate
     WHERE job.id = candidate.id
     RETURNING job.id, job.tenant_id AS "tenantId", job.kind, job.payload, job.attempts
@@ -71,7 +71,7 @@ export async function renewOutboxJob(pool: Pick<Pool, "query">, job: Pick<Outbox
        SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND attempts = $2 AND status = 'processing' FOR UPDATE
      ), owned AS MATERIALIZED (
        SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
-     ) UPDATE outbox_jobs SET next_attempt_at = clock_timestamp() + $3::int * interval '1 minute'
+     ) UPDATE outbox_jobs SET next_attempt_at = clock_timestamp() + $3::double precision * interval '1 minute'
        FROM owned WHERE outbox_jobs.id = owned.id`,
     [job.id, job.attempts, leaseMinutes],
   );
