@@ -8,10 +8,13 @@ import { postJson } from "@/components/client-api";
 type Option = { membershipId: string; merchantName: string; programmeName: string };
 export default function RecoverConfirmPage() {
   const token = useRef("");
+  const fragmentRead = useRef(false);
   const [cards, setCards] = useState<Option[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
+    if (fragmentRead.current) return;
+    fragmentRead.current = true;
     token.current = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
     window.history.replaceState(null, "", window.location.pathname);
   }, []);

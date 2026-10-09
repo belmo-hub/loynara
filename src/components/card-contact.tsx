@@ -4,9 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { apiJson, postJson } from "./client-api";
 
-type ContactStatus = { available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean };
+type ContactStatus = { available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean; recoveryRequired?: boolean };
 
-export function CardContact({ token, locale }: { token: string; locale: "de" | "fr" }) {
+export function CardContact({ token, locale, required = false, onVerified }: { token: string; locale: "de" | "fr"; required?: boolean; onVerified?: () => void }) {
   const [status, setStatus] = useState<ContactStatus | null>(null);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,6 +23,18 @@ export function CardContact({ token, locale }: { token: string; locale: "de" | "
     });
     return () => { active = false; };
   }, [token]);
+
+  useEffect(() => { if (required && status?.emailVerified) onVerified?.(); }, [required, status?.emailVerified, onVerified]);
+
+  async function checkVerification() {
+    setBusy(true); setError("");
+    try {
+      const next = await apiJson<ContactStatus>(`/api/card/${encodeURIComponent(token)}/contact`);
+      setStatus(next);
+      if (!next.emailVerified) setMessage(french ? "L’adresse n’est pas encore vérifiée. Ouvre le lien reçu par e-mail." : "Die Adresse ist noch nicht bestätigt. Öffne den Link aus deinem Postfach.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Bestätigung konnte nicht geprüft werden."); }
+    finally { setBusy(false); }
+  }
 
   async function request(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
@@ -56,11 +68,16 @@ export function CardContact({ token, locale }: { token: string; locale: "de" | "
     finally { setBusy(false); }
   }
 
-  if (!status || (!status.available && !status.marketingAvailable && !status.marketingEmail)) return null;
+  const heading = required ? french ? "Avant le premier tampon : sécuriser la carte" : "Vor dem ersten Stempel: Karte sichern" : french ? "Sécuriser la carte" : "Karte sichern";
+  if (!status) return required ? <section className="card-contact-local"><h3>{heading}</h3><p role="status">{french ? "Vérification de la récupération…" : "Wiederherstellung wird geprüft …"}</p></section> : null;
+  if (!required && !status.available && !status.marketingAvailable && !status.marketingEmail) return null;
   return <section className="card-contact-local" aria-label={french ? "Sécuriser la carte" : "Karte sichern"}>
-    <h3>{status.available ? french ? "Sécuriser la carte" : "Karte sichern" : french ? "Préférences e-mail" : "E-Mail-Einstellungen"}</h3>
-    {status.available && <><p>{french ? "Avec une adresse e-mail vérifiée, tu peux retrouver ta carte si tu perds ce lien. La carte reste utilisable sans e-mail. Aucun consentement marketing n’est ajouté." : "Mit einer bestätigten E-Mail kannst du deine Karte wiederfinden, falls du diesen Link verlierst. Die Karte bleibt ohne E-Mail nutzbar. Werbung wird dadurch nicht abonniert."}</p>
-    <form onSubmit={request}><label>{french ? "Adresse e-mail" : "E-Mail-Adresse"}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="gast@example.test" maxLength={320} required /></label><button type="submit" className="button button--outline" disabled={busy}>{french ? "Envoyer le lien de vérification" : "Bestätigungslink senden"}</button></form></>}
+    <h3>{required || status.available ? heading : french ? "Préférences e-mail" : "E-Mail-Einstellungen"}</h3>
+    {required && <p role="status">{french ? "Vérifie ton adresse e-mail avant le premier tampon. Aucun abonnement marketing n’est ajouté." : "Bestätige deine E-Mail vor dem ersten Stempel. Werbung wird dadurch nicht abonniert."}</p>}
+    {required && !status.available && <p role="alert">{french ? "La vérification est momentanément indisponible. Garde ton lien privé ; aucun tampon ne peut encore être attribué." : "Die E-Mail-Bestätigung ist gerade nicht verfügbar. Bewahre deinen privaten Kartenlink auf; der erste Stempel kann noch nicht gebucht werden."}</p>}
+    {required && status.contactPresent && !status.emailVerified && <button type="button" className="button button--accent" disabled={busy} onClick={() => void checkVerification()}>{french ? "Vérifier et continuer" : "Bestätigung prüfen und fortfahren"}</button>}
+    {status.available && !required && <><p>{french ? "Avec une adresse e-mail vérifiée, tu peux retrouver ta carte si tu perds ce lien. La carte reste utilisable sans e-mail. Aucun consentement marketing n’est ajouté." : "Mit einer bestätigten E-Mail kannst du deine Karte wiederfinden, falls du diesen Link verlierst. Die Karte bleibt ohne E-Mail nutzbar. Werbung wird dadurch nicht abonniert."}</p></>}
+    {status.available && <form onSubmit={request}><label>{french ? "Adresse e-mail" : "E-Mail-Adresse"}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="gast@example.test" maxLength={320} required /></label><button type="submit" className="button button--outline" disabled={busy}>{french ? "Envoyer le lien de vérification" : "Bestätigungslink senden"}</button></form>}
     {status.contactPresent && <p className="card-contact-status">{status.emailVerified ? french ? "Adresse vérifiée." : "Adresse bestätigt." : french ? "Adresse non vérifiée ; aucun message marketing." : "Adresse noch nicht bestätigt; keine Marketing-Nachrichten."}</p>}
     {status.emailVerified && (status.marketingAvailable || status.marketingEmail) && <div className="card-contact-preference"><p>{status.marketingExternal ? french ? "Choix séparé : recevoir des offres de ce commerce par e-mail. Tu peux te désabonner à tout moment." : "Separate Einwilligung: E-Mail-Angebote dieses Geschäfts erhalten. Du kannst sie jederzeit abbestellen." : status.marketingAvailable ? french ? "Choix séparé pour les courriels marketing de test. Les messages restent dans la boîte locale." : "Separate Einwilligung für lokale Test-Marketing-E-Mails. Nachrichten bleiben im lokalen Test-Postfach." : french ? "Tu peux désactiver les offres par e-mail sans perdre ta carte ni ton adresse de récupération." : "Du kannst E-Mail-Angebote abbestellen. Karte und Wiederherstellungsadresse bleiben erhalten."}</p><button type="button" className="button button--outline" disabled={busy} onClick={() => void preference(!status.marketingEmail)}>{status.marketingEmail ? french ? "Se désabonner" : "E-Mail-Marketing abbestellen" : french ? "Accepter les courriels d'offres" : "E-Mail-Angebote aktivieren"}</button></div>}
     {status.available && status.contactPresent && <button type="button" className="button button--outline" disabled={busy} onClick={() => void remove()}>{french ? "Supprimer l’adresse de récupération" : "Wiederherstellungsadresse entfernen"}</button>}

@@ -1,3 +1,4 @@
+import { recoveryVerificationRequired, verifiedRecoveryBeforeFirstAward } from "./recovery-policy";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -27,7 +28,7 @@ async function latestMarketingConsent(tenantId: string, membershipId: string) {
   return event?.granted === true;
 }
 
-export async function contactStatus(cardToken: string): Promise<{ available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean }> {
+export async function contactStatus(cardToken: string): Promise<{ available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean; recoveryRequired?: boolean }> {
   if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
   const [member] = await db.select({ id: memberships.id, tenantId: memberships.tenantId, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.cardToken, cardToken));
   if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
@@ -38,6 +39,7 @@ export async function contactStatus(cardToken: string): Promise<{ available: boo
   return {
     available: emailTransportMode() !== "disabled", marketingAvailable: marketingMode !== "disabled", marketingExternal: marketingMode === "mailgun_eu", contactPresent: Boolean(contact?.email), emailVerified: verified,
     marketingEmail: verified && await latestMarketingConsent(member.tenantId, member.id),
+    ...(verifiedRecoveryBeforeFirstAward() ? { recoveryRequired: await recoveryVerificationRequired(db, member.tenantId, member.id) } : {}),
   };
 }
 

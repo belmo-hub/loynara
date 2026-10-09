@@ -1,3 +1,4 @@
+import { cardRecoveryVerificationRequired } from "@/lib/recovery-policy";
 import { bindTapCard } from "@/lib/secure-tap";
 import { getCard } from "@/lib/product";
 import { respondError } from "@/lib/http";
@@ -29,7 +30,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
       headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(programId, request.url));
       headers.append("Set-Cookie", remember);
     }
-    return Response.json(card, { headers });
+    return Response.json({ ...card, recoveryEmailRequired: await cardRecoveryVerificationRequired(token) }, { headers });
   }
   catch (error) { return respondError(error); }
 }

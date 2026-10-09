@@ -82,10 +82,11 @@ export function JoinClient({ slug }: { slug: string }) {
           const latest = await checkReturning(slug);
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
+        return postJson<{ cardToken: string; recoveryEmailRequired?: boolean }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
+      if (result.recoveryEmailRequired) { router.push(`/card/${encodeURIComponent(result.cardToken)}`); return; }
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
       if (continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation)) router.push(continuation);

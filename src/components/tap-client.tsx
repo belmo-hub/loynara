@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse } from "./client-api";
 import { BrandMark } from "./loyalty-ui";
 
-type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
+type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; recoveryEmailRequired?: boolean; cardPath?: string };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
 type Result = { state: TapState; balance?: number; expiresAt?: string; cardLocator?: string; requestId?: string; statusRef?: string };
 /** States in which the server also returns the card number, so the cashier can match the right request. */
@@ -43,6 +43,7 @@ export function TapClient({ refId }: { refId: string }) {
   const [error, setError] = useState<Error | undefined>();
   const [selected, setSelected] = useState<string | null>(null);
   const [selectionRequired, setSelectionRequired] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export function TapClient({ refId }: { refId: string }) {
       if (!info.hasMembership) { setResult({ state: "needs_enrollment" }); return; }
       if (info.mode === "disabled") { setResult({ state: "disabled" }); return; }
       if (info.requiresSelection && info.cardLocator !== selected) { setSelectionRequired(true); return; }
+      if (info.recoveryEmailRequired) { setVerificationRequired(true); return; }
       await process(info);
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause : new Error("Berührung nicht bestätigt")); })
       .finally(() => { if (active) setLoading(false); });
@@ -99,10 +101,10 @@ export function TapClient({ refId }: { refId: string }) {
   // A card created or opened later in this tab continues this tap (the join page and the card page read the stored path).
   useEffect(() => {
     const here = `${window.location.pathname}${window.location.search}`;
-    if ((state === "needs_enrollment" || selectionRequired) && TAP_URL.test(here)) sessionStorage.setItem(TAP_RETURN_KEY, here);
-  }, [state, selectionRequired]);
+    if ((state === "needs_enrollment" || selectionRequired || verificationRequired) && TAP_URL.test(here)) sessionStorage.setItem(TAP_RETURN_KEY, here);
+  }, [state, selectionRequired, verificationRequired]);
 
-  const { title, detail } = selectionRequired ? { title: "Welche Karte gehört zu diesem Besuch?", detail: "Dieses Gerät wird geteilt. Bestätige deine gespeicherte Karte oder öffne deinen eigenen privaten Kartenlink." } : preview?.recoveryRequired && state === "needs_enrollment" ? { title: "Deine Karte wiederfinden", detail: "Der gespeicherte Zugang ist abgelaufen oder wurde widerrufen. Öffne deinen aktuellen privaten Kartenlink oder nutze die sichere Wiederherstellung." } : tapCopy(state, error);
+  const { title, detail } = verificationRequired ? { title: "Vor dem ersten Stempel: Karte sichern", detail: "Bestätige deine Wiederherstellungs-E-Mail. Danach wird diese Berührung dem Team zur Freigabe angezeigt. Es wurde noch kein Stempel gebucht." } : selectionRequired ? { title: "Welche Karte gehört zu diesem Besuch?", detail: "Dieses Gerät wird geteilt. Bestätige deine gespeicherte Karte oder öffne deinen eigenen privaten Kartenlink." } : preview?.recoveryRequired && state === "needs_enrollment" ? { title: "Deine Karte wiederfinden", detail: "Der gespeicherte Zugang ist abgelaufen oder wurde widerrufen. Öffne deinen aktuellen privaten Kartenlink oder nutze die sichere Wiederherstellung." } : tapCopy(state, error);
   const nextReward = card && typeof result?.balance === "number" ? [...card.rewards].sort((a, b) => a.cost - b.cost).find(reward => reward.cost > result.balance!) : undefined;
   const waiting = state === "pending_staff";
   return <main className="card-state-page" style={{ minHeight: "100vh", background: "#f7f4ec", padding: "24px" }}><div style={{ maxWidth: 480, margin: "auto", padding: "28px", borderRadius: 20, background: "white", color: "#17372c" }}><BrandMark />
@@ -113,11 +115,12 @@ export function TapClient({ refId }: { refId: string }) {
     {typeof result?.balance === "number" && state !== "needs_enrollment" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
     {nextReward && typeof result?.balance === "number" && (state === "confirmed" || state === "awarded" || state === "already_processed") && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
     {selectionRequired && preview?.cardPath && <><a className="button button--outline" href={preview.cardPath} onClick={() => sessionStorage.removeItem(TAP_RETURN_KEY)}>Gespeicherte Karte {preview.cardLocator} ansehen</a><button className="button button--accent" onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button></>}
+    {verificationRequired && preview?.cardPath && <Link className="button button--accent" href={preview.cardPath}>E-Mail auf meiner Karte bestätigen</Link>}
     {preview && state === "needs_enrollment" && <>
       <Link prefetch={false} className="button button--accent" href={`/join/${encodeURIComponent(preview.programSlug)}`}>Karte erstellen</Link>
       <p style={{ fontSize: 14, marginTop: 16 }}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p><p><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </>}
-    {preview?.cardPath && state !== "needs_enrollment" && <p><Link className="button button--outline" href={preview.cardPath}>Karte und Prämien ansehen</Link></p>}
+    {preview?.cardPath && state !== "needs_enrollment" && !verificationRequired && <p><Link className="button button--outline" href={preview.cardPath}>Karte und Prämien ansehen</Link></p>}
     {state === "error" && <p style={{ fontSize: 14 }}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
   </div></main>;
 }

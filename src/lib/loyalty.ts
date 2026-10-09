@@ -1,3 +1,4 @@
+import { recoveryVerificationRequired } from "./recovery-policy";
 import { manualAwardLimit, type StaffRole } from "./award-limits";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -66,6 +67,8 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       } else if (purchase || existing.delta !== input.quantity || input.purchaseAmountMinor !== undefined || input.ruleVersionId !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
       return { balance: member.balance, duplicate: true, entryId: existing.id, creditedQuantity: existing.delta };
     }
+
+    if (await recoveryVerificationRequired(tx, member.tenantId, member.id)) throw new DomainError("RECOVERY_EMAIL_REQUIRED", "Bestätige zuerst die Wiederherstellungs-E-Mail deiner Karte. Danach kann das Team den ersten Stempel buchen.");
 
     let quantity: number;
     let ruleVersionId: string | undefined;

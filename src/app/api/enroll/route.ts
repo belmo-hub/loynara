@@ -1,3 +1,4 @@
+import { cardRecoveryVerificationRequired } from "@/lib/recovery-policy";
 import { enroll } from "@/lib/product";
 import { jsonBody, requireSameOrigin, respondError } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
@@ -36,6 +37,6 @@ export async function POST(request: Request) {
       headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(result.programId, request.url));
       headers.append("Set-Cookie", remember);
     }
-    return Response.json({ cardToken: result.cardToken }, { status: 201, headers });
+    return Response.json({ cardToken: result.cardToken, recoveryEmailRequired: await cardRecoveryVerificationRequired(result.cardToken) }, { status: 201, headers });
   } catch (error) { return respondError(error); }
 }

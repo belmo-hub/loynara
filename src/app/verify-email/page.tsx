@@ -8,8 +8,11 @@ import { BrandMark } from "@/components/loyalty-ui";
 export default function VerifyEmailPage() {
   const [state, setState] = useState<"ready" | "checking" | "verified" | "invalid">("ready");
   const token = useRef("");
+  const fragmentRead = useRef(false);
 
   useEffect(() => {
+    if (fragmentRead.current) return;
+    fragmentRead.current = true;
     token.current = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
     window.history.replaceState(null, "", window.location.pathname);
     if (!token.current) setState("invalid");

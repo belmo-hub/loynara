@@ -18,7 +18,7 @@ const DATABASE_URL = process.env.DATABASE_URL ?? "";
 function assertIsolatedDatabase() {
   // The NFC specs write and rewrite rows directly (expiry, rate-limit reset). Refuse anything but the isolated worktree database.
   const url = new URL(DATABASE_URL);
-  if (!["localhost", "127.0.0.1"].includes(url.hostname) || !["54395", "54429"].includes(url.port) || url.pathname !== "/looplocal" || url.username !== "looplocal") throw new Error("Refusing database work outside the isolated NFC test database");
+  if (!["localhost", "127.0.0.1"].includes(url.hostname) || !["54395", "54429", "54439"].includes(url.port) || url.pathname !== "/looplocal" || url.username !== "looplocal") throw new Error("Refusing database work outside the isolated NFC test database");
 }
 
 /** One short-lived client per statement: the specs only need a handful of assertions and updates. */

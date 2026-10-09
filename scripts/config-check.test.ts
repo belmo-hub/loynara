@@ -157,7 +157,7 @@ describe("production configuration gate", () => {
 
   describe("NFC", () => {
     const master = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
-    const on: NodeJS.ProcessEnv = { ...safe, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: master };
+    const on: NodeJS.ProcessEnv = { ...safe, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: master, VERIFIED_RECOVERY_BEFORE_FIRST_AWARD: "true", TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_SEND_APPROVED: "true", MAILGUN_EU_DOMAIN: "mail.getloynara.com", MAILGUN_FROM_EMAIL: "cards@mail.getloynara.com", MAILGUN_EU_API_KEY: "synthetic-config-only-key", MAILGUN_EU_WEBHOOK_SIGNING_KEY: "synthetic-config-only-signing" };
     it("is accepted when off, and when on with the derived provider", () => {
       expect(productionConfigIssues({ ...safe, NFC_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(on)).toEqual([]);

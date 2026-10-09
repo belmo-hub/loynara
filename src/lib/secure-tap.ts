@@ -1,3 +1,4 @@
+import { recoveryVerificationRequired } from "./recovery-policy";
 import { cookieValue, customerCookieAttributes, issueCustomerSession, readCustomerSession } from "./customer-session";
 import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
@@ -160,7 +161,7 @@ export async function previewSecureTap(input: TapInput) {
   return db.transaction(async tx => {
     const { tag, program, location, tenant } = await verifiedContext(tx, input);
     const [member] = input.cardToken ? await tx.select({ id: memberships.id, cardLocator: memberships.cardLocator }).from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId), isNull(memberships.closedAt))) : [];
-    return { merchantName: tenant.name, locationName: location.name, programName: program.name, programSlug: program.slug, brandColor: location.brandColor, mode: program.tapMode, hasMembership: Boolean(member), cardLocator: member ? formatCardLocator(member.cardLocator) : undefined, cardPath: member ? `/card/${input.cardToken}` : undefined };
+    return { merchantName: tenant.name, locationName: location.name, programName: program.name, programSlug: program.slug, brandColor: location.brandColor, mode: program.tapMode, hasMembership: Boolean(member), recoveryEmailRequired: member ? await recoveryVerificationRequired(tx, tag.tenantId, member.id) : false, cardLocator: member ? formatCardLocator(member.cardLocator) : undefined, cardPath: member ? `/card/${input.cardToken}` : undefined };
   });
 }
 
@@ -172,6 +173,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     if (program.tapMode === "disabled" || !program.tapCooldownSeconds) return { ...base, state: "disabled" };
     const [member] = input.cardToken ? await tx.select().from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId))).for("update") : [];
     if (!member || member.closedAt) return { ...base, state: "needs_enrollment" };
+    if (await recoveryVerificationRequired(tx, member.tenantId, member.id)) throw new DomainError("RECOVERY_EMAIL_REQUIRED", "Bestätige zuerst die Wiederherstellungs-E-Mail deiner Karte. Danach geht diese Berührung weiter.");
     const cardLocator = formatCardLocator(member.cardLocator);
     // Pending requests can be shared by two tags of one programme. Poll using the request's own tag binding.
     const statusRefFor = async (requestTagId: string) => {

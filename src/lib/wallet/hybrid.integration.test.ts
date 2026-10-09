@@ -37,7 +37,8 @@ describe("Google Direct issuance and ledger projection beside PassFast Apple", (
   it("NFC confirmation queues the original membership and updates its existing Google object idempotently after an adapter failure", async () => {
     const google = googleFixture("demo"), { owner, merchant, member } = await memberFixture();
     try {
-      await withEnv(envFor(google, merchant), async () => {
+      await withEnv({ ...envFor(google, merchant), VERIFIED_RECOVERY_BEFORE_FIRST_AWARD: "true" }, async () => {
+        await pool.query("INSERT INTO membership_contacts (tenant_id,membership_id,email,email_verified) VALUES ($1,$2,$3,true)", [merchant.tenantId, member.id, "verified-wallet-bridge@example.test"]);
         const api = fakeGoogleApi(); vi.stubGlobal("fetch", api.fetcher);
         expect((await googleIssue(request(member.cardToken))).status).toBe(200);
         const objectId = [...api.objects.keys()][0];
