@@ -31,3 +31,12 @@ it("preserves a current legacy card credential only during the fixed migration w
   vi.spyOn(Date, "now").mockReturnValue(Date.parse("2027-01-07T00:00:00Z"));
   expect(tapCardToken(request(pair), program)).toBeUndefined();
 });
+
+
+it.each([[1, true], [30, true], [60, true], [85, true], [95, false]])("fixed policy recognizes day %s: %s, regardless of recorded stamps", (day, recognized) => {
+  const started = Date.parse("2026-10-09T12:00:00Z");
+  const clock = vi.spyOn(Date, "now").mockReturnValue(started);
+  const pair = tapCookieHeader(program, token, "https://example.test").split(";")[0];
+  clock.mockReturnValue(started + Number(day) * 86400_000);
+  expect(Boolean(tapCardToken(request(pair), program))).toBe(recognized);
+});

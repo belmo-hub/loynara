@@ -1,3 +1,5 @@
+import { issueCustomerSession, readCustomerSession } from "./customer-session";
+import { tapCookieName } from "./secure-tap";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { desc, eq } from "drizzle-orm";
@@ -156,6 +158,15 @@ describe("lost browser-card recovery", () => {
     expect((await getCard(stored.cardToken)).scanCode).toBe(f.card.scanCode);
   });
 
+  it.each(["/api/recover/confirm", "/api/tap/recover/confirm"])("preserves tap-only shared protection on verified recovery through %s",async path=>{
+    const f=await fixture(), token=await recovery(), origin="http://localhost:3000";
+    const signed=issueCustomerSession(f.card.programId,f.card.cardToken,true);
+    const response=await confirmRoute(new Request(`${origin}${path}`,{method:"POST",headers:{origin,"content-type":"application/json",cookie:`${tapCookieName(f.card.programId)}=${signed}`},body:JSON.stringify({action:"rotate",token,membershipId:f.card.id})}));
+    expect(response.status).toBe(200);
+    const cookies=response.headers.getSetCookie().filter(h=>!h.includes("Max-Age=0"));expect(cookies).toHaveLength(2);
+    for(const cookie of cookies)expect(readCustomerSession(cookie.split(";")[0].split("=")[1],f.card.programId)?.shared).toBe(true);
+  });
+
   it("uses POST only for scanner-safe list and explicit rotation; applies destination limits", async () => {
     const f = await fixture();
     const origin = "http://localhost:3000";
@@ -167,7 +178,8 @@ describe("lost browser-card recovery", () => {
     expect((await getCard(f.card.cardToken)).scanCode).toBe(f.card.scanCode);
     const rotated = await confirmRoute(req("/api/recover/confirm", { action: "rotate", token, membershipId: f.card.id }));
     expect(rotated.status).toBe(200);
-    expect(rotated.headers.get("set-cookie")).toBeNull();
+    expect(rotated.headers.getSetCookie().filter(h=>!h.includes("Max-Age=0"))).toHaveLength(2);
+    expect(list.headers.getSetCookie()).toEqual([]);
     expect((await rotated.json()).cardToken).not.toBe(f.card.cardToken);
     expect((await confirmRoute(req("/api/recover/confirm", { action: "rotate", token, membershipId: f.card.id }))).status).toBe(400);
     expect((await requestRoute(req("/api/recover", { email: "holder@example.test" }))).status).toBe(200);

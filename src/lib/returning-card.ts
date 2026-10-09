@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { memberships, programs } from "@/db/schema";
 import { formatCardLocator } from "./card-locator";
 
-import { cookieValue, customerCookieAttributes, issueCustomerSession, readCustomerSession } from "./customer-session";
+import { cookieValue, customerCookieAttributes, customerSessionRemainingSeconds, issueCustomerSession, readCustomerSession } from "./customer-session";
 
 /** Program-scoped, server-expiring remembered credentials; current membership is always revalidated. */
 export const RETURNING_CARD_COOKIE_PATH = "/api";
@@ -15,9 +15,9 @@ export function returningCardCookieName(programId: string) {
   return `loynara_card_${programId.replaceAll("-", "")}`;
 }
 
-export function returningCardCookieHeader(programId: string, cardToken: string, requestUrl: string, shared = false): string | null {
+export function returningCardCookieHeader(programId: string, cardToken: string, requestUrl: string, shared = false, timing?: { issued: number; lastActivity: number }): string | null {
   if (!cardTokenPattern.test(cardToken) || !programIdPattern.test(programId)) return null;
-  return `${returningCardCookieName(programId)}=${issueCustomerSession(programId, cardToken, shared)}; ${customerCookieAttributes(requestUrl, RETURNING_CARD_COOKIE_PATH)}`;
+  return `${returningCardCookieName(programId)}=${issueCustomerSession(programId, cardToken, shared, timing?.issued, timing?.lastActivity)}; ${customerCookieAttributes(requestUrl, RETURNING_CARD_COOKIE_PATH, timing ? customerSessionRemainingSeconds(timing) : undefined)}`;
 }
 export function clearReturningCardCookieHeader(programId: string, requestUrl: string) {
   return `${returningCardCookieName(programId)}=; ${customerCookieAttributes(requestUrl, RETURNING_CARD_COOKIE_PATH, 0)}`;

@@ -1,5 +1,7 @@
 # Integrated NFC returning-customer recovery release review
 
+> Historical 9c34408 mandatory-policy evidence. The founder-selected optional onboarding and bounded session policy supersede it in `docs/nfc-reconciled-release-review.md`; preserve this record for its original scope.
+
 Status: local implementation candidate; software-only production release **HOLD**. This review adds focused evidence to the completed NFC release audit rather than repeating it. No production readiness is claimed.
 
 ## Source relationship and scope

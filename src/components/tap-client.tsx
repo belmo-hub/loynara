@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CardContact } from "./card-contact";
 import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse } from "./client-api";
 import { BrandMark } from "./loyalty-ui";
@@ -107,6 +108,7 @@ export function TapClient({ refId }: { refId: string }) {
   const { title, detail } = verificationRequired ? { title: "Vor dem ersten Stempel: Karte sichern", detail: "Bestätige deine Wiederherstellungs-E-Mail. Danach wird diese Berührung dem Team zur Freigabe angezeigt. Es wurde noch kein Stempel gebucht." } : selectionRequired ? { title: "Welche Karte gehört zu diesem Besuch?", detail: "Dieses Gerät wird geteilt. Bestätige deine gespeicherte Karte oder öffne deinen eigenen privaten Kartenlink." } : preview?.recoveryRequired && state === "needs_enrollment" ? { title: "Deine Karte wiederfinden", detail: "Der gespeicherte Zugang ist abgelaufen oder wurde widerrufen. Öffne deinen aktuellen privaten Kartenlink oder nutze die sichere Wiederherstellung." } : tapCopy(state, error);
   const nextReward = card && typeof result?.balance === "number" ? [...card.rewards].sort((a, b) => a.cost - b.cost).find(reward => reward.cost > result.balance!) : undefined;
   const waiting = state === "pending_staff";
+  const recoveryToken = preview?.cardPath?.match(/^\/card\/(card_[A-Za-z0-9_-]{32,80})$/)?.[1];
   return <main className="card-state-page" style={{ minHeight: "100vh", background: "#f7f4ec", padding: "24px" }}><div style={{ maxWidth: 480, margin: "auto", padding: "28px", borderRadius: 20, background: "white", color: "#17372c" }}><BrandMark />
     {preview && <p style={{ borderLeft: `4px solid ${preview.brandColor || "#214739"}`, paddingLeft: 12 }}><strong>{preview.merchantName}</strong><br />{preview.locationName} · {preview.programName}</p>}
     <h1>{title}</h1><p role={state === "error" ? "alert" : "status"} aria-live="polite">{detail}</p>
@@ -121,6 +123,7 @@ export function TapClient({ refId }: { refId: string }) {
       <p style={{ fontSize: 14, marginTop: 16 }}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p><p><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </>}
     {preview?.cardPath && state !== "needs_enrollment" && !verificationRequired && <p><Link className="button button--outline" href={preview.cardPath}>Karte und Prämien ansehen</Link></p>}
+    {recoveryToken && !verificationRequired && !selectionRequired && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <CardContact token={recoveryToken} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
     {state === "error" && <p style={{ fontSize: 14 }}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
   </div></main>;
 }

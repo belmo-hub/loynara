@@ -137,6 +137,7 @@ test("one browser isolates two merchants and explicitly selects identity after a
     expect(await pendingOf(a.cashier)).toHaveLength(0);
     expect((await fresh.request.post(`/api/card/${ca.cardLocator}/tap-session`, { headers: origin })).status()).toBe(404);
     await newPhone.goto(`/card/${ca.cardToken}`);
+    await newPhone.getByRole("button",{name:"Diese Karte für NFC verwenden"}).click();
     await expect(newPhone.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     expect(await customerCardNumber(newPhone)).toBe(ca.cardLocator);
     expect((await sql("SELECT count(*)::int AS n FROM memberships WHERE program_id=$1", [a.me.programId]))[0].n).toBe(2);
@@ -164,6 +165,8 @@ test("expired and cleared browser credentials require recovery and the private l
     expect(await pendingOf(merchant.cashier)).toHaveLength(0);
     expect((await customer.request.post("/api/enroll", { headers: origin, data: { slug: merchant.me.programSlug, acceptedTerms: true } })).status()).toBe(400);
     await page.goto(`/card/${cardToken}`);
+    await page.getByRole("button",{name:"Diese Karte für NFC verwenden"}).click();
+    await page.getByRole("button",{name:"Mit meiner gespeicherten Karte fortfahren"}).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     expect(await customerCardNumber(page)).toBe(`K-${original.card_locator}`);
     const pending = await pendingOf(merchant.cashier);
@@ -174,6 +177,7 @@ test("expired and cleared browser credentials require recovery and the private l
     await expect(page.getByRole("link", { name: "Karte sicher wiederherstellen" })).toBeVisible();
     expect(await pendingOf(merchant.cashier)).toHaveLength(0);
     await page.goto(`/card/${cardToken}`);
+    await page.getByRole("button",{name:"Diese Karte für NFC verwenden"}).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     expect(await customerCardNumber(page)).toBe(`K-${original.card_locator}`);
     expect(await sql("SELECT id, card_locator, balance FROM memberships WHERE program_id=$1", [merchant.me.programId])).toEqual([{ id: original.id, card_locator: original.card_locator, balance: 0 }]);

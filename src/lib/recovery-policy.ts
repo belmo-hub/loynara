@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, membershipContacts, memberships } from "@/db/schema";
 
-/** Default off for the software-only release. Production NFC requires this policy at startup. */
+/** Legacy opt-in; selected release keeps this off so recovery email is optional. */
 export function verifiedRecoveryBeforeFirstAward(env: Record<string, string | undefined> = process.env) {
   return env.VERIFIED_RECOVERY_BEFORE_FIRST_AWARD === "true";
 }

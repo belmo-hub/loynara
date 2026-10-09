@@ -1,5 +1,5 @@
 import { recoveryVerificationRequired } from "./recovery-policy";
-import { cookieValue, customerCookieAttributes, issueCustomerSession, readCustomerSession } from "./customer-session";
+import { cookieValue, customerCookieAttributes, customerSessionRemainingSeconds, issueCustomerSession, readCustomerSession } from "./customer-session";
 import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { and, desc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
@@ -18,8 +18,8 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const uidPattern = /^[a-f0-9]{14}$/;
 const publicRefPattern = /^[A-Za-z0-9_-]{24}$/;
 export function tapCookieName(programId: string) { return `loynara_member_${programId.replaceAll("-", "")}`; }
-export function tapCookieHeader(programId: string, cardToken: string, origin: string, shared = false) {
-  return `${tapCookieName(programId)}=${issueCustomerSession(programId, cardToken, shared)}; ${customerCookieAttributes(origin, "/api/tap")}`;
+export function tapCookieHeader(programId: string, cardToken: string, origin: string, shared = false, timing?: { issued: number; lastActivity: number }) {
+  return `${tapCookieName(programId)}=${issueCustomerSession(programId, cardToken, shared, timing?.issued, timing?.lastActivity)}; ${customerCookieAttributes(origin, "/api/tap", timing ? customerSessionRemainingSeconds(timing) : undefined)}`;
 }
 export function tapMemberSession(request: Request, programId: string) {
   return readCustomerSession(cookieValue(request, tapCookieName(programId)), programId);
@@ -138,7 +138,9 @@ export type TapResult = { state: "awarded" | "already_processed" | "confirmed" |
   /** The card number, so the guest can tell the cashier which waiting request is theirs. Never a credential. */
   cardLocator?: string;
   /** Server-internal: the wake-up job created with a new pending request, sent right after commit. Never sent to the browser. */
-  pushJobId?: string };
+  pushJobId?: string;
+  /** Server-internal: a fresh verified counter created a new authorized customer visit. */
+  sessionActivity?: true };
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
@@ -219,12 +221,12 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
       if (status !== "pending_staff") return { ...base, state: status, balance: member.balance };
       // Wake the location's cashier phones. Queued in this transaction, so it exists exactly when the request does.
       const pushJobId = await enqueueTapPush(tx, { tenantId: tag.tenantId, tapRequestId: request.id }) ?? undefined;
-      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId };
+      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId, sessionActivity: true };
     }
     const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
     await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
-    return { ...base, state: "awarded", balance: booked.balance, cardLocator };
+    return { ...base, state: "awarded", balance: booked.balance, cardLocator, sessionActivity: true };
   });
 }
 
