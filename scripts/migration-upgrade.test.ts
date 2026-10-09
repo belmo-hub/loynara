@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 /**
  * Migration rehearsal on throwaway databases on the isolated test server (never the shared test DB itself):
  *  - FRESH: every migration on an empty database;
- *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then 0018-0020.
+ *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then 0018-0021.
  * The upgraded schema must equal the fresh one, and no historical value may change.
  */
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Migration rehearsal requires the isolated looplocal_test server");
@@ -420,41 +420,98 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
 });
 
 describe("0021 staff push subscriptions", () => {
-  it("adds only the subscription table to a populated 0020 database, and a subscription disappears with its session or user", async () => {
+  it("preserves populated exact 0020 Wallet, outbox and history through 0021 upgrade, rollback and reapplication", async () => {
     const target = await scratchDatabase("production20");
     const fresh = await scratchDatabase("push_fresh");
     try {
       await run(target, folderThrough(20));
-      await seedHistory(target);
+      const seeded = await seedHistory(target);
+      const passId = randomUUID();
+      const revokedPassId = randomUUID();
+      await target.query(`INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, status, credential_hash, synced_at)
+        VALUES ($1::uuid, $2, $3, 'apple', $1::text, 'registered', repeat('b', 64), now())`, [passId, seeded.tenants[0], seeded.cards.a]);
+      await target.query(`INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, status, credential_hash, revoked_at, revoke_reason, synced_at)
+        VALUES ($1::uuid, $2, $3, 'apple', $1::text, 'revoked', repeat('c', 64), now(), 'closed', now())`, [revokedPassId, seeded.tenants[0], seeded.cards.closed]);
+      await target.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ('retained-wallet-device', repeat('a', 64))");
+      await target.query(`INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number)
+        VALUES ('retained-wallet-device', $1, $2, 'pass.local.loop', $3)`, [seeded.tenants[0], seeded.cards.a, passId]);
+      await target.query(`INSERT INTO outbox_jobs (tenant_id, kind, payload, status, attempts, last_error)
+        VALUES ($1, 'wallet.refresh', jsonb_build_object('membershipId', $2::text, 'coalescingVersion', '1'), 'pending', 0, NULL),
+          ($1, 'email.verify', '{"synthetic":"retained"}'::jsonb, 'blocked', 2, 'Synthetic provider disabled')`, [seeded.tenants[0], seeded.cards.a]);
+
+      // Compare PostgreSQL's complete row text, including lifecycle fields, locators, timestamps and queue state.
+      const preservedTables = [...Object.keys(HISTORICAL), "purchase_awards", "wallet_passes", "apple_devices", "apple_registrations", "outbox_jobs", "email_deliveries"];
+      const preservedRows = async () => {
+        const result: Record<string, string[]> = {};
+        for (const table of preservedTables) {
+          const { rows } = await target.query<{ value: string }>(`SELECT row_to_json(t)::text AS value FROM ${table} t ORDER BY 1`);
+          result[table] = rows.map(row => row.value);
+        }
+        return result;
+      };
+      const journalRows = async () => (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
       const before = await fingerprint(target);
+      const rowsBefore = await preservedRows();
+      const schema20 = await structure(target);
+      const journal20 = await journalRows();
+      expect(journal20).toHaveLength(21);
+      expect(rowsBefore.wallet_passes).toHaveLength(2);
+      expect(rowsBefore.apple_registrations).toHaveLength(1);
+      expect(rowsBefore.outbox_jobs).toHaveLength(2);
+
       await run(target, migrationsDir);
+      const journal21 = await journalRows();
+      expect(journal21).toHaveLength(22);
+      expect(journal21.slice(0, 21)).toEqual(journal20);
+      expect(Number(journal21.at(-1)?.created_at)).toBe(1791417633414);
       expect(await fingerprint(target)).toEqual(before);
+      expect(await preservedRows()).toEqual(rowsBefore);
       expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
       await run(fresh, migrationsDir);
-      expect(await structure(target)).toEqual(await structure(fresh));
+      const schema21 = await structure(target);
+      expect(schema21).toEqual(await structure(fresh));
 
-      const [location] = (await target.query("SELECT tenant_id, id FROM locations LIMIT 1")).rows as Array<{ tenant_id: string; id: string }>;
+      const locations = (await target.query("SELECT tenant_id, id FROM locations ORDER BY tenant_id")).rows as Array<{ tenant_id: string; id: string }>;
+      const [location, otherLocation] = locations;
       await target.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('push-user', 'Synthetic', 'push@example.test', false)`);
       for (const session of ["push-session-a", "push-session-b"]) await target.query(`INSERT INTO "session" (id, "expiresAt", token, "updatedAt", "userId") VALUES ($1, now() + interval '1 day', $1, now(), 'push-user')`, [session]);
-      const subscribe = (endpoint: string, session: string) => target.query("INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth) VALUES ($1, $2, 'push-user', $3, $4, 'k', 'a')", [location.tenant_id, location.id, session, endpoint]);
+      const subscribe = (endpoint: string, session: string, tenantId = location.tenant_id, locationId = location.id) => target.query("INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth) VALUES ($1, $2, 'push-user', $3, $4, 'k', 'a')", [tenantId, locationId, session, endpoint]);
+      await expect(subscribe("https://fcm.googleapis.com/fcm/send/wrong-location", "push-session-a", location.tenant_id, otherLocation.id)).rejects.toThrow(/tenant_id_location_id/);
+      await expect(subscribe("https://fcm.googleapis.com/fcm/send/wrong-tenant", "push-session-a", otherLocation.tenant_id, location.id)).rejects.toThrow(/tenant_id_location_id/);
+      await expect(subscribe("https://fcm.googleapis.com/fcm/send/missing-session", "missing-session")).rejects.toThrow(/session_fk/);
+      await expect(subscribe("http://insecure.example.test/x", "push-session-a")).rejects.toThrow(/staff_push_endpoint_https/);
       await subscribe("https://fcm.googleapis.com/fcm/send/a", "push-session-a");
       await subscribe("https://fcm.googleapis.com/fcm/send/b", "push-session-b");
-      await expect(subscribe("http://insecure.example.test/x", "push-session-a")).rejects.toThrow(/staff_push_endpoint_https/);
       await expect(subscribe("https://fcm.googleapis.com/fcm/send/a", "push-session-b")).rejects.toThrow(/endpoint_unique/);
       await target.query(`DELETE FROM "session" WHERE id = 'push-session-a'`);
       expect((await target.query("SELECT endpoint FROM staff_push_subscriptions")).rows).toEqual([{ endpoint: "https://fcm.googleapis.com/fcm/send/b" }]);
       await target.query(`DELETE FROM "user" WHERE id = 'push-user'`);
       expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
+      // Leave one subscription and wake-up job to prove the documented rollback removes only these new records.
+      const userId = (await target.query("SELECT user_id FROM staff_roles WHERE tenant_id = $1 AND role = 'owner'", [location.tenant_id])).rows[0].user_id as string;
+      await target.query(`INSERT INTO "session" (id, "expiresAt", token, "updatedAt", "userId") VALUES ('rollback-push-session', now() + interval '1 day', 'rollback-push-session', now(), $1)`, [userId]);
+      await target.query(`INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth)
+        VALUES ($1, $2, $3, 'rollback-push-session', 'https://fcm.googleapis.com/fcm/send/rollback', 'k', 'a')`, [location.tenant_id, location.id, userId]);
+      await target.query(`INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES ($1, 'push.tap_pending', jsonb_build_object('tapRequestId', $2::text))`, [location.tenant_id, randomUUID()]);
 
-      // The paired rollback returns exactly the 0020 schema and refuses to run twice.
-      const schema20 = await scratchDatabase("push_schema20");
-      try { await run(schema20, folderThrough(20)); await target.query("BEGIN");
-        await target.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"));
-        await target.query("COMMIT");
-        expect(await structure(target)).toEqual(await structure(schema20));
-        expect(await fingerprint(target)).toEqual(before);
-        await expect(target.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"))).rejects.toThrow(/0021 rollback refused/);
-      } finally { await schema20.end(); }
+      const client = await target.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"));
+        await client.query("COMMIT");
+      } finally { await client.query("ROLLBACK"); client.release(); }
+      expect(await journalRows()).toEqual(journal20);
+      expect(await structure(target)).toEqual(schema20);
+      expect(await fingerprint(target)).toEqual(before);
+      expect(await preservedRows()).toEqual(rowsBefore);
+      await expect(target.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"))).rejects.toThrow(/0021 rollback refused/);
+
+      await run(target, migrationsDir);
+      expect(await journalRows()).toHaveLength(22);
+      expect(await structure(target)).toEqual(schema21);
+      expect(await fingerprint(target)).toEqual(before);
+      expect(await preservedRows()).toEqual(rowsBefore);
+      expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 });
