@@ -1,10 +1,9 @@
-import { recoveryVerificationRequired } from "./recovery-policy";
 import { cookieValue, customerCookieAttributes, issueCustomerSession, readCustomerSession } from "./customer-session";
 import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { and, desc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
 import { DomainError, awardTapInTransaction, awardInTransaction } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
@@ -134,7 +133,7 @@ export async function replaceSecureTag(input: { actorUserId: string; tagId: stri
 }
 
 type TapInput = { tagRef: string; fields: { encrypted: string; mac: string }; cardToken?: string; keyProvider?: TapKeyProvider; now?: Date };
-export type TapResult = { state: "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled"; expiresAt?: Date; merchantName: string; locationName: string; programName: string; programSlug: string; balance?: number; requestId?: string; statusRef?: string;
+export type TapResult = { customerActivityAt?: number; state: "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled"; expiresAt?: Date; merchantName: string; locationName: string; programName: string; programSlug: string; balance?: number; requestId?: string; statusRef?: string;
   /** The card number, so the guest can tell the cashier which waiting request is theirs. Never a credential. */
   cardLocator?: string;
   /** Server-internal: the wake-up job created with a new pending request, sent right after commit. Never sent to the browser. */
@@ -161,7 +160,7 @@ export async function previewSecureTap(input: TapInput) {
   return db.transaction(async tx => {
     const { tag, program, location, tenant } = await verifiedContext(tx, input);
     const [member] = input.cardToken ? await tx.select({ id: memberships.id, cardLocator: memberships.cardLocator }).from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId), isNull(memberships.closedAt))) : [];
-    return { merchantName: tenant.name, locationName: location.name, programName: program.name, programSlug: program.slug, brandColor: location.brandColor, mode: program.tapMode, hasMembership: Boolean(member), recoveryEmailRequired: member ? await recoveryVerificationRequired(tx, tag.tenantId, member.id) : false, cardLocator: member ? formatCardLocator(member.cardLocator) : undefined, cardPath: member ? `/card/${input.cardToken}` : undefined };
+    return { merchantName: tenant.name, locationName: location.name, programName: program.name, programSlug: program.slug, brandColor: location.brandColor, mode: program.tapMode, hasMembership: Boolean(member), cardLocator: member ? formatCardLocator(member.cardLocator) : undefined, cardPath: member ? `/card/${input.cardToken}` : undefined };
   });
 }
 
@@ -173,7 +172,6 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     if (program.tapMode === "disabled" || !program.tapCooldownSeconds) return { ...base, state: "disabled" };
     const [member] = input.cardToken ? await tx.select().from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId))).for("update") : [];
     if (!member || member.closedAt) return { ...base, state: "needs_enrollment" };
-    if (await recoveryVerificationRequired(tx, member.tenantId, member.id)) throw new DomainError("RECOVERY_EMAIL_REQUIRED", "Bestätige zuerst die Wiederherstellungs-E-Mail deiner Karte. Danach geht diese Berührung weiter.");
     const cardLocator = formatCardLocator(member.cardLocator);
     // Pending requests can be shared by two tags of one programme. Poll using the request's own tag binding.
     const statusRefFor = async (requestTagId: string) => {
@@ -219,7 +217,15 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
       if (status !== "pending_staff") return { ...base, state: status, balance: member.balance };
       // Wake the location's cashier phones. Queued in this transaction, so it exists exactly when the request does.
       const pushJobId = await enqueueTapPush(tx, { tenantId: tag.tenantId, tapRequestId: request.id }) ?? undefined;
-      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId };
+      // Eligibility is decided in the same membership-locked transaction that consumes this fresh counter.
+      // A previously committed, unreversed staff award establishes a qualifying existing customer.
+      const [qualifying] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
+        eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.membershipId, member.id), eq(ledgerEntries.kind, "award"),
+        inArray(ledgerEntries.source, ["staff_online", "staff_offline"]), lte(ledgerEntries.createdAt, now),
+        sql`NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = ${member.tenantId} AND undo.reversal_of_id = ${ledgerEntries.id})`
+      )).limit(1);
+      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId,
+        customerActivityAt: qualifying ? Math.floor(now.getTime()/1000) : undefined };
     }
     const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });

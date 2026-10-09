@@ -90,14 +90,27 @@ test("one browser isolates two merchants and explicitly selects identity after a
     const pb = await pendingOf(b.cashier);
     expect((await b.cashier.post(`/api/cashier/tap/${pb[0].id}/cancel`)).status()).toBe(200);
 
-    // Reading a different person's card is not permission to silently replace the NFC identity.
+    // A temporary automatic-binding failure must still lead to the explicit account-switch prompt.
+    let failSwitch = true;
+    await page.route(`**/api/tap/card/${secondA.cardToken}/session`, async route => {
+      const body = route.request().postData();
+      if (!body || (body.includes("switchAccount") && failSwitch)) {
+        if (body) failSwitch = false;
+        await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Browserzugang vorübergehend nicht erreichbar.", code: "UNAVAILABLE" }) });
+      } else await route.continue();
+    });
     await page.goto(`/card/${secondA.cardToken}`);
+    await expect(page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" })).toBeVisible();
+    await page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" }).click();
     await expect(page.getByRole("button", { name: "Diese Karte für NFC verwenden" })).toBeVisible();
     const remembered = await (await customer.request.get(`/api/enroll/existing?slug=${a.me.programSlug}`)).json();
     expect(remembered.cardLocator).toBe(ca.cardLocator);
     const binding = page.waitForResponse(r => r.url().includes("/session") && r.status() === 200);
     await page.getByRole("button", { name: "Diese Karte für NFC verwenden" }).click();
+    await expect(page.getByText("Browserzugang vorübergehend nicht erreichbar.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Diese Karte für NFC verwenden" }).click();
     await binding;
+    await page.unroute(`**/api/tap/card/${secondA.cardToken}/session`);
     const sharedTap = pathOf(a.nextUrl());
     // A direct API GET/link preview creates no pending request and books no stamp.
     expect((await customer.request.get(sharedTap.replace("/tap/", "/api/tap/"))).status()).toBe(200);
@@ -137,6 +150,9 @@ test("one browser isolates two merchants and explicitly selects identity after a
     expect(await pendingOf(a.cashier)).toHaveLength(0);
     expect((await fresh.request.post(`/api/card/${ca.cardLocator}/tap-session`, { headers: origin })).status()).toBe(404);
     await newPhone.goto(`/card/${ca.cardToken}`);
+    await expect(newPhone.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" })).toBeVisible();
+    expect(await pendingOf(a.cashier)).toHaveLength(0);
+    await newPhone.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" }).click();
     await expect(newPhone.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     expect(await customerCardNumber(newPhone)).toBe(ca.cardLocator);
     expect((await sql("SELECT count(*)::int AS n FROM memberships WHERE program_id=$1", [a.me.programId]))[0].n).toBe(2);
@@ -164,6 +180,9 @@ test("expired and cleared browser credentials require recovery and the private l
     expect(await pendingOf(merchant.cashier)).toHaveLength(0);
     expect((await customer.request.post("/api/enroll", { headers: origin, data: { slug: merchant.me.programSlug, acceptedTerms: true } })).status()).toBe(400);
     await page.goto(`/card/${cardToken}`);
+    await expect(page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" })).toBeVisible();
+    expect(await pendingOf(merchant.cashier)).toHaveLength(0);
+    await page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" }).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     expect(await customerCardNumber(page)).toBe(`K-${original.card_locator}`);
     const pending = await pendingOf(merchant.cashier);
@@ -174,6 +193,9 @@ test("expired and cleared browser credentials require recovery and the private l
     await expect(page.getByRole("link", { name: "Karte sicher wiederherstellen" })).toBeVisible();
     expect(await pendingOf(merchant.cashier)).toHaveLength(0);
     await page.goto(`/card/${cardToken}`);
+    await expect(page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" })).toBeVisible();
+    expect(await pendingOf(merchant.cashier)).toHaveLength(0);
+    await page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" }).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     expect(await customerCardNumber(page)).toBe(`K-${original.card_locator}`);
     expect(await sql("SELECT id, card_locator, balance FROM memberships WHERE program_id=$1", [merchant.me.programId])).toEqual([{ id: original.id, card_locator: original.card_locator, balance: 0 }]);

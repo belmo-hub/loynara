@@ -84,7 +84,6 @@ export type PublicProgram = {
 };
 
 export type CardResponse = {
-  recoveryEmailRequired?: boolean;
   scanCode: string;
   cardLocator: string;
   balance: number;

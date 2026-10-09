@@ -1,4 +1,3 @@
-import { emailTransportMode } from "../src/lib/transactional-email";
 import path from "node:path";
 import { passFastStatus } from "../src/lib/wallet/passfast";
 import { googleLocationClasses } from "../src/lib/wallet/google-direct";
@@ -80,10 +79,6 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
       issues.push("Promotional email requires separate approval, public unsubscribe origin and configured location/customer safety limits");
     }
   }
-  const recoveryPolicy = env.VERIFIED_RECOVERY_BEFORE_FIRST_AWARD;
-  if (recoveryPolicy !== undefined && recoveryPolicy !== "true" && recoveryPolicy !== "false") issues.push("VERIFIED_RECOVERY_BEFORE_FIRST_AWARD must be exactly true or false");
-  if (env.NFC_ENABLED === "true" && recoveryPolicy !== "true") issues.push("NFC requires verified recovery email before the first award");
-  if (recoveryPolicy === "true" && emailTransportMode(env) !== "mailgun_eu") issues.push("Verified recovery requires an approved transactional email transport");
   // NFC. Enabled only with the derived verification-key provider; development keys and the administrative master never reach production.
   if (env.TAP_SYNTHETIC_KEY_FILE) issues.push("Synthetic NFC development keys are forbidden in production");
   if (env.NFC_ADMIN_MASTER_KEY) issues.push("The NFC administrative master key must stay on the operator machine and is forbidden in the production environment");

@@ -6,7 +6,6 @@ import { ledgerEntries, membershipContacts, memberships, programs, referralCodes
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
-import { recoveryVerificationRequired } from "./recovery-policy";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -151,8 +150,7 @@ export async function qualifyReferralOnAward(tx: Transaction, input: {
   else {
     const referrerEmail = await verifiedEmail(tx, input.tenantId, referrer.id);
     const referredEmail = await verifiedEmail(tx, input.tenantId, referred.id);
-    if (referral.referrerBonus > 0 && await recoveryVerificationRequired(tx, input.tenantId, referrer.id)) reviewReason = "recovery_email_required";
-    else if (referrerEmail && referredEmail && referrerEmail === referredEmail) reviewReason = "same_verified_email";
+    if (referrerEmail && referredEmail && referrerEmail === referredEmail) reviewReason = "same_verified_email";
     else if (referrer.balance + referral.referrerBonus > 2_147_483_647 || referred.balance + referral.referredBonus > 2_147_483_647) reviewReason = "balance_limit";
   }
   if (reviewReason) {

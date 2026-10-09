@@ -1,4 +1,3 @@
-import { cardRecoveryVerificationRequired } from "@/lib/recovery-policy";
 import { enroll } from "@/lib/product";
 import { jsonBody, requireSameOrigin, respondError } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
@@ -12,7 +11,7 @@ export async function POST(request: Request) {
     await enforcePeerLimit(request, "enroll_peer", 25, 15 * 60);
     const data = await jsonBody(request, 10_000);
     if (data && typeof data === "object" && ("email" in data || ("marketingOptIn" in data && data.marketingOptIn !== false))) {
-      throw new DomainError("CONTACT_DISABLED", "Email collection is unavailable until verified recovery is ready");
+      throw new DomainError("CONTACT_DISABLED", "Bitte Wiederherstellungsadresse nach der Kartenerstellung bestätigen");
     }
     const headers = new Headers({ "Cache-Control": "no-store" });
     let input = data;
@@ -37,6 +36,6 @@ export async function POST(request: Request) {
       headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(result.programId, request.url));
       headers.append("Set-Cookie", remember);
     }
-    return Response.json({ cardToken: result.cardToken, recoveryEmailRequired: await cardRecoveryVerificationRequired(result.cardToken) }, { status: 201, headers });
+    return Response.json({ cardToken: result.cardToken }, { status: 201, headers });
   } catch (error) { return respondError(error); }
 }

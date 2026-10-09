@@ -1,0 +1,50 @@
+# Final customer-policy preview deployment packet
+
+Prepared only. **HOLD: no hosted change is authorized or performed.** Freeze the merge commit on `codex/nfc-final-customer-policy-v1`; its full SHA and locally compiled build ID are recorded in `var/nfc-integrated-physical-preview-20261009/final-policy-release-manifest.json` in the primary workspace. Deploy only that recorded SHA after prerequisite completion and explicit founder authorization. Rebuild and re-record the artifact if compile-time configuration changes.
+
+## Observed preview and prerequisites
+
+Read-only snapshot: 2026-10-09 19:31:28 UTC. Associated source is clean `621364a575c5f325b9cac01cc0a421b634a36940`, not the new candidate. Running build is `7-wXdWlfeBkkiXMPR-_3B`; disk build differs. There is no public source-SHA attestation endpoint: attribution uses source/process custody and the served build fingerprint.
+
+Preview is `https://preview.getloynara.com`, isolated PostgreSQL `127.0.0.1:54331/looplocal_device_test`, schema through `0021`, 22 journal entries. Candidate migration files are byte-identical to the frozen integrated source: **no preview migration**. Public anonymous HEAD still redirects to Cloudflare Access. This proves a protected redirect, not complete policy/AUD/session-TTL or pilot-phone authorization. Read back those settings and test approved phone identities without weakening Access.
+
+Unchanged TAG-01: tag `6957e8ef-2904-4a75-b808-c038cd414125`, tenant `ee9574fb-12a7-4980-8e58-1bd39ab899ad`, location `d760b2d8-73c1-42c3-90ac-8d8500755a25`, program `98e8141b-dfb7-44d4-9ed8-bc0edf3b02e4`, slug `preview-test-tag01`; active, staff-confirmed, 60-second cooldown, replay floor 19. Keep origin, key custody, bindings and counter monotonic. No reprogramming, registration, provisioning, seeding or reset.
+
+Saved owner/cashier sessions both returned authorized `/api/me` 200 in this scope. Actual customer phone/browser profiles remain unverified, and an old saved private card credential returned 404: establish fresh isolated customer custody rather than reusing it. Preview has two tenants, three memberships and nine ledger rows. Original TAG-01 membership `848e928f-9d7c-435d-a35c-7325e7ae139e`, K-PKRVXT, balance 7 and seven +1 staff awards remain unchanged. It has no Wallet row. Historical Google Demo membership K-TTY5Z8 is closed and its pass revoked; do not reopen it. Use a separate authorized synthetic active Wallet association for continuity testing, with providers off.
+
+**Email gate remains failed.** Current preview has transactional/general/promotional email off, SMTP disabled and no preview Mailgun API/webhook custody. Real local Mailpit capture proves challenge rendering, verification and recovery, but does not prove controlled external-inbox delivery. The compiled HTTPS application intentionally rejects local development Mailpit transport. Before cutover provide and explicitly approve an isolated non-production Mailgun EU account/domain/from address/API and webhook signing key, restrictive controlled test recipients and usable test inboxes. Never substitute production credentials. Preview send approval is separate from production transactional activation; marketing remains off.
+
+## Proposed configuration and cutover after authorization
+
+Retain preview-only auth/NFC/VAPID custody, database and origin. `NFC_ENABLED=true` only within this supervised existing synthetic scope; `NFC_KEY_PROVIDER` and existing TAG-01 key values unchanged. Public registration stays false. `APPLE_WALLET_ENABLED`, `GOOGLE_WALLET_ENABLED`, `PASSFAST_ENABLED` stay false during these focused tests; Google provider/publishing values remain GOOGLE_DIRECT/demo. Preserve associations and inspect queued refreshes; no live provider quota use. Remove the obsolete `VERIFIED_RECOVERY_BEFORE_FIRST_AWARD` variable: it no longer controls behavior. First stamps are allowed without email.
+
+General/promotional email remain false. Transactional flag/send approval become true only for separately approved preview transport on both web and worker. Do not start a worker with unreviewed queued email/provider work or run old/new workers concurrently.
+
+1. Refresh source, build, process ownership, schema and sanitized ledger/queue snapshot. Check candidate listener 127.0.0.1:3014 is available. Retain the healthy old web process on 3004; never rebuild its checkout. The existing protected host guard listens on 3002 and forwards to 3004.
+2. Complete Access/phone/inbox/transport and active synthetic Wallet prerequisites. Record the founder's authorization for the exact manifest SHA and preview-only configuration. No authorization is inferred from this packet.
+3. Start only candidate web on 127.0.0.1:3014 from the exact clean checkout and approved private preview environment. Check health, build ID and approved HTTPS origin through a protected non-public local probe. No migration/seed/production command.
+4. Gracefully stop the verified old preview worker and prove it has exited. Start exactly one candidate worker from the same SHA and approved configuration. Record process IDs, cwd and command custody without exposing environment values.
+5. Change only the preview host guard's upstream to 3014, retaining its exact Host validation, loopback binding and HTTPS forwarding. Preserve connector, DNS, Access and TAG-01. Recheck anonymous Access redirect, authenticated build fingerprint, correct staff scope and unchanged bindings.
+6. Run only changed first/return/recovery physical checks below. Halt and roll back on wrong source/configuration, mismatched identity, duplicate ledger award or broken delivery. Do not repeat complete provider, notification/concurrency or QR acceptance.
+
+## Exact rollback procedure
+
+Rollback target is the retained, healthy web on 3004, associated source `621364a575c5f325b9cac01cc0a421b634a36940`, served build `7-wXdWlfeBkkiXMPR-_3B`. Its disk `.next` does not match: a cold restart from disk is **not verified**. Keeping the old process alive is a cutover prerequisite; if it is lost, STOP until a matching recoverable artifact is secured.
+
+1. Halt physical acceptance and new approvals. Gracefully stop only the candidate worker identified in the cutover custody record; prove no other worker remains. Read and preserve any in-flight outcome before restarting a worker.
+2. Check the retained 3004 web is healthy and still serves `7-wXdWlfeBkkiXMPR-_3B`. Stop only the candidate-era host guard on 3002 after verifying its PID/cwd/command. Restore the unchanged old guard with `node /Users/youssefbelmokhtar/Desktop/Loynara/var/google-wallet-direct-physical-20261009/host-guard.cjs`; it binds loopback 3002 and routes to 3004 with the approved Host/HTTPS checks. Its SHA-256 is `867bd30456ae08a6057d891964c9d87d9e353c2c6900d2e653ed5d704bd4efed`.
+3. From the clean `621364a` checkout `/Users/youssefbelmokhtar/.codex/worktrees/google-wallet-direct-v1/Loynara`, restore exactly one `npm run worker` using the retained preview-only private runtime configuration. During this focused acceptance, keep all Wallet sending and transactional/promotional email disabled unless separately authorized; do not replay provider jobs automatically. Validate database/origin and source before launch. Never print private environment values.
+4. Verify health, authenticated old served build, anonymous Access redirect, staff scope and ledger/Wallet continuity. Stop candidate web on 3014 after routing restoration. The old runtime lacks the new session/recovery UI policy: keep changed-journey acceptance paused.
+
+No database restore, migration reversal, ledger deletion, membership recreation, counter rollback or hardware change belongs to application rollback. Preserve all legitimate awards and consumed challenge/security records. Reconcile outbox work; do not clear queues.
+
+## Minimum subsequent manual acceptance
+
+Record actual model/OS/version/profile, UTC timestamps and elapsed customer time; sanitize every screenshot. Never record SUN queries, private links, challenge links, cookies or tokens.
+
+- iPhone Safari, then Android Chrome: normal Access sign-in; unchanged TAG-01 tap; enroll (terms + create, no email); note original membership/K-number/balance; approve one request; close/reopen intended browser; fresh physical tap automatically recognizes original membership; no registration, verification or Wallet opening; approve a separate qualifying transaction; exactly one additional +1 ledger row to the same member. Confirm Android NFC opens the credential-holding Chrome profile. Desktop Chromium does not prove this.
+- Optional setup/decline: decline with private-link guidance; first award still works. Separately set up recovery and open an actual controlled inbox verification link; explicit verification, no marketing consent. Delayed/absent mail must not block earning or erase browser enrollment.
+- Isolated verified synthetic account: record ID/K/balance/active Wallet row; clear remembered credentials and do not use private link; request recovery; obtain actual controlled inbox challenge; show cards, select original card and explicitly authenticate recovered private card in the customer's browser (account switch requires separate confirmation). ID/K/balance/Wallet association preserved; original private credential revoked; separate authorized award produces one row, no duplicate membership. Reject expired/replayed challenges. Check queued Wallet refresh association with sending off.
+- Session boundaries: local clock-controlled tests cover 90/365 days; do not change hosted clocks. Observe the customer response sets cookies before cashier approval, and refresh/poll/GET preserves the timestamps.
+
+Prior iPhone/Android **Brave**, locked-cashier notifications, concurrency, QR, PassFast and Google Demo evidence is retained. New Safari/Android Chrome/actual hosted inbox acceptance is outstanding. Production physical acceptance, TAG-02, production email, NFC/Wallet activation and Google publishing remain separate workstreams. A technical tenant allowlist remains required before broader NFC activation.

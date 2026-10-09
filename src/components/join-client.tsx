@@ -82,11 +82,10 @@ export function JoinClient({ slug }: { slug: string }) {
           const latest = await checkReturning(slug);
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
-        return postJson<{ cardToken: string; recoveryEmailRequired?: boolean }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
-      if (result.recoveryEmailRequired) { router.push(`/card/${encodeURIComponent(result.cardToken)}`); return; }
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
       if (continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation)) router.push(continuation);
@@ -128,7 +127,7 @@ export function JoinClient({ slug }: { slug: string }) {
           {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
           <p><Link href="/recover">{locale === "fr" ? "Vous avez déjà une carte ? Récupération sécurisée" : "Du hast schon eine Karte? Sicher wiederherstellen"}</Link></p>
           <form className="join-form" onSubmit={submit}>
-            <p className="join-contact-note">{locale === "fr" ? "Votre carte est créée sans adresse e-mail. Les messages et la récupération par e-mail ne sont pas encore disponibles." : "Deine Karte wird ohne E-Mail-Adresse erstellt. Nachrichten und Wiederherstellung per E-Mail sind derzeit nicht verfügbar."}</p>
+            <p className="join-contact-note">{locale === "fr" ? "Votre carte est créée sans adresse e-mail. Après l’inscription, vous pouvez configurer une adresse de récupération vérifiée si cette option est disponible. C’est facultatif et ne donne aucun accord marketing." : "Deine Karte wird ohne E-Mail-Adresse erstellt. Nach dem Erstellen kannst du eine bestätigte Wiederherstellungsadresse einrichten, sofern verfügbar. Das ist freiwillig und kein Marketing-Abonnement."}</p>
             <label className="join-checkbox"><input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required /><span>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</span></label>
             {(existing || returning.state === "stale") && <label className="join-checkbox"><input type="checkbox" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} /><span>{t.anotherConfirm}</span></label>}
             {error && <p className="auth-error" role="alert">{error}</p>}

@@ -18,7 +18,7 @@ const DATABASE_URL = process.env.DATABASE_URL ?? "";
 function assertIsolatedDatabase() {
   // The NFC specs write and rewrite rows directly (expiry, rate-limit reset). Refuse anything but the isolated worktree database.
   const url = new URL(DATABASE_URL);
-  if (!["localhost", "127.0.0.1"].includes(url.hostname) || !["54395", "54429", "54439"].includes(url.port) || url.pathname !== "/looplocal" || url.username !== "looplocal") throw new Error("Refusing database work outside the isolated NFC test database");
+  if (!["localhost", "127.0.0.1"].includes(url.hostname) || !["54395", "54429", "54459"].includes(url.port) || url.pathname !== "/looplocal" || url.username !== "looplocal") throw new Error("Refusing database work outside the isolated NFC test database");
 }
 
 /** One short-lived client per statement: the specs only need a handful of assertions and updates. */
@@ -33,7 +33,7 @@ export async function sql<T extends pg.QueryResultRow = pg.QueryResultRow>(text:
 // Every request reaches the server through one peer bucket ("untrusted-peer" in local runs), so the tap and enrolment
 // limits are shared by all tests in a file. This is the same reset the per-file runner (.review/e2e-files.mjs) performs,
 // applied before each test so a long file does not exhaust the bucket on its own.
-const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer"];
+const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "recovery_request_peer", "recovery_confirm_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer"];
 
 export async function resetPeerLimits() {
   const secret = process.env.BETTER_AUTH_SECRET ?? dotenv.parse(readFileSync(path.resolve(process.cwd(), ".env"))).BETTER_AUTH_SECRET;
