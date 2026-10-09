@@ -1,8 +1,10 @@
+import { cookieValue } from "@/lib/customer-session";
+import { clearLegacyReturningCardCookieHeader, returningCardCookieHeader } from "@/lib/returning-card";
 import { after } from "next/server";
 import { DomainError } from "@/lib/loyalty";
 import { requireSameOrigin, respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
-import { previewSecureTap, processSecureTap, tapCardToken, tapProgramId } from "@/lib/secure-tap";
+import { previewSecureTap, processSecureTap, tapCardToken, tapMemberSession, tapCookieName, tapCookieHeader, tapProgramId } from "@/lib/secure-tap";
 import { dispatchTapPushNow } from "@/lib/staff-push";
 
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -22,14 +24,30 @@ async function input(request: Request, ref: string) {
   return { tagRef: ref, fields: dynamic, cardToken: tapCardToken(request, programId) };
 }
 export async function GET(request: Request, context: { params: Promise<{ ref: string }> }) {
-  try { return Response.json(await previewSecureTap(await input(request, (await context.params).ref)), { headers }); }
+  try {
+    const value = await input(request, (await context.params).ref);
+    const info = await previewSecureTap(value);
+    const programId = await tapProgramId(value.tagRef);
+    const session = tapMemberSession(request, programId);
+    const responseHeaders = new Headers(headers);
+    // Upgrade legacy credentials only after cryptographic tag and active membership validation.
+    if (session?.legacy && info.hasMembership) {
+      responseHeaders.append("Set-Cookie", tapCookieHeader(programId, session.token, request.url));
+      responseHeaders.append("Set-Cookie", clearLegacyReturningCardCookieHeader(programId, request.url));
+      responseHeaders.append("Set-Cookie", returningCardCookieHeader(programId, session.token, request.url)!);
+    }
+    return Response.json({ ...info, requiresSelection: session?.shared === true, recoveryRequired: !info.hasMembership && cookieValue(request, tapCookieName(programId)) !== undefined }, { headers: responseHeaders });
+  }
   catch (error) { return respondError(error); }
 }
 export async function POST(request: Request, context: { params: Promise<{ ref: string }> }) {
   try {
     requireSameOrigin(request);
     if (request.headers.get("content-length") && request.headers.get("content-length") !== "0") throw new DomainError("INVALID_TAP", "Tap request invalid");
-    const { pushJobId, ...result } = await processSecureTap(await input(request, (await context.params).ref));
+    const value = await input(request, (await context.params).ref);
+    const programId = await tapProgramId(value.tagRef);
+    if (tapMemberSession(request, programId)?.shared && request.headers.get("x-loynara-card-selected") !== (await previewSecureTap(value)).cardLocator) throw new DomainError("ACCOUNT_SWITCH_REQUIRED", "Bitte die Karte für diesen Besuch bestätigen.");
+    const { pushJobId, ...result } = await processSecureTap(value);
     // Wake the cashier phones now rather than at the worker's next poll; the worker retries anything that fails here.
     if (pushJobId) after(() => dispatchTapPushNow(pushJobId));
     return Response.json(result, { headers });

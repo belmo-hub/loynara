@@ -70,7 +70,7 @@ export function JoinClient({ slug }: { slug: string }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError("");
     if (!acceptedTerms) { setError(t.acceptError); return; }
-    if (existing && !confirmAnother) { setError(t.anotherConfirmError); return; }
+    if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); return; }
     setBusy(true);
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
@@ -82,7 +82,7 @@ export function JoinClient({ slug }: { slug: string }) {
           const latest = await checkReturning(slug);
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...(existing ? { additionalCard: true } : {}) });
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
@@ -109,7 +109,7 @@ export function JoinClient({ slug }: { slug: string }) {
     <main className="join-main">
       {loading ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.loadingLabel}</span><h1>{t.loadingTitle}</h1><p>{t.loadingText}</p></div> : !program ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.missingLabel}</span><h1>{t.missingTitle}</h1><p role="alert">{error}</p><Link href="/" className="button button--outline">{t.home}</Link></div> : <>
         <div className="join-hero" style={{ backgroundColor: program.brandColor || "#214739" }}><span>{t.welcome}</span><h1>{program.businessName}</h1><p>{program.locationName}</p><BrandIcon className="join-hero-symbol" /></div>
-        {existing && !wantsAnother ? <div className="join-panel join-returning"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span><h2>{t.welcomeBack}</h2><p>{t.savedHere}</p>
+        {returning.state === "stale" && !wantsAnother ? <div className="join-panel"><h2>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2><p>{t.staleNote}</p><p>{locale === "fr" ? "Ouvrez votre lien privé actuel. Le numéro de carte seul ne prouve pas que la carte vous appartient." : "Öffne deinen aktuellen privaten Kartenlink. Die Kartennummer allein ist kein Eigentumsnachweis."}</p><Link className="button button--accent" href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte sicher wiederherstellen"}</Link><button className="text-button" onClick={() => setWantsAnother(true)}>{t.anotherLink}</button></div> : existing && !wantsAnother ? <div className="join-panel join-returning"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span><h2>{t.welcomeBack}</h2><p>{t.savedHere}</p>
           {cardNumber}
           <a className="button button--accent button--full" href={openHref}>{t.openCard}<Icon name="arrow" size={18} /></a>
           {reward}
@@ -125,10 +125,11 @@ export function JoinClient({ slug }: { slug: string }) {
             : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
           <div className="join-rules"><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
           {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
+          <p><Link href="/recover">{locale === "fr" ? "Vous avez déjà une carte ? Récupération sécurisée" : "Du hast schon eine Karte? Sicher wiederherstellen"}</Link></p>
           <form className="join-form" onSubmit={submit}>
             <p className="join-contact-note">{locale === "fr" ? "Votre carte est créée sans adresse e-mail. Les messages et la récupération par e-mail ne sont pas encore disponibles." : "Deine Karte wird ohne E-Mail-Adresse erstellt. Nachrichten und Wiederherstellung per E-Mail sind derzeit nicht verfügbar."}</p>
             <label className="join-checkbox"><input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required /><span>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</span></label>
-            {existing && <label className="join-checkbox"><input type="checkbox" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} /><span>{t.anotherConfirm}</span></label>}
+            {(existing || returning.state === "stale") && <label className="join-checkbox"><input type="checkbox" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} /><span>{t.anotherConfirm}</span></label>}
             {error && <p className="auth-error" role="alert">{error}</p>}
             {returning.state === "checking" && <p className="join-checking" role="status">{t.checking}</p>}
             <button type="submit" className={`button ${existing ? "button--outline" : "button--accent"} button--full`} disabled={busy || program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}<Icon name="arrow" size={18} /></button>

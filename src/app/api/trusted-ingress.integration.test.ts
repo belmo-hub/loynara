@@ -33,8 +33,8 @@ const ips = () => {
 beforeEach(() => {
   vi.stubEnv("TRUSTED_INGRESS", "cloudflare_tunnel"); vi.stubEnv("TRUST_PROXY_CLIENT_IP", "false");
   vi.stubEnv("PUBLIC_BASE_URL", base); vi.stubEnv("BETTER_AUTH_SECRET", "synthetic-ingress-integration-key-only");
-  business.enroll.mockResolvedValue({ cardToken: "synthetic-card", programId: randomUUID() });
-  business.getCard.mockResolvedValue({ balance: 1 });
+  business.enroll.mockResolvedValue({ cardToken: `card_${"s".repeat(43)}`, programId: randomUUID() });
+  business.getCard.mockResolvedValue({ balance: 1, programId: randomUUID() });
   business.recover.mockResolvedValue({ ok: true });
   business.authPost.mockImplementation(() => Response.json({ ok: true }));
   business.authGet.mockImplementation(() => Response.json({ session: null }));

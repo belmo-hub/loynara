@@ -1,7 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/db";
 import { POST as googleIssue } from "@/app/api/wallet/google/route";
+import { activateSecureTag, confirmTapRequest, processSecureTap, provisionSecureTag, setTapPolicy } from "@/lib/secure-tap";
+import { sdmFor } from "@/lib/nfc-test-support";
 import { closeCard } from "@/lib/card-lifecycle";
 import { award, reverseEntry } from "@/lib/loyalty";
 import { createMerchant, enroll } from "@/lib/product";
@@ -32,6 +34,46 @@ function envFor(google: ReturnType<typeof googleFixture>, merchant: Awaited<Retu
 }
 
 describe("Google Direct issuance and ledger projection beside PassFast Apple", () => {
+  it("NFC confirmation queues the original membership and updates its existing Google object idempotently after an adapter failure", async () => {
+    const google = googleFixture("demo"), { owner, merchant, member } = await memberFixture();
+    try {
+      await withEnv(envFor(google, merchant), async () => {
+        const api = fakeGoogleApi(); vi.stubGlobal("fetch", api.fetcher);
+        expect((await googleIssue(request(member.cardToken))).status).toBe(200);
+        const objectId = [...api.objects.keys()][0];
+        const original = (await pool.query("SELECT id, provider_object_id FROM wallet_passes WHERE membership_id=$1", [member.id])).rows;
+        // The issuance projection is complete; isolate the new committed NFC event's outbox dispatch.
+        await pool.query("UPDATE outbox_jobs SET status='complete' WHERE kind='wallet.refresh' AND payload->>'membershipId'=$1", [member.id]);
+        await setTapPolicy({ actorUserId: owner, programId: merchant.programId, mode: "staff_confirmed", cooldownSeconds: 1 });
+        const uid = `04${randomBytes(6).toString("hex")}`;
+        const tag = await provisionSecureTag({ actorUserId: owner, programId: merchant.programId, uid, keyRef: "synthetic_wallet_bridge", configVersion: 1 });
+        await activateSecureTag({ actorUserId: owner, tagId: tag.id });
+        const keys = { metaReadKey: randomBytes(16), fileReadKey: randomBytes(16) };
+        const tap = { tagRef: tag.publicRef, fields: sdmFor({ uid, counter: 1, keys }), cardToken: member.cardToken, keyProvider: { getKeys: async () => keys } };
+        const pending = await processSecureTap(tap);
+        expect(pending.state).toBe("pending_staff");
+        expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [member.id])).rows[0].balance).toBe(0);
+        expect((await pool.query("SELECT * FROM outbox_jobs WHERE kind='wallet.refresh' AND status='pending'")).rows).toHaveLength(0);
+        await confirmTapRequest({ userId: owner, locationId: merchant.locationId, requestId: pending.requestId! });
+        await confirmTapRequest({ userId: owner, locationId: merchant.locationId, requestId: pending.requestId! });
+        await processSecureTap(tap);
+        const jobs = (await pool.query("SELECT id,tenant_id,payload FROM outbox_jobs WHERE kind='wallet.refresh' AND status='pending'")).rows;
+        expect(jobs).toHaveLength(1);
+        expect(jobs[0]).toMatchObject({ tenant_id: merchant.tenantId, payload: { membershipId: member.id } });
+        const config = googleDirectConfig(process.env, merchant.tenantId, merchant.locationId, merchant.programId);
+        const failing = new GoogleWalletClient(config, async () => Response.json({ error: "synthetic outage" }, { status: 503 }));
+        await expect(refreshWalletForMembership(member.id, { google: failing, expectedTenantId: merchant.tenantId })).rejects.toThrow();
+        expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [member.id])).rows[0].balance).toBe(1);
+        const client = new GoogleWalletClient(config, api.fetcher);
+        expect(await refreshWalletForMembership(member.id, { google: client, expectedTenantId: merchant.tenantId })).toEqual({ status: "complete" });
+        expect(await refreshWalletForMembership(member.id, { google: client, expectedTenantId: merchant.tenantId })).toEqual({ status: "complete" });
+        expect(api.objects.get(objectId)?.loyaltyPoints).toMatchObject({ balance: { string: "1 / 3" } });
+        expect(api.objects.size).toBe(1);
+        expect((await pool.query("SELECT id,provider_object_id FROM wallet_passes WHERE membership_id=$1", [member.id])).rows).toEqual(original);
+        expect((await pool.query("SELECT delta FROM ledger_entries WHERE membership_id=$1 AND kind='award'", [member.id])).rows).toEqual([{ delta: 1 }]);
+      });
+    } finally { google.cleanup(); }
+  });
   it("cancels a stalled upload within the same deadline before database or provider work", async () => {
     const google = googleFixture("demo"), { merchant } = await memberFixture();
     try {

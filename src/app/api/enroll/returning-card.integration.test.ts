@@ -7,6 +7,7 @@ import { closeCard } from "@/lib/card-lifecycle";
 import { reissueCardByStaff } from "@/lib/card-reissue";
 import { createMerchant, getCard } from "@/lib/product";
 import { returningCardCookieName } from "@/lib/returning-card";
+import { readCustomerSession } from "@/lib/customer-session";
 import { GET as readCard } from "../card/[token]/route";
 import { POST as bindCard } from "../card/[token]/tap-session/route";
 import { GET as existing } from "./existing/route";
@@ -32,12 +33,12 @@ class Jar {
     }
     return response;
   }
-  set(name: string, value: string, path = "/api/enroll") { this.cookies.set(`${path}|${name}`, { value, path }); }
+  set(name: string, value: string, path = "/api") { this.cookies.set(`${path}|${name}`, { value, path }); }
   header(requestPath: string) {
     return [...this.cookies.entries()].filter(([, cookie]) => requestPath === cookie.path || requestPath.startsWith(`${cookie.path}/`))
       .map(([key, cookie]) => `${key.split("|")[1]}=${cookie.value}`).join("; ");
   }
-  value(name: string, path = "/api/enroll") { return this.cookies.get(`${path}|${name}`)?.value; }
+  value(name: string, path = "/api") { return this.cookies.get(`${path}|${name}`)?.value; }
 }
 
 function request(jar: Jar, path: string, init: { method?: string; body?: object; headers?: Record<string, string> } = {}) {
@@ -53,8 +54,8 @@ function request(jar: Jar, path: string, init: { method?: string; body?: object;
 const join = (jar: Jar, slug: string, extra: object = {}) => enrollRoute(request(jar, "/api/enroll", { method: "POST", body: { slug, acceptedTerms: true, ...extra } })).then(response => jar.take(response));
 const check = (jar: Jar, slug: string) => existing(request(jar, `/api/enroll/existing?slug=${encodeURIComponent(slug)}`)).then(response => jar.take(response));
 const open = (jar: Jar, slug: string) => openCard(request(jar, `/api/enroll/open?slug=${encodeURIComponent(slug)}`)).then(response => jar.take(response));
-const read = (jar: Jar, token: string, fetchSite?: string) => readCard(request(jar, `/api/card/${token}`, { headers: fetchSite ? { "sec-fetch-site": fetchSite } : {} }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
-const bind = (jar: Jar, token: string) => bindCard(request(jar, `/api/card/${token}/tap-session`, { method: "POST" }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
+const read = (jar: Jar, token: string, fetchSite?: string) => readCard(request(jar, `/api/enroll/card/${token}`, { headers: fetchSite ? { "sec-fetch-site": fetchSite } : {} }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
+const bind = (jar: Jar, token: string) => bindCard(request(jar, `/api/tap/card/${token}/session`, { method: "POST" }), { params: Promise.resolve({ token }) }).then(response => jar.take(response));
 
 async function owner() {
   const id = randomUUID();
@@ -78,6 +79,48 @@ afterAll(async () => {
 });
 
 describe("returning customer on the join page", () => {
+  it("upgrades a legacy /api/enroll cookie through saved-link binding without ambiguous cookies or duplicate membership", async () => {
+    const merchant = await shop();
+    const { cardToken } = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
+    const jar = new Jar();
+    jar.set(returningCardCookieName(merchant.programId), cardToken, "/api/enroll");
+    expect((await bind(jar, cardToken)).status).toBe(200);
+    expect(jar.value(returningCardCookieName(merchant.programId), "/api/enroll")).toBeUndefined();
+    expect(await (await check(jar, merchant.programSlug)).json()).toMatchObject({ existing: true });
+    expect((await join(jar, merchant.programSlug)).status).toBe(409);
+    expect(await cardCount(merchant.programId)).toBe(1);
+  });
+  it("ambiguous same-name cookies are stale rather than an invitation to enroll again", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    await join(jar, merchant.programSlug);
+    const cookie = jar.header("/api/enroll");
+    const response = await existing(request(jar, `/api/enroll/existing?slug=${merchant.programSlug}`, { headers: { cookie: `${cookie}; ${cookie}` } }));
+    expect(await response.json()).toEqual({ existing: false, stale: true });
+  });
+  it.each([true, false])("preserves legacy identity before opening a different private card (tap cookie present: %s)", async (hasTapCookie) => {
+    const merchant = await shop();
+    const first = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
+    const second = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
+    const jar = new Jar();
+    jar.set(returningCardCookieName(merchant.programId), first.cardToken, "/api/enroll");
+    if (hasTapCookie) jar.set(`loynara_member_${merchant.programId.replaceAll("-", "")}`, first.cardToken, "/api/tap");
+    await read(jar, second.cardToken, "same-origin");
+    expect((await open(jar, merchant.programSlug)).headers.get("location")).toContain(first.cardToken);
+    expect((await bind(jar, second.cardToken)).status).toBe(409);
+  });
+  it("does not silently switch NFC identity when another person's private card is opened", async () => {
+    const merchant = await shop();
+    const jar = new Jar();
+    const first = await (await join(jar, merchant.programSlug)).json() as { cardToken: string };
+    const second = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
+    await read(jar, second.cardToken, "same-origin");
+    expect((await open(jar, merchant.programSlug)).headers.get("location")).toContain(first.cardToken);
+    const attempted = await bind(jar, second.cardToken);
+    expect(attempted.status).toBe(409);
+    expect(await attempted.json()).toMatchObject({ code: "ACCOUNT_SWITCH_REQUIRED" });
+  });
+
   it("creates the first card, then offers it again instead of silently creating a second one", async () => {
     const merchant = await shop();
     const jar = new Jar();
@@ -88,7 +131,7 @@ describe("returning customer on the join page", () => {
     const { cardToken } = await first.json() as { cardToken: string };
     const remembered = first.headers.getSetCookie().find(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`));
     expect(remembered).toBeDefined();
-    expect(remembered).toContain("Path=/api/enroll");
+    expect(remembered).toContain("Path=/api");
     expect(remembered).toContain("HttpOnly");
     expect(remembered).toContain("SameSite=Lax");
 
@@ -126,11 +169,11 @@ describe("returning customer on the join page", () => {
     const { cardToken } = await second.json() as { cardToken: string };
     expect(cardToken).not.toBe(first.cardToken);
     expect(await cardCount(merchant.programId)).toBe(2);
-    expect(jar.value(returningCardCookieName(merchant.programId))).toBe(cardToken);
+    expect(readCustomerSession(jar.value(returningCardCookieName(merchant.programId)), merchant.programId)?.token).toBe(cardToken);
     expect((await open(jar, merchant.programSlug)).headers.get("location")).toBe(`/card/${encodeURIComponent(cardToken)}`);
   });
 
-  it("does not offer a closed card and forgets it", async () => {
+  it("does not offer a closed card and requires explicit recovery or new-card selection", async () => {
     const merchant = await shop();
     const jar = new Jar();
     const { cardToken } = await (await join(jar, merchant.programSlug)).json() as { cardToken: string };
@@ -138,10 +181,11 @@ describe("returning customer on the join page", () => {
 
     const after = await check(jar, merchant.programSlug);
     expect(await after.json()).toEqual({ existing: false, stale: true });
-    expect(after.headers.getSetCookie().join("\n")).toMatch(new RegExp(`${returningCardCookieName(merchant.programId)}=;.*Max-Age=0`));
-    expect(jar.value(returningCardCookieName(merchant.programId))).toBeUndefined();
+    expect(after.headers.getSetCookie()).toEqual([]);
+    expect(jar.value(returningCardCookieName(merchant.programId))).toBeDefined();
     expect((await open(jar, merchant.programSlug)).headers.get("location")).toBe(`/join/${encodeURIComponent(merchant.programSlug)}`);
-    expect((await join(jar, merchant.programSlug)).status).toBe(201);
+    expect((await join(jar, merchant.programSlug)).status).toBe(400);
+    expect(await cardCount(merchant.programId)).toBe(1);
   });
 
   it("treats a reissued (rotated) link as stale and recognises the card again once the new link is opened", async () => {
@@ -180,7 +224,7 @@ describe("returning customer on the join page", () => {
     forged.set(returningCardCookieName(barber.programId), cardToken);
     expect(await (await check(forged, barber.programSlug)).json()).toEqual({ existing: false, stale: true });
     expect((await open(forged, barber.programSlug)).headers.get("location")).toBe(`/join/${encodeURIComponent(barber.programSlug)}`);
-    expect((await join(forged, barber.programSlug)).status).toBe(201);
+    expect((await join(forged, barber.programSlug)).status).toBe(400);
   });
 
   it("survives corrupted or unknown remembered values and unknown programmes", async () => {
@@ -195,7 +239,8 @@ describe("returning customer on the join page", () => {
     }
     const jar = new Jar();
     jar.set(name, "garbage");
-    expect((await join(jar, merchant.programSlug)).status).toBe(201);
+    expect((await join(jar, merchant.programSlug)).status).toBe(400);
+    expect((await join(jar, merchant.programSlug, { additionalCard: true })).status).toBe(201);
     expect(await (await check(jar, merchant.programSlug)).json()).toMatchObject({ existing: true });
 
     expect(await (await check(new Jar(), "does-not-exist")).json()).toEqual({ existing: false, stale: false });
@@ -211,7 +256,7 @@ describe("returning customer on the join page", () => {
     expect(await (await check(otherBrowser, merchant.programSlug)).json()).toEqual({ existing: false, stale: false });
     const bound = await bind(otherBrowser, cardToken);
     expect(bound.status).toBe(200);
-    expect(bound.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api/enroll") && header.includes("HttpOnly"))).toBe(true);
+    expect(bound.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api") && header.includes("HttpOnly"))).toBe(true);
     expect(bound.headers.getSetCookie().some(header => header.includes("Path=/api/tap"))).toBe(true);
     expect(await (await check(otherBrowser, merchant.programSlug)).json()).toMatchObject({ existing: true });
   });
@@ -234,7 +279,7 @@ describe("returning customer on the join page", () => {
     expect(own.status).toBe(200);
     const body = await own.json() as Record<string, unknown>;
     expect(body).not.toHaveProperty("programId");
-    expect(own.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api/enroll") && header.includes("HttpOnly"))).toBe(true);
+    expect(own.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api") && header.includes("HttpOnly"))).toBe(true);
     expect(await (await check(page, merchant.programSlug)).json()).toMatchObject({ existing: true });
 
     for (const site of ["cross-site", "none", undefined]) {

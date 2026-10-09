@@ -1,6 +1,6 @@
 import { respondError } from "@/lib/http";
 import { enforcePeerLimit } from "@/lib/rate-limit";
-import { clearReturningCardCookieHeader, findReturningCard } from "@/lib/returning-card";
+import { findReturningCard } from "@/lib/returning-card";
 
 // "Meine Karte öffnen" on the join page: a plain navigation that the server answers with a redirect to the card this
 // browser already holds, after validating it again. Without a valid card it returns to the join page.
@@ -14,7 +14,6 @@ export async function GET(request: Request) {
       headers.set("Location", `/card/${encodeURIComponent(found.cardToken)}`);
       return new Response(null, { status: 303, headers });
     }
-    if (found.state === "stale") headers.append("Set-Cookie", clearReturningCardCookieHeader(found.programId, request.url));
     headers.set("Location", found.programId ? `/join/${encodeURIComponent(slug)}` : "/");
     return new Response(null, { status: 303, headers });
   } catch (error) { return respondError(error); }

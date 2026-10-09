@@ -19,6 +19,7 @@ import { POST as enrollRoute } from "@/app/api/enroll/route";
 import { issueWalletPass } from "./issue";
 import { ownerWalletReadiness } from "./readiness";
 import { refreshWalletForMembership } from "./refresh";
+import { readCustomerSession } from "@/lib/customer-session";
 import { passFastObjectId, passFastSerial, passFastStatus } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
 import { syntheticPassFastArchive, seedHistoricalManagedGoogle } from "./test-support";
@@ -526,9 +527,9 @@ describe("combined remembered browser and PassFast generation security", () => {
     expect((await findReturningCard(cookie, f.merchant.programSlug)).state).toBe("stale");
     expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(404);
     expect((await download(new Request(origin + url), { params: Promise.resolve({ ticket }) })).status).toBe(404);
-    const read = await readCard(new Request(`${origin}/api/card/${replacement.cardToken}`, { headers: { "sec-fetch-site": "same-origin" } }), { params: Promise.resolve({ token: replacement.cardToken }) });
+    const read = await readCard(new Request(`${origin}/api/enroll/card/${replacement.cardToken}`, { headers: { "sec-fetch-site": "same-origin" } }), { params: Promise.resolve({ token: replacement.cardToken }) });
     expect(read.status).toBe(200);
-    expect(read.headers.getSetCookie().some(value => value.includes(replacement.cardToken) && value.includes("Path=/api/enroll"))).toBe(true);
+    expect(read.headers.getSetCookie().some(value => value.includes("Path=/api") && readCustomerSession(value.split(";")[0].split("=")[1], f.member.programId)?.token === replacement.cardToken)).toBe(true);
     expect((await findReturningCard(remembered(f.member.programId, replacement.cardToken), f.merchant.programSlug)).state).toBe("existing");
     expect((await historicalGoogleFixture(post(replacement.cardToken))).status).toBe(200);
     const current = await snapshot(f.member.id);
@@ -556,7 +557,7 @@ describe("combined remembered browser and PassFast generation security", () => {
     await expect(refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId })).rejects.toThrow();
     expect((await snapshot(f.member.id)).member.closed_at).not.toBeNull();
     expect((await snapshot(f.member.id)).ledger).toEqual(old.ledger);
-    const joined = await enrollRoute(new Request(`${origin}/api/enroll`, { method: "POST", headers: { origin, cookie: cookie.headers.get("cookie")!, "content-type": "application/json" }, body: JSON.stringify({ slug: f.merchant.programSlug, acceptedTerms: true }) }));
+    const joined = await enrollRoute(new Request(`${origin}/api/enroll`, { method: "POST", headers: { origin, cookie: cookie.headers.get("cookie")!, "content-type": "application/json" }, body: JSON.stringify({ slug: f.merchant.programSlug, acceptedTerms: true, additionalCard: true }) }));
     expect(joined.status).toBe(201);
     const next = await joined.json();
     expect(next.cardToken).not.toBe(f.member.cardToken);

@@ -1,7 +1,8 @@
+import { bindTapCard } from "@/lib/secure-tap";
 import { getCard } from "@/lib/product";
 import { respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
-import { returningCardCookieHeader } from "@/lib/returning-card";
+import { clearLegacyReturningCardCookieHeader, returningCardCookieHeader, returningMemberSession } from "@/lib/returning-card";
 
 export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   try {
@@ -13,8 +14,21 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     // Opening the card also lets the join page offer it again later. This rides on the read the card page needs anyway, so
     // a shared guest Wi-Fi exhausting the stricter tap-binding limit cannot stop the card from being remembered. Only the
     // card page's own request remembers: a link that opens this endpoint directly must not plant a card in a browser.
-    const remember = request.headers.get("sec-fetch-site") === "same-origin" ? returningCardCookieHeader(programId, token, request.url) : null;
-    if (remember) headers.append("Set-Cookie", remember);
+    const current = returningMemberSession(request, programId);
+    if (current?.legacy && new URL(request.url).pathname.startsWith("/api/enroll/card/") && request.headers.get("sec-fetch-site") === "same-origin") {
+      // The legacy cookie is visible only here. Preserve its owner before the tap-path bind checks identity.
+      try {
+        if (await bindTapCard(current.token) === programId) {
+          headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(programId, request.url));
+          headers.append("Set-Cookie", returningCardCookieHeader(programId, current.token, request.url)!);
+        }
+      } catch { /* A revoked credential remains a recovery marker; never mint it again. */ }
+    }
+    const remember = new URL(request.url).pathname.startsWith("/api/enroll/card/") && request.headers.get("sec-fetch-site") === "same-origin" && !current ? returningCardCookieHeader(programId, token, request.url) : null;
+    if (remember) {
+      headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(programId, request.url));
+      headers.append("Set-Cookie", remember);
+    }
     return Response.json(card, { headers });
   }
   catch (error) { return respondError(error); }

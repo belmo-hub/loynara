@@ -6,7 +6,7 @@ import { ledgerEntries, memberships, programs, secureTags, tapRequests } from "@
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster, type TapKeyProvider } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
 import { addStaff, nfcFixture } from "./nfc-test-db";
-import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, previewSecureTap, processSecureTap, programTagStatus, provisionSecureTag, revokeSecureTag, setTapPolicy, tapCardToken, tapCookieName } from "./secure-tap";
+import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, previewSecureTap, processSecureTap, programTagStatus, provisionSecureTag, revokeSecureTag, setTapPolicy, tapCardToken, tapCookieName, tapCookieHeader } from "./secure-tap";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
 
@@ -103,7 +103,7 @@ describe("counter-tag flow: customer tap to cashier confirmation to ledger", () 
     expect(await processSecureTap(c.tap(3, { cardToken: other.member.cardToken, now: at(1) }))).toMatchObject({ state: "needs_enrollment" });
     expect(await db.select().from(tapRequests)).toHaveLength(0);
     // the browser binding is per programme: the cookie of another programme is not read
-    const request = new Request("https://example.test/api/tap/x", { headers: { cookie: `${tapCookieName(other.program.id)}=${other.member.cardToken}` } });
+    const request = new Request("https://example.test/api/tap/x", { headers: { cookie: tapCookieHeader(other.program.id, other.member.cardToken, "https://example.test").split(";")[0] } });
     expect(tapCardToken(request, f.program.id)).toBeUndefined();
     expect(tapCardToken(request, other.program.id)).toBe(other.member.cardToken);
     // preview (the GET the page makes first) tells enrolled and new visitors apart without booking

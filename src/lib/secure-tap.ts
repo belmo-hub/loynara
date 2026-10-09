@@ -1,3 +1,4 @@
+import { cookieValue, customerCookieAttributes, issueCustomerSession, readCustomerSession } from "./customer-session";
 import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { and, desc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
@@ -16,13 +17,14 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const uidPattern = /^[a-f0-9]{14}$/;
 const publicRefPattern = /^[A-Za-z0-9_-]{24}$/;
 export function tapCookieName(programId: string) { return `loynara_member_${programId.replaceAll("-", "")}`; }
-export function tapCookieHeader(programId: string, cardToken: string, origin: string) {
-  return `${tapCookieName(programId)}=${cardToken}; Path=/api/tap; HttpOnly; SameSite=Lax; Max-Age=31536000${new URL(process.env.PUBLIC_BASE_URL ?? origin).protocol === "https:" ? "; Secure" : ""}`;
+export function tapCookieHeader(programId: string, cardToken: string, origin: string, shared = false) {
+  return `${tapCookieName(programId)}=${issueCustomerSession(programId, cardToken, shared)}; ${customerCookieAttributes(origin, "/api/tap")}`;
+}
+export function tapMemberSession(request: Request, programId: string) {
+  return readCustomerSession(cookieValue(request, tapCookieName(programId)), programId);
 }
 export function tapCardToken(request: Request, programId: string): string | undefined {
-  const match = request.headers.get("cookie")?.split(";").map(part => part.trim()).find(part => part.startsWith(`${tapCookieName(programId)}=`));
-  const token = match?.slice(tapCookieName(programId).length + 1);
-  return token && /^card_[A-Za-z0-9_-]{32,80}$/.test(token) ? token : undefined;
+  return tapMemberSession(request, programId)?.token;
 }
 export async function bindTapCard(token: string): Promise<string> {
   if (!/^card_[A-Za-z0-9_-]{32,80}$/.test(token)) throw new DomainError("NOT_FOUND", "Card not found");
@@ -157,8 +159,8 @@ async function verifiedContext(tx: Transaction, input: TapInput) {
 export async function previewSecureTap(input: TapInput) {
   return db.transaction(async tx => {
     const { tag, program, location, tenant } = await verifiedContext(tx, input);
-    const [member] = input.cardToken ? await tx.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId), isNull(memberships.closedAt))) : [];
-    return { merchantName: tenant.name, locationName: location.name, programName: program.name, programSlug: program.slug, brandColor: location.brandColor, mode: program.tapMode, hasMembership: Boolean(member), cardPath: member ? `/card/${input.cardToken}` : undefined };
+    const [member] = input.cardToken ? await tx.select({ id: memberships.id, cardLocator: memberships.cardLocator }).from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId), isNull(memberships.closedAt))) : [];
+    return { merchantName: tenant.name, locationName: location.name, programName: program.name, programSlug: program.slug, brandColor: location.brandColor, mode: program.tapMode, hasMembership: Boolean(member), cardLocator: member ? formatCardLocator(member.cardLocator) : undefined, cardPath: member ? `/card/${input.cardToken}` : undefined };
   });
 }
 

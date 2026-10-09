@@ -87,7 +87,7 @@ describe("card-bound NFC waiting status", () => {
     for (let i = 0; i < 120; i++) await enforceRateLimit({ scope: "tap_peer", identity: "untrusted-peer", max: 120, windowSeconds: 900 });
     await expect(enforceRateLimit({ scope: "tap_peer", identity: "untrusted-peer", max: 120, windowSeconds: 900 })).rejects.toMatchObject({ code: "RATE_LIMIT" });
     const url = `http://localhost/api/tap/${f.tag.publicRef}/status/${f.requestId}`;
-    const request = () => new Request(url, { headers: { Cookie: `${secureTap.tapCookieName(f.program.id)}=${f.member.cardToken}` } });
+    const request = () => new Request(url, { headers: { Cookie: secureTap.tapCookieHeader(f.program.id, f.member.cardToken, "http://localhost:3000").split(";")[0] } });
     const context = { params: Promise.resolve({ ref: f.tag.publicRef, requestId: f.requestId }) };
     for (let i = 0; i < 76; i++) {
       const response = await GET(request(), context);
