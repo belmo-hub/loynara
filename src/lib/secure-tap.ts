@@ -252,6 +252,8 @@ export async function confirmTapRequest(input: { userId: string; locationId: str
     await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.id, request.membershipId)).for("update");
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, request.tenantId), eq(tapRequests.programId, request.programId), eq(tapRequests.membershipId, request.membershipId), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     if (recent && (input.now ?? new Date()).getTime() - recent.createdAt.getTime() < (program.tapCooldownSeconds ?? 0) * 1000) throw new DomainError("TAP_COOLDOWN", "This card is still within its tap cooldown");
+    // Waiting for the membership lock can cross the expiry boundary. Decide again immediately before booking.
+    if (request.expiresAt <= (input.now ?? new Date())) throw new DomainError("TAP_EXPIRED", "Pending tap expired");
     const booked = await awardInTransaction(tx, { userId: input.userId, locationId: request.locationId, membershipId: request.membershipId, quantity: 1, idempotencyKey: `tap:${request.tagId}:${request.counter}`, requestId: request.id });
     await tx.update(tapRequests).set({ status: "confirmed", ledgerEntryId: booked.entryId }).where(eq(tapRequests.id, request.id));
     return { state: "confirmed" as const, balance: booked.balance, entryId: booked.entryId };

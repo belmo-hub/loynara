@@ -78,3 +78,31 @@ describe("cashier confirmation of one NFC request", () => {
     expect(await ledgerCount(f.member.id)).toBe(0);
   });
 });
+
+
+it("refuses a request that expires while confirmation waits for the membership lock", async () => {
+  const f = await nfcFixture();
+  const c = await register(f);
+  const pending = await processSecureTap(c.tap(2, { cardToken: f.member.cardToken }));
+  const expiresAt = new Date(Date.now() + 1000);
+  await db.update(tapRequests).set({ expiresAt }).where(eq(tapRequests.id, pending.requestId!));
+  const blocker = await pool.connect();
+  let confirmation: Promise<{ value?: unknown; error?: { code?: string } }> | undefined;
+  try {
+    await blocker.query("BEGIN");
+    await blocker.query("SELECT id FROM memberships WHERE id = $1 FOR UPDATE", [f.member.id]);
+    confirmation = confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: pending.requestId! }).then(value => ({ value }), error => ({ error }));
+    // Verify the real transaction has passed its initial expiry check and is waiting at the membership lock.
+    let waiting = false;
+    for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
+      waiting = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE '%memberships%'")).rowCount! > 0;
+      if (!waiting) await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    expect(waiting).toBe(true);
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, expiresAt.getTime() - Date.now() + 50)));
+  } finally { await blocker.query("ROLLBACK"); blocker.release(); }
+  const result = await confirmation!;
+  expect(result.error?.code).toBe("TAP_EXPIRED");
+  expect(await ledgerCount(f.member.id)).toBe(0);
+  expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(0);
+});
