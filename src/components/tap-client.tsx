@@ -7,7 +7,7 @@ import { BrandMark } from "./loyalty-ui";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardPath?: string };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
-type Result = { state: TapState; balance?: number; expiresAt?: string; cardLocator?: string };
+type Result = { state: TapState; balance?: number; expiresAt?: string; cardLocator?: string; requestId?: string; statusRef?: string };
 /** States in which the server also returns the card number, so the cashier can match the right request. */
 const STATES_WITH_CARD_NUMBER: ReadonlyArray<TapState> = ["pending_staff", "confirmed", "awarded", "already_processed"];
 
@@ -46,18 +46,40 @@ export function TapClient({ refId }: { refId: string }) {
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let pollingController: AbortController | undefined;
     const path = `/api/tap/${encodeURIComponent(refId)}${window.location.search}`;
-    // Posting the same tap again is idempotent on the server: it reports the request's current state and books nothing.
-    async function process(info: Preview) {
-      const processed = await apiJson<Result>(path, { method: "POST" });
+    function report(processed: Result, info: Preview, boundRef = refId) {
       if (!active) return;
       setResult(processed);
       if (processed.state === "pending_staff") {
-        const left = processed.expiresAt ? new Date(processed.expiresAt).getTime() - Date.now() : POLL_MS;
-        timer = setTimeout(() => { void process(info).catch(() => undefined); }, Math.min(POLL_MS, Math.max(1000, left + 500)));
+        if (!processed.requestId) throw new Error("Die wartende Anfrage konnte nicht geladen werden.");
+        // Waiting is a card-authorized read, so it never spends the shared allowance for a fresh physical tap.
+        const requestId = processed.requestId;
+        timer = setTimeout(() => void poll(info, requestId, processed.statusRef ?? boundRef), POLL_MS);
       } else if (info.cardPath) {
         void apiJson<CardResponse>(`/api${info.cardPath}`).then(value => { if (active) setCard(value); }).catch(() => {});
       }
+    }
+    async function poll(info: Preview, requestId: string, boundRef: string) {
+      if (!active) return;
+      const controller = new AbortController();
+      pollingController = controller;
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      try {
+        const processed = await apiJson<Result>(`/api/tap/${encodeURIComponent(boundRef)}/status/${encodeURIComponent(requestId)}`, { signal: controller.signal });
+        report(processed, info, boundRef);
+      } catch (cause) {
+        if (!active) return;
+        if (cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.status >= 500)) {
+          // Keep waiting across temporary failures; the server will still decide confirmation, cancellation and expiry.
+          const delay = Math.min(15 * 60_000, Math.max(POLL_MS, cause.retryAfterMs ?? POLL_MS));
+          timer = setTimeout(() => void poll(info, requestId, boundRef), delay);
+        } else setError(cause instanceof Error ? cause : new Error("Berührung nicht bestätigt"));
+      } finally { clearTimeout(timeout); }
+    }
+    async function process(info: Preview) {
+      // Only the initial submission verifies the chip and creates a request. Retrying that submission remains idempotent.
+      report(await apiJson<Result>(path, { method: "POST" }), info);
     }
     void apiJson<Preview>(path).then(async info => {
       if (!active) return;
@@ -67,7 +89,7 @@ export function TapClient({ refId }: { refId: string }) {
       await process(info);
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause : new Error("Berührung nicht bestätigt")); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; if (timer) clearTimeout(timer); };
+    return () => { active = false; if (timer) clearTimeout(timer); pollingController?.abort(); };
   }, [refId]);
 
   const state: TapState | "loading" | "error" = loading ? "loading" : error ? "error" : (result?.state ?? "loading");

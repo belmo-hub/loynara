@@ -18,7 +18,7 @@ const DATABASE_URL = process.env.DATABASE_URL ?? "";
 function assertIsolatedDatabase() {
   // The NFC specs write and rewrite rows directly (expiry, rate-limit reset). Refuse anything but the isolated worktree database.
   const url = new URL(DATABASE_URL);
-  if (url.port !== "54395" || url.pathname !== "/looplocal") throw new Error("Refusing database work outside the isolated NFC test database");
+  if (!["localhost", "127.0.0.1"].includes(url.hostname) || !["54395", "54429"].includes(url.port) || url.pathname !== "/looplocal" || url.username !== "looplocal") throw new Error("Refusing database work outside the isolated NFC test database");
 }
 
 /** One short-lived client per statement: the specs only need a handful of assertions and updates. */
@@ -44,6 +44,9 @@ export async function resetPeerLimits() {
 
 /** A merchant with an owner, one invited cashier of its only location, and one registered counter tag (staff-confirmed taps). */
 export async function merchantWithTag(baseURL: string, businessName = "NFC Café") {
+  // Compiled apps retain Better Auth's rolling 3-signup/10s limit. Optional local harness pacing respects it,
+  // including tests that construct two merchants; it never changes application limits or trusts an invented peer.
+  if (process.env.E2E_AUTH_SETUP_GAP_MS === "11000") await new Promise(resolve => setTimeout(resolve, 11_000));
   const origin = { Origin: new URL(baseURL).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   expect((await owner.post("/api/auth/sign-up/email", { data: { name: "NFC owner", email: `nfc-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);

@@ -131,7 +131,7 @@ export async function replaceSecureTag(input: { actorUserId: string; tagId: stri
 }
 
 type TapInput = { tagRef: string; fields: { encrypted: string; mac: string }; cardToken?: string; keyProvider?: TapKeyProvider; now?: Date };
-export type TapResult = { state: "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled"; expiresAt?: Date; merchantName: string; locationName: string; programName: string; programSlug: string; balance?: number; requestId?: string;
+export type TapResult = { state: "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled"; expiresAt?: Date; merchantName: string; locationName: string; programName: string; programSlug: string; balance?: number; requestId?: string; statusRef?: string;
   /** The card number, so the guest can tell the cashier which waiting request is theirs. Never a credential. */
   cardLocator?: string;
   /** Server-internal: the wake-up job created with a new pending request, sent right after commit. Never sent to the browser. */
@@ -171,13 +171,20 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     const [member] = input.cardToken ? await tx.select().from(memberships).where(and(eq(memberships.cardToken, input.cardToken), eq(memberships.tenantId, tag.tenantId), eq(memberships.programId, tag.programId))).for("update") : [];
     if (!member || member.closedAt) return { ...base, state: "needs_enrollment" };
     const cardLocator = formatCardLocator(member.cardLocator);
+    // Pending requests can be shared by two tags of one programme. Poll using the request's own tag binding.
+    const statusRefFor = async (requestTagId: string) => {
+      if (requestTagId === tag.id) return tag.publicRef;
+      const [boundTag] = await tx.select({ publicRef: secureTags.publicRef }).from(secureTags).where(and(eq(secureTags.id, requestTagId), eq(secureTags.tenantId, tag.tenantId), eq(secureTags.programId, tag.programId)));
+      if (!boundTag) throw new DomainError("NOT_FOUND", "Tap unavailable");
+      return boundTag.publicRef;
+    };
     // What a request means to the guest who tapped, reported without booking anything.
-    const reportOf = (request: typeof tapRequests.$inferSelect): TapResult => {
+    const reportOf = async (request: typeof tapRequests.$inferSelect): Promise<TapResult> => {
       if (request.status === "awarded") return { ...base, state: "already_processed", balance: member.balance, cardLocator };
       if (request.status === "confirmed") return { ...base, state: "confirmed", balance: member.balance, cardLocator };
       if (request.status === "cooldown") return { ...base, state: "cooldown", balance: member.balance };
       if (request.status === "cancelled") return { ...base, state: "cancelled", balance: member.balance };
-      if (request.status === "pending_staff" && request.expiresAt > now) return { ...base, state: "pending_staff", balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator };
+      if (request.status === "pending_staff" && request.expiresAt > now) return { ...base, state: "pending_staff", balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: await statusRefFor(request.tagId) };
       return { ...base, state: "expired", balance: member.balance };
     };
     if (counter <= tag.lastCounter) {
@@ -197,7 +204,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     if (pending && pending.expiresAt > now) {
       // Attach this tap to the waiting request and use up its counter, so the same link cannot open a new request later.
       await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
-      return { ...base, state: "pending_staff", balance: member.balance, requestId: pending.id, expiresAt: pending.expiresAt, cardLocator };
+      return { ...base, state: "pending_staff", balance: member.balance, requestId: pending.id, expiresAt: pending.expiresAt, cardLocator, statusRef: await statusRefFor(pending.tagId) };
     }
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, tag.tenantId), eq(tapRequests.programId, tag.programId), eq(tapRequests.membershipId, member.id), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     const onCooldown = Boolean(recent && now.getTime() - recent.createdAt.getTime() < program.tapCooldownSeconds * 1000);
@@ -208,7 +215,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
       if (status !== "pending_staff") return { ...base, state: status, balance: member.balance };
       // Wake the location's cashier phones. Queued in this transaction, so it exists exactly when the request does.
       const pushJobId = await enqueueTapPush(tx, { tenantId: tag.tenantId, tapRequestId: request.id }) ?? undefined;
-      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, pushJobId };
+      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId };
     }
     const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
@@ -222,6 +229,25 @@ export async function tapProgramId(ref: string): Promise<string> {
   const [tag] = await db.select({ programId: secureTags.programId }).from(secureTags).where(and(eq(secureTags.publicRef, ref), eq(secureTags.status, "active")));
   if (!tag) throw new DomainError("NOT_FOUND", "Tap unavailable");
   return tag.programId;
+}
+
+/** Read the exact waiting request for its card. This path never verifies a new tap, consumes a counter, or books. */
+export async function secureTapStatus(input: { tagRef: string; requestId: string; cardToken?: string; now?: Date }): Promise<Pick<TapResult, "state" | "balance" | "cardLocator" | "requestId" | "expiresAt" | "statusRef">> {
+  if (!publicRefPattern.test(input.tagRef) || !/^[a-f0-9-]{36}$/.test(input.requestId) || !input.cardToken || !/^card_[A-Za-z0-9_-]{32,80}$/.test(input.cardToken)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  const [row] = await db.select({ request: tapRequests, balance: memberships.balance, locator: memberships.cardLocator, tagStatus: secureTags.status, programStatus: programs.status, tapMode: programs.tapMode }).from(tapRequests)
+    .innerJoin(secureTags, and(eq(secureTags.id, tapRequests.tagId), eq(secureTags.tenantId, tapRequests.tenantId), eq(secureTags.programId, tapRequests.programId), eq(secureTags.locationId, tapRequests.locationId)))
+    .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId), eq(memberships.programId, tapRequests.programId)))
+    .innerJoin(programs, and(eq(programs.id, tapRequests.programId), eq(programs.tenantId, tapRequests.tenantId), eq(programs.locationId, tapRequests.locationId)))
+    .where(and(eq(tapRequests.id, input.requestId), eq(secureTags.publicRef, input.tagRef), eq(memberships.cardToken, input.cardToken), isNull(memberships.closedAt)));
+  if (!row) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  const { request, balance } = row;
+  const cardLocator = formatCardLocator(row.locator);
+  if (request.status === "confirmed") return { state: "confirmed", balance, cardLocator };
+  if (request.status === "awarded") return { state: "already_processed", balance, cardLocator };
+  if (request.status === "cancelled") return { state: "cancelled", balance };
+  if (request.status === "cooldown") return { state: "cooldown", balance };
+  if (request.status === "pending_staff" && request.expiresAt > (input.now ?? new Date()) && row.tagStatus === "active" && row.programStatus === "active" && row.tapMode === "staff_confirmed") return { state: "pending_staff", balance, cardLocator, requestId: request.id, expiresAt: request.expiresAt, statusRef: input.tagRef };
+  return { state: "expired", balance };
 }
 
 export async function pendingTapRequests(input: { userId: string; locationId: string; now?: Date }) {
