@@ -42,7 +42,7 @@ async function fixture(type: "stamp" | "points" = "stamp") {
   return { userId, tenant, location, program, member };
 }
 
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
+beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, rate_limits CASCADE'); });
 afterAll(async () => { await pool.end(); });
 
 async function configured() {

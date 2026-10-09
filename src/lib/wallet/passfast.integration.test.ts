@@ -7,7 +7,7 @@ import { reissueCardByStaff } from "@/lib/card-reissue";
 import { award, redeem, reverseEntry } from "@/lib/loyalty";
 import { updateMerchantBrand } from "@/lib/merchant-brand";
 import { createMerchant, enroll, updateProgram, editReward } from "@/lib/product";
-import { POST as googleIssue } from "@/app/api/wallet/google/route";
+import { POST as directGoogleIssue } from "@/app/api/wallet/google/route";
 import { POST as walletStatus } from "@/app/api/wallet/status/route";
 import { createDownloadTicket } from "./ticket";
 import { POST as appleIssue } from "@/app/api/wallet/apple/route";
@@ -19,9 +19,22 @@ import { POST as enrollRoute } from "@/app/api/enroll/route";
 import { issueWalletPass } from "./issue";
 import { ownerWalletReadiness } from "./readiness";
 import { refreshWalletForMembership } from "./refresh";
-import { passFastObjectId, passFastSerial } from "./passfast";
+import { passFastObjectId, passFastSerial, passFastStatus } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
-import { syntheticPassFastArchive } from "./test-support";
+import { syntheticPassFastArchive, seedHistoricalManagedGoogle } from "./test-support";
+
+/** Historical managed Google lifecycle regression only. This helper is never an application issuance path. */
+async function historicalGoogleFixture(request: Request) {
+  const { token } = await request.json();
+  const member = (await pool.query("SELECT m.id,m.tenant_id,p.location_id FROM memberships m JOIN programs p ON p.id=m.program_id WHERE m.card_token=$1 AND m.closed_at IS NULL", [token])).rows[0];
+  if (!member) return new Response(null, { status: 404 });
+  if (!passFastStatus(process.env, member.tenant_id, member.location_id).ready) return new Response(null, { status: 503 });
+  try {
+    const row = await seedHistoricalManagedGoogle(token);
+    const { saveUrl } = await syncPassFastPass(row.id);
+    return Response.json({ url: saveUrl });
+  } catch { return new Response(null, { status: 502 }); }
+}
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Requires isolated looplocal_test");
 const origin = "http://localhost:3000";
@@ -116,34 +129,40 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 afterAll(async () => { await pool.end(); });
 
-describe("PassFast projection through real isolated transactions and fake HTTP", () => {
+describe("PassFast Apple and historical managed Google lifecycle through isolated transactions", () => {
+  it("refuses new managed Google issuance through the real customer route", async () => {
+    const f = await fixture();
+    expect((await directGoogleIssue(post(f.member.cardToken))).status).toBe(503);
+    expect(calls).toHaveLength(0);
+    await expect(issueWalletPass(f.member.cardToken, "google", passFastObjectId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
   it("duplicate issuance shares a serial and one durable pending job", async () => {
     const f = await fixture();
-    for (let i=0;i<2;i++) expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
+    for (let i=0;i<2;i++) expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(200);
     expect(rows.size).toBe(1);
     expect(calls.filter(c=>c.path.endsWith("generate-pass"))).toHaveLength(1);
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(1);
     expect((await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind='wallet.refresh' AND status='pending'")).rows[0].n).toBe(1);
   });
   it("shares a generation serial across Apple and Google without sharing local auth tickets", async () => {
-    const f=await fixture(); await appleIssue(post(f.member.cardToken,"apple")); await googleIssue(post(f.member.cardToken));
+    const f=await fixture(); await appleIssue(post(f.member.cardToken,"apple")); await historicalGoogleFixture(post(f.member.cardToken));
     const passes=(await pool.query("SELECT id,provider,provider_object_id FROM wallet_passes ORDER BY provider")).rows;
     expect(passes).toHaveLength(2); expect(passes[0].id).not.toBe(passes[1].id);
     expect(passes[0].provider_object_id).toBe(passes[1].provider_object_id);
-    await reissue(f); const after=await issueWalletPass((await snapshot(f.member.id)).member.card_token,"google",passFastObjectId);
+    await reissue(f); const after=await seedHistoricalManagedGoogle((await snapshot(f.member.id)).member.card_token);
     expect(after.providerObjectId).not.toBe(passes[0].provider_object_id);
   });
   it("recovers provider success with a lost local response without creating another pass", async () => {
     const f = await fixture(); loseGenerate = true;
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(502);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(502);
     expect(rows.size).toBe(1);
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(200);
     expect(rows.size).toBe(1);
     expect(calls.filter(c=>c.path.endsWith("generate-pass"))).toHaveLength(1);
   });
   it("provider outage never undoes award or imports remote balances", async () => {
     const f = await fixture();
-    await googleIssue(post(f.member.cardToken));
+    await historicalGoogleFixture(post(f.member.cardToken));
     const result = await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect(result.balance).toBe(2);
     const before = await snapshot(f.member.id); outage = true;
@@ -156,15 +175,15 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect(await snapshot(f.member.id)).toEqual(before);
   });
   it("reissue voids old QR without assigning the replacement credential to its serial", async () => {
-    const f = await fixture(); await googleIssue(post(f.member.cardToken));
+    const f = await fixture(); await historicalGoogleFixture(post(f.member.cardToken));
     const old = rows.values().next().value!;
     const locator = (await snapshot(f.member.id)).member.card_locator;
     const afterInitialIssuance = calls.length;
     const next = await reissue(f);
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(404);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(404);
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     expect(old.status).toBe("invalidated"); expect(old.dynamic_data.scanCode).toBe("");
-    expect((await googleIssue(post(next.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(next.cardToken))).status).toBe(200);
     const replacement = [...rows.values()].find(row=>row!==old)!;
     expect(replacement.serial_number).not.toBe(old.serial_number);
     expect(replacement.dynamic_data.scanCode).not.toBe(old.dynamic_data.scanCode);
@@ -172,13 +191,13 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect(calls.slice(afterInitialIssuance).filter(c=>c.path.includes(old.serial_number)&&c.body).every(c=>!(c.body?.data as Record<string,unknown>)?.scanCode)).toBe(true);
   });
   it("retries a lost Google void response and preserves closure history", async () => {
-    const f = await fixture(); await googleIssue(post(f.member.cardToken));
+    const f = await fixture(); await historicalGoogleFixture(post(f.member.cardToken));
     await closeCard(f.member.cardToken); const before = await snapshot(f.member.id); loseVoid = true;
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
     expect(await snapshot(f.member.id)).toEqual(before);
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     expect((await pool.query("SELECT status FROM wallet_passes")).rows[0].status).toBe("revoked");
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(404);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(404);
     expect(await snapshot(f.member.id)).toEqual(before);
   });
   it("does not skip uncertain pending Apple revocation after worker creation timeout", async () => {
@@ -201,7 +220,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(404);
   });
   it("does not strand issued Google behind an Apple request that never contacted the provider", async () => {
-    const f=await fixture(); await appleIssue(post(f.member.cardToken,"apple")); await googleIssue(post(f.member.cardToken));
+    const f=await fixture(); await appleIssue(post(f.member.cardToken,"apple")); await historicalGoogleFixture(post(f.member.cardToken));
     await closeCard(f.member.cardToken);
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).resolves.toEqual({status:"complete"});
     expect([...rows.values()][0].status).toBe("invalidated");
@@ -211,7 +230,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const f=await fixture(); const {url}=await readyApple(f);
     const ticket=String(url).split("/").at(-1)!;
     expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(200);
-    await googleIssue(post(f.member.cardToken)); await closeCard(f.member.cardToken); outagePlatform="apple";
+    await historicalGoogleFixture(post(f.member.cardToken)); await closeCard(f.member.cardToken); outagePlatform="apple";
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
     expect([...rows.values()].find(row=>row.wallet_type==="google")!.status).toBe("invalidated");
     outagePlatform=undefined;
@@ -221,7 +240,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const {url}=await readyApple(f);
     const ticket=String(url).split("/").at(-1)!;
     expect((await download(new Request(origin+url),{params:Promise.resolve({ticket})})).status).toBe(200);
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(200);
   }
   const rewardLocales = [{ locale: "de", text: "Prämie bereit" }, { locale: "fr", text: "Récompense disponible" }] as const;
   it.each(rewardLocales)("updates and clears $locale reward text on both platforms without changing loyalty", async ({ locale, text }) => {
@@ -262,10 +281,10 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const f = await fixture(locale);
     const entry = await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() });
     loseGenerate = true;
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(502);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(502);
     expect([...rows.values()][0].dynamic_data.rewardReady).toBe(text);
     await reverseEntry({ userId: f.owner, locationId: f.merchant.locationId, entryId: entry.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(200);
     expect(rows.size).toBe(1);
     expect([...rows.values()][0].dynamic_data).toMatchObject({ balance: 0, rewardReady: "" });
     expect(calls.filter(call => call.path.endsWith("generate-pass"))).toHaveLength(1);
@@ -301,7 +320,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
     const oldStates=(await pool.query("SELECT provider,status FROM wallet_passes ORDER BY provider")).rows;
     expect(oldStates).toEqual([{provider:"apple",status:"revocation_pending"},{provider:"google",status:"revoked"}]);
-    expect((await googleIssue(post(next.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(next.cardToken))).status).toBe(200);
     const boundary=calls.length;
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
     expect(calls.slice(boundary).filter(c=>c.path.includes(oldSerial)).every(c=>!c.body)).toBe(true);
@@ -331,14 +350,14 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const f=await fixture(); const {url}=await readyApple(f);
     const ticket=String(url).split("/").at(-1)!;
     await download(new Request(origin+url),{params:Promise.resolve({ticket})});
-    await issueWalletPass(f.member.cardToken,"google",passFastObjectId); await closeCard(f.member.cardToken);
+    await seedHistoricalManagedGoogle(f.member.cardToken); await closeCard(f.member.cardToken);
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).resolves.toEqual({status:"complete"});
     expect([...rows.values()][0].status).toBe("invalidated");
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes WHERE status<>'revoked'")).rows[0].n).toBe(0);
     expect(calls.every(c=>!c.path.endsWith("wallet_type=google"))).toBe(true);
   });
   it("updates dynamic merchant/programme/reward display without recreating or crossing tenants", async () => {
-    const f=await fixture(); const other=await fixture(); await issueBoth(f); await googleIssue(post(other.member.cardToken));
+    const f=await fixture(); const other=await fixture(); await issueBoth(f); await historicalGoogleFixture(post(other.member.cardToken));
     await award({userId:f.owner,locationId:f.merchant.locationId,membershipId:f.member.id,quantity:2,idempotencyKey:randomUUID(),requestId:randomUUID()});
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     const originals=[...rows.values()].map(row=>({serial:row.serial_number,platform:row.wallet_type,data:{...row.dynamic_data}}));
@@ -360,7 +379,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     expect((await ownerWalletReadiness({actorUserId:f.owner,programSlug:f.merchant.programSlug})).logo).toBe("needs_review");
   });
   it("rejects cross-tenant pass lookup before provider contact", async () => {
-    const f = await fixture(); const pass = await issueWalletPass(f.member.cardToken,"google",passFastObjectId);
+    const f = await fixture(); const pass = await seedHistoricalManagedGoogle(f.member.cardToken);
     await expect(syncPassFastPass(pass.id,{tenantId:randomUUID()})).rejects.toThrow();
     expect(calls).toHaveLength(0);
     expect(await refreshWalletForMembership(f.member.id,{expectedTenantId:randomUUID()})).toEqual({status:"complete"});
@@ -368,12 +387,12 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
   });
   it("provider disabled fails honestly without creating passes or network traffic", async () => {
     const f = await fixture(); vi.stubEnv("PASSFAST_ENABLED","false");
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(503);
+    expect((await directGoogleIssue(post(f.member.cardToken))).status).toBe(503);
     expect((await appleIssue(post(f.member.cardToken,"apple"))).status).toBe(503);
     expect(rows.size).toBe(0); expect(calls).toHaveLength(0);
   });
   it("serializes an old in-flight update with reissue using the pass row lock", async () => {
-    const f=await fixture(); await googleIssue(post(f.member.cardToken));
+    const f=await fixture(); await historicalGoogleFixture(post(f.member.cardToken));
     const [{id:passId}]=(await pool.query("SELECT id FROM wallet_passes")).rows;
     let started!:()=>void, release!:()=>void;
     const entered=new Promise<void>(done=>{started=done;});
@@ -396,7 +415,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const old=[...rows.values()][0];
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     expect(old.status).toBe("invalidated"); expect(old.dynamic_data.scanCode).toBe("");
-    expect((await googleIssue(post(next.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(next.cardToken))).status).toBe(200);
     expect(rows.size).toBe(2);
   });
   it("rejects a pass download if reissue commits while PassFast serves it", async () => {
@@ -410,7 +429,7 @@ describe("PassFast projection through real isolated transactions and fake HTTP",
     const f = await fixture(); await appleIssue(post(f.member.cardToken,"apple"));
     const pending = await ownerWalletReadiness({ actorUserId:f.owner,programSlug:f.merchant.programSlug });
     expect(pending.passes).toEqual({apple:0,google:0}); expect(pending.logo).toBe("needs_review");
-    await googleIssue(post(f.member.cardToken));
+    await historicalGoogleFixture(post(f.member.cardToken));
     expect((await ownerWalletReadiness({actorUserId:f.owner,programSlug:f.merchant.programSlug})).passes.google).toBe(1);
   });
 });
@@ -422,7 +441,7 @@ describe("combined remembered browser and PassFast generation security", () => {
   });
   it("projects redemption, correction and referral bonuses on both platforms without provider authority over loyalty", async () => {
     const f = await fixture();
-    await googleIssue(post(f.member.cardToken));
+    await historicalGoogleFixture(post(f.member.cardToken));
     const { url } = await readyApple(f);
     const ticket = String(url).split("/").at(-1)!;
     expect((await download(new Request(origin + url), { params: Promise.resolve({ ticket }) })).status).toBe(200);
@@ -476,7 +495,7 @@ describe("combined remembered browser and PassFast generation security", () => {
     await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
     const cookie = remembered(f.member.programId, f.member.cardToken);
     const join = (additionalCard = false) => enrollRoute(new Request(`${origin}/api/enroll`, { method: "POST", headers: { origin, cookie: cookie.headers.get("cookie")!, "content-type": "application/json" }, body: JSON.stringify({ slug: f.merchant.programSlug, acceptedTerms: true, ...(additionalCard ? { additionalCard: true } : {}) }) }));
-    const [issued, firstJoin, secondJoin] = await Promise.all([googleIssue(post(f.member.cardToken)), join(), join()]);
+    const [issued, firstJoin, secondJoin] = await Promise.all([historicalGoogleFixture(post(f.member.cardToken)), join(), join()]);
     expect(issued.status).toBe(200);
     expect(firstJoin.status).toBe(409);
     expect(secondJoin.status).toBe(409);
@@ -485,7 +504,7 @@ describe("combined remembered browser and PassFast generation security", () => {
     const deliberate = await join(true);
     expect(deliberate.status).toBe(201);
     const next = await deliberate.json();
-    expect((await googleIssue(post(next.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(next.cardToken))).status).toBe(200);
     expect(new Set([...rows.values()].map(row => row.serial_number)).size).toBe(2);
     const members = (await pool.query("SELECT id,balance,card_locator FROM memberships WHERE program_id=$1", [f.member.programId])).rows;
     expect(members).toHaveLength(2);
@@ -496,7 +515,7 @@ describe("combined remembered browser and PassFast generation security", () => {
   it("reissue invalidates remembered bearer and issuance ticket while preserving membership, history, balance and locator", async () => {
     const f = await fixture();
     await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
-    await googleIssue(post(f.member.cardToken));
+    await historicalGoogleFixture(post(f.member.cardToken));
     const { url } = await readyApple(f);
     const ticket = String(url).split("/").at(-1)!;
     expect((await download(new Request(origin + url), { params: Promise.resolve({ ticket }) })).status).toBe(200);
@@ -505,13 +524,13 @@ describe("combined remembered browser and PassFast generation security", () => {
     expect((await findReturningCard(cookie, f.merchant.programSlug)).state).toBe("existing");
     const replacement = await reissue(f);
     expect((await findReturningCard(cookie, f.merchant.programSlug)).state).toBe("stale");
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(404);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(404);
     expect((await download(new Request(origin + url), { params: Promise.resolve({ ticket }) })).status).toBe(404);
     const read = await readCard(new Request(`${origin}/api/card/${replacement.cardToken}`, { headers: { "sec-fetch-site": "same-origin" } }), { params: Promise.resolve({ token: replacement.cardToken }) });
     expect(read.status).toBe(200);
     expect(read.headers.getSetCookie().some(value => value.includes(replacement.cardToken) && value.includes("Path=/api/enroll"))).toBe(true);
     expect((await findReturningCard(remembered(f.member.programId, replacement.cardToken), f.merchant.programSlug)).state).toBe("existing");
-    expect((await googleIssue(post(replacement.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(post(replacement.cardToken))).status).toBe(200);
     const current = await snapshot(f.member.id);
     expect(current.member.id).toBe(old.member.id);
     expect(current.member.balance).toBe(old.member.balance);
@@ -526,14 +545,14 @@ describe("combined remembered browser and PassFast generation security", () => {
   });
   it("closure under total provider outage cannot reopen through remembered join, ticket or locator; a later enrollment is new", async () => {
     const f = await fixture();
-    await googleIssue(post(f.member.cardToken));
+    await historicalGoogleFixture(post(f.member.cardToken));
     const cookie = remembered(f.member.programId, f.member.cardToken);
     const old = await snapshot(f.member.id);
     outage = true;
     await closeCard(f.member.cardToken);
     expect((await findReturningCard(cookie, f.merchant.programSlug)).state).toBe("stale");
-    expect((await googleIssue(post(f.member.cardToken))).status).toBe(404);
-    expect((await googleIssue(post(`K-${old.member.card_locator}`))).status).toBe(404);
+    expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(404);
+    expect((await historicalGoogleFixture(post(`K-${old.member.card_locator}`))).status).toBe(404);
     await expect(refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId })).rejects.toThrow();
     expect((await snapshot(f.member.id)).member.closed_at).not.toBeNull();
     expect((await snapshot(f.member.id)).ledger).toEqual(old.ledger);
@@ -558,8 +577,8 @@ describe("server-only merchant template isolation", () => {
   it("uses each tenant's template even when the request supplies another merchant's template and serial", async () => {
     const a=await fixture(), b=await fixture(); const bindings=await bind([a,b]);
     const request=new Request(`${origin}/api/wallet/google`,{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify({token:a.member.cardToken,templateId:bindings[1].templateId,serial:b.member.id,apiKey:"customer-supplied"})});
-    expect((await googleIssue(request)).status).toBe(200);
-    expect((await googleIssue(post(b.member.cardToken))).status).toBe(200);
+    expect((await historicalGoogleFixture(request)).status).toBe(200);
+    expect((await historicalGoogleFixture(post(b.member.cardToken))).status).toBe(200);
     const generated=calls.filter(c=>c.path.endsWith("generate-pass"));
     expect(generated.map(c=>c.body?.template_id)).toEqual(bindings.map(b=>b.templateId));
     expect(generated[0].body?.serial_number).not.toBe(b.member.id);
@@ -569,14 +588,14 @@ describe("server-only merchant template isolation", () => {
   it("refuses an unmapped merchant before projection creation or any provider request", async () => {
     const a=await fixture(), b=await fixture(); await bind([a]);
     const before=await snapshot(b.member.id);
-    expect((await googleIssue(post(b.member.cardToken))).status).toBe(503);
+    expect((await historicalGoogleFixture(post(b.member.cardToken))).status).toBe(503);
     expect(calls).toHaveLength(0);
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(0);
     expect(await snapshot(b.member.id)).toEqual(before);
     expect((await ownerWalletReadiness({actorUserId:b.owner,programSlug:b.merchant.programSlug})).apple).toBe("not_set_up");
   });
   it.each(["app_id","template_id","external_id"])("does not update an existing pass with foreign %s", async field => {
-    const f=await fixture(); await bind([f]); await googleIssue(post(f.member.cardToken));
+    const f=await fixture(); await bind([f]); await historicalGoogleFixture(post(f.member.cardToken));
     const row=rows.values().next().value!;
     row[field as "app_id"|"template_id"|"external_id"]=randomUUID();
     calls=[]; const before=await snapshot(f.member.id);
@@ -594,7 +613,7 @@ describe("server-only merchant template isolation", () => {
     expect(calls).toHaveLength(0);
   });
   it("a mapping change fails closed without generating a replacement identity", async () => {
-    const f=await fixture(); await bind([f]); await googleIssue(post(f.member.cardToken));
+    const f=await fixture(); await bind([f]); await historicalGoogleFixture(post(f.member.cardToken));
     const previous=[...rows.values()].map(r=>r.serial_number); await bind([f]); calls=[];
     await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
     expect([...rows.values()].map(r=>r.serial_number)).toEqual(previous);
@@ -603,7 +622,7 @@ describe("server-only merchant template isolation", () => {
   });
   it("shares one operation budget across Apple and Google", async () => {
     const f=await fixture(); await bind([f]);
-    await appleIssue(post(f.member.cardToken,"apple")); await googleIssue(post(f.member.cardToken));
+    await appleIssue(post(f.member.cardToken,"apple")); await historicalGoogleFixture(post(f.member.cardToken));
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     calls=[]; let now=Date.now();
     vi.spyOn(Date,"now").mockImplementation(()=>now);

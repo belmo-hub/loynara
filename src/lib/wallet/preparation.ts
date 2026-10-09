@@ -5,16 +5,19 @@ import { walletAvailability, type WalletAvailability } from "./capability";
 import type { WalletCardEligibility } from "./eligibility";
 import { assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastStatus } from "./passfast";
 import { createDownloadTicket } from "./ticket";
+import { googleDirectStatus } from "./google-direct";
 
 export type ApplePreparation = { status: "unavailable" | "not_requested" | "pending" | "ready" | "failed"; url?: string; retryAfterSeconds?: number };
 /** Server startup/early OFF gate only. Customer availability always resolves an authenticated card scope. */
 export function walletDeploymentAvailability(): WalletAvailability {
+  const google = googleDirectStatus();
+  const googleAvailability = !google.ready ? "unavailable" : google.publishingStatus === "published" ? "available" : "test_only";
   if (process.env.PASSFAST_ENABLED === "true") {
     const ready = passFastStatus().ready;
     const platforms = ready ? passFastConfig().platforms : [];
-    return { apple: platforms.includes("apple") ? "available" : "unavailable", google: platforms.includes("google") ? "available" : "unavailable" };
+    return { apple: platforms.includes("apple") ? "available" : "unavailable", google: googleAvailability };
   }
-  return walletAvailability();
+  return { ...walletAvailability(), google: googleAvailability };
 }
 
 /** Read-only projection/job reconciliation. This never queues work, contacts a provider, or accepts a pass ID. */

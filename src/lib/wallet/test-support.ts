@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { deflateRawSync } from "node:zlib";
 import { resetAppleWalletStatusCache } from "./apple";
 import { resetGoogleWalletStatusCache } from "./google";
+import { googleDirectConfig } from "./google-direct";
 
 export type Env = Record<string, string | undefined>;
 
@@ -35,9 +36,40 @@ export function googleFixture(publishing: "demo" | "published" = "published") {
   const dir = mkdtempSync(join(tmpdir(), "loynara-google-fixture-"));
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "pem" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } });
   const file = join(dir, "service-account.json");
-  writeFileSync(file, JSON.stringify({ client_email: "issuer@example.test", private_key: privateKey }));
-  const env: Env = { GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_ISSUER_ID: "123456", GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: file, GOOGLE_WALLET_PROGRAM_LOGO_URL: "https://assets.example.test/fallback.png", GOOGLE_WALLET_PUBLISHING_STATUS: publishing };
+  writeFileSync(file, JSON.stringify({ type: "service_account", client_email: "wallet-fixture@loynara-synthetic.iam.gserviceaccount.com", private_key: privateKey }), { mode: 0o600 });
+  const env: Env = { GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_PROVIDER: "GOOGLE_DIRECT", GOOGLE_WALLET_LOCATION_CLASSES: undefined, GOOGLE_WALLET_ISSUER_ID: "3388000000023201754", GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: file, GOOGLE_WALLET_PROGRAM_LOGO_URL: "https://assets.example.test/fallback.png", GOOGLE_WALLET_PUBLISHING_STATUS: publishing };
   return { dir, env, privateKey, publicKey, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+/** Explicit synthetic scope approval, inside withEnv(googleFixture().env). Never used by application code. */
+export function approveSyntheticGoogleScope(merchant: { tenantId: string; locationId: string; programId: string }) {
+  const existing = JSON.parse(process.env.GOOGLE_WALLET_LOCATION_CLASSES ?? "[]");
+  const binding = { tenantId: merchant.tenantId, locationId: merchant.locationId, programId: merchant.programId,
+    classId: `${process.env.GOOGLE_WALLET_ISSUER_ID}.program_${merchant.programId}`, issuanceEnabled: true, testAccountsApproved: true };
+  process.env.GOOGLE_WALLET_LOCATION_CLASSES = JSON.stringify([...existing.filter((row: { programId: string }) => row.programId !== merchant.programId), binding]);
+  return googleDirectConfig(process.env, merchant.tenantId, merchant.locationId, merchant.programId);
+}
+
+/** Historical managed Google rows keep lifecycle coverage after new issuance moved to Direct. Disposable DB only. */
+export async function seedHistoricalManagedGoogle(cardToken: string) {
+  if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Historical fixture requires disposable database");
+  const [{ db }, { memberships, walletPasses }, { and, eq, isNull }, { randomUUID }, { credentialHash, walletCardSnapshot }, { passFastConfig, bindPassFastObjectId }, { enqueueWalletRefresh }] = await Promise.all([
+    import("@/db"), import("@/db/schema"), import("drizzle-orm"), import("node:crypto"), import("./data"), import("./passfast"), import("./enqueue"),
+  ]);
+  return db.transaction(async tx => {
+    const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
+    if (!member || member.closedAt) throw new Error("Historical fixture card unavailable");
+    const snapshot = await walletCardSnapshot(member.id, tx);
+    if (!snapshot.open) throw new Error("Historical fixture card unavailable");
+    const config = passFastConfig(process.env, member.tenantId, snapshot.pass.locationId);
+    const [existing] = await tx.select().from(walletPasses).where(and(eq(walletPasses.membershipId, member.id), eq(walletPasses.provider, "google"), isNull(walletPasses.revokedAt)));
+    if (existing) return existing;
+    const id = randomUUID();
+    const [sibling] = await tx.select().from(walletPasses).where(and(eq(walletPasses.membershipId, member.id), isNull(walletPasses.revokedAt)));
+    const [row] = await tx.insert(walletPasses).values({ id, tenantId: member.tenantId, membershipId: member.id, provider: "google", providerObjectId: sibling?.providerObjectId ?? bindPassFastObjectId(id, config), credentialHash: credentialHash(member.scanCode), status: "pending" }).returning();
+    await enqueueWalletRefresh(tx, member.tenantId, member.id);
+    return row;
+  });
 }
 
 /** Sets process.env for the duration of fn (Wallet status caches are reset on entry and exit). */

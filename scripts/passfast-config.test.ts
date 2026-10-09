@@ -13,7 +13,7 @@ describe("canonical PassFast configuration and private capability",()=>{
   it("accepts complete approved managed-provider declarations without native materials",()=>{
     expect(productionConfigIssues(on)).toEqual([]);
     expect(productionWalletRuntimeIssues(on)).toEqual([]);
-    expect(walletAvailability(on,"33333333-3333-4333-8333-333333333333","44444444-4444-4444-8444-444444444444")).toEqual({apple:"available",google:"available"});
+    expect(walletAvailability(on,"33333333-3333-4333-8333-333333333333","44444444-4444-4444-8444-444444444444")).toEqual({apple:"available",google:"unavailable"});
   });
   it.each(["PASSFAST_API_KEY","PASSFAST_APP_ID","PASSFAST_TENANT_TEMPLATES","WALLET_PRODUCTION_APPROVED"])("fails closed without %s",name=>{
     const env={...on,[name]:""};
@@ -35,7 +35,8 @@ describe("canonical PassFast configuration and private capability",()=>{
     expect(productionConfigIssues({...on,PASSFAST_TEMPLATE_ID:""})).toEqual([]);
     expect(walletAvailability({...on,PASSFAST_TENANT_TEMPLATES:undefined})).toEqual({apple:"unavailable",google:"unavailable"});
   });
-  it("refuses direct providers even when PassFast is correctly configured",()=>{
-    for(const flag of ["APPLE_WALLET_ENABLED","GOOGLE_WALLET_ENABLED"]) expect(productionConfigIssues({...on,[flag]:"true"})).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+  it("requires independent Google Direct setup while native Apple stays dormant",()=>{
+    expect(productionConfigIssues({...on,APPLE_WALLET_ENABLED:"true"})).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+    expect(productionConfigIssues({...on,GOOGLE_WALLET_ENABLED:"true"})).toEqual(expect.arrayContaining([expect.stringMatching(/GOOGLE_DIRECT/)]));
   });
 });

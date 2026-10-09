@@ -15,7 +15,7 @@ import { walletPassDataByMembershipId } from "./data";
 import { googleObjectId, GoogleWalletClient } from "./google";
 import { issueWalletPass } from "./issue";
 import { refreshWalletForMembership, supersedeOlderWalletRefreshes } from "./refresh";
-import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
+import { approveSyntheticGoogleScope, appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -28,16 +28,15 @@ async function createMember() {
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [userId, "Wallet fixture", `${userId}@example.test`]);
   const merchant = await createMerchant({ userId, businessName: "Wallet Fixture Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", programType: "stamp", rulesText: "Eine Einheit pro Kauf.", rewardTitle: "Kaffee", rewardCost: 3 });
   const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-  return { owner: userId, merchant, member };
+  return { owner: userId, merchant, member, issuer: process.env.GOOGLE_WALLET_PROVIDER === "GOOGLE_DIRECT" && process.env.GOOGLE_WALLET_ENABLED === "true" ? approveSyntheticGoogleScope(merchant) : undefined };
 }
 const stamp = (owner: string, locationId: string, membershipId: string, quantity = 1) => award({ userId: owner, locationId, membershipId, quantity, idempotencyKey: key(), requestId: randomUUID() });
 const pendingRefreshes = (membershipId?: string) => db.select().from(outboxJobs).where(and(eq(outboxJobs.kind, "wallet.refresh"), eq(outboxJobs.status, "pending")))
   .then(rows => rows.filter(row => !membershipId || row.payload.membershipId === membershipId));
-const issuer = { issuerId: "123456" };
 
 /** Runs fn with Google configured against an in-process fake API. */
 async function withGoogle<T>(fn: (api: ReturnType<typeof fakeGoogleApi>, client: GoogleWalletClient) => Promise<T>, options: { failWith?: number } = {}) {
-  const google = googleFixture();
+  const google = googleFixture("demo");
   try {
     return await withEnv({ ...google.env, PUBLIC_BASE_URL: "http://localhost:3000" }, async () => {
       const api = fakeGoogleApi(options);
@@ -55,23 +54,29 @@ describe("wallet refresh queue", () => {
   });
 
   it("coalesces: many loyalty changes before the worker runs cause ONE provider refresh", async () => {
-    const { owner, merchant, member } = await createMember();
-    await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
+    const google = googleFixture("demo");
+    try { await withEnv(google.env, async () => {
+    const { owner, merchant, member, issuer } = await createMember();
+    await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
     for (let i = 0; i < 5; i++) await stamp(owner, merchant.locationId, member.id);
     expect(await pendingRefreshes(member.id)).toHaveLength(1);
     // Once the job is claimed, the next change queues a fresh one (the running job may already have read older state).
     await pool.query("UPDATE outbox_jobs SET status = 'processing' WHERE kind = 'wallet.refresh'");
     await stamp(owner, merchant.locationId, member.id);
     expect(await pendingRefreshes(member.id)).toHaveLength(1);
+    }); } finally { google.cleanup(); }
   });
 
   it("blocks an issued pass while its provider is disabled, without touching the committed balance", async () => {
-    const { owner, merchant, member } = await createMember();
-    await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
+    const google = googleFixture("demo");
+    try { await withEnv(google.env, async () => {
+    const { owner, merchant, member, issuer } = await createMember();
+    await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
     await stamp(owner, merchant.locationId, member.id, 2);
     const result = await withEnv({ GOOGLE_WALLET_ENABLED: "false" }, () => refreshWalletForMembership(member.id));
     expect(result).toMatchObject({ status: "blocked" });
     expect((await walletPassDataByMembershipId(member.id)).balance).toBe(2);
+    }); } finally { google.cleanup(); }
   });
 
   it("reads merchant relevance coordinates without collecting customer location", async () => {
@@ -88,7 +93,7 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
     await withGoogle(async (api, client) => {
       const first = await createMember();
       const other = await createMember();
-      const pass = await issueWalletPass(first.member.cardToken, "google", id => googleObjectId(id, issuer));
+      const pass = await issueWalletPass(first.member.cardToken, "google", id => googleObjectId(id, first.issuer!));
       expect(await refreshWalletForMembership(first.member.id, { google: client, expectedTenantId: other.merchant.tenantId })).toEqual({ status: "complete" });
       expect(api.objects.size).toBe(0);
       expect(api.calls).toHaveLength(0);
@@ -98,9 +103,9 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
 
   it("award, redemption, correction and referral bonus are reflected from Loynara state", async () => {
     await withGoogle(async (api, client) => {
-      const { owner, merchant, member } = await createMember();
-      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
-      const objectId = googleObjectId(pass.id, issuer);
+      const { owner, merchant, member, issuer } = await createMember();
+      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      const objectId = googleObjectId(pass.id, issuer!);
       const shown = () => api.objects.get(objectId) as { loyaltyPoints: { balance: { string: string } }; textModulesData: Array<{ header: string }>; state: string };
 
       await refreshWalletForMembership(member.id, { google: client });
@@ -140,15 +145,15 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
 
   it("reissue: the old object is deactivated without barcode and NEVER receives the new QR code; a new object carries it", async () => {
     await withGoogle(async (api, client) => {
-      const { owner, merchant, member } = await createMember();
-      const oldPass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
+      const { owner, merchant, member, issuer } = await createMember();
+      const oldPass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
       await refreshWalletForMembership(member.id, { google: client });
-      const oldObject = googleObjectId(oldPass.id, issuer);
+      const oldObject = googleObjectId(oldPass.id, issuer!);
       const { cardToken } = await reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: member.id, reason: "Neues Handy, Kartennummer genannt", verificationMethod: "card_link", entitlementConfirmed: true, idempotencyKey: key() });
       const [{ scanCode: fresh }] = await pool.query<{ scanCode: string }>("SELECT scan_code AS \"scanCode\" FROM memberships WHERE id = $1", [member.id]).then(result => result.rows);
       expect(await refreshWalletForMembership(member.id, { google: client })).toEqual({ status: "complete" });
       expect(api.objects.get(oldObject)).toMatchObject({ state: "INACTIVE" });
-      expect(api.objects.get(oldObject)).not.toHaveProperty("barcode");
+      expect(api.objects.get(oldObject)?.barcode).toBeNull();
       const toOldObject = api.calls.filter(call => call.url.includes(encodeURIComponent(oldObject)) && call.body);
       expect(JSON.stringify(toOldObject)).not.toContain(fresh);
       expect((await db.select().from(walletPasses).where(eq(walletPasses.id, oldPass.id)))[0]).toMatchObject({ status: "revoked", revokeReason: "reissued" });
@@ -157,50 +162,50 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
       await refreshWalletForMembership(member.id, { google: client });
       expect(api.objects.get(oldObject)).toMatchObject({ state: "INACTIVE" });
       // The new link issues a new object with the new QR code.
-      const newPass = await issueWalletPass(cardToken, "google", id => googleObjectId(id, issuer));
+      const newPass = await issueWalletPass(cardToken, "google", id => googleObjectId(id, issuer!));
       expect(newPass.id).not.toBe(oldPass.id);
       await refreshWalletForMembership(member.id, { google: client });
-      expect(api.objects.get(googleObjectId(newPass.id, issuer))).toMatchObject({ state: "ACTIVE", barcode: { value: fresh }, loyaltyPoints: { balance: { string: "1 / 3" } } });
+      expect(api.objects.get(googleObjectId(newPass.id, issuer!))).toMatchObject({ state: "ACTIVE", barcode: { value: fresh }, loyaltyPoints: { balance: { string: "1 / 3" } } });
     });
   });
 
   it("closure: the object is deactivated; history rows stay", async () => {
     await withGoogle(async (api, client) => {
-      const { member } = await createMember();
-      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
+      const { member, issuer } = await createMember();
+      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
       await refreshWalletForMembership(member.id, { google: client });
       await closeCard(member.cardToken);
       expect(await pendingRefreshes(member.id)).toHaveLength(1);
       expect(await refreshWalletForMembership(member.id, { google: client })).toEqual({ status: "complete" });
-      expect(api.objects.get(googleObjectId(pass.id, issuer))).toMatchObject({ state: "INACTIVE", textModulesData: [{ header: "Karte ungültig" }] });
+      expect(api.objects.get(googleObjectId(pass.id, issuer!))).toMatchObject({ state: "INACTIVE", textModulesData: [{ header: "Karte ungültig" }] });
       expect(await db.select().from(walletPasses).where(eq(walletPasses.membershipId, member.id))).toMatchObject([{ status: "revoked", revokeReason: "closed" }]);
     });
   });
 
   it("programme and branding changes reach every saved pass of the programme", async () => {
     await withGoogle(async (api, client) => {
-      const { owner, merchant, member } = await createMember();
+      const { owner, merchant, member, issuer } = await createMember();
       const other = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
+      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
       await refreshWalletForMembership(member.id, { google: client });
       const [reward] = await getMerchantRewards({ actorUserId: owner, programSlug: merchant.programSlug });
       await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Kuchen", cost: 4, termsText: "" });
       expect(await pendingRefreshes(member.id)).toHaveLength(1);
       expect(await pendingRefreshes(other.id)).toHaveLength(0); // no saved pass, nothing to update
       await refreshWalletForMembership(member.id, { google: client });
-      expect(api.objects.get(googleObjectId(pass.id, issuer))).toMatchObject({ loyaltyPoints: { balance: { string: "0 / 4" } }, textModulesData: [{ body: "Kuchen · Noch 4 Stempel" }, { id: "note" }] });
+      expect(api.objects.get(googleObjectId(pass.id, issuer!))).toMatchObject({ loyaltyPoints: { balance: { string: "0 / 4" } }, textModulesData: [{ body: "Kuchen · Noch 4 Stempel" }, { id: "note" }] });
       await pool.query("UPDATE outbox_jobs SET status = 'complete'");
       await updateMerchantBrand({ actorUserId: owner, programSlug: merchant.programSlug, businessName: "Neuer Name", locationName: "Mitte", brandColor: "#7a2e1f" });
       expect(await pendingRefreshes(member.id)).toHaveLength(1);
       await refreshWalletForMembership(member.id, { google: client });
-      expect(api.classes.get(`123456.program_${merchant.programId}`)).toMatchObject({ issuerName: "Neuer Name", hexBackgroundColor: "#7a2e1f" });
+      expect(api.classes.get(`${issuer!.issuerId}.program_${merchant.programId}`)).toMatchObject({ issuerName: "Neuer Name", hexBackgroundColor: "#7a2e1f" });
     });
   });
 
   it("a provider outage never undoes loyalty: the award stands and the refresh fails for the worker to retry", async () => {
     await withGoogle(async (_api, client) => {
-      const { owner, merchant, member } = await createMember();
-      await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer));
+      const { owner, merchant, member, issuer } = await createMember();
+      await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
       const result = await stamp(owner, merchant.locationId, member.id, 2);
       expect(result.balance).toBe(2);
       await expect(refreshWalletForMembership(member.id, { google: client })).rejects.toMatchObject({ name: "GoogleWalletError", status: 503 });

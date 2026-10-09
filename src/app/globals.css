@@ -349,6 +349,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .wallet-add:hover:not(:disabled) { background: #2b2b2b; }
 .wallet-add:focus-visible { outline: 3px solid #56a46a; outline-offset: 2px; }
 .wallet-add:disabled { opacity: .7; cursor: progress; }
+/* Google-provided artwork keeps its ratio, 55px height and 8px clear space. */
+.wallet-add--google { padding: 8px; border-radius: 0; background: transparent; }
+.wallet-add--google:hover:not(:disabled) { background: transparent; }
+.wallet-add--google img { height: 55px; width: auto; max-width: none; }
 /* Fast counter: the camera stays on between customers, one tap books a stamp. */
 .counter-camera { margin-bottom: 16px; padding: 14px; background: #fff; border: 1px solid #dfe8dc; border-radius: 19px; box-shadow: 0 15px 32px rgba(20, 60, 30, .055); text-align: center; }
 .counter-camera[hidden] { display: none; }

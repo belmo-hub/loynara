@@ -5,7 +5,8 @@ import { appleDevices, appleRegistrations, walletPasses } from "@/db/schema";
 import { appleSigningConfig, appleWalletStatus } from "./apple";
 import { sendApplePassNotifications } from "./apple-push";
 import { walletCardSnapshot } from "./data";
-import { googleConfig, googleWalletStatus, GoogleWalletClient } from "./google";
+import { googleObjectId, GoogleWalletClient } from "./google";
+import { googleDirectConfig, googleDirectStatus } from "./google-direct";
 import type { RevokeReason, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
 import { isPassFastObjectId, passFastStatus, passFastConfig, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
@@ -50,9 +51,11 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
           [row] = await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: latest.open ? "superseded" : "closed", status: "revocation_pending" })
             .where(eq(walletPasses.id, row.id)).returning();
         }
-        const status = googleWalletStatus();
+        const brand = latest.open ? latest.pass : latest.brand;
+        const status = googleDirectStatus(process.env, row.tenantId, brand.locationId, brand.programId, "maintenance");
         if (!status.ready) { blocked.push(`Google Wallet: ${status.reason}`); return; }
-        const config = googleConfig();
+        const config = googleDirectConfig(process.env, row.tenantId, brand.locationId!, brand.programId, "maintenance");
+        if (brand.tenantId !== row.tenantId || row.providerObjectId !== googleObjectId(row.id, config)) { blocked.push("Google Wallet binding unavailable"); return; }
         google ??= new GoogleWalletClient(config);
         if (!live) {
           await google.revoke(revokedView(row, latest), row.providerObjectId, config);

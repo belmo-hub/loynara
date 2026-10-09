@@ -1,3 +1,4 @@
+import { seedHistoricalManagedGoogle } from "../src/lib/wallet/test-support";
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -50,7 +51,7 @@ async function fixture() {
   vi.stubEnv("PASSFAST_TENANT_TEMPLATES", JSON.stringify([{ tenantId: merchant.tenantId, locationId: merchant.locationId, templateId: "22222222-2222-4222-8222-222222222222" }]));
   vi.stubEnv("PASSFAST_WALLET_TYPES", "both");
   await issueWalletPass(member.cardToken, "apple", passFastObjectId);
-  await issueWalletPass(member.cardToken, "google", passFastObjectId);
+  await seedHistoricalManagedGoogle(member.cardToken);
   await award({ userId: owner, locationId: merchant.locationId, membershipId: member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
   const jobs = (await pool.query("SELECT id FROM outbox_jobs WHERE kind='wallet.refresh' AND status='pending'")).rows;
   expect(jobs).toHaveLength(1);

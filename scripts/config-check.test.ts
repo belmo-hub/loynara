@@ -190,15 +190,16 @@ describe("production configuration gate", () => {
     };
     const google: NodeJS.ProcessEnv = {
       ...safe, WALLET_PRODUCTION_APPROVED: "true", GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_ISSUER_ID: "3388000000022123456",
+      GOOGLE_WALLET_PROVIDER: "GOOGLE_DIRECT", GOOGLE_WALLET_LOCATION_CLASSES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", programId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", classId: "3388000000022123456.approved", issuanceEnabled: true, testAccountsApproved: false }]),
       GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: "/run/secrets/google/wallet-issuer.json", GOOGLE_WALLET_PROGRAM_LOGO_URL: "https://cdn.getloynara.com/wallet/logo.png", GOOGLE_WALLET_PUBLISHING_STATUS: "published",
     };
     const refused = (env: NodeJS.ProcessEnv, pattern: RegExp) => expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));
 
-    it("accepts Wallet off and refuses dormant direct native providers", () => {
+    it("accepts Wallet OFF and approved Direct Google while native Apple remains dormant", () => {
       expect(productionConfigIssues({ ...safe, APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(apple)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
-      expect(productionConfigIssues(google)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
-      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues(google)).toEqual([]);
+      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual([]);
     });
 
     it("requires a separate approval and refuses a stray approval or ambiguous flags", () => {

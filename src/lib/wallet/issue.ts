@@ -9,6 +9,8 @@ import { enqueueWalletRefresh } from "./enqueue";
 import type { WalletProvider } from "./types";
 import { isPassFastObjectId, passFastConfig, bindPassFastObjectId, assertPassFastBinding, type PassFastConfig, passFastSerial } from "./passfast";
 import { walletCardEligibility } from "./eligibility";
+import { googleDirectConfig } from "./google-direct";
+import { googleObjectId } from "./google";
 
 export type IssuedPass = typeof walletPasses.$inferSelect;
 
@@ -25,6 +27,12 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
     const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     let managedConfig: PassFastConfig | undefined;
+    if (provider === "google") {
+      const eligibility = await walletCardEligibility(cardToken, tx);
+      if (eligibility.availability.google === "unavailable") throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      const config = googleDirectConfig(process.env, eligibility.tenantId, eligibility.locationId, eligibility.programId);
+      if (objectIdFor(member.id) !== googleObjectId(member.id, config)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+    }
     // Refuse unmapped tenants before changing any projection or enqueueing work.
     if (isPassFastObjectId(objectIdFor(member.id))) {
       const eligibility = await walletCardEligibility(cardToken, tx);
@@ -36,8 +44,11 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
       .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id), eq(walletPasses.provider, provider), isNull(walletPasses.revokedAt)));
     if (active?.credentialHash === hash && isPassFastObjectId(active.providerObjectId) === isPassFastObjectId(objectIdFor(active.id))) {
       if (managedConfig) assertPassFastBinding(active.providerObjectId, managedConfig);
+      if (provider === "google" && active.providerObjectId !== objectIdFor(active.id)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
       return active;
     }
+    // Selecting Direct must not silently retire or convert a managed-provider projection.
+    if (active && provider === "google" && isPassFastObjectId(active.providerObjectId)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
     if (active) {
       await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: "superseded", status: active.status === "pending" && (provider === "apple" || isPassFastObjectId(active.providerObjectId)) ? "revoked" : "revocation_pending", updatedAt: new Date() }).where(eq(walletPasses.id, active.id));
       await enqueueWalletRefresh(tx, member.tenantId, member.id);
@@ -54,7 +65,7 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
       if (sibling) { assertPassFastBinding(sibling.providerObjectId, managedConfig); providerObjectId = sibling.providerObjectId; }
     }
     const [created] = await tx.insert(walletPasses).values({ id, tenantId: member.tenantId, membershipId: member.id, provider, providerObjectId, status: "pending", credentialHash: hash }).returning();
-    if (isPassFastObjectId(created.providerObjectId)) await enqueueWalletRefresh(tx, member.tenantId, member.id);
+    if (isPassFastObjectId(created.providerObjectId) || provider === "google") await enqueueWalletRefresh(tx, member.tenantId, member.id);
     return created;
   });
 }

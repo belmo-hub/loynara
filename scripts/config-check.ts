@@ -1,5 +1,6 @@
 import path from "node:path";
 import { passFastStatus } from "../src/lib/wallet/passfast";
+import { googleLocationClasses } from "../src/lib/wallet/google-direct";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -120,7 +121,7 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const apple = env.APPLE_WALLET_ENABLED === "true";
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
-  if (apple || google) issues.push("Direct native Wallet providers are dormant; production uses PassFast");
+  if (apple) issues.push("Direct native Apple Wallet is dormant; Apple production uses PassFast");
   if (passfast && !passFastStatus(env).ready) issues.push("PassFast enabled without complete approved configuration");
   if ((passfast || apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
   if (!passfast && !apple && !google && env.WALLET_PRODUCTION_APPROVED === "true") issues.push("WALLET_PRODUCTION_APPROVED is set while no Wallet provider is enabled");
@@ -139,6 +140,8 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
     if (!approved || env.APPLE_WALLET_WEB_SERVICE_URL !== `${approved.origin}/api/apple`) issues.push("APPLE_WALLET_WEB_SERVICE_URL must be exactly the approved HTTPS origin followed by /api/apple");
   }
   if (google) {
+    if (env.GOOGLE_WALLET_PROVIDER !== "GOOGLE_DIRECT") issues.push("Google Wallet requires explicit GOOGLE_DIRECT provider selection");
+    try { googleLocationClasses(env); } catch { issues.push("Google Direct requires valid owned issuer and approved location classes"); }
     credentialPath("GOOGLE_WALLET_SERVICE_ACCOUNT_FILE");
     if (!/^\d{10,25}$/.test(env.GOOGLE_WALLET_ISSUER_ID ?? "")) issues.push("GOOGLE_WALLET_ISSUER_ID must be the numeric Google Wallet issuer ID");
     if (env.GOOGLE_WALLET_PUBLISHING_STATUS !== "published") issues.push("Google Wallet publishing must be approved (GOOGLE_WALLET_PUBLISHING_STATUS=published); Demo Mode is not production");

@@ -17,7 +17,7 @@ import { createMerchant, enroll } from "@/lib/product";
 import { applePassToken } from "./apple";
 import * as appleAdapter from "./apple";
 import { ownerWalletReadiness } from "./readiness";
-import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
+import { approveSyntheticGoogleScope, appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -202,12 +202,13 @@ describe("Apple web-service routes", () => {
 
 describe("Google issuance (provider stubbed in-process)", () => {
   it("prepares the object first and returns a Save link that references it without the scan code", async () => {
-    const google = googleFixture();
+    const google = googleFixture("demo");
     try {
       await withEnv({ ...google.env, PUBLIC_BASE_URL: origin }, async () => {
         const api = fakeGoogleApi();
         vi.stubGlobal("fetch", api.fetcher);
-        const { member } = await createMember();
+        const { merchant, member } = await createMember();
+        approveSyntheticGoogleScope(merchant);
         const response = await googleIssue(post("/api/wallet/google", { token: member.cardToken }));
         expect(response.status).toBe(200);
         const { url } = await response.json() as { url: string };

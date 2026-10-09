@@ -1,9 +1,9 @@
-import { createPrivateKey, createSign } from "node:crypto";
+import { createHash, createPrivateKey, createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { walletProgress, walletText } from "./content";
 import type { WalletBrand, WalletPassData, WalletRevokedData, WalletStatus } from "./types";
 
-export type GoogleConfig = { issuerId: string; logoUrl: string; approvedDeviceTestLogoUrl?: string };
+export type GoogleConfig = { issuerId: string; logoUrl: string; approvedDeviceTestLogoUrl?: string; binding?: { tenantId: string; locationId: string; programId: string; classId: string }; publishingStatus?: "demo" | "published" };
 export type GoogleCredentials = { clientEmail: string; privateKey: string };
 const API = "https://walletobjects.googleapis.com/walletobjects/v1";
 const SCOPE = "https://www.googleapis.com/auth/wallet_object.issuer";
@@ -55,15 +55,30 @@ export function googleConfig(env: Record<string, string | undefined> = process.e
   };
 }
 
-export function googleClassId(programId: string, config: Pick<GoogleConfig, "issuerId">) { return `${config.issuerId}.program_${programId}`; }
+export function googleClassId(programId: string, config: Pick<GoogleConfig, "issuerId" | "binding">) {
+  if (config.binding) {
+    if (programId.toLowerCase() !== config.binding.programId || !config.binding.classId.startsWith(`${config.issuerId}.`)) throw new Error("Google class outside approved scope");
+    return config.binding.classId;
+  }
+  return `${config.issuerId}.program_${programId}`;
+}
 
 /**
  * One object per issued pass row (credential generation), never per membership: after a reissue the new pass is a new
  * object and the old one is deactivated, so it can never receive the new QR code.
  */
-export function googleObjectId(passId: string, config: Pick<GoogleConfig, "issuerId">) { return `${config.issuerId}.loynara_${passId}`; }
+export function googleObjectId(passId: string, config: Pick<GoogleConfig, "issuerId" | "binding">) {
+  const suffix = config.binding ? "_" + createHash("sha256").update("loynara-google-binding-v1\0").update([config.issuerId, config.binding.tenantId, config.binding.locationId, config.binding.programId, config.binding.classId].join("\0")).digest("hex") : "";
+  return `${config.issuerId}.loynara_${passId}${suffix}`;
+}
+
+function assertGoogleScope(pass: WalletBrand, config: Pick<GoogleConfig, "issuerId" | "binding">) {
+  if (config.binding && (pass.tenantId.toLowerCase() !== config.binding.tenantId || pass.locationId?.toLowerCase() !== config.binding.locationId || pass.programId.toLowerCase() !== config.binding.programId)) throw new Error("Google pass outside approved scope");
+  googleClassId(pass.programId, config);
+}
 
 export function googleClass(pass: WalletBrand, config: GoogleConfig) {
+  assertGoogleScope(pass, config);
   const logoUrl = pass.googleLogoUrl ?? config.logoUrl;
   if (new URL(logoUrl).protocol !== "https:") throw new Error("Google logo must use HTTPS");
   if (config.approvedDeviceTestLogoUrl !== undefined) {
@@ -95,7 +110,8 @@ export function googleClass(pass: WalletBrand, config: GoogleConfig) {
   };
 }
 
-export function googleObject(pass: WalletPassData, passId: string, config: Pick<GoogleConfig, "issuerId">) {
+export function googleObject(pass: WalletPassData, passId: string, config: Pick<GoogleConfig, "issuerId" | "binding">) {
+  assertGoogleScope(pass, config);
   const t = walletText(pass.locale);
   const progress = walletProgress(pass);
   return {
@@ -115,7 +131,8 @@ export function googleObject(pass: WalletPassData, passId: string, config: Pick<
 }
 
 /** Full replacement for a revoked object: INACTIVE, without barcode, balance or locator. */
-export function googleRevokedObject(pass: WalletRevokedData, objectId: string, config: Pick<GoogleConfig, "issuerId">) {
+export function googleRevokedObject(pass: WalletRevokedData, objectId: string, config: Pick<GoogleConfig, "issuerId" | "binding">) {
+  assertGoogleScope(pass, config);
   const t = walletText(pass.locale);
   return {
     id: objectId,
@@ -138,7 +155,8 @@ function signJwt(body: Record<string, unknown>, credentials: GoogleCredentials):
  * Save link for an object that was already created through the REST API. The JWT only references it by id, so the
  * scan code never travels in the link (which lands in browser history and on pay.google.com).
  */
-export function googleSaveUrl(object: { id: string; classId: string }, credentials: GoogleCredentials, origins: string[] = [], issuedAt = Math.floor(Date.now() / 1000)): string {
+export function googleSaveUrl(object: { id: string; classId: string }, credentials: GoogleCredentials, origins: string[] = [], issuedAt = Math.floor(Date.now() / 1000), config?: Pick<GoogleConfig, "issuerId" | "binding">): string {
+  if (config && (!object.id.startsWith(`${config.issuerId}.loynara_`) || object.classId !== config.binding?.classId)) throw new Error("Google save reference outside approved scope");
   const jwt = signJwt({ iss: credentials.clientEmail, aud: "google", typ: "savetowallet", iat: issuedAt, origins, payload: { loyaltyObjects: [{ id: object.id, classId: object.classId }] } }, credentials);
   return `https://pay.google.com/gp/v/save/${jwt}`;
 }
@@ -154,15 +172,25 @@ export class GoogleWalletError extends Error {
 
 export class GoogleWalletClient {
   private accessToken?: Promise<string>;
-  constructor(private credentials: GoogleCredentials, private fetcher: typeof fetch = fetch) {}
+  private tokenExpiresAt = 0;
+  private deadline: number;
+  constructor(private credentials: GoogleCredentials, private fetcher: typeof fetch = fetch, operationMs = 60_000) { this.deadline = Date.now() + operationMs; }
+
+  private signal(): AbortSignal {
+    const remaining = this.deadline - Date.now();
+    if (remaining <= 0) throw new GoogleWalletError("timeout", 0);
+    return AbortSignal.timeout(Math.min(15_000, remaining));
+  }
 
   private async token(): Promise<string> {
+    if (this.tokenExpiresAt && Date.now() >= this.tokenExpiresAt) this.accessToken = undefined;
     this.accessToken ??= (async () => {
       const body = new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: accessAssertion(this.credentials) });
-      const response = await this.fetcher("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, signal: AbortSignal.timeout(15_000) });
+      const response = await this.fetcher("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, signal: this.signal(), redirect: "error" });
       if (!response.ok) throw new GoogleWalletError("authorization", response.status);
       const data = await response.json();
-      if (!data.access_token) throw new GoogleWalletError("authorization", 0);
+      if (typeof data.access_token !== "string" || !data.access_token || data.access_token.length > 16384) throw new GoogleWalletError("authorization", 0);
+      this.tokenExpiresAt = Date.now() + Math.max(1, (Number(data.expires_in) || 3600) - 60) * 1000;
       return data.access_token as string;
     })();
     try { return await this.accessToken; } catch (error) { this.accessToken = undefined; throw error; }
@@ -170,7 +198,9 @@ export class GoogleWalletClient {
 
   private async request(method: string, path: string, body?: object): Promise<Response> {
     const token = await this.token();
-    return this.fetcher(`${API}${path}`, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15_000) });
+    const response = await this.fetcher(`${API}${path}`, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: this.signal(), redirect: "error" });
+    if (response.status === 401) this.accessToken = undefined;
+    return response;
   }
 
   /** Creates or aligns the programme class (merchant name, programme, colour, logo, location). */
@@ -178,10 +208,16 @@ export class GoogleWalletClient {
     const cls = googleClass(brand, config);
     const classGet = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
     if (classGet.status === 404) {
+      if (config.binding && config.publishingStatus !== "demo") throw new GoogleWalletError("approved class missing", 404);
       const inserted = await this.request("POST", "/loyaltyClass", cls);
       if (!inserted.ok && inserted.status !== 409) throw new GoogleWalletError("class creation", inserted.status);
+      if (inserted.status === 409) {
+        const raced = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
+        if (!raced.ok || (await raced.json()).id !== cls.id) throw new GoogleWalletError("class conflict", 409);
+      }
     } else if (classGet.ok) {
       const current = await classGet.json() as Record<string, unknown>;
+      if (current.id !== cls.id || current.reviewStatus === "REJECTED" || (config.binding && config.publishingStatus === "published" && current.reviewStatus !== "APPROVED")) throw new GoogleWalletError("class eligibility", 0);
       const patch: Record<string, unknown> = {};
       for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "locations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
         if (JSON.stringify(current[key]) !== JSON.stringify(cls[key as keyof typeof cls])) {
@@ -205,7 +241,18 @@ export class GoogleWalletClient {
     if (objectGet.status === 404) {
       const inserted = await this.request("POST", "/loyaltyObject", object);
       if (!inserted.ok && inserted.status !== 409) throw new GoogleWalletError("object creation", inserted.status);
+      if (inserted.status === 409) {
+        const raced = await this.request("GET", `/loyaltyObject/${encodeURIComponent(object.id)}`);
+        if (!raced.ok) throw new GoogleWalletError("object conflict", raced.status);
+        const current = await raced.json();
+        if (current.id !== object.id || current.classId !== object.classId) throw new GoogleWalletError("object conflict", 409);
+        const display = { state: object.state, accountId: object.accountId, accountName: object.accountName, barcode: object.barcode, loyaltyPoints: object.loyaltyPoints, textModulesData: object.textModulesData };
+        const aligned = await this.request("PATCH", `/loyaltyObject/${encodeURIComponent(object.id)}`, display);
+        if (!aligned.ok) throw new GoogleWalletError("object update", aligned.status);
+      }
     } else if (objectGet.ok) {
+      const current = await objectGet.json();
+      if (current.id !== object.id || current.classId !== object.classId) throw new GoogleWalletError("object binding", 0);
       const display: Partial<typeof object> = { ...object };
       delete display.id;
       delete display.classId;
@@ -217,9 +264,30 @@ export class GoogleWalletClient {
 
   /** Deactivates a revoked object. An object Google never created needs nothing. */
   async revoke(pass: WalletRevokedData, objectId: string, config: GoogleConfig): Promise<"revoked" | "absent"> {
+    assertGoogleScope(pass, config);
+    if (config.binding) {
+      const match = objectId.match(new RegExp(`^${config.issuerId}\\.loynara_([0-9a-f-]{36})_[0-9a-f]{64}$`));
+      if (!match || googleObjectId(match[1], config) !== objectId) throw new GoogleWalletError("object binding", 0);
+      const current = await this.getObject(objectId, config);
+      if (!current) return "absent";
+      // Targeted PATCH clears sensitive projection fields, preserving Google's unrelated object metadata.
+      const updated = await this.request("PATCH", `/loyaltyObject/${encodeURIComponent(objectId)}`, { state: "INACTIVE", accountId: "", barcode: null, loyaltyPoints: null, secondaryLoyaltyPoints: null, textModulesData: googleRevokedObject(pass, objectId, config).textModulesData });
+      if (!updated.ok) throw new GoogleWalletError("object deactivation", updated.status);
+      return "revoked";
+    }
     const replaced = await this.request("PUT", `/loyaltyObject/${encodeURIComponent(objectId)}`, googleRevokedObject(pass, objectId, config));
     if (replaced.status === 404) return "absent";
     if (!replaced.ok) throw new GoogleWalletError("object deactivation", replaced.status);
     return "revoked";
+  }
+
+  async getObject(objectId: string, config: GoogleConfig): Promise<Record<string, unknown> | null> {
+    if (!objectId.startsWith(`${config.issuerId}.loynara_`)) throw new GoogleWalletError("object binding", 0);
+    const response = await this.request("GET", `/loyaltyObject/${encodeURIComponent(objectId)}`);
+    if (response.status === 404) return null;
+    if (!response.ok) throw new GoogleWalletError("object status", response.status);
+    const object = await response.json();
+    if (object.id !== objectId || (config.binding && object.classId !== config.binding.classId)) throw new GoogleWalletError("object binding", 0);
+    return object;
   }
 }

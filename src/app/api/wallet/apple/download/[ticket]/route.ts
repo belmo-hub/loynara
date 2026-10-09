@@ -35,7 +35,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticket:
       if (managed) {
         const config = passFastConfig(process.env, row.tenantId, locationId);
         assertPassFastBinding(row.providerObjectId, config);
-        const prepared = await applePreparation({ tenantId: row.tenantId, locationId: locationId!, membershipId: row.membershipId, credentialHash: row.credentialHash!, availability }, database);
+        const prepared = await applePreparation({ tenantId: row.tenantId, locationId: locationId!, programId: snapshot.pass.programId, membershipId: row.membershipId, credentialHash: row.credentialHash!, availability }, database);
         if (prepared.status !== "ready") return walletDownloadFailure(request, walletUnavailable());
         bytes = await new PassFastClient(config, fetch, deadline).download(passFastSerial(row.providerObjectId));
       } else {

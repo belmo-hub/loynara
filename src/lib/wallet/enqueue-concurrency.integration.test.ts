@@ -5,7 +5,7 @@ import { db, pool } from "@/db";
 import { createMerchant, enroll } from "@/lib/product";
 import { claimOutboxJob } from "@/lib/outbox";
 import { enqueueWalletProgramRefresh, enqueueWalletRefresh } from "./enqueue";
-import { issueWalletPass } from "./issue";
+import { credentialHash } from "./data";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices CASCADE'); });
@@ -16,7 +16,8 @@ async function fixture() {
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [owner, "Queue fixture", `${owner}@example.test`]);
   const merchant = await createMerchant({ userId: owner, businessName: "Queue Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", programType: "stamp", rulesText: "Eine Einheit pro Kauf.", rewardTitle: "Kaffee", rewardCost: 5 });
   const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-  await issueWalletPass(member.cardToken, "google", id => `123456.loynara_${id}`);
+  // A pre-existing Google projection isolates enqueue behavior from issuance setup.
+  await pool.query("INSERT INTO wallet_passes (tenant_id,membership_id,provider,provider_object_id,credential_hash,status) VALUES ($1,$2,'google',$3,$4,'created')", [merchant.tenantId, member.id, `3388000000023201754.historical_${randomUUID()}`, credentialHash(member.scanCode)]);
   return { merchant, member };
 }
 

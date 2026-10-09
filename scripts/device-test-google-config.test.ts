@@ -12,10 +12,10 @@ import type { WalletPassData } from "../src/lib/wallet/types";
 const directory = mkdtempSync(path.join(tmpdir(), "looplocal-google-gate-"));
 const keyFile = path.join(directory, "service-account.json");
 const key = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" });
-writeFileSync(keyFile, JSON.stringify({ client_email: "synthetic@test-project.iam.gserviceaccount.com", private_key: key }), { mode: 0o600 });
+writeFileSync(keyFile, JSON.stringify({ type: "service_account", client_email: "synthetic@test-project.iam.gserviceaccount.com", private_key: key }), { mode: 0o600 });
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 
-const logoUrl = "https://assets.owned-domain.org/api/wallet/assets/google-logo/12345678-1234-1234-1234-123456789abc.png";
+const logoUrl = "https://assets.owned-domain.org/api/wallet/assets/google-logo/12345678-1234-4234-8234-123456789abc.png";
 const approved = {
   DATABASE_URL: `postgresql://looplocal_device:${"a".repeat(64)}@127.0.0.1:54331/looplocal_device_test`,
   DEVICE_TEST_DB_PASSWORD: "a".repeat(64), BETTER_AUTH_SECRET: "b".repeat(64),
@@ -25,15 +25,16 @@ const approved = {
   PUBLIC_REGISTRATION_ENABLED: "false", EXTERNAL_EMAIL_ENABLED: "false", LIVE_BILLING_ENABLED: "false", APPLE_WALLET_ENABLED: "false",
   TRUST_PROXY_CLIENT_IP: "false", SMTP_HOST: "disabled",
   DEVICE_TEST_APPROVED_WALLET_PROVIDER: "google-demo",
-  DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID: "123456789", DEVICE_TEST_GOOGLE_TESTER_EMAIL: "tester@example.test",
+  DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID: "3388000000023201754", DEVICE_TEST_GOOGLE_TESTER_EMAIL: "tester@example.test",
   DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL: logoUrl,
-  GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_PUBLISHING_STATUS: "demo", GOOGLE_WALLET_ISSUER_ID: "123456789",
+  GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_PUBLISHING_STATUS: "demo", GOOGLE_WALLET_ISSUER_ID: "3388000000023201754",
+  GOOGLE_WALLET_PROVIDER: "GOOGLE_DIRECT", GOOGLE_WALLET_LOCATION_CLASSES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", programId: "12345678-1234-4234-8234-123456789abc", classId: "3388000000023201754.synthetic", issuanceEnabled: true, testAccountsApproved: true }]),
   GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: keyFile,
   GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.owned-domain.org", GOOGLE_WALLET_PROGRAM_LOGO_URL: logoUrl,
 };
 const pass: WalletPassData = {
   tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", membershipId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-  programId: "12345678-1234-1234-1234-123456789abc", merchantName: "Synthetic Café", programName: "Coffee",
+  programId: "12345678-1234-4234-8234-123456789abc", merchantName: "Synthetic Café", programName: "Coffee",
   locationName: "Kassel", programType: "stamp", balance: 1, scanCode: "sc_synthetic-fixture-only", cardLocator: "K-AAAAAA", brandColor: "#264C45", country: "DE", locale: "de",
 };
 
@@ -48,6 +49,7 @@ describe("explicitly approved Google Demo device-test gate", () => {
       ["DEVICE_TEST_APPROVED_WALLET_PROVIDER", ""], ["DEVICE_TEST_APPROVED_WALLET_PROVIDER", "apple"],
       ["DEVICE_TEST_GOOGLE_TESTER_EMAIL", ""], ["DEVICE_TEST_GOOGLE_TESTER_EMAIL", "not-an-email"],
       ["DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID", "987654321"], ["GOOGLE_WALLET_PUBLISHING_STATUS", "published"],
+      ["GOOGLE_WALLET_PROVIDER", "PASSFAST"], ["GOOGLE_WALLET_LOCATION_CLASSES", "[]"],
       ["DEVICE_TEST_ACCESS_AUD", ""], ["DEVICE_TEST_ACCESS_TEAM", ""], ["APPLE_WALLET_ENABLED", "true"],
     ]) expect(deviceTestRuntimeIssues({ ...approved, [name]: value }), name).not.toEqual([]);
   });
@@ -61,7 +63,7 @@ describe("explicitly approved Google Demo device-test gate", () => {
       ["GOOGLE_WALLET_PROGRAM_LOGO_URL", "https://assets.owned-domain.org/unapproved.png"],
     ]) expect(deviceTestRuntimeIssues({ ...approved, [name]: value }), name).not.toEqual([]);
     for (const origin of ["https://loyalty.owned-domain.org", "http://assets.owned-domain.org", "https://assets.invalid"]) {
-      const url = `${origin}/api/wallet/assets/google-logo/12345678-1234-1234-1234-123456789abc.png`;
+      const url = `${origin}/api/wallet/assets/google-logo/12345678-1234-4234-8234-123456789abc.png`;
       expect(deviceTestRuntimeIssues({ ...approved, DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL: url, GOOGLE_WALLET_PROGRAM_LOGO_URL: url, GOOGLE_WALLET_ASSET_ORIGIN: origin })).not.toEqual([]);
     }
   });

@@ -134,8 +134,8 @@ describe("public Wallet availability never leaks diagnostics", () => {
       expect(walletAvailability({})).toEqual({ apple: "unavailable", google: "unavailable" });
       expect(walletAvailability({ APPLE_WALLET_ENABLED: "true" })).toEqual({ apple: "unavailable", google: "unavailable" });
       const both = walletAvailability({ ...apple.env, ...google.env });
-      expect(both).toEqual({ apple: "available", google: "test_only" });
-      expect(walletAvailability({ ...google.env, GOOGLE_WALLET_PUBLISHING_STATUS: "published" }).google).toBe("available");
+      expect(both).toEqual({ apple: "available", google: "unavailable" });
+      expect(walletAvailability({ ...google.env, GOOGLE_WALLET_PUBLISHING_STATUS: "published" }).google).toBe("unavailable");
       const text = JSON.stringify([both, walletAvailability({ APPLE_WALLET_ENABLED: "true", GOOGLE_WALLET_ENABLED: "true" })]);
       for (const leak of ["APPLE_", "GOOGLE_", "OpenSSL", "zip", "certificate", "Zertifikat", ".pem", "/", "reason", "expires"]) expect(text).not.toContain(leak);
     } finally { apple.cleanup(); google.cleanup(); }

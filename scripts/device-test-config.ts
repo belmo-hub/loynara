@@ -1,7 +1,7 @@
 import { isIP } from "node:net";
 import { lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { googleWalletStatus } from "../src/lib/wallet/google";
+import { googleDirectStatus } from "../src/lib/wallet/google-direct";
 
 type DeviceTestEnv = Record<string, string | undefined>;
 
@@ -140,7 +140,7 @@ function deviceTestGoogleIssues(env: DeviceTestEnv): string[] {
       || (stat.mode & 0o077) !== 0 || (stat.mode & 0o400) === 0
       || (process.getuid && stat.uid !== process.getuid())
       || (relative !== ".." && !relative.startsWith(`..${path.sep}`))) throw new Error("Unrestricted credential path");
-    if (!googleWalletStatus(env).ready) throw new Error("Invalid local Google credential");
+    if (!googleDirectStatus(env).ready) throw new Error("Invalid local Google credential or Direct class approval");
   } catch {
     issues.push("Google requires a valid owner-only service-account file outside the repository (no symlink)");
   }
