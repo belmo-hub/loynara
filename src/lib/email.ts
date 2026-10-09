@@ -72,7 +72,10 @@ export async function getMarketingPreference(cardToken: string): Promise<{ marke
 }
 
 export async function sendLocalMailpit(message: LocalMessage) {
-  const response = await fetch("http://127.0.0.1:8026/api/v1/send", {
+  // Local capture only. An isolated task may choose another loopback Mailpit port.
+  const origin = new URL(process.env.MAILPIT_HTTP_ORIGIN ?? "http://127.0.0.1:8026");
+  if (origin.protocol !== "http:" || !["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname) || origin.pathname !== "/" || origin.username || origin.password || origin.search || origin.hash) throw new Error("Mailpit capture must use a loopback HTTP origin");
+  const response = await fetch(new URL("/api/v1/send", origin).toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

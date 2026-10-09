@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { memberships } from "@/db/schema";
@@ -7,6 +7,7 @@ import { closeCard } from "@/lib/card-lifecycle";
 import { reissueCardByStaff } from "@/lib/card-reissue";
 import { createMerchant, getCard } from "@/lib/product";
 import { returningCardCookieName } from "@/lib/returning-card";
+import { tapCookieName, tapCookieHeader } from "@/lib/secure-tap";
 import { readCustomerSession } from "@/lib/customer-session";
 import { GET as readCard } from "../card/[token]/route";
 import { POST as bindCard } from "../card/[token]/tap-session/route";
@@ -69,6 +70,7 @@ const shop = async (name = "Synthetic Return Café") => {
 };
 const cardCount = async (programId: string) => (await db.select({ id: memberships.id }).from(memberships).where(eq(memberships.programId, programId))).length;
 
+afterEach(() => vi.restoreAllMocks());
 beforeEach(async () => {
   process.env.PUBLIC_BASE_URL = base;
   await pool.query('TRUNCATE TABLE tenants, "user", rate_limits CASCADE');
@@ -79,6 +81,45 @@ afterAll(async () => {
 });
 
 describe("returning customer on the join page", () => {
+  it("card GET then binding preserves a tap-only session lifetime and shared-device protection", async () => {
+    const started = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(started);
+    const merchant = await shop();
+    const { cardToken } = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
+    const jar = new Jar();
+    const signed = tapCookieHeader(merchant.programId, cardToken, base, true).split(";")[0].split("=")[1];
+    jar.set(tapCookieName(merchant.programId), signed, "/api/tap");
+    clock.mockReturnValue(started + 60 * 86400_000);
+    const readWithoutBinding = await read(jar, cardToken, "same-origin");
+    expect(readWithoutBinding.headers.getSetCookie()).toEqual([]);
+    expect((await bind(jar, cardToken)).status).toBe(200);
+    expect(readCustomerSession(jar.value(returningCardCookieName(merchant.programId)), merchant.programId)).toMatchObject({ shared:true,issued:Math.floor(started / 1000) });
+    clock.mockReturnValue(started + 95 * 86400_000);
+    expect(await (await check(jar, merchant.programSlug)).json()).toEqual({ existing:false, stale:true });
+  });
+
+  it("does not renew a valid session on repeated card binding and repairs a missing cookie within its original lifetime", async () => {
+    const started = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(started);
+    const merchant = await shop();
+    const jar = new Jar();
+    const { cardToken } = await (await join(jar, merchant.programSlug)).json() as { cardToken: string };
+    const original = jar.value(returningCardCookieName(merchant.programId))!;
+    clock.mockReturnValue(started + 60 * 86400_000);
+    const rebound = await bind(jar, cardToken);
+    expect(rebound.status).toBe(200);
+    expect(rebound.headers.getSetCookie()).toEqual([]);
+    expect(jar.value(returningCardCookieName(merchant.programId))).toBe(original);
+    const repair = new Jar();
+    repair.set(returningCardCookieName(merchant.programId), original);
+    const repaired = await bind(repair, cardToken);
+    expect(repaired.status).toBe(200);
+    expect(repaired.headers.getSetCookie().filter(h => !h.includes("Max-Age=0"))).toHaveLength(2);
+    expect(repaired.headers.getSetCookie().filter(h => !h.includes("Max-Age=0")).every(h => h.includes("Max-Age=2592000"))).toBe(true);
+    clock.mockReturnValue(started + 95 * 86400_000);
+    expect(await (await check(repair, merchant.programSlug)).json()).toEqual({ existing:false, stale:true });
+  });
+
   it("upgrades a legacy /api/enroll cookie through saved-link binding without ambiguous cookies or duplicate membership", async () => {
     const merchant = await shop();
     const { cardToken } = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
@@ -270,7 +311,7 @@ describe("returning customer on the join page", () => {
     expect(await cardCount(merchant.programId)).toBe(1);
   });
 
-  it("remembers a card when its own page reads it, but not when a link opens the endpoint from elsewhere", async () => {
+  it("remembers a card through same-origin binding, while reads never bootstrap signed sessions", async () => {
     const merchant = await shop();
     const { cardToken } = await (await join(new Jar(), merchant.programSlug)).json() as { cardToken: string };
 
@@ -279,7 +320,9 @@ describe("returning customer on the join page", () => {
     expect(own.status).toBe(200);
     const body = await own.json() as Record<string, unknown>;
     expect(body).not.toHaveProperty("programId");
-    expect(own.headers.getSetCookie().some(header => header.startsWith(`${returningCardCookieName(merchant.programId)}=`) && header.includes("Path=/api") && header.includes("HttpOnly"))).toBe(true);
+    expect(own.headers.getSetCookie()).toEqual([]);
+    expect(await (await check(page, merchant.programSlug)).json()).toEqual({ existing: false, stale: false });
+    expect((await bind(page, cardToken)).status).toBe(200);
     expect(await (await check(page, merchant.programSlug)).json()).toMatchObject({ existing: true });
 
     for (const site of ["cross-site", "none", undefined]) {

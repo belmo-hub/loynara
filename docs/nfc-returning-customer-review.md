@@ -104,3 +104,7 @@ Reused existing feature **LOY-29**, its independent acceptance **LOY-30**, and r
 6. **Verification limitation:** unchanged retention assertion keeps the broad suite from all-green; report it separately for its owning workstream. This task made no unrelated repair.
 
 **BLOCKED** for complete launch acceptance on the recovery-factor requirement and outstanding physical/public/production gates. The returning-customer code and synthetic/browser evidence are ready for the focused preview procedure once those prerequisites are handled; this is not launch readiness.
+
+## Subsequent recovery/session continuation
+
+For the targeted continuation of the recovery setup/delivery and session-lifetime gaps, see `docs/nfc-recovery-session-review.md`. The original report above records the 8c1271f baseline evidence; the continuation supersedes its missing post-enrollment recovery-opportunity finding without altering historical physical/provider acceptance.

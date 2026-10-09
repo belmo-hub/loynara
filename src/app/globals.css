@@ -253,7 +253,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .card-contact-local form { display: grid; gap: 10px; margin-top: 14px; }
 .card-contact-local label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
 .card-contact-local input { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #b8c9b7; border-radius: 8px; background: #fff; color: #17372d; font: inherit; }
-.card-contact-local .button { justify-self: start; min-height: 44px; }
+.card-contact-local .button { justify-self: start; min-height: 44px; max-width: 100%; white-space: normal; text-align: center; }
 .card-contact-preference { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e4ebe1; }
 .card-contact-preference .button { margin-top: 10px; }
 .customer-wallet .card-contact-status { margin-top: 10px; color: #24573b; font-weight: 700; }

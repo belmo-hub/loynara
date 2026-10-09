@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-/** Fixed 90 days, no sliding renewal on taps or reads. Explicit bearer-card binding renews access.
+/** Fixed 90 days, no sliding renewal on taps or reads. Binding an already-valid session preserves expiry; a saved link can restore expired access.
  * Membership closure/card-token rotation revokes every device at the existing database validation.
  * No new identity store: the existing unpredictable card credential remains the identity proof.
  */
@@ -14,12 +14,14 @@ function signature(programId: string, payload: string) {
   if (!secret || secret.length < 32) throw new Error("Customer session signing unavailable");
   return createHmac("sha256", secret).update("loynara-customer-session-v1\0").update(programId).update("\0").update(payload).digest();
 }
-export function issueCustomerSession(programId: string, cardToken: string, shared = false) {
+export function issueCustomerSession(programId: string, cardToken: string, shared = false, issued = Math.floor(Date.now()/1000)) {
   if (!tokenPattern.test(cardToken)) throw new Error("Invalid card credential");
-  const payload = Buffer.from(JSON.stringify({ token: cardToken, issued: Math.floor(Date.now()/1000), shared })).toString("base64url");
+  const now = Math.floor(Date.now()/1000);
+  if (!Number.isSafeInteger(issued) || issued > now || now - issued >= CUSTOMER_SESSION_SECONDS) throw new Error("Invalid session issuance time");
+  const payload = Buffer.from(JSON.stringify({ token: cardToken, issued, shared })).toString("base64url");
   return `v1.${payload}.${signature(programId, payload).toString("base64url")}`;
 }
-export function readCustomerSession(value: string | undefined, programId: string): { token: string; shared: boolean; legacy?: boolean } | undefined {
+export function readCustomerSession(value: string | undefined, programId: string): { token: string; shared: boolean; issued?: number; legacy?: boolean } | undefined {
   if (!value || value.length > 400) return;
   if (tokenPattern.test(value) && Date.now()/1000 < LEGACY_CUSTOMER_SESSION_DEADLINE) return { token: value, shared: false, legacy: true };
   const parts = value.split(".");
@@ -30,7 +32,7 @@ export function readCustomerSession(value: string | undefined, programId: string
     const data = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
     const now = Math.floor(Date.now()/1000);
     if (!tokenPattern.test(data.token) || !Number.isSafeInteger(data.issued) || data.issued > now || now - data.issued >= CUSTOMER_SESSION_SECONDS || typeof data.shared !== "boolean") return;
-    return { token: data.token, shared: data.shared };
+    return { token: data.token, shared: data.shared, issued: data.issued };
   } catch { return; }
 }
 export function cookieValue(request: Request, name: string) {

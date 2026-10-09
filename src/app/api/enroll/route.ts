@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     await enforcePeerLimit(request, "enroll_peer", 25, 15 * 60);
     const data = await jsonBody(request, 10_000);
     if (data && typeof data === "object" && ("email" in data || ("marketingOptIn" in data && data.marketingOptIn !== false))) {
-      throw new DomainError("CONTACT_DISABLED", "Email collection is unavailable until verified recovery is ready");
+      throw new DomainError("CONTACT_DISABLED", "Bitte Wiederherstellungsadresse nach der Kartenerstellung bestätigen");
     }
     const headers = new Headers({ "Cache-Control": "no-store" });
     let input = data;
