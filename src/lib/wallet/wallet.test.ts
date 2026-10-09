@@ -344,7 +344,7 @@ describe("Google Wallet adapter", () => {
       expect(created).toEqual({ id: googleObjectId(serial, config), classId: "123456.program_cccccccc-cccc-4ccc-8ccc-cccccccccccc" });
       expect(api.calls.filter(call => call.method === "POST" && call.url.includes("walletobjects"))).toHaveLength(2);
       await client.upsert({ ...pass, balance: 10, programName: "Kaffeeclub Neu" }, serial, config);
-      expect(api.calls.find(call => call.method === "PATCH" && call.url.includes("loyaltyClass/"))?.body).toEqual({ programName: "Kaffeeclub Neu" });
+      expect(api.calls.find(call => call.method === "PATCH" && call.url.includes("loyaltyClass/"))?.body).toEqual({ programName: "Kaffeeclub Neu", reviewStatus: "UNDER_REVIEW" });
       const objectPatch = api.calls.find(call => call.method === "PATCH" && call.url.includes("loyaltyObject/"));
       expect(objectPatch?.body).toMatchObject({ state: "ACTIVE", loyaltyPoints: { label: "Stempel", balance: { string: "10 / 10" } }, textModulesData: [{ id: "reward", header: "Prämie bereit" }, { id: "note" }] });
       expect(objectPatch?.body).not.toHaveProperty("id");

@@ -13,6 +13,28 @@ const config = { issuerId, logoUrl: "https://assets.example.test/approved.png", 
 const pass: WalletPassData = { tenantId, locationId, programId, membershipId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", merchantName: "Loynara Demo", programName: "Synthetische Testkarte", locationName: "Teststandort", brandColor: "#1F4A3A", country: "DE", locale: "de", programType: "stamp", balance: 1, scanCode: "sc_synthetic-only-not-authorization", cardLocator: "K-AAAAAA", reward: { title: "Testprämie", cost: 3 } };
 
 describe("bound Google Direct projection", () => {
+  it("accepts Google's observed legacy review aliases and ignores image kind metadata, while submitting changed branding under review", async () => {
+    const fixture = googleFixture();
+    try {
+      const api = fakeGoogleApi();
+      const transport: typeof fetch = async (input, init) => {
+        if (init?.method === "PATCH" && String(input).includes("/loyaltyClass/") && JSON.parse(String(init.body)).reviewStatus !== "UNDER_REVIEW") return new Response(null, { status: 400 });
+        return api.fetcher(input, init);
+      };
+      const client = new GoogleWalletClient({ clientEmail: "issuer@example.test", privateKey: fixture.privateKey }, transport);
+      await client.upsertClass(pass, config);
+      const current = api.classes.get(binding.classId)!;
+      const logo = current.programLogo as { sourceUri: object; contentDescription: { defaultValue: object } };
+      api.classes.set(binding.classId, { ...current, reviewStatus: "approved", multipleDevicesAndHoldersAllowedStatus: "oneUserAllDevices", programLogo: { kind: "walletobjects#image", sourceUri: logo.sourceUri, contentDescription: { kind: "walletobjects#localizedString", defaultValue: { kind: "walletobjects#translatedString", ...logo.contentDescription.defaultValue } } } });
+      const before = api.calls.length;
+      await client.upsertClass(pass, { ...config, publishingStatus: "published" });
+      expect(api.calls.slice(before).map(call => call.method)).toEqual(["GET"]);
+      await client.upsertClass({ ...pass, merchantName: "Approved changed synthetic name" }, config);
+      expect(api.calls.at(-1)?.body).toMatchObject({ issuerName: "Approved changed synthetic name", reviewStatus: "UNDER_REVIEW" });
+      api.classes.set(binding.classId, { ...api.classes.get(binding.classId), reviewStatus: "rejected" });
+      await expect(client.upsertClass(pass, config)).rejects.toThrow();
+    } finally { fixture.cleanup(); }
+  });
   it("uses the approved class and freezes tenant/location/class into a stable per-generation object identity", () => {
     expect(googleObject(pass, serial, config).classId).toBe(`${issuerId}.loynara_demo`);
     const objectId = googleObjectId(serial, config);

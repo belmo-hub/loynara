@@ -25,6 +25,22 @@ export function googleWalletStatus(env: Record<string, string | undefined> = pro
 /** Tests and operator tooling that change the environment in-process. */
 export function resetGoogleWalletStatusCache() { cachedStatus = undefined; }
 
+function classReviewStatus(value: unknown): unknown {
+  return ({ approved: "APPROVED", rejected: "REJECTED", underReview: "UNDER_REVIEW", draft: "DRAFT" } as Record<string, string>)[String(value)] ?? value;
+}
+
+/** Google adds read-only kind metadata and may reorder nested image fields. */
+function comparableClassField(value: unknown): string | undefined {
+  const normalize = (item: unknown): unknown => Array.isArray(item) ? item.map(normalize)
+    : item && typeof item === "object" ? Object.fromEntries(Object.entries(item).filter(([key]) => key !== "kind").sort(([a], [b]) => a.localeCompare(b)).map(([key, field]) => [key, normalize(field)])) : item;
+  return JSON.stringify(normalize(value));
+}
+
+function assertClassEligibility(current: Record<string, unknown>, id: string, config: GoogleConfig) {
+  const status = classReviewStatus(current.reviewStatus);
+  if (current.id !== id || status === "REJECTED" || (config.binding && config.publishingStatus === "published" && status !== "APPROVED")) throw new GoogleWalletError("class eligibility", 0);
+}
+
 function inspectGoogleWallet(env: Record<string, string | undefined>): GoogleWalletStatus {
   const publishingStatus = env.GOOGLE_WALLET_PUBLISHING_STATUS === "published" ? "published" : "demo";
   if (env.GOOGLE_WALLET_ENABLED !== "true") return { enabled: false, ready: false, reason: "Google Wallet ist deaktiviert", publishingStatus };
@@ -213,19 +229,24 @@ export class GoogleWalletClient {
       if (!inserted.ok && inserted.status !== 409) throw new GoogleWalletError("class creation", inserted.status);
       if (inserted.status === 409) {
         const raced = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
-        if (!raced.ok || (await raced.json()).id !== cls.id) throw new GoogleWalletError("class conflict", 409);
+        if (!raced.ok) throw new GoogleWalletError("class conflict", 409);
+        assertClassEligibility(await raced.json(), cls.id, config);
       }
     } else if (classGet.ok) {
       const current = await classGet.json() as Record<string, unknown>;
-      if (current.id !== cls.id || current.reviewStatus === "REJECTED" || (config.binding && config.publishingStatus === "published" && current.reviewStatus !== "APPROVED")) throw new GoogleWalletError("class eligibility", 0);
+      assertClassEligibility(current, cls.id, config);
       const patch: Record<string, unknown> = {};
       for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "locations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
-        if (JSON.stringify(current[key]) !== JSON.stringify(cls[key as keyof typeof cls])) {
+        const observed = key === "multipleDevicesAndHoldersAllowedStatus"
+          ? ({ oneUserAllDevices: "ONE_USER_ALL_DEVICES", oneUserOneDevice: "ONE_USER_ONE_DEVICE", multipleHolders: "MULTIPLE_HOLDERS" } as Record<string, string>)[String(current[key])] ?? current[key] : current[key];
+        if (comparableClassField(observed) !== comparableClassField(cls[key as keyof typeof cls])) {
           const value = cls[key as keyof typeof cls];
           if (value !== undefined) patch[key] = value;
         }
       }
       if (Object.keys(patch).length) {
+        // Google requires UNDER_REVIEW on updates even when GET returns an approved class.
+        patch.reviewStatus = "UNDER_REVIEW";
         const updated = await this.request("PATCH", `/loyaltyClass/${encodeURIComponent(cls.id)}`, patch);
         if (!updated.ok) throw new GoogleWalletError("class update", updated.status);
       }
