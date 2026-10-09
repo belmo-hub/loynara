@@ -9,6 +9,13 @@ export async function sessionUser(request: Request) {
   return session.user;
 }
 
+/** The signed-in user together with the login session id (device subscriptions are bound to the session). */
+export async function sessionWithUser(request: Request) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) throw new DomainError("UNAUTHENTICATED", "Sign in required");
+  return { user: session.user, sessionId: session.session.id };
+}
+
 export function requireSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const expected = new URL(process.env.PUBLIC_BASE_URL ?? request.url).origin;
@@ -43,7 +50,7 @@ export function respondError(error: unknown) {
   }
   if (error instanceof ZodError) return Response.json({ error: "Invalid input", issues: error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
   if (error instanceof DomainError) {
-    const status = error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" ? 404 : ["INSUFFICIENT_BALANCE", "KEY_REUSED", "ALREADY_ONBOARDED", "PLAN_MEMBER_LIMIT", "BILLING_STATE", "TAP_ALREADY_CONFIRMED", "CARD_EXISTS"].includes(error.code) ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
+    const status = error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" ? 404 : ["INSUFFICIENT_BALANCE", "KEY_REUSED", "ALREADY_ONBOARDED", "PLAN_MEMBER_LIMIT", "BILLING_STATE", "TAP_ALREADY_CONFIRMED", "CARD_EXISTS", "PUSH_DEVICE_IN_USE"].includes(error.code) ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
     const headers: HeadersInit | undefined = error instanceof RateLimitError ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined;
     return Response.json({ error: error.message, code: error.code }, { status, headers });
   }

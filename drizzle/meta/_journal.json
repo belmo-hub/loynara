@@ -148,6 +148,13 @@
       "when": 1791296519073,
       "tag": "0020_wallet_pass_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791417633414,
+      "tag": "0021_staff_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }

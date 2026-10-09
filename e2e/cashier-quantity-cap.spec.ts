@@ -31,7 +31,7 @@ test("a cashier's quantity picker stops at the server limit of 10", async ({ bro
     for (let click = 0; click < 15; click++) if (await more.isEnabled()) await more.click();
     await expect(cashier.locator(".quantity-row output")).toHaveText("10");
     await expect(more).toBeDisabled();
-    await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
+    await cashier.getByRole("button", { name: "10 Stempel prüfen" }).click();
     await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("10");
   } finally { await cashier.close(); }
 });

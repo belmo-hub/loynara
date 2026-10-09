@@ -9,6 +9,7 @@ import { QrScanner } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
+import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
@@ -26,6 +27,21 @@ type Booked = { tone: "success" | "pending"; title: string; detail: string; hint
 const NEXT_CUSTOMER_DELAY_MS = 4_000;
 /** How long an unclear booking stays attached to its card, so that reopening the card resumes the same request. */
 const UNRESOLVED_TTL_MS = 10 * 60_000;
+/** The counter camera stays on between customers; this remembers that the cashier works with it. */
+const CAMERA_PREFERENCE_KEY = "loynara_cashier_camera";
+/** A camera that has read nothing for this long is put to sleep (battery, privacy); one tap wakes it. */
+const CAMERA_IDLE_MS = 3 * 60_000;
+/**
+ * After a card is closed, the camera ignores its code until the code has been out of view this long: the guest is
+ * usually still holding the phone up, and the card must not simply reopen for a second booking.
+ */
+const SAME_CODE_GAP_MS = 2_000;
+/** A lookup that failed for a passing reason (no connection, server trouble, rate limit) is retried by the camera after this. */
+const TRANSIENT_RETRY_MS = 3_000;
+/** Reopening a card this soon after a booking on it shows a warning before anything is booked again. */
+const RECENT_BOOKING_MS = 2 * 60_000;
+/** Only card codes start a lookup from the camera; other QR codes in view (menus, the counter sign) are ignored. */
+const cameraCardCode = /^(sc_[A-Za-z0-9_-]{8,80}|K-?[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6})$/i;
 const isNetworkFailure = (cause: unknown) => cause instanceof ClientApiError && cause.status === 0;
 
 export default function CashierPage() {
@@ -40,7 +56,7 @@ export default function CashierPage() {
   const [preview, setPreview] = useState<(LookupPreview & { code: string }) | null>(null);
   const [completedTransaction, setCompletedTransaction] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
+  const [camera, setCamera] = useState<"off" | "on" | "sleeping">("off");
   const [status, setStatus] = useState<"idle" | "success" | "pending" | "rejected" | "offline">("idle");
   const [message, setMessage] = useState("");
   const [actorUserId, setActorUserId] = useState("");
@@ -56,6 +72,16 @@ export default function CashierPage() {
   const unresolvedRef = useRef(new Map<string, { pending: PendingOperation; label: string; at: number }>());
   // A handheld scanner types into the code field; once the cashier works that way, the field keeps the focus between cards.
   const [typedEntry, setTypedEntry] = useState(false);
+  // Counter camera bookkeeping. Reads arrive several times per second, outside React's render cycle, so they are
+  // checked against refs: whether the counter is free for the next card, which code was just closed, the last booking.
+  const counterFree = useRef(false);
+  const lookupRunning = useRef(false);
+  const openCode = useRef<string | null>(null);
+  const closedCode = useRef<{ code: string; seenAt: number; retryAt?: number } | null>(null);
+  const recentBookings = useRef(new Map<string, { at: number; detail: string }>());
+  const lastCameraActivity = useRef(0);
+  const cameraSleepReason = useRef<"idle" | "hidden" | "failed" | null>(null);
+  const cameraAutoStarted = useRef(false);
   const [booked, setBooked] = useState<Booked | null>(null);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeCardId = useRef<string | null>(null);
@@ -74,9 +100,16 @@ export default function CashierPage() {
     return () => window.removeEventListener("offline", offline);
   }, []);
 
+  /** The camera must not reopen the card that was just closed while its code is still in view. */
+  const forgetOpenCode = useCallback(() => {
+    if (openCode.current) closedCode.current = { code: openCode.current, seenAt: Date.now() };
+    openCode.current = null;
+  }, []);
+
   /** Closes the card right away, shows what was booked, and returns to the scan screen after a short pause. */
   const finishBooking = useCallback((summary: Booked, statusTone: "success" | "pending", statusMessage: string) => {
     cancelReset();
+    forgetOpenCode();
     pendingRef.current = null;
     activeCardId.current = null;
     setUncertain(false);
@@ -85,16 +118,17 @@ export default function CashierPage() {
     setBooked(summary);
     setCompletedTransaction(value => value + 1);
     resetTimer.current = setTimeout(() => { resetTimer.current = null; setBooked(null); }, NEXT_CUSTOMER_DELAY_MS);
-  }, [cancelReset]);
+  }, [cancelReset, forgetOpenCode]);
 
   const clearCounter = useCallback(() => {
     cancelReset();
+    forgetOpenCode();
     activeCardId.current = null;
     pendingRef.current = null;
     setUncertain(false);
     setBooked(null); setCard(null); setPreview(null); setOfflineLease(null);
     setStatus("idle"); setMessage("");
-  }, [cancelReset]);
+  }, [cancelReset, forgetOpenCode]);
 
   useEffect(() => {
     void apiJson<MeResponse>("/api/me").then(me => {
@@ -102,6 +136,7 @@ export default function CashierPage() {
       setLocationName(me.locationName); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setRole(me.role); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
       try { setOfflineEvents(readOfflineEvents(localStorage, me.userId)); }
       catch (error) { setOfflineStorageProblem(true); setOfflineError(error instanceof Error ? error.message : "Offline queue unavailable"); }
+      try { if (localStorage.getItem(CAMERA_PREFERENCE_KEY) === "on") { cameraAutoStarted.current = true; lastCameraActivity.current = Date.now(); setCamera("on"); } } catch { /* no preference: the cashier opens the camera */ }
       setAccessState("ready");
     }).catch(cause => {
       if (cause instanceof ClientApiError && cause.status === 401) router.replace("/login");
@@ -110,12 +145,15 @@ export default function CashierPage() {
   }, [router]);
 
   const lookup = useCallback(async (code: string, confirm = false) => {
+    lookupRunning.current = true;
+    lastCameraActivity.current = Date.now();
     cancelReset(); setBooked(null);
     activeCardId.current = null; pendingRef.current = null; setUncertain(false);
     setBusy(true); setStatus("idle"); setMessage(""); setOfflineLease(null);
     try {
       const result = await apiJson<LookupResult | LookupPreview>(`/api/cashier/lookup?code=${encodeURIComponent(code)}${confirm ? "&confirm=1" : ""}`);
       setNetworkTrouble(false);
+      openCode.current = code;
       if (result.stage === "preview") { setCard(null); setPreview({ ...result, code }); return; }
       setPreview(null);
       activeCardId.current = result.membershipId;
@@ -128,17 +166,33 @@ export default function CashierPage() {
       } else {
         unresolvedRef.current.delete(result.membershipId);
         pendingRef.current = null;
+        const recent = recentBookings.current.get(result.membershipId);
+        if (recent && Date.now() - recent.at < RECENT_BOOKING_MS) {
+          const seconds = Math.max(1, Math.round((Date.now() - recent.at) / 1000));
+          setStatus("pending");
+          setMessage(locale === "fr" ? `Attention : cette carte a déjà été créditée il y a ${seconds} s (${recent.detail}). N’ajoutez à nouveau que pour un nouvel achat.` : `Achtung: Auf dieser Karte wurde vor ${seconds} s gebucht (${recent.detail}). Nur erneut vergeben, wenn es ein neuer Kauf ist.`);
+        }
       }
-      try {
-        const deviceId = getOfflineDeviceId(localStorage);
-        const lease = await postJson<{ leaseId: string; expiresAt: string }>("/api/cashier/offline/lease", { membershipId: result.membershipId, deviceId });
-        setOfflineLease({ ...lease, membershipId: result.membershipId });
-        setOfflineError("");
-      } catch (error) {
-        if (isNetworkFailure(error)) setNetworkTrouble(true);
-        setOfflineError(error instanceof Error ? error.message : "Offline earning unavailable for this card");
-      }
+      // The offline lease is only a fallback; the card is usable at once, without waiting for it.
+      const membershipId = result.membershipId;
+      void (async () => {
+        try {
+          const deviceId = getOfflineDeviceId(localStorage);
+          const lease = await postJson<{ leaseId: string; expiresAt: string }>("/api/cashier/offline/lease", { membershipId, deviceId });
+          if (activeCardId.current !== membershipId) return;
+          setOfflineLease({ ...lease, membershipId });
+          setOfflineError("");
+        } catch (error) {
+          if (activeCardId.current !== membershipId) return;
+          if (isNetworkFailure(error)) setNetworkTrouble(true);
+          setOfflineError(error instanceof Error ? error.message : "Offline earning unavailable for this card");
+        }
+      })();
     } catch (cause) {
+      // A code that is not a card here is not retried by the camera while it stays in view; a passing failure is retried
+      // after a short pause, so a guest holding the phone still is not stuck.
+      const transient = cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.status >= 500);
+      closedCode.current = { code, seenAt: Date.now(), ...(transient ? { retryAt: Date.now() + TRANSIENT_RETRY_MS } : {}) };
       if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
       setCard(null); setPreview(null);
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
@@ -147,8 +201,64 @@ export default function CashierPage() {
       setMessage(cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code ; les numéros ne contiennent ni 0/O ni 1/I/L." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code und achte auf 0/O und 1/I/L: Kartennummern enthalten diese Zeichen nicht."
         : cause instanceof ClientApiError && cause.code === "INVALID_CODE" ? fr ? "Numéro de carte non reconnu. Il ressemble à K-7QX2MA et ne contient ni 0, O, 1, I ni L. Sinon, scannez le QR code avec la caméra." : "Kartennummer nicht erkannt. Sie sieht aus wie K-7QX2MA und enthält weder 0, O, 1, I noch L. Oder den QR-Code mit der Kamera scannen."
         : cause instanceof Error ? cause.message : fr ? "La carte n’a pas pu être vérifiée." : "Karte konnte nicht geprüft werden.");
-    } finally { setBusy(false); }
+    } finally { setBusy(false); lookupRunning.current = false; }
   }, [locale, cancelReset]);
+
+  useEffect(() => { counterFree.current = !card && !preview && !busy; }, [card, preview, busy]);
+
+  /** A read from the counter camera: opens the next card when the counter is free, ignores everything else. */
+  const onCameraRead = useCallback((text: string) => {
+    const code = text.trim();
+    const now = Date.now();
+    lastCameraActivity.current = now;
+    const closed = closedCode.current;
+    if (closed?.code === code) {
+      const gap = now - closed.seenAt;
+      closed.seenAt = now;
+      if (gap < SAME_CODE_GAP_MS && (closed.retryAt === undefined || now < closed.retryAt)) return;
+      closedCode.current = null;
+    }
+    if (!cameraCardCode.test(code) || !counterFree.current || lookupRunning.current) return;
+    setTypedEntry(false);
+    void lookup(code);
+  }, [lookup]);
+
+  const startCamera = useCallback(() => {
+    cameraAutoStarted.current = false; cameraSleepReason.current = null;
+    lastCameraActivity.current = Date.now();
+    setCamera("on");
+    try { localStorage.setItem(CAMERA_PREFERENCE_KEY, "on"); } catch { /* the camera still works for this visit */ }
+  }, []);
+  const stopCamera = useCallback(() => {
+    cameraSleepReason.current = null;
+    setCamera("off");
+    try { localStorage.setItem(CAMERA_PREFERENCE_KEY, "off"); } catch { /* nothing to remember */ }
+  }, []);
+  // An automatic start (from the remembered preference) can be refused without a tap; then offer one instead of an error.
+  const onCameraFailure = useCallback(() => {
+    if (!cameraAutoStarted.current) return;
+    cameraAutoStarted.current = false; cameraSleepReason.current = "failed";
+    setCamera("sleeping");
+  }, []);
+  // Sleep when nothing was read for a while or the page is hidden; wake on return if it only slept because it was hidden.
+  useEffect(() => {
+    if (camera === "off") return;
+    const idle = setInterval(() => {
+      if (camera === "on" && counterFree.current && Date.now() - lastCameraActivity.current > CAMERA_IDLE_MS) { cameraSleepReason.current = "idle"; setCamera("sleeping"); }
+    }, 15_000);
+    const visibility = () => {
+      if (document.visibilityState === "hidden" && camera === "on") { cameraSleepReason.current = "hidden"; setCamera("sleeping"); }
+      else if (document.visibilityState === "visible" && camera === "sleeping" && cameraSleepReason.current === "hidden") { cameraSleepReason.current = null; lastCameraActivity.current = Date.now(); setCamera("on"); }
+    };
+    document.addEventListener("visibilitychange", visibility);
+    return () => { clearInterval(idle); document.removeEventListener("visibilitychange", visibility); };
+  }, [camera]);
+
+  function rememberBooking(membershipId: string, detail: string) {
+    const now = Date.now();
+    for (const [id, entry] of recentBookings.current) if (now - entry.at >= RECENT_BOOKING_MS) recentBookings.current.delete(id);
+    recentBookings.current.set(membershipId, { at: now, detail });
+  }
 
   function queueOffline(selectedCard: CashierCard, award: CashierAward) {
     try {
@@ -161,6 +271,7 @@ export default function CashierPage() {
       const fr = locale === "fr";
       const what = "quantity" in award ? `${award.quantity} ${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : `Kauf über ${(award.purchaseAmountMinor / 100).toFixed(2).replace(".", ",")} ${selectedCard.currency}`;
       const detail = fr ? `${what} pour ${selectedCard.cardLocator} mis en attente hors ligne. Rien n’est encore enregistré ; le solde ne change qu’après la synchronisation.` : `${what} für ${selectedCard.cardLocator} offline vorgemerkt. Noch nichts gebucht; der Kontostand ändert sich erst nach der Synchronisierung.`;
+      rememberBooking(selectedCard.id, fr ? `${what}, hors ligne` : `${what}, offline vorgemerkt`);
       finishBooking({ tone: "pending", title: fr ? "En attente, pas encore enregistré" : "Vorgemerkt, noch nicht gebucht", detail }, "pending", detail);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Offline-Vergabe konnte nicht gespeichert werden.";
@@ -237,6 +348,7 @@ export default function CashierPage() {
         : { membershipId: selectedCard.id, rewardVersionId: operation.reward.id, idempotencyKey: pending.idempotencyKey, requestId: pending.requestId, deviceAt: new Date().toISOString() });
       setNetworkTrouble(false);
       settle(false);
+      rememberBooking(selectedCard.id, label);
       const summary = bookingSummary(selectedCard, operation, result, fr);
       if (activeCardId.current !== selectedCard.id) {
         // The cashier already moved on; never close or change another card. Report the result only on an empty counter.
@@ -264,9 +376,14 @@ export default function CashierPage() {
   }
 
   if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <><a href="/login" className="button button--outline">Zur Anmeldung</a><LogoutButton className="button button--outline" /></>}</div></main>;
+  const cameraNode = camera === "on"
+    ? <QrScanner locale={locale} paused={Boolean(card || preview)} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
+    : camera === "sleeping"
+      ? <section className="counter-camera counter-camera--sleeping" hidden={Boolean(card || preview)}><button type="button" className="button button--accent button--full cashier-camera-action" onClick={startCamera}>{locale === "fr" ? "Rallumer la caméra" : "Kamera fortsetzen"}</button><button type="button" className="text-button" onClick={stopCamera}>{locale === "fr" ? "Éteindre la caméra" : "Kamera ausschalten"}</button></section>
+      : undefined;
   const showOfflineFallback = networkTrouble && Boolean(offlineLease && card && offlineLease.membershipId === card.id);
   const showOfflinePanel = networkTrouble || offlineStorageProblem || offlineEvents.length > 0;
-  return <><CashierView key={`${card?.id ?? (preview ? "preview" : "empty")}:${completedTransaction}`} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code); }} focusCodeInput={typedEntry} onStartCamera={() => setScannerOpen(true)} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className="text-button" />} />{staffTapEnabled && <CashierTapPanel />}{scannerOpen && <QrScanner locale={locale} onDetected={text => { setScannerOpen(false); setTypedEntry(false); void lookup(text.trim()); }} onClose={() => setScannerOpen(false)} />}</>;
+  return <><CashierView resetToken={completedTransaction} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code); }} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className="text-button" />} /></>;
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {

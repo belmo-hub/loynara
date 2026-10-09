@@ -46,15 +46,14 @@ test("the counter finds a card by its random number, a mistake is corrected, and
     await expect(counter.getByRole("heading", { name: cardLocator })).toBeVisible();
     await expect(counter.getByText("Kaffeekarte").or(counter.getByText("Synthetic card"))).toBeVisible();
     await expect(counter.getByText("Aktueller Kontostand")).toHaveCount(0); // no balance, rewards or award controls yet
-    await expect(counter.getByRole("button", { name: "Vergabe prüfen" })).toHaveCount(0);
+    await expect(counter.locator(".cashier-award-now")).toHaveCount(0);
     await counter.getByRole("button", { name: "Karte öffnen" }).click();
     await expect(counter.getByText("Per Kartennummer geöffnet, ohne Scan.")).toBeVisible();
     await expect(counter.getByText("Aktueller Kontostand")).toBeVisible();
     expect(lookups).toHaveLength(2);
     expect(lookups[0]).not.toContain("confirm=1");
     expect(lookups[1]).toContain("confirm=1");
-    await counter.getByRole("button", { name: "Vergabe prüfen" }).click();
-    await counter.getByRole("button", { name: "Ja, vergeben" }).click();
+    await counter.getByRole("button", { name: "1 Stempel vergeben" }).click();
     await expect(counter.getByText(`1 Stempel für ${cardLocator} vergeben.`)).toBeVisible();
     // An unknown or look-alike number gets a plain German answer, not a server message.
     await counter.getByRole("button", { name: /Andere Karte/ }).click();

@@ -155,13 +155,14 @@ async function seedHistory(pool: Pool) {
 }
 
 describe("migration journal", () => {
-  it("is contiguous from 0000, timestamps strictly increase, and 0018-0020 are the newest", () => {
+  it("is contiguous from 0000, timestamps strictly increase, and 0018-0021 are the newest", () => {
     const journal = JSON.parse(readFileSync(path.join(migrationsDir, "meta", "_journal.json"), "utf8")) as { entries: Array<{ idx: number; tag: string; when: number }> };
     journal.entries.forEach((entry, index) => { expect(entry.idx).toBe(index); expect(entry.tag.startsWith(String(index).padStart(4, "0"))).toBe(true); });
     for (let i = 1; i < journal.entries.length; i++) expect(journal.entries[i].when, journal.entries[i].tag).toBeGreaterThan(journal.entries[i - 1].when);
-    expect(journal.entries.at(-3)?.tag).toBe("0018_nfc_tag_lifecycle");
-    expect(journal.entries.at(-2)?.tag).toBe("0019_card_locators");
-    expect(journal.entries.at(-1)?.tag).toBe("0020_wallet_pass_lifecycle");
+    expect(journal.entries.at(-4)?.tag).toBe("0018_nfc_tag_lifecycle");
+    expect(journal.entries.at(-3)?.tag).toBe("0019_card_locators");
+    expect(journal.entries.at(-2)?.tag).toBe("0020_wallet_pass_lifecycle");
+    expect(journal.entries.at(-1)?.tag).toBe("0021_staff_push_subscriptions");
     const sqlFiles = readdirSync(migrationsDir).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort();
     expect(sqlFiles).toEqual(journal.entries.map(entry => `${entry.tag}.sql`));
   });
@@ -183,7 +184,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect(before.memberships.rows).toBe(404);
       expect(before.ledger_entries.rows).toBe(7);
 
-      await run(upgrade, migrationsDir); // 0018 + 0019 + 0020
+      await run(upgrade, migrationsDir); // 0018 + 0019 + 0020 + 0021
       const after = await fingerprint(upgrade);
       expect(after).toEqual(before); // no lost rows, no changed values, ledger untouched
       expect((await upgrade.query("SELECT id, balance FROM memberships ORDER BY id")).rows).toEqual(balancesBefore);
@@ -222,7 +223,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(21);
+      expect(applied).toBe(22);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -279,7 +280,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect(await fingerprint(target)).toEqual(before);
       expect((await target.query("SELECT to_jsonb(m) AS v FROM memberships m ORDER BY id")).rows).toEqual(members);
       const after = (await target.query("SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
-      expect(after).toHaveLength(21);
+      expect(after).toHaveLength(22);
       expect(after.slice(0, 20)).toEqual(journal);
       expect((await target.query("SELECT m.id FROM memberships m JOIN ledger_entries e ON e.membership_id=m.id GROUP BY m.id,m.balance HAVING m.balance <> sum(e.delta)")).rows).toHaveLength(0);
       expect((await target.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(0);
@@ -289,7 +290,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       await expect(target.query("UPDATE ledger_entries SET delta=99")).rejects.toThrow(/append-only/);
       await expect(target.query("UPDATE memberships SET card_locator='ZZZZZZ'")).rejects.toThrow(/immutable/);
       await run(target, migrationsDir);
-      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(21);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 
@@ -310,7 +311,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
       await target.query("SET lock_timeout = '0'");
       await run(target, migrationsDir);
-      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(21);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
       // Old web still inserts unmarked Wallet jobs during the staged providers-off overlap. New unique coalescing must
       // not reject those old inserts and thereby roll back an award.
       const seeded = await seedHistory(target);
@@ -352,7 +353,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const membersBefore = (await pool.query("SELECT row_to_json(m) AS v FROM memberships m ORDER BY id")).rows;
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
       await run(pool, migrationsDir);
-      expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(21);
+      expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
       expect(await fingerprint(pool)).toEqual(before);
       expect((await pool.query("SELECT row_to_json(m) AS v FROM memberships m ORDER BY id")).rows).toEqual(membersBefore);
       const rows = (await pool.query("SELECT membership_id, provider, status, revoke_reason, revoked_at IS NOT NULL AS revoked FROM wallet_passes ORDER BY membership_id, provider")).rows;
@@ -366,6 +367,10 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       await expect(insertActive()).rejects.toThrow(/wallet_pass_active_member_provider_uq/);
       await expect(pool.query("UPDATE wallet_passes SET revoke_reason = 'stolen', revoked_at = now() WHERE revoked_at IS NULL")).rejects.toThrow(/wallet_pass_revoke_valid/);
       await expect(pool.query("UPDATE wallet_passes SET revoke_reason = NULL WHERE revoked_at IS NOT NULL")).rejects.toThrow(/wallet_pass_revoke_valid/);
+      // 0021 sits on top of 0020 now: its paired rollback comes first, then 0020's.
+      await pool.query("BEGIN");
+      await pool.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"));
+      await pool.query("COMMIT");
       await pool.query("BEGIN");
       await pool.query(readFileSync(path.join(root, "docs", "rollback", "0020-wallet-pass-lifecycle-down.sql"), "utf8"));
       await pool.query("COMMIT");
@@ -375,7 +380,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(1);
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
       await run(pool, migrationsDir);
-      expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(21);
+      expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
     } finally { await pool.end(); await reference.end(); }
   }, 180_000);
 
@@ -412,4 +417,44 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       } finally { await target.end(); }
     }, 180_000);
   }
+});
+
+describe("0021 staff push subscriptions", () => {
+  it("adds only the subscription table to a populated 0020 database, and a subscription disappears with its session or user", async () => {
+    const target = await scratchDatabase("production20");
+    const fresh = await scratchDatabase("push_fresh");
+    try {
+      await run(target, folderThrough(20));
+      await seedHistory(target);
+      const before = await fingerprint(target);
+      await run(target, migrationsDir);
+      expect(await fingerprint(target)).toEqual(before);
+      expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
+      await run(fresh, migrationsDir);
+      expect(await structure(target)).toEqual(await structure(fresh));
+
+      const [location] = (await target.query("SELECT tenant_id, id FROM locations LIMIT 1")).rows as Array<{ tenant_id: string; id: string }>;
+      await target.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('push-user', 'Synthetic', 'push@example.test', false)`);
+      for (const session of ["push-session-a", "push-session-b"]) await target.query(`INSERT INTO "session" (id, "expiresAt", token, "updatedAt", "userId") VALUES ($1, now() + interval '1 day', $1, now(), 'push-user')`, [session]);
+      const subscribe = (endpoint: string, session: string) => target.query("INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth) VALUES ($1, $2, 'push-user', $3, $4, 'k', 'a')", [location.tenant_id, location.id, session, endpoint]);
+      await subscribe("https://fcm.googleapis.com/fcm/send/a", "push-session-a");
+      await subscribe("https://fcm.googleapis.com/fcm/send/b", "push-session-b");
+      await expect(subscribe("http://insecure.example.test/x", "push-session-a")).rejects.toThrow(/staff_push_endpoint_https/);
+      await expect(subscribe("https://fcm.googleapis.com/fcm/send/a", "push-session-b")).rejects.toThrow(/endpoint_unique/);
+      await target.query(`DELETE FROM "session" WHERE id = 'push-session-a'`);
+      expect((await target.query("SELECT endpoint FROM staff_push_subscriptions")).rows).toEqual([{ endpoint: "https://fcm.googleapis.com/fcm/send/b" }]);
+      await target.query(`DELETE FROM "user" WHERE id = 'push-user'`);
+      expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
+
+      // The paired rollback returns exactly the 0020 schema and refuses to run twice.
+      const schema20 = await scratchDatabase("push_schema20");
+      try { await run(schema20, folderThrough(20)); await target.query("BEGIN");
+        await target.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"));
+        await target.query("COMMIT");
+        expect(await structure(target)).toEqual(await structure(schema20));
+        expect(await fingerprint(target)).toEqual(before);
+        await expect(target.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"))).rejects.toThrow(/0021 rollback refused/);
+      } finally { await schema20.end(); }
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
 });

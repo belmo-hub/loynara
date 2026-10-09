@@ -1,7 +1,9 @@
+import { after } from "next/server";
 import { DomainError } from "@/lib/loyalty";
 import { requireSameOrigin, respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { previewSecureTap, processSecureTap, tapCardToken, tapProgramId } from "@/lib/secure-tap";
+import { dispatchTapPushNow } from "@/lib/staff-push";
 
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 function fields(request: Request) {
@@ -27,6 +29,9 @@ export async function POST(request: Request, context: { params: Promise<{ ref: s
   try {
     requireSameOrigin(request);
     if (request.headers.get("content-length") && request.headers.get("content-length") !== "0") throw new DomainError("INVALID_TAP", "Tap request invalid");
-    return Response.json(await processSecureTap(await input(request, (await context.params).ref)), { headers });
+    const { pushJobId, ...result } = await processSecureTap(await input(request, (await context.params).ref));
+    // Wake the cashier phones now rather than at the worker's next poll; the worker retries anything that fails here.
+    if (pushJobId) after(() => dispatchTapPushNow(pushJobId));
+    return Response.json(result, { headers });
   } catch (error) { return respondError(error); }
 }
