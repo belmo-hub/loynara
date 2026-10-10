@@ -17,3 +17,7 @@ Next dependencies: complete global verification and local integration, child Don
 ## Final configured verification — 2026-10-10
 
 Final application/test source: 154 actual files, 1,427 PASS, 0 FAIL, 1 existing opt-in Mailpit SKIP, exit 0. Evidence: /private/tmp/loy165-location-global.json and corresponding log; focused JSON/log, RED JSON/log and build/type logs use the same loy165-location prefix. No unexpected failures or weakened assertions. The skip does not establish current real email/provider acceptance.
+
+## Verified integration / tracker receipt — 2026-10-10 18:44 UTC
+
+Code34df813f55e566041489ca33bd75b25171069ab0 fast-forward integrated into canonical codex/loynara-engineering-integration. Integrated focused3files20PASS0FAIL0SKIP; clean tree, frozenNFC32b27exact and campaign/diagnostic ancestry verified. LOY-275 StageDone/EvidenceAutomatedTestsVerified readback, resolved18:44:39UTC/comment7-84. Parent165InReview and166Backlog remain open. This traceable amendment replaces pending integration/Done wording above. Latest native cumulative3,346,841reportedtokens/18,797sec, accounting not reset; detailed categories unmeasured. Coordinator review033 pending; no push/deployment/independent acceptance.
