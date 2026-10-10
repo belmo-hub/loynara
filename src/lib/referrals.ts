@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -112,6 +112,21 @@ async function verifiedEmail(tx: Transaction, tenantId: string, membershipId: st
   return contact?.verified && contact.email ? contact.email.trim().toLowerCase() : null;
 }
 
+/** A current verified contact is a known duplicate signal, not anonymous identity proof. */
+async function hasCreditedVerifiedReferral(tx: Transaction, referral: Referral, email: string) {
+  // Member locks are already held. Serialize same-identity qualification without putting contact data in lock keys.
+  const lockKey = createHash("sha256").update(JSON.stringify(["loynara-referral-verified-v1", referral.tenantId, referral.programId, email])).digest("hex");
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+  const [prior] = await tx.select({ id: referrals.id }).from(referrals)
+    .innerJoin(membershipContacts, and(eq(membershipContacts.tenantId, referrals.tenantId), eq(membershipContacts.membershipId, referrals.referredMembershipId)))
+    .where(and(
+      eq(referrals.tenantId, referral.tenantId), eq(referrals.programId, referral.programId),
+      sql`${referrals.id} <> ${referral.id}`, sql`${referrals.qualifiedAt} is not null`, sql`${referrals.status} <> 'reversed'`,
+      eq(membershipContacts.emailVerified, true), sql`lower(trim(${membershipContacts.email})) = ${email}`,
+    )).limit(1);
+  return Boolean(prior);
+}
+
 function bonusKey(referralId: string, recipient: "referrer" | "referred") { return `referral:${referralId}:${recipient}`; }
 function reversalKey(referralId: string, recipient: "referrer" | "referred") { return `referral:${referralId}:reverse:${recipient}`; }
 
@@ -151,6 +166,7 @@ export async function qualifyReferralOnAward(tx: Transaction, input: {
     const referrerEmail = await verifiedEmail(tx, input.tenantId, referrer.id);
     const referredEmail = await verifiedEmail(tx, input.tenantId, referred.id);
     if (referrerEmail && referredEmail && referrerEmail === referredEmail) reviewReason = "same_verified_email";
+    else if (referredEmail && await hasCreditedVerifiedReferral(tx, referral, referredEmail)) reviewReason = "duplicate_verified_email";
     else if (referrer.balance + referral.referrerBonus > 2_147_483_647 || referred.balance + referral.referredBonus > 2_147_483_647) reviewReason = "balance_limit";
   }
   if (reviewReason) {

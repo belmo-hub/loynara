@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, membershipContacts, memberships, referrals, staffRoles } from "@/db/schema";
 import { formatCardLocator } from "./card-locator";
+import { createAdditionalLocation } from "./locations";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll, getMerchantRewards } from "./product";
 import { configureReferrals, getCardReferralShare, getReferralSettings, listReferrals, reviewReferral } from "./referrals";
@@ -180,5 +181,111 @@ describe("referral progress shown to merchant and customer", () => {
       expect(row.referrerCard).toBe(formatCardLocator(referrerRow.locator));
       expect(JSON.stringify(row)).not.toContain(referrer.id);
     }
+  });
+});
+
+
+describe("known verified referred identity abuse", () => {
+  it("holds a second card sharing an already qualified verified identity for owner review", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId);
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const referrerA = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const referrerB = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const codeA = new URL((await getCardReferralShare(referrerA.cardToken)).shareUrl).searchParams.get("ref")!;
+    const codeB = new URL((await getCardReferralShare(referrerB.cardToken)).shareUrl).searchParams.get("ref")!;
+    const first = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: codeA });
+    const duplicate = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: codeB });
+    await db.insert(membershipContacts).values([
+      { tenantId: merchant.tenantId, membershipId: first.id, email: "known-person@example.test", emailVerified: true },
+      { tenantId: merchant.tenantId, membershipId: duplicate.id, email: "KNOWN-PERSON@example.test", emailVerified: true },
+    ]);
+    await awardOne({ ownerId, locationId: merchant.locationId, membershipId: first.id });
+    await awardOne({ ownerId, locationId: merchant.locationId, membershipId: duplicate.id });
+    const rows = await listReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug });
+    expect(rows.filter(row => row.status === "qualified")).toHaveLength(1);
+    expect(rows.find(row => row.status === "review")).toMatchObject({ reviewReason: "duplicate_verified_email", hasCreditedBonus: false });
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.source, "referral_bonus"))).toHaveLength(2);
+    expect((await db.select().from(memberships).where(eq(memberships.id, duplicate.id)))[0].balance).toBe(1);
+    expect((await db.select().from(memberships).where(eq(memberships.id, referrerB.id)))[0].balance).toBe(0);
+    expect(JSON.stringify(rows)).not.toContain("known-person@example.test");
+    const foreignOwner = await user();
+    await expect(reviewReferral({ actorUserId: foreignOwner, referralId: rows.find(row => row.status === "review")!.id, action: "reject", reason: "Unauthorized rejection attempt" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+
+describe("verified referral duplicate concurrency", () => {
+  it("credits only one known identity across concurrent different referrers", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId);
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const recipients = [];
+    for (let index = 0; index < 2; index++) {
+      const referrer = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+      const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+      const referred = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: code });
+      await db.insert(membershipContacts).values({ tenantId: merchant.tenantId, membershipId: referred.id, email: "race-person@example.test", emailVerified: true });
+      recipients.push(referred);
+    }
+    await Promise.all(recipients.map(member => awardOne({ ownerId, locationId: merchant.locationId, membershipId: member.id })));
+    const rows = await listReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug });
+    expect(rows.map(row => row.status).sort()).toEqual(["qualified", "review"]);
+    expect(rows.find(row => row.status === "review")).toMatchObject({ reviewReason: "duplicate_verified_email", hasCreditedBonus: false });
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.source, "referral_bonus"))).toHaveLength(2);
+  });
+});
+
+
+async function knownPair(ownerId: string, merchant: { tenantId: string; programSlug: string; locationId: string }, verified: boolean | null = true) {
+  const referrer = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+  const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+  const referred = await enroll({ slug: merchant.programSlug, acceptedTerms: true, referralCode: code });
+  if (verified !== null) await db.insert(membershipContacts).values({ tenantId: merchant.tenantId, membershipId: referred.id, email: "known-person@example.test", emailVerified: verified });
+  const qualify = () => awardOne({ ownerId, locationId: merchant.locationId, membershipId: referred.id });
+  return { referrer, referred, qualify };
+}
+
+describe("verified identity guard boundaries", () => {
+  it.each([false, null])("does not infer identity from unverified or absent contacts (%s)", async verified => {
+    const ownerId = await user(); const merchant = await shop(ownerId);
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const a = await knownPair(ownerId, merchant, verified); const b = await knownPair(ownerId, merchant, verified);
+    await a.qualify(); await b.qualify();
+    expect((await listReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug })).map(row => row.status)).toEqual(["qualified", "qualified"]);
+  });
+  it.each(["tenant", "programme"])("does not carry verified identity limits across another %s", async scope => {
+    const ownerId = await user(); const a = await shop(ownerId);
+    const ownerB = scope === "tenant" ? await user() : ownerId;
+    const b = scope === "tenant" ? await shop(ownerB, "Other merchant") : { ...await createAdditionalLocation(ownerId, { name: "Other location", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Other programme", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 }), tenantId: a.tenantId };
+    for (const [owner, merchant] of [[ownerId, a], [ownerB, b]] as const) {
+      await configureReferrals({ actorUserId: owner, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+      await (await knownPair(owner, merchant)).qualify();
+      expect((await listReferrals({ actorUserId: owner, programSlug: merchant.programSlug }))[0].status).toBe("qualified");
+    }
+  });
+  it.each([true, false])("retained bonus blocks duplicates while complete reversal restores eligibility (spent: %s)", async spent => {
+    const ownerId = await user(); const merchant = await shop(ownerId);
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 5, referredBonus: 1 });
+    const first = await knownPair(ownerId, merchant); const credited = await first.qualify();
+    if (spent) {
+      const [reward] = await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug });
+      await redeem({ userId: ownerId, locationId: merchant.locationId, membershipId: first.referrer.id, rewardVersionId: reward.versionId, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    }
+    await reverseEntry({ userId: ownerId, locationId: merchant.locationId, entryId: credited.entryId, reason: "Synthetic checkout correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const second = await knownPair(ownerId, merchant); await second.qualify();
+    const row = (await db.select().from(referrals)).find(row => row.referredMembershipId === second.referred.id)!;
+    expect(row.status).toBe(spent ? "review" : "qualified");
+    expect(row.reviewReason).toBe(spent ? "duplicate_verified_email" : null);
+    expect((await db.select().from(memberships).where(eq(memberships.id, second.referrer.id)))[0].balance).toBe(spent ? 0 : 5);
+  });
+  it("preserves configured bonus bounds and integer balance limits", async () => {
+    const ownerId = await user(); const merchant = await shop(ownerId);
+    for (const bonus of [-1, 1001]) await expect(configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: bonus, referredBonus: 1 })).rejects.toThrow();
+    await configureReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 1000, referredBonus: 1 });
+    const pair = await knownPair(ownerId, merchant);
+    await db.update(memberships).set({ balance: 2_147_483_647 }).where(eq(memberships.id, pair.referrer.id));
+    await pair.qualify();
+    expect((await listReferrals({ actorUserId: ownerId, programSlug: merchant.programSlug }))[0]).toMatchObject({ status: "review", reviewReason: "balance_limit", hasCreditedBonus: false });
   });
 });

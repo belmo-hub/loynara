@@ -14,6 +14,7 @@ const STATUS: Record<string, string> = { pending: "Wartet auf den ersten Kassenv
 const status = (value: string) => STATUS[value] ?? value;
 function reviewReason(value: string | null) {
   switch (value) {
+    case "duplicate_verified_email": return "Eine andere Karte mit derselben verifizierten E-Mail-Adresse hat bereits einen Empfehlungsbonus ausgelöst.";
     case "same_verified_email": return "Beide Karten haben dieselbe verifizierte E-Mail-Adresse.";
     case "bonus_spent": return "Ein Bonus wurde bereits eingelöst oder ausgegeben.";
     case "owner_required": return "Die Korrektur überschreitet die Befugnis der Standortleitung.";
