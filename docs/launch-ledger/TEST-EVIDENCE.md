@@ -49,3 +49,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 2026-10-10 LOY279 actual child-worker stale404/410/403/201 × changed/unchanged registration keys; refreshed state and foreign-row isolation, subsequent wake-up. [Evidence](LOY-279-push-registration-fence-2026-10-10.md).
+
+
+2026-10-10 assignment041 actual PostgreSQL closure membership-lock ordering; focused4files31PASS0FAIL1existingMailpitSKIP, unchanged app. [Evidence](LOY-161-policy-and-closure-ordering-2026-10-10.md).

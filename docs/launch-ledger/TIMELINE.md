@@ -63,3 +63,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 IMPLEMENTED/TESTED LOY279 cashier Web Push registration-generation fence; actual-worker stale404/403/201 RED3, eight races plus existing focused20PASS. [Entry](LOY-279-push-registration-fence-2026-10-10.md).
+
+
+2026-10-10 assignment041:161 inactive-entitlement policy undefined; executed33fallback, two real-PG closure-vs-recovery/reissue regressions pass on unchanged app. [Entry](LOY-161-policy-and-closure-ordering-2026-10-10.md).

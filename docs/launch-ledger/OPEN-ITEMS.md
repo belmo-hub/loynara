@@ -39,3 +39,6 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 2026-10-10 LOY279 closes only bounded stale-registration-result coding after verification/integration; LOY85/86 full device/provider acceptance remains open. Push/deployment trigger verification remains outstanding. [Entry](LOY-279-push-registration-fence-2026-10-10.md).
+
+
+2026-10-10 LOY161 inactive-location feature denial requires established commercial policy; fixture cancellation/grace is not authorization. Exact founder action queued,33fallback independently tested; broad gates open. [Entry](LOY-161-policy-and-closure-ordering-2026-10-10.md).

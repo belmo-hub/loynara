@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { cardRecoveryChallenges, cardSecurityEvents, consentEvents, contactVerificationChallenges, memberships, outboxJobs } from "@/db/schema";
+import { cardRecoveryChallenges, cardSecurityEvents, consentEvents, contactVerificationChallenges, ledgerEntries, memberships, outboxJobs } from "@/db/schema";
 import { createMerchant, enroll, getCard } from "./product";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
+import { reissueCardByStaff } from "./card-reissue";
 import { consumeContactVerification, removeRecoveryEmail, requestContactVerification } from "./contact-verification";
 import { recoveryTokenForChallenge, verificationTokenForChallenge } from "./contact-token";
 import { completeCardRecovery, recoveryGenericMessage, recoveryOptions, requestCardRecovery } from "./card-recovery";
@@ -186,3 +187,49 @@ describe("lost browser-card recovery", () => {
     expect(body.total).toBeGreaterThan(0);
   });
 });
+
+
+it.each(["recovery", "reissue"] as const)("keeps committed closure authoritative over a waiting %s transaction", async kind => {
+  const f = await fixture(); const foreign = await fixture("foreign-holder@example.test");
+  await award({ userId: f.userId, locationId: f.merchant.locationId, membershipId: f.card.id, quantity: 2, requestId: randomUUID(), idempotencyKey: randomUUID() });
+  const token = await recovery();
+  const ledgerBefore = (await pool.query("SELECT * FROM ledger_entries WHERE membership_id=$1 ORDER BY id", [f.card.id])).rows;
+  const foreignBefore = (await pool.query("SELECT * FROM memberships WHERE id=$1", [foreign.card.id])).rows;
+  const gate = await pool.connect();
+  let closure: ReturnType<typeof closeCard> | undefined;
+  let attempt: Promise<unknown> | undefined;
+  const waitForLock = async (fragment: string) => {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const result = await pool.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query ILIKE $1", [`%${fragment}%`]);
+      if (result.rowCount) return;
+      await new Promise(done => setTimeout(done, 10));
+    }
+    throw new Error(`Expected actual PostgreSQL lock wait: ${fragment}`);
+  };
+  const reissue = () => reissueCardByStaff({ actorUserId: f.userId, locationId: f.merchant.locationId, membershipId: f.card.id, reason: "Synthetic verified lost phone", verificationMethod: "card_link", entitlementConfirmed: true, idempotencyKey: randomUUID() });
+  try {
+    await gate.query("BEGIN"); await gate.query("LOCK TABLE outbox_jobs IN SHARE MODE");
+    closure = closeCard(f.card.cardToken); void closure.catch(() => undefined);
+    // Closure owns the membership lock; its ordinary outbox cleanup waits at this database barrier.
+    await waitForLock('update "outbox_jobs"');
+    attempt = kind === "recovery" ? completeCardRecovery(token, f.card.id) : reissue();
+    void attempt.catch(() => undefined);
+    await waitForLock("memberships");
+    await gate.query("COMMIT");
+    expect(await closure).toMatchObject({ closed: true });
+    await expect(attempt).rejects.toMatchObject({ code: kind === "recovery" ? "INVALID_RECOVERY" : "NOT_FOUND" });
+    await expect(getCard(f.card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const stored = (await pool.query("SELECT closed_at,balance,card_token,scan_code FROM memberships WHERE id=$1", [f.card.id])).rows[0];
+    expect(stored.closed_at).toBeInstanceOf(Date); expect(stored.balance).toBe(2);
+    expect(stored.card_token).toMatch(/^retired_card_/); expect(stored.scan_code).toMatch(/^retired_sc_/);
+    expect((await pool.query("SELECT * FROM ledger_entries WHERE membership_id=$1 ORDER BY id", [f.card.id])).rows).toEqual(ledgerBefore);
+    expect((await pool.query("SELECT * FROM memberships WHERE id=$1", [foreign.card.id])).rows).toEqual(foreignBefore);
+    expect(await db.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.membershipId, f.card.id))).toEqual([]);
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toEqual([]);
+    await expect(kind === "recovery" ? completeCardRecovery(token, f.card.id) : reissue()).rejects.toMatchObject({ code: kind === "recovery" ? "INVALID_RECOVERY" : "NOT_FOUND" });
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, f.card.id))).toHaveLength(ledgerBefore.length);
+  } finally {
+    await gate.query("ROLLBACK"); gate.release(); await Promise.allSettled([closure, attempt]);
+  }
+}, 15000);
