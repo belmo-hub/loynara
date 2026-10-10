@@ -54,3 +54,6 @@ LOY43 supported closure/export ordinary query-failure rollback locally verified;
 
 
 LOY153 bounded HTTP permissions verified; full153/154 independent acceptance OPEN. Existing coordinator reopened but ChatGPT signed out; human auth restoration requested, reports042–045 unsent. [Entry](LOY-153-authenticated-http-permissions-2026-10-10.md).
+
+
+2026-10-11 [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md) is bounded local expiry fencing only. LOY139/140 broad/provider acceptance remains open. Inherited attempt-counter reuse after quiet deferral requires separate coordinator-directed technical investigation; no globally unique claim-generation guarantee added. Remote push remains held for unknown hosted triggers.

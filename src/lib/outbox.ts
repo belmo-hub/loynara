@@ -56,12 +56,19 @@ export async function markOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJ
 /**
  * A quiet-hours deferral is not a failed delivery: the attempt that was just claimed is given back and the job sleeps
  * until the allowed time, so waiting overnight can never push it toward the retry limit.
+ * Like completion and renewal, an expired or replaced owner cannot reschedule the job.
  */
 export async function deferOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts">, reason: string, until: Date) {
-  await pool.query(
-    "UPDATE outbox_jobs SET status = 'retry', attempts = attempts - 1, last_error = $2, next_attempt_at = $3 WHERE id = $1 AND status = 'processing' AND attempts = $4",
+  const result = await pool.query(
+    `WITH locked AS MATERIALIZED (
+       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND status = 'processing' AND attempts = $4 FOR UPDATE
+     ), owned AS MATERIALIZED (
+       SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
+     ) UPDATE outbox_jobs SET status = 'retry', attempts = attempts - 1, last_error = $2, next_attempt_at = $3
+       FROM owned WHERE outbox_jobs.id = owned.id`,
     [job.id, reason.slice(0, 300), until, job.attempts],
   );
+  return result.rowCount === 1;
 }
 
 /** Renewal cannot revive an expired claim, even if no replacement worker has claimed it yet. */

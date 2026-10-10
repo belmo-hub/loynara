@@ -78,3 +78,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 TESTED LOY153 real authenticated invitation/revocation HTTP permission matrices, focused4files15PASS; no appfix or159policy. [Entry](LOY-153-authenticated-http-permissions-2026-10-10.md).
+
+
+2026-10-11 IMPLEMENTED/TESTED [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md): actual expired campaign worker rescheduled/refunded its claim on base; post-lock expiry fence and lease_lost handling, four durable real-PG/actual-process regressions. Exact final integration and suite receipt in entry.

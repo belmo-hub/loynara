@@ -15,3 +15,6 @@
 Append date, original file/claim, verified source, correction, and scope/status effect. Do not erase the original decision or invent authorizations. Superseded evidence links its replacement. New facts may update a current index while the historical evidence remains intact.
 
 2026-10-10 structure clarification: the eight requested ledger indexes were absent at verified basecd38bdcd, despite16 existing task entries. This slice creates them and preserves those16 entries byte-for-byte; no claim of complete historical audit or deployment acceptance.
+
+
+2026-10-11 [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md): inherited quiet-deferral attempt refund may reuse an attempt number after future reclaims (ABA); not independently reproduced in047, not fixed or accepted risk. Expired-owner fence covers the demonstrated gap only. Coordinator review must select/authorize any broader claim-identity investigation; no new queue architecture inferred.

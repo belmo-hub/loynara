@@ -29,7 +29,11 @@ const monitorPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 
 
 const claimJob = () => claimOutboxJob(workerDatabase, { maxAttempts, leaseMinutes });
 const mark = (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => markOutboxJob(workerDatabase, job, status, reason, delaySeconds);
-const defer = (job: Job, reason: string, until: Date) => deferOutboxJob(workerDatabase, job, reason, until);
+const defer = async (job: Job, reason: string, until: Date) => {
+  const owned = await deferOutboxJob(workerDatabase, job, reason, until);
+  if (!owned) stop();
+  return owned ? "retry" : "lease_lost";
+};
 
 async function processJob(job: Job, claimedAt: number) {
   if (job.kind === "email.verify") {
@@ -86,7 +90,7 @@ async function processJob(job: Job, claimedAt: number) {
     try {
       const { deliverCampaignRecipient } = await import("../src/lib/campaigns");
       const result = await deliverCampaignRecipient(job);
-      if (result.status === "deferred") { await defer(job, result.reason, result.until); return "retry"; }
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
       const status = result.status === "retry" && job.attempts >= maxAttempts ? "failed" : result.status;
       const delay = status === "retry" ? Math.max(Math.min(3600, 10 * 2 ** (job.attempts - 1)),
         result.retryAt ? Math.ceil((result.retryAt.getTime() - Date.now()) / 1000) : 0) : 0;
@@ -106,7 +110,7 @@ async function processJob(job: Job, claimedAt: number) {
       const result = job.kind === "automation.event" ? await processAutomationEvent(job)
         : job.kind === "automation.scan" ? await processAutomationScan(job)
           : await deliverAutomationRun(job);
-      if (result.status === "deferred") { await defer(job, result.reason, result.until); return "retry"; }
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
       const status = result.status === "retry" && job.attempts >= maxAttempts ? "failed" : result.status;
       const delay = status === "retry" ? Math.max(Math.min(3600, 10 * 2 ** (job.attempts - 1)),
         result.retryAt ? Math.ceil((result.retryAt.getTime() - Date.now()) / 1000) : 0) : 0;
