@@ -40,3 +40,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 2026-10-10 LOY-278: real-PG export concurrency RED1 →focused5files27PASS; real division-by-zero rollback/reused-client and 50k boundary coverage; [evidence](LOY-278-owner-export-snapshot-2026-10-10.md).
+
+
+2026-10-10 assignment038: actual webhook503→rollback→sameevent200→duplicate200; owner redemption/reversal consistent snapshots. Focused4files47PASS; unchanged app; [entry](LOY-139-retry-and-owner-export-regressions-2026-10-10.md).

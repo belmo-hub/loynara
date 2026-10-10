@@ -30,3 +30,6 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 2026-10-10 LOY-278 closes only owner export snapshot coding after final verification/integration. LOY165/166 independent reporting/export acceptance and209 privacy/retention contract remain open; unchanged format4 does not add missing referral/campaign fields. [Entry](LOY-278-owner-export-snapshot-2026-10-10.md).
+
+
+2026-10-10 assignment038 adds bounded retry/export verification; parent139/140/165/166 and legacyeventday/provider/physical gates remain open. No fullscopecompletion claim. [Entry](LOY-139-retry-and-owner-export-regressions-2026-10-10.md).

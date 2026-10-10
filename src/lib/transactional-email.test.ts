@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { emailDeliveries, emailProviderEvents, emailSuppressions, outboxJobs, tenants } from "@/db/schema";
 import { emailTransportMode, mailgunEuProvider, promotionalEmailMode, promotionalProvider, recordMailgunWebhook, recipientHash, sendPromotional, sendTransactional, verifyMailgunWebhook } from "./transactional-email";
+import { POST as webhookPost } from "../app/api/email/mailgun/webhook/route";
 import { productionConfigIssues } from "../../scripts/config-check";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Email adapter tests require looplocal_test");
@@ -410,4 +411,51 @@ it.each(["complained", "permanent_fail"] as const)("upgrades a prior promotional
   const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: "<unused@example.test>" })) };
   expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
   expect(provider.send).not.toHaveBeenCalled();
+});
+
+
+it.each(["delivery update", "suppression insert"] as const)("retries a signed complaint atomically after PostgreSQL failure at %s", async failurePoint => {
+  const first = await job(); const other = await job();
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: first.id }, provider);
+  await sendTransactional({ to: "other@example.test", subject: "Synthetic", body: "Synthetic", jobId: other.id }, provider);
+  const event = signed("complained", first.id);
+  const request = (body: unknown) => new Request("http://localhost:3000/api/email/mailgun/webhook", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const query = Client.prototype.query;
+  let injected = false;
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    const target = failurePoint === "delivery update" ? text?.startsWith('update "email_deliveries"') : text?.startsWith('insert into "email_suppressions"');
+    if (!injected && target) {
+      injected = true;
+      // Cause a real PostgreSQL error after deduplication, not a fabricated
+      // result or handler mock. At suppression insert, delivery already changed
+      // within the transaction and must also roll back.
+      return Reflect.apply(query, this, ["select 1 / 0"]);
+    }
+    return Reflect.apply(query, this, args);
+  }) as typeof query);
+  try {
+    expect((await webhookPost(request(event))).status).toBe(503);
+    expect(injected).toBe(true);
+    expect(await db.select().from(emailProviderEvents)).toHaveLength(0);
+    expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+    expect((await db.select().from(emailDeliveries).where(eq(emailDeliveries.jobId, first.id)))[0].status).toBe("accepted");
+    expect((await webhookPost(request(event))).status).toBe(200);
+    const events = await db.select().from(emailProviderEvents);
+    const suppressions = await db.select().from(emailSuppressions);
+    expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ jobId: first.id, event: "complained" });
+    expect(suppressions).toHaveLength(1); expect(suppressions[0]).toMatchObject({ recipientHash: recipientHash("holder@example.test"), reason: "complained" });
+    const delivery = (await db.select().from(emailDeliveries).where(eq(emailDeliveries.jobId, first.id)))[0];
+    expect(delivery.status).toBe("complained");
+    expect((await webhookPost(request(event))).status).toBe(200);
+    expect(await db.select().from(emailProviderEvents)).toEqual(events);
+    expect(await db.select().from(emailSuppressions)).toEqual(suppressions);
+    expect((await db.select().from(emailDeliveries).where(eq(emailDeliveries.jobId, first.id)))[0]).toEqual(delivery);
+    const forged = { ...event, signature: { ...event.signature, signature: "0".repeat(64) } };
+    expect((await webhookPost(request(forged))).status).toBe(406);
+    expect((await db.select().from(emailDeliveries).where(eq(emailDeliveries.jobId, other.id)))[0].status).toBe("accepted");
+    expect(await db.select().from(emailSuppressions).where(eq(emailSuppressions.recipientHash, recipientHash("other@example.test")))).toHaveLength(0);
+    expect(provider.send).toHaveBeenCalledTimes(2);
+  } finally { spy.mockRestore(); }
 });

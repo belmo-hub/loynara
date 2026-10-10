@@ -2,20 +2,26 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
-import { memberships } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { memberships, rewardVersions } from "@/db/schema";
 import { getMerchantExport } from "./export";
-import { award } from "./loyalty";
+import { award, redeem, reverseEntry } from "./loyalty";
 import { addStaff, nfcFixture } from "./nfc-test-db";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
 
-it("exports membership balances and ledger from one snapshot while a cashier award commits", async () => {
+it.each(["award", "redemption", "reversal"] as const)("exports membership balances and ledger from one snapshot while an authorized %s commits", async operation => {
   const first = await nfcFixture(); const foreign = await nfcFixture();
   const cashier = await addStaff(first.tenant.id, first.location.id, "cashier");
   const [another] = await db.insert(memberships).values({ tenantId: first.tenant.id, programId: first.program.id, scanCode: `sc_${randomUUID()}`, cardToken: `card_${randomUUID().replaceAll("-", "")}${randomUUID().replaceAll("-", "").slice(0, 8)}` }).returning();
-  for (const [f, quantity] of [[first, 2], [foreign, 7]] as const) await award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() });
+  for (const [f, quantity] of [[first, operation === "award" ? 2 : 8], [foreign, 7]] as const) await award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() });
+  const [version] = await db.select().from(rewardVersions).where(eq(rewardVersions.tenantId, first.tenant.id));
+  const redeemInput = { userId: cashier, locationId: first.location.id, membershipId: first.member.id, rewardVersionId: version.id, idempotencyKey: randomUUID(), requestId: randomUUID() };
+  const prior = operation === "reversal" ? await redeem(redeemInput) : null;
+  const oldBalance = operation === "award" ? 2 : prior ? 0 : 8;
+  const freshBalance = operation === "award" ? 5 : prior ? 8 : 0;
   let readReady!: () => void; const read = new Promise<void>(resolve => { readReady = resolve; });
   let release!: () => void; const resume = new Promise<void>(resolve => { release = resolve; });
   const original = Client.prototype.query;
@@ -43,18 +49,23 @@ it("exports membership balances and ledger from one snapshot while a cashier awa
   try {
     pending = getMerchantExport(first.userId);
     await Promise.race([read, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Actual export membership read not reached")), 2000); })]);
-    await expect(award({ userId: cashier, locationId: first.location.id, membershipId: first.member.id, quantity: 3, idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 5 });
+    const mutation = operation === "award"
+      ? award({ userId: cashier, locationId: first.location.id, membershipId: first.member.id, quantity: 3, idempotencyKey: randomUUID(), requestId: randomUUID() })
+      : prior ? reverseEntry({ userId: first.userId, locationId: first.location.id, entryId: prior.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() }) : redeem(redeemInput);
+    await expect(mutation).resolves.toMatchObject({ balance: freshBalance });
     holdLedger = false; release();
     const exported = await pending;
     expect(exported).toMatchObject({ formatVersion: 4, scope: "owner-business-data-without-card-or-contact-credentials" });
     expect(exported.memberships.map(row => row.id)).toEqual(expect.arrayContaining([first.member.id, another.id]));
     for (const member of exported.memberships) expect(member.balance).toBe(exported.ledger.filter(row => row.membershipId === member.id).reduce((sum, row) => sum + row.delta, 0));
-    expect(exported.memberships.find(row => row.id === first.member.id)?.balance).toBe(2);
+    expect(exported.memberships.find(row => row.id === first.member.id)?.balance).toBe(oldBalance);
+    expect(exported.redemptions).toHaveLength(prior ? 1 : 0);
     const serialized = JSON.stringify(exported);
     for (const excluded of [first.member.cardToken, first.member.scanCode, foreign.member.id, foreign.tenant.id]) expect(serialized).not.toContain(excluded);
     const fresh = await getMerchantExport(first.userId);
-    expect(fresh.memberships.find(row => row.id === first.member.id)?.balance).toBe(5);
-    expect(fresh.ledger.filter(row => row.membershipId === first.member.id).reduce((sum, row) => sum + row.delta, 0)).toBe(5);
+    expect(fresh.memberships.find(row => row.id === first.member.id)?.balance).toBe(freshBalance);
+    expect(fresh.redemptions).toHaveLength(operation === "award" ? 0 : 1);
+    expect(fresh.ledger.filter(row => row.membershipId === first.member.id).reduce((sum, row) => sum + row.delta, 0)).toBe(freshBalance);
     expect((await getMerchantExport(foreign.userId)).memberships[0].balance).toBe(7);
     await expect(getMerchantExport(cashier)).rejects.toMatchObject({ code: "FORBIDDEN" });
   } finally {

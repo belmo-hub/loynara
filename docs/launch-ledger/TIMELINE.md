@@ -54,3 +54,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10: IMPLEMENTED/TESTED LOY-278 owner format4 export snapshot; actual balance2/ledger5 RED →27focusedPASS; failure cleanup and 50,000/50,001 boundary preserved. [Entry](LOY-278-owner-export-snapshot-2026-10-10.md).
+
+
+2026-10-10 TESTED LOY139 actual signed route failed-PG rollback/retry/idempotency; authorizedfallback165 concurrent redemption/reversal owner exports, negativecontrol2expectedFAIL. Four durable regressions, noappdefect. [Entry](LOY-139-retry-and-owner-export-regressions-2026-10-10.md).
