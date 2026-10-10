@@ -25,3 +25,5 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 2026-10-10: [LOY-273 campaign audience pagination](LOY-273-campaign-audience-pages-2026-10-10.md), related125/129: realPG499/500/501/1001 boundaries and interruption/replay; finalglobal153files1422PASS/0FAIL/1existingSKIP, build/type/lintPASS. Sending quotas retained. FirstWallet-hook timeout preserved with current/base9PASS comparisons. No deployment/provider acceptance or fullscope completion.
+
+2026-10-10 LOY139 event-day dedupe codegapconfirmed. Legacytimestamp/accountmetadata absent; coordinatorcompatibilitydesign and conditionalread-onlyproductionlegacy/provider mapping evidence needed. Ownerexportfallback independent. [Checkpoint](LOY-139-event-day-compatibility-2026-10-10.md).

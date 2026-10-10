@@ -1,0 +1,26 @@
+diff --git a/src/lib/transactional-email.test.ts b/src/lib/transactional-email.test.ts
+index 64a9f03..a54365e 100644
+--- a/src/lib/transactional-email.test.ts
++++ b/src/lib/transactional-email.test.ts
+@@ -411,3 +411,21 @@ it.each(["complained", "permanent_fail"] as const)("upgrades a prior promotional
+   expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+   expect(provider.send).not.toHaveBeenCalled();
+ });
++
++
++it("processes a reused Mailgun ID on a different UTC event day while deduplicating same-day retry", async () => {
++  const { queued } = await sentJob();
++  const reusedId = randomUUID();
++  const midnight = Math.floor(Date.now() / 86_400_000) * 86_400;
++  // Both envelopes are fresh now; identity must use event-generation time,
++  // not the signing timestamp or local receipt time.
++  const prior = failure("temporary", queued.id, reusedId);
++  await recordMailgunWebhook({ ...prior, "event-data": { ...prior["event-data"], timestamp: midnight - 0.001 } });
++  const next = failure("permanent", queued.id, reusedId);
++  await recordMailgunWebhook({ ...next, "event-data": { ...next["event-data"], timestamp: midnight + 0.001 } });
++  const replay = failure("permanent", queued.id, reusedId);
++  await recordMailgunWebhook({ ...replay, "event-data": { ...replay["event-data"], timestamp: midnight + 0.001 } });
++  expect(await db.select().from(emailProviderEvents)).toHaveLength(2);
++  expect((await db.select().from(emailDeliveries))[0].status).toBe("permanent_failure");
++  expect((await db.select().from(emailSuppressions))[0].reason).toBe("permanent_fail");
++});

@@ -49,3 +49,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-10: IMPLEMENTED/TESTED LOY-276 analytics read-only repeatable snapshot; deterministic concurrent award REDbusiness1breakdown2 →22focusedPASS; final154files1429PASS0FAIL1existingSKIP; type/lint/build PASS. [Entry](LOY-276-analytics-snapshot-2026-10-10.md).
 
 2026-10-10: IMPLEMENTED/TESTED LOY-277 hard email suppression/delivery terminal guards;RED5→129focusedPASS; global154files1436PASS0FAIL1existingSKIP; type/lint/buildPASS. Independent reviewtestcleanup findings corrected. [Entry](LOY-277-hard-suppression-2026-10-10.md).
+
+2026-10-10: LOY139 event-day collision RED1 at UTCmidnight, nofix. Legacyhashed rowslackgenerationtimestamp; compatibility checkpoint/conditionalproviderdiagnostic queued. [Checkpoint](LOY-139-event-day-compatibility-2026-10-10.md).
