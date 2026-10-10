@@ -1,0 +1,24 @@
+# PROPOSED ONLY. Do not install or activate from this file without testing.
+# Native schedules must actually use these restrictions; a prompt is insufficient.
+sandbox_mode = "workspace-write"
+approval_policy = "never"
+web_search = "disabled"
+
+[sandbox_workspace_write]
+network_access = false
+
+[apps._default]
+enabled = false
+
+[mcp_servers.youtrack-loynara]
+url = "https://loynara.youtrack.cloud/mcp?tools=get_current_user,get_issue_fields_schema,search_issues,get_issue,get_issue_comments"
+enabled_tools = ["get_current_user", "get_issue_fields_schema", "search_issues", "get_issue", "get_issue_comments"]
+
+[mcp_servers.supabase]
+enabled = false
+[mcp_servers.higgsfield]
+enabled = false
+[mcp_servers.computer-use]
+enabled = false
+[mcp_servers.node_repl]
+enabled = false

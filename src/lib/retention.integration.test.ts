@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, staffRoles, programs, locations } from "@/db/schema";
@@ -95,7 +95,14 @@ describe("customer list retention filters", () => {
     const merchant = await shop(ownerId, "Synthetic Filter Café");
     const otherOwner = await user();
     const other = await shop(otherOwner, "Synthetic Foreign Café");
-    const now = Date.now();
+    // The application clock can lead PostgreSQL; every list uses the database clock.
+    const clockSkew = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+    let now: number;
+    try {
+      now = (await pool.query<{ now: Date }>("SELECT now() AS now")).rows[0].now.getTime();
+    } finally {
+      clockSkew.mockRestore();
+    }
     const ago = (days: number) => new Date(now - days * DAY);
     const regular = await card(merchant, ago(40), 4);
     await checkout(merchant, ownerId, regular.id, ago(2));

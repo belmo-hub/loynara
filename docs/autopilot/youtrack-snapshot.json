@@ -1,0 +1,802 @@
+{
+  "captured_at": "2026-10-10T01:33:00Z",
+  "source": "Read-only existing YouTrack MCP; account admin; no issue mutation",
+  "milestones": [
+    {
+      "id": "LOY-10",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-10",
+      "summary": "M9 — First Merchant Launch GO",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:50",
+      "updatedAt": "2026-10-09 12:05:35",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-9",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-9",
+      "summary": "M8 — Full-System Production Acceptance",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:50",
+      "updatedAt": "2026-10-09 12:05:32",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-8",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-8",
+      "summary": "M7 — Legal / Commercial Gates Cleared",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:49",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-7",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-7",
+      "summary": "M6 — Physical Field Kit Ready",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:49",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-6",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-6",
+      "summary": "M5 — Merchant Activation and Billing Ready",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:49",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-5",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-5",
+      "summary": "M4 — Campaigns and Retention Actions Live",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:49",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-4",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-4",
+      "summary": "M3 — NFC and Cashier-Phone Accepted",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:49",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-3",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-3",
+      "summary": "M2 — Apple and Google Wallet Accepted",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:48",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-2",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-2",
+      "summary": "M1 — Core Product Accepted",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:36:48",
+      "updatedAt": "2026-10-09 12:05:31",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Launch requirement": "Must Launch"
+      }
+    },
+    {
+      "id": "LOY-1",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-1",
+      "summary": "GROWTH — 1,000 Active Paying Locations by December 31, 2027",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:34:56",
+      "updatedAt": "2026-10-09 11:36:06",
+      "customFields": {
+        "Priority": "P3 — Improvement",
+        "Stage": "Backlog",
+        "Launch requirement": "Not Applicable"
+      }
+    }
+  ],
+  "scope_decisions": [
+    {
+      "id": "LOY-132",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-132",
+      "summary": "SCOPE DECISION REQUIRED — Decide additional messaging channels and acceptance requirements",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:49:36",
+      "updatedAt": "2026-10-09 12:07:51",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-131",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-131",
+      "summary": "Decide additional messaging channels and acceptance requirements",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:49:36",
+      "updatedAt": "2026-10-09 12:07:49",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-234",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-234",
+      "summary": "SCOPE DECISION REQUIRED — Evidence-backed trust and founder decision on first-merchant proof",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 12:04:02",
+      "updatedAt": "2026-10-09 12:05:43",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-180",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-180",
+      "summary": "SCOPE DECISION REQUIRED — Decide supported French journey and copy coverage",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:57:02",
+      "updatedAt": "2026-10-09 12:05:42",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-172",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-172",
+      "summary": "SCOPE DECISION REQUIRED — Decide launch requirements for model-based AI adviser",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:54:22",
+      "updatedAt": "2026-10-09 12:05:40",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-160",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-160",
+      "summary": "SCOPE DECISION REQUIRED — Decide multi-location staff and shared/independent programme rules",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:53:06",
+      "updatedAt": "2026-10-09 12:05:40",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-38",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-38",
+      "summary": "SCOPE DECISION REQUIRED — Purchase earning, points and multiple reward catalogue rules",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:38:01",
+      "updatedAt": "2026-10-09 12:05:35",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-60",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-60",
+      "summary": "SCOPE DECISION REQUIRED — Decide required handheld scanner compatibility",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:41:11",
+      "updatedAt": "2026-10-09 12:05:32",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-233",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-233",
+      "summary": "Evidence-backed trust and founder decision on first-merchant proof",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 12:04:02",
+      "updatedAt": "2026-10-09 12:04:02",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-179",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-179",
+      "summary": "Decide supported French journey and copy coverage",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:57:02",
+      "updatedAt": "2026-10-09 11:57:02",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-171",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-171",
+      "summary": "Decide launch requirements for model-based AI adviser",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:54:22",
+      "updatedAt": "2026-10-09 11:54:22",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-159",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-159",
+      "summary": "Decide multi-location staff and shared/independent programme rules",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:53:06",
+      "updatedAt": "2026-10-09 11:53:06",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-59",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-59",
+      "summary": "Decide required handheld scanner compatibility",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:41:11",
+      "updatedAt": "2026-10-09 11:41:11",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    },
+    {
+      "id": "LOY-37",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-37",
+      "summary": "Purchase earning, points and multiple reward catalogue rules",
+      "project": "LOY",
+      "reporter": "admin",
+      "resolvedAt": null,
+      "createdAt": "2026-10-09 11:38:01",
+      "updatedAt": "2026-10-09 11:38:01",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Execution responsibility": "Founder"
+      }
+    }
+  ],
+  "post_launch_approved": [],
+  "evidence_preserve": {
+    "id": "LOY-272",
+    "isDraft": false,
+    "url": "https://loynara.youtrack.cloud/issue/LOY-272",
+    "project": "LOY",
+    "summary": "Completed NFC candidate review/integration and local migration rehearsal; physical gate open",
+    "description": "**Requirement key**\nEVIDENCE-NFC-RC-REVIEW\n\n**Objective**\nCompleted NFC candidate review/integration and local migration rehearsal; physical gate open.\n\n**Current status**\nRC Ready. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- codex/nfc-cashier-phone-release-v1@7b15b32c10e3a5144f84c9cd05ddb23a16e9df23:docs/nfc-cashier-phone-release-review.md\n- 7b15b32c10e3a5144f84c9cd05ddb23a16e9df23:var/rc-full-suite-final.log (138 files / 1196 passed / 1 skipped)\n- 7b15b32c10e3a5144f84c9cd05ddb23a16e9df23:var/rc-browser-compiled-paced.log (22 passed; earlier failed harness runs excluded)\n\n**Required work**\nPreserve the completed review/integration record. Reconcile any later RC delta before release; do not recreate the original candidate security review as missing.\n\n**Acceptance criteria**\n- [x] Exact source candidate a93fb82f3acd46045c94a89b34c140c88e4e1b9a integrated onto 792e218a17287009067ce0993c33eda3bfc3f4b7.\n- [x] Polling limits, crash-recovered fenced push leases and post-lock expiry fixes are documented.\n- [x] Local populated migration rehearsal preserves history; physical push and deployment remain separate open gates.\n\n**Verification procedure**\nRecord exact reviewed/deployed SHA, tag reference and device versions without custody material. Customer taps while cashier is locked; generic push opens authenticated location, K-number matches and explicit confirmation awards once. Race confirmations, expire/replay requests, revoke session, deny push and exercise QR/polling fallback. Inspect sanitized ledger/queue deltas.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nReviewed NFC RC worktree and populated isolated migration rehearsal; production/tag/device acceptance remains separately authorized. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nVerified saved RC review and local test logs. This record accepts review/integration/local rehearsal only. No physical-device or production acceptance is claimed.",
+    "reporter": "admin",
+    "parentIssue": {
+      "id": "LOY-13",
+      "summary": "Secure NFC system"
+    },
+    "votes": 0,
+    "votedByMe": false,
+    "subscribedByMe": true,
+    "resolvedAt": "2026-10-09 12:04:50",
+    "createdAt": "2026-10-09 12:04:50",
+    "updatedAt": "2026-10-09 16:13:28",
+    "lastUpdatedBy": "admin",
+    "totalComments": 0,
+    "workItemsCount": 0,
+    "linkedIssueCounts": {
+      "is required for": 1,
+      "subtask of": 1
+    },
+    "mentionedInIssuesCount": 1,
+    "tags": [],
+    "attachments": [],
+    "customFields": {
+      "Priority": "P1 — Launch blocker",
+      "Stage": "Done",
+      "Workstream": "NFC",
+      "Launch requirement": "Must Launch",
+      "Feature maturity": "RC Ready",
+      "Execution responsibility": "Codex",
+      "Evidence state": "Automated Tests Verified",
+      "Type": "Feature",
+      "Assignee": "admin",
+      "Due Date": "15 Oct 2026"
+    },
+    "permittedUsers": [
+      "admin"
+    ]
+  },
+  "reviewed_issues": [
+    {
+      "id": "LOY-10",
+      "summary": "M9 — First Merchant Launch GO",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Workstream": "Full-System QA",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Founder",
+        "Evidence state": "Missing",
+        "Type": "Milestone",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nM9\n\n**Objective**\nM9 — First Merchant Launch GO.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nAggregate required child acceptance gates without using issue-closure percentages as readiness.\n\n**Acceptance criteria**\n- [ ] Every required child gate has independent accepted evidence.\n- [ ] No unresolved required child or scope decision remains.\n\n**Verification procedure**\nRun one timestamped full-system acceptance against the final production SHA, complete every linked required subsystem gate, document negative/failure cases and independent review. Any unresolved required scope decision or missing physical/commercial evidence keeps GO closed.\n\n**Dependencies**\n- M8\n- ACTION-A-POINTS-CATALOGUE\n- ACTION-B-HANDHELD-SCOPE\n- ACTION-G-CAMPAIGN-CHANNELS\n- ACTION-I-MULTI-LOCATION-SCOPE\n- ACTION-J-ADVICE-SCOPE\n- ACTION-K-FRENCH-SCOPE\n- ACTION-O-WEBSITE-PROOF\n\n**Environment**\nFinal production release and approved synthetic two-tenant acceptance; applicable physical/provider/professional confirmations. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nFounder. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "is required for": 1,
+        "depends on": 8,
+        "parent for": 1
+      }
+    },
+    {
+      "id": "LOY-8",
+      "summary": "M7 — Legal / Commercial Gates Cleared",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Workstream": "Legal / Privacy",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Founder",
+        "Evidence state": "Missing",
+        "Type": "Milestone",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nM7\n\n**Objective**\nM7 — Legal / Commercial Gates Cleared.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nAggregate required child acceptance gates without using issue-closure percentages as readiness.\n\n**Acceptance criteria**\n- [ ] Every required child gate has independent accepted evidence.\n- [ ] No unresolved required child or scope decision remains.\n\n**Verification procedure**\nRun one timestamped full-system acceptance against the final production SHA, complete every linked required subsystem gate, document negative/failure cases and independent review. Any unresolved required scope decision or missing physical/commercial evidence keeps GO closed.\n\n**Dependencies**\n- ACTION-P-COMMERCIAL-HANDOFF\n- ACTION-M-TENANT-SESSION\n- ACTION-M-BEARER-INTEGRITY\n- ACTION-M-ORIGIN-PRIVILEGE\n- ACTION-M-PRIVACY-RIGHTS\n- ACTION-M-PROCESSOR-CONSENT\n\n**Environment**\nFounder/professional approval and sanitized document confirmations; local/staging privacy behavior where applicable. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nFounder. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "is required for": 1,
+        "depends on": 6,
+        "parent for": 1
+      }
+    },
+    {
+      "id": "LOY-6",
+      "summary": "M5 — Merchant Activation and Billing Ready",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Workstream": "Merchant Onboarding",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Founder",
+        "Evidence state": "Missing",
+        "Type": "Milestone",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nM5\n\n**Objective**\nM5 — Merchant Activation and Billing Ready.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nAggregate required child acceptance gates without using issue-closure percentages as readiness.\n\n**Acceptance criteria**\n- [ ] Every required child gate has independent accepted evidence.\n- [ ] No unresolved required child or scope decision remains.\n\n**Verification procedure**\nIndependent operator follows the runbook on a synthetic merchant; time from approved provisioning to owner login, setup, invitation, customer stamp, redemption and support handoff. Record console steps and recovery. Do not create real merchants during this YouTrack setup.\n\n**Dependencies**\n- ACTION-H-MERCHANT-ACCOUNT\n- ACTION-H-MERCHANT-SETUP\n- ACTION-H-MERCHANT-KIT\n- ACTION-H-MERCHANT-FIRST-USE\n- ACTION-H-CONCIERGE-RUNBOOK\n- ACTION-P-BUSINESS-AUTHORIZATION\n- ACTION-P-TAX-INVOICE\n- ACTION-P-LIVE-BILLING\n- ACTION-P-MERCHANT-CONTRACTS\n- ACTION-P-PROVIDER-COMMERCIAL\n- ACTION-P-COMMERCIAL-HANDOFF\n\n**Environment**\nSynthetic merchant/operator rehearsal in isolated staging; first real merchant only after launch GO. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nFounder. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "is required for": 1,
+        "depends on": 11,
+        "parent for": 2
+      }
+    },
+    {
+      "id": "LOY-164",
+      "summary": "Independently accept Returning-customer, visit, inactivity and retention overview",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Ready",
+        "Workstream": "Analytics / Advice",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Acceptance Gate",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nACTION-J-OWNER-METRICS\n\n**Objective**\nIndependently accept Returning-customer, visit, inactivity and retention overview.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/merchant-analytics.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/retention.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/adviser.ts\n\n**Required work**\nReconcile overview/export/filters to seeded unreversed ledger and referral/campaign events with known timestamps. Check empty/stale data, location boundaries and recommendation reasoning; distinguish observed counts from causal revenue claims. Record each listed outcome separately. If the implementation is missing, identify and complete the smallest remaining implementation task before accepting this gate.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Owner overview.\n- [ ] The following capability is functional and independently accepted: Returning customers.\n- [ ] The following capability is functional and independently accepted: Visit counts.\n- [ ] The following capability is functional and independently accepted: Inactivity intervals.\n- [ ] The following capability is functional and independently accepted: Retention segmentation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nReconcile overview/export/filters to seeded unreversed ledger and referral/campaign events with known timestamps. Check empty/stale data, location boundaries and recommendation reasoning; distinguish observed counts from causal revenue claims.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nDeterministic seeded event/ledger fixtures in local/staging and independent production readback. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "is required for": 2,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-239",
+      "summary": "Approved provider, recurring payments, failure/cancellation and refund behavior",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Billing / Commercial",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Not Started",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-P-LIVE-BILLING\n\n**Objective**\nApproved provider, recurring payments, failure/cancellation and refund behavior.\n\n**Current status**\nNot Started. Audited src/lib/billing.ts implements local_fixture only. An approved hosted live payment provider, compliant invoice output and recurring payment integration are not evidenced; do not confuse a disabled billing surface with live integration. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nSelect the approved provider, implement hosted checkout/subscription integration, signed replay-safe webhooks, entitlement reconciliation and compliant invoice linkage. Keep test/live configurations distinct; authorize live activation separately. Establish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Subscription contracts.\n- [ ] The following capability is functional and independently accepted: Billing provider choice.\n- [ ] The following capability is functional and independently accepted: Recurring payments.\n- [ ] The following capability is functional and independently accepted: Failed payments.\n- [ ] The following capability is functional and independently accepted: Cancellations.\n- [ ] The following capability is functional and independently accepted: Refund policy.\n- [ ] The following capability is functional and independently accepted: Test versus live billing separation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nApproved operator/tax/contract decisions plus actual billing-provider sandbox; live activation separately authorized. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-240",
+      "summary": "Implement and accept Approved provider, recurring payments, failure/cancellation and refund behavior",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Blocked",
+        "Workstream": "Billing / Commercial",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Not Started",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Task",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nACTION-P-LIVE-BILLING\n\n**Objective**\nImplement and accept Approved provider, recurring payments, failure/cancellation and refund behavior.\n\n**Current status**\nNot Started. Audited src/lib/billing.ts implements local_fixture only. An approved hosted live payment provider, compliant invoice output and recurring payment integration are not evidenced; do not confuse a disabled billing surface with live integration. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nSelect the approved provider, implement hosted checkout/subscription integration, signed replay-safe webhooks, entitlement reconciliation and compliant invoice linkage. Keep test/live configurations distinct; authorize live activation separately. Founder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation. Record each listed outcome separately. If the implementation is missing, identify and complete the smallest remaining implementation task before accepting this gate.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Subscription contracts.\n- [ ] The following capability is functional and independently accepted: Billing provider choice.\n- [ ] The following capability is functional and independently accepted: Recurring payments.\n- [ ] The following capability is functional and independently accepted: Failed payments.\n- [ ] The following capability is functional and independently accepted: Cancellations.\n- [ ] The following capability is functional and independently accepted: Refund policy.\n- [ ] The following capability is functional and independently accepted: Test versus live billing separation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\n- ACTION-P-TAX-INVOICE\n\n**Environment**\nApproved operator/tax/contract decisions plus actual billing-provider sandbox; live activation separately authorized. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "is required for": 3,
+        "depends on": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-204",
+      "summary": "Independently accept Independent tenant/role/session and credential-recovery security acceptance",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Ready",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Acceptance Gate",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nACTION-M-TENANT-SESSION\n\n**Objective**\nIndependently accept Independent tenant/role/session and credential-recovery security acceptance.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/staff.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/card-lifecycle.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/rate-limit.ts\n- src/lib/trusted-ingress.ts\n\n**Required work**\nIndependent security reviewer runs cross-tenant/role/session/origin/replay/expiry/export/delete cases. Attach only sanitized findings and test references; approved privacy/retention/processor decisions require professional/founder confirmation, never assumptions from code. Record each listed outcome separately. If the implementation is missing, identify and complete the smallest remaining implementation task before accepting this gate.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Tenant isolation.\n- [ ] The following capability is functional and independently accepted: Role-based access.\n- [ ] The following capability is functional and independently accepted: Session security.\n- [ ] The following capability is functional and independently accepted: Credential recovery.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nIndependent security reviewer runs cross-tenant/role/session/origin/replay/expiry/export/delete cases. Attach only sanitized findings and test references; approved privacy/retention/processor decisions require professional/founder confirmation, never assumptions from code.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "is required for": 2,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-22",
+      "summary": "Infrastructure and production operations",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Epic",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nEPIC-L\n\n**Objective**\nInfrastructure and production operations.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- docs/operations/apple-wallet-pilot.md\n- scripts/worker.ts\n- src/lib/outbox.ts\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] Every required child gate has independent accepted evidence.\n- [ ] No unresolved required child or scope decision remains.\n\n**Verification procedure**\nIndependent release operator verifies actual web/worker identities, schema/journal, flags, heartbeat and fenced queue behavior. Rehearse backup restore and rollback in isolated infrastructure; test outage/alert/log-redaction controls. This task records future gates and authorizes no production mutation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 9,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-27",
+      "summary": "Sales and first-merchant acquisition",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "GTM / Sales",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Epic",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nEPIC-Q\n\n**Objective**\nSales and first-merchant acquisition.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- marketing/gtm-first-100:gtm/17-field-kit.md\n- marketing/gtm-first-100:gtm/field/README.md\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] Every required child gate has independent accepted evidence.\n- [ ] No unresolved required child or scope decision remains.\n\n**Verification procedure**\nFounder revalidates prospect and route information without uploading private contacts; use truthful demo and €39 offer, recorded follow-up permission and onboarding handoff. First paying activation is blocked until the full GO milestone passes.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nFounder field kit, approved prospect/route records and truthful live demo; paying activation after full launch GO. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 5,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-187",
+      "summary": "Queue heartbeat, fenced leases, drain, idempotency and reconciliation",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-L-QUEUE-RUNTIME\n\n**Objective**\nQueue heartbeat, fenced leases, drain, idempotency and reconciliation.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:docs/operations/apple-wallet-pilot.md\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:scripts/worker.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/outbox.ts\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Queue processing.\n- [ ] The following capability is functional and independently accepted: Worker heartbeat.\n- [ ] The following capability is functional and independently accepted: Lease renewal.\n- [ ] The following capability is functional and independently accepted: Shutdown/draining.\n- [ ] The following capability is functional and independently accepted: Idempotency.\n- [ ] The following capability is functional and independently accepted: Retry/reconciliation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nIndependent release operator verifies actual web/worker identities, schema/journal, flags, heartbeat and fenced queue behavior. Rehearse backup restore and rollback in isolated infrastructure; test outage/alert/log-redaction controls. This task records future gates and authorizes no production mutation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-189",
+      "summary": "Controlled feature flags and secret handling",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-L-FLAGS-SECRETS\n\n**Objective**\nControlled feature flags and secret handling.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:docs/operations/apple-wallet-pilot.md\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:scripts/worker.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/outbox.ts\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Feature flags.\n- [ ] The following capability is functional and independently accepted: Secrets/key handling.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nIndependent release operator verifies actual web/worker identities, schema/journal, flags, heartbeat and fenced queue behavior. Rehearse backup restore and rollback in isolated infrastructure; test outage/alert/log-redaction controls. This task records future gates and authorizes no production mutation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-193",
+      "summary": "Actionable monitoring, alerts and secret-safe logs",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-L-OBSERVABILITY\n\n**Objective**\nActionable monitoring, alerts and secret-safe logs.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:docs/operations/apple-wallet-pilot.md\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:scripts/worker.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/outbox.ts\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Observability.\n- [ ] The following capability is functional and independently accepted: Error alerts.\n- [ ] The following capability is functional and independently accepted: Log redaction.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nIndependent release operator verifies actual web/worker identities, schema/journal, flags, heartbeat and fenced queue behavior. Rehearse backup restore and rollback in isolated infrastructure; test outage/alert/log-redaction controls. This task records future gates and authorizes no production mutation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-197",
+      "summary": "Reviewed rollback and incident recovery runbook",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-L-ROLLBACK-INCIDENT\n\n**Objective**\nReviewed rollback and incident recovery runbook.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:docs/operations/apple-wallet-pilot.md\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:scripts/worker.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/outbox.ts\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Rollback procedure.\n- [ ] The following capability is functional and independently accepted: Incident response.\n- [ ] The following capability is functional and independently accepted: Operational documentation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nIndependent release operator verifies actual web/worker identities, schema/journal, flags, heartbeat and fenced queue behavior. Rehearse backup restore and rollback in isolated infrastructure; test outage/alert/log-redaction controls. This task records future gates and authorizes no production mutation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-201",
+      "summary": "Cost thresholds and external-provider outage behavior",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-L-COST-OUTAGE\n\n**Objective**\nCost thresholds and external-provider outage behavior.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:docs/operations/apple-wallet-pilot.md\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:scripts/worker.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/outbox.ts\n- var/apple-synthetic-production-acceptance-20261008/final-acceptance-report.json (local restricted archive; reference only)\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Cost monitoring.\n- [ ] The following capability is functional and independently accepted: Provider outage behavior.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nIndependent release operator verifies actual web/worker identities, schema/journal, flags, heartbeat and fenced queue behavior. Rehearse backup restore and rollback in isolated infrastructure; test outage/alert/log-redaction controls. This task records future gates and authorizes no production mutation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nRead-only production identity/health evidence and isolated release, restore, rollback, outage and security rehearsals. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-235",
+      "summary": "Verified operator identity and authorization to sell paid services",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Legal / Privacy",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Legal / Accountant",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-P-BUSINESS-AUTHORIZATION\n\n**Objective**\nVerified operator identity and authorization to sell paid services.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Operator/business identity.\n- [ ] The following capability is functional and independently accepted: Authorization to operate and provide paid services.\n- [ ] The following capability is functional and independently accepted: Gewerbe/registration requirements as applicable.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nFounder/professional approval and sanitized document confirmations; local/staging privacy behavior where applicable. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nLegal / Accountant. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-237",
+      "summary": "Approved €39 presentation, VAT treatment and compliant invoice issuer/output",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Legal / Privacy",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Legal / Accountant",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-P-TAX-INVOICE\n\n**Objective**\nApproved €39 presentation, VAT treatment and compliant invoice issuer/output.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: €39 price presentation.\n- [ ] The following capability is functional and independently accepted: Gross/net and VAT treatment.\n- [ ] The following capability is functional and independently accepted: Invoice issuer details.\n- [ ] The following capability is functional and independently accepted: Invoice generation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nFounder/professional approval and sanitized document confirmations; local/staging privacy behavior where applicable. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nLegal / Accountant. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-241",
+      "summary": "Merchant/pilot terms, AVV/DPA, AGB, privacy and Impressum",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Legal / Privacy",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Legal / Accountant",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-P-MERCHANT-CONTRACTS\n\n**Objective**\nMerchant/pilot terms, AVV/DPA, AGB, privacy and Impressum.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Merchant terms.\n- [ ] The following capability is functional and independently accepted: Pilot terms.\n- [ ] The following capability is functional and independently accepted: AVV/DPA.\n- [ ] The following capability is functional and independently accepted: AGB.\n- [ ] The following capability is functional and independently accepted: Privacy policy.\n- [ ] The following capability is functional and independently accepted: Impressum.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nFounder/professional approval and sanitized document confirmations; local/staging privacy behavior where applicable. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nLegal / Accountant. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-243",
+      "summary": "Subprocessor/PassFast DPA and commercial approval",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Legal / Privacy",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Legal / Accountant",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-P-PROVIDER-COMMERCIAL\n\n**Objective**\nSubprocessor/PassFast DPA and commercial approval.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Data-processing subprocessors.\n- [ ] The following capability is functional and independently accepted: PassFast commercial/DPA review.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nFounder/professional approval and sanitized document confirmations; local/staging privacy behavior where applicable. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nLegal / Accountant. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    },
+    {
+      "id": "LOY-245",
+      "summary": "Support obligations and recorded merchant contract acceptance",
+      "customFields": {
+        "Priority": "P1 — Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Billing / Commercial",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "description": "**Requirement key**\nFEATURE-P-COMMERCIAL-HANDOFF\n\n**Objective**\nSupport obligations and recorded merchant contract acceptance.\n\n**Current status**\nUnknown / Needs Verification. Production baseline 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020 / 21 canonical entries is supported by saved evidence from 2026-10-09 01:09 Europe/Berlin, not a fresh live health claim. Do not infer acceptance from source presence.\n\n**Evidence**\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/billing.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:src/lib/pilot-surfaces.ts\n- 792e218a17287009067ce0993c33eda3bfc3f4b7:marketing-site/LEGAL_LAUNCH_FIELDS.md\n\n**Required work**\nEstablish the remaining implementation/configuration and independently verify the outcome below. Attach the exact reviewed SHA and environment evidence. Do not mark complete on a commit or local test alone.\n\n**Acceptance criteria**\n- [ ] The following capability is functional and independently accepted: Support obligations.\n- [ ] The following capability is functional and independently accepted: Merchant acceptance/signature process.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.\n\n**Verification procedure**\nFounder/legal/accountant verifies authorization, operator/tax/contract/processor decisions through sanitized confirmations. Test actual approved provider recurring billing, signed replay-safe webhooks, failure/cancel/refund and compliant invoice output in a separated sandbox before separately approved live activation.\n\n**Dependencies**\nNo hard predecessor recorded yet; reconcile current evidence before execution. Parent hierarchy is not a hard blocking relationship.\n\n**Environment**\nApproved operator/tax/contract decisions plus actual billing-provider sandbox; live activation separately authorized. All live mutations require separate execution authorization; this issue authorizes no deployment, migration, provisioning or messages.\n\n**Launch criticality**\nMust Launch. Target 2026-10-15 Europe/Berlin; no unfinished launch scope silently deferred.\n\n**Responsible lane**\nCodex. This is an execution lane, not a fake YouTrack user.\n\n**Estimated effort**\nUnknown. Obtain an evidence-based estimate before committing a schedule.\n\n**Rollback / failure handling**\nStop on identity/tenant/evidence mismatch; preserve existing ledger/history and OFF controls. Use the reviewed subsystem rollback runbook. Failed or undocumented acceptance remains open.\n\n**Source confidence**\nRequires Verification. Referenced saved evidence has been inspected where noted; current live readiness is not asserted.",
+      "linkedIssueCounts": {
+        "parent for": 1,
+        "subtask of": 1
+      }
+    }
+  ]
+}
