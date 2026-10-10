@@ -51,3 +51,6 @@ LOY85 actual worker bounded retry/expiry now locally verified;85/86 external acc
 
 
 LOY43 supported closure/export ordinary query-failure rollback locally verified; full43/44privacy acceptance and209category/retention policy remain OPEN. Connection-loss/rollbackfailure not verified. [Entry](LOY-43-privacy-failure-atomicity-2026-10-10.md).
+
+
+LOY153 bounded HTTP permissions verified; full153/154 independent acceptance OPEN. Existing coordinator reopened but ChatGPT signed out; human auth restoration requested, reports042–045 unsent. [Entry](LOY-153-authenticated-http-permissions-2026-10-10.md).

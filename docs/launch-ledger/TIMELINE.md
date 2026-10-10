@@ -75,3 +75,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 TESTED LOY43 actual query-failure rollback for closure/contact/queues/Wallet and export client reuse; finalfocused27PASS1existingSKIP, no app/policy change. [Entry](LOY-43-privacy-failure-atomicity-2026-10-10.md).
+
+
+2026-10-10 TESTED LOY153 real authenticated invitation/revocation HTTP permission matrices, focused4files15PASS; no appfix or159policy. [Entry](LOY-153-authenticated-http-permissions-2026-10-10.md).

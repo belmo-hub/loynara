@@ -61,3 +61,6 @@ LOY85 fallback: actual worker retry/expiry tests, finalfocused3files33PASS0FAIL0
 
 
 LOY43 ordinary PostgreSQL failure atomicity: two new tests, focused5files27PASS0FAIL1existingMailpitSKIP; exact rollback/client reuse/foreign isolation. [Evidence](LOY-43-privacy-failure-atomicity-2026-10-10.md).
+
+
+LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; owner positive and idempotent audit controls. [Evidence](LOY-153-authenticated-http-permissions-2026-10-10.md).
