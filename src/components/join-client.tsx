@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { BrandIcon, BrandMark, Icon } from "./loyalty-ui";
+import { readableInk } from "./owner/color";
 
 const copy = {
   de: {
@@ -108,7 +109,7 @@ export function JoinClient({ slug }: { slug: string }) {
     <header className="join-header"><Link href="/" aria-label="Loynara"><BrandMark /></Link><span>{t.header}</span></header>
     <main className="join-main">
       {loading ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.loadingLabel}</span><h1>{t.loadingTitle}</h1><p>{t.loadingText}</p></div> : !program ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.missingLabel}</span><h1>{t.missingTitle}</h1><p role="alert">{error}</p><Link href="/" className="button button--outline">{t.home}</Link></div> : <>
-        <div className="join-hero" style={{ backgroundColor: program.brandColor || "#214739" }}><span>{t.welcome}</span><h1>{program.businessName}</h1><p>{program.locationName}</p><BrandIcon className="join-hero-symbol" /></div>
+        <div className="join-hero" style={{ backgroundColor: program.brandColor || "#214739", color: readableInk(program.brandColor || "#214739") }}><span>{t.welcome}</span><h1>{program.businessName}</h1><p>{program.locationName}</p><BrandIcon className="join-hero-symbol" /></div>
         {returning.state === "stale" && !wantsAnother ? <div className="join-panel"><h2>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2><p>{t.staleNote}</p><p>{locale === "fr" ? "Ouvrez votre lien privé actuel. Le numéro de carte seul ne prouve pas que la carte vous appartient." : "Öffne deinen aktuellen privaten Kartenlink. Die Kartennummer allein ist kein Eigentumsnachweis."}</p><Link className="button button--accent" href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte sicher wiederherstellen"}</Link><button className="text-button" onClick={() => setWantsAnother(true)}>{t.anotherLink}</button></div> : existing && !wantsAnother ? <div className="join-panel join-returning"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span><h2>{t.welcomeBack}</h2><p>{t.savedHere}</p>
           {cardNumber}
           <a className="button button--accent button--full" href={openHref}>{t.openCard}<Icon name="arrow" size={18} /></a>

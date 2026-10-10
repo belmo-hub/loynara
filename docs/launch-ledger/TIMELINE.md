@@ -84,3 +84,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): IMPLEMENTED/TESTED real-worker lost-deferral-ack ABA correction, separate per-claim UUID; populated additive0024 migration and61focusedPASS.
+
+
+2026-10-11 IMPLEMENTED/TESTED [LOY-283 enrollment contrast](LOY-283-enrollment-brand-contrast-2026-10-11.md): owner-persisted light colour was white-on-white; existing contrast rule reused with actual mobile-width first/returning browser regression.

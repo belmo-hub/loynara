@@ -70,3 +70,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): RED actual two-worker committed deferral/claim reusedattempt1 overwrotefreshlease; tokenfences/replay/migration history compatibility and61focusedPASS; finalglobalreceipt inentry.
+
+
+[LOY-283](LOY-283-enrollment-brand-contrast-2026-10-11.md): real Chrome/Postgres RED then browser1PASS; focused3files25PASS, static/build PASS; full/integration receipt in entry.

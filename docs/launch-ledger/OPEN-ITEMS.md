@@ -60,3 +60,6 @@ LOY153 bounded HTTP permissions verified; full153/154 independent acceptance OPE
 
 
 2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): 282boundedtokenfence localonly;139/140acceptanceOPEN. Separatelyauthorizedmigration/cutovermustdrain/replacealloldweb/workerwriters; mixedversionsnotaccepted.
+
+
+LOY-175 remains OPEN: LOY-283 fixes one existing colour-contract defect locally; merchant-approved branding, all other surfaces and independent physical/accessibility acceptance are not implied.
