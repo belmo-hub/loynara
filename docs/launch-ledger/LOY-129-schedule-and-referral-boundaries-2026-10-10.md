@@ -15,3 +15,7 @@ No new coding child/Done claim for already-correct paths;125/129 broadfeature an
 Native cumulative4,195,073reportedtokens/21,967seconds; input/cached/output/browser/review unmeasured,noreset/purchases. Fullglobal not rerun for test-onlychange; historical155files1439PASS0FAIL1opt-inMailpitSKIP proves unchangedapplication but predates eight additional038/039regressions. Next: final checks/commit/localintegration/trackerreadback/coordinator039; complete launch remains incomplete.
 
 Final5files77PASS0FAIL0SKIP exit0 after exact recipient/outbox/quota assertions; defaultNext16.3.6build/tsc/changed-filelint/diffPASS. Application campaign/analytics source exactbase unchanged. Evidence /private/tmp/loy039-{schedule-probe,schedule-control,referral-probe,focused,final-focused}.json and logs. Initial probe response-shape assertion failures preserved; no application RED or fix claimed. Commit/integration/tracker receipts follow.
+
+## Verified integration / tracker receipt — 2026-10-10 19:39 UTC
+
+Test/evidencebe9a3fe3997c755de836fba2183a03e552a9fe2f fast-forward integrated canonical codex/loynara-engineering-integration; integrated5files77PASS0FAIL0SKIP, clean candidate. LOY129 nowInReview/AutomatedTestsVerified with readbackcomment7-91 at19:39:26UTC; actualsending/receipt and126/130gates remain open. LOY165InReview supplementalcomment7-92 readback verified;166OPEN. No new duplicatecodingchild/artificialDone. This traceable receipt supersedes pending wording; no appchange/remote push/deployment/acceptance.
