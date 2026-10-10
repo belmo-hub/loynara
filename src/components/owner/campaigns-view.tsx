@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { apiJson, postJson, type PublicProgram } from "@/components/client-api";
 import { audienceDefinitionSchema, type AudienceDefinition } from "@/lib/audience-definition";
 import { useDirtyGuard, useOwner } from "./owner-context";
@@ -85,6 +85,8 @@ export function CampaignsView() {
   });
   const [builder, setBuilder] = useState<null | { step: number; editor: Editor; editingId: string | null; savedId: string | null; goal: string | null }>(() => entry.goal && GOALS[entry.goal] ? { step: 0, editor: GOALS[entry.goal].make(me.businessName, entry.options), editingId: null, savedId: null, goal: entry.goal } : null);
   const [dirty, setDirty] = useState(false);
+  // A response acknowledges only the composer and edit revision submitted by its request.
+  const composerVersion = useRef({ generation: 0, revision: 0 });
   const [preview, setPreview] = useState<{ state: "idle" | "loading" | "ok" | "error"; data?: Preview; message?: string }>({ state: "idle" });
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -100,9 +102,11 @@ export function CampaignsView() {
   const browserZone = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
 
   function start(editor: Editor, step = 0, editingId: string | null = null, goal: string | null = null) {
+    composerVersion.current = { generation: composerVersion.current.generation + 1, revision: 0 };
     setBuilder({ step, editor, editingId, savedId: editingId, goal }); setDirty(false); setPreview({ state: "idle" }); setError(""); setMessage(""); setDetail(null);
   }
-  function change(patch: Partial<Editor>) { setBuilder(current => current && ({ ...current, editor: { ...current.editor, ...patch } })); setDirty(true); setPreview({ state: "idle" }); }
+  function closeBuilder() { composerVersion.current.generation++; setBuilder(null); setDirty(false); }
+  function change(patch: Partial<Editor>) { composerVersion.current.revision++; setBuilder(current => current && ({ ...current, editor: { ...current.editor, ...patch } })); setDirty(true); setPreview({ state: "idle" }); }
 
   async function inspect() {
     if (!builder || !audienceDefinitionSchema.safeParse(definitionOf(builder.editor)).success) return;
@@ -112,16 +116,21 @@ export function CampaignsView() {
   }
   async function saveDraft() {
     if (!builder || busy || !audienceDefinitionSchema.safeParse(definitionOf(builder.editor)).success) return;
+    const submitted = { ...composerVersion.current };
     setBusy(true); setError(""); setMessage("");
     try {
       const common = { title: builder.editor.title.trim(), subject: builder.editor.subject.trim(), body: builder.editor.body.trim(), audienceDefinition: definitionOf(builder.editor) };
       let id = builder.editingId ?? builder.savedId;
       if (id) await postJson("/api/merchant/campaigns", { action: "edit", campaignId: id, ...common });
       else { const created = await postJson<{ id?: string; campaignId?: string; campaign?: { id: string } }>("/api/merchant/campaigns", { action: "create", programSlug: me.programSlug, ...common }); id = created.id ?? created.campaignId ?? created.campaign?.id ?? null; }
-      reloadList(); setDirty(false);
-      setBuilder(current => current && ({ ...current, savedId: id }));
-      setMessage("Entwurf gespeichert. Es wurde nichts versendet."); owner.announce("Entwurf gespeichert.");
-    } catch (cause) { setError(reason(cause)); }
+      reloadList();
+      if (composerVersion.current.generation !== submitted.generation) return;
+      const newerEdits = composerVersion.current.revision !== submitted.revision;
+      setDirty(newerEdits);
+      setBuilder(current => current && composerVersion.current.generation === submitted.generation ? ({ ...current, savedId: id }) : current);
+      setMessage(newerEdits ? "Der Stand bei Speicherbeginn wurde gespeichert. Neuere Änderungen sind noch ungespeichert." : "Entwurf gespeichert. Es wurde nichts versendet.");
+      owner.announce(newerEdits ? "Neuere Änderungen sind noch ungespeichert." : "Entwurf gespeichert.");
+    } catch (cause) { if (composerVersion.current.generation === submitted.generation) setError(reason(cause)); }
     finally { setBusy(false); }
   }
   async function act(id: string, action: "schedule" | "pause" | "cancel") {
@@ -129,6 +138,7 @@ export function CampaignsView() {
     try {
       let payload: Record<string, unknown> = { action, campaignId: id };
       if (action === "schedule") {
+        if (builder?.savedId === id && dirty) throw new Error("Speichere zuerst die Änderungen am Entwurf.");
         const local = when[id];
         if (!local || Number.isNaN(new Date(local).getTime())) throw new Error("Wähle zuerst einen gültigen Termin.");
         payload = { ...payload, scheduledAt: new Date(local).toISOString() };
@@ -261,9 +271,9 @@ export function CampaignsView() {
           )}
         </>}
         <div className="ow-row" style={{ justifyContent: "space-between" }}>
-          <span className="ow-row"><button type="button" className="ow-btn ow-btn--ghost" onClick={() => { if (builder.step === 0) { setBuilder(null); setDirty(false); } else setBuilder({ ...builder, step: builder.step - 1 }); }}>{builder.step === 0 ? "Abbrechen" : "Zurück"}</button></span>
+          <span className="ow-row"><button type="button" className="ow-btn ow-btn--ghost" onClick={() => { if (builder.step === 0) { closeBuilder(); } else setBuilder({ ...builder, step: builder.step - 1 }); }}>{builder.step === 0 ? "Abbrechen" : "Zurück"}</button></span>
           <span className="ow-row">
-            {builder.step === 2 && builder.savedId && !dirty && <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { setBuilder(null); reloadList(); }}>Zur Kampagnenliste</button>}
+            {builder.step === 2 && builder.savedId && !dirty && <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { closeBuilder(); reloadList(); }}>Zur Kampagnenliste</button>}
             {builder.step === 2 && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void saveDraft()} disabled={busy || !okStep0 || !okStep1} aria-busy={busy}>{busy ? "Speichern …" : builder.savedId ? "Entwurf aktualisieren" : "Entwurf speichern"}</button>}
             {builder.step === 2 && builder.savedId && mode !== "disabled" && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || !okStep0 || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
             {builder.step < 2 && <button type="button" className="ow-btn ow-btn--primary" disabled={builder.step === 0 ? !okStep0 : !okStep0 || !okStep1} onClick={() => { const next = builder.step + 1; setBuilder({ ...builder, step: next }); if (next === 2 && preview.state === "idle") void inspect(); }}>Weiter</button>}
