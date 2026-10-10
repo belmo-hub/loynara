@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { emailDeliveries, emailProviderEvents, emailSuppressions } from "@/db/schema";
 import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalMessage } from "./email";
+import { mailgunConfig } from "./email-configuration";
 
 export type EmailMode = "disabled" | "mailpit" | "mailgun_eu";
 export type DeliveryState = "accepted" | "delivered" | "temporary_failure" | "permanent_failure" | "ambiguous";
@@ -20,37 +21,6 @@ type PromotionalResult = ManagedResult | { status: "retry"; reason: string; retr
 function rateLimitRetryAt(value: string | null, now = Date.now()) {
   const reset = value !== null && /^\d+$/.test(value) ? Number(value) : NaN;
   return new Date(Number.isSafeInteger(reset) && reset > now && reset <= now + 3_600_000 ? reset : now + 60_000);
-}
-
-const domainPattern = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
-function externalOrigin(value?: string) {
-  try {
-    const url = new URL(value ?? "");
-    return url.protocol === "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
-      && url.pathname === "/" && !url.username && !url.password && !url.search && !url.hash;
-  } catch { return false; }
-}
-function distinctOrigins(first?: string, second?: string) {
-  try { return new URL(first ?? "").origin !== new URL(second ?? "").origin; }
-  catch { return false; }
-}
-function mailgunConfig(env = process.env, purpose: "transactional" | "promotional" = "transactional") {
-  const domain = env.MAILGUN_EU_DOMAIN?.toLowerCase();
-  const from = env.MAILGUN_FROM_EMAIL?.toLowerCase();
-  const enabled = purpose === "transactional"
-    ? (env.TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED ?? env.EXTERNAL_EMAIL_ENABLED) === "true"
-    : env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED === "true" && env.MAILGUN_PROMOTIONAL_SEND_APPROVED === "true";
-  const monthly = Number(env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT);
-  const frequency = Number(env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS);
-  const promotionalSafety = purpose === "transactional" || (env.PROMOTIONAL_MONTHLY_LOCATION_LIMIT !== "" && env.PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS !== "" && externalOrigin(env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN)
-    && distinctOrigins(env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN, env.PUBLIC_BASE_URL)
-    && (env.PROMOTIONAL_UNSUBSCRIBE_SECRET?.length ?? 0) >= 32
-    && Number.isSafeInteger(monthly) && monthly >= 1 && monthly <= 100_000 && Number.isSafeInteger(frequency) && frequency >= 1 && frequency <= 24 * 365);
-  if (!enabled || !promotionalSafety || env.MAILGUN_SEND_APPROVED !== "true"
-    || !domain || !domainPattern.test(domain) || !from || !z.email().safeParse(from).success || !from.endsWith(`@${domain}`)
-    || !env.MAILGUN_EU_API_KEY || !env.MAILGUN_EU_WEBHOOK_SIGNING_KEY
-    || !externalOrigin(env.PUBLIC_BASE_URL)) return null;
-  return { domain, from, apiKey: env.MAILGUN_EU_API_KEY, signingKey: env.MAILGUN_EU_WEBHOOK_SIGNING_KEY };
 }
 
 export function emailTransportMode(env = process.env): EmailMode {
