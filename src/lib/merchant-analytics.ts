@@ -1,6 +1,4 @@
-import { and, eq } from "drizzle-orm";
-import { db, pool } from "@/db";
-import { staffRoles } from "@/db/schema";
+import { pool } from "@/db";
 import { DomainError } from "./loyalty";
 
 export type AnalyticsWindowDays = 30 | 90;
@@ -58,139 +56,157 @@ export async function getMerchantAnalytics(
   if (options.windowDays !== 30 && options.windowDays !== 90) {
     throw new DomainError("INVALID_WINDOW", "Choose a 30 or 90 day window");
   }
-  // Ledger timestamps are assigned by PostgreSQL. Use its clock for live
-  // reports so a freshly committed redemption cannot fall just after a host
-  // clock that is slightly behind the database.
-  const asOf = options.asOf ?? (await pool.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
-  if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");
-  const [owner] = await db.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
-    .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  const client = await pool.connect();
+  let discardClient = false;
+  try {
+    // Related aggregates and their labels describe the same committed state.
+    // Read-only MVCC neither locks award writers nor calls providers.
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    await client.query("SET LOCAL statement_timeout = '5s'");
+    await client.query("SET LOCAL idle_in_transaction_session_timeout = '5s'");
+    // Ledger timestamps are assigned by PostgreSQL. Use its clock for live
+    // reports so a freshly committed redemption cannot fall just after a host
+    // clock that is slightly behind the database.
+    const asOf = options.asOf ?? (await client.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
+    if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");
+    const [owner] = (await client.query<{ tenantId: string }>(
+      `SELECT tenant_id AS "tenantId" FROM staff_roles WHERE user_id = $1 AND role = 'owner' AND active = true LIMIT 1`,
+      [actorUserId],
+    )).rows;
+    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
 
-  const from = new Date(asOf.getTime() - options.windowDays * 86_400_000);
-  const params = [owner.tenantId, from, asOf];
-  const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity] = await Promise.all([
-    pool.query<MembershipCounts>(`
+    const from = new Date(asOf.getTime() - options.windowDays * 86_400_000);
+    const params = [owner.tenantId, from, asOf];
+    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity] = await Promise.all([
+      client.query<MembershipCounts>(`
+        SELECT
+          count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
+          count(*) FILTER (WHERE created_at >= $2 AND created_at < $3)::int AS "newCards"
+        FROM memberships WHERE tenant_id = $1
+      `, params),
+      client.query<CheckoutCounts>(`${checkoutCte}, per_card AS (
+        SELECT membership_id, count(DISTINCT request_id)::int AS checkouts
+        FROM accepted_awards GROUP BY membership_id
+      )
       SELECT
-        count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
-        count(*) FILTER (WHERE created_at >= $2 AND created_at < $3)::int AS "newCards"
-      FROM memberships WHERE tenant_id = $1
-    `, params),
-    pool.query<CheckoutCounts>(`${checkoutCte}, per_card AS (
-      SELECT membership_id, count(DISTINCT request_id)::int AS checkouts
-      FROM accepted_awards GROUP BY membership_id
-    )
-    SELECT
-      (SELECT count(*) FROM (SELECT DISTINCT membership_id, request_id FROM accepted_awards) requests)::int AS "qualifyingCheckouts",
-      (SELECT count(*) FROM per_card)::int AS "participatingCards",
-      (SELECT count(*) FROM per_card WHERE checkouts >= 2)::int AS "repeatCards",
-      coalesce((SELECT sum(delta) FROM accepted_awards WHERE type = 'stamp'), 0)::int AS "stampUnits",
-      coalesce((SELECT sum(delta) FROM accepted_awards WHERE type = 'points'), 0)::int AS "pointUnits",
-      (SELECT count(*) FROM accepted_awards)::int AS "awardActions"
-    `, params),
-    pool.query<RedemptionCounts>(`
-      SELECT count(*)::int AS redemptions FROM ledger_entries e
-      WHERE e.tenant_id = $1 AND e.kind = 'redeem' AND e.created_at >= $2 AND e.created_at < $3
-        AND NOT EXISTS (
-          SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id
-            AND undo.reversal_of_id = e.id AND undo.created_at < $3
-        )
-    `, params),
-    pool.query<TopTitle>(`
-      SELECT r.reward_title AS title, count(*)::int AS count
-      FROM ledger_entries e
-      JOIN redemptions r ON r.tenant_id = e.tenant_id AND r.ledger_entry_id = e.id
-      WHERE e.tenant_id = $1 AND e.kind = 'redeem' AND e.created_at >= $2 AND e.created_at < $3
-        AND NOT EXISTS (
-          SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id
-            AND undo.reversal_of_id = e.id AND undo.created_at < $3
-        )
-      GROUP BY r.reward_title ORDER BY count DESC, r.reward_title LIMIT 5
-    `, params),
-    pool.query<AttemptCounts>(`
-      SELECT status, count(*)::int AS count FROM campaign_attempts
-      WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
-      GROUP BY status
-    `, params),
-    pool.query<ReferralCounts>(`
-      SELECT
-        count(*) FILTER (WHERE created_at >= $2 AND created_at < $3)::int AS attributed,
-        count(*) FILTER (WHERE qualified_at >= $2 AND qualified_at < $3)::int AS qualified,
-        count(*) FILTER (WHERE reversed_at >= $2 AND reversed_at < $3)::int AS reversed
-      FROM referrals WHERE tenant_id = $1
-    `, params),
-    pool.query<BucketCount>(`
-      SELECT floor(extract(epoch FROM (created_at - $2::timestamptz)) / 604800)::int AS bucket,
-        count(*)::int AS count
-      FROM memberships WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
-      GROUP BY bucket
-    `, params),
-    pool.query<BucketCount>(`${checkoutCte}, checkout_first AS (
-      SELECT membership_id, request_id, min(created_at) AS first_at
-      FROM accepted_awards GROUP BY membership_id, request_id
-    )
-      SELECT floor(extract(epoch FROM (first_at - $2::timestamptz)) / 604800)::int AS bucket,
-        count(*)::int AS count
-      FROM checkout_first GROUP BY bucket
-    `, params),
-    pool.query<MerchantAnalytics["staffActivity"][number]>(`${checkoutCte}
-      SELECT a.actor_user_id AS "userId", u.name,
-        count(*)::int AS "awardActions",
-        coalesce(sum(a.delta) FILTER (WHERE a.type = 'stamp'), 0)::int AS "stampUnits",
-        coalesce(sum(a.delta) FILTER (WHERE a.type = 'points'), 0)::int AS "pointUnits"
-      FROM accepted_awards a JOIN "user" u ON u.id = a.actor_user_id
-      GROUP BY a.actor_user_id, u.name ORDER BY u.name, a.actor_user_id
-    `, params),
-    pool.query<MerchantAnalytics["locationActivity"][number]>(`${checkoutCte}, activity AS (
-      SELECT location_id, count(*)::int AS award_actions,
-        coalesce(sum(delta) FILTER (WHERE type = 'stamp'), 0)::int AS stamp_units,
-        coalesce(sum(delta) FILTER (WHERE type = 'points'), 0)::int AS point_units
-      FROM accepted_awards GROUP BY location_id
-    )
-      SELECT l.id AS "locationId", l.name,
-        coalesce(a.award_actions, 0)::int AS "awardActions",
-        coalesce(a.stamp_units, 0)::int AS "stampUnits",
-        coalesce(a.point_units, 0)::int AS "pointUnits"
-      FROM locations l LEFT JOIN activity a ON a.location_id = l.id
-      WHERE l.tenant_id = $1 ORDER BY l.name, l.id
-    `, params),
-  ]);
+        (SELECT count(*) FROM (SELECT DISTINCT membership_id, request_id FROM accepted_awards) requests)::int AS "qualifyingCheckouts",
+        (SELECT count(*) FROM per_card)::int AS "participatingCards",
+        (SELECT count(*) FROM per_card WHERE checkouts >= 2)::int AS "repeatCards",
+        coalesce((SELECT sum(delta) FROM accepted_awards WHERE type = 'stamp'), 0)::int AS "stampUnits",
+        coalesce((SELECT sum(delta) FROM accepted_awards WHERE type = 'points'), 0)::int AS "pointUnits",
+        (SELECT count(*) FROM accepted_awards)::int AS "awardActions"
+      `, params),
+      client.query<RedemptionCounts>(`
+        SELECT count(*)::int AS redemptions FROM ledger_entries e
+        WHERE e.tenant_id = $1 AND e.kind = 'redeem' AND e.created_at >= $2 AND e.created_at < $3
+          AND NOT EXISTS (
+            SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id
+              AND undo.reversal_of_id = e.id AND undo.created_at < $3
+          )
+      `, params),
+      client.query<TopTitle>(`
+        SELECT r.reward_title AS title, count(*)::int AS count
+        FROM ledger_entries e
+        JOIN redemptions r ON r.tenant_id = e.tenant_id AND r.ledger_entry_id = e.id
+        WHERE e.tenant_id = $1 AND e.kind = 'redeem' AND e.created_at >= $2 AND e.created_at < $3
+          AND NOT EXISTS (
+            SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id
+              AND undo.reversal_of_id = e.id AND undo.created_at < $3
+          )
+        GROUP BY r.reward_title ORDER BY count DESC, r.reward_title LIMIT 5
+      `, params),
+      client.query<AttemptCounts>(`
+        SELECT status, count(*)::int AS count FROM campaign_attempts
+        WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
+        GROUP BY status
+      `, params),
+      client.query<ReferralCounts>(`
+        SELECT
+          count(*) FILTER (WHERE created_at >= $2 AND created_at < $3)::int AS attributed,
+          count(*) FILTER (WHERE qualified_at >= $2 AND qualified_at < $3)::int AS qualified,
+          count(*) FILTER (WHERE reversed_at >= $2 AND reversed_at < $3)::int AS reversed
+        FROM referrals WHERE tenant_id = $1
+      `, params),
+      client.query<BucketCount>(`
+        SELECT floor(extract(epoch FROM (created_at - $2::timestamptz)) / 604800)::int AS bucket,
+          count(*)::int AS count
+        FROM memberships WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
+        GROUP BY bucket
+      `, params),
+      client.query<BucketCount>(`${checkoutCte}, checkout_first AS (
+        SELECT membership_id, request_id, min(created_at) AS first_at
+        FROM accepted_awards GROUP BY membership_id, request_id
+      )
+        SELECT floor(extract(epoch FROM (first_at - $2::timestamptz)) / 604800)::int AS bucket,
+          count(*)::int AS count
+        FROM checkout_first GROUP BY bucket
+      `, params),
+      client.query<MerchantAnalytics["staffActivity"][number]>(`${checkoutCte}
+        SELECT a.actor_user_id AS "userId", u.name,
+          count(*)::int AS "awardActions",
+          coalesce(sum(a.delta) FILTER (WHERE a.type = 'stamp'), 0)::int AS "stampUnits",
+          coalesce(sum(a.delta) FILTER (WHERE a.type = 'points'), 0)::int AS "pointUnits"
+        FROM accepted_awards a JOIN "user" u ON u.id = a.actor_user_id
+        GROUP BY a.actor_user_id, u.name ORDER BY u.name, a.actor_user_id
+      `, params),
+      client.query<MerchantAnalytics["locationActivity"][number]>(`${checkoutCte}, activity AS (
+        SELECT location_id, count(*)::int AS award_actions,
+          coalesce(sum(delta) FILTER (WHERE type = 'stamp'), 0)::int AS stamp_units,
+          coalesce(sum(delta) FILTER (WHERE type = 'points'), 0)::int AS point_units
+        FROM accepted_awards GROUP BY location_id
+      )
+        SELECT l.id AS "locationId", l.name,
+          coalesce(a.award_actions, 0)::int AS "awardActions",
+          coalesce(a.stamp_units, 0)::int AS "stampUnits",
+          coalesce(a.point_units, 0)::int AS "pointUnits"
+        FROM locations l LEFT JOIN activity a ON a.location_id = l.id
+        WHERE l.tenant_id = $1 ORDER BY l.name, l.id
+      `, params),
+    ]);
 
-  const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
-  const perBucketCheckouts = new Map(checkoutBuckets.rows.map(row => [row.bucket, row.count]));
-  const series = Array.from({ length: Math.ceil(options.windowDays / 7) }, (_, index) => ({
-    from: new Date(from.getTime() + index * 7 * 86_400_000).toISOString(),
-    to: new Date(Math.min(asOf.getTime(), from.getTime() + (index + 1) * 7 * 86_400_000)).toISOString(),
-    newCards: perBucketCards.get(index) ?? 0,
-    checkouts: perBucketCheckouts.get(index) ?? 0,
-  }));
-  const attemptCount = { total: 0, complete: 0, suppressed: 0, retry: 0, failed: 0, blocked: 0 };
-  for (const row of attempts.rows) {
-    if (row.status in attemptCount && row.status !== "total") {
-      attemptCount[row.status as Exclude<keyof typeof attemptCount, "total">] = row.count;
-      attemptCount.total += row.count;
+    await client.query("COMMIT");
+
+    const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
+    const perBucketCheckouts = new Map(checkoutBuckets.rows.map(row => [row.bucket, row.count]));
+    const series = Array.from({ length: Math.ceil(options.windowDays / 7) }, (_, index) => ({
+      from: new Date(from.getTime() + index * 7 * 86_400_000).toISOString(),
+      to: new Date(Math.min(asOf.getTime(), from.getTime() + (index + 1) * 7 * 86_400_000)).toISOString(),
+      newCards: perBucketCards.get(index) ?? 0,
+      checkouts: perBucketCheckouts.get(index) ?? 0,
+    }));
+    const attemptCount = { total: 0, complete: 0, suppressed: 0, retry: 0, failed: 0, blocked: 0 };
+    for (const row of attempts.rows) {
+      if (row.status in attemptCount && row.status !== "total") {
+        attemptCount[row.status as Exclude<keyof typeof attemptCount, "total">] = row.count;
+        attemptCount.total += row.count;
+      }
     }
-  }
 
-  return {
-    windowDays: options.windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: "UTC",
-    currentActiveCards: members.rows[0].currentActiveCards,
-    newCards: members.rows[0].newCards,
-    qualifyingCheckouts: checkout.rows[0].qualifyingCheckouts,
-    participatingCards: checkout.rows[0].participatingCards,
-    repeatCards: checkout.rows[0].repeatCards,
-    issued: {
-      stampUnits: checkout.rows[0].stampUnits,
-      pointUnits: checkout.rows[0].pointUnits,
-      awardActions: checkout.rows[0].awardActions,
-    },
-    rewards: { redemptions: redemption.rows[0].redemptions, topTitles: titles.rows },
-    referrals: referralCounts.rows[0],
-    campaignAttempts: attemptCount,
-    series,
-    staffActivity: staffActivity.rows,
-    locationActivity: locationActivity.rows,
-    countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
-    limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
-  };
+    return {
+      windowDays: options.windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: "UTC",
+      currentActiveCards: members.rows[0].currentActiveCards,
+      newCards: members.rows[0].newCards,
+      qualifyingCheckouts: checkout.rows[0].qualifyingCheckouts,
+      participatingCards: checkout.rows[0].participatingCards,
+      repeatCards: checkout.rows[0].repeatCards,
+      issued: {
+        stampUnits: checkout.rows[0].stampUnits,
+        pointUnits: checkout.rows[0].pointUnits,
+        awardActions: checkout.rows[0].awardActions,
+      },
+      rewards: { redemptions: redemption.rows[0].redemptions, topTitles: titles.rows },
+      referrals: referralCounts.rows[0],
+      campaignAttempts: attemptCount,
+      series,
+      staffActivity: staffActivity.rows,
+      locationActivity: locationActivity.rows,
+      countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
+      limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
+    };
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { discardClient = true; }
+    throw error;
+  } finally {
+    client.release(discardClient);
+  }
 }

@@ -31,3 +31,5 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 2026-10-10: IMPLEMENTED/TESTED LOY274staffactivity,existingownerledgercountingrule/UI. REDabsentreport→15focusedPASS; final154file1425PASS0FAIL1existingconditionalSKIP; type/lint/buildPASS. [Entry and prior157receipts](LOY-274-staff-activity-reporting-2026-10-10.md). No deployment/acceptance.
 
 2026-10-10 LOY-275: real PG30/90-day recorded-location, UTC edge, reassign/departure, rename/archive, zero activity, reversal/seed/tenant and unit reconciliation tests;20focusedPASS. Final configured suite154files1427PASS0FAIL1existingconditionalMailpitSKIP exit0; defaultbuild/type/lint PASS; independent source review no material findings. [Entry](LOY-275-location-activity-reporting-2026-10-10.md).
+
+2026-10-10 LOY-276: actual concurrent cashier award old/fresh analytics snapshot reconciliation and PostgreSQL error rollback/clientreuse regressions;22focusedPASS; configured154files1429PASS0FAIL1existingMailpitSKIP; type/lint/defaultbuildPASS; independent review no material findings. [Entry](LOY-276-analytics-snapshot-2026-10-10.md).

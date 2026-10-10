@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { Client } from "pg";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { campaignAttempts, campaignRecipients, campaigns, ledgerEntries, locations, memberships, programs, outboxJobs, programRuleVersions, referrals, rewardVersions, rewards, staffRoles } from "@/db/schema";
@@ -222,4 +223,89 @@ describe("owner-only merchant analytics", () => {
       else process.env.PUBLIC_BASE_URL = originalOrigin;
     }
   });
+});
+
+
+it("keeps business, staff and location totals in one snapshot across a concurrent committed award", async () => {
+  const owner = await user(); const cashier = await user();
+  const shop = await merchant(owner, "Synthetic Snapshot Shop");
+  const second = await createAdditionalLocation(owner, { name: "Second counter", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "points", earningMode: "manual", rulesText: "Manual points.", rewardTitle: "Test reward", rewardCost: 20 });
+  await db.insert(staffRoles).values({ tenantId: shop.tenantId, userId: cashier, role: "cashier", locationId: second.locationId, active: true });
+  const stamp = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+  const points = await enroll({ slug: second.programSlug, acceptedTerms: true });
+  await award({ userId: owner, locationId: shop.locationId, membershipId: stamp.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
+  const asOf = new Date(Date.now() + 60_000);
+  let readResolve!: () => void; const read = new Promise<void>(resolve => { readResolve = resolve; });
+  let resumeResolve!: () => void; const resume = new Promise<void>(resolve => { resumeResolve = resolve; });
+  const original = Client.prototype.query;
+  let observed = false; let holdBreakdowns = true;
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0];
+    const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    const breakdown = text?.includes('AS "userId"') || text?.includes('AS "locationId"');
+    // Delay submission, never alter the real PostgreSQL rows. Preserve both
+    // pg-pool callback and transaction-client Promise driver contracts.
+    if (holdBreakdowns && breakdown) {
+      const callback = args.at(-1);
+      if (typeof callback === "function") { void resume.then(() => Reflect.apply(original, this, args)); return; }
+      return resume.then(() => Reflect.apply(original, this, args));
+    }
+    const target = !observed && text?.includes('AS "qualifyingCheckouts"');
+    if (!target) return Reflect.apply(original, this, args);
+    observed = true;
+    const callback = args.at(-1);
+    if (typeof callback === "function") {
+      args[args.length - 1] = (...results: unknown[]) => { if (!results[0]) readResolve(); Reflect.apply(callback, undefined, results); };
+      return Reflect.apply(original, this, args);
+    }
+    return (Reflect.apply(original, this, args) as Promise<unknown>).then(rows => { readResolve(); return rows; });
+  }) as typeof original);
+  let pending: ReturnType<typeof getMerchantAnalytics> | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    pending = getMerchantAnalytics(owner, { windowDays: 30, asOf });
+    await Promise.race([read, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Actual business report read not reached")), 2000); })]);
+    // The writer must complete while reporting is paused; no writer lock or
+    // manual ledger mutation substitutes for the real award transaction.
+    await expect(award({ userId: cashier, locationId: second.locationId, membershipId: points.id, quantity: 3, idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 3 });
+    holdBreakdowns = false; resumeResolve();
+    const report = await pending;
+    expect(report.issued).toEqual({ awardActions: 1, stampUnits: 2, pointUnits: 0 });
+    for (const rows of [report.staffActivity, report.locationActivity]) {
+      for (const key of ["awardActions", "stampUnits", "pointUnits"] as const) expect(rows.reduce((sum, row) => sum + row[key], 0)).toBe(report.issued[key]);
+    }
+    const fresh = await getMerchantAnalytics(owner, { windowDays: 30, asOf });
+    expect(fresh.issued).toEqual({ awardActions: 2, stampUnits: 2, pointUnits: 3 });
+    for (const rows of [fresh.staffActivity, fresh.locationActivity]) {
+      for (const key of ["awardActions", "stampUnits", "pointUnits"] as const) expect(rows.reduce((sum, row) => sum + row[key], 0)).toBe(fresh.issued[key]);
+    }
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    holdBreakdowns = false; resumeResolve();
+    try { await pending; } finally { spy.mockRestore(); }
+  }
+});
+
+
+it("rolls back a failed reporting read and releases a clean reusable client", async () => {
+  const owner = await user(); await merchant(owner, "Synthetic Failed Report");
+  const original = Client.prototype.query;
+  const failure: { client?: Client } = {};
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    if (!failure.client && text?.includes('AS "qualifyingCheckouts"')) {
+      failure.client = this;
+      // Actual PostgreSQL error exercises the aborted-transaction path.
+      return Reflect.apply(original, this, ["SELECT 1 / 0"]);
+    }
+    return Reflect.apply(original, this, args);
+  }) as typeof original);
+  try { await expect(getMerchantAnalytics(owner, { windowDays: 30 })).rejects.toMatchObject({ code: "22012" }); }
+  finally { spy.mockRestore(); }
+  const client = await pool.connect();
+  try {
+    expect(client).toBe(failure.client);
+    expect((await client.query("SELECT current_setting('transaction_read_only') AS read_only, 1 AS healthy")).rows[0]).toEqual({ read_only: "off", healthy: 1 });
+  } finally { client.release(); }
+  expect((await getMerchantAnalytics(owner, { windowDays: 30 })).issued.awardActions).toBe(0);
 });
