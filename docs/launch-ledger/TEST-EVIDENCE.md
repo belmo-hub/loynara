@@ -37,3 +37,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 2026-10-10 LOY-277: sequential/concurrent authenticated unsubscribe cannot downgrade hard suppression, same-delivery terminal state and priorunsubscribe upgrades;129focusedPASS; global154files1436PASS0FAIL1existingSKIP on finalapp, followedbytestcleanup-onlyallsettled/final129focusedPASS; type/lint/buildPASS. [Entry](LOY-277-hard-suppression-2026-10-10.md).
 
 2026-10-10 LOY139 actualsignedhandler eventID reusedacrossUTCday RED1FAIL/33filteredSKIP; expected2events got1. Reproducerpatchpreserved; failing testisolated, no application correction or globalgreenclaim. [Checkpoint](LOY-139-event-day-compatibility-2026-10-10.md).
+
+
+2026-10-10 LOY-278: real-PG export concurrency RED1 →focused5files27PASS; real division-by-zero rollback/reused-client and 50k boundary coverage; [evidence](LOY-278-owner-export-snapshot-2026-10-10.md).

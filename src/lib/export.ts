@@ -12,48 +12,51 @@ function checked<T>(rows: T[], label: string) {
 }
 
 export async function getMerchantExport(actorUserId: string) {
-  const [owner] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
-  const tenantId = owner.tenantId;
-  const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows] = await Promise.all([
-    db.select().from(tenants).where(eq(tenants.id, tenantId)),
-    db.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
-    db.select({ id: locations.id, name: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, brandColor: locations.brandColor, latitude: locations.latitude, longitude: locations.longitude, createdAt: locations.createdAt }).from(locations).where(eq(locations.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(programs).where(eq(programs.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(rewards).where(eq(rewards.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(rewardVersions).where(eq(rewardVersions.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select({ id: memberships.id, cardLocator: memberships.cardLocator, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(redemptions).where(eq(redemptions.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(consentEvents).where(eq(consentEvents.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select({ userId: staffRoles.userId, role: staffRoles.role, locationId: staffRoles.locationId, active: staffRoles.active, createdAt: staffRoles.createdAt }).from(staffRoles).where(eq(staffRoles.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(staffAuditEvents).where(eq(staffAuditEvents.tenantId, tenantId)).orderBy(desc(staffAuditEvents.createdAt), desc(staffAuditEvents.id)).limit(MAX_ROWS + 1),
-    db.select().from(billingLocationPlans).where(eq(billingLocationPlans.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(billingInvoices).where(eq(billingInvoices.tenantId, tenantId)).limit(MAX_ROWS + 1),
-    db.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.tenantId, tenantId)).orderBy(desc(cardSecurityEvents.createdAt)).limit(MAX_ROWS + 1),
-  ]);
-  if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
-  return {
-    // 4: card locators on memberships; card security events (reissues with actor, reason and verification method).
-    formatVersion: 4,
-    exportedAt: new Date().toISOString(),
-    scope: "owner-business-data-without-card-or-contact-credentials",
-    tenant,
-    subscription,
-    locations: checked(locationRows, "Locations"),
-    programs: checked(programRows, "Programs"),
-    rewards: checked(rewardRows, "Rewards"),
-    rewardVersions: checked(versionRows, "Reward versions"),
-    memberships: checked(membershipRows, "Memberships").map(row => ({ ...row, cardLocator: formatCardLocator(row.cardLocator) })),
-    ledger: checked(ledgerRows, "Ledger"),
-    redemptions: checked(redemptionRows, "Redemptions"),
-    consentEvents: checked(consentRows, "Consent events"),
-    staff: checked(roleRows, "Staff roles"),
-    staffAuditEvents: checked(auditRows, "Staff audit events"),
-    billingLocationPlans: checked(planRows, "Billing location plans"),
-    billingInvoices: checked(invoiceRows, "Billing fixture invoices"),
-    cardSecurityEvents: checked(securityRows, "Card security events"),
-  };
+  // Owner authorization and every exported category share one committed snapshot.
+  return db.transaction(async (tx) => {
+    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
+    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    const tenantId = owner.tenantId;
+    const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows] = await Promise.all([
+      tx.select().from(tenants).where(eq(tenants.id, tenantId)),
+      tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
+      tx.select({ id: locations.id, name: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, brandColor: locations.brandColor, latitude: locations.latitude, longitude: locations.longitude, createdAt: locations.createdAt }).from(locations).where(eq(locations.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(programs).where(eq(programs.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(rewards).where(eq(rewards.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(rewardVersions).where(eq(rewardVersions.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select({ id: memberships.id, cardLocator: memberships.cardLocator, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(redemptions).where(eq(redemptions.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(consentEvents).where(eq(consentEvents.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select({ userId: staffRoles.userId, role: staffRoles.role, locationId: staffRoles.locationId, active: staffRoles.active, createdAt: staffRoles.createdAt }).from(staffRoles).where(eq(staffRoles.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(staffAuditEvents).where(eq(staffAuditEvents.tenantId, tenantId)).orderBy(desc(staffAuditEvents.createdAt), desc(staffAuditEvents.id)).limit(MAX_ROWS + 1),
+      tx.select().from(billingLocationPlans).where(eq(billingLocationPlans.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(billingInvoices).where(eq(billingInvoices.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.tenantId, tenantId)).orderBy(desc(cardSecurityEvents.createdAt)).limit(MAX_ROWS + 1),
+    ]);
+    if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
+    return {
+      // 4: card locators on memberships; card security events (reissues with actor, reason and verification method).
+      formatVersion: 4,
+      exportedAt: new Date().toISOString(),
+      scope: "owner-business-data-without-card-or-contact-credentials",
+      tenant,
+      subscription,
+      locations: checked(locationRows, "Locations"),
+      programs: checked(programRows, "Programs"),
+      rewards: checked(rewardRows, "Rewards"),
+      rewardVersions: checked(versionRows, "Reward versions"),
+      memberships: checked(membershipRows, "Memberships").map(row => ({ ...row, cardLocator: formatCardLocator(row.cardLocator) })),
+      ledger: checked(ledgerRows, "Ledger"),
+      redemptions: checked(redemptionRows, "Redemptions"),
+      consentEvents: checked(consentRows, "Consent events"),
+      staff: checked(roleRows, "Staff roles"),
+      staffAuditEvents: checked(auditRows, "Staff audit events"),
+      billingLocationPlans: checked(planRows, "Billing location plans"),
+      billingInvoices: checked(invoiceRows, "Billing fixture invoices"),
+      cardSecurityEvents: checked(securityRows, "Card security events"),
+    };
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
 export async function getCustomerExport(cardToken: string) {
