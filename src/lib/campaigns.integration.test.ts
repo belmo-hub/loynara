@@ -4,14 +4,15 @@ import { promisify } from "node:util";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
 import { createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
 import { unsubscribeMarketing } from "./unsubscribe";
-import { recordMailgunWebhook } from "./transactional-email";
+import { recipientHash, recordMailgunWebhook } from "./transactional-email";
+import * as segmentQueries from "./segments";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Campaign tests require looplocal_test");
 // Delivery here runs on the wall clock; quiet hours have their own deterministic tests (quiet-hours*.test.ts).
@@ -350,4 +351,62 @@ describe("win-back and announcement workflow", () => {
     await checkoutAt(f, back.id, new Date(Date.now() + 1_000));
     expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).outcome).toEqual({ sent: 2, returnedAfterSend: 1 });
   });
+});
+
+
+it.each([499, 500, 501, 1001])("queues an eligible recipient beyond paginated membership boundaries (%i cards) without duplicates or foreign recipients", async count => {
+  const f = await fixture();
+  const foreign = await fixture();
+  const foreignCard = await member(foreign.merchant.programSlug, "foreign@example.test", true, true);
+  const { rows: [program] } = await pool.query<{ id: string }>("SELECT id FROM programs WHERE slug = $1", [f.merchant.programSlug]);
+  await pool.query(`INSERT INTO memberships (tenant_id, program_id, scan_code, card_token)
+    SELECT $1::uuid, $2::uuid, 'sc_' || gen_random_uuid()::text,
+      'card_' || replace(gen_random_uuid()::text, '-', '') || '12345678'
+    FROM generate_series(1, $3::int)`, [f.merchant.tenantId, program.id, count]);
+  const { rows: [last, suppressed, withdrawn] } = await pool.query<{ id: string }>("SELECT id FROM memberships WHERE tenant_id = $1 ORDER BY id DESC LIMIT 3", [f.merchant.tenantId]);
+  for (const row of [last, suppressed, withdrawn]) {
+    await db.insert(membershipContacts).values({ tenantId: f.merchant.tenantId, membershipId: row.id, email: `${row.id}@example.test`, emailVerified: true });
+    await db.insert(consentEvents).values({ tenantId: f.merchant.tenantId, membershipId: row.id, channel: "email", purpose: "marketing", granted: row !== withdrawn, noticeVersion: "synthetic", source: "enrollment" });
+  }
+  await db.insert(emailSuppressions).values({ recipientHash: recipientHash(`${suppressed.id}@example.test`), reason: "complained" });
+  const ids: string[] = [];
+  let cursor: string | null = null;
+  let asOf: Date | undefined;
+  do {
+    const page = await segmentQueries.selectAudience({ actorUserId: f.ownerId, programId: program.id, definition: audienceDefinition, limit: 500, ...(cursor ? { afterMembershipId: cursor } : {}), ...(asOf ? { asOf } : {}) });
+    expect(page.total).toBe(count);
+    ids.push(...page.membershipIds); cursor = page.nextCursor; asOf = new Date(page.asOf);
+  } while (cursor);
+  expect(ids).toHaveLength(count);
+  expect(new Set(ids).size).toBe(count);
+  expect(ids).toEqual([...ids].sort());
+  expect(ids.at(-1)).toBe(last.id);
+  expect(ids).not.toContain(foreignCard.id);
+  if (count === 1001) {
+    const original = segmentQueries.selectAudience;
+    let pages = 0;
+    const spy = vi.spyOn(segmentQueries, "selectAudience").mockImplementation(async input => {
+      if (++pages === 2) throw new Error("Synthetic page interruption");
+      return original(input);
+    });
+    try {
+      await expect(previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition })).rejects.toThrow("Synthetic page interruption");
+    } finally { spy.mockRestore(); }
+    expect(await db.select().from(campaignRecipients)).toHaveLength(0);
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+  }
+  const preview = await previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition });
+  expect(preview).toMatchObject({ total: count, eligibleCount: 1, dailyQuota: 100, excludedCountsByReason: { unverified: count - 3, suppressed: 1, noConsent: 1, quota: 0 } });
+  const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+  const when = new Date(Date.now() + 1000);
+  await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+  const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+  const input = { id: job.id, tenantId: job.tenantId, payload: job.payload };
+  expect(await dispatchCampaign(input, new Date(when.getTime() + 1000))).toMatchObject({ status: "complete", queuedCount: 1 });
+  expect(await dispatchCampaign(input, new Date(when.getTime() + 1000))).toMatchObject({ status: "suppressed" });
+  const recipients = await db.select().from(campaignRecipients);
+  expect(recipients).toHaveLength(1);
+  expect(recipients[0]).toMatchObject({ tenantId: f.merchant.tenantId, campaignId: campaign.id, membershipId: last.id });
+  expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(1);
+  expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(1);
 });

@@ -10,7 +10,7 @@ import { unsubscribeUrl } from "./unsubscribe";
 import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 const DAILY_QUOTA = 100;
-const MAX_AUDIENCE = 500;
+const AUDIENCE_PAGE_SIZE = 500;
 const MAX_ATTEMPTS = 5;
 const contentSchema = z.object({
   title: z.string().trim().min(2).max(180),
@@ -61,14 +61,33 @@ async function remainingQuota(tenantId: string, at: Date, query: Query = db) {
 }
 
 async function audience(actorUserId: string, programId: string, definition: AudienceDefinition, asOf?: Date) {
-  const selection = await selectAudience({ actorUserId, programId, definition, ...(asOf ? { asOf } : {}), limit: MAX_AUDIENCE });
-  if (selection.total > MAX_AUDIENCE) throw new DomainError("AUDIENCE_TOO_LARGE", `Campaign audiences are limited to ${MAX_AUDIENCE} cards`);
-  return selection;
+  const selection = await selectAudience({ actorUserId, programId, definition, ...(asOf ? { asOf } : {}), limit: AUDIENCE_PAGE_SIZE });
+  // 500 is a database page size, not a count of contact-eligible recipients.
+  // Keep one enrollment/activity cutoff and traverse the existing UUID cursor.
+  const membershipIds = [...selection.membershipIds];
+  let cursor = selection.nextCursor;
+  while (cursor) {
+    const page = await selectAudience({ actorUserId, programId, definition, asOf: new Date(selection.asOf), afterMembershipId: cursor, limit: AUDIENCE_PAGE_SIZE });
+    membershipIds.push(...page.membershipIds);
+    cursor = page.nextCursor;
+  }
+  return { ...selection, membershipIds, nextCursor: null };
 }
 
 async function classify(tenantId: string, programId: string, ids: string[], query: Query = db, now = new Date()): Promise<{ eligible: Array<{ membershipId: string; email: string }>; excluded: Exclusions }> {
   const excluded: Exclusions = { unverified: 0, noConsent: 0, unsubscribed: 0, suppressed: 0, frequency: 0, closed: 0, nonSynthetic: 0, quota: 0 };
   if (!ids.length) return { eligible: [], excluded };
+  // Bound contact/consent/suppression SQL parameters independently of total
+  // audience size. All existing exclusions and send quotas still apply.
+  if (ids.length > AUDIENCE_PAGE_SIZE) {
+    const eligible: Array<{ membershipId: string; email: string }> = [];
+    for (let offset = 0; offset < ids.length; offset += AUDIENCE_PAGE_SIZE) {
+      const batch = await classify(tenantId, programId, ids.slice(offset, offset + AUDIENCE_PAGE_SIZE), query, now);
+      eligible.push(...batch.eligible);
+      for (const reason of Object.keys(excluded) as Array<keyof Exclusions>) excluded[reason] += batch.excluded[reason];
+    }
+    return { eligible, excluded };
+  }
   const rows = await query.select({ membershipId: memberships.id, closedAt: memberships.closedAt, email: membershipContacts.email, verified: membershipContacts.emailVerified })
     .from(memberships).leftJoin(membershipContacts, and(eq(membershipContacts.tenantId, memberships.tenantId), eq(membershipContacts.membershipId, memberships.id)))
     .where(and(eq(memberships.tenantId, tenantId), eq(memberships.programId, programId), inArray(memberships.id, ids)));
