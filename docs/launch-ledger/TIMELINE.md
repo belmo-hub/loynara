@@ -87,3 +87,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 IMPLEMENTED/TESTED [LOY-283 enrollment contrast](LOY-283-enrollment-brand-contrast-2026-10-11.md): owner-persisted light colour was white-on-white; existing contrast rule reused with actual mobile-width first/returning browser regression.
+
+
+2026-10-11 IMPLEMENTED/TESTED [LOY-284 campaign report snapshot](LOY-284-campaign-report-snapshot-2026-10-11.md): real delivery committed between reads, summary/outcome contradicted; one read-only snapshot preserves report consistency and fresh next read.

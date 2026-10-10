@@ -63,3 +63,6 @@ LOY153 bounded HTTP permissions verified; full153/154 independent acceptance OPE
 
 
 LOY-175 remains OPEN: LOY-283 fixes one existing colour-contract defect locally; merchant-approved branding, all other surfaces and independent physical/accessibility acceptance are not implied.
+
+
+LOY-167/168 OPEN: bounded LOY-284 snapshot correction does not close independent reporting/production acceptance or invent KPI/attribution semantics.

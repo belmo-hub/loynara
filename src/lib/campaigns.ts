@@ -197,39 +197,45 @@ export async function listCampaigns(raw: { actorUserId: string; programSlug: str
 
 export async function getCampaign(raw: { actorUserId: string; campaignId: string }) {
   const input = z.object({ actorUserId: z.string().min(1), campaignId: z.uuid() }).strict().parse(raw);
-  const campaign = await ownerCampaign(input.actorUserId, input.campaignId);
-  const recipients = await db.select({ id: campaignRecipients.id, status: campaignRecipients.status }).from(campaignRecipients).where(and(eq(campaignRecipients.tenantId, campaign.tenantId), eq(campaignRecipients.campaignId, campaign.id)));
-  const summary = { queued: 0, sent: 0, delivered: 0, providerFailed: 0, suppressed: 0, failed: 0 };
-  for (const recipient of recipients) {
-    if (recipient.status === "complete") summary.sent++;
-    else if (recipient.status === "suppressed") summary.suppressed++;
-    else if (recipient.status === "failed") summary.failed++;
-    else summary.queued++;
-  }
-  const ids = recipients.map(row => row.id);
-  const attempts = ids.length ? await db.select({ recipientId: campaignAttempts.recipientId, status: campaignAttempts.status, reason: campaignAttempts.reason, createdAt: campaignAttempts.createdAt, providerStatus: emailDeliveries.status }).from(campaignAttempts)
-    .leftJoin(emailDeliveries, eq(emailDeliveries.jobId, campaignAttempts.outboxJobId))
-    .where(and(eq(campaignAttempts.tenantId, campaign.tenantId), inArray(campaignAttempts.recipientId, ids))).orderBy(desc(campaignAttempts.createdAt)).limit(100) : [];
-  const providerRows = ids.length ? await db.select({ jobId: emailDeliveries.jobId, status: emailDeliveries.status }).from(emailDeliveries)
-    .innerJoin(campaignAttempts, eq(campaignAttempts.outboxJobId, emailDeliveries.jobId))
-    .where(and(eq(campaignAttempts.tenantId, campaign.tenantId), inArray(campaignAttempts.recipientId, ids))) : [];
-  const providerStates = [...new Map(providerRows.map(row => [row.jobId, row.status])).values()];
-  summary.delivered = providerStates.filter(status => status === "delivered").length;
-  summary.providerFailed = providerStates.filter(status => ["permanent_failure", "complained", "unsubscribed"].includes(status)).length;
-  // Outcome: of the cards that were sent the message, how many recorded a qualifying checkout afterwards. This is
-  // observation, not attribution: they might have come anyway.
-  const [outcome] = await db.execute<{ sent: number; returned: number }>(sql`
-    SELECT count(*)::int AS sent,
-      count(*) FILTER (WHERE EXISTS (
-        SELECT 1 FROM ledger_entries e
-        WHERE e.tenant_id = r.tenant_id AND e.membership_id = r.membership_id AND e.created_at > r.sent_at
-          AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
-          AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)
-      ))::int AS returned
-    FROM campaign_recipients r
-    WHERE r.tenant_id = ${campaign.tenantId} AND r.campaign_id = ${campaign.id} AND r.status = 'complete' AND r.sent_at IS NOT NULL
-  `).then(result => result.rows);
-  return { campaign, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
+  // Counts, provider states and observed outcomes describe one committed state.
+  // Read-only MVCC does not lock delivery writers or call providers.
+  return db.transaction(async tx => {
+    await tx.execute(sql`SET LOCAL statement_timeout = '5s'`);
+    await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '5s'`);
+    const campaign = await ownerCampaign(input.actorUserId, input.campaignId, tx);
+    const recipients = await tx.select({ id: campaignRecipients.id, status: campaignRecipients.status }).from(campaignRecipients).where(and(eq(campaignRecipients.tenantId, campaign.tenantId), eq(campaignRecipients.campaignId, campaign.id)));
+    const summary = { queued: 0, sent: 0, delivered: 0, providerFailed: 0, suppressed: 0, failed: 0 };
+    for (const recipient of recipients) {
+      if (recipient.status === "complete") summary.sent++;
+      else if (recipient.status === "suppressed") summary.suppressed++;
+      else if (recipient.status === "failed") summary.failed++;
+      else summary.queued++;
+    }
+    const ids = recipients.map(row => row.id);
+    const attempts = ids.length ? await tx.select({ recipientId: campaignAttempts.recipientId, status: campaignAttempts.status, reason: campaignAttempts.reason, createdAt: campaignAttempts.createdAt, providerStatus: emailDeliveries.status }).from(campaignAttempts)
+      .leftJoin(emailDeliveries, eq(emailDeliveries.jobId, campaignAttempts.outboxJobId))
+      .where(and(eq(campaignAttempts.tenantId, campaign.tenantId), inArray(campaignAttempts.recipientId, ids))).orderBy(desc(campaignAttempts.createdAt)).limit(100) : [];
+    const providerRows = ids.length ? await tx.select({ jobId: emailDeliveries.jobId, status: emailDeliveries.status }).from(emailDeliveries)
+      .innerJoin(campaignAttempts, eq(campaignAttempts.outboxJobId, emailDeliveries.jobId))
+      .where(and(eq(campaignAttempts.tenantId, campaign.tenantId), inArray(campaignAttempts.recipientId, ids))) : [];
+    const providerStates = [...new Map(providerRows.map(row => [row.jobId, row.status])).values()];
+    summary.delivered = providerStates.filter(status => status === "delivered").length;
+    summary.providerFailed = providerStates.filter(status => ["permanent_failure", "complained", "unsubscribed"].includes(status)).length;
+    // Outcome: of the cards that were sent the message, how many recorded a qualifying checkout afterwards. This is
+    // observation, not attribution: they might have come anyway.
+    const [outcome] = await tx.execute<{ sent: number; returned: number }>(sql`
+      SELECT count(*)::int AS sent,
+        count(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM ledger_entries e
+          WHERE e.tenant_id = r.tenant_id AND e.membership_id = r.membership_id AND e.created_at > r.sent_at
+            AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+            AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)
+        ))::int AS returned
+      FROM campaign_recipients r
+      WHERE r.tenant_id = ${campaign.tenantId} AND r.campaign_id = ${campaign.id} AND r.status = 'complete' AND r.sent_at IS NOT NULL
+    `).then(result => result.rows);
+    return { campaign, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
 export async function dispatchCampaign(job: DispatchJob, now?: Date): Promise<{ status: "complete" | "suppressed" | "blocked"; reason?: string; queuedCount?: number }> {

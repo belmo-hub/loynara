@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
@@ -467,4 +468,94 @@ it.each(["cancel", "reschedule"] as const)("suppresses stale dispatch after conc
     if (timeout) clearTimeout(timeout);
     release(); await Promise.allSettled([pending]); spy.mockRestore();
   }
+});
+
+
+it("keeps campaign summary and outcomes in one snapshot while a real recipient delivery commits", async () => {
+  const f = await fixture();
+  await member(f.merchant.programSlug, "snapshot@example.test", true, true);
+  const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+  const when = new Date(Date.now() + 1_000);
+  await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+  const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+  await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000));
+  const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+  let readReady!: () => void; let release!: () => void;
+  const read = new Promise<void>(resolve => { readReady = resolve; });
+  const resume = new Promise<void>(resolve => { release = resolve; });
+  let captured = false; let hold = true;
+  const original = Client.prototype.query;
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    if (hold && text?.startsWith("select") && text.includes('from "campaign_attempts"')) {
+      if (typeof args.at(-1) === "function") { void resume.then(() => Reflect.apply(original, this, args)); return; }
+      return resume.then(() => Reflect.apply(original, this, args));
+    }
+    if (captured || !text?.startsWith("select") || !text.includes('from "campaign_recipients"')) return Reflect.apply(original, this, args);
+    captured = true;
+    const callback = args.at(-1);
+    if (typeof callback === "function") {
+      args[args.length - 1] = (...result: unknown[]) => { if (!result[0]) readReady(); Reflect.apply(callback, undefined, result); };
+      return Reflect.apply(original, this, args);
+    }
+    return (Reflect.apply(original, this, args) as Promise<unknown>).then(result => { readReady(); return result; });
+  }) as typeof original);
+  let pending: ReturnType<typeof getCampaign> | undefined; let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    pending = getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id });
+    await Promise.race([read, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Actual recipient report read not reached")), 2000); })]);
+    // Ordinary production transition commits on another client while the report
+    // is open. Synthetic sender performs no network/provider communication.
+    const send = vi.fn(async () => {});
+    await expect(deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, send)).resolves.toMatchObject({ status: "complete" });
+    expect(send).toHaveBeenCalledTimes(1);
+    hold = false; release();
+    const report = await pending;
+    expect(report.summary.sent).toBe(report.outcome.sent);
+    expect(report).toMatchObject({ campaign: { status: "dispatching" }, summary: { queued: 1, sent: 0, delivered: 0 }, attempts: [], outcome: { sent: 0, returnedAfterSend: 0 } });
+    const fresh = await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id });
+    expect(fresh).toMatchObject({ campaign: { status: "complete" }, summary: { queued: 0, sent: 1, delivered: 0 }, attempts: [{ status: "complete" }], outcome: { sent: 1, returnedAfterSend: 0 } });
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    hold = false; release(); await Promise.allSettled([pending]); spy.mockRestore();
+  }
+});
+
+
+it("does not turn failed campaign reads into zero data and releases a reusable read-write connection", async () => {
+  const f = await fixture();
+  await member(f.merchant.programSlug, "failure@example.test", true, true);
+  const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+  expect(await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).toMatchObject({
+    summary: { queued: 0, sent: 0, delivered: 0, providerFailed: 0, suppressed: 0, failed: 0 }, attempts: [], outcome: { sent: 0, returnedAfterSend: 0 },
+  });
+  const when = new Date(Date.now() + 1_000);
+  await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+  const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+  await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000));
+  const original = Client.prototype.query;
+  const captured: { client?: Client } = {};
+  let rollbackObserved = false;
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    if (!captured.client && text?.startsWith("select") && text.includes('from "campaign_attempts"')) {
+      captured.client = this;
+      return Reflect.apply(original, this, ["select 1 / 0"]);
+    }
+    if (this === captured.client && text?.toLowerCase() === "rollback") rollbackObserved = true;
+    return Reflect.apply(original, this, args);
+  }) as typeof original);
+  try {
+    await expect(getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).rejects.toMatchObject({ cause: { code: "22012" } });
+    expect(rollbackObserved).toBe(true);
+    const client = await pool.connect();
+    try {
+      expect(client).toBe(captured.client);
+      expect((await client.query("show transaction_read_only")).rows[0].transaction_read_only).toBe("off");
+      await expect(client.query("select 1 as healthy")).resolves.toMatchObject({ rows: [{ healthy: 1 }] });
+    } finally { client.release(); }
+    const fresh = await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id });
+    expect(fresh.summary.queued).toBe(1);
+    await expect(getCampaign({ actorUserId: randomUUID(), campaignId: campaign.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  } finally { spy.mockRestore(); }
 });
