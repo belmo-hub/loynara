@@ -48,3 +48,6 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 LOY85 actual worker bounded retry/expiry now locally verified;85/86 external acceptance OPEN. Coordinator042 unsent after bounded Chrome page-read failures; founder-authorized fallback executed, no invented reply. [Entry](LOY-85-worker-retry-boundaries-2026-10-10.md).
+
+
+LOY43 supported closure/export ordinary query-failure rollback locally verified; full43/44privacy acceptance and209category/retention policy remain OPEN. Connection-loss/rollbackfailure not verified. [Entry](LOY-43-privacy-failure-atomicity-2026-10-10.md).

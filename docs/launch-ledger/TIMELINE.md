@@ -72,3 +72,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 TESTED LOY85 actual-worker final retry, expired fourth/fifth lease and tap expiry; four new regressions, negative limit control2expectedFAIL, finalfocused33PASS, no app defect. [Entry](LOY-85-worker-retry-boundaries-2026-10-10.md).
+
+
+2026-10-10 TESTED LOY43 actual query-failure rollback for closure/contact/queues/Wallet and export client reuse; finalfocused27PASS1existingSKIP, no app/policy change. [Entry](LOY-43-privacy-failure-atomicity-2026-10-10.md).

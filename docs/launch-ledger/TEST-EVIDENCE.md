@@ -58,3 +58,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 LOY85 fallback: actual worker retry/expiry tests, finalfocused3files33PASS0FAIL0SKIP, negative six-attempt control2expectedFAIL; no provider/device acceptance. [Evidence](LOY-85-worker-retry-boundaries-2026-10-10.md).
+
+
+LOY43 ordinary PostgreSQL failure atomicity: two new tests, focused5files27PASS0FAIL1existingMailpitSKIP; exact rollback/client reuse/foreign isolation. [Evidence](LOY-43-privacy-failure-atomicity-2026-10-10.md).
