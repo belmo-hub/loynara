@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
@@ -322,4 +323,91 @@ it("preserves a legitimate real failure arriving before the provider response", 
   await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: queued.id }, provider);
   expect((await db.select().from(emailDeliveries))[0]).toMatchObject({ status: "permanent_failure", providerMessageId: messageId });
   expect(await db.select().from(emailSuppressions)).toHaveLength(1);
+});
+
+
+it.each(["complained", "permanent_fail"] as const)("preserves %s suppression after a later unsubscribe from another delivery", async hardReason => {
+  const first = await job(); const second = await job();
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  const message = { to: "holder@example.test", subject: "Synthetic recovery", body: "Synthetic only" };
+  await sendTransactional({ ...message, jobId: first.id }, provider);
+  await sendTransactional({ ...message, jobId: second.id }, provider);
+  await recordMailgunWebhook(signed(hardReason, first.id));
+  const unsubscribe = signed("unsubscribed", second.id);
+  await recordMailgunWebhook(unsubscribe);
+  await recordMailgunWebhook(unsubscribe);
+  expect((await db.select().from(emailSuppressions))[0].reason).toBe(hardReason);
+  expect(await db.select().from(emailProviderEvents)).toHaveLength(2);
+  expect(await sendTransactional({ ...message, jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+  expect(await sendPromotional({ ...message, jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+  expect(provider.send).toHaveBeenCalledTimes(2);
+});
+
+it("preserves a complaint when another delivery concurrently records unsubscribe", async () => {
+  const first = await job(); const second = await job();
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  const message = { to: "holder@example.test", subject: "Synthetic", body: "Synthetic only" };
+  await sendTransactional({ ...message, jobId: first.id }, provider);
+  await sendTransactional({ ...message, jobId: second.id }, provider);
+  let hardReady!: () => void; const hardRead = new Promise<void>(resolve => { hardReady = resolve; });
+  let weakReady!: () => void; const weakStarted = new Promise<void>(resolve => { weakReady = resolve; });
+  let release!: () => void; const resume = new Promise<void>(resolve => { release = resolve; });
+  const originalQuery = Client.prototype.query;
+  let held = false;
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    const values = args[1] as unknown[] | undefined;
+    if (!text?.includes('insert into "email_suppressions"')) return Reflect.apply(originalQuery, this, args);
+    if (values?.includes("unsubscribed")) weakReady();
+    if (held || !values?.includes("complained")) return Reflect.apply(originalQuery, this, args);
+    held = true;
+    // Drizzle transactions use the real Promise form; pause after PostgreSQL
+    // acquired the suppression row, before the complaint transaction commits.
+    return (Reflect.apply(originalQuery, this, args) as Promise<unknown>).then(async rows => { hardReady(); await resume; return rows; });
+  }) as typeof originalQuery);
+  let hard: ReturnType<typeof recordMailgunWebhook> | undefined;
+  let weak: ReturnType<typeof recordMailgunWebhook> | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    hard = recordMailgunWebhook(signed("complained", first.id));
+    await Promise.race([hardRead, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Suppression insert gate not reached")), 2000); })]);
+    if (timeout) clearTimeout(timeout);
+    weak = recordMailgunWebhook(signed("unsubscribed", second.id));
+    await Promise.race([
+      weakStarted,
+      weak.then(() => { throw new Error("Unsubscribe finished before suppression gate"); }),
+      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Unsubscribe suppression gate not reached")), 2000); }),
+    ]);
+    if (timeout) clearTimeout(timeout);
+    timeout = undefined;
+    release();
+    await Promise.all([hard, weak]);
+    expect((await db.select().from(emailSuppressions))[0].reason).toBe("complained");
+    expect(await db.select().from(emailProviderEvents)).toHaveLength(2);
+    expect(await sendTransactional({ ...message, jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+    expect(provider.send).toHaveBeenCalledTimes(2);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    release();
+    try { await Promise.allSettled([hard, weak]); } finally { spy.mockRestore(); }
+  }
+});
+
+
+it.each(["complained", "permanent_fail"] as const)("keeps hard %s delivery terminal after unsubscribe and upgrades earlier unsubscribe", async reason => {
+  const { queued } = await sentJob();
+  await recordMailgunWebhook(signed(reason, queued.id));
+  await recordMailgunWebhook(signed("unsubscribed", queued.id));
+  expect((await db.select().from(emailDeliveries))[0].status).toBe(reason === "permanent_fail" ? "permanent_failure" : "complained");
+  expect((await db.select().from(emailSuppressions))[0].reason).toBe(reason);
+});
+
+it.each(["complained", "permanent_fail"] as const)("upgrades a prior promotional unsubscribe to %s suppression", async reason => {
+  const { queued } = await sentJob();
+  await recordMailgunWebhook(signed("unsubscribed", queued.id));
+  await recordMailgunWebhook(signed(reason, queued.id));
+  expect((await db.select().from(emailSuppressions))[0].reason).toBe(reason);
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: "<unused@example.test>" })) };
+  expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+  expect(provider.send).not.toHaveBeenCalled();
 });

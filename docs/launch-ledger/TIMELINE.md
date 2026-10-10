@@ -47,3 +47,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-10: IMPLEMENTED/TESTED LOY-275 transaction-location owner activity; RED two missing-report cases →20 focused PASS. Final154files1427PASS0FAIL1existingMailpitSKIP; type/lint/defaultbuild PASS. Staff and aggregate compatibility retained. [Entry](LOY-275-location-activity-reporting-2026-10-10.md).
 
 2026-10-10: IMPLEMENTED/TESTED LOY-276 analytics read-only repeatable snapshot; deterministic concurrent award REDbusiness1breakdown2 →22focusedPASS; final154files1429PASS0FAIL1existingSKIP; type/lint/build PASS. [Entry](LOY-276-analytics-snapshot-2026-10-10.md).
+
+2026-10-10: IMPLEMENTED/TESTED LOY-277 hard email suppression/delivery terminal guards;RED5→129focusedPASS; global154files1436PASS0FAIL1existingSKIP; type/lint/buildPASS. Independent reviewtestcleanup findings corrected. [Entry](LOY-277-hard-suppression-2026-10-10.md).

@@ -202,7 +202,8 @@ export async function recordMailgunWebhook(input: unknown) {
     if (!inserted.length) return;
     if (!delivery) return;
     const current = delivery.status;
-    const shouldAdvance = ["permanent_fail", "complained", "unsubscribed"].includes(event.event)
+    const shouldAdvance = ["permanent_fail", "complained"].includes(event.event)
+      || (event.event === "unsubscribed" && !["permanent_failure", "complained"].includes(current))
       || (event.event === "delivered" && !["permanent_failure", "complained", "unsubscribed"].includes(current))
       || (event.event === "temporary_fail" && ["sending", "ambiguous", "accepted", "temporary_failure", "rate_limited"].includes(current))
       || (event.event === "accepted" && ["sending", "ambiguous", "accepted", "rate_limited"].includes(current));
@@ -210,7 +211,13 @@ export async function recordMailgunWebhook(input: unknown) {
       await tx.update(emailDeliveries).set({ status: mapped, retryAt: null, updatedAt: new Date() }).where(eq(emailDeliveries.jobId, delivery.jobId));
     }
     if (["permanent_fail", "complained", "unsubscribed"].includes(event.event) && event.recipient && recipientHash(event.recipient) === delivery.recipientHash) {
-      await tx.insert(emailSuppressions).values({ recipientHash: recipientHash(event.recipient), reason: event.event }).onConflictDoUpdate({ target: emailSuppressions.recipientHash, set: { reason: event.event } });
+      // A marketing unsubscribe must not downgrade a complaint/permanent
+      // failure and thereby re-enable transactional recovery mail. PostgreSQL
+      // rechecks the guard under the conflicting recipient row lock.
+      await tx.insert(emailSuppressions).values({ recipientHash: recipientHash(event.recipient), reason: event.event }).onConflictDoUpdate({
+        target: emailSuppressions.recipientHash, set: { reason: event.event },
+        setWhere: eq(emailSuppressions.reason, "unsubscribed"),
+      });
     }
   });
   return { accepted: true as const };
