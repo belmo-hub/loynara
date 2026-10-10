@@ -43,3 +43,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 2026-10-10 assignment038: actual webhook503→rollback→sameevent200→duplicate200; owner redemption/reversal consistent snapshots. Focused4files47PASS; unchanged app; [entry](LOY-139-retry-and-owner-export-regressions-2026-10-10.md).
+
+
+2026-10-10 assignment039: actual cancellation/reschedule/competingdispatch guards and referral event timestamps/tenant boundaries. No applicationfix fabricated. [Entry](LOY-129-schedule-and-referral-boundaries-2026-10-10.md).

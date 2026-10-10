@@ -33,3 +33,6 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 2026-10-10 assignment038 adds bounded retry/export verification; parent139/140/165/166 and legacyeventday/provider/physical gates remain open. No fullscopecompletion claim. [Entry](LOY-139-retry-and-owner-export-regressions-2026-10-10.md).
+
+
+2026-10-10 assignment039 supports bounded scheduling/referral verification only.125/129/165 and independentprovider/reporting gates remain open; no completion inferred. [Entry](LOY-129-schedule-and-referral-boundaries-2026-10-10.md).

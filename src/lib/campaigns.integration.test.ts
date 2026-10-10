@@ -7,7 +7,7 @@ import { db, pool } from "@/db";
 import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
-import { createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
+import { cancelCampaign, createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
 import { unsubscribeMarketing } from "./unsubscribe";
@@ -409,4 +409,62 @@ it.each([499, 500, 501, 1001])("queues an eligible recipient beyond paginated me
   expect(recipients[0]).toMatchObject({ tenantId: f.merchant.tenantId, campaignId: campaign.id, membershipId: last.id });
   expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(1);
   expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(1);
+});
+
+
+it.each(["cancel", "reschedule"] as const)("suppresses stale dispatch after concurrent %s before authoritative campaign claim", async operation => {
+  const f = await fixture(); const foreign = await fixture();
+  const ownCard = await member(f.merchant.programSlug, "schedule@example.test", true, true);
+  await member(foreign.merchant.programSlug, "foreign@example.test", true, true);
+  const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+  const when = new Date(Date.now() + 1000);
+  await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+  const [originalJob] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+  const input = { id: originalJob.id, tenantId: originalJob.tenantId, payload: originalJob.payload };
+  let ready!: () => void; const read = new Promise<void>(resolve => { ready = resolve; });
+  let release!: () => void; const resume = new Promise<void>(resolve => { release = resolve; });
+  const original = segmentQueries.selectAudience;
+  let paused = false;
+  const spy = vi.spyOn(segmentQueries, "selectAudience").mockImplementation(async selection => {
+    const rows = await original(selection);
+    if (!paused && selection.programId === f.merchant.programId) { paused = true; ready(); await resume; }
+    return rows;
+  });
+  let pending: ReturnType<typeof dispatchCampaign> | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    pending = dispatchCampaign(input, new Date(when.getTime() + 1000));
+    await Promise.race([read, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Actual audience read gate not reached")), 2000); })]);
+    await expect(cancelCampaign({ actorUserId: foreign.ownerId, campaignId: campaign.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const replacement = new Date(when.getTime() + 60_000);
+    if (operation === "cancel") await cancelCampaign({ actorUserId: f.ownerId, campaignId: campaign.id });
+    else {
+      await pauseCampaign({ actorUserId: f.ownerId, campaignId: campaign.id });
+      await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: replacement });
+    }
+    release();
+    expect(await pending).toMatchObject({ status: "suppressed", reason: "Campaign schedule changed" });
+    expect(await db.select().from(campaignRecipients)).toHaveLength(0);
+    expect(await db.select().from(campaignDailyUsage)).toHaveLength(0);
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+    if (operation === "reschedule") {
+      const jobs = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+      const replacementJob = jobs.find(job => job.payload.scheduleRevision === "3")!;
+      const replacementInput = { id: replacementJob.id, tenantId: replacementJob.tenantId, payload: replacementJob.payload };
+      const results = await Promise.all([dispatchCampaign(replacementInput, new Date(replacement.getTime() + 1000)), dispatchCampaign(replacementInput, new Date(replacement.getTime() + 1000))]);
+      expect(results.map(result => result.status).sort()).toEqual(["complete", "suppressed"]);
+      const recipients = await db.select().from(campaignRecipients);
+      expect(recipients).toHaveLength(1);
+      expect(recipients[0]).toMatchObject({ tenantId: f.merchant.tenantId, campaignId: campaign.id, membershipId: ownCard.id });
+      const deliveries = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+      expect(deliveries).toHaveLength(1);
+      expect(deliveries[0]).toMatchObject({ tenantId: f.merchant.tenantId, payload: { campaignId: campaign.id, recipientId: recipients[0].id, membershipId: ownCard.id } });
+      expect((await db.select().from(campaignDailyUsage))[0]).toMatchObject({ tenantId: f.merchant.tenantId, queued: 1 });
+      expect(await dispatchCampaign(replacementInput, new Date(replacement.getTime() + 1000))).toMatchObject({ status: "suppressed" });
+    }
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).campaign.status).toBe(operation === "cancel" ? "cancelled" : "dispatching");
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    release(); await Promise.allSettled([pending]); spy.mockRestore();
+  }
 });

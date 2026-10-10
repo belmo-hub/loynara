@@ -57,3 +57,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 TESTED LOY139 actual signed route failed-PG rollback/retry/idempotency; authorizedfallback165 concurrent redemption/reversal owner exports, negativecontrol2expectedFAIL. Four durable regressions, noappdefect. [Entry](LOY-139-retry-and-owner-export-regressions-2026-10-10.md).
+
+
+2026-10-10 TESTED campaign stalecancel/reschedule claim races and exact30/90UTC referral lifecycle boundaries, focused5files77PASS; negativeguardcontrol2expectedFAIL; noappdefect. [Entry](LOY-129-schedule-and-referral-boundaries-2026-10-10.md).

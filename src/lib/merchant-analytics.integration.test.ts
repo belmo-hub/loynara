@@ -309,3 +309,37 @@ it("rolls back a failed reporting read and releases a clean reusable client", as
   } finally { client.release(); }
   expect((await getMerchantAnalytics(owner, { windowDays: 30 })).issued.awardActions).toBe(0);
 });
+
+it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact %i-day UTC boundaries", async windowDays => {
+  const owner = await user(); const foreignOwner = await user();
+  const shop = await merchant(owner, "Synthetic Referral Boundary");
+  const foreign = await merchant(foreignOwner, "Synthetic Foreign Referral Boundary");
+  const asOf = new Date("2030-01-31T00:00:00.000Z");
+  const from = new Date(asOf.getTime() - windowDays * 86_400_000);
+  const before = new Date(from.getTime() - 1); const last = new Date(asOf.getTime() - 1);
+  const seed = async (actor: string, target: typeof shop, createdAt: Date, qualifiedAt: Date, reversedAt: Date) => {
+    await configureReferrals({ actorUserId: actor, programSlug: target.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const referrer = await enroll({ slug: target.programSlug, acceptedTerms: true });
+    const referralCode = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+    const referred = await enroll({ slug: target.programSlug, acceptedTerms: true, referralCode });
+    const input = { userId: actor, locationId: target.locationId, membershipId: referred.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() };
+    const checkout = await award(input);
+    expect(await award(input)).toMatchObject({ duplicate: true, entryId: checkout.entryId });
+    await reverseEntry({ userId: actor, locationId: target.locationId, entryId: checkout.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [lifecycle] = await db.select().from(referrals).where(eq(referrals.referredMembershipId, referred.id));
+    expect(lifecycle.status).toBe("reversed");
+    // Timestamp fixtures only after actual attribution/qualification/reversal.
+    // Reporting counts events by their own time, not a new net-conversion KPI.
+    await db.update(referrals).set({ createdAt, qualifiedAt, reversedAt }).where(eq(referrals.id, lifecycle.id));
+  };
+  await seed(owner, shop, before, before, before);
+  await seed(owner, shop, from, from, from);
+  await seed(owner, shop, last, last, last);
+  await seed(owner, shop, asOf, asOf, asOf);
+  await seed(owner, shop, before, from, asOf);
+  await seed(foreignOwner, foreign, from, from, from);
+  const report = await getMerchantAnalytics(owner, { windowDays, asOf });
+  expect(report.timezone).toBe("UTC");
+  expect(report.referrals).toEqual({ attributed: 2, qualified: 3, reversed: 2 });
+  expect((await getMerchantAnalytics(foreignOwner, { windowDays, asOf })).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
+});
