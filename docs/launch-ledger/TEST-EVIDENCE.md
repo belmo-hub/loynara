@@ -52,3 +52,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 2026-10-10 assignment041 actual PostgreSQL closure membership-lock ordering; focused4files31PASS0FAIL1existingMailpitSKIP, unchanged app. [Evidence](LOY-161-policy-and-closure-ordering-2026-10-10.md).
+
+
+2026-10-10 LOY280 real authenticated manager HTTP reissue, role revocation and onboarding user-lock control; final focused5files28PASS0FAIL1existingMailpitSKIP. [Evidence](LOY-280-reissue-revocation-ordering-2026-10-10.md).

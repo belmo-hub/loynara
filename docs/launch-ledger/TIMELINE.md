@@ -66,3 +66,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 assignment041:161 inactive-entitlement policy undefined; executed33fallback, two real-PG closure-vs-recovery/reissue regressions pass on unchanged app. [Entry](LOY-161-policy-and-closure-ordering-2026-10-10.md).
+
+
+2026-10-10 IMPLEMENTED/TESTED LOY280 staff reissue versus completed departure authorization ordering; actual authenticated RED2→focused28PASS1existingSKIP, identity-before-role lock pattern. [Entry](LOY-280-reissue-revocation-ordering-2026-10-10.md).

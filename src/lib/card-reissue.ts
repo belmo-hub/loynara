@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { cardSecurityEvents, memberships, programs, staffRoles } from "@/db/schema";
@@ -47,7 +47,10 @@ export async function reissueCardByStaff(raw: z.input<typeof input>): Promise<Re
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     const [program] = await tx.select({ locationId: programs.locationId }).from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
     if (!program || program.locationId !== parsed.locationId) throw new DomainError("NOT_FOUND", "Card not found at this location");
-    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, parsed.actorUserId), eq(staffRoles.active, true)));
+    // Match checkout/onboarding identity-before-role ordering. Authorized reissue holds the active role until commit;
+    // revocation that owns it first makes PostgreSQL recheck the active predicate before any credential mutation.
+    await tx.execute(sql`SELECT id FROM "user" WHERE id = ${parsed.actorUserId} FOR KEY SHARE`);
+    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, parsed.actorUserId), eq(staffRoles.active, true))).for("share");
     if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== parsed.locationId)) throw new DomainError("FORBIDDEN", "Manager or owner access required");
 
     const [prior] = await tx.select().from(cardSecurityEvents).where(and(eq(cardSecurityEvents.tenantId, member.tenantId), eq(cardSecurityEvents.idempotencyKey, parsed.idempotencyKey)));
