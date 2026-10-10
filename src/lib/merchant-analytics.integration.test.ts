@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignRecipients, campaigns, ledgerEntries, memberships, outboxJobs, programRuleVersions, referrals, rewardVersions, rewards, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignRecipients, campaigns, ledgerEntries, locations, memberships, programs, outboxJobs, programRuleVersions, referrals, rewardVersions, rewards, staffRoles } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { createMerchant, enroll } from "./product";
 import { getMerchantAnalytics } from "./merchant-analytics";
 import { configureReferrals, getCardReferralShare } from "./referrals";
+import { createAdditionalLocation } from "./locations";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Analytics tests require looplocal_test");
 
@@ -131,6 +132,51 @@ describe("owner-only merchant analytics", () => {
     expect(report.staffActivity.reduce((sum, row) => sum + row.awardActions, 0)).toBe(report.issued.awardActions);
     expect(report.staffActivity.map(row => row.userId)).not.toContain(foreignOwner);
     await expect(getMerchantAnalytics(formerCashier, { windowDays: 30, asOf })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it.each([30, 90] as const)("reports persisted transaction locations and exact UTC boundaries for %i days", async windowDays => {
+    const owner = await user();
+    const reassignedCashier = await user();
+    const foreignOwner = await user();
+    const a = await merchant(owner, "Synthetic Location Report");
+    const b = await merchant(foreignOwner, "Synthetic Foreign Location");
+    const second = await createAdditionalLocation(owner, { name: "Points counter", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Points card", programType: "points", earningMode: "manual", rulesText: "Manual points.", rewardTitle: "Test reward", rewardCost: 20 });
+    const [empty] = await db.insert(locations).values({ tenantId: a.tenantId, name: "Empty counter", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    const stampCard = await enroll({ slug: a.programSlug, acceptedTerms: true });
+    const pointCard = await enroll({ slug: second.programSlug, acceptedTerms: true });
+    const foreignCard = await enroll({ slug: b.programSlug, acceptedTerms: true });
+    await db.insert(staffRoles).values({ tenantId: a.tenantId, userId: reassignedCashier, role: "cashier", locationId: second.locationId, active: false });
+    const asOf = new Date("2030-01-31T00:00:00.000Z");
+    const from = new Date(asOf.getTime() - windowDays * 86_400_000);
+    const base = { tenantId: a.tenantId, locationId: a.locationId, membershipId: stampCard.id, actorUserId: owner, createdAt: from };
+    const insert = (extra: Partial<typeof ledgerEntries.$inferInsert> = {}) => db.insert(ledgerEntries).values({ ...base, requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1, ...extra }).returning();
+    const shared = randomUUID();
+    await insert({ requestId: shared });
+    await insert({ requestId: shared });
+    await insert({ actorUserId: reassignedCashier, source: "staff_offline", delta: 3 });
+    const point = { locationId: second.locationId, membershipId: pointCard.id };
+    await insert({ ...point, delta: 5 });
+    await insert({ ...point, delta: 7, createdAt: new Date(asOf.getTime() - 1) });
+    const [reversed] = await insert({ ...point, delta: 4 });
+    await insert({ ...point, kind: "reversal", source: "staff_correction", delta: -4, reversalOfId: reversed.id, createdAt: new Date(asOf.getTime() - 1) });
+    await insert({ source: "synthetic_seed", delta: 100 });
+    await insert({ createdAt: new Date(from.getTime() - 1) });
+    await insert({ createdAt: asOf });
+    await insert({ tenantId: b.tenantId, locationId: b.locationId, membershipId: foreignCard.id, actorUserId: foreignOwner, delta: 9 });
+    await db.update(locations).set({ name: "Renamed stamp counter" }).where(eq(locations.id, a.locationId));
+    await db.update(programs).set({ status: "archived" }).where(eq(programs.id, a.programId));
+    const report = await getMerchantAnalytics(owner, { windowDays, asOf });
+    expect(report.locationActivity).toEqual(expect.arrayContaining([
+      { locationId: a.locationId, name: "Renamed stamp counter", awardActions: 3, stampUnits: 5, pointUnits: 0 },
+      { locationId: second.locationId, name: "Points counter", awardActions: 2, stampUnits: 0, pointUnits: 12 },
+      { locationId: empty.id, name: "Empty counter", awardActions: 0, stampUnits: 0, pointUnits: 0 },
+    ]));
+    expect(report.locationActivity).toHaveLength(3);
+    expect(report.issued).toEqual({ awardActions: 5, stampUnits: 5, pointUnits: 12 });
+    for (const key of ["awardActions", "stampUnits", "pointUnits"] as const) expect(report.locationActivity.reduce((sum, row) => sum + row[key], 0)).toBe(report.issued[key]);
+    expect(report.staffActivity.find(row => row.userId === reassignedCashier)).toMatchObject({ awardActions: 1, stampUnits: 3, pointUnits: 0 });
+    expect(report.qualifyingCheckouts).toBe(4);
+    expect((await getMerchantAnalytics(foreignOwner, { windowDays, asOf })).locationActivity.map(row => row.locationId)).toEqual([b.locationId]);
   });
 
   it("keeps points separate from stamps for recorded purchase awards", async () => {

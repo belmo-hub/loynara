@@ -40,6 +40,13 @@ export default function MerchantAnalyticsPage() {
             <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Kassenvorgänge.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
           </div>
         </section>
+        <section className="ow-card ow-stack" aria-labelledby="an-locations">
+          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Gutschrift-Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
+          {r.locationActivity.length === 0 ? <p className="ow-muted">Keine Standorte vorhanden.</p> : <ul className="ow-feed">
+            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+          </ul>}
+          <p className="ow-hint">Aktuelle Standortnamen. Mehrere Buchungen können zu einem Kassenvorgang gehören. Keine Umsatzkennzahl.</p>
+        </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
           <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Gutschrift-Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
           {r.staffActivity.length === 0 ? <p className="ow-muted">Keine Gutschrift-Buchungen in diesem Zeitraum.</p> : <ul className="ow-feed">
