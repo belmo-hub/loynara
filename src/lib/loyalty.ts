@@ -161,7 +161,8 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
     const [selected] = await tx.select({ version: rewardVersions, reward: rewards })
       .from(rewardVersions)
       .innerJoin(rewards, and(eq(rewards.id, rewardVersions.rewardId), eq(rewards.tenantId, rewardVersions.tenantId)))
-      .where(and(eq(rewardVersions.id, input.rewardVersionId), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= now()`));
+      // Keep this catalogue entry stable through booking; owner edit/archive takes an exclusive reward lock.
+      .where(and(eq(rewardVersions.id, input.rewardVersionId), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= now()`)).for("share", { of: rewards });
     if (!selected || !selected.reward.active || selected.reward.programId !== member.programId) throw new DomainError("INVALID_REWARD", "Reward is not available");
     const [currentVersion] = await tx.select({ id: rewardVersions.id }).from(rewardVersions)
       .where(and(eq(rewardVersions.rewardId, selected.reward.id), eq(rewardVersions.tenantId, member.tenantId)))
