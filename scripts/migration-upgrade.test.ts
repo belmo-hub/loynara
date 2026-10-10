@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 /**
  * Migration rehearsal on throwaway databases on the isolated test server (never the shared test DB itself):
  *  - FRESH: every migration on an empty database;
- *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then 0018-0021.
+ *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then all subsequent migrations.
  * The upgraded schema must equal the fresh one, and no historical value may change.
  */
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Migration rehearsal requires the isolated looplocal_test server");
@@ -155,14 +155,15 @@ async function seedHistory(pool: Pool) {
 }
 
 describe("migration journal", () => {
-  it("is contiguous from 0000, timestamps strictly increase, and 0018-0021 are the newest", () => {
+  it("is contiguous from 0000, timestamps strictly increase, and 0022 is the newest", () => {
     const journal = JSON.parse(readFileSync(path.join(migrationsDir, "meta", "_journal.json"), "utf8")) as { entries: Array<{ idx: number; tag: string; when: number }> };
     journal.entries.forEach((entry, index) => { expect(entry.idx).toBe(index); expect(entry.tag.startsWith(String(index).padStart(4, "0"))).toBe(true); });
     for (let i = 1; i < journal.entries.length; i++) expect(journal.entries[i].when, journal.entries[i].tag).toBeGreaterThan(journal.entries[i - 1].when);
-    expect(journal.entries.at(-4)?.tag).toBe("0018_nfc_tag_lifecycle");
-    expect(journal.entries.at(-3)?.tag).toBe("0019_card_locators");
-    expect(journal.entries.at(-2)?.tag).toBe("0020_wallet_pass_lifecycle");
-    expect(journal.entries.at(-1)?.tag).toBe("0021_staff_push_subscriptions");
+    expect(journal.entries.at(-5)?.tag).toBe("0018_nfc_tag_lifecycle");
+    expect(journal.entries.at(-4)?.tag).toBe("0019_card_locators");
+    expect(journal.entries.at(-3)?.tag).toBe("0020_wallet_pass_lifecycle");
+    expect(journal.entries.at(-2)?.tag).toBe("0021_staff_push_subscriptions");
+    expect(journal.entries.at(-1)?.tag).toBe("0022_email_rate_limit_retry");
     const sqlFiles = readdirSync(migrationsDir).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort();
     expect(sqlFiles).toEqual(journal.entries.map(entry => `${entry.tag}.sql`));
   });
@@ -184,7 +185,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect(before.memberships.rows).toBe(404);
       expect(before.ledger_entries.rows).toBe(7);
 
-      await run(upgrade, migrationsDir); // 0018 + 0019 + 0020 + 0021
+      await run(upgrade, migrationsDir); // 0018 through 0022
       const after = await fingerprint(upgrade);
       expect(after).toEqual(before); // no lost rows, no changed values, ledger untouched
       expect((await upgrade.query("SELECT id, balance FROM memberships ORDER BY id")).rows).toEqual(balancesBefore);
@@ -223,7 +224,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(22);
+      expect(applied).toBe(23);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -276,7 +277,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       for (const table of ["wallet_passes", "apple_devices", "apple_registrations"]) {
         expect((await target.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n).toBe(0);
       }
-      await run(target, migrationsDir);
+      await run(target, folderThrough(21));
       expect(await fingerprint(target)).toEqual(before);
       expect((await target.query("SELECT to_jsonb(m) AS v FROM memberships m ORDER BY id")).rows).toEqual(members);
       const after = (await target.query("SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
@@ -285,11 +286,11 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect((await target.query("SELECT m.id FROM memberships m JOIN ledger_entries e ON e.membership_id=m.id GROUP BY m.id,m.balance HAVING m.balance <> sum(e.delta)")).rows).toHaveLength(0);
       expect((await target.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(0);
       expect((await target.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind='wallet.refresh'")).rows[0].n).toBe(0);
-      await run(fresh, migrationsDir);
+      await run(fresh, folderThrough(21));
       expect(await structure(target)).toEqual(await structure(fresh));
       await expect(target.query("UPDATE ledger_entries SET delta=99")).rejects.toThrow(/append-only/);
       await expect(target.query("UPDATE memberships SET card_locator='ZZZZZZ'")).rejects.toThrow(/immutable/);
-      await run(target, migrationsDir);
+      await run(target, folderThrough(21));
       expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
@@ -305,12 +306,12 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
         await blocker.query("BEGIN");
         await blocker.query("SELECT 1 FROM wallet_passes");
         await target.query("SET lock_timeout = '100ms'");
-        await expect(run(target, migrationsDir)).rejects.toThrow();
+        await expect(run(target, folderThrough(21))).rejects.toThrow();
       } finally { await blocker.query("ROLLBACK"); blocker.release(); }
       expect(await structure(target)).toEqual(schema19);
       expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
       await target.query("SET lock_timeout = '0'");
-      await run(target, migrationsDir);
+      await run(target, folderThrough(21));
       expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
       // Old web still inserts unmarked Wallet jobs during the staged providers-off overlap. New unique coalescing must
       // not reject those old inserts and thereby roll back an award.
@@ -330,7 +331,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ('legacy-device', $1, $2::uuid, 'pass.local.loop', $2::text)", [seeded.tenants[0], seeded.cards.a]);
       const before = await structure(pool);
       const history = await fingerprint(pool);
-      await expect(run(pool, migrationsDir)).rejects.toThrow();
+      await expect(run(pool, folderThrough(21))).rejects.toThrow();
       expect(await structure(pool)).toEqual(before);
       expect(await fingerprint(pool)).toEqual(history);
       expect((await pool.query("SELECT count(*)::int AS n FROM apple_registrations")).rows[0].n).toBe(1);
@@ -352,7 +353,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const before = await fingerprint(pool);
       const membersBefore = (await pool.query("SELECT row_to_json(m) AS v FROM memberships m ORDER BY id")).rows;
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
-      await run(pool, migrationsDir);
+      await run(pool, folderThrough(21));
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
       expect(await fingerprint(pool)).toEqual(before);
       expect((await pool.query("SELECT row_to_json(m) AS v FROM memberships m ORDER BY id")).rows).toEqual(membersBefore);
@@ -379,7 +380,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect((await pool.query("SELECT row_to_json(m) AS v FROM memberships m ORDER BY id")).rows).toEqual(membersBefore);
       expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(1);
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(20);
-      await run(pool, migrationsDir);
+      await run(pool, folderThrough(21));
       expect((await pool.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(22);
     } finally { await pool.end(); await reference.end(); }
   }, 180_000);
@@ -388,7 +389,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
     it(`refuses the manual 0020 downgrade before any changes when the journal has a ${invalidJournal}`, async () => {
       const target = await scratchDatabase("rollback_guard");
       try {
-        await run(target, migrationsDir);
+        await run(target, folderThrough(21));
         const seeded = await seedHistory(target);
         const passId = randomUUID();
         await target.query("INSERT INTO wallet_passes (id,tenant_id,membership_id,provider,provider_object_id,status,revoked_at,revoke_reason,synced_at) VALUES ($1::uuid,$2,$3,'apple',$1::text,'revoked',now(),'closed',now())", [passId, seeded.tenants[0], seeded.cards.a]);
@@ -459,7 +460,7 @@ describe("0021 staff push subscriptions", () => {
       expect(rowsBefore.apple_registrations).toHaveLength(1);
       expect(rowsBefore.outbox_jobs).toHaveLength(2);
 
-      await run(target, migrationsDir);
+      await run(target, folderThrough(21));
       const journal21 = await journalRows();
       expect(journal21).toHaveLength(22);
       expect(journal21.slice(0, 21)).toEqual(journal20);
@@ -467,7 +468,7 @@ describe("0021 staff push subscriptions", () => {
       expect(await fingerprint(target)).toEqual(before);
       expect(await preservedRows()).toEqual(rowsBefore);
       expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
-      await run(fresh, migrationsDir);
+      await run(fresh, folderThrough(21));
       const schema21 = await structure(target);
       expect(schema21).toEqual(await structure(fresh));
 
@@ -506,12 +507,46 @@ describe("0021 staff push subscriptions", () => {
       expect(await preservedRows()).toEqual(rowsBefore);
       await expect(target.query(readFileSync(path.join(root, "docs", "rollback", "0021-staff-push-subscriptions-down.sql"), "utf8"))).rejects.toThrow(/0021 rollback refused/);
 
-      await run(target, migrationsDir);
+      await run(target, folderThrough(21));
       expect(await journalRows()).toHaveLength(22);
       expect(await structure(target)).toEqual(schema21);
       expect(await fingerprint(target)).toEqual(before);
       expect(await preservedRows()).toEqual(rowsBefore);
       expect((await target.query("SELECT count(*)::int AS n FROM staff_push_subscriptions")).rows[0].n).toBe(0);
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+});
+
+
+describe("0022 explicit email rate-limit retry", () => {
+  it("adds only a nullable retry deadline and preserves populated delivery reservations and history", async () => {
+    const target = await scratchDatabase("email22");
+    const fresh = await scratchDatabase("email22_fresh");
+    try {
+      await run(target, folderThrough(21));
+      const seeded = await seedHistory(target);
+      const job = randomUUID();
+      await target.query("INSERT INTO outbox_jobs (id,tenant_id,kind,payload,status,attempts) VALUES ($1,$2,'campaign.recipient','{}','blocked',1)", [job, seeded.tenants[0]]);
+      await target.query("INSERT INTO email_deliveries (job_id,provider,recipient_hash,status) VALUES ($1,'mailgun_eu',repeat('a',64),'ambiguous')", [job]);
+      const history = await fingerprint(target);
+      const rows = (await target.query("SELECT row_to_json(t) AS v FROM email_deliveries t")).rows;
+      const jobs = (await target.query("SELECT row_to_json(t) AS v FROM outbox_jobs t ORDER BY id")).rows;
+      const schema21 = await structure(target);
+      const journal21 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      await run(target, migrationsDir);
+      expect(await fingerprint(target)).toEqual(history);
+      expect((await target.query("SELECT row_to_json(t) AS v FROM (SELECT job_id,provider,recipient_hash,provider_message_id,status,updated_at FROM email_deliveries) t")).rows).toEqual(rows);
+      expect((await target.query("SELECT row_to_json(t) AS v FROM outbox_jobs t ORDER BY id")).rows).toEqual(jobs);
+      expect((await target.query("SELECT retry_at FROM email_deliveries")).rows).toEqual([{ retry_at: null }]);
+      const current = await structure(target);
+      expect({ ...current, columns: current.columns.filter(column => !column.startsWith("email_deliveries.retry_at:")) }).toEqual(schema21);
+      const journal22 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      expect(journal22).toHaveLength(23);
+      expect(journal22.slice(0, 22)).toEqual(journal21);
+      await run(target, migrationsDir);
+      expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal22);
+      await run(fresh, migrationsDir);
+      expect(await structure(fresh)).toEqual(current);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 });

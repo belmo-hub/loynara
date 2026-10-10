@@ -155,6 +155,13 @@
       "when": 1791417633414,
       "tag": "0021_staff_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791599328000,
+      "tag": "0022_email_rate_limit_retry",
+      "breakpoints": true
     }
   ]
 }

@@ -87,9 +87,11 @@ async function processJob(job: Job, claimedAt: number) {
       const { deliverCampaignRecipient } = await import("../src/lib/campaigns");
       const result = await deliverCampaignRecipient(job);
       if (result.status === "deferred") { await defer(job, result.reason, result.until); return "retry"; }
-      const delay = result.status === "retry" ? Math.min(3600, 10 * 2 ** (job.attempts - 1)) : 0;
-      await mark(job, result.status, result.reason, delay);
-      return result.status;
+      const status = result.status === "retry" && job.attempts >= maxAttempts ? "failed" : result.status;
+      const delay = status === "retry" ? Math.max(Math.min(3600, 10 * 2 ** (job.attempts - 1)),
+        result.retryAt ? Math.ceil((result.retryAt.getTime() - Date.now()) / 1000) : 0) : 0;
+      await mark(job, status, result.reason, delay);
+      return status;
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
@@ -105,9 +107,11 @@ async function processJob(job: Job, claimedAt: number) {
         : job.kind === "automation.scan" ? await processAutomationScan(job)
           : await deliverAutomationRun(job);
       if (result.status === "deferred") { await defer(job, result.reason, result.until); return "retry"; }
-      const delay = result.status === "retry" ? Math.min(3600, 10 * 2 ** (job.attempts - 1)) : 0;
-      await mark(job, result.status, result.reason, delay);
-      return result.status;
+      const status = result.status === "retry" && job.attempts >= maxAttempts ? "failed" : result.status;
+      const delay = status === "retry" ? Math.max(Math.min(3600, 10 * 2 ** (job.attempts - 1)),
+        result.retryAt ? Math.ceil((result.retryAt.getTime() - Date.now()) / 1000) : 0) : 0;
+      await mark(job, status, result.reason, delay);
+      return status;
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));

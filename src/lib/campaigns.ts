@@ -268,7 +268,7 @@ async function finishCampaignIfDone(tx: Transaction, campaignId: string, tenantI
   await tx.update(campaigns).set({ status: failed.count ? "blocked" : "complete", updatedAt: new Date() }).where(and(eq(campaigns.id, campaignId), eq(campaigns.status, "dispatching")));
 }
 
-export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSender = sendLocalMailpit, provider: TransactionalEmailProvider | null = promotionalProvider(), now: Date = new Date()): Promise<{ status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string } | { status: "deferred"; reason: string; until: Date }> {
+export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSender = sendLocalMailpit, provider: TransactionalEmailProvider | null = promotionalProvider(), now: Date = new Date()): Promise<{ status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string; retryAt?: Date } | { status: "deferred"; reason: string; until: Date }> {
   const parsed = z.object({ campaignId: z.uuid(), recipientId: z.uuid(), membershipId: z.uuid() }).strict().safeParse(job.payload);
   if (!parsed.success || !Number.isInteger(job.attempts) || job.attempts < 1) return { status: "blocked", reason: "Invalid campaign recipient payload" };
   return db.transaction(async tx => {
@@ -314,6 +314,16 @@ export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSend
         const result = await sendPromotional(message, provider);
         if (result.status === "suppressed") return suppress(result.reason);
         if (result.status === "blocked") { await record("blocked", result.reason); return { status: "blocked" as const, reason: result.reason }; }
+        if (result.status === "retry") {
+          const final = job.attempts >= MAX_ATTEMPTS;
+          await record(final ? "failed" : "retry", result.reason);
+          if (final) {
+            await tx.update(campaignRecipients).set({ status: "failed", suppressReason: result.reason }).where(eq(campaignRecipients.id, recipient.id));
+            await finishCampaignIfDone(tx, campaign.id, campaign.tenantId);
+            return { status: "failed" as const, reason: result.reason };
+          }
+          return { status: "retry" as const, reason: result.reason, retryAt: result.retryAt };
+        }
       }
     } catch {
       const final = job.attempts >= MAX_ATTEMPTS;

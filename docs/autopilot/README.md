@@ -2,9 +2,15 @@
 
 Status: PREPARED, NOT AUTHORIZED FOR UNATTENDED CODING. Recurring task is verified PAUSED (loynara-build-autopilot-v1-approval-pending). Production remains unchanged.
 
+## Strategy reset — 10 October 2026
+
+The human has explicitly retained the agreed full launch, including campaigns, retention automations and actual message delivery. Discovery must cover every launch workstream, stage, type and execution lane. The old two-issue first-paying-pilot shortlist is superseded by `launch-queue.md`, `campaign-readiness.md` and the deterministic `scripts/autopilot-select.py`. External acceptance dependencies do not automatically block independently testable engineering slices. Unknown scope is unassessed, never proof that no work remains. Existing LOY-164/187 evidence is preserved and is not revisited without new evidence.
+
+This supervised reset authorizes evidence comments to the existing YouTrack issues, but does not broaden the paused scheduler's permissions or activate it. No autonomous founder approvals.
+
 ## Intent and smallest design
 
-Reduce time to the first legally authorized, fully functional paying merchant by completing one concrete launch engineering blocker per native scheduled run. Use existing ChatGPT sign-in, native scheduled chat follow-ups, one Python standard-library admission helper and isolated Git worktrees. No agent framework, API-key billing, daemon, launchd/cron replacement or uncontrolled loop.
+Progress the agreed full launch by completing one concrete launch engineering slice per native scheduled run. Use existing ChatGPT sign-in, native scheduled chat follow-ups, one Python standard-library admission helper and isolated Git worktrees. No agent framework, API-key billing, daemon, launchd/cron replacement or uncontrolled loop.
 
 The founder's mission supplies the implementation and manual-rehearsal authorization. Further approval is required for account/credential setup and recurring activation. This packet preserves the existing launch scope rather than treating every issue as a first-pilot requirement.
 

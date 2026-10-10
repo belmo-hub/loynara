@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { emailDeliveries, emailProviderEvents, emailSuppressions } from "@/db/schema";
@@ -10,7 +10,16 @@ export type DeliveryState = "accepted" | "delivered" | "temporary_failure" | "pe
 export type TransactionalMessage = LocalMessage;
 export interface TransactionalEmailProvider {
   readonly name: "mailpit" | "mailgun_eu";
-  send(message: TransactionalMessage): Promise<{ state: DeliveryState; messageId?: string }>;
+  send(message: TransactionalMessage): Promise<{ state: DeliveryState; messageId?: string } | { state: "rate_limited"; retryAt: Date; messageId?: never }>;
+}
+
+type ManagedResult = { status: "complete" } | { status: "blocked" | "suppressed"; reason: string };
+type PromotionalResult = ManagedResult | { status: "retry"; reason: string; retryAt: Date };
+
+/** Mailgun's reset header is UTC milliseconds. Reject unusable or excessive deadlines. */
+function rateLimitRetryAt(value: string | null, now = Date.now()) {
+  const reset = value !== null && /^\d+$/.test(value) ? Number(value) : NaN;
+  return new Date(Number.isSafeInteger(reset) && reset > now && reset <= now + 3_600_000 ? reset : now + 60_000);
 }
 
 const domainPattern = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
@@ -85,7 +94,8 @@ export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch,
         body, signal: AbortSignal.timeout(10_000),
       });
     } catch { return { state: "ambiguous" }; }
-    if (response.status >= 500 || response.status === 429) return { state: "ambiguous" };
+    if (response.status === 429) return { state: "rate_limited", retryAt: rateLimitRetryAt(response.headers.get("X-RateLimit-Reset")) };
+    if (response.status >= 500) return { state: "ambiguous" };
     if (!response.ok) return { state: "permanent_failure" };
     try {
       const parsed = z.object({ id: z.string().min(1).max(255) }).parse(await response.json());
@@ -113,21 +123,40 @@ export function promotionalProvider(env = process.env, http: typeof fetch = fetc
 }
 
 /** Reserve before network I/O. A lost response remains ambiguous and never auto-retries. */
-async function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional" | "promotional") {
+function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional"): Promise<ManagedResult>;
+function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "promotional"): Promise<PromotionalResult>;
+async function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional" | "promotional"): Promise<PromotionalResult> {
   if (!provider) return { status: "blocked" as const, reason: "Email provider unavailable" };
   const hash = recipientHash(message.to);
   const [suppression] = await db.select().from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash));
   // Promotional unsubscribe is not a withdrawal of requested recovery mail.
   if (suppression && (purpose === "promotional" || suppression.reason !== "unsubscribed")) return { status: "suppressed" as const, reason: "Recipient suppressed" };
-  const reserved = await db.insert(emailDeliveries).values({ jobId: message.jobId, provider: provider.name, recipientHash: hash, status: "sending" })
-    .onConflictDoNothing().returning({ jobId: emailDeliveries.jobId });
-  if (!reserved.length) return { status: "blocked" as const, reason: "Previous delivery attempt requires review" };
+  const reservation = db.insert(emailDeliveries).values({ jobId: message.jobId, provider: provider.name, recipientHash: hash, status: "sending" });
+  const sameRejectedDelivery = and(eq(emailDeliveries.jobId, message.jobId), eq(emailDeliveries.provider, provider.name),
+    eq(emailDeliveries.recipientHash, hash), eq(emailDeliveries.status, "rate_limited"), isNull(emailDeliveries.providerMessageId));
+  // PostgreSQL locks the conflicting row and rechecks the predicate: only one due retry wins.
+  const reserved = await (purpose === "promotional" ? reservation.onConflictDoUpdate({
+    target: emailDeliveries.jobId, set: { status: "sending", retryAt: null, updatedAt: sql`clock_timestamp()` },
+    setWhere: and(sameRejectedDelivery, lte(emailDeliveries.retryAt, sql`clock_timestamp()`)),
+  }) : reservation.onConflictDoNothing()).returning({ jobId: emailDeliveries.jobId });
+  if (!reserved.length) {
+    if (purpose === "promotional") {
+      const [waiting] = await db.select({ retryAt: emailDeliveries.retryAt }).from(emailDeliveries).where(sameRejectedDelivery);
+      if (waiting?.retryAt) return { status: "retry", reason: "Provider rate limit", retryAt: waiting.retryAt };
+    }
+    return { status: "blocked", reason: "Previous delivery attempt requires review" };
+  }
   const result = await provider.send(message);
-  await db.update(emailDeliveries).set({ status: result.state, providerMessageId: result.messageId, updatedAt: new Date() })
+  const rateLimited = purpose === "promotional" && result.state === "rate_limited";
+  const retryAt = rateLimited ? rateLimitRetryAt(String(result.retryAt.getTime())) : null;
+  // Recovery/verification retains its non-retriable result and return type even on explicit 429.
+  const status = result.state === "rate_limited" && !rateLimited ? "ambiguous" : result.state;
+  await db.update(emailDeliveries).set({ status, retryAt, providerMessageId: result.messageId, updatedAt: new Date() })
     .where(and(eq(emailDeliveries.jobId, message.jobId), eq(emailDeliveries.status, "sending")));
   if (result.messageId) await db.update(emailDeliveries).set({ providerMessageId: result.messageId })
     .where(eq(emailDeliveries.jobId, message.jobId));
-  const [recorded] = await db.select({ status: emailDeliveries.status }).from(emailDeliveries).where(eq(emailDeliveries.jobId, message.jobId));
+  const [recorded] = await db.select({ status: emailDeliveries.status, retryAt: emailDeliveries.retryAt }).from(emailDeliveries).where(eq(emailDeliveries.jobId, message.jobId));
+  if (rateLimited && recorded?.status === "rate_limited" && recorded.retryAt) return { status: "retry", reason: "Provider rate limit", retryAt: recorded.retryAt };
   if (result.state === "ambiguous" && ["accepted", "delivered"].includes(recorded?.status ?? "")) return { status: "complete" as const };
   return result.state === "accepted" || result.state === "delivered"
     ? { status: "complete" as const }
@@ -182,10 +211,10 @@ export async function recordMailgunWebhook(input: unknown) {
     const current = delivery.status;
     const shouldAdvance = ["permanent_fail", "complained", "unsubscribed"].includes(event.event)
       || (event.event === "delivered" && !["permanent_failure", "complained", "unsubscribed"].includes(current))
-      || (event.event === "temporary_fail" && ["sending", "ambiguous", "accepted", "temporary_failure"].includes(current))
-      || (event.event === "accepted" && ["sending", "ambiguous", "accepted"].includes(current));
+      || (event.event === "temporary_fail" && ["sending", "ambiguous", "accepted", "temporary_failure", "rate_limited"].includes(current))
+      || (event.event === "accepted" && ["sending", "ambiguous", "accepted", "rate_limited"].includes(current));
     if (shouldAdvance) {
-      await tx.update(emailDeliveries).set({ status: mapped, updatedAt: new Date() }).where(eq(emailDeliveries.jobId, delivery.jobId));
+      await tx.update(emailDeliveries).set({ status: mapped, retryAt: null, updatedAt: new Date() }).where(eq(emailDeliveries.jobId, delivery.jobId));
     }
     if (["permanent_fail", "complained", "unsubscribed"].includes(event.event) && event.recipient && recipientHash(event.recipient) === delivery.recipientHash) {
       await tx.insert(emailSuppressions).values({ recipientHash: recipientHash(event.recipient), reason: event.event }).onConflictDoUpdate({ target: emailSuppressions.recipientHash, set: { reason: event.event } });

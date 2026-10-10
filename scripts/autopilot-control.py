@@ -64,7 +64,23 @@ def apply(state, args, root):
             refuse('invalid_issue')
         if active:
             refuse('another_run_owns_lock')  # Never reclaim by time or PID.
-        issue = issues.get(args.issue, {})
+        slug = getattr(args, 'slice', None)
+        if slug:
+            if not re.fullmatch(r'[a-z][a-z0-9-]{2,63}', slug):
+                refuse('invalid_slice')
+            if not args.slice_evidence or not args.slice_evidence.is_file():
+                refuse('slice_evidence_missing')
+            proof = json.loads(args.slice_evidence.read_text())
+            if (proof.get('issue') != args.issue or proof.get('slice') != slug or not proof.get('gap_verified')
+                    or not proof.get('independent_of_acceptance') or not proof.get('source_refs')
+                    or proof.get('required_authorizations') or proof.get('engineering_predecessors')):
+                refuse('slice_not_independently_eligible')
+            legacy = issues.get(args.issue, {})
+            if legacy.get('outcome') and not legacy.get('slice'):
+                refuse('recorded_blocker_requires_review')
+            issue = state.setdefault('slices', {}).get(args.issue + ':' + slug, {})
+        else:
+            issue = issues.get(args.issue, {})
         if issue.get('outcome') == 'review':
             refuse('already_ready_for_review')
         if issue.get('approaches', 0) >= 2:
@@ -82,6 +98,9 @@ def apply(state, args, root):
         preflight = release_preflight(args.repo)
         start = now()
         active = {'run': str(uuid.uuid4()), 'issue': args.issue, 'started_at': start.isoformat(), 'deadline': min(start + timedelta(minutes=45), expiry or start + timedelta(minutes=45)).isoformat(), 'mode': 'rehearsal' if args.rehearsal else 'scheduled', **preflight}
+        if slug:
+            active['slice'] = slug
+            active['slice_evidence'] = str(args.slice_evidence)
         state['active'] = active
         return active
     if not active or active['run'] != args.run:
@@ -101,8 +120,22 @@ def apply(state, args, root):
             report = json.loads(evidence.read_text())
             if report.get('issue') != active['issue'] or report.get('sha') != args.sha or report.get('base_sha') != FROZEN_SHA:
                 refuse('review_evidence_mismatch')
-        item = issues.setdefault(active['issue'], {})
+        slug = active.get('slice') or getattr(args, 'slice', None)
+        if slug:
+            if not re.fullmatch(r'[a-z][a-z0-9-]{2,63}', slug):
+                refuse('invalid_slice')
+            if not active.get('slice'):
+                if args.outcome != 'review' or report.get('slice') != slug:
+                    refuse('slice_evidence_mismatch')
+            item = state.setdefault('slices', {}).setdefault(active['issue'] + ':' + slug, {})
+            if not active.get('slice'):
+                item['approaches'] = issues.get(active['issue'], {}).get('approaches', 0)
+            item['slice'] = slug
+        else:
+            item = issues.setdefault(active['issue'], {})
         item.update({'outcome': args.outcome, 'run': args.run, 'finished_at': now().isoformat(), 'sha': args.sha, 'evidence': args.evidence})
+        if slug:
+            issues[active['issue']] = dict(item)
         state['active'] = None
         return {'issue': active['issue'], **item}
     if active['mode'] == 'scheduled':
@@ -114,7 +147,7 @@ def apply(state, args, root):
             refuse('operation_not_authorized')
         return {'operation': args.operation, 'admitted': True}
     if args.command == 'approach':
-        item = issues.setdefault(active['issue'], {})
+        item = state.setdefault('slices', {}).setdefault(active['issue'] + ':' + active['slice'], {}) if active.get('slice') else issues.setdefault(active['issue'], {})
         if item.get('approaches', 0) >= 2:
             refuse('two_approaches_exhausted')
         item['approaches'] = item.get('approaches', 0) + 1
@@ -131,6 +164,8 @@ def main():
     claim = commands.add_parser('claim')
     claim.add_argument('--issue', required=True)
     claim.add_argument('--rehearsal', action='store_true')
+    claim.add_argument('--slice')
+    claim.add_argument('--slice-evidence', type=Path)
     for name in ('approach', 'check', 'finish'):
         cmd = commands.add_parser(name)
         cmd.add_argument('--run', required=True)
@@ -138,6 +173,7 @@ def main():
             cmd.add_argument('--operation', required=True)
         if name == 'finish':
             cmd.add_argument('--outcome', choices=['review', 'blocked', 'no_change'], required=True)
+            cmd.add_argument('--slice')
             cmd.add_argument('--sha')
             cmd.add_argument('--evidence')
     args = parser.parse_args()

@@ -36,6 +36,33 @@ class AdmissionTests(unittest.TestCase):
     def claim(self, issue='LOY-164'):
         return self.run_gate('claim', '--issue', issue, '--rehearsal')
 
+    def slice_evidence(self, slug):
+        path = self.state / (slug + '.json')
+        path.write_text(json.dumps({'issue':'LOY-139','slice':slug,'gap_verified':True,'independent_of_acceptance':True,'source_refs':['verified-sha:src/lib/transactional-email.ts'],'required_authorizations':[],'engineering_predecessors':[]}))
+        return str(path)
+
+    def test_independent_slice_can_follow_a_blocked_acceptance_slice_without_erasing_history(self):
+        a = self.slice_evidence('rate-limit-retry')
+        code, first = self.run_gate('claim','--issue','LOY-139','--slice','rate-limit-retry','--slice-evidence',a,'--rehearsal')
+        self.assertEqual(code,0,first)
+        self.assertEqual(self.run_gate('finish','--run',first['run'],'--outcome','blocked')[0],0)
+        self.assertEqual(self.run_gate('claim','--issue','LOY-139','--slice','rate-limit-retry','--slice-evidence',a,'--rehearsal')[1]['reason'],'recorded_blocker_requires_review')
+        b = self.slice_evidence('failure-webhook')
+        code, second = self.run_gate('claim','--issue','LOY-139','--slice','failure-webhook','--slice-evidence',b,'--rehearsal')
+        self.assertEqual(code,0,second)
+        state=json.loads((self.state/'state.json').read_text())
+        self.assertEqual(state['slices']['LOY-139:rate-limit-retry']['outcome'],'blocked')
+
+    def test_new_slice_requires_source_evidence_and_does_not_bypass_an_unreconciled_legacy_blocker(self):
+        code,data=self.run_gate('claim','--issue','LOY-139','--slice','rate-limit-retry','--rehearsal')
+        self.assertNotEqual(code,0)
+        self.assertEqual(data.get('reason'),'slice_evidence_missing')
+        _,first=self.claim('LOY-139')
+        self.run_gate('finish','--run',first['run'],'--outcome','blocked')
+        code,data=self.run_gate('claim','--issue','LOY-139','--slice','failure-webhook','--slice-evidence',self.slice_evidence('failure-webhook'),'--rehearsal')
+        self.assertNotEqual(code,0)
+        self.assertEqual(data.get('reason'),'recorded_blocker_requires_review')
+
     def test_second_run_cannot_claim_even_a_different_issue(self):
         code, first = self.claim()
         self.assertEqual(code, 0, first)

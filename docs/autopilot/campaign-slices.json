@@ -1,0 +1,114 @@
+{
+  "slices": [
+    {
+      "issue": "LOY-139",
+      "slice": "explicit-rate-limit-retry",
+      "title": "Retry confirmed HTTP 429 rejection with persisted backoff and finite attempts",
+      "source_refs": [
+        "654fef25:src/lib/transactional-email.ts:87",
+        "654fef25:scripts/worker.ts:80"
+      ],
+      "launch_importance": 5,
+      "merchant_value": 5,
+      "risk": 2,
+      "effort_minutes": 60,
+      "expected_uncached_tokens": 16000,
+      "category": "Missing engineering work",
+      "gap_verified": true,
+      "independent_of_acceptance": true,
+      "engineering_predecessors": [],
+      "required_authorizations": [],
+      "distinct_from_recorded_slice": false,
+      "usage_is_estimate": true,
+      "external_acceptance": "Approved sender, SPF/DKIM/DMARC, separately authorized actual receipt remain open"
+    },
+    {
+      "issue": "LOY-133",
+      "slice": "reward-reminder-trigger",
+      "title": "Add an opt-in reward-ready reminder trigger using the existing automation framework",
+      "source_refs": [
+        "654fef25:src/lib/automations.ts:25",
+        "654fef25:src/app/merchant/automations/page.tsx:10"
+      ],
+      "launch_importance": 5,
+      "merchant_value": 5,
+      "risk": 3,
+      "effort_minutes": 180,
+      "expected_uncached_tokens": 30000,
+      "category": "Missing engineering work",
+      "gap_verified": true,
+      "independent_of_acceptance": true,
+      "engineering_predecessors": [],
+      "required_authorizations": [],
+      "distinct_from_recorded_slice": false,
+      "usage_is_estimate": true,
+      "external_acceptance": "Approved sender, SPF/DKIM/DMARC, separately authorized actual receipt remain open"
+    },
+    {
+      "issue": "LOY-139",
+      "slice": "failed-webhook-normalization",
+      "title": "Normalize actual Mailgun failed events and severity into delivery/suppression outcomes",
+      "source_refs": [
+        "654fef25:src/lib/transactional-email.ts:145",
+        "https://documentation.mailgun.com/docs/mailgun/user-manual/events/event-types"
+      ],
+      "launch_importance": 5,
+      "merchant_value": 4,
+      "risk": 2,
+      "effort_minutes": 60,
+      "expected_uncached_tokens": 12000,
+      "category": "Missing engineering work",
+      "gap_verified": true,
+      "independent_of_acceptance": true,
+      "engineering_predecessors": [],
+      "required_authorizations": [],
+      "distinct_from_recorded_slice": false,
+      "usage_is_estimate": true,
+      "external_acceptance": "Approved sender, SPF/DKIM/DMARC, separately authorized actual receipt remain open"
+    },
+    {
+      "issue": "LOY-133",
+      "slice": "referral-campaign-audience",
+      "title": "Add referral campaign audience and template from tenant-scoped referral events",
+      "source_refs": [
+        "654fef25:src/lib/segments.ts",
+        "654fef25:src/components/owner/campaigns-view.tsx:22"
+      ],
+      "launch_importance": 5,
+      "merchant_value": 4,
+      "risk": 3,
+      "effort_minutes": 150,
+      "expected_uncached_tokens": 26000,
+      "category": "Missing engineering work",
+      "gap_verified": true,
+      "independent_of_acceptance": true,
+      "engineering_predecessors": [],
+      "required_authorizations": [],
+      "distinct_from_recorded_slice": false,
+      "usage_is_estimate": true,
+      "external_acceptance": "Approved sender, SPF/DKIM/DMARC, separately authorized actual receipt remain open"
+    },
+    {
+      "issue": "LOY-138",
+      "slice": "sender-readiness-diagnostics",
+      "title": "Expose sanitized sender configuration readiness and separate external DNS/receipt acceptance",
+      "source_refs": [
+        "654fef25:src/lib/transactional-email.ts:28",
+        "654fef25:src/app/api/merchant/campaigns/route.ts:27"
+      ],
+      "launch_importance": 5,
+      "merchant_value": 3,
+      "risk": 1,
+      "effort_minutes": 60,
+      "expected_uncached_tokens": 12000,
+      "category": "Missing engineering work",
+      "gap_verified": true,
+      "independent_of_acceptance": true,
+      "engineering_predecessors": [],
+      "required_authorizations": [],
+      "distinct_from_recorded_slice": false,
+      "usage_is_estimate": true,
+      "external_acceptance": "Approved sender, SPF/DKIM/DMARC, separately authorized actual receipt remain open"
+    }
+  ]
+}

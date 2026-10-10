@@ -13,7 +13,7 @@ import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalL
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
 type DeliveryJob = Job & { attempts: number };
-type Outcome = { status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string; queuedCount?: number };
+type Outcome = { status: "complete" | "suppressed" | "blocked" | "retry" | "failed"; reason?: string; queuedCount?: number; retryAt?: Date };
 type DeliveryOutcome = Outcome | { status: "deferred"; reason: string; until: Date };
 type Rule = typeof automationRules.$inferSelect;
 const DAY = 86_400_000;
@@ -251,6 +251,12 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
         if (result.status === "blocked") {
           await tx.update(automationRuns).set({ reason: result.reason, attempts: job.attempts }).where(eq(automationRuns.id, run.id));
           return { status: "blocked", reason: result.reason };
+        }
+        if (result.status === "retry") {
+          const final = job.attempts >= MAX_ATTEMPTS;
+          await tx.update(automationRuns).set({ status: final ? "failed" : "queued", reason: result.reason, attempts: job.attempts }).where(eq(automationRuns.id, run.id));
+          return final ? { status: "failed", reason: result.reason }
+            : { status: "retry", reason: result.reason, retryAt: result.retryAt };
         }
       }
     } catch {

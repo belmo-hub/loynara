@@ -464,6 +464,7 @@ export const emailDeliveries = pgTable("email_deliveries", {
   recipientHash: varchar("recipient_hash", { length: 64 }).notNull(),
   providerMessageId: varchar("provider_message_id", { length: 255 }),
   status: varchar("status", { length: 24 }).notNull(),
+  retryAt: timestamp("retry_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("email_deliveries_message_idx").on(t.providerMessageId)]);
 
