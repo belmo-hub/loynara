@@ -24,3 +24,5 @@ Append chronological events; retain historical records. Git author timestamps be
 Current documentation task: [permanent-record requirement](2026-10-10-permanent-build-launch-record.md), resulting commit is its containing commit until a later index records its exact SHA. Earlier history remains an explicit reconstruction gap; preserve Git and source documents.
 
 2026-10-10: [LOY-165 bounded evidence](LOY-165-reporting-evidence-2026-10-10.md), base5a58f247; result is its containing commit. Four existing analytics fixtures PASS; no runtime discrepancy reproduced; staff/location breakdown and export scope gaps remain open.
+
+2026-10-10 exact post-commit references: permanent ledger requirement5a58f247fa84e3c9e47e944b11b9c13483b7a7a0; LOY165 evidence9085a2b22366d4944d3a233f75ab167ec5badfb2. [Remaining-work checkpoint](2026-10-10-remaining-work-checkpoint.md) preserves cached all-lane inventory and human actions without a repeated audit; result is its containing commit.
