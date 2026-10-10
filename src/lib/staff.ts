@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "@/db";
 import { locations, staffAuditEvents, staffInvites, staffRoles } from "@/db/schema";
@@ -33,10 +33,12 @@ export async function createStaffInvite(raw: z.input<typeof inviteInput>) {
 
 export async function acceptStaffInvite(input: { userId: string; token: string }) {
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(input.token)) throw new DomainError("INVALID_INVITE", "Invalid invitation");
-  const result = await pool.query<{ email: string }>('SELECT email FROM "user" WHERE id = $1', [input.userId]);
-  const email = result.rows[0]?.email.toLowerCase();
-  if (!email) throw new DomainError("UNAUTHENTICATED", "Sign in required");
   return db.transaction(async (tx) => {
+    // Match merchant onboarding's identity-first lock order. Serialize role
+    // assignment even before a role exists, and read the current account email.
+    const result = await tx.execute<{ email: string }>(sql`SELECT email FROM "user" WHERE id = ${input.userId} FOR UPDATE`);
+    const email = result.rows[0]?.email.toLowerCase();
+    if (!email) throw new DomainError("UNAUTHENTICATED", "Sign in required");
     const [invite] = await tx.select().from(staffInvites).where(eq(staffInvites.tokenHash, hash(input.token))).for("update");
     if (!invite || invite.revokedAt || invite.expiresAt <= new Date()) throw new DomainError("INVALID_INVITE", "Invitation is invalid or expired");
     if (invite.acceptedAt) throw new DomainError("INVITE_USED", "Invitation already accepted");
