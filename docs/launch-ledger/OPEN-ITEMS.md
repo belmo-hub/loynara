@@ -36,3 +36,6 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 2026-10-10 assignment039 supports bounded scheduling/referral verification only.125/129/165 and independentprovider/reporting gates remain open; no completion inferred. [Entry](LOY-129-schedule-and-referral-boundaries-2026-10-10.md).
+
+
+2026-10-10 LOY279 closes only bounded stale-registration-result coding after verification/integration; LOY85/86 full device/provider acceptance remains open. Push/deployment trigger verification remains outstanding. [Entry](LOY-279-push-registration-fence-2026-10-10.md).

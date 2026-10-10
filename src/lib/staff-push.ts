@@ -78,10 +78,12 @@ export async function saveStaffPushSubscription(input: { userId: string; session
     // to them. A device of ANOTHER business is taken over only once its old login is gone (signed out or expired), so
     // knowing someone's endpoint is not enough to redirect their wake-ups. Re-registering also refreshes the device's
     // place in the per-user cap (created_at), so a phone in daily use is not the one evicted.
+    // The internal id identifies this registration generation: late provider results for the previous registration
+    // must not delete, penalize or mark the refreshed device as already woken. No external references use this id.
     const saved = await client.query(`
       INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth, locale)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      ON CONFLICT (endpoint) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, location_id = EXCLUDED.location_id, user_id = EXCLUDED.user_id,
+      ON CONFLICT (endpoint) DO UPDATE SET id = EXCLUDED.id, tenant_id = EXCLUDED.tenant_id, location_id = EXCLUDED.location_id, user_id = EXCLUDED.user_id,
         session_id = EXCLUDED.session_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, locale = EXCLUDED.locale, failure_count = 0, created_at = now()
       WHERE staff_push_subscriptions.tenant_id = EXCLUDED.tenant_id
         OR NOT EXISTS (SELECT 1 FROM "session" se WHERE se.id = staff_push_subscriptions.session_id AND se."expiresAt" > now())

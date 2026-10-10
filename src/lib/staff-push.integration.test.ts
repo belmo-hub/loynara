@@ -1,5 +1,8 @@
 import { createCipheriv, randomUUID } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import path from "node:path";
+import { promisify } from "node:util";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebPushError, type RequestOptions } from "web-push";
 import { pool } from "@/db";
@@ -255,3 +258,64 @@ describe("push crash recovery", () => {
     expect(recovered?.id).toBe(rows[0].id);
   });
 });
+
+
+it.each([404, 410, 403, 201].flatMap(status => [true, false].map(changedKeys => ({ status, changedKeys }))))("isolates a refreshed device from a stale $status push response (changed keys: $changedKeys) in the actual worker", async ({ status, changedKeys }) => {
+  const f = await nfcFixture(); const foreign = await nfcFixture();
+  const sessionId = await session(f.userId);
+  const device = endpoint("refresh-race");
+  await saveStaffPushSubscription({ userId: f.userId, sessionId, tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: device, keys } });
+  await saveStaffPushSubscription({ userId: foreign.userId, sessionId: await session(foreign.userId), tenantId: foreign.tenant.id, locationId: foreign.location.id, subscription: { endpoint: endpoint("foreign-race"), keys } });
+  const foreignBefore = (await pool.query("SELECT * FROM staff_push_subscriptions WHERE tenant_id=$1", [foreign.tenant.id])).rows;
+  const tapRequestId = await pendingRequest(f);
+  const { rows: queued } = await pool.query("INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES ($1, 'push.tap_pending', $2) RETURNING id", [f.tenant.id, { tapRequestId }]);
+  const root = path.resolve(__dirname, "../.."); mkdirSync(path.join(root, "var"), { recursive: true });
+  const dir = mkdtempSync(path.join(root, "var", "push-refresh-worker-"));
+  const preload = path.join(dir, "synthetic-provider.cjs"); const started = path.join(dir, "started"); const released = path.join(dir, "released");
+  writeFileSync(preload, `const fs=require('node:fs');const push=require('web-push');
+globalThis.fetch=async()=>{throw new Error('External HTTP forbidden');};
+push.sendNotification=async(subscription,payload)=>{
+ if(subscription.endpoint!==process.env.LOY040_ENDPOINT)throw new Error('Unexpected push endpoint');
+ fs.writeFileSync(process.env.LOY040_STARTED,JSON.stringify({p256dh:subscription.keys.p256dh,payload}));
+ const deadline=Date.now()+5000;
+ while(!fs.existsSync(process.env.LOY040_RELEASED)){if(Date.now()>deadline)throw new Error('Synthetic response gate timeout');await new Promise(done=>setTimeout(done,10));}
+ const status=Number(process.env.LOY040_STATUS);
+ if(status!==201)throw new push.WebPushError('Synthetic rejection',status,{},'',subscription.endpoint);
+ return {statusCode:201,body:'',headers:{}};
+};\n`);
+  const execute = promisify(execFile);
+  const worker = execute(process.execPath, ["--require", preload, "--import", "tsx", "scripts/worker.ts", "--once"], {
+    cwd: root, encoding: "utf8", timeout: 20_000, killSignal: "SIGKILL",
+    env: { PATH: process.env.PATH, NODE_ENV: "test", DATABASE_URL: process.env.DATABASE_URL,
+      DOTENV_CONFIG_PATH: "/dev/null", PUBLIC_BASE_URL: "http://localhost:3000", BETTER_AUTH_SECRET: "synthetic-push-worker-secret-long-enough",
+      PG_POOL_MAX: "5", EXTERNAL_EMAIL_ENABLED: "false", APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false", LIVE_BILLING_ENABLED: "false", NFC_ENABLED: "false", ...vapid,
+      LOY040_ENDPOINT: device, LOY040_STARTED: started, LOY040_RELEASED: released, LOY040_STATUS: String(status) },
+  });
+  void worker.catch(() => undefined);
+  try {
+    const deadline = Date.now() + 5000;
+    while (!existsSync(started)) {
+      if (Date.now() > deadline) throw new Error("Actual worker did not reach synthetic provider barrier");
+      await Promise.race([new Promise(done => setTimeout(done, 10)), worker.then(result => { throw new Error(`Worker exited before gate: ${result.stdout}`); })]);
+    }
+    const sent = JSON.parse(readFileSync(started, "utf8"));
+    expect(sent.p256dh).toBe(keys.p256dh);
+    expect(JSON.parse(sent.payload)).toEqual({ v: 1, kind: "tap_pending", locale: "de" });
+    const refreshed = changedKeys ? { p256dh: `B${"y".repeat(86)}`, auth: "b".repeat(22) } : keys;
+    await saveStaffPushSubscription({ userId: f.userId, sessionId, tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: device, keys: refreshed } });
+    writeFileSync(released, "release");
+    expect((await worker).stdout).toContain("Worker examined");
+    const current = (await pool.query("SELECT p256dh,auth,failure_count,last_success_at FROM staff_push_subscriptions WHERE endpoint=$1", [device])).rows;
+    expect(current).toEqual([{ ...refreshed, failure_count: 0, last_success_at: null }]);
+    expect((await pool.query("SELECT status,attempts FROM outbox_jobs WHERE id=$1", [queued[0].id])).rows[0]).toEqual({ status: "complete", attempts: 1 });
+    expect((await pool.query("SELECT * FROM staff_push_subscriptions WHERE tenant_id=$1", [foreign.tenant.id])).rows).toEqual(foreignBefore);
+    expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [f.member.id])).rows[0].balance).toBe(0);
+    const recovery = recorder();
+    expect(await deliverTapPush({ payload: { tapRequestId: await pendingRequest(f) } }, { send: recovery.send })).toMatchObject({ status: "complete", sent: 1 });
+    expect(recovery.send).toHaveBeenCalledOnce();
+    expect(recovery.sent[0].endpoint).toBe(device);
+    expect(recovery.send.mock.calls[0][0]).toEqual({ endpoint: device, keys: refreshed });
+  } finally {
+    writeFileSync(released, "release"); await Promise.allSettled([worker]); rmSync(dir, { recursive: true, force: true });
+  }
+}, 25000);

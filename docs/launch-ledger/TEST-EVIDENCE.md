@@ -46,3 +46,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 2026-10-10 assignment039: actual cancellation/reschedule/competingdispatch guards and referral event timestamps/tenant boundaries. No applicationfix fabricated. [Entry](LOY-129-schedule-and-referral-boundaries-2026-10-10.md).
+
+
+2026-10-10 LOY279 actual child-worker stale404/410/403/201 × changed/unchanged registration keys; refreshed state and foreign-row isolation, subsequent wake-up. [Evidence](LOY-279-push-registration-fence-2026-10-10.md).
