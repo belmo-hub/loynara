@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { pool } from "../src/db";
 import * as outbox from "../src/lib/outbox";
+import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { boundedWorkerDatabase } from "./worker-database";
 import { createMerchant } from "../src/lib/product";
 
@@ -19,6 +20,30 @@ async function fixture() {
 const state = (id: string) => pool.query("SELECT status,attempts,next_attempt_at FROM outbox_jobs WHERE id=$1", [id]).then(result => result.rows[0]);
 const claim = () => outbox.claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 });
 describe("real fenced Wallet worker leases", () => {
+  it("fences every stale outcome when operator replay reuses an attempt number", async () => {
+    const f = await fixture();
+    const original = (await claim())!;
+    expect(original.claimToken).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await outbox.markOutboxJob(pool, original, "failed", "Synthetic definitive failure")).toBe(true);
+    expect(await replayOutboxJob(pool, f.id)).toBe("pending");
+    const current = (await claim())!;
+    expect(current.attempts).toBe(original.attempts);
+    expect(current.claimToken).not.toBe(original.claimToken);
+    const before = await state(f.id);
+    for (const stale of [original, { ...current, claimToken: undefined }, { ...current, claimToken: randomUUID() }]) {
+      expect(await outbox.renewOutboxJob(pool, stale)).toBe(false);
+      expect(await outbox.markOutboxJob(pool, stale, "retry", "Stale failure")).toBe(false);
+      expect(await outbox.deferOutboxJob(pool, stale, "Stale deferral", new Date(Date.now() + 3600000))).toBe(false);
+      expect(await outbox.completeWalletOutboxJob(pool, stale)).toBe(false);
+      expect(await state(f.id)).toEqual(before);
+    }
+    expect(await outbox.renewOutboxJob(pool, current)).toBe(true);
+    expect((await pool.query("SELECT claim_token FROM outbox_jobs WHERE id=$1", [f.id])).rows[0].claim_token).toBe(current.claimToken);
+    expect(await outbox.completeWalletOutboxJob(pool, current)).toBe(true);
+    expect(await state(f.id)).toMatchObject({ status: "complete", attempts: 1 });
+    expect(await outbox.completeWalletOutboxJob(pool, current)).toBe(false);
+  });
+
   it("renews only the current unexpired processing attempt", async () => {
     expect(outbox.renewOutboxJob).toBeTypeOf("function");
     const f = await fixture();

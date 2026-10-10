@@ -6,6 +6,8 @@ export type OutboxJob = {
   kind: string;
   payload: Record<string, unknown>;
   attempts: number;
+  /** Present on durable claims; absent legacy/unclaimed jobs cannot authorize an outcome. */
+  claimToken?: string;
 };
 export type OutboxStatus = "complete" | "blocked" | "retry" | "failed" | "suppressed";
 
@@ -30,25 +32,25 @@ export async function claimOutboxJob(pool: Pick<Pool, "query">, { maxAttempts, l
       LIMIT 1
     )
     UPDATE outbox_jobs AS job
-    SET status = 'processing', attempts = job.attempts + 1,
+    SET status = 'processing', attempts = job.attempts + 1, claim_token = gen_random_uuid(),
         next_attempt_at = now() + CASE WHEN job.kind = 'push.tap_pending' THEN interval '30 seconds' ELSE interval '${Number(leaseMinutes)} minutes' END, last_error = NULL
     FROM candidate
     WHERE job.id = candidate.id
-    RETURNING job.id, job.tenant_id AS "tenantId", job.kind, job.payload, job.attempts
+    RETURNING job.id, job.tenant_id AS "tenantId", job.kind, job.payload, job.attempts, job.claim_token AS "claimToken"
   `);
   return result.rows[0] ?? null;
 }
 
 /** Records the outcome of the claimed attempt; ignored when the lease has since passed to another worker. */
-export async function markOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts">, status: OutboxStatus, reason?: string, delaySeconds = 0) {
+export async function markOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts" | "claimToken">, status: OutboxStatus, reason?: string, delaySeconds = 0) {
   const result = await pool.query(
     `WITH locked AS MATERIALIZED (
-       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND status = 'processing' AND attempts = $5 FOR UPDATE
+       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND status = 'processing' AND attempts = $5 AND claim_token = $6::uuid FOR UPDATE
      ), owned AS MATERIALIZED (
        SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
      ) UPDATE outbox_jobs SET status = $2, last_error = $3, next_attempt_at = clock_timestamp() + $4::int * interval '1 second'
        FROM owned WHERE outbox_jobs.id = owned.id`,
-    [job.id, status, reason?.slice(0, 300) ?? null, delaySeconds, job.attempts],
+    [job.id, status, reason?.slice(0, 300) ?? null, delaySeconds, job.attempts, job.claimToken ?? null],
   );
   return result.rowCount === 1;
 }
@@ -58,29 +60,29 @@ export async function markOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJ
  * until the allowed time, so waiting overnight can never push it toward the retry limit.
  * Like completion and renewal, an expired or replaced owner cannot reschedule the job.
  */
-export async function deferOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts">, reason: string, until: Date) {
+export async function deferOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts" | "claimToken">, reason: string, until: Date) {
   const result = await pool.query(
     `WITH locked AS MATERIALIZED (
-       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND status = 'processing' AND attempts = $4 FOR UPDATE
+       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND status = 'processing' AND attempts = $4 AND claim_token = $5::uuid FOR UPDATE
      ), owned AS MATERIALIZED (
        SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
      ) UPDATE outbox_jobs SET status = 'retry', attempts = attempts - 1, last_error = $2, next_attempt_at = $3
        FROM owned WHERE outbox_jobs.id = owned.id`,
-    [job.id, reason.slice(0, 300), until, job.attempts],
+    [job.id, reason.slice(0, 300), until, job.attempts, job.claimToken ?? null],
   );
   return result.rowCount === 1;
 }
 
 /** Renewal cannot revive an expired claim, even if no replacement worker has claimed it yet. */
-export async function renewOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts">, leaseMinutes = 5): Promise<boolean> {
+export async function renewOutboxJob(pool: Pick<Pool, "query">, job: Pick<OutboxJob, "id" | "attempts" | "claimToken">, leaseMinutes = 5): Promise<boolean> {
   const result = await pool.query(
     `WITH locked AS MATERIALIZED (
-       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND attempts = $2 AND status = 'processing' FOR UPDATE
+       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND attempts = $2 AND status = 'processing' AND claim_token = $4::uuid FOR UPDATE
      ), owned AS MATERIALIZED (
        SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
      ) UPDATE outbox_jobs SET next_attempt_at = clock_timestamp() + $3::double precision * interval '1 minute'
        FROM owned WHERE outbox_jobs.id = owned.id`,
-    [job.id, job.attempts, leaseMinutes],
+    [job.id, job.attempts, leaseMinutes, job.claimToken ?? null],
   );
   return result.rowCount === 1;
 }
@@ -90,7 +92,7 @@ export async function completeWalletOutboxJob(pool: Pick<Pool, "query">, job: Ou
   const result = await pool.query<{ owned: boolean }>(`
     WITH locked AS MATERIALIZED (
       SELECT id, next_attempt_at FROM outbox_jobs WHERE id = $1 AND kind = 'wallet.refresh'
-        AND tenant_id = $3 AND status = 'processing' AND attempts = $2 FOR UPDATE
+        AND tenant_id = $3 AND status = 'processing' AND attempts = $2 AND claim_token = $5::uuid FOR UPDATE
     ), owned AS MATERIALIZED (
       SELECT id FROM locked WHERE next_attempt_at > clock_timestamp()
     ), completed AS (
@@ -104,6 +106,6 @@ export async function completeWalletOutboxJob(pool: Pick<Pool, "query">, job: Ou
         AND older.created_at <= completed.created_at
       RETURNING older.id
     ) SELECT EXISTS(SELECT 1 FROM completed) AS owned
-  `, [job.id, job.attempts, job.tenantId, String(job.payload.membershipId)]);
+  `, [job.id, job.attempts, job.tenantId, String(job.payload.membershipId), job.claimToken ?? null]);
   return result.rows[0]?.owned === true;
 }

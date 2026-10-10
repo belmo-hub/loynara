@@ -28,7 +28,11 @@ const workerDatabase = boundedWorkerDatabase(pool);
 const monitorPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 });
 
 const claimJob = () => claimOutboxJob(workerDatabase, { maxAttempts, leaseMinutes });
-const mark = (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => markOutboxJob(workerDatabase, job, status, reason, delaySeconds);
+const mark = async (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => {
+  const owned = await markOutboxJob(workerDatabase, job, status, reason, delaySeconds);
+  if (!owned) stop();
+  return owned ? status : "lease_lost";
+};
 const defer = async (job: Job, reason: string, until: Date) => {
   const owned = await deferOutboxJob(workerDatabase, job, reason, until);
   if (!owned) stop();
@@ -40,50 +44,46 @@ async function processJob(job: Job, claimedAt: number) {
     try {
       const { deliverVerificationEmail } = await import("../src/lib/contact-verification-delivery");
       const result = await deliverVerificationEmail(job);
-      await mark(job, result.status, "reason" in result ? result.reason : undefined);
-      return result.status;
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
     } catch (error) {
-      await mark(job, "blocked", "Verification outcome uncertain; operator review required");
+      const marked = await mark(job, "blocked", "Verification outcome uncertain; operator review required");
       console.error(`Verification job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
-      return "blocked";
+      return marked;
     }
   }
   if (job.kind === "email.recover") {
     try {
       const { deliverRecoveryEmail } = await import("../src/lib/card-recovery-delivery");
       const result = await deliverRecoveryEmail(job);
-      await mark(job, result.status, "reason" in result ? result.reason : undefined);
-      return result.status;
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
     } catch (error) {
-      await mark(job, "blocked", "Recovery delivery outcome uncertain; operator review required");
+      const marked = await mark(job, "blocked", "Recovery delivery outcome uncertain; operator review required");
       console.error(`Recovery job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
-      return "blocked";
+      return marked;
     }
   }
   if (job.kind === "email.recovery_notice") {
     try {
       const { deliverRecoveryNotice } = await import("../src/lib/card-recovery-delivery");
       const result = await deliverRecoveryNotice(job);
-      await mark(job, result.status, "reason" in result ? result.reason : undefined);
-      return result.status;
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
     } catch (error) {
-      await mark(job, "blocked", "Security notice outcome uncertain; operator review required");
+      const marked = await mark(job, "blocked", "Security notice outcome uncertain; operator review required");
       console.error(`Security notice job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
-      return "blocked";
+      return marked;
     }
   }
   if (job.kind === "campaign.dispatch") {
     try {
       const { dispatchCampaign } = await import("../src/lib/campaigns");
       const result = await dispatchCampaign(job);
-      await mark(job, result.status, result.reason);
-      return result.status;
+      return await mark(job, result.status, result.reason);
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Campaign dispatch failed", permanent ? 0 : delay);
+      const marked = await mark(job, permanent ? "failed" : "retry", "Campaign dispatch failed", permanent ? 0 : delay);
       console.error(`Campaign dispatch job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-      return permanent ? "failed" : "retry";
+      return marked;
     }
   }
   if (job.kind === "email.campaign") {
@@ -94,14 +94,13 @@ async function processJob(job: Job, claimedAt: number) {
       const status = result.status === "retry" && job.attempts >= maxAttempts ? "failed" : result.status;
       const delay = status === "retry" ? Math.max(Math.min(3600, 10 * 2 ** (job.attempts - 1)),
         result.retryAt ? Math.ceil((result.retryAt.getTime() - Date.now()) / 1000) : 0) : 0;
-      await mark(job, status, result.reason, delay);
-      return status;
+      return await mark(job, status, result.reason, delay);
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Campaign delivery failed or is uncertain", permanent ? 0 : delay);
+      const marked = await mark(job, permanent ? "failed" : "retry", "Campaign delivery failed or is uncertain", permanent ? 0 : delay);
       console.error(`Campaign job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-      return permanent ? "failed" : "retry";
+      return marked;
     }
   }
   if (job.kind === "automation.event" || job.kind === "automation.scan" || job.kind === "email.automation") {
@@ -114,28 +113,26 @@ async function processJob(job: Job, claimedAt: number) {
       const status = result.status === "retry" && job.attempts >= maxAttempts ? "failed" : result.status;
       const delay = status === "retry" ? Math.max(Math.min(3600, 10 * 2 ** (job.attempts - 1)),
         result.retryAt ? Math.ceil((result.retryAt.getTime() - Date.now()) / 1000) : 0) : 0;
-      await mark(job, status, result.reason, delay);
-      return status;
+      return await mark(job, status, result.reason, delay);
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Automation processing failed", permanent ? 0 : delay);
+      const marked = await mark(job, permanent ? "failed" : "retry", "Automation processing failed", permanent ? 0 : delay);
       console.error(`Automation job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-      return permanent ? "failed" : "retry";
+      return marked;
     }
   }
   if (job.kind === "email.marketing") {
     try {
       const { deliverMarketingEmail } = await import("../src/lib/email");
       const result = await deliverMarketingEmail({ id: job.id, tenantId: job.tenantId, payload: job.payload });
-      await mark(job, result.status, result.reason);
-      return result.status;
+      return await mark(job, result.status, result.reason);
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
       const delay = Math.min(3600, 10 * 2 ** (job.attempts - 1));
-      await mark(job, permanent ? "failed" : "retry", "Local Mailpit delivery failed", permanent ? 0 : delay);
+      const marked = await mark(job, permanent ? "failed" : "retry", "Local Mailpit delivery failed", permanent ? 0 : delay);
       console.error(`Local email job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-      return permanent ? "failed" : "retry";
+      return marked;
     }
   }
   if (job.kind === "push.tap_pending") {
@@ -144,23 +141,20 @@ async function processJob(job: Job, claimedAt: number) {
       const { deliverTapPush } = await import("../src/lib/staff-push");
       const outcome = await deliverTapPush(job, { renew: () => renewOutboxJob(workerDatabase, job, 0.5) });
       const status = outcome.status === "retry" && job.attempts >= maxAttempts ? "failed" : outcome.status;
-      await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 15 : 0);
-      return status;
+      return await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 15 : 0);
     } catch (error) {
       const permanent = job.attempts >= maxAttempts;
-      await mark(job, permanent ? "failed" : "retry", "NFC push delivery failed", permanent ? 0 : 15);
+      const marked = await mark(job, permanent ? "failed" : "retry", "NFC push delivery failed", permanent ? 0 : 15);
       console.error(`NFC push job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
-      return permanent ? "failed" : "retry";
+      return marked;
     }
   }
   if (job.kind !== "wallet.refresh") {
-    await mark(job, "failed", "Unknown job kind");
-    return "failed";
+    return await mark(job, "failed", "Unknown job kind");
   }
   const membershipId = job.payload?.membershipId;
   if (typeof membershipId !== "string" || !uuidPattern.test(membershipId)) {
-    await mark(job, "failed", "Invalid wallet job payload");
-    return "failed";
+    return await mark(job, "failed", "Invalid wallet job payload");
   }
 
   const deadline = claimedAt + walletJobLifetimeMs;

@@ -5,6 +5,7 @@ import path from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
+import { claimOutboxJob, markOutboxJob } from "../src/lib/outbox";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
@@ -225,7 +226,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(24);
+      expect(applied).toBe(25);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -568,16 +569,16 @@ describe("0023 catalogue reward reminders", () => {
       const deliveryRows = (await target.query("SELECT * FROM email_deliveries ORDER BY job_id")).rows;
       const journal22 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
       const oldConstraints = (await target.query("SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='automation_rules'::regclass AND conname IN ('automation_rule_trigger_valid','automation_rule_inactivity_valid') ORDER BY conname")).rows;
-      await run(target, migrationsDir);
+      await run(target, folderThrough(23));
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT * FROM automation_rules ORDER BY id")).rows).toEqual(ruleRows);
       expect((await target.query("SELECT * FROM email_deliveries ORDER BY job_id")).rows).toEqual(deliveryRows);
       const journal23 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
       expect(journal23).toHaveLength(24);
       expect(journal23.slice(0, 23)).toEqual(journal22);
-      await run(target, migrationsDir);
+      await run(target, folderThrough(23));
       expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal23);
-      await run(fresh, migrationsDir);
+      await run(fresh, folderThrough(23));
       expect(await structure(target)).toEqual(await structure(fresh));
       const rewardRule = randomUUID();
       await target.query("INSERT INTO automation_rules (id,tenant_id,program_id,trigger_kind,subject,body,created_by_user_id) SELECT $1,tenant_id,program_id,'reward_ready','Reward ready','Synthetic reminder',created_by_user_id FROM automation_rules WHERE id=$2", [rewardRule, rule]);
@@ -589,6 +590,51 @@ describe("0023 catalogue reward reminders", () => {
       await target.query("ROLLBACK");
       expect((await target.query("SELECT trigger_kind,enabled FROM automation_rules WHERE id=$1", [rewardRule])).rows).toEqual([{ trigger_kind: "reward_ready", enabled: false }]);
       expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal23);
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+});
+
+
+describe("0024 durable outbox claim identity", () => {
+  it("preserves populated 0023 queues and history, accepts legacy inserts and fences recovered claims", async () => {
+    const target = await scratchDatabase("claims24"), fresh = await scratchDatabase("claims24_fresh");
+    try {
+      await run(target, folderThrough(23));
+      const seeded = await seedHistory(target);
+      const states = ["pending", "retry", "processing", "blocked", "failed", "complete", "suppressed"];
+      for (const status of states) await target.query("INSERT INTO outbox_jobs (tenant_id,kind,payload,status,attempts,last_error,next_attempt_at) VALUES ($1,'email.campaign','{\"synthetic\":\"retained\"}',$2,$3,'Retained diagnostic',now()-interval '1 minute')", [seeded.tenants[0], status, status === "pending" ? 0 : 2]);
+      const history = await fingerprint(target), schema23 = await structure(target);
+      const rows23 = (await target.query("SELECT to_jsonb(t) AS row FROM outbox_jobs t ORDER BY id")).rows;
+      const journal23 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      await run(target, migrationsDir);
+      expect(await fingerprint(target)).toEqual(history);
+      expect((await target.query("SELECT to_jsonb(t)-'claim_token' AS row FROM outbox_jobs t ORDER BY id")).rows).toEqual(rows23);
+      expect((await target.query("SELECT claim_token FROM outbox_jobs")).rows).toEqual(states.map(() => ({ claim_token: null })));
+      const schema24 = await structure(target);
+      expect({ ...schema24, columns: schema24.columns.filter(column => !column.startsWith("outbox_jobs.claim_token:")) }).toEqual(schema23);
+      const journal24 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      expect(journal24).toHaveLength(25);
+      expect(journal24.slice(0, 24)).toEqual(journal23);
+      await run(target, migrationsDir);
+      expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal24);
+      await run(fresh, migrationsDir);
+      expect(await structure(target)).toEqual(await structure(fresh));
+      const recovered = [];
+      for (let n = 0; n < 3; n++) {
+        const job = (await claimOutboxJob(target, { maxAttempts: 5, leaseMinutes: 5 }))!;
+        expect(job.claimToken).toMatch(/^[0-9a-f-]{36}$/);
+        expect(await markOutboxJob(target, { ...job, claimToken: undefined }, "failed")).toBe(false);
+        expect(await markOutboxJob(target, job, "complete")).toBe(true);
+        recovered.push(job);
+      }
+      expect(new Set(recovered.map(job => job.claimToken)).size).toBe(3);
+      expect(await claimOutboxJob(target, { maxAttempts: 5, leaseMinutes: 5 })).toBeNull();
+      // Old insert shape remains valid, but only a new durable claim can authorize writes.
+      await target.query("INSERT INTO outbox_jobs (tenant_id,kind,payload) VALUES ($1,'email.campaign','{}')", [seeded.tenants[1]]);
+      const inserted = (await claimOutboxJob(target, { maxAttempts: 5, leaseMinutes: 5 }))!;
+      expect(inserted.tenantId).toBe(seeded.tenants[1]);
+      expect(inserted.claimToken).toMatch(/^[0-9a-f-]{36}$/);
+      expect(await markOutboxJob(target, inserted, "complete")).toBe(true);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 });

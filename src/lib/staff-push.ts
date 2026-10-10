@@ -186,11 +186,11 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
  * whatever fails here is retried by the worker. Never throws.
  */
 export async function dispatchTapPushNow(jobId: string, deps: { send?: Sender; env?: PushEnv } = {}): Promise<void> {
-  let job: { id: string; attempts: number; payload: Record<string, unknown> } | undefined;
+  let job: { id: string; attempts: number; claimToken: string; payload: Record<string, unknown> } | undefined;
   try {
-    const { rows } = await pool.query<{ id: string; attempts: number; payload: Record<string, unknown> }>(`
-      UPDATE outbox_jobs SET status = 'processing', attempts = attempts + 1, next_attempt_at = now() + interval '30 seconds', last_error = NULL
-      WHERE id = $1 AND kind = $2 AND status = 'pending' RETURNING id, attempts, payload`, [jobId, PUSH_JOB_KIND]);
+    const { rows } = await pool.query<{ id: string; attempts: number; claimToken: string; payload: Record<string, unknown> }>(`
+      UPDATE outbox_jobs SET status = 'processing', attempts = attempts + 1, claim_token = gen_random_uuid(), next_attempt_at = now() + interval '30 seconds', last_error = NULL
+      WHERE id = $1 AND kind = $2 AND status = 'pending' RETURNING id, attempts, claim_token AS "claimToken", payload`, [jobId, PUSH_JOB_KIND]);
     job = rows[0];
     if (!job) return;
     const ownedJob = job;

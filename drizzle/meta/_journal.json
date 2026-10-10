@@ -169,6 +169,13 @@
       "when": 1791632400000,
       "tag": "0023_reward_ready_automation",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791674938227,
+      "tag": "0024_outbox_claim_token",
+      "breakpoints": true
     }
   ]
 }

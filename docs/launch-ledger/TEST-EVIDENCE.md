@@ -67,3 +67,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 2026-10-11 [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md): RED3 expired-owner database/real-worker failures; focused4files42PASS; independent review no material application finding, test cleanup/lockwait suggestions addressed; typecheck/lint/buildPASS after fixture literal correction. Global environment failure and unchanged-base comparison preserved; final receipt in entry.
+
+
+2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): RED actual two-worker committed deferral/claim reusedattempt1 overwrotefreshlease; tokenfences/replay/migration history compatibility and61focusedPASS; finalglobalreceipt inentry.

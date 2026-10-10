@@ -138,6 +138,54 @@ describe("quiet-hours deferral ownership", () => {
     }
   });
 
+  it("rejects a stale failure after committed deferral loses acknowledgment and its attempt is reused", async () => {
+    const job = await fixture();
+    const directory = mkdtempSync(path.join(tmpdir(), "loynara-deferral-aba-"));
+    const preload = path.join(directory, "ack-barrier.cjs");
+    const markerA = path.join(directory, "deferred"), markerB = path.join(directory, "reclaimed");
+    const releaseA = path.join(directory, "release-a"), releaseB = path.join(directory, "release-b");
+    // Preserve real SQL/COMMIT, withholding only its acknowledgment to reproduce an ordinary connection failure.
+    writeFileSync(preload, `const fs=require('node:fs'); const pg=require(${JSON.stringify(path.resolve("node_modules/pg"))});
+const original=pg.Client.prototype.query;let paused=false;
+pg.Client.prototype.query=function(...args){const text=typeof args[0]==='string'?args[0]:args[0]?.text;
+if(text?.includes('attempts = attempts - 1'))this.action='defer';else if(text?.includes('WITH candidate'))this.action='claim';
+const action=this.action;const result=original.apply(this,args);
+if(text==='COMMIT'){this.action=null;if(!paused&&action===(process.env.DEFER_PAUSE==='true'?'defer':'claim')){paused=true;
+return Promise.resolve(result).then(value=>{fs.writeFileSync(process.env.DEFER_MARKER,'committed');return new Promise(resolve=>{const timer=setInterval(()=>{if(fs.existsSync(process.env.DEFER_RELEASE)){clearInterval(timer);resolve();}},10);}).then(()=>{if(process.env.DEFER_PAUSE==='true')throw new Error('Synthetic lost COMMIT acknowledgment');return value;});});}}
+return result;};global.fetch=async()=>{throw new Error('External HTTP forbidden');};`);
+    const running: ReturnType<typeof worker>[] = [];
+    const start = (marker: string, release: string, roleA: boolean) => {
+      const process = worker(preload, marker, release, roleA); running.push(process); void process.done.catch(() => {}); return process;
+    };
+    const a = start(markerA, releaseA, true);
+    try {
+      await waitFor(() => existsSync(markerA));
+      expect(await snapshot(job.id)).toMatchObject({ status: "retry", attempts: 0 });
+      const firstToken = (await pool.query("SELECT claim_token FROM outbox_jobs WHERE id=$1", [job.id])).rows[0].claim_token;
+      // Advance only the persisted scheduling deadline, as in expiry fixtures; status/counter come from actual deferral.
+      await expire(job.id);
+      const b = start(markerB, releaseB, false);
+      await waitFor(() => existsSync(markerB));
+      const replacement = await snapshot(job.id);
+      expect(replacement).toMatchObject({ status: "processing", attempts: 1 });
+      expect((await pool.query("SELECT claim_token FROM outbox_jobs WHERE id=$1", [job.id])).rows[0].claim_token).not.toBe(firstToken);
+      writeFileSync(releaseA, "connection failure");
+      expect(await a.done).toContain('"lease_lost":1');
+      expect(await snapshot(job.id)).toEqual(replacement);
+      writeFileSync(releaseB, "current owner resumes");
+      expect(await b.done).toContain('"retry":1');
+      expect(await snapshot(job.id)).toMatchObject({ status: "retry", attempts: 0 });
+      expect((await pool.query("SELECT count(*)::int AS count FROM campaign_attempts")).rows[0].count).toBe(0);
+      expect((await pool.query("SELECT count(*)::int AS count FROM email_deliveries")).rows[0].count).toBe(0);
+    } finally {
+      for (const process of running) {
+        if (process.child.exitCode === null) { process.child.kill("SIGCONT"); process.child.kill("SIGKILL"); }
+        await process.done.catch(() => {});
+      }
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("fences a paused real worker and lets its replacement defer once without sending", async () => {
     const job = await fixture();
     const directory = mkdtempSync(path.join(tmpdir(), "loynara-deferral-"));

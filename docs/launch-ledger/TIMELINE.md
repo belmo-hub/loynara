@@ -81,3 +81,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 IMPLEMENTED/TESTED [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md): actual expired campaign worker rescheduled/refunded its claim on base; post-lock expiry fence and lease_lost handling, four durable real-PG/actual-process regressions. Exact final integration and suite receipt in entry.
+
+
+2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): IMPLEMENTED/TESTED real-worker lost-deferral-ack ABA correction, separate per-claim UUID; populated additive0024 migration and61focusedPASS.

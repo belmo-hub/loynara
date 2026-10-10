@@ -57,3 +57,6 @@ LOY153 bounded HTTP permissions verified; full153/154 independent acceptance OPE
 
 
 2026-10-11 [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md) is bounded local expiry fencing only. LOY139/140 broad/provider acceptance remains open. Inherited attempt-counter reuse after quiet deferral requires separate coordinator-directed technical investigation; no globally unique claim-generation guarantee added. Remote push remains held for unknown hosted triggers.
+
+
+2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): 282boundedtokenfence localonly;139/140acceptanceOPEN. Separatelyauthorizedmigration/cutovermustdrain/replacealloldweb/workerwriters; mixedversionsnotaccepted.

@@ -18,3 +18,6 @@ Append date, original file/claim, verified source, correction, and scope/status 
 
 
 2026-10-11 [LOY-281 deferral lease fence](LOY-281-deferral-lease-fence-2026-10-11.md): inherited quiet-deferral attempt refund may reuse an attempt number after future reclaims (ABA); not independently reproduced in047, not fixed or accepted risk. Expired-owner fence covers the demonstrated gap only. Coordinator review must select/authorize any broader claim-identity investigation; no new queue architecture inferred.
+
+
+2026-10-11 [LOY-282 claim generation](LOY-282-claim-generation-2026-10-11.md): Prior281ABA hypothesis now reproduced and correctedlocally; priorentry retained. Additive schema preserveslegacy queues, but oldbinarieslacktokenfence; mixedversionrolloutnotaccepted, exacthumanreleaseactionqueued.

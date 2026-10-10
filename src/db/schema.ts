@@ -448,6 +448,7 @@ export const outboxJobs = pgTable("outbox_jobs", {
   payload: jsonb("payload").$type<Record<string, string>>().notNull(),
   status: varchar("status", { length: 12 }).notNull().default("pending"),
   attempts: integer("attempts").notNull().default(0),
+  claimToken: uuid("claim_token"),
   nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
   lastError: varchar("last_error", { length: 300 }),
   createdAt: createdAt(),
