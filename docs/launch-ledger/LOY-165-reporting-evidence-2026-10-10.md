@@ -1,0 +1,28 @@
+# LOY-165 bounded analytics and business-export evidence
+
+Issue LOY-165: Customer/reward/referral/staff/location activity and exports. Live refresh2026-10-10: Backlog, Must Launch; FEATURE-J-ACTIVITY-REPORTING. No hard predecessor recorded; parent hierarchy does not establish policy approval. Objective: inspect one owner analytics/business-export path and reconcile its existing synthetic tests. Evidence-only; no production code/test/dependency/policy change. Agent Codex /root, exact runtime model unmeasured; operating policy Sol Medium, no switch. Date2026-10-10 Europe/Berlin, isolated codex/loy165-reporting-evidence, exact-lock cached dependency installation and dedicated synthetic localhost PostgreSQL.
+
+Base5a58f247fa84e3c9e47e944b11b9c13483b7a7a0. Result is this containing evidence commit, indexed by subsequent checkpoint. Scope source references: src/lib/merchant-analytics.ts:6 (returned fields), :36 (checkout CTE), :52 (window/authorization), :77 (queries), :145 (buckets); src/lib/merchant-analytics.integration.test.ts:27/:71/:103/:117 (four fixture cases); src/lib/export.ts:14 (owner business export); src/app/api/merchant/analytics/route.ts:6 and src/app/merchant/analytics/page.tsx:18 (window-only report request).
+
+## Actual reconciliation
+
+One existing suite run, exit0:1file/4PASS/0FAIL/0SKIP,614ms. No discrepancy reproduced by those existing fixtures. Repeated booking key counts once; fully reversed and synthetic seed awards excluded; baseline expects3qualifying checkouts/2participating cards/1repeat card,8stamp units,1redemption and2campaign attempts. Bucket totals reconcile3checkouts/2new cards. Second case checks30versus90days, tenant isolation and manager/cashier/revoked-owner denial. Points case1250minor units at2points/unit yields25points/0stamps. Referral case separately counts attribution/qualification/reversal by event date and excludes another tenant. No provider sends, real contacts or private bearer values recorded.
+
+| Live criterion | Bounded source/test finding | Status/remaining verification |
+| --- | --- | --- |
+| Customer activity | Distinct accepted staff online/offline request per card; seed/referral credit excluded; fully reversed entry excluded before asOf; cards/repeat and7day buckets | IMPLEMENTED/TESTED in four existing fixtures; partial/multi-entry reversals and concurrent report reads not newly exercised |
+| Reward counts | Unreversed redemption count, top5titles; scoped tenant joins | IMPLEMENTED/TESTED single-redemption fixture; reversal/title ties/history variants untested in this slice |
+| Referral performance | Independent attribution/qualified/reversed event dates, tenant scope | IMPLEMENTED/TESTED existing fixture; no causal revenue claim |
+| Staff activity | Report has no actor/staff breakdown; business export includes staff roles/audit and ledger rows | MISSING breakdown in this reporting path; other paths not audited; export reconciliation not executed |
+| Location analytics | Report queries tenant-wide, windowDays/asOf only; UI displays all-locations notice; export includes locations and ledger location IDs | MISSING per-location breakdown/filter in this path; tenant isolation tested, multilocation acceptance/policy still open |
+| Date filters | Fixed30/90rolling UTC, lower bound inclusive/upper exclusive in SQL,7day buckets | IMPLEMENTED/TESTED wide/narrow fixture; exact-edge/timezone/DST and arbitrary date-range expectations unverified |
+| Exports | Owner business format4 has credentials-free selected membership data, ledger/redemption/consent/staff/audit/location/billing/security categories,50000row per-category limit; no date/location input | PARTIAL source coverage; referrals/campaign-attempt records absent from this format; no seeded export comparison, limit/pagination/failure/browser test in this bounded run |
+| Independent acceptance | Ticket requires seeded reconciliation, empty/stale/location reasoning, exact environment/reviewer evidence and independent production readback | OPEN; no deployment, acceptance or production verification performed |
+
+## Limits, authority and next work
+
+No new architecture/product decision. Existing checkout counting semantics observed, not redefined. No proven runtime defect is claimed from static gaps or passing limited fixtures. Smallest next candidate: separately selected seeded owner-business-export reconciliation including referral/campaign-event scope, with explicit expected coverage under canonical scope. Another candidate: bounded per-location/staff reporting design after exact policy acceptance is established. Do not invent KPIs, broaden privacy scope or change programme/multilocation policy.
+
+No new founder-sensitive action; previously queued LOY-159/209 decisions remain independent. External action actually performed will be the authorized sanitized LOY-165 evidence comment; exact delivery/readback and completed strategic checkpoint recorded in native state, never presumed. No deployment, hosted product mutation, provider activation/send, tag/DNS/secret/permission change or protected merge.
+
+Failures:0test failures; unchanged tool ESM/CommonJS config warning, no suppression override. Exact-lock install and existing tests unchanged. Typecheck/lint/build/global suite not repeated for evidence-only files; documentation links/diff and preserved ancestry checked. Last measured cumulative native usage2,404,281tokens/13,872seconds;13,544additional since investigation preflight2,390,737. Input/cached/outputsplit/browserinference unmeasured. Original2.5M ceiling and19:50:28Berlin deadline unchanged. Full launch not DONE; independent acceptance remains open.

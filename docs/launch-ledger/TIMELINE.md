@@ -22,3 +22,5 @@ Append chronological events; retain historical records. Git author timestamps be
 | 2026-10-10T17:28:59+02:00 | `cd38bdcdcb72135e236fd533ad5c921712347246` | [LOY-43-customer-export-snapshot-2026-10-10.md](LOY-43-customer-export-snapshot-2026-10-10.md) | fix: export customer activity from one database snapshot |
 
 Current documentation task: [permanent-record requirement](2026-10-10-permanent-build-launch-record.md), resulting commit is its containing commit until a later index records its exact SHA. Earlier history remains an explicit reconstruction gap; preserve Git and source documents.
+
+2026-10-10: [LOY-165 bounded evidence](LOY-165-reporting-evidence-2026-10-10.md), base5a58f247; result is its containing commit. Four existing analytics fixtures PASS; no runtime discrepancy reproduced; staff/location breakdown and export scope gaps remain open.
