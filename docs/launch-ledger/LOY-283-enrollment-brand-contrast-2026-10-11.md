@@ -15,3 +15,5 @@ PLANNED/OPEN: LOY-175 retains all original merchant-approved, Wallet/QR/stand, k
 Usage: cumulative native Goal6,193,503 reported tokens /32,025seconds observed during verification. Input, cached subset, output, reviewer/browser breakdown unmeasured; historical accounting not reset. Latest exact-SHA/usage receipt follows. External tracker creation LOY-283 and parent link confirmed; broad parent not transitioned.
 
 Final configured global suite:159files1475PASS0FAIL1existing opt-inMailpitSKIP,125.70seconds, exit0. No assertion weakening or skips added. This count does not include the separate Chrome1PASS.
+
+INTEGRATED receipt: code6d5362ceef9e9df6309570f02a3255e328f4438c fast-forwarded into canonical non-production integration; clean integrated focused3files25PASS. YouTrack283 Done / Local Implementation / Automated Tests Verified, genuine comment7-105 and parent175 link read back2026-10-10 23:43:50UTC. Native usage6,221,956cumulativetokens /32,181seconds, detailed subset unmeasured. Receipt-only commit does not change tested app source. NOT PUSHED/DEPLOYED/independently accepted; broad175 gate remains open.
