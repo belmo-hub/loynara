@@ -43,3 +43,39 @@ describe("disabled delivery has no paused campaign scheduler", () => {
     expect(html.includes("Erneut planen")).toBe(mode !== "disabled");
   });
 });
+
+function builderMarkup(patch: Record<string, unknown>, step = 0) {
+  const editor = { title: "Synthetic draft", subject: "Synthetic subject", body: "Synthetic body", kind: "inactive", withinDays: 30, daysSinceLast: 30, minCheckouts: 2, maxRemaining: 2, rewardId: "", ...patch };
+  state.overrides = [{ goal: null, options: {} }, { step, editor, editingId: null, savedId: null, goal: null }, true, { state: "idle" }, null, false, "", "", {}, null];
+  return renderToStaticMarkup(createElement(CampaignsView));
+}
+function buttonMarkup(html: string, label: string) {
+  return html.match(new RegExp(`<button[^>]*>${label}</button>`))?.[0];
+}
+describe("campaign builder rejects invalid audience thresholds before API calls", () => {
+  it.each([
+    { kind: "inactive", daysSinceLast: 0 },
+    { kind: "inactive", daysSinceLast: 3651 },
+    { kind: "new", withinDays: 1.5 },
+    { kind: "recently_active", withinDays: 0 },
+    { kind: "frequent_visitors", minCheckouts: 10001 },
+    { kind: "frequent_visitors", minCheckouts: 0 },
+    { kind: "close_to_reward", maxRemaining: 100001 },
+    { kind: "close_to_reward", maxRemaining: 1.5 },
+  ])("blocks navigation and saving for %j", patch => {
+    expect(buttonMarkup(builderMarkup(patch), "Weiter")).toContain('disabled=""');
+    expect(buttonMarkup(builderMarkup(patch, 2), "Entwurf speichern")).toContain('disabled=""');
+    expect(builderMarkup(patch)).toContain('role="alert"');
+  });
+  it.each([
+    { kind: "all", withinDays: 0, daysSinceLast: 0, maxRemaining: 0 },
+    { kind: "inactive", daysSinceLast: 3650 },
+    { kind: "new", withinDays: 1 },
+    { kind: "recently_active", withinDays: 3650 },
+    { kind: "frequent_visitors", minCheckouts: 10000 },
+    { kind: "close_to_reward", maxRemaining: 100000 },
+  ])("allows valid selected audiences and ignores inactive fields: %j", patch => {
+    expect(buttonMarkup(builderMarkup(patch), "Weiter")).not.toContain('disabled=""');
+    expect(buttonMarkup(builderMarkup(patch, 2), "Entwurf speichern")).not.toContain('disabled=""');
+  });
+});

@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { apiJson, postJson, type PublicProgram } from "@/components/client-api";
-import type { AudienceDefinition } from "@/lib/segments";
+import { audienceDefinitionSchema, type AudienceDefinition } from "@/lib/audience-definition";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { germanDate, Notice, OwnerDialog, OwnerIcon, Skeleton } from "./owner-ui";
 import { useLoad } from "./use-load";
@@ -105,13 +105,13 @@ export function CampaignsView() {
   function change(patch: Partial<Editor>) { setBuilder(current => current && ({ ...current, editor: { ...current.editor, ...patch } })); setDirty(true); setPreview({ state: "idle" }); }
 
   async function inspect() {
-    if (!builder) return;
+    if (!builder || !audienceDefinitionSchema.safeParse(definitionOf(builder.editor)).success) return;
     setPreview({ state: "loading" });
     try { setPreview({ state: "ok", data: await postJson<Preview>("/api/merchant/campaigns/preview", { programSlug: me.programSlug, audienceDefinition: definitionOf(builder.editor) }) }); }
     catch (cause) { setPreview({ state: "error", message: reason(cause) }); }
   }
   async function saveDraft() {
-    if (!builder || busy) return;
+    if (!builder || busy || !audienceDefinitionSchema.safeParse(definitionOf(builder.editor)).success) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const common = { title: builder.editor.title.trim(), subject: builder.editor.subject.trim(), body: builder.editor.body.trim(), audienceDefinition: definitionOf(builder.editor) };
@@ -194,7 +194,8 @@ export function CampaignsView() {
   }
 
   const e = builder.editor;
-  const okStep0 = e.kind !== "close_to_reward" || e.maxRemaining >= 1;
+  const audienceValidation = audienceDefinitionSchema.safeParse(definitionOf(e));
+  const okStep0 = audienceValidation.success;
   const okStep1 = e.title.trim().length >= 2 && e.subject.trim().length >= 2 && e.body.trim().length >= 5;
   const p = preview.state === "ok" ? preview.data : undefined;
   return (
@@ -203,6 +204,7 @@ export function CampaignsView() {
       {builder.goal && GOALS[builder.goal] && <p className="ow-muted" style={{ fontSize: 14 }}>Ziel: <strong>{GOALS[builder.goal].label}</strong></p>}
       <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}</li>)}</ol>
       <section className="ow-card ow-stack" style={{ gap: 20 }} aria-labelledby="bs-h">
+        {!okStep0 && <Notice tone="danger" role="alert">Prüfe die Zielgruppe: Tage müssen ganze Zahlen von 1 bis 3650 sein, Kassenvorgänge von 1 bis 10000 und fehlende Stempel oder Punkte von 1 bis 100000.</Notice>}
         {builder.step === 0 && <>
           <div><h2 id="bs-h">Wen möchtest du erreichen?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die Zahl zeigt Karten, nicht Personen. Ob jemand per E-Mail erreichbar ist, prüfen wir im letzten Schritt.</p></div>
           <div className="ow-field"><label htmlFor="c-kind">Zielgruppe</label><select id="c-kind" className="ow-select" value={e.kind} onChange={event => change({ kind: event.target.value as Kind })}>{KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
@@ -232,7 +234,7 @@ export function CampaignsView() {
             <dt>Betreff</dt><dd>{e.subject}</dd>
           </dl>
           <div className="ow-readonly" aria-live="polite">
-            <div className="ow-row" style={{ justifyContent: "space-between" }}><strong>Wer wird erreicht?</strong><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void inspect()} disabled={preview.state === "loading"}>{preview.state === "loading" ? "Wird berechnet …" : p ? "Neu berechnen" : "Berechnen"}</button></div>
+            <div className="ow-row" style={{ justifyContent: "space-between" }}><strong>Wer wird erreicht?</strong><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void inspect()} disabled={preview.state === "loading" || !okStep0}>{preview.state === "loading" ? "Wird berechnet …" : p ? "Neu berechnen" : "Berechnen"}</button></div>
             {preview.state === "error" && <p className="ow-error" role="alert">{preview.message}</p>}
             {p && <>
               <p style={{ marginTop: 8 }}><strong className="ow-num">{p.total}</strong> {p.total === 1 ? "Karte" : "Karten"} in der Zielgruppe, <strong className="ow-num">{p.eligibleCount}</strong> kontaktierbar. Stand {germanDate(p.asOf, true)}. Das ist eine Vorschau, keine Zusage für die Zustellung.</p>
@@ -262,9 +264,9 @@ export function CampaignsView() {
           <span className="ow-row"><button type="button" className="ow-btn ow-btn--ghost" onClick={() => { if (builder.step === 0) { setBuilder(null); setDirty(false); } else setBuilder({ ...builder, step: builder.step - 1 }); }}>{builder.step === 0 ? "Abbrechen" : "Zurück"}</button></span>
           <span className="ow-row">
             {builder.step === 2 && builder.savedId && !dirty && <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { setBuilder(null); reloadList(); }}>Zur Kampagnenliste</button>}
-            {builder.step === 2 && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void saveDraft()} disabled={busy || !okStep1} aria-busy={busy}>{busy ? "Speichern …" : builder.savedId ? "Entwurf aktualisieren" : "Entwurf speichern"}</button>}
-            {builder.step === 2 && builder.savedId && mode !== "disabled" && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
-            {builder.step < 2 && <button type="button" className="ow-btn ow-btn--primary" disabled={builder.step === 0 ? !okStep0 : !okStep1} onClick={() => { const next = builder.step + 1; setBuilder({ ...builder, step: next }); if (next === 2 && preview.state === "idle") void inspect(); }}>Weiter</button>}
+            {builder.step === 2 && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void saveDraft()} disabled={busy || !okStep0 || !okStep1} aria-busy={busy}>{busy ? "Speichern …" : builder.savedId ? "Entwurf aktualisieren" : "Entwurf speichern"}</button>}
+            {builder.step === 2 && builder.savedId && mode !== "disabled" && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || !okStep0 || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
+            {builder.step < 2 && <button type="button" className="ow-btn ow-btn--primary" disabled={builder.step === 0 ? !okStep0 : !okStep0 || !okStep1} onClick={() => { const next = builder.step + 1; setBuilder({ ...builder, step: next }); if (next === 2 && preview.state === "idle") void inspect(); }}>Weiter</button>}
           </span>
         </div>
         {builder.step === 2 && dirty && builder.savedId && <p className="ow-hint">Ungespeicherte Änderungen. Speichere den Entwurf{mode !== "disabled" ? ", bevor du planst" : ""}.</p>}
