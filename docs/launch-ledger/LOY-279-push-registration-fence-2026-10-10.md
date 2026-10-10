@@ -19,3 +19,7 @@ Reference: https://www.rfc-editor.org/info/rfc8030/ .
 ## Final verification — 2026-10-10
 
 Configured global155 actual files1455PASS0FAIL1existing opt-in MailpitSKIP, exit0 on final application/test source. This supersedes the running-suite wording. Previous1439 result predates assignments038/039 and these eight push regressions; this is the newest complete candidate verification. Focused20/type/lint/default build/diff and independent source review passed; no unexpected failure or weakened assertion. Commit/integration/tracker receipts follow.
+
+## Verified integration and tracker receipt — 2026-10-10 19:52 UTC
+
+Code41c8c666e83870d7a152af86aec7c956ba80cf79 fast-forward integrated cleanly into codex/loynara-engineering-integration; actual integrated4files28PASS0FAIL0SKIP. Requested outbox.integration.test.ts filter matched no file; no outbox-only test count claimed, full configured suite supplied worker/outbox coverage. Frozen32b27exact and campaign/diagnostic ancestry verified. LOY279StageDone/EvidenceAutomatedTestsVerified resolved19:52:06UTC/comment7-93 readback; parent85StageInReview/EvidenceAutomatedTestsVerified/comment7-94 readback, no parent completion. Independent gate86 unchanged. This supersedes pending integration/tracker wording. Native cumulative4,345,246tokens/22,822seconds. No push/deploy/independent acceptance; coordinator040 next. Receipt documentation does not justify global rerun.
