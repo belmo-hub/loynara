@@ -26,3 +26,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-10: [LOY-165 bounded evidence](LOY-165-reporting-evidence-2026-10-10.md), base5a58f247; result is its containing commit. Four existing analytics fixtures PASS; no runtime discrepancy reproduced; staff/location breakdown and export scope gaps remain open.
 
 2026-10-10 exact post-commit references: permanent ledger requirement5a58f247fa84e3c9e47e944b11b9c13483b7a7a0; LOY165 evidence9085a2b22366d4944d3a233f75ab167ec5badfb2. [Remaining-work checkpoint](2026-10-10-remaining-work-checkpoint.md) preserves cached all-lane inventory and human actions without a repeated audit; result is its containing commit.
+
+2026-10-10 [owner-export characterization](LOY-165-owner-export-characterization-2026-10-10.md), base38e3990; one corrected temporary fixture and final1PASS, no tracked test/source changes.

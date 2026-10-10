@@ -14,3 +14,5 @@
 Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE.json. It supplements this Git ledger; essential decisions/actions must also be recorded here so ChatGPT loss does not erase project history. Canonical requirement map and article snapshots remain in existing native-goal state. Do not build/repair Autopilot infrastructure or reset native accounting.
 
 2026-10-10 traceable LOY-165 amendment: [bounded reporting evidence](LOY-165-reporting-evidence-2026-10-10.md) now establishes4existing fixturePASS. Original unverified broader reconciliation remains open: this path lacks per-staff/location breakdown, business format omits referral/campaign attempts, seeded exports and independent acceptance were not tested. No whole-ticket completion inference.
+
+2026-10-10 traceable refinement: [actual owner export](LOY-165-owner-export-characterization-2026-10-10.md) omits seeded referrals/campaign attempts, separate owner reporting exists. Exact downloadable acceptance remains unresolved; no established runtime defect or scope reduction.
