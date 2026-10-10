@@ -46,6 +46,9 @@ export function TapClient({ refId }: { refId: string }) {
   const [selectionRequired, setSelectionRequired] = useState(false);
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [doneBusy, setDoneBusy] = useState(false);
+  const [doneRequest, setDoneRequest] = useState<string | null>(null);
+  const [doneError, setDoneError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -98,6 +101,19 @@ export function TapClient({ refId }: { refId: string }) {
     return () => { active = false; if (timer) clearTimeout(timer); pollingController?.abort(); };
   }, [refId, selected]);
 
+  async function finishVisit() {
+    if (!result?.requestId || doneBusy) return;
+    setDoneBusy(true); setDoneError(null);
+    try {
+      await apiJson(`/api/tap/${encodeURIComponent(result.statusRef ?? refId)}/status/${encodeURIComponent(result.requestId)}/done`, { method: "POST", ...(selected ? { headers: { "X-Loynara-Card-Selected": selected } } : {}) });
+      setDoneRequest(result.requestId);
+    } catch (cause) {
+      setDoneError(cause instanceof ClientApiError && cause.status === 0
+        ? "Dein Stempel ist gebucht. Prüfe deine Verbindung und versuche Fertig erneut."
+        : "Dein Stempel ist gebucht. Der Browserzugang konnte nicht verlängert werden; nutze bei Bedarf deinen privaten Kartenlink oder die Wiederherstellung.");
+    } finally { setDoneBusy(false); }
+  }
+
   const state: TapState | "loading" | "error" = loading ? "loading" : error ? "error" : (result?.state ?? "loading");
   // A card created or opened later in this tab continues this tap (the join page and the card page read the stored path).
   useEffect(() => {
@@ -116,6 +132,11 @@ export function TapClient({ refId }: { refId: string }) {
     {waiting && <p className="ow-muted" style={{ fontSize: 14 }}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
     {typeof result?.balance === "number" && state !== "needs_enrollment" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
     {nextReward && typeof result?.balance === "number" && (state === "confirmed" || state === "awarded" || state === "already_processed") && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
+    {state === "confirmed" && result?.requestId && !selectionRequired && <div>
+      <p>Tippe auf Fertig, bevor du die Seite schließt. Dein Stempel ist bereits gebucht.</p>
+      <button className="button button--accent" disabled={doneBusy || doneRequest === result.requestId} onClick={() => void finishVisit()}>{doneRequest === result.requestId ? "Besuch abgeschlossen" : doneBusy ? "Einen Moment bitte" : "Fertig"}</button>
+      {doneError && <p role="alert">{doneError}</p>}
+    </div>}
     {selectionRequired && preview?.cardPath && <><a className="button button--outline" href={preview.cardPath} onClick={() => sessionStorage.removeItem(TAP_RETURN_KEY)}>Gespeicherte Karte {preview.cardLocator} ansehen</a><button className="button button--accent" onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button></>}
     {verificationRequired && preview?.cardPath && <Link className="button button--accent" href={preview.cardPath}>E-Mail auf meiner Karte bestätigen</Link>}
     {preview && state === "needs_enrollment" && <>

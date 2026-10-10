@@ -40,7 +40,7 @@ it("rejects future activity, activity before authentication and already expired 
  expect(()=>issueCustomerSession(programme,token,false,started,started+350*day)).toThrow();
 });
 
-it("regular days 1/30/60/85/95 remain recognized without moving the absolute root",()=>{
+it("award-and-Done activity on days 1/30/60/85/95 retains recognition without moving the root",()=>{
  let value=issueCustomerSession(programme,token);
  for(const days of [1,30,60,85,95]){
   vi.spyOn(Date,"now").mockReturnValue((started+days*day)*1000);

@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 /** Signed customer credentials: 90-day inactivity, 365-day absolute lifetime.
- * Only authenticated fresh verified NFC request creation may advance activity.
+ * Only explicit customer Done after a committed cashier award may advance activity.
  * Reads/binding preserve deadlines; closure/card rotation revoke through membership validation.
  */
 export const CUSTOMER_SESSION_SECONDS = 90 * 24 * 60 * 60;

@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { and, desc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
 import { DomainError, awardTapInTransaction, awardInTransaction } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
@@ -138,9 +138,7 @@ export type TapResult = { state: "awarded" | "already_processed" | "confirmed" |
   /** The card number, so the guest can tell the cashier which waiting request is theirs. Never a credential. */
   cardLocator?: string;
   /** Server-internal: the wake-up job created with a new pending request, sent right after commit. Never sent to the browser. */
-  pushJobId?: string;
-  /** Server-internal: a fresh verified counter created a new authorized customer visit. */
-  sessionActivity?: true };
+  pushJobId?: string };
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
@@ -187,7 +185,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     // What a request means to the guest who tapped, reported without booking anything.
     const reportOf = async (request: typeof tapRequests.$inferSelect): Promise<TapResult> => {
       if (request.status === "awarded") return { ...base, state: "already_processed", balance: member.balance, cardLocator };
-      if (request.status === "confirmed") return { ...base, state: "confirmed", balance: member.balance, cardLocator };
+      if (request.status === "confirmed") return { ...base, state: "confirmed", balance: member.balance, cardLocator, requestId: request.id, statusRef: await statusRefFor(request.tagId) };
       if (request.status === "cooldown") return { ...base, state: "cooldown", balance: member.balance };
       if (request.status === "cancelled") return { ...base, state: "cancelled", balance: member.balance };
       if (request.status === "pending_staff" && request.expiresAt > now) return { ...base, state: "pending_staff", balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: await statusRefFor(request.tagId) };
@@ -221,12 +219,12 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
       if (status !== "pending_staff") return { ...base, state: status, balance: member.balance };
       // Wake the location's cashier phones. Queued in this transaction, so it exists exactly when the request does.
       const pushJobId = await enqueueTapPush(tx, { tenantId: tag.tenantId, tapRequestId: request.id }) ?? undefined;
-      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId, sessionActivity: true };
+      return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId };
     }
     const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
     await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
-    return { ...base, state: "awarded", balance: booked.balance, cardLocator, sessionActivity: true };
+    return { ...base, state: "awarded", balance: booked.balance, cardLocator };
   });
 }
 
@@ -248,12 +246,27 @@ export async function secureTapStatus(input: { tagRef: string; requestId: string
   if (!row) throw new DomainError("NOT_FOUND", "Tap unavailable");
   const { request, balance } = row;
   const cardLocator = formatCardLocator(row.locator);
-  if (request.status === "confirmed") return { state: "confirmed", balance, cardLocator };
+  if (request.status === "confirmed") return { state: "confirmed", balance, cardLocator, requestId: request.id, statusRef: input.tagRef };
   if (request.status === "awarded") return { state: "already_processed", balance, cardLocator };
   if (request.status === "cancelled") return { state: "cancelled", balance };
   if (request.status === "cooldown") return { state: "cooldown", balance };
   if (request.status === "pending_staff" && request.expiresAt > (input.now ?? new Date()) && row.tagStatus === "active" && row.programStatus === "active" && row.tapMode === "staff_confirmed") return { state: "pending_staff", balance, cardLocator, requestId: request.id, expiresAt: request.expiresAt, statusRef: input.tagRef };
   return { state: "expired", balance };
+}
+
+/** Independent committed-ledger proof for the customer's explicit Done action. Never books an award. */
+export async function confirmedTapAwardActivity(input: { tagRef: string; requestId: string; cardToken?: string }) {
+  if (!publicRefPattern.test(input.tagRef) || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(input.requestId)
+    || !input.cardToken || !/^card_[A-Za-z0-9_-]{32,80}$/.test(input.cardToken)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  const [row] = await db.select({ awardedAt: ledgerEntries.createdAt, locator: memberships.cardLocator }).from(tapRequests)
+    .innerJoin(secureTags, and(eq(secureTags.id, tapRequests.tagId), eq(secureTags.tenantId, tapRequests.tenantId), eq(secureTags.programId, tapRequests.programId), eq(secureTags.locationId, tapRequests.locationId)))
+    .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId), eq(memberships.programId, tapRequests.programId)))
+    .innerJoin(programs, and(eq(programs.id, tapRequests.programId), eq(programs.tenantId, tapRequests.tenantId), eq(programs.locationId, tapRequests.locationId)))
+    .innerJoin(ledgerEntries, and(eq(ledgerEntries.id, tapRequests.ledgerEntryId), eq(ledgerEntries.requestId, tapRequests.id), eq(ledgerEntries.tenantId, tapRequests.tenantId), eq(ledgerEntries.membershipId, tapRequests.membershipId), eq(ledgerEntries.locationId, tapRequests.locationId)))
+    .where(and(eq(tapRequests.id, input.requestId), eq(tapRequests.status, "confirmed"), eq(secureTags.publicRef, input.tagRef), eq(secureTags.status, "active"),
+      eq(programs.status, "active"), eq(memberships.cardToken, input.cardToken), isNull(memberships.closedAt), eq(ledgerEntries.kind, "award"), eq(ledgerEntries.source, "staff_online"), eq(ledgerEntries.delta, 1)));
+  if (!row) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  return { activityAt: Math.floor(row.awardedAt.getTime() / 1000), cardLocator: formatCardLocator(row.locator) };
 }
 
 export async function pendingTapRequests(input: { userId: string; locationId: string; now?: Date }) {
