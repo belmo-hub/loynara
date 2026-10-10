@@ -87,6 +87,7 @@ export function CampaignsView() {
   const [dirty, setDirty] = useState(false);
   // A response acknowledges only the composer and edit revision submitted by its request.
   const composerVersion = useRef({ generation: 0, revision: 0 });
+  const previewRequest = useRef(0);
   const [preview, setPreview] = useState<{ state: "idle" | "loading" | "ok" | "error"; data?: Preview; message?: string }>({ state: "idle" });
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -110,9 +111,14 @@ export function CampaignsView() {
 
   async function inspect() {
     if (!builder || !audienceDefinitionSchema.safeParse(definitionOf(builder.editor)).success) return;
+    const submitted = { ...composerVersion.current };
+    const request = ++previewRequest.current;
+    const isCurrent = () => request === previewRequest.current && submitted.generation === composerVersion.current.generation && submitted.revision === composerVersion.current.revision;
     setPreview({ state: "loading" });
-    try { setPreview({ state: "ok", data: await postJson<Preview>("/api/merchant/campaigns/preview", { programSlug: me.programSlug, audienceDefinition: definitionOf(builder.editor) }) }); }
-    catch (cause) { setPreview({ state: "error", message: reason(cause) }); }
+    try {
+      const data = await postJson<Preview>("/api/merchant/campaigns/preview", { programSlug: me.programSlug, audienceDefinition: definitionOf(builder.editor) });
+      if (isCurrent()) setPreview({ state: "ok", data });
+    } catch (cause) { if (isCurrent()) setPreview({ state: "error", message: reason(cause) }); }
   }
   async function saveDraft() {
     if (!builder || busy || !audienceDefinitionSchema.safeParse(definitionOf(builder.editor)).success) return;
