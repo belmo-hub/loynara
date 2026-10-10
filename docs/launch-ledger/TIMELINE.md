@@ -28,3 +28,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-10 exact post-commit references: permanent ledger requirement5a58f247fa84e3c9e47e944b11b9c13483b7a7a0; LOY165 evidence9085a2b22366d4944d3a233f75ab167ec5badfb2. [Remaining-work checkpoint](2026-10-10-remaining-work-checkpoint.md) preserves cached all-lane inventory and human actions without a repeated audit; result is its containing commit.
 
 2026-10-10 [owner-export characterization](LOY-165-owner-export-characterization-2026-10-10.md), base38e3990; one corrected temporary fixture and final1PASS, no tracked test/source changes.
+
+
+2026-10-10 amendment: [Founder-authorized continuation, local integration and tracker reconciliation](2026-10-10-founder-continuation.md). Historical internal resource hold superseded by direct founder instruction; cumulative accounting preserved. Latest sourcea71d782 local suite1416PASS/0FAIL/1existingSKIP. No deployment, remote push, independent acceptance or scope completion. LOY-133 real-PG race remains open.
