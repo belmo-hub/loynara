@@ -155,15 +155,16 @@ async function seedHistory(pool: Pool) {
 }
 
 describe("migration journal", () => {
-  it("is contiguous from 0000, timestamps strictly increase, and 0022 is the newest", () => {
+  it("is contiguous from 0000, timestamps strictly increase, and 0023 is the newest", () => {
     const journal = JSON.parse(readFileSync(path.join(migrationsDir, "meta", "_journal.json"), "utf8")) as { entries: Array<{ idx: number; tag: string; when: number }> };
     journal.entries.forEach((entry, index) => { expect(entry.idx).toBe(index); expect(entry.tag.startsWith(String(index).padStart(4, "0"))).toBe(true); });
     for (let i = 1; i < journal.entries.length; i++) expect(journal.entries[i].when, journal.entries[i].tag).toBeGreaterThan(journal.entries[i - 1].when);
-    expect(journal.entries.at(-5)?.tag).toBe("0018_nfc_tag_lifecycle");
-    expect(journal.entries.at(-4)?.tag).toBe("0019_card_locators");
-    expect(journal.entries.at(-3)?.tag).toBe("0020_wallet_pass_lifecycle");
-    expect(journal.entries.at(-2)?.tag).toBe("0021_staff_push_subscriptions");
-    expect(journal.entries.at(-1)?.tag).toBe("0022_email_rate_limit_retry");
+    expect(journal.entries[18]?.tag).toBe("0018_nfc_tag_lifecycle");
+    expect(journal.entries[19]?.tag).toBe("0019_card_locators");
+    expect(journal.entries[20]?.tag).toBe("0020_wallet_pass_lifecycle");
+    expect(journal.entries[21]?.tag).toBe("0021_staff_push_subscriptions");
+    expect(journal.entries[22]?.tag).toBe("0022_email_rate_limit_retry");
+    expect(journal.entries[23]?.tag).toBe("0023_reward_ready_automation");
     const sqlFiles = readdirSync(migrationsDir).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort();
     expect(sqlFiles).toEqual(journal.entries.map(entry => `${entry.tag}.sql`));
   });
@@ -224,7 +225,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(23);
+      expect(applied).toBe(24);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -533,7 +534,7 @@ describe("0022 explicit email rate-limit retry", () => {
       const jobs = (await target.query("SELECT row_to_json(t) AS v FROM outbox_jobs t ORDER BY id")).rows;
       const schema21 = await structure(target);
       const journal21 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
-      await run(target, migrationsDir);
+      await run(target, folderThrough(22));
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT row_to_json(t) AS v FROM (SELECT job_id,provider,recipient_hash,provider_message_id,status,updated_at FROM email_deliveries) t")).rows).toEqual(rows);
       expect((await target.query("SELECT row_to_json(t) AS v FROM outbox_jobs t ORDER BY id")).rows).toEqual(jobs);
@@ -543,10 +544,51 @@ describe("0022 explicit email rate-limit retry", () => {
       const journal22 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
       expect(journal22).toHaveLength(23);
       expect(journal22.slice(0, 22)).toEqual(journal21);
-      await run(target, migrationsDir);
+      await run(target, folderThrough(22));
       expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal22);
-      await run(fresh, migrationsDir);
+      await run(fresh, folderThrough(22));
       expect(await structure(fresh)).toEqual(current);
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+});
+
+describe("0023 catalogue reward reminders", () => {
+  it("preserves populated 0022 rules, retry reservations and history; rejects unsafe constraint rollback", async () => {
+    const target = await scratchDatabase("reward23");
+    const fresh = await scratchDatabase("reward23_fresh");
+    try {
+      await run(target, folderThrough(22));
+      const seeded = await seedHistory(target);
+      const rule = randomUUID(), job = randomUUID();
+      await target.query("INSERT INTO automation_rules (id,tenant_id,program_id,trigger_kind,subject,body,created_by_user_id) SELECT $1,s.tenant_id,p.id,'first_checkout','Welcome','Synthetic welcome',s.user_id FROM staff_roles s JOIN programs p ON p.tenant_id=s.tenant_id WHERE s.tenant_id=$2 AND s.role='owner'", [rule, seeded.tenants[0]]);
+      await target.query("INSERT INTO outbox_jobs (id,tenant_id,kind,payload,status,attempts) VALUES ($1,$2,'campaign.recipient','{}','blocked',1)", [job, seeded.tenants[0]]);
+      await target.query("INSERT INTO email_deliveries (job_id,provider,recipient_hash,status,retry_at) VALUES ($1,'mailgun_eu',repeat('c',64),'rate_limited',now()+interval '1 minute')", [job]);
+      const history = await fingerprint(target);
+      const ruleRows = (await target.query("SELECT * FROM automation_rules ORDER BY id")).rows;
+      const deliveryRows = (await target.query("SELECT * FROM email_deliveries ORDER BY job_id")).rows;
+      const journal22 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      const oldConstraints = (await target.query("SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='automation_rules'::regclass AND conname IN ('automation_rule_trigger_valid','automation_rule_inactivity_valid') ORDER BY conname")).rows;
+      await run(target, migrationsDir);
+      expect(await fingerprint(target)).toEqual(history);
+      expect((await target.query("SELECT * FROM automation_rules ORDER BY id")).rows).toEqual(ruleRows);
+      expect((await target.query("SELECT * FROM email_deliveries ORDER BY job_id")).rows).toEqual(deliveryRows);
+      const journal23 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      expect(journal23).toHaveLength(24);
+      expect(journal23.slice(0, 23)).toEqual(journal22);
+      await run(target, migrationsDir);
+      expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal23);
+      await run(fresh, migrationsDir);
+      expect(await structure(target)).toEqual(await structure(fresh));
+      const rewardRule = randomUUID();
+      await target.query("INSERT INTO automation_rules (id,tenant_id,program_id,trigger_kind,subject,body,created_by_user_id) SELECT $1,tenant_id,program_id,'reward_ready','Reward ready','Synthetic reminder',created_by_user_id FROM automation_rules WHERE id=$2", [rewardRule, rule]);
+      expect((await target.query("SELECT enabled FROM automation_rules WHERE id=$1", [rewardRule])).rows).toEqual([{ enabled: false }]);
+      await expect(target.query("UPDATE automation_rules SET inactivity_days=30 WHERE id=$1", [rewardRule])).rejects.toThrow(/automation_rule_inactivity_valid/);
+      await target.query("BEGIN");
+      for (const constraint of oldConstraints) await target.query(`ALTER TABLE automation_rules DROP CONSTRAINT ${constraint.conname}`);
+      await expect(target.query(`ALTER TABLE automation_rules ADD CONSTRAINT ${oldConstraints[0].conname} ${oldConstraints[0].definition}`)).rejects.toThrow(/check constraint/);
+      await target.query("ROLLBACK");
+      expect((await target.query("SELECT trigger_kind,enabled FROM automation_rules WHERE id=$1", [rewardRule])).rows).toEqual([{ trigger_kind: "reward_ready", enabled: false }]);
+      expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal23);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 });

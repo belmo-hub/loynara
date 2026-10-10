@@ -4,7 +4,7 @@ import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/ht
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 
 const input = z.object({
-  programSlug: z.string().min(1).max(120), triggerKind: z.enum(["first_checkout", "inactive"]),
+  programSlug: z.string().min(1).max(120), triggerKind: z.enum(["first_checkout", "inactive", "reward_ready"]),
   enabled: z.boolean(), subject: z.string().min(2).max(120), body: z.string().min(5).max(3000),
   inactivityDays: z.number().int().min(7).max(365).optional(),
   cooldownDays: z.number().int().min(7).max(365), dailyCap: z.number().int().min(1).max(20),

@@ -162,6 +162,13 @@
       "when": 1791599328000,
       "tag": "0022_email_rate_limit_retry",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791632400000,
+      "tag": "0023_reward_ready_automation",
+      "breakpoints": true
     }
   ]
 }

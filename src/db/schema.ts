@@ -571,11 +571,11 @@ export const automationRules = pgTable("automation_rules", {
   unique("automation_rules_tenant_id_id_uq").on(t.tenantId, t.id),
   unique("automation_rules_program_trigger_uq").on(t.programId, t.triggerKind),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
-  check("automation_rule_trigger_valid", sql`${t.triggerKind} in ('first_checkout','inactive')`),
+  check("automation_rule_trigger_valid", sql`${t.triggerKind} in ('first_checkout','inactive','reward_ready')`),
   check("automation_rule_channel_valid", sql`${t.channel} = 'email'`),
   check("automation_rule_cooldown_valid", sql`${t.cooldownDays} between 7 and 365`),
   check("automation_rule_daily_cap_valid", sql`${t.dailyCap} between 1 and 20`),
-  check("automation_rule_inactivity_valid", sql`(${t.triggerKind} = 'first_checkout' and ${t.inactivityDays} is null) or (${t.triggerKind} = 'inactive' and ${t.inactivityDays} between 7 and 365)`),
+  check("automation_rule_inactivity_valid", sql`(${t.triggerKind} in ('first_checkout','reward_ready') and ${t.inactivityDays} is null) or (${t.triggerKind} = 'inactive' and ${t.inactivityDays} between 7 and 365)`),
 ]);
 
 export const automationRuns = pgTable("automation_runs", {

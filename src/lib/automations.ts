@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
+import { rewardReadyMemberships, rewardReadyNow } from "./reward-readiness";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
@@ -20,7 +21,7 @@ const DAY = 86_400_000;
 const MAX_ATTEMPTS = 5;
 const ruleInput = z.object({
   actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120),
-  triggerKind: z.enum(["first_checkout", "inactive"]), enabled: z.boolean(),
+  triggerKind: z.enum(["first_checkout", "inactive", "reward_ready"]), enabled: z.boolean(),
   subject: z.string().trim().min(2).max(120).refine(value => !/[\r\n]/.test(value)),
   body: z.string().trim().min(5).max(3000),
   inactivityDays: z.number().int().min(7).max(365).optional(),
@@ -56,11 +57,11 @@ export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now?:
     const program = await ownerProgram(input.actorUserId, input.programSlug, tx);
     const [existing] = await tx.select().from(automationRules)
       .where(and(eq(automationRules.tenantId, program.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, input.triggerKind))).for("update").limit(1);
-    const fields = { enabled: input.enabled, subject: input.subject, body: input.body, inactivityDays: input.triggerKind === "inactive" ? input.inactivityDays! : null, cooldownDays: input.cooldownDays, dailyCap: input.dailyCap, nextScanAt: input.triggerKind === "inactive" && input.enabled ? now : null, updatedAt: now };
+    const fields = { enabled: input.enabled, subject: input.subject, body: input.body, inactivityDays: input.triggerKind === "inactive" ? input.inactivityDays! : null, cooldownDays: input.cooldownDays, dailyCap: input.dailyCap, nextScanAt: input.triggerKind !== "first_checkout" && input.enabled ? now : null, updatedAt: now };
     const [rule] = existing
       ? await tx.update(automationRules).set({ ...fields, createdByUserId: input.actorUserId, revision: existing.revision + 1 }).where(eq(automationRules.id, existing.id)).returning()
       : await tx.insert(automationRules).values({ ...fields, tenantId: program.tenantId, programId: program.id, createdByUserId: input.actorUserId, triggerKind: input.triggerKind, createdAt: now }).returning();
-    if (rule.triggerKind === "inactive" && rule.enabled) {
+    if (rule.triggerKind !== "first_checkout" && rule.enabled) {
       await tx.insert(outboxJobs).values({ tenantId: rule.tenantId, kind: "automation.scan", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), scanAt: now.toISOString() }, nextAttemptAt: now });
     }
     return rule;
@@ -128,6 +129,8 @@ async function queueRun(tx: Transaction, rule: Rule, membershipId: string, trigg
   if (prior) return "duplicate";
   const contact = await eligibleContact(tx, rule, membershipId);
   let reason = contact.reason;
+  // eligibleContact holds the membership lock, serializing redemption/reversal.
+  if (!reason && rule.triggerKind === "reward_ready" && !await rewardReadyNow(tx, rule, membershipId, now)) reason = "Reward no longer ready";
   if (!reason) {
     if (await hasRecentPromotion(tx, rule.tenantId, membershipId, now)) reason = "Customer frequency limit";
   }
@@ -179,21 +182,23 @@ export async function processAutomationScan(job: Job, now?: Date): Promise<Outco
   const payload = scanPayload.safeParse(job.payload);
   if (!payload.success) return { status: "blocked", reason: "Invalid automation scan payload" };
   const [initial] = await db.select().from(automationRules).where(and(eq(automationRules.id, payload.data.ruleId), eq(automationRules.tenantId, job.tenantId))).limit(1);
-  if (!initial || !initial.enabled || initial.triggerKind !== "inactive" || initial.revision !== Number(payload.data.ruleRevision) || initial.nextScanAt?.toISOString() !== payload.data.scanAt) return { status: "suppressed", reason: "Scan changed" };
+  if (!initial || !initial.enabled || (initial.triggerKind !== "inactive" && initial.triggerKind !== "reward_ready") || initial.revision !== Number(payload.data.ruleRevision) || initial.nextScanAt?.toISOString() !== payload.data.scanAt) return { status: "suppressed", reason: "Scan changed" };
   if (initial.nextScanAt > now) return { status: "blocked", reason: "Scan not due" };
   if (promotionalEmailMode() === "disabled") return { status: "blocked", reason: "Promotional email unavailable" };
   let selection: Awaited<ReturnType<typeof selectAudience>>;
-  try { selection = await selectAudience({ actorUserId: initial.createdByUserId, programId: initial.programId, definition: { kind: "inactive", daysSinceLast: initial.inactivityDays! }, asOf: now, limit: 500 }); }
+  try { selection = initial.triggerKind === "reward_ready"
+    ? await rewardReadyMemberships(db, initial, now).then(membershipIds => ({ total: membershipIds.length, membershipIds, nextCursor: null, asOf: now.toISOString(), countingRule: "Current reward readiness" }))
+    : await selectAudience({ actorUserId: initial.createdByUserId, programId: initial.programId, definition: { kind: "inactive", daysSinceLast: initial.inactivityDays! }, asOf: now, limit: 500 }); }
   catch { return { status: "blocked", reason: "Audience selection unavailable" }; }
-  if (selection.total > 500) return { status: "blocked", reason: "Local inactive audience exceeds 500 cards" };
+  if (selection.total > 500) return { status: "blocked", reason: initial.triggerKind === "inactive" ? "Local inactive audience exceeds 500 cards" : "Local reward-ready audience exceeds 500 cards" };
   return db.transaction(async tx => {
     const [rule] = await tx.select().from(automationRules).where(and(eq(automationRules.id, initial.id), eq(automationRules.tenantId, job.tenantId))).for("update").limit(1);
     if (!rule || !rule.enabled || rule.revision !== Number(payload.data.ruleRevision) || rule.nextScanAt?.toISOString() !== payload.data.scanAt) return { status: "suppressed", reason: "Scan changed" };
     if (!await activeOwner(rule, tx)) return { status: "blocked", reason: "Owner or programme unavailable" };
     let queuedCount = 0;
-    const triggerKey = `inactive:${now.toISOString().slice(0, 10)}`;
+    const triggerKey = `${rule.triggerKind}:${now.toISOString().slice(0, 10)}`;
     for (const membershipId of selection.membershipIds) {
-      if (!await inactiveNow(tx, rule, membershipId, now)) continue;
+      if (rule.triggerKind === "inactive" && !await inactiveNow(tx, rule, membershipId, now)) continue;
       const result = await queueRun(tx, rule, membershipId, triggerKey, null, now, false);
       if (result === "quota") break;
       if (result === "queued") queuedCount++;
@@ -234,6 +239,8 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
     if (rule.triggerKind === "first_checkout") {
       const first = await firstCheckout(tx, rule, run.membershipId);
       if (!first || first.id !== run.sourceEntryId) return suppress("First checkout changed");
+    } else if (rule.triggerKind === "reward_ready") {
+      if (!await rewardReadyNow(tx, rule, run.membershipId, now)) return suppress("Reward no longer ready");
     } else if (!await inactiveNow(tx, rule, run.membershipId, now)) return suppress("Member no longer inactive");
     const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, rule.tenantId)).limit(1);
     if (!tenant) return suppress("Merchant unavailable");

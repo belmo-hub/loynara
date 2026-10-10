@@ -6,13 +6,14 @@ import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 
-type Kind = "first_checkout" | "inactive";
+type Kind = "first_checkout" | "inactive" | "reward_ready";
 type Editor = { triggerKind: Kind; enabled: boolean; subject: string; body: string; inactivityDays?: number; cooldownDays: number; dailyCap: number };
 type Rule = Editor & { id: string; revision: number; nextScanAt: string | null };
 type Run = { id: string; ruleId: string; membershipId: string; cardLocator: string | null; triggerKey: string; status: string; reason: string | null; attempts: number; createdAt: string; sentAt: string | null };
 type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[] };
 
 const defaults: Record<Kind, Editor> = {
+  reward_ready: { triggerKind: "reward_ready", enabled: false, subject: "Deine Belohnung wartet", body: "Auf deiner Karte ist eine Belohnung einlösbar. Schau dir deine Karte an.", cooldownDays: 7, dailyCap: 20 },
   first_checkout: { triggerKind: "first_checkout", enabled: false, subject: "Willkommen", body: "Danke für deinen ersten bestätigten Einkauf.", cooldownDays: 7, dailyCap: 20 },
   inactive: { triggerKind: "inactive", enabled: false, subject: "Deine Karte wartet auf dich", body: "Deine digitale Karte ist weiterhin verfügbar.", inactivityDays: 30, cooldownDays: 7, dailyCap: 20 },
 };
@@ -24,7 +25,7 @@ export default function AutomationsPage() {
   const slug = me?.programSlug ?? "";
   const [data, reload] = useLoad<Data>(me?.role === "owner" && slug ? `/api/merchant/automations?programSlug=${encodeURIComponent(slug)}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach dem ersten bestätigten Kassenvorgang oder nach einer einstellbaren Inaktivität. Vor dem Versand werden Kontakt, Einwilligung und Versandgrenzen erneut geprüft." />;
+  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach dem ersten bestätigten Kassenvorgang, nach einer einstellbaren Inaktivität oder wenn eine Belohnung einlösbar ist. Vor dem Versand werden Kontakt, Einwilligung und Versandgrenzen erneut geprüft." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;
@@ -39,6 +40,7 @@ export default function AutomationsPage() {
         <div className="ow-stack">
           <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
           <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
+          <RuleEditor title="An eine einlösbare Belohnung erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Belohnungen. Vor dem Versand wird erneut geprüft, ob eine Belohnung einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Belohnung." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
@@ -50,7 +52,7 @@ export default function AutomationsPage() {
         <h2 id="au-runs">Letzte Ausführungen</h2>
         {d.runs.length === 0 ? <p className="ow-muted">Noch keine Ausführungen. Neue Regeln sind zunächst deaktiviert.</p> : (
           <table className="ow-table"><thead><tr><th>Regel</th><th>Karte</th><th>Zeit (UTC)</th><th>Status</th><th>Grund</th></tr></thead>
-            <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : "Erster Vorgang"}</td><td data-label="Karte">{run.cardLocator ?? "Karte entfernt"}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
+            <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "reward_ready" ? "Belohnung einlösbar" : "Erster Vorgang"}</td><td data-label="Karte">{run.cardLocator ?? "Karte entfernt"}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
         )}
       </section>
     </div>
