@@ -15,3 +15,5 @@ PLANNED/OPEN: LOY-167/168 broader independent campaign freshness/outcome/empty-s
 Native cumulative accounting6,281,992tokens /32,428seconds observed during verification; input/cachedsubset/output/reviewer/browser breakdown unmeasured, no reset. Genuine tracker284 creation/parentlink confirmed. Final suite/integration/tracker receipt appended below.
 
 Final configured global:159files1477PASS0FAIL1existing opt-inMailpitSKIP,126.01seconds, exit0. No unexpected failures/test weakening/new skips. API query-only correction with no visible component change; browser regression not rerun.
+
+INTEGRATED receipt: code baf247ad8655c3be5b55677398f535f37c53b52f fast-forwarded into canonical local candidate; integrated3files52PASS. YouTrack284 Done/LocalImplementation/AutomatedTestsVerified and genuinecomment7-106/parent167 read back2026-10-10 23:50:44UTC. Native6,325,094cumulativetokens/32,586seconds; detailed subset unmeasured. Receipt-only commit leaves tested application unchanged. Broad167/168 gateOPEN; no remote push/deployment/independent acceptance.
