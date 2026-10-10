@@ -15,3 +15,7 @@ External actions: genuine YouTrack child creation only. No PUSH/DEPLOY/independe
 ## Final configured verification — 2026-10-10
 
 Final application/test source154actualfiles1,429PASS0FAIL1existingopt-inMailpitSKIP,exit0. Finaltypecheck after test-only lint correction PASS. Evidence JSON/logs use /private/tmp/loy165-snapshot-{red,focused,global}; build/type logs same prefix. Existing skip does not prove real current email/provider acceptance. No unexpected global failure or assertion weakening.
+
+## Verified integration / tracker receipt — 2026-10-10 18:54 UTC
+
+Codee54fc6eec227d3b4126e7c5c4cdd33acd5897804 fast-forward integrated canonical codex/loynara-engineering-integration. Integrated22PASS0FAIL0SKIP; clean tree/frozenNFCexact/campaign+diagnostic ancestry verified. LOY-276StageDone/EvidenceAutomatedTestsVerified readback,resolved18:54:01UTC/comment7-85. Parent165/166remainopen. This traceable amendment replaces pending integration/Done wording. Latest measured native cumulative3,605,406reportedtokens/19,360sec, no reset; detailed categories unmeasured. No push/deploy/independent acceptance; coordinator review034 next.
