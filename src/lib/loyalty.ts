@@ -30,6 +30,17 @@ export type AwardInput = {
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) {
+  // Ledger's actor FK also locks this identity. Acquire it before the staff
+  // row to match onboarding/invitation ordering and avoid a lock cycle.
+  await tx.execute(sql`SELECT id FROM "user" WHERE id = ${userId} FOR KEY SHARE`);
+  // Revocation must wait for an authorized checkout to commit; if revocation
+  // wins this lock, the active predicate is rechecked and checkout is denied.
+  const [staff] = await tx.select().from(staffRoles)
+    .where(and(eq(staffRoles.tenantId, tenantId), eq(staffRoles.userId, userId), eq(staffRoles.active, true))).for("share");
+  return staff;
+}
+
 export async function award(input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
   return db.transaction(tx => awardInTransaction(tx, input));
 }
@@ -53,7 +64,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
     if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
-    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
+    const staff = trustedTap ? undefined : await checkoutStaff(tx, member.tenantId, input.userId);
     if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
     if (trustedTap && (program.type !== "stamp" || program.earningMode !== "manual" || input.quantity !== 1)) throw new DomainError("INVALID_EARNING_MODE", "Tap supports one fixed stamp only");
     const purchaseMode = program.type === "points" && program.earningMode === "purchase";
@@ -137,7 +148,7 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
     if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
-    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
+    const staff = await checkoutStaff(tx, member.tenantId, input.userId);
     if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
 
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
@@ -197,7 +208,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     if (original.source === "referral_bonus") throw new DomainError("REFERRAL_REVIEW_REQUIRED", "Referral bonuses are corrected through referral review");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
-    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, original.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
+    const staff = await checkoutStaff(tx, original.tenantId, input.userId);
     if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Manager or owner access required");
     if (staff.role === "manager" && Math.abs(original.delta) > 100) throw new DomainError("LIMIT_EXCEEDED", "Owner approval required for this correction");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
