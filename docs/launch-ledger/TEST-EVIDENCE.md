@@ -55,3 +55,6 @@ All other preserved focused regressions are indexed chronologically in [TIMELINE
 
 
 2026-10-10 LOY280 real authenticated manager HTTP reissue, role revocation and onboarding user-lock control; final focused5files28PASS0FAIL1existingMailpitSKIP. [Evidence](LOY-280-reissue-revocation-ordering-2026-10-10.md).
+
+
+LOY85 fallback: actual worker retry/expiry tests, finalfocused3files33PASS0FAIL0SKIP, negative six-attempt control2expectedFAIL; no provider/device acceptance. [Evidence](LOY-85-worker-retry-boundaries-2026-10-10.md).

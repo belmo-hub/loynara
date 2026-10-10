@@ -69,3 +69,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-10 IMPLEMENTED/TESTED LOY280 staff reissue versus completed departure authorization ordering; actual authenticated RED2→focused28PASS1existingSKIP, identity-before-role lock pattern. [Entry](LOY-280-reissue-revocation-ordering-2026-10-10.md).
+
+
+2026-10-10 TESTED LOY85 actual-worker final retry, expired fourth/fifth lease and tap expiry; four new regressions, negative limit control2expectedFAIL, finalfocused33PASS, no app defect. [Entry](LOY-85-worker-retry-boundaries-2026-10-10.md).

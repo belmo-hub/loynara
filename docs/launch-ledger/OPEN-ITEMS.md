@@ -45,3 +45,6 @@ Existing founder queue: canonical checkout var/autopilot-v1/FOUNDER_ACTION_QUEUE
 
 
 2026-10-10 LOY280 covers bounded reissue authorization ordering only;33/157 broad acceptance and34/158 device/operator gates remain open. [Entry](LOY-280-reissue-revocation-ordering-2026-10-10.md).
+
+
+LOY85 actual worker bounded retry/expiry now locally verified;85/86 external acceptance OPEN. Coordinator042 unsent after bounded Chrome page-read failures; founder-authorized fallback executed, no invented reply. [Entry](LOY-85-worker-retry-boundaries-2026-10-10.md).

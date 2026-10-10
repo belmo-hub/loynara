@@ -319,3 +319,64 @@ push.sendNotification=async(subscription,payload)=>{
     writeFileSync(released, "release"); await Promise.allSettled([worker]); rmSync(dir, { recursive: true, force: true });
   }
 }, 25000);
+
+
+it.each([
+  { name: "final temporary failure", status: "retry", attempts: 4, expiry: 300, providerStatus: 429, expected: "failed", sends: 1 },
+  { name: "recoverable crashed fourth attempt", status: "processing", attempts: 4, expiry: 300, providerStatus: 201, expected: "complete", sends: 1 },
+  { name: "exhausted crashed fifth attempt", status: "processing", attempts: 5, expiry: 300, providerStatus: 201, expected: "failed", sends: 0 },
+  { name: "expired pending request", status: "retry", attempts: 4, expiry: -1, providerStatus: 201, expected: "suppressed", sends: 0 },
+])("enforces $name in the actual worker without a sixth send", async scenario => {
+  const f = await nfcFixture(); const foreign = await nfcFixture();
+  const device = endpoint("retry-boundary");
+  await saveStaffPushSubscription({ userId: f.userId, sessionId: await session(f.userId), tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: device, keys } });
+  await saveStaffPushSubscription({ userId: foreign.userId, sessionId: await session(foreign.userId), tenantId: foreign.tenant.id, locationId: foreign.location.id, subscription: { endpoint: endpoint("retry-foreign"), keys } });
+  const subscriptionBefore = (await pool.query("SELECT * FROM staff_push_subscriptions ORDER BY id")).rows;
+  const tapRequestId = await pendingRequest(f, scenario.expiry);
+  const { rows: jobs } = await pool.query(`INSERT INTO outbox_jobs (tenant_id,kind,payload,status,attempts,next_attempt_at)
+    VALUES ($1,'push.tap_pending',$2,$3,$4,clock_timestamp()-interval '1 second') RETURNING id`, [f.tenant.id, { tapRequestId }, scenario.status, scenario.attempts]);
+  const root = path.resolve(__dirname, "../.."); mkdirSync(path.join(root, "var"), { recursive: true });
+  const dir = mkdtempSync(path.join(root, "var", "push-retry-worker-"));
+  const preload = path.join(dir, "synthetic-provider.cjs"); const calls = path.join(dir, "calls.jsonl");
+  writeFileSync(preload, `const fs=require('node:fs');const push=require('web-push');
+globalThis.fetch=async()=>{throw new Error('External HTTP forbidden');};
+push.sendNotification=async(subscription,payload,options)=>{
+ if(subscription.endpoint!==process.env.LOY043_ENDPOINT)throw new Error('Unexpected push endpoint');
+ fs.appendFileSync(process.env.LOY043_CALLS,JSON.stringify({endpoint:subscription.endpoint,payload,TTL:options.TTL})+'\\n');
+ const status=Number(process.env.LOY043_STATUS);
+ if(status!==201)throw new push.WebPushError('Synthetic rate limit',status,{},'',subscription.endpoint);
+ return {statusCode:201,body:'',headers:{}};
+};\n`);
+  const execute = promisify(execFile);
+  const once = () => execute(process.execPath, ["--require", preload, "--import", "tsx", "scripts/worker.ts", "--once"], {
+    cwd: root, encoding: "utf8", timeout: 20_000, killSignal: "SIGKILL",
+    env: { PATH: process.env.PATH, NODE_ENV: "test", DATABASE_URL: process.env.DATABASE_URL,
+      DOTENV_CONFIG_PATH: "/dev/null", PUBLIC_BASE_URL: "http://localhost:3000", BETTER_AUTH_SECRET: "synthetic-push-worker-secret-long-enough",
+      PG_POOL_MAX: "5", EXTERNAL_EMAIL_ENABLED: "false", APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false", LIVE_BILLING_ENABLED: "false", NFC_ENABLED: "false", ...vapid,
+      LOY043_ENDPOINT: device, LOY043_CALLS: calls, LOY043_STATUS: String(scenario.providerStatus) },
+  });
+  try {
+    expect((await once()).stdout).toContain("Worker examined");
+    const first = (await pool.query("SELECT status,attempts,last_error FROM outbox_jobs WHERE id=$1", [jobs[0].id])).rows[0];
+    expect(first).toMatchObject({ status: scenario.expected, attempts: 5 });
+    if (scenario.status === "processing" && scenario.attempts === 5) expect(first.last_error).toBe("Worker lease expired after retry limit");
+    if (scenario.providerStatus === 429) expect(first.last_error).toBe("1 push send(s) failed temporarily");
+    expect((await once()).stdout).toContain("Worker examined");
+    expect((await pool.query("SELECT status,attempts,last_error FROM outbox_jobs WHERE id=$1", [jobs[0].id])).rows[0]).toEqual(first);
+    const recorded = existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\\n").filter(Boolean).map(line => JSON.parse(line)) : [];
+    expect(recorded).toHaveLength(scenario.sends);
+    for (const call of recorded) {
+      expect(call.endpoint).toBe(device); expect(JSON.parse(call.payload)).toEqual({ v: 1, kind: "tap_pending", locale: "de" });
+      expect(call.TTL).toBeGreaterThan(0); expect(call.TTL).toBeLessThanOrEqual(120);
+    }
+    const currentSubscriptions = (await pool.query("SELECT * FROM staff_push_subscriptions ORDER BY id")).rows;
+    // A transient outage or expiry preserves devices. Only the successfully woken device gets success metadata.
+    const withoutSuccess = (row: Record<string, unknown>) => { const copy = { ...row }; delete copy.last_success_at; return copy; };
+    expect(currentSubscriptions.map(withoutSuccess)).toEqual(subscriptionBefore.map(withoutSuccess));
+    const own = currentSubscriptions.find(row => row.tenant_id === f.tenant.id)!;
+    expect(own.last_success_at === null).toBe(scenario.expected !== "complete");
+    expect(currentSubscriptions.find(row => row.tenant_id === foreign.tenant.id)).toEqual(subscriptionBefore.find(row => row.tenant_id === foreign.tenant.id));
+    expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [f.member.id])).rows[0].balance).toBe(0);
+    expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE membership_id=$1", [f.member.id])).rows[0].n).toBe(0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}, 45000);
