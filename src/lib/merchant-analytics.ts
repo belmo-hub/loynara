@@ -18,6 +18,7 @@ export type MerchantAnalytics = {
   rewards: { redemptions: number; topTitles: Array<{ title: string; count: number }> };
   referrals: { attributed: number; qualified: number; reversed: number };
   campaignAttempts: { total: number; complete: number; suppressed: number; retry: number; failed: number; blocked: number };
+  staffActivity: Array<{ userId: string; name: string; awardActions: number; stampUnits: number; pointUnits: number }>;
   series: Array<{ from: string; to: string; newCards: number; checkouts: number }>;
   countingRule: string;
   limits: { availableWindowsDays: [30, 90]; bucketDays: 7; topRewardTitles: 5 };
@@ -36,7 +37,7 @@ type BucketCount = { bucket: number; count: number };
 // continue to count the accepted checkout. Seed/referral credits never count.
 const checkoutCte = `
   WITH accepted_awards AS (
-    SELECT e.membership_id, e.request_id, e.created_at, e.delta, p.type
+    SELECT e.membership_id, e.request_id, e.created_at, e.delta, e.actor_user_id, p.type
     FROM ledger_entries e
     JOIN memberships m ON m.tenant_id = e.tenant_id AND m.id = e.membership_id
     JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
@@ -67,7 +68,7 @@ export async function getMerchantAnalytics(
 
   const from = new Date(asOf.getTime() - options.windowDays * 86_400_000);
   const params = [owner.tenantId, from, asOf];
-  const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets] = await Promise.all([
+  const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity] = await Promise.all([
     pool.query<MembershipCounts>(`
       SELECT
         count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
@@ -131,6 +132,14 @@ export async function getMerchantAnalytics(
         count(*)::int AS count
       FROM checkout_first GROUP BY bucket
     `, params),
+    pool.query<MerchantAnalytics["staffActivity"][number]>(`${checkoutCte}
+      SELECT a.actor_user_id AS "userId", u.name,
+        count(*)::int AS "awardActions",
+        coalesce(sum(a.delta) FILTER (WHERE a.type = 'stamp'), 0)::int AS "stampUnits",
+        coalesce(sum(a.delta) FILTER (WHERE a.type = 'points'), 0)::int AS "pointUnits"
+      FROM accepted_awards a JOIN "user" u ON u.id = a.actor_user_id
+      GROUP BY a.actor_user_id, u.name ORDER BY u.name, a.actor_user_id
+    `, params),
   ]);
 
   const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
@@ -165,6 +174,7 @@ export async function getMerchantAnalytics(
     referrals: referralCounts.rows[0],
     campaignAttempts: attemptCount,
     series,
+    staffActivity: staffActivity.rows,
     countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
     limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
   };

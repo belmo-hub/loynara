@@ -100,6 +100,39 @@ describe("owner-only merchant analytics", () => {
     await expect(getMerchantAnalytics(ownerA, { windowDays: 90, asOf })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("reports ledger-backed staff activity including departed actors without foreign, reversed, seed or out-of-window awards", async () => {
+    const owner = await user();
+    const formerCashier = await user();
+    const foreignOwner = await user();
+    const a = await merchant(owner, "Synthetic Staff Report");
+    const b = await merchant(foreignOwner, "Synthetic Foreign Report");
+    const member = await enroll({ slug: a.programSlug, acceptedTerms: true });
+    const foreignCard = await enroll({ slug: b.programSlug, acceptedTerms: true });
+    await db.insert(staffRoles).values({ tenantId: a.tenantId, userId: formerCashier, role: "cashier", locationId: a.locationId, active: false });
+    const asOf = new Date(Date.now() + 1000);
+    const at = new Date(asOf.getTime() - 86_400_000);
+    const base = { tenantId: a.tenantId, locationId: a.locationId, membershipId: member.id, createdAt: at };
+    const insert = (actorUserId: string, extra: Partial<typeof ledgerEntries.$inferInsert> = {}) => db.insert(ledgerEntries).values({ ...base, actorUserId, requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1, ...extra }).returning();
+    const sharedRequest = randomUUID();
+    await insert(owner, { requestId: sharedRequest });
+    await insert(owner, { requestId: sharedRequest });
+    await insert(formerCashier, { source: "staff_offline", delta: 3 });
+    const [reversed] = await insert(formerCashier);
+    await insert(owner, { kind: "reversal", source: "staff_correction", delta: -1, reversalOfId: reversed.id });
+    await insert(formerCashier, { source: "synthetic_seed", delta: 10 });
+    await insert(formerCashier, { createdAt: new Date(asOf.getTime() - 31 * 86_400_000) });
+    await insert(foreignOwner, { tenantId: b.tenantId, locationId: b.locationId, membershipId: foreignCard.id });
+    const report = await getMerchantAnalytics(owner, { windowDays: 30, asOf });
+    expect(report.staffActivity).toEqual(expect.arrayContaining([
+      { userId: owner, name: expect.any(String), awardActions: 2, stampUnits: 2, pointUnits: 0 },
+      { userId: formerCashier, name: expect.any(String), awardActions: 1, stampUnits: 3, pointUnits: 0 },
+    ]));
+    expect(report.staffActivity).toHaveLength(2);
+    expect(report.staffActivity.reduce((sum, row) => sum + row.awardActions, 0)).toBe(report.issued.awardActions);
+    expect(report.staffActivity.map(row => row.userId)).not.toContain(foreignOwner);
+    await expect(getMerchantAnalytics(formerCashier, { windowDays: 30, asOf })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("keeps points separate from stamps for recorded purchase awards", async () => {
     const ownerId = await user();
     const shop = await createMerchant({
@@ -112,6 +145,7 @@ describe("owner-only merchant analytics", () => {
     await award({ userId: ownerId, locationId: shop.locationId, membershipId: card.id, purchaseAmountMinor: 1250, ruleVersionId: rule.id, idempotencyKey: randomUUID(), requestId: randomUUID() });
     const report = await getMerchantAnalytics(ownerId, { windowDays: 30, asOf: new Date(Date.now() + 1000) });
     expect(report).toMatchObject({ qualifyingCheckouts: 1, issued: { stampUnits: 0, pointUnits: 25, awardActions: 1 } });
+    expect(report.staffActivity).toEqual([{ userId: ownerId, name: expect.any(String), awardActions: 1, stampUnits: 0, pointUnits: 25 }]);
   });
 
   it("counts referral attribution, qualification and reversal by their own event times without mixing tenants", async () => {

@@ -40,6 +40,13 @@ export default function MerchantAnalyticsPage() {
             <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Kassenvorgänge.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
           </div>
         </section>
+        <section className="ow-card ow-stack" aria-labelledby="an-staff">
+          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Gutschrift-Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
+          {r.staffActivity.length === 0 ? <p className="ow-muted">Keine Gutschrift-Buchungen in diesem Zeitraum.</p> : <ul className="ow-feed">
+            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+          </ul>}
+          <p className="ow-hint">Mehrere Buchungen können zu einem Kassenvorgang gehören. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
+        </section>
         <section className="ow-card ow-stack" aria-labelledby="an-ret">
           <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Kassenvorgänge sind erfasst?</p></div>
             <div className="ow-field"><label htmlFor="an-lapse" className="ow-sr">Als weggeblieben gilt nach</label><select id="an-lapse" className="ow-select" value={lapseDays} onChange={event => setLapseDays(Number(event.target.value) as RetentionDays)}>{([14, 30, 60, 90] as const).map(days => <option key={days} value={days}>Weg nach {days} Tagen</option>)}</select></div></div>

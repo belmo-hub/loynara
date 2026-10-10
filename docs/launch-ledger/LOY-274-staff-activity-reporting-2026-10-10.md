@@ -1,0 +1,17 @@
+# LOY-274 — ledger-backed staff activity
+
+2026-10-10 Europe/Berlin. Codex assignmentLOY-ENG-20261010-032 authorized bounded LOY165 reporting fallback after existingWalletreissue/closurequeuing reviewedwithoutdemonstratedgap. Requestedgpt-6.1-sol highengineering/mediumreview; effectiveconfigurationunverified, existingexecutorretained. Basef115f8df57f83a71322ab53b3d490a8f943d5dc0; resultcommitcontainingentry, isolatedcodex/staff-activity-reporting.
+
+IMPLEMENTED: src/lib/merchant-analytics.ts now returnsstaffActivity perrecordedactor(userId/name), awardActions and separate stamp/pointunits. Reuses exactly existing accepted_awards staffonline/offline, tenant/window/reversal rules; no newKPI/policy. Does not filterdepartedactors. Existingowner-onlyAPIauthorization unchanged. src/app/merchant/analytics/page.tsx displays same30/90day allmerchantwindow, empty state, booking-versus-checkout distinction and no revenue/workperformanceclaim. No schema/providerchange. Adviserprovider payload remains aggregatewhitelist(metrics()), neverstaffnames/IDs.
+
+TESTED: newrealPGcaseRED1expectedFAIL absentstaffActivity; GREEN5analyticsPASS. Finalfocusedanalytics/adviser15PASS0FAIL0SKIP. Coversformeractor, duplicate-requesttwo-bookingdistinction, foreigntenant, fullreversal, seed, out-of-window, manager/cashier/revokedowner guards; directexistingpoint-case assertion25points/0stamps. Finalglobal154files1425PASS0FAIL1existingconditionalMailpitSKIP,exit0 on finalapplication/testsource. Includesbothrecentstafflifecycletests. Typegen/tsc/changedfileESLint/diff/defaultNext16.3.6buildPASS. Initialtsc/buildfailed because adviser typedfixture lacked newlyrequiredstaffActivity; addedemptyfixturefieldwithoutweakeningassertions, rerunPASS.
+
+Independentread-onlyreviewnomaterialfindings. Potentialorphanactorhistoryconcernresolvedwith actualdrizzle/0000_real_boom_boom.sql:202 ledger_actor_user_fk ON DELETE RESTRICT and non-NFCnonnullactorCHECK; no securityschema weakening. Reviewer didnotindependentlyrunDBtests. No physical/browseroperatoracceptance or currentusernameshistoricalsnapshotclaim. Aggregatequeries retaintheir existing point-in-time window semantics, not repeatablesnapshot. Staff/locationfilter/exportbroadscope remainopen.
+
+YouTracknecessarynarrowcodingchildLOY274createdunder165aftertargetedstaffactivityduplicate searchfoundonly165/166, priorall-laneinventoryhadnocodingchild. Criteria preserve165/166fullacceptance. Current274InReview/165InProgress duringvalidation; verifiedcommit/integration/Done receiptmustfollow actualaction. NoPUSH/DEPLOY/independentacceptance/commercialreadiness. Remote deploymenttriggersunverified; no externalprovider/customercommunication. NativeGoalACTIVE3,217,830reportedtokens18,042sec; input/cached/output/browserunmeasured, cumulativehistorynotreset.
+
+## Prior slice receipts — traceable amendments
+
+LOY157cursor lifecycle:146c81fb55c23f12d6e90a999101ade55aefec5e fastforwardintegrated, integratednewtest1PASS, trackerInReview readbackcomment7-81 on2026-10-10 18:18:54UTC. LOY157credential lifecycle:f115f8df57f83a71322ab53b3d490a8f943d5dc0 fastforwardintegrated, integratednewtest1PASS, trackerInReview readbackcomment7-82 on18:23:50UTC. These amend earlier pendingintegrationwording; neithercompletedfull157/158.
+
+Next: completedcoordinatorreviewselectsnextconcretecodingrequirement; remaining165/166reporting/export/locationacceptance, Walletphysical/provider,133referralcampaigncontract/dispatchcutoff,159policy,209privacyretention dependencies open.
