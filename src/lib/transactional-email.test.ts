@@ -164,3 +164,162 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
     expect(recorded.providerMessageId).toBe("<race@example.test>");
   });
 });
+
+
+function failure(severity: unknown, jobId: string, eventId = randomUUID()) {
+  const payload = signed("failed", jobId, eventId);
+  return { ...payload, "event-data": { ...payload["event-data"], severity } };
+}
+async function sentJob(messageId = `<${randomUUID()}@example.test>`, address = "holder@example.test") {
+  const queued = await job();
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId })) };
+  await sendTransactional({ to: address, subject: "Synthetic", body: "Synthetic", jobId: queued.id }, provider);
+  return { queued, provider, messageId };
+}
+
+describe("LOY-139 documented Mailgun failure payloads", () => {
+  it.each(["temporary", "permanent"] as const)("normalizes authenticated %s failure and records one canonical event", async severity => {
+    const { queued, provider } = await sentJob();
+    const event = failure(severity, queued.id);
+    const kind = severity === "temporary" ? "temporary_fail" : "permanent_fail";
+    expect(verifyMailgunWebhook(event)?.["event-data"].event).toBe(kind);
+    expect(await recordMailgunWebhook(event)).toEqual({ accepted: true });
+    expect(await recordMailgunWebhook(event)).toEqual({ accepted: true });
+    expect(await db.select().from(emailProviderEvents)).toEqual([expect.objectContaining({ event: kind, jobId: queued.id })]);
+    expect((await db.select().from(emailDeliveries))[0].status).toBe(severity === "temporary" ? "temporary_failure" : "permanent_failure");
+    expect(await db.select().from(emailSuppressions)).toHaveLength(severity === "temporary" ? 0 : 1);
+    expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: queued.id }, provider)).not.toEqual({ status: "complete" });
+    expect(provider.send).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([undefined, "", "future", null, 42])("rejects failed events with invalid severity %s without mutations", async severity => {
+    const event = failure(severity, randomUUID());
+    expect(verifyMailgunWebhook(event)).toBeNull();
+    expect(await recordMailgunWebhook(event)).toEqual({ accepted: false });
+    expect(await db.select().from(emailProviderEvents)).toHaveLength(0);
+    expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+  });
+
+  it("rejects forged/stale real failures and nonempty variable arrays", async () => {
+    const event = failure("permanent", randomUUID());
+    for (const payload of [
+      { ...event, signature: { ...event.signature, signature: "0".repeat(64) } },
+      { ...event, signature: { ...event.signature, timestamp: "1000000000" } },
+      { ...event, "event-data": { ...event["event-data"], "user-variables": [{ job_id: randomUUID() }] } },
+    ]) {
+      expect(await recordMailgunWebhook(payload)).toEqual({ accepted: false });
+    }
+    expect(await db.select().from(emailProviderEvents)).toHaveLength(0);
+  });
+
+  it("correlates documented empty variables by bracket-independent provider message ID", async () => {
+    const { queued, messageId } = await sentJob();
+    const event = failure("permanent", queued.id);
+    const payload = { ...event, "event-data": { ...event["event-data"], "user-variables": [], message: { headers: { "message-id": messageId.slice(1, -1) } } } };
+    expect(await recordMailgunWebhook(payload)).toEqual({ accepted: true });
+    expect((await db.select().from(emailDeliveries))[0].status).toBe("permanent_failure");
+    expect((await db.select().from(emailProviderEvents))[0].jobId).toBe(queued.id);
+  });
+
+  it("does not correlate unmatched, contradictory, or wrong-recipient events to another tenant", async () => {
+    const first = await sentJob();
+    const second = await sentJob(); // same customer, distinct tenant and job
+    const event = failure("permanent", first.queued.id);
+    await recordMailgunWebhook({ ...event, "event-data": { ...event["event-data"], message: { headers: { "message-id": second.messageId } } } });
+    const unmatched = failure("permanent", randomUUID());
+    await recordMailgunWebhook(unmatched);
+    const wrong = failure("permanent", first.queued.id);
+    await recordMailgunWebhook({ ...wrong, "event-data": { ...wrong["event-data"], recipient: "other@example.test" } });
+    expect((await db.select().from(emailDeliveries)).map(row => row.status)).toEqual(["accepted", "accepted"]);
+    expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+    expect((await db.select().from(emailProviderEvents)).filter(row => row.jobId !== null)).toHaveLength(0);
+  });
+
+  it("does not guess a tenant when provider message IDs are ambiguous", async () => {
+    const messageId = `<shared-${randomUUID()}@example.test>`;
+    await sentJob(messageId);
+    await sentJob(messageId);
+    const event = failure("permanent", randomUUID());
+    await recordMailgunWebhook({ ...event, "event-data": { ...event["event-data"], "user-variables": [], message: { headers: { "message-id": messageId } } } });
+    expect((await db.select().from(emailDeliveries)).map(row => row.status)).toEqual(["accepted", "accepted"]);
+    expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+  });
+
+  it("keeps terminal permanent failure after late accepted, temporary and delivered events", async () => {
+    const { queued } = await sentJob();
+    await recordMailgunWebhook(failure("temporary", queued.id));
+    await recordMailgunWebhook(failure("permanent", queued.id));
+    await recordMailgunWebhook(failure("temporary", queued.id));
+    await recordMailgunWebhook(signed("accepted", queued.id));
+    await recordMailgunWebhook(signed("delivered", queued.id));
+    expect((await db.select().from(emailDeliveries))[0]).toMatchObject({ status: "permanent_failure", retryAt: null });
+    expect(await db.select().from(emailSuppressions)).toHaveLength(1);
+  });
+
+  it("deduplicates both event ID and signature token, including concurrent redelivery", async () => {
+    const { queued } = await sentJob();
+    const event = failure("temporary", queued.id);
+    await Promise.all([recordMailgunWebhook(event), recordMailgunWebhook(event)]);
+    await recordMailgunWebhook({ ...event, "event-data": { ...event["event-data"], id: randomUUID(), severity: "permanent" } });
+    const another = failure("permanent", queued.id, event["event-data"].id);
+    await recordMailgunWebhook(another);
+    expect(await db.select().from(emailProviderEvents)).toHaveLength(1);
+    expect((await db.select().from(emailDeliveries))[0].status).toBe("temporary_failure");
+    expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+  });
+});
+
+
+it("requires a recipient on real failure events even when outbound sending is paused", async () => {
+  const event = failure("permanent", randomUUID());
+  const data: Record<string, unknown> = { ...event["event-data"] };
+  delete data.recipient;
+  expect(verifyMailgunWebhook({ ...event, "event-data": data })).toBeNull();
+  expect(verifyMailgunWebhook(event, { ...config, EXTERNAL_EMAIL_ENABLED: "false" })?.["event-data"].event).toBe("permanent_fail");
+});
+
+it("does not downgrade a delivered message on a late temporary failure", async () => {
+  const { queued } = await sentJob();
+  await recordMailgunWebhook(signed("delivered", queued.id));
+  await recordMailgunWebhook(failure("temporary", queued.id));
+  expect((await db.select().from(emailDeliveries))[0].status).toBe("delivered");
+  expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+});
+
+it("real temporary delivery failure clears sender-throttling retry and cannot resend", async () => {
+  const queued = await job();
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "rate_limited" as const, retryAt: new Date(Date.now() + 60_000) })) };
+  const message = { to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: queued.id };
+  expect(await sendPromotional(message, provider)).toMatchObject({ status: "retry" });
+  await recordMailgunWebhook(failure("temporary", queued.id));
+  expect((await db.select().from(emailDeliveries))[0]).toMatchObject({ status: "temporary_failure", retryAt: null });
+  expect(await sendPromotional(message, provider)).toMatchObject({ status: "blocked" });
+  expect(provider.send).toHaveBeenCalledTimes(1);
+});
+
+
+it("rejects cross-tenant message correlation before the sending job obtains its provider ID", async () => {
+  const other = await sentJob();
+  const queued = await job();
+  const provider = { name: "mailgun_eu" as const, async send() {
+    const event = failure("permanent", queued.id);
+    await recordMailgunWebhook({ ...event, "event-data": { ...event["event-data"], message: { headers: { "message-id": other.messageId } } } });
+    return { state: "accepted" as const, messageId: `<pending-${randomUUID()}@example.test>` };
+  } };
+  expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: queued.id }, provider)).toEqual({ status: "complete" });
+  expect((await db.select().from(emailDeliveries)).map(row => row.status)).toEqual(["accepted", "accepted"]);
+  expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+});
+
+it("preserves a legitimate real failure arriving before the provider response", async () => {
+  const queued = await job();
+  const messageId = `<early-${randomUUID()}@example.test>`;
+  const provider = { name: "mailgun_eu" as const, async send() {
+    const event = failure("permanent", queued.id);
+    await recordMailgunWebhook({ ...event, "event-data": { ...event["event-data"], message: { headers: { "message-id": messageId.slice(1, -1) } } } });
+    return { state: "accepted" as const, messageId };
+  } };
+  await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic", jobId: queued.id }, provider);
+  expect((await db.select().from(emailDeliveries))[0]).toMatchObject({ status: "permanent_failure", providerMessageId: messageId });
+  expect(await db.select().from(emailSuppressions)).toHaveLength(1);
+});

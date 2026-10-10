@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { emailDeliveries, emailProviderEvents, emailSuppressions } from "@/db/schema";
@@ -141,9 +141,19 @@ export async function sendPromotional(message: TransactionalMessage, provider = 
   return sendManaged(message, provider, "promotional");
 }
 
+const webhookEventFields = {
+  id: z.string().min(1).max(128),
+  recipient: z.email().max(320).optional(),
+  // Mailgun represents absent custom variables as an empty array. Never infer a job ID.
+  "user-variables": z.union([z.record(z.string(), z.unknown()), z.tuple([]).transform((): Record<string, unknown> => ({}))]).optional(),
+  message: z.object({ headers: z.record(z.string(), z.unknown()).optional() }).optional(),
+};
 const webhookSchema = z.object({
   signature: z.object({ timestamp: z.string().regex(/^\d{10,11}$/), token: z.string().min(20).max(128), signature: z.string().regex(/^[a-f0-9]{64}$/i) }),
-  "event-data": z.object({ id: z.string().min(1).max(128), event: z.enum(["accepted", "delivered", "temporary_fail", "permanent_fail", "unsubscribed", "complained"]), recipient: z.email().max(320).optional(), "user-variables": z.record(z.string(), z.unknown()).optional(), message: z.object({ headers: z.record(z.string(), z.unknown()).optional() }).optional() }).passthrough(),
+  "event-data": z.discriminatedUnion("event", [
+    z.object({ ...webhookEventFields, event: z.enum(["accepted", "delivered", "temporary_fail", "permanent_fail", "unsubscribed", "complained"]) }).passthrough(),
+    z.object({ ...webhookEventFields, event: z.literal("failed"), severity: z.enum(["temporary", "permanent"]), recipient: z.email().max(320) }).passthrough(),
+  ]),
 });
 
 export function verifyMailgunWebhook(input: unknown, env = process.env, now = Date.now()) {
@@ -157,7 +167,11 @@ export function verifyMailgunWebhook(input: unknown, env = process.env, now = Da
   const expected = createHmac("sha256", signingKey).update(timestamp + token).digest();
   const actual = Buffer.from(signature, "hex");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
-  return parsed.data;
+  const event = parsed.data["event-data"];
+  // Normalize only after signature verification; retain canonical event/state semantics.
+  return { ...parsed.data, "event-data": event.event === "failed"
+    ? { ...event, event: event.severity === "temporary" ? "temporary_fail" as const : "permanent_fail" as const }
+    : event };
 }
 
 export async function recordMailgunWebhook(input: unknown) {
@@ -166,14 +180,23 @@ export async function recordMailgunWebhook(input: unknown) {
   const event = payload["event-data"];
   const jobId = event["user-variables"]?.job_id;
   const messageId = event.message?.headers?.["message-id"];
+  // Provider API IDs can include RFC Message-ID brackets; webhook headers omit them.
+  const unwrapped = typeof messageId === "string" && messageId.length > 0 && messageId.length <= 255
+    ? messageId.replace(/^<([^<>]+)>$/, "$1") : null;
+  const messageIds = unwrapped ? [...new Set([messageId as string, unwrapped, `<${unwrapped}>`])] : [];
   const mapped = event.event === "temporary_fail" ? "temporary_failure" : event.event === "permanent_fail" ? "permanent_failure" : event.event;
   const id = createHash("sha256").update(event.id).digest("hex");
   const signatureTokenHash = createHash("sha256").update(payload.signature.token).digest("hex");
   await db.transaction(async tx => {
     const jobMatch = typeof jobId === "string" && z.uuid().safeParse(jobId).success ? eq(emailDeliveries.jobId, jobId) : null;
-    const messageMatch = typeof messageId === "string" ? eq(emailDeliveries.providerMessageId, messageId) : null;
-    const where = jobMatch ?? messageMatch;
-    const [delivery] = where ? await tx.select().from(emailDeliveries).where(and(where, eq(emailDeliveries.provider, "mailgun_eu"))).for("update") : [];
+    const messageMatch = messageIds.length ? inArray(emailDeliveries.providerMessageId, messageIds) : null;
+    const where = jobMatch && messageMatch ? or(jobMatch, messageMatch) : jobMatch ?? messageMatch;
+    const matches = where ? await tx.select().from(emailDeliveries).where(and(where, eq(emailDeliveries.provider, "mailgun_eu"))).orderBy(asc(emailDeliveries.jobId)).limit(2).for("update") : [];
+    // An ambiguous message ID or contradictory correlation must never select a tenant.
+    if (matches.length > 1) return;
+    const delivery = matches[0];
+    if (delivery && jobMatch && delivery.jobId !== jobId) return;
+    if (delivery?.providerMessageId && messageIds.length && !messageIds.includes(delivery.providerMessageId)) return;
     if (delivery && event.recipient && recipientHash(event.recipient) !== delivery.recipientHash) return;
     const inserted = await tx.insert(emailProviderEvents).values({ id, signatureTokenHash, jobId: delivery?.jobId ?? null, event: event.event }).onConflictDoNothing().returning({ id: emailProviderEvents.id });
     if (!inserted.length) return;
