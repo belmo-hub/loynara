@@ -1,0 +1,11 @@
+# LOY-145 guided setup review validation
+
+Base: 76821a310567a6084bb75bf766c7e64e106a848d. Isolated branch: codex/loy145-setup-validation. Local implementation evidence only; LOY-146 independent acceptance remains open.
+
+Reproduced three failures with the unchanged wizard: cleared start date, whitespace programme name and invalid coordinates reached submission without inline guidance. Added validation aligned with the existing API, paired finite latitude/longitude bounds, decimal-comma normalization, optional-coordinate preservation and invalid-field focus. Independent review found collapsed settings hid invalid fields; an additional browser reproduction failed because the alert was hidden. Submission now opens the containing settings before focusing it.
+
+Verification: 19 field-validation tests and 15 existing onboarding/branding/location integration tests pass (34 total). These existing integration tests exercise ownership, tenant isolation, partial/repeated onboarding and persistence. Five synthetic browser tests pass: guided setup, invalid date/name/coordinates with zero onboarding calls, collapsed settings recovery, and actual valid normalized request payload including longitude zero. API requests are mocked; no hosted merchant, customer, credential or provider mutation occurred. Independent read-only re-review reports no remaining Critical/Important findings in this slice.
+
+Lint and git diff check pass. Typecheck returns the same five diagnostics as unchanged base evidence: missing jsqr/web-push imports and inherited staff-push unknown error. Webpack build fails on the same missing jsqr/web-push dependencies as base. No full build or global suite green claim. Shared dependencies were not modified. No schema migration, authorization/idempotency or launch scope change.
+
+Open acceptance: an independently authorized operator must rehearse synthetic merchant provisioning/login, profile/location/programme/reward/branding, invitation, stamp, redemption and support recovery using the runbook; record each outcome, exact SHA, environment, timestamp and reviewer. No live provisioning or messaging authorization is implied. NFC/session/Wallet protected ancestry remains preserved; LOY-133 catalogue race, provider gates and other full-launch work remain open.

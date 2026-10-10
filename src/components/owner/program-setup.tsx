@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { imageToDataUrl, postJson } from "@/components/client-api";
+import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerIcon } from "./owner-ui";
@@ -54,13 +55,13 @@ export function ProgramSetup() {
   const rateValid = effectiveMode !== "purchase" || (Number.isInteger(rate) && rate >= 1 && rate <= MAX_POINTS_PER_CURRENCY_UNIT);
   const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode, rateValid ? rate : 1, f.rewardName, cost ?? 0);
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
-  const coordsOk = Boolean(f.latitude) === Boolean(f.longitude);
+  const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
 
   const problems: Array<Record<string, string>> = [
     { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", locationName: f.locationName.trim().length < 2 ? "Bitte den Standort benennen." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
     { rate: rateValid ? "" : `Bitte eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} eingeben.`, rules: rulesText.trim().length < 10 ? "Der Regeltext braucht mindestens 10 Zeichen." : "" },
     { rewardName: f.rewardName.trim().length < 2 ? "Bitte die Prämie benennen." : "", cost: cost === null ? "Bitte eine ganze Zahl größer 0 eingeben." : "" },
-    { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", coords: coordsOk ? "" : "Bitte beide Koordinaten eingeben oder beide freilassen." },
+    { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", ...reviewValidation.problems },
   ];
   const stepProblems = Object.entries(problems[step]).filter(([, message]) => message);
 
@@ -77,7 +78,18 @@ export function ProgramSetup() {
 
   async function submit() {
     setTried(true);
-    if (problems.some(group => Object.values(group).some(Boolean))) { const failing = problems.findIndex(group => Object.values(group).some(Boolean)); setStep(failing); return; }
+    if (problems.some(group => Object.values(group).some(Boolean))) {
+      const failing = problems.findIndex(group => Object.values(group).some(Boolean));
+      setStep(failing);
+      const [field] = Object.entries(problems[failing]).find(([, message]) => message)!;
+      requestAnimationFrame(() => {
+        const input = document.getElementById(`su-${field}`);
+        const settings = input?.closest("details");
+        if (settings) settings.open = true;
+        input?.focus();
+      });
+      return;
+    }
     setBusy(true); setError("");
     try {
       const logoData = f.logo ? await imageToDataUrl(f.logo) : undefined;
@@ -87,7 +99,7 @@ export function ProgramSetup() {
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
         locationName: f.locationName.trim(), ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
         brandColor: f.brandColor, effectiveDate: f.date, logoData,
-        ...(f.latitude && f.longitude ? { latitude: Number(f.latitude), longitude: Number(f.longitude) } : {}),
+        ...reviewValidation.coordinates,
       });
       await owner.refresh();
       router.replace("/merchant");
@@ -157,14 +169,13 @@ export function ProgramSetup() {
               {err("brandColor") && <span className="ow-error">{err("brandColor")}</span>}
             </div>
             {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB."><input id="su-logo" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => set({ logo: event.target.files?.[0] ?? null })} /></Field>}
-            <Field id="su-programName" label="Programmname"><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} onChange={event => set({ programName: event.target.value })} /></Field>
+            <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} aria-invalid={Boolean(err("programName"))} onChange={event => set({ programName: event.target.value })} /></Field>
             <details><summary style={{ cursor: "pointer", minHeight: 32, fontWeight: 700 }}>Weitere Einstellungen</summary>
               <div className="ow-stack" style={{ marginTop: 12 }}>
-                <Field id="su-date" label="Gültig ab"><input id="su-date" className="ow-input" type="date" value={f.date} onChange={event => set({ date: event.target.value })} style={{ maxWidth: 220 }} /></Field>
+                <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input" type="date" required aria-invalid={Boolean(err("date"))} value={f.date} onChange={event => set({ date: event.target.value })} style={{ maxWidth: 220 }} /></Field>
                 {!walletsHidden && <>
-                <div className="ow-grid-2"><Field id="su-latitude" label="Breitengrad (optional)"><input id="su-latitude" className="ow-input" inputMode="decimal" value={f.latitude} onChange={event => set({ latitude: event.target.value })} /></Field><Field id="su-longitude" label="Längengrad (optional)"><input id="su-longitude" className="ow-input" inputMode="decimal" value={f.longitude} onChange={event => set({ longitude: event.target.value })} /></Field></div>
+                <div className="ow-grid-2"><Field id="su-latitude" label="Breitengrad (optional)" error={err("latitude")}><input id="su-latitude" className="ow-input" inputMode="decimal" aria-invalid={Boolean(err("latitude"))} value={f.latitude} onChange={event => set({ latitude: event.target.value })} /></Field><Field id="su-longitude" label="Längengrad (optional)" error={err("longitude")}><input id="su-longitude" className="ow-input" inputMode="decimal" aria-invalid={Boolean(err("longitude"))} value={f.longitude} onChange={event => set({ longitude: event.target.value })} /></Field></div>
                 <span className="ow-hint">Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert.</span>
-                {err("coords") && <span className="ow-error">{err("coords")}</span>}
                 </>}
               </div>
             </details>
