@@ -5,6 +5,7 @@ import { db, pool } from "@/db";
 import { billingLocationPlans, ledgerEntries, locations, membershipContacts, memberships, programs, rewardVersions, rewards, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { selectAudience, selectAudienceBySlug } from "./segments";
+import { acceptStaffInvite, createStaffInvite, revokeStaff } from "./staff";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Segment tests require looplocal_test");
 
@@ -115,6 +116,33 @@ describe("database-backed customer audiences", () => {
     await expect(selectAudience({ actorUserId: cashier, ...query })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect((await selectAudienceBySlug({ actorUserId: manager, programSlug: a.programSlug, asOf, definition: query.definition })).total).toBe(2);
     await expect(selectAudienceBySlug({ actorUserId: ownerB, programSlug: a.programSlug, asOf, definition: query.definition })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("rechecks manager authorization for saved audience cursors after revocation and location reassignment", async () => {
+    const ownerId = await user();
+    const managerId = await user();
+    const merchant = await shop(ownerId, "Synthetic Departure Café");
+    const cards = await Promise.all([card(merchant.programSlug, "2030-01-29T10:00:00.000Z"), card(merchant.programSlug, "2030-01-30T10:00:00.000Z")]);
+    const [otherLocation] = await db.insert(locations).values({ tenantId: merchant.tenantId, name: "Other location", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    await db.insert(billingLocationPlans).values({ tenantId: merchant.tenantId, locationId: otherLocation.id, currency: "EUR", priceMinor: 4900 });
+    const [otherProgram] = await db.insert(programs).values({ tenantId: merchant.tenantId, locationId: otherLocation.id, slug: "reassigned-" + randomUUID(), name: "Other card", type: "stamp", rulesText: "One stamp per purchase." }).returning();
+    const otherCard = await card(otherProgram.slug, "2030-01-30T10:00:00.000Z");
+    const invite = await createStaffInvite({ actorUserId: ownerId, locationId: merchant.locationId, email: managerId + "@example.test", role: "manager" });
+    await acceptStaffInvite({ userId: managerId, token: invite.token });
+    const query = { actorUserId: managerId, programId: merchant.programId, asOf, definition: { kind: "all" as const }, limit: 1 };
+    const first = await selectAudience(query);
+    expect(first.total).toBe(2);
+    expect(first.nextCursor).not.toBeNull();
+    const continuation = { ...query, afterMembershipId: first.nextCursor! };
+    await revokeStaff({ actorUserId: ownerId, userId: managerId });
+    await expect(selectAudience(continuation)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(selectAudienceBySlug({ actorUserId: managerId, programSlug: merchant.programSlug, asOf, definition: query.definition, afterMembershipId: first.nextCursor! })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const reassignment = await createStaffInvite({ actorUserId: ownerId, locationId: otherLocation.id, email: managerId + "@example.test", role: "manager" });
+    await acceptStaffInvite({ userId: managerId, token: reassignment.token });
+    await expect(selectAudience(continuation)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(selectAudienceBySlug({ actorUserId: managerId, programSlug: merchant.programSlug, asOf, definition: query.definition })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await selectAudience({ ...query, programId: otherProgram.id })).membershipIds).toEqual([otherCard.id]);
+    expect((await selectAudience({ ...query, actorUserId: ownerId, limit: 10 })).membershipIds.sort()).toEqual(cards.map(c => c.id).sort());
   });
 
   it("rejects invalid audience thresholds before querying", async () => {
