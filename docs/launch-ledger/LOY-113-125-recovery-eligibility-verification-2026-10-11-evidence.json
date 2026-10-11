@@ -1,0 +1,70 @@
+{
+  "assignment": "LOY-ENG-20261011-073",
+  "issues": [
+    "LOY-113",
+    "LOY-125"
+  ],
+  "base_sha": "8d79aa333fcf7e213b13ea8fc1cc40554df5b6d4",
+  "application_source_changed": false,
+  "application_defect_demonstrated": false,
+  "google": "real worker/subprocess mock-only429 and503; normal rejected update retains attempts1/retry/backoff>=50s; later normal award queues fresh job/syncs balance2 on original object; old retry/history retained, foreign balance0 unchanged;2PASS3.85s",
+  "audience": "real signed unsubscribe after preview on highest of501members; fresh preview excludes it, queue reserves only adjacenteligiblecard; repeated dispatch suppressed;1PASS579ms,23 unrelated filtered tests (not permanent skips)",
+  "focused": "2files26PASS0FAIL0SKIP5.73s",
+  "static": "typegen/typecheck/maxwarnings0 changedlint/normalproductionbuildPASS",
+  "failure": "initial temporary synthetic-preload regex template escaping produced syntax error and2 fixture failures951ms; String.raw fixture correction only, unchanged app then2PASS; no application RED claimed",
+  "review": "read-only independent no material findings; actual preload inheritance/no network fallback and assertion limits verified; no reruns",
+  "global": "not rerun: application source unchanged; latest application-source350d4e40415d7d492710f5d7890833e9967738cc evidence169files1581PASS0FAIL1existingMailpitSKIP142.93s; not claimed as full073testset run",
+  "external_status": {
+    "pushed": false,
+    "deployed": false,
+    "provider_activated": false,
+    "independently_accepted": false,
+    "commercially_ready": false,
+    "gmail_receipt": "unverified"
+  },
+  "accounting": {
+    "tokens_cumulative_reported": 9128611,
+    "seconds_cumulative": 46342,
+    "remaining_tokens": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model_effort_browser_reviewer": "unmeasured"
+  },
+  "official_references": [
+    "https://developers.google.com/wallet/generic/resources/faq",
+    "https://developers.google.com/wallet/generic/resources/error-codes"
+  ],
+  "artifacts": [
+    {
+      "path": "/tmp/loy-073-google-probe.log",
+      "bytes": 5532,
+      "sha256": "796a67e2353dc65a2dc64ed9d82e3f6188062a47848dcccfd66d30eff40c79b2",
+      "raw_log_shared": false
+    },
+    {
+      "path": "/tmp/loy-073-google-fixed-fixture.log",
+      "bytes": 1166,
+      "sha256": "8ef5e15d71707b52ee2bfead6ff549980aa36bee2de5875a53feb74416f0ca2b",
+      "raw_log_shared": false
+    },
+    {
+      "path": "/tmp/loy-073-audience-probe.log",
+      "bytes": 930,
+      "sha256": "d9d2ab2f3cf60d6ba312f7868b05e7ff78ea8c02c7bf96223217c3bd62264fd1",
+      "raw_log_shared": false
+    },
+    {
+      "path": "/tmp/loy-073-focused.log",
+      "bytes": 1468,
+      "sha256": "2f9ee4dfe6aa7c7a53b1e4f82e9e9e470cf1772ea3e8070a80492cdeebc9a535",
+      "raw_log_shared": false
+    },
+    {
+      "path": "/tmp/loy-073-static.log",
+      "bytes": 4317,
+      "sha256": "f6f1e8fdc1b00f7f118e6198961dfe774e55644a46a19a09d344c4cad68c10d0",
+      "raw_log_shared": false
+    }
+  ]
+}

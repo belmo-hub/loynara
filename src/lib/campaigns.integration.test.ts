@@ -11,7 +11,7 @@ import { type LocalMessage } from "./email";
 import { cancelCampaign, createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
-import { unsubscribeMarketing } from "./unsubscribe";
+import { createUnsubscribeToken, unsubscribeMarketing } from "./unsubscribe";
 import { recipientHash, recordMailgunWebhook } from "./transactional-email";
 import * as segmentQueries from "./segments";
 
@@ -558,4 +558,31 @@ it("does not turn failed campaign reads into zero data and releases a reusable r
     expect(fresh.summary.queued).toBe(1);
     await expect(getCampaign({ actorUserId: randomUUID(), campaignId: campaign.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
   } finally { spy.mockRestore(); }
+});
+
+
+it("rechecks a real opt-out on the second audience page after preview and before queue reservation", async () => {
+  const f = await fixture();
+  await pool.query(`INSERT INTO memberships (tenant_id,program_id,scan_code,card_token)
+    SELECT $1::uuid,$2::uuid,'sc_'||gen_random_uuid()::text,'card_'||replace(gen_random_uuid()::text,'-','')||'12345678'
+    FROM generate_series(1,501)`, [f.merchant.tenantId,f.merchant.programId]);
+  const boundary = (await pool.query("SELECT id FROM memberships WHERE tenant_id=$1 ORDER BY id DESC LIMIT 2",[f.merchant.tenantId])).rows;
+  for (const row of boundary) {
+    await db.insert(membershipContacts).values({tenantId:f.merchant.tenantId,membershipId:row.id,email:`${row.id}@example.test`,emailVerified:true});
+    await db.insert(consentEvents).values({tenantId:f.merchant.tenantId,membershipId:row.id,channel:"email",purpose:"marketing",granted:true,noticeVersion:"synthetic",source:"enrollment"});
+  }
+  const preview=()=>previewCampaign({actorUserId:f.ownerId,programSlug:f.merchant.programSlug,audienceDefinition:{kind:"all"}});
+  expect(await preview()).toMatchObject({total:501,eligibleCount:2});
+  const token=createUnsubscribeToken({tenantId:f.merchant.tenantId,membershipId:boundary[0].id,email:`${boundary[0].id}@example.test`});
+  expect(await unsubscribeMarketing(token)).toEqual({status:"complete"});
+  expect(await preview()).toMatchObject({total:501,eligibleCount:1,excludedCountsByReason:{unsubscribed:1}});
+  const campaign=await createDraftCampaign({actorUserId:f.ownerId,programSlug:f.merchant.programSlug,...draftFields});
+  const when=new Date(Date.now()+1000);await scheduleCampaign({actorUserId:f.ownerId,campaignId:campaign.id,scheduledAt:when});
+  const [dispatch]=await db.select().from(outboxJobs).where(eq(outboxJobs.kind,"campaign.dispatch"));
+  const job={id:dispatch.id,tenantId:dispatch.tenantId,payload:dispatch.payload};
+  expect(await dispatchCampaign(job,new Date(when.getTime()+1000))).toMatchObject({status:"complete",queuedCount:1});
+  expect(await dispatchCampaign(job,new Date(when.getTime()+1000))).toMatchObject({status:"suppressed"});
+  expect(await db.select().from(campaignRecipients)).toEqual([expect.objectContaining({tenantId:f.merchant.tenantId,membershipId:boundary[1].id})]);
+  expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind,"email.campaign"))).toHaveLength(1);
+  expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(1);
 });
