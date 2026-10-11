@@ -1,0 +1,105 @@
+{
+  "assignment": "LOY-ENG-20261011-089",
+  "date": "2026-10-11",
+  "issues": [
+    "LOY-147",
+    "LOY-148",
+    "LOY-169",
+    "LOY-170"
+  ],
+  "base_sha": "88086c3793db9f49b14724c2cfaf3d71c91c16ae",
+  "source_sha": "4eeebdf25cc0162bef479ae5a8ffdbd385026b2d",
+  "implementation": "No production source changes or demonstrated product defect. Added actual downloaded QR-output/customer-destination and actual adviser ledger/API/UI browser regressions. No duplicate coding child created.",
+  "execution": "Mac/one existing executor; assigned gpt-6.1-sol Medium contract/High engineering/Medium independent review; effective configuration unmeasured, setter unavailable; existing isolated checkout reused/no installs/new worktrees. Owned synthetic PostgreSQL localhost55433, normal synthetic authentication/onboarding, providers/delivery OFF.",
+  "tests": {
+    "qr": "2 Chrome PASS4.9s: actual stamp375/points1280 downloaded HTML rendered/QR pixels decoded/exactmerchant-location-program/customer enrollment+returning/card balance0/no ledger/outbox/anonymous actual api-me401",
+    "adviser": "1 Chrome PASS2.4s: actual adviser API/UI, legitimate award/reversal duplicate retries, tenant isolation/anonymous denial. Same immutable ledger read-only futureasOf30/90 yields0/1; browser current30/90 controls agree with actual API.",
+    "focused": "4files9PASS1.46s",
+    "integrated": "4files9PASS1.52s",
+    "static": "typegen/typecheck/zero-warning changed-test lint/production build PASS",
+    "global": "Not rerun for test-only changes; last application sourcec2e6be38 with173files1601PASS0FAIL1existingoptionalMailpitSKIP155.76s preserved, not represented as a new run."
+  },
+  "failures": [
+    "Initial QR2fixtureFAIL: nonexistent api/merchant/me404, corrected actual api/me; all preceding QR flow assertions passed.",
+    "Initial adviser1fixtureFAIL: attempted UPDATE syntheticledger timestamp rejected by append-only trigger; no mutation/protection bypass. Removed UPDATE; supported read-only asOf now used. No production RED claimed."
+  ],
+  "review": "One independent read-only static review no material findings; no rerun. Not physical print/scan acceptance or browser future-time verification.",
+  "tracker": "147comment7-149 and169comment7-150 persisted/readback2026-10-11T08:25:46UTC; both unresolved/Backlog original fullcriteria/Missing preserved.148/170 independent gates remainOPEN; no fakeDone transition.",
+  "external_actions": "Only authorized tracker evidence comments/readbacks. Owned QR089DB dropped after stoppedapp/zeroactiveconnections. No push185186 safety unresolved, protected merge, hosted/provider/customer/tag/legal/policy action.",
+  "resources": {
+    "free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "new_worktree": false,
+    "installations": false,
+    "cleanup": false
+  },
+  "limitations": [
+    "QR public renderer intentionally public; protected authenticated owner kit/account checked, no foreign public QR denial claim.",
+    "Actual screen-rendered HTML QR pixel decoding does not establish physical printing/scanning/operator acceptance.",
+    "Two normal synthetic tenants/locations and supported stamp/points programmes; no new programme or URL retirement policy.",
+    "Adviser future time is supported domain read-only asOf, not browser/API future time or fabricated production history.",
+    "Existing Full launch scope remains incomplete."
+  ],
+  "statuses": {
+    "test_coverage_implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "production_fix": false,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-175 branding editor save-request latest-intent ordering, beyond accepted file-read and earlier response uncertainty fixes",
+    "LOY-169 adviser shared-report snapshot concurrency, distinct from sequential duplicate/reversal/window evidence",
+    "LOY-147 owner QR-download request failure recovery under existing material contract"
+  ],
+  "logs": {
+    "qr-browser": {
+      "local_path": "/tmp/loy-089-qr-browser.log",
+      "bytes": 4512,
+      "sha256": "3d6b2f99bbff069483bcb8a33b41bfc2b18c04d715dcef60579542fb95fda431"
+    },
+    "qr-browser-final": {
+      "local_path": "/tmp/loy-089-qr-browser-final.log",
+      "bytes": 690,
+      "sha256": "927102439c150bf08edfaf88d42cdfb6be886acf92aad81de6a7b5457997fec3"
+    },
+    "advice-browser": {
+      "local_path": "/tmp/loy-089-advice-browser.log",
+      "bytes": 3362,
+      "sha256": "0c4d6fbda82618b9ec242936f92390f5738ca732094efe2c8819f504a53120fb"
+    },
+    "advice-browser-final": {
+      "local_path": "/tmp/loy-089-advice-browser-final.log",
+      "bytes": 583,
+      "sha256": "1df503853a6ecbc3fe300bfe3649330f0f07bd765574d55ed757a155f95e3950"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-089-focused.log",
+      "bytes": 1201,
+      "sha256": "600785dc6cdf42e6963829eed39cd4133dad10ee7183e58665c96aab6fc6fa95"
+    },
+    "static": {
+      "local_path": "/tmp/loy-089-static.log",
+      "bytes": 4316,
+      "sha256": "3c220392b7a7b56ffc45768d5e7555bf3507642ac5958c8c5f298b8693037848"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-089-integrated.log",
+      "bytes": 1210,
+      "sha256": "d8c242182e8d066bd4ea55fa9d71a37754f7ccc2f07aca639cabe3e7a7484a2c"
+    }
+  },
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11512969,
+    "cumulative_seconds": 60920,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model_effort": null
+  }
+}
