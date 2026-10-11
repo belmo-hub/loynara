@@ -107,3 +107,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 LOY-292 /063: [canonical evidence](LOY-292-customer-export-feedback-2026-10-11.md). Actual browserRED closed-card404missingfeedback; finalisolated8PASS8.8s, helper13PASS162ms, static/buildPASS, complete163files1534PASS0FAIL1existingoptionalMailpitSKIP150.97s. Shared peer quota/alert-selector/native-vs-Docker initialization failures preserved; no limiter reset or assertion weakening.
 
 - Assignment064: readonly status/ancestry/logs-HEAD/du/lsof + native ownership observations; JSON arithmetic/classification and diff validation only. No product/test-suite rerun for documentation-only change. [Evidence](2026-10-11-worktree-preservation-064.md).
+
+- 2026-10-11 064-01 preservation verified: fresh per-candidate clean/no cwd/exact branch, archive paths/count/bytes/hash before-after, all branch refs unchanged, retained13 raw statuses unchanged; empty prune dryrun then registry prune. Two formatting/stale expected-value corrections preserved. [Receipt](2026-10-11-worktree-cleanup-064-01.md).

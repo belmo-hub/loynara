@@ -99,3 +99,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-11 /063 receipt amendment: LOY-292 codingDone readback01:55:57UTC/source0629c6f locally integrated; supersedes pending child status only. Full43/44/209 scopes and185 push holdOPEN.
 
 - Assignment064 amendment: further cleanup requires explicit named approval; WIP/process/active trees retained. LOY-185/186 integration push remainsUNVERIFIABLE: existing GitHub Supabase Configure requires owner Confirm access; supersedes proposed Supabase-account sign-in route, no new account requested. [Evidence](2026-10-11-worktree-preservation-064.md).
+
+- 2026-10-11 064-01 supersedes pending31 cleanup approval only: direct founder delegated to coordinator, exact31 removed/preserved.13 retained (10KEEP+3investigation), newworktrees barred while over10; Github owner authentication/push visibility185/186 stillOPEN. [Receipt](2026-10-11-worktree-cleanup-064-01.md).

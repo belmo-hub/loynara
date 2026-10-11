@@ -1,0 +1,522 @@
+{
+  "authorization": "Founder direct reply just ask gpt to exact31 approval question; verified completed coordinator064-01 conditional decision; no expanded scope",
+  "started": "2026-10-11T02:15:46.479466+00:00",
+  "integration_sha": "60582f55afc802b18110f2bb05f21e9f0e508b0d",
+  "archive_root": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011",
+  "removed": [
+    {
+      "name": "configured-regression-current",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/configured-regression-current/Loynara",
+      "branch": "codex/configured-regression-current",
+      "sha": "e03dc685e9330cd2ce099c116b705232e1ff1006",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/configured-regression-current",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "full-configured-integration",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/full-configured-integration/Loynara",
+      "branch": "codex/full-configured-integration",
+      "sha": "d733234b4d8637760efe34176153b002e60c36bc",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/full-configured-integration",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "analytics-snapshot-consistency",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/analytics-snapshot-consistency/Loynara",
+      "branch": "codex/analytics-snapshot-consistency",
+      "sha": "51944a0b6068844ae937dd3c4770a480f3bdc2a3",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/analytics-snapshot-consistency",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "campaign-schedule-lifecycle",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/campaign-schedule-lifecycle/Loynara",
+      "branch": "codex/campaign-schedule-lifecycle",
+      "sha": "3dcf49774e0e7f6cc420f954bb349919cd94c31f",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/campaign-schedule-lifecycle",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "launch-build-triage",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-build-triage/Loynara",
+      "branch": "codex/launch-build-triage",
+      "sha": "fb73e0798cc042ffdfda8c0760352535471b1269",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/launch-build-triage",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "launch-integration-classification",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-integration-classification/Loynara",
+      "branch": "codex/launch-integration-classification",
+      "sha": "1c2345367a8b2fa9fce7293790d1a163b799f2ac",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/launch-integration-classification",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "launch-ledger-record",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-ledger-record/Loynara",
+      "branch": "codex/launch-ledger-record",
+      "sha": "5a58f247fa84e3c9e47e944b11b9c13483b7a7a0",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/launch-ledger-record",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "launch-remaining-checkpoint",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-remaining-checkpoint/Loynara",
+      "branch": "codex/loy165-owner-export-evidence",
+      "sha": "a71d782aa6dd7a6a10b0cd2990ee93ccbd959bd8",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/launch-remaining-checkpoint",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "location-activity-reporting",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/location-activity-reporting/Loynara",
+      "branch": "codex/location-activity-reporting",
+      "sha": "df7b914860faaf6df42ca2c0a0a0f8921102685d",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/location-activity-reporting",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "location-entitlement-enforcement",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/location-entitlement-enforcement/Loynara",
+      "branch": "codex/location-entitlement-enforcement",
+      "sha": "e80d2bbda3e85c147e9c1723b8d61afa8caa50f2",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/location-entitlement-enforcement",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy119-nfc-referrals",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy119-nfc-referrals/Loynara",
+      "branch": "codex/loy119-referral-abuse",
+      "sha": "75e07514c78b54e887d14a0bab5d0beb793c8734",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy119-nfc-referrals",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy125-preview-ordering",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy125-preview-ordering/Loynara",
+      "branch": "codex/loy125-preview-ordering",
+      "sha": "aae6dcc6f4428e6058651382011d8b9b29da3ce7",
+      "archived_files": 2,
+      "archived_bytes": 607,
+      "archived_paths": [
+        "next-env.d.ts",
+        "var/loy125-playwright.config.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy125-preview-ordering",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy127-audience-validation",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy127-audience-validation/Loynara",
+      "branch": "codex/loy127-audience-validation",
+      "sha": "154821c14630566f0462cee5506a8088cd3758ac",
+      "archived_files": 2,
+      "archived_bytes": 591,
+      "archived_paths": [
+        "next-env.d.ts",
+        "var/loy127-playwright.config.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy127-audience-validation",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy127-draft-save-race",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy127-draft-save-race/Loynara",
+      "branch": "codex/loy127-draft-save-race",
+      "sha": "2c73a11ca693d43fdc087ff4fa9df32d0cf53247",
+      "archived_files": 2,
+      "archived_bytes": 612,
+      "archived_paths": [
+        "next-env.d.ts",
+        "var/loy127-playwright.config.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy127-draft-save-race",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy133-goal-reminders",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy133-goal-reminders/Loynara",
+      "branch": "codex/loy133-goal-reminders",
+      "sha": "1cf32d3b3a91780002773e900fabe64d11e9e7bc",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy133-goal-reminders",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy139-webhook-normalization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy139-webhook-normalization/Loynara",
+      "branch": "codex/loy139-webhook-normalization",
+      "sha": "76821a310567a6084bb75bf766c7e64e106a848d",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy139-webhook-normalization",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy145-setup-validation",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy145-setup-validation/Loynara",
+      "branch": "codex/loy145-setup-validation",
+      "sha": "fb73e0798cc042ffdfda8c0760352535471b1269",
+      "archived_files": 3,
+      "archived_bytes": 670,
+      "archived_paths": [
+        "next-env.d.ts",
+        "var/goal-browser-results/.last-run.json",
+        "var/goal-browser.config.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy145-setup-validation",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy153-invite-serialization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy153-invite-serialization/Loynara",
+      "branch": "codex/loy153-invite-serialization",
+      "sha": "667aafbe107aa0c2e54c88c220da50d19800ebd8",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy153-invite-serialization",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy157-revocation-ordering",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy157-revocation-ordering/Loynara",
+      "branch": "codex/loy157-revocation-ordering",
+      "sha": "3156a4039c44bdb08ce67273a1057cb1d73f25a0",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy157-revocation-ordering",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy165-reporting-evidence",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy165-reporting-evidence/Loynara",
+      "branch": "codex/loy165-reporting-evidence",
+      "sha": "9085a2b22366d4944d3a233f75ab167ec5badfb2",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy165-reporting-evidence",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy43-customer-export",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy43-customer-export/Loynara",
+      "branch": "codex/loy43-customer-export",
+      "sha": "cd38bdcdcb72135e236fd533ad5c921712347246",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy43-customer-export",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy49-earning-snapshot",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy49-earning-snapshot/Loynara",
+      "branch": "codex/loy49-earning-snapshot",
+      "sha": "9552b3773e6df8581127b230abb0535150e6fa50",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy49-earning-snapshot",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "loy49-redemption-catalogue",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy49-redemption-catalogue/Loynara",
+      "branch": "codex/loy49-redemption-catalogue",
+      "sha": "95e97934d52a53d2e67543d37b84344ab567636a",
+      "archived_files": 2,
+      "archived_bytes": 606,
+      "archived_paths": [
+        "next-env.d.ts",
+        "var/loy49-playwright.config.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/loy49-redemption-catalogue",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "owner-business-export-snapshot",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/owner-business-export-snapshot/Loynara",
+      "branch": "codex/owner-business-export-snapshot",
+      "sha": "76d7d33d81a75a6e43c76d00ae3eb4aded64b69c",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/owner-business-export-snapshot",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "privacy-failure-atomicity",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/privacy-failure-atomicity/Loynara",
+      "branch": "codex/privacy-failure-atomicity",
+      "sha": "ac12fc312a2efeb1c3a4fc085429a8439176d23d",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/privacy-failure-atomicity",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "push-delivery-reliability",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/push-delivery-reliability/Loynara",
+      "branch": "codex/push-delivery-reliability",
+      "sha": "d8a1bb88a8683973a88a374cab564d659a00dfe4",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/push-delivery-reliability",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "push-retry-exhaustion",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/push-retry-exhaustion/Loynara",
+      "branch": "codex/push-retry-exhaustion",
+      "sha": "7e087407330af166149b5ab75572aec741896624",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/push-retry-exhaustion",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "recovery-mailpit-capture",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/recovery-mailpit-capture/Loynara",
+      "branch": "codex/recovery-mailpit-capture",
+      "sha": "7e5da56d8de0a157dfb0242c494161c43cc6e9a3",
+      "archived_files": 0,
+      "archived_bytes": 0,
+      "archived_paths": [],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/recovery-mailpit-capture",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "staff-reissue-authorization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/staff-reissue-authorization/Loynara",
+      "branch": "codex/staff-reissue-authorization",
+      "sha": "c8ec977fde9154688c25ea78627742636e022c0b",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/staff-reissue-authorization",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "webhook-suppression-idempotency",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/webhook-suppression-idempotency/Loynara",
+      "branch": "codex/webhook-suppression-idempotency",
+      "sha": "09ca88e90ebe1098fba87e14603b2e69f769c8ad",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/webhook-suppression-idempotency",
+      "git_remove_exit": 0
+    },
+    {
+      "name": "webhook-transaction-retry",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/webhook-transaction-retry/Loynara",
+      "branch": "codex/webhook-transaction-retry",
+      "sha": "aa2e7aa36b2d6af61a15c500022b0ecffc4bf528",
+      "archived_files": 1,
+      "archived_bytes": 288,
+      "archived_paths": [
+        "next-env.d.ts"
+      ],
+      "archive_hashes_verified": true,
+      "archive": "/Users/youssefbelmokhtar/.codex/worktree-archive/cleanup-064-01-20261011/webhook-transaction-retry",
+      "git_remove_exit": 0
+    }
+  ],
+  "skipped": [],
+  "registered_remaining": 13,
+  "retained_verification": [
+    {
+      "name": "autopilot-bounded-runner",
+      "status_unchanged": true,
+      "branch": "codex/autopilot-bounded-runner",
+      "sha": "9848e759d999930cd3ee8bc38540e9d3b1997eea"
+    },
+    {
+      "name": "campaign-rate-limit-cycle",
+      "status_unchanged": true,
+      "branch": "codex/campaign-rate-limit-cycle",
+      "sha": "e1aae6583dbb84a7e183eab9f949ba864972b02d"
+    },
+    {
+      "name": "google-wallet-direct-v1",
+      "status_unchanged": true,
+      "branch": "codex/google-wallet-direct-v1",
+      "sha": "621364a575c5f325b9cac01cc0a421b634a36940"
+    },
+    {
+      "name": "loy133-catalogue-race",
+      "status_unchanged": true,
+      "branch": "codex/loy133-catalogue-race",
+      "sha": "1cf32d3b3a91780002773e900fabe64d11e9e7bc"
+    },
+    {
+      "name": "loy133-dispatch-authorization",
+      "status_unchanged": true,
+      "branch": "codex/loy133-dispatch-authorization",
+      "sha": "a71d782aa6dd7a6a10b0cd2990ee93ccbd959bd8"
+    },
+    {
+      "name": "loy133-reward-reminder",
+      "status_unchanged": true,
+      "branch": "codex/loy133-reward-reminder-offline-20261010",
+      "sha": "9848e759d999930cd3ee8bc38540e9d3b1997eea"
+    },
+    {
+      "name": "loynara-build-autopilot-v1",
+      "status_unchanged": true,
+      "branch": "codex/loynara-build-autopilot-v1",
+      "sha": "654fef25c50e6f8e50be256ae6d783437040d5fc"
+    },
+    {
+      "name": "loynara-engineering-integration",
+      "status_unchanged": true,
+      "branch": "codex/loynara-engineering-integration",
+      "sha": "60582f55afc802b18110f2bb05f21e9f0e508b0d"
+    },
+    {
+      "name": "mailgun-event-day-dedup",
+      "status_unchanged": true,
+      "branch": "codex/mailgun-event-day-dedup",
+      "sha": "aaa42974c9884840b3581420e63c4399c55127e5"
+    },
+    {
+      "name": "nfc-cashier-phone-release-v1",
+      "status_unchanged": true,
+      "branch": "codex/nfc-cashier-phone-release-v1",
+      "sha": "21019e811a9ac7a1e6a7f7c01cc43360bee5b6ec"
+    },
+    {
+      "name": "nfc-reconciled-release-v1",
+      "status_unchanged": true,
+      "branch": "codex/nfc-reconciled-release-v1",
+      "sha": "4a776797ae3c1ff86672a9fb8541cff544d21e6a"
+    },
+    {
+      "name": "passfast-e2e-local",
+      "status_unchanged": true,
+      "branch": "codex/passfast-existing-recovery",
+      "sha": "2c16775abc1c562da5cf9e6b2dfdf827681483c1"
+    },
+    {
+      "name": "staff-http-permissions",
+      "status_unchanged": true,
+      "branch": "codex/worktree-preservation-064",
+      "sha": "60582f55afc802b18110f2bb05f21e9f0e508b0d"
+    }
+  ],
+  "prune": "dry-run empty; git worktree prune completed, no stale registrations removed",
+  "archived_file_count": 28,
+  "archived_bytes": 7982,
+  "net_available_delta_bytes": 7198302208,
+  "pilot_validation_amendment": "Initial final-check assertion used pre064 2c SHA for active two branches, which had already advanced to verified605 beforepilot. Full branch refs exactly match precleanup snapshot. Exact expected current605 used for those two only; all other44 historical refs unchanged. No filesystem mismatch, no force or branch mutation.",
+  "status_verification_amendment": "First final status comparison stripped first leading porcelain space; corrected to raw splitlines and all13 exact statuses match original. No file/index mutations or changed expected status.",
+  "disk": {
+    "before": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk3s5   460Gi   381Gi    30Gi    93%     10M  313M    3%   /System/Volumes/Data\n",
+    "after": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk3s5   460Gi   374Gi    37Gi    92%    9.8M  383M    2%   /System/Volumes/Data\n"
+  }
+}
