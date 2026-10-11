@@ -115,22 +115,22 @@ describe("quiet-hours deferral ownership", () => {
   it("checks lease expiry after obtaining a contended row lock", async () => {
     const job = await fixture();
     const claim = (await claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 }))!;
+    expect(claim.id).toBe(job.id);
     const locker = await pool.connect();
     let pending: Promise<unknown> | undefined;
     try {
       await pool.query("UPDATE outbox_jobs SET next_attempt_at=clock_timestamp()+interval '500 milliseconds' WHERE id=$1", [job.id]);
-      const lease = (await snapshot(job.id)).next_attempt_at;
       await locker.query("BEGIN");
       await locker.query("SELECT id FROM outbox_jobs WHERE id=$1 FOR UPDATE", [job.id]);
       pending = deferOutboxJob(pool, claim, "Quiet hours", new Date(Date.now() + 3600000));
       await waitFor(async () => (await pool.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%attempts = attempts - 1%'")).rowCount! > 0);
       // The statement starts while the lease is valid, then waits until the real database clock expires it.
-      expect((await pool.query("SELECT query_start < $1::timestamptz AS started_before_expiry FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%attempts = attempts - 1%'", [lease])).rows).toEqual([{ started_before_expiry: true }]);
-      await waitFor(async () => (await pool.query("SELECT clock_timestamp() >= $1::timestamptz AS expired", [lease])).rows[0].expired);
+      expect((await pool.query("SELECT query_start < (SELECT next_attempt_at FROM outbox_jobs WHERE id=$1) AS started_before_expiry FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%attempts = attempts - 1%'", [job.id])).rows).toEqual([{ started_before_expiry: true }]);
+      // Keep expiry in PostgreSQL: a JavaScript Date truncates microseconds and can release the lock early.
+      await waitFor(async () => (await pool.query("SELECT clock_timestamp() >= next_attempt_at AS expired FROM outbox_jobs WHERE id=$1", [job.id])).rows[0].expired);
       await locker.query("COMMIT");
       await pending;
-      expect(await snapshot(job.id)).toMatchObject({ status: "processing", attempts: 1 });
-      expect((await snapshot(job.id)).next_attempt_at.getTime()).toBeLessThan(Date.now());
+      expect((await pool.query("SELECT status, attempts, claim_token=$2::uuid AS original_claim, next_attempt_at <= clock_timestamp() AS expired FROM outbox_jobs WHERE id=$1", [job.id, claim.claimToken])).rows).toEqual([{ status: "processing", attempts: 1, original_claim: true, expired: true }]);
     } finally {
       await locker.query("ROLLBACK");
       await pending?.catch(() => {});
