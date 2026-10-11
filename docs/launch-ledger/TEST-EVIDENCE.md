@@ -146,3 +146,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 /077 receipt: LOY-304 Done/comment7-136/readback05:23:02UTC; sourcef67ba931a8cec5fbffdba8a2f500307a5b808435 LOCAL integrated29PASS4.67s.37/38/49/50 broad gates OPEN; no deployment or independent acceptance.
 
 2026-10-11 /078: [LOY-305 award/reversal key conflicts](LOY-305-award-reversal-key-conflict-2026-10-11.md). Genuine2RED200/500 corrected to definitive409 after rollback;40focused/global1601PASS/1existingSKIP/static/build/read-only review PASS; LOCAL integrated40PASS7.28s.305Done/comment7-137/readback05:36:07UTC.37/38/49/50 full gates OPEN; no deployment.
+
+2026-10-11 /079: [LOY-306 offline interruption regressions](LOY-306-offline-interruption-2026-10-11.md). New durable actual Chrome3PASS/PG15PASS/static/build/read-only reviewPASS, clean LOCAL integrated15PASS1.52s; application unchanged, initial wrong blocked-text assertion corrected transparently.306Done/comment7-138/readback05:52:09UTC;55/56and165/166 full gatesOPEN. Same-context page restart only; browser-process crash/physical acceptance unverified. No deployment.

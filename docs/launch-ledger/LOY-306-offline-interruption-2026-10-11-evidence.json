@@ -1,0 +1,73 @@
+{
+  "assignment": "LOY-ENG-20261011-079",
+  "issue": "LOY-306",
+  "parent": "LOY-55",
+  "base_sha": "8095646af7c5aee54d681c1eec2da8baaddcb33c",
+  "source_sha": "6792570f5b2d99c7183da2a551629185ca2e4d6a",
+  "result_sha": "containing documentation commit; exact receipt in durable Goal state",
+  "implementation": "New durable browser tests only; application/schema unchanged",
+  "primary": "165/166: no exact accepted missing field/category contract; selected format4 categories preserved; once-only pivot to55",
+  "browser": "3PASS0FAIL0SKIP7.3s",
+  "first_browser_failure": "2PASS1FAIL18.9s; wrong expected revoked-screen text, not application RED; corrected established heading plus explicit403; affected1PASS3.3s",
+  "focused": "3files15PASS1.76s",
+  "static": "typegen/typecheck/zero-warning new-file lint/configured build PASS",
+  "integration": "clean local FF, integrated3files15PASS1.52s",
+  "prior_global": "078 application sourceb4d2e6 unchanged;173files1601PASS0FAIL1existingMailpitSKIP152.51s; NOT rerun079",
+  "review": "One reused READ-ONLY sensitive reviewer, no material findings; static only, no tests/services; effective configuration unmeasured",
+  "limits": "Page restart same browser context; browser-process crash and physical/device/provider acceptance UNVERIFIED",
+  "tracker": "306Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T05:52:09Z/comment7-138;55/56and165/166OPEN",
+  "resources": "43GiB free/13 retained trees; no new tree/install/cleanup; owned079a synthetic DB removed after app stop/no connections; other DBs preserved",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 9979990,
+    "cumulative_seconds": 51709,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "external_actions": "Genuine YouTrack child, comment, transition/readback. No push185/186/protected/deployment/hosted/provider/customer/tag/legal/newpolicy",
+  "gmail": "306query0matching; generation/receipt UNVERIFIED",
+  "logs": {
+    "init": {
+      "local_path": "/tmp/loy-079-init.log",
+      "bytes": 302,
+      "sha256": "a2595e01836926322dad6147cd29e99e0292d528eb3b1c61928cada4e4300163"
+    },
+    "browser": {
+      "local_path": "/tmp/loy-079-browser.log",
+      "bytes": 3487,
+      "sha256": "4224b37c02133a2f8f9d2129c33d2c7a5d2404862b8c34ad036f9294c976301a"
+    },
+    "revocation-corrected": {
+      "local_path": "/tmp/loy-079-revocation-corrected.log",
+      "bytes": 643,
+      "sha256": "e668be4910e93639ccce3291aefa430bf6edae2c6b1df25f21594b6980b50130"
+    },
+    "browser-final": {
+      "local_path": "/tmp/loy-079-browser-final.log",
+      "bytes": 977,
+      "sha256": "0239f5b8405cf0f44834068c1ae452cb2fa1d3401c60264c9b091600e932555b"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-079-focused.log",
+      "bytes": 1098,
+      "sha256": "a16b91e7d19717665f65a9a1d06fc55fd3172366be80cbe0b6f3a4b7559e3d8b"
+    },
+    "static": {
+      "local_path": "/tmp/loy-079-static.log",
+      "bytes": 4317,
+      "sha256": "92412977c74b163c1edd7fbd72e06375f203e5bfba4a2ea8790614c76a5f8751"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-079-integrated.log",
+      "bytes": 1107,
+      "sha256": "f0050acd607a39a2105ee40c668b1cd54472110bad76db9b0f072f50de665979"
+    }
+  },
+  "proof": {
+    "path": "/tmp/loy-079-offline-recovery-proof.png",
+    "sha256": "985771cc8d612d9d6845c3a7f61b9344c34f6de2f28cee2fa6bb1c78322eeb8b"
+  }
+}
