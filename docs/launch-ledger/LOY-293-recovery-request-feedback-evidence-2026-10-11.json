@@ -103,5 +103,19 @@
       "bytes": 34726,
       "sha256": "b3dabf173e77d14b25cdb1a047d3c34349fa8b7f55744c41b2f923500e3785c8"
     }
+  },
+  "receipt": {
+    "source_sha": "c13eb1ac5f12a957bcb6a22c68c525ffae4e52af",
+    "local_integration": "fast-forward verified clean; integrated9PASS114ms",
+    "tracker_comment": "7-121",
+    "tracker_readback_utc": "2026-10-11 02:34:45",
+    "stage": "Done",
+    "parents": "33 InReview unresolved;34 Backlog unresolved",
+    "skip_name_amendment": "lost browser-card recovery captures the recovery message in loopback Mailpit through the real sender",
+    "cleanup": "two owned browser databases and tmp baseline clone removed; retained13 worktrees/branches/archives untouched",
+    "native_tokens": 7854383,
+    "native_seconds": 39863,
+    "input_cached_output_breakdown": "unmeasured",
+    "push_deploy_acceptance": false
   }
 }
