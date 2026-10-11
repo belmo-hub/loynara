@@ -1,0 +1,56 @@
+{
+  "assignment": "LOY-ENG-20261011-111",
+  "date": "2026-10-11",
+  "issues": [
+    "LOY-28",
+    "LOY-165",
+    "LOY-43"
+  ],
+  "base_sha": "48a27bd5261e30f247582c3b9efbe65a9a910e56",
+  "result_sha": "containing commit; integrated receipt in native state",
+  "application_source_sha": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184",
+  "status": [
+    "TESTED: production startup refusal only",
+    "PLANNED: restricted release"
+  ],
+  "production_positive_job_acceptance": "BLOCKED by existing configuration policy; NOT TESTED",
+  "product_changes": [],
+  "source_change": false,
+  "model_requested": "gpt-6.1-sol/medium; effective executor retained, setter unavailable",
+  "review": "existing loy281_sensitive_review: no material concerns; static only; no tests rerun",
+  "tests": {
+    "pure_production_validator": "exit0, rejects loopback DB/local credential, nonapproved origin/identity/ingress",
+    "supported_production_worker_once": "exit1, sanitized startup refusal, before job processing",
+    "positive_claim_retry_fencing_restart": "not run in production mode; prior test/development evidence remains separate",
+    "full_regression": "109:182 files/1631 PASS/0 FAIL/1 existing optional Mailpit SKIP; not rerun111"
+  },
+  "evidence": {
+    "loy-111-production-guard.log": {
+      "path": "/tmp/loy-111-production-guard.log",
+      "sha256": "bc5cb0bcdfbd89755876120a983434df848ce7dbd426149489cf52cf56527355"
+    },
+    "loy-111-production-worker-refusal.log": {
+      "path": "/tmp/loy-111-production-worker-refusal.log",
+      "sha256": "81c7b8f3812bade42e74eb90941a624740094454818ef3330129be1f8b8a9c82"
+    }
+  },
+  "fallback": "Live43/165 criteria read once; owner format4 lacks referral/campaign-attempt/date-filter contract, already characterized.107 card format1 is deliberately limited. No precise new approved criterion established; full privacy209 and independent acceptance remain OPEN. Not proof all executable coding exhausted.",
+  "external_actions": [
+    "read43/165 live YouTrack; no mutation yet",
+    "read completed110 coordinator review; assignment111 saved"
+  ],
+  "push": "not performed: qualifying owner Supabase scope action/narrow residual-risk acceptance not received",
+  "deployed": false,
+  "independently_accepted": false,
+  "commercially_ready": false,
+  "full_scope": "INCOMPLETE/UNKNOWN; merchant-ready NO-GO",
+  "usage": {
+    "native_observed_tokens": 14670707,
+    "native_observed_seconds": 81882,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "review_browser": null
+  },
+  "gmail_amendment_110": "After110 submission one read-only query LOY-28 newer_than:1d returned0 matches; delivery remains unverified; no settings or sends."
+}

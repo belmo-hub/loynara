@@ -240,3 +240,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /109: [LOY-229 reviewed website integration](2026-10-11-website-integration-109.md) — approved website/GTM source reconciled, portability/typecheck corrections;79unit/611Chrome/1631globalPASS,1existing skip; inheritedgeneratedlint/collateralwhitespace reported, no deployment/acceptance.
 
 - 2026-10-11 /110: [One compiled full-stack rehearsal](2026-10-11-full-stack-release-110.md) — actualwebsite/web/workerrestart,375+1280ChromePASS/exact2ledger1redemption/saved-sessionreplay; fail-closedPythonoptimizationguard;noappfix/hostedacceptance.
+
+2026-10-11 /111: [Production worker startup gate](2026-10-11-production-worker-gate-111.md) — expected synthetic production refusal verified; positive production-job acceptance BLOCKED by existing policy, no bypass/source correction.43/165 bounded fallback unresolved; full scope OPEN/UNKNOWN. No push/deployment.
