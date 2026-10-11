@@ -85,6 +85,8 @@ export default function CashierPage() {
   const [booked, setBooked] = useState<Booked | null>(null);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeCardId = useRef<string | null>(null);
+  // Reopening the same membership is a new view: an older sync reply must not replace its fresher balance.
+  const activeCardGeneration = useRef(0);
   // Offline earning is a fallback, not a normal choice: its controls appear only after real evidence of network
   // trouble (a request that never reached the server, or the browser reporting offline), or while offline work exists.
   const [networkTrouble, setNetworkTrouble] = useState(false);
@@ -112,6 +114,7 @@ export default function CashierPage() {
     forgetOpenCode();
     pendingRef.current = null;
     activeCardId.current = null;
+    activeCardGeneration.current += 1;
     setUncertain(false);
     setCard(null); setPreview(null); setOfflineLease(null);
     setStatus(statusTone); setMessage(statusMessage);
@@ -124,6 +127,7 @@ export default function CashierPage() {
     cancelReset();
     forgetOpenCode();
     activeCardId.current = null;
+    activeCardGeneration.current += 1;
     pendingRef.current = null;
     setUncertain(false);
     setBooked(null); setCard(null); setPreview(null); setOfflineLease(null);
@@ -148,7 +152,9 @@ export default function CashierPage() {
     lookupRunning.current = true;
     lastCameraActivity.current = Date.now();
     cancelReset(); setBooked(null);
-    activeCardId.current = null; pendingRef.current = null; setUncertain(false);
+    activeCardId.current = null;
+    activeCardGeneration.current += 1;
+    pendingRef.current = null; setUncertain(false);
     setBusy(true); setStatus("idle"); setMessage(""); setOfflineLease(null);
     try {
       const result = await apiJson<LookupResult | LookupPreview>(`/api/cashier/lookup?code=${encodeURIComponent(code)}${confirm ? "&confirm=1" : ""}`);
@@ -287,6 +293,7 @@ export default function CashierPage() {
       let accepted = 0;
       let rejected = 0;
       for (const item of readOfflineEvents(localStorage, actorUserId).filter(event => event.state === "pending")) {
+        const cardGeneration = activeCardGeneration.current;
         const result = await postJson<OfflineSyncResult>("/api/cashier/offline/sync", { leaseId: item.leaseId, deviceId, eventId: item.eventId, eventAt: item.eventAt, award: item.award });
         setNetworkTrouble(false);
         resolveOfflineEvent(localStorage, item.eventId, result);
@@ -294,7 +301,7 @@ export default function CashierPage() {
         else rejected += 1;
         if (result.reason === "STAFF_REVOKED" || result.reason === "LEASE_EXPIRED" || result.reason === "LEASE_LIMIT") setOfflineLease(null);
         if (result.status === "accepted" && result.balance !== undefined) {
-          setCard(current => current?.id === item.membershipId ? { ...current, balance: result.balance!, rewards: current.rewards.map(reward => ({ ...reward, eligible: result.balance! >= reward.cost })) } : current);
+          setCard(current => activeCardGeneration.current === cardGeneration && current?.id === item.membershipId ? { ...current, balance: result.balance!, rewards: current.rewards.map(reward => ({ ...reward, eligible: result.balance! >= reward.cost })) } : current);
         }
         setOfflineEvents(readOfflineEvents(localStorage, actorUserId));
       }
