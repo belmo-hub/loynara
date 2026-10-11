@@ -160,3 +160,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-11 /073: [LOY-113-125-recovery-eligibility-verification-2026-10-11](LOY-113-125-recovery-eligibility-verification-2026-10-11.md), TESTED unchanged actual Google-worker429/503 recovery and real501page2optout afterpreview;26focused/static/build/reviewPASS. No application defect/change, complete-feature or provider acceptance claim;113/114 and125/126 OPEN.
 
 /073 receipt:0a805ee6c681e992da020633f90c815086c3a22d localintegrated26PASS;113/125comments7-129/7-130 verified, fullgatesOPEN.
+
+2026-10-11 /074: [LOY-301 mobile menu focus](LOY-301-mobile-menu-focus-2026-10-11.md). Genuine unchanged Escape focus RED; restore after inert removal; Escape/backdrop, keyboard reopening and desktop guard/Back 4 browser PASS; role/PG staff 11 PASS; static/build/review PASS. Global/local integration/tracker receipts follow. LOY-169/170 and LOY-181/182 full acceptance OPEN; no deployment.

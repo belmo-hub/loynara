@@ -30,11 +30,19 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const setOpen = (value: boolean) => setOpenAt(value ? pathname : null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const side = useRef<HTMLElement>(null);
+  const restoreMenuFocus = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (restoreMenuFocus.current) {
+        restoreMenuFocus.current = false;
+        // The close has committed, so the trigger is no longer inside inert content.
+        menuButton.current?.focus();
+      }
+      return;
+    }
     side.current?.querySelector<HTMLElement>("a, select")?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { setOpenAt(null); menuButton.current?.focus(); } };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { restoreMenuFocus.current = true; setOpenAt(null); } };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
@@ -70,7 +78,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
           <LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} />
         </div>
       </aside>
-      {open && <div className="ow-scrim" onClick={() => { setOpen(false); menuButton.current?.focus(); }} aria-hidden="true" />}
+      {open && <div className="ow-scrim" onClick={() => { restoreMenuFocus.current = true; setOpen(false); }} aria-hidden="true" />}
       <div className="ow-main" {...(open ? { inert: true } : {})}>
         <div className="ow-topbar">
           <button ref={menuButton} type="button" className="ow-icon-btn" aria-label="Navigation öffnen" aria-expanded={open} onClick={() => setOpen(true)}><OwnerIcon name="menu" /></button>

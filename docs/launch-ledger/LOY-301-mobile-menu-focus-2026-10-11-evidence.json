@@ -1,0 +1,51 @@
+{
+  "assignment": "LOY-ENG-20261011-074",
+  "issue": "LOY-301",
+  "parent": "LOY-181",
+  "base_sha": "d542923369cf9cb73847b4b406b890fe06b36b23",
+  "source_sha": "this source commit by containment; exact SHA follows in receipt",
+  "status": [
+    "IMPLEMENTED",
+    "TESTED"
+  ],
+  "red": {
+    "unchanged_app": true,
+    "failed": 1,
+    "duration_seconds": 12.2,
+    "sanitized_failure": "Navigation \u00f6ffnen expected focused; received inactive after Escape removed inert."
+  },
+  "browser": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 7.2
+  },
+  "focused": {
+    "files": 2,
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 859
+  },
+  "static": "typegen/typecheck/changed lint maxwarnings0/configured production build PASS",
+  "independent_review": "read-only; no material findings; effective model unmeasured",
+  "global": {
+    "files": 170,
+    "passed": 1584,
+    "failed": 0,
+    "skipped": 1,
+    "duration_seconds": 146.1,
+    "skip": "existing Mailpit-dependent recovery case; no new skip"
+  },
+  "external_acceptance": false,
+  "log_sha256": {
+    "loy-074-red.log": "92cbe1b09b7b0dda2f2ca770727f04479e3967b1fecbff3bf4c586448b6fcbe4",
+    "loy-074-red-focus.log": "671c2d93fbea5324867ff770f6201e0278ec6749dd994b160de3d2d8c70190d2",
+    "loy-074-green.log": "d90e1689bbc1ffb8094380f139a0b9d588074a41a95e8a1c4cc44342160ce6ec",
+    "loy-074-browser-final.log": "769348f4d16080a4d6046e88cb293fc4b38ada4bad69c44da3982c4465eb6f39",
+    "loy-074-focused.log": "5fa8664b06dc2ac3ae53b622fa9a7907fb4d6ba99bd694e9f463f5b75d3ac23a",
+    "loy-074-static.log": "e86f0b0522ccf7ab9af97577587ed8889e17a812a121976825be56f522fcc507",
+    "loy-074-global.log": "041ad185d586837f62e21c20b0084c172bb4325d1005b8dd87a292241680260a",
+    "loy-074-global.json": "ccbe62caa23c135e1944021a0726c0806ac895e59a3ac9eb60e3bbb10297c43b"
+  }
+}
