@@ -137,3 +137,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /067 [LOY-295 campaign detail freshness](LOY-295-campaign-outcome-feedback-2026-10-11.md): actualGET500/stale-panel RED; clear previous detail at read start, explicit loading/error/retry and abandoned-response guard. Verification/integration receipt in entry;167/168 OPEN.
 
 - /067 receipt:295source615183065ad610b047912278f899a4f8c69043a6 locally integrated;21focusedPASS;comment7-123/readback03:02:38UTC codingDone.167/168 broader gates OPEN; no remote/deployment acceptance.
+
+- 2026-10-11 /068 LOY-296: two actual branding-save RED failures; uncertain committed result and newer-edit preservation corrected. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).

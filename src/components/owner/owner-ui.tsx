@@ -62,12 +62,12 @@ export type SaveState = "clean" | "dirty" | "saving" | "saved" | "error";
 const SAVE_LABEL: Record<SaveState, string> = { clean: "", dirty: "Ungespeicherte Änderungen", saving: "Speichern …", saved: "Gespeichert", error: "Speichern fehlgeschlagen" };
 
 /** Consistent save pattern: nothing material is saved silently, the state is always visible and announced. */
-export function SaveBar({ state, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail, asSubmit = false, alwaysDiscard = false, discardLabel = "Verwerfen" }: { state: SaveState; onSave?: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string; asSubmit?: boolean; alwaysDiscard?: boolean; discardLabel?: string }) {
+export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail, asSubmit = false, alwaysDiscard = false, discardLabel = "Verwerfen" }: { state: SaveState; errorLabel?: string; onSave?: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string; asSubmit?: boolean; alwaysDiscard?: boolean; discardLabel?: string }) {
   const busy = state === "saving";
   return (
     <div className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
-        {state !== "clean" && <><span className="ow-dot" aria-hidden="true" />{SAVE_LABEL[state]}</>}
+        {state !== "clean" && <><span className="ow-dot" aria-hidden="true" />{state === "error" && errorLabel ? errorLabel : SAVE_LABEL[state]}</>}
         {state === "clean" && <span className="ow-muted">Keine Änderungen</span>}
         {detail && state !== "clean" && <span className="ow-muted" style={{ fontWeight: 500 }} role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>

@@ -115,3 +115,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 /066 [LOY-294 recovery confirmation uncertainty](LOY-294-recovery-confirm-feedback-2026-10-11.md): actualHTTP500/challenge-preserved RED, fixed invalid-proof vs temporary/ambiguous feedback;12real browser+18helperPASS, static/normalbuild/reviewPASS. Final global and integration receipts in entry; parent33/34 OPEN.
 
 - /067: [LOY-295 campaign outcome browser evidence](LOY-295-campaign-outcome-feedback-2026-10-11.md), persisted positive/zero/foreign fixtures, real API500/transport loss/explicit current-data retry, abandoned old success/error, mobile/desktop; failed test observations retained.
+
+- 2026-10-11 /068 LOY-296:9browserPASS13.4s,17focusedPASS, static/build/reviewPASS;166files1575globalPASS0FAIL1existingSKIP. Initial enrollment fixture failure preserved. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).

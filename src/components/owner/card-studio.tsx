@@ -9,6 +9,7 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
 import { SurfacePreview, type Surface } from "./wallet-previews";
 import { WalletReadiness } from "./wallet-readiness";
+import { brandingSaveFeedback } from "./branding-save-feedback";
 
 export type Brand = { businessName: string; locationName: string; brandColor: string; logoData: string | null };
 const SWATCHES: Array<{ name: string; hex: string }> = [
@@ -29,12 +30,14 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   const [draft, setDraft] = useState<Brand>(initial);
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
+  const [errorLabel, setErrorLabel] = useState("");
   const [logoError, setLogoError] = useState("");
   const [surface, setSurface] = useState<Surface>("browser");
   const [demo, setDemo] = useState<Demo>("close");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [savedVersion, setSavedVersion] = useState(0);
   const saving = useRef(false);
+  const revision = useRef(0);
 
   const colorValid = HEX.test(draft.brandColor);
   const nameValid = draft.businessName.trim().length >= 2 && draft.locationName.trim().length >= 2;
@@ -49,7 +52,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
     programType: program.programType, rewardTitle: program.rewards[0]?.title ?? program.rewardTitle, rewardCost: cost, balance, programName: program.programName, logoData: draft.logoData,
   }), [draft, colorValid, saved.brandColor, program, cost, balance]);
 
-  function edit(patch: Partial<Brand>) { setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
+  function edit(patch: Partial<Brand>) { revision.current++; setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
 
   async function pickLogo(file: File | undefined) {
     if (!file) return;
@@ -60,19 +63,24 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
 
   async function save() {
     if (saving.current || !colorValid || !nameValid) return;
-    saving.current = true; setState("saving"); setError("");
+    saving.current = true;
+    const submittedRevision = revision.current;
+    setState("saving"); setError(""); setErrorLabel("");
     try {
       // logoData: omitted = keep, null = remove, string = replace. Only send the image when it changed.
       const logoChanged = draft.logoData !== saved.logoData;
       const result = await postJson<Brand>("/api/merchant/program/brand", { programSlug: me.programSlug, businessName: draft.businessName.trim(), locationName: draft.locationName.trim(), brandColor: draft.brandColor, ...(logoChanged ? { logoData: draft.logoData } : {}) });
-      setSaved(result); setDraft(result); setState("saved"); onSaved(result); setSavedVersion(value => value + 1);
-      owner.announce("Kundenkarte gespeichert.");
+      setSaved(result);
+      // Only the submitted revision was acknowledged; keep edits made during I/O.
+      setDraft(current => revision.current === submittedRevision ? result : current); setState("saved"); onSaved(result); setSavedVersion(value => value + 1);
+      owner.announce(revision.current === submittedRevision ? "Kundenkarte gespeichert." : "Der eingereichte Stand wurde gespeichert. Neuere Änderungen sind noch ungespeichert.");
       void owner.refresh();
     } catch (cause) {
-      setState("error"); setError(cause instanceof Error ? cause.message : "Die Kundenkarte konnte nicht gespeichert werden."); owner.announce("Speichern fehlgeschlagen.");
+      const feedback = brandingSaveFeedback(cause);
+      setState("error"); setError(feedback.message); setErrorLabel(feedback.label); owner.announce(feedback.label);
     } finally { saving.current = false; }
   }
-  function discard() { setDraft(saved); setState("clean"); setError(""); setLogoError(""); }
+  function discard() { revision.current++; setDraft(saved); setState("clean"); setError(""); setLogoError(""); }
 
   const logoIsPng = draft.logoData?.startsWith("data:image/png;base64,") ?? false;
   return (
@@ -139,7 +147,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
           <p className="ow-hint">Wallet-Vorschauen sind Entwürfe. Darstellung auf dem Gerät kann abweichen; Logo und Farben werden vor der Wallet-Freigabe gesondert geprüft und übernommen.</p>
         </div>
       </div>
-      <SaveBar state={shownState} onSave={() => void save()} onDiscard={discard} canSave={colorValid && nameValid && changed} saveLabel="Kundenkarte speichern" detail={shownState === "error" ? `${error} Deine Änderungen sind noch da.` : shownState === "dirty" && !(colorValid && nameValid) ? "Bitte Eingaben prüfen." : undefined} />
+      <SaveBar state={shownState} errorLabel={errorLabel} onSave={() => void save()} onDiscard={discard} canSave={colorValid && nameValid && changed} saveLabel="Kundenkarte speichern" detail={shownState === "error" ? `${error} Deine Änderungen sind noch da.` : shownState === "dirty" && !(colorValid && nameValid) ? "Bitte Eingaben prüfen." : undefined} />
     </div>
   );
 }
