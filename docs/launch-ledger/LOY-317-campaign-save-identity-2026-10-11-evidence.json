@@ -1,0 +1,101 @@
+{
+  "assignment": "LOY-ENG-20261011-092",
+  "issues": [
+    "LOY-317",
+    "LOY-127",
+    "LOY-128",
+    "LOY-147",
+    "LOY-148"
+  ],
+  "date": "2026-10-11",
+  "base_sha": "0e9ae91a8cf32edd3ac2c87d0ba33b90b706a773",
+  "implementation": "Campaign save acknowledgment now requires a nonempty identity; edit replies must match the submitted draft ID. Existing id/campaignId/campaign.id aliases, generation/revision fences, uncertainty guidance and explicit recovery preserved. No API/schema/authorization/consent/scheduling/provider changes.",
+  "primary": "Existing client fetch of QR SVG, validation and generated anmeldeschild.html Blob download correctly rejects controlled HTTP503, truncated200SVG and connection reset, emits no download or automatic retry; explicit retry downloads complete correct-merchant HTML. Three actual Chrome cases pass6.4s. Public generic QR renderer is intentionally public; normal QR decoding/enrollment089 not repeated. No QR production defect or new format. Physical acceptance147148 remains open.",
+  "red": "Two actual committed edit responses corrupted to {} or differentcampaignID produced false saved/clean feedback on unchanged source; genuine browser RED at375/1280. No authentication fixture bypass.",
+  "tests": {
+    "browser": "6PASS14.5s: 2 actual authenticated app/database edit acknowledgment cases plus4 existing mocked revision/generation races; actual create browser failure not newly tested, helper covers create aliases/rejection.",
+    "focused": "61PASS3.15s in5files",
+    "static": "typegen/typecheck/zero-warning changed-file lint/productionbuildPASS",
+    "global_suite": "FIRST run174 files1616PASS0FAIL1existingoptionalMailpitSKIP159.20s",
+    "integrated": "61PASS3.23s in5files"
+  },
+  "review": "One independent read-only static sensitive review, no material findings; no services/tests rerun. Create response compatibility helper-tested, not new browser create evidence.",
+  "failures": "Initial sandbox-only typegen write EPERM and focused test invocation failed; bounded authorized escalation succeeded. These are execution-permission failures, not product regression. Genuine browser RED retained; tests not weakened.",
+  "execution": "Mac, one existing isolated engineer; coordinator assigned Sol Medium discovery/High implementation/Medium review. Effective setter unavailable, existing executor retained; exact effective configuration and input/cache/output/reviewer/browser usage unmeasured. Owned local PostgreSQL55433, synthetic identities, external providers OFF.",
+  "resources": {
+    "free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "created": false,
+    "installed": false,
+    "cleaned": false,
+    "concurrent_affected_path_overlap": [],
+    "Desktop_status": "UNKNOWN from earlier bounded status stall; not rescanned or changed"
+  },
+  "limits": "Full launch incomplete. No push185186 triggersafety unresolved/protectedmerge/deployment/hosted mutation/provider activation/customer sends/tag/legal/newpolicy action. Retention209/location159/entitlement161/dispatch133/event139/admission93 holds unchanged. Prior081 preciseeventattribution remains unproven.",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-163 owner metrics: returning/visit/inactivity/retention correctness beyond accepted169snapshot, require established definitions",
+    "LOY-155 location visibility and cross-location authorization under existing policy, park159-dependent semantics",
+    "LOY-43 precise missing export coverage under existing category policy, park209-dependent legal/category decisions"
+  ],
+  "logs": {
+    "qr": {
+      "local_path": "/tmp/loy-092-qr.log",
+      "bytes": 852,
+      "sha256": "9f51eb280e35fb4b1d835664b47fb6526fc36360365baf880d8b4cf4a233c615"
+    },
+    "red": {
+      "local_path": "/tmp/loy-092-red.log",
+      "bytes": 7144,
+      "sha256": "973b4e6353df27f5960f0fa0b9d2afed808101271f2e0e19cebabea0e62c0aa1"
+    },
+    "green": {
+      "local_path": "/tmp/loy-092-green.log",
+      "bytes": 1292,
+      "sha256": "d32d55667f8baeb3f219659703d38f1b44394896e2ba7ef082c32ba018eff9c1"
+    },
+    "unit": {
+      "local_path": "/tmp/loy-092-unit.log",
+      "bytes": 1771,
+      "sha256": "02e3befba6e5b28f65256b9a6acb9baaaad5b80cdef010796e925c6dfb592250"
+    },
+    "static": {
+      "local_path": "/tmp/loy-092-static.log",
+      "bytes": 4316,
+      "sha256": "1fea79a24cee206ccff9beb70c2973251c75b02e5e39a6d1e07131286af20458"
+    },
+    "global": {
+      "local_path": "/tmp/loy-092-global.log",
+      "bytes": 39595,
+      "sha256": "5cb77182590b7eec7d2ff165b91145285a69bbaa303503da256e9cd939f48d5f"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-092-integrated.log",
+      "bytes": 1780,
+      "sha256": "3ee46b7ad754d90c8f376668529cdd456826fc9ea1e063dfe5586b1f99c85bdb"
+    }
+  },
+  "source_sha": "6fc9cf097defb0ba40a3c1ffbc505538f093ec24",
+  "browser_database": "Owned looplocal_browser_qr_092 dropped after application stopped and zero connections asserted",
+  "tracker": "317 comment7-153/Done readback08:58:54UTC;147 comment7-154/Backlog unresolved readback08:59:07UTC. Parent127/128 and147/148 broader acceptance OPEN; no parent criteria changed.",
+  "notifications": "One Gmail search for actual317 update:0matching messages; generation/delivery/receipt UNVERIFIED, no fabricated sends.",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11801016,
+    "cumulative_seconds": 62891,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model_effort": null
+  },
+  "external_actions": "Authorized YouTrack child creation/status transitions/evidence/readback and one Gmail read-only delivery search. No restricted hosted/customer/provider/production action."
+}
