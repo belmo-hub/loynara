@@ -28,5 +28,24 @@
   "input_cached_output_effective_configuration": "unmeasured",
   "integration": "pending at entry creation",
   "deployment": false,
-  "independent_acceptance": false
+  "independent_acceptance": false,
+  "verified_receipt": {
+    "test_sha": "33e7ea6ca01bb521493ef33e933e46aa48d9d5d9",
+    "local_integrated": true,
+    "integrated_focused_pass": 1,
+    "integrated_seconds": 1.17,
+    "integrated_log_sha256": "ca1c6f1502f69943de9b4c6f3b75b4f1a776317ceece50bc49a9761e3ec708f9",
+    "tracker": {
+      "LOY-320": {
+        "stage": "Done",
+        "comment": "7-165"
+      },
+      "LOY-201": {
+        "stage": "Backlog",
+        "comment": "7-166"
+      }
+    },
+    "readback_utc": "2026-10-11 10:14:33",
+    "gmail_ids_found": 0
+  }
 }
