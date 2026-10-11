@@ -1,0 +1,93 @@
+{
+  "assignment": "LOY-ENG-20261011-084",
+  "issue": "LOY-311",
+  "parent": "LOY-153",
+  "base_sha": "acc0fccae399b8617b9d69e87ce4490e5b53b9fe",
+  "source_sha": "4d8ac0f008e842e144bfc0d686ccb6f45f57d5da",
+  "result_sha": "Containing documentation commit; exact receipt recorded in durable state and requirement map",
+  "implementation": "Submitted email/role + draftrevision snapshot; clear unchanged draft only; unconfirmed reply bound to submitted address + existing audit read; no auto creation/replay dedup/backend policy change",
+  "authority": "Founder master directive and completed coordinator084; no new founder policy",
+  "red": "Unchanged-source actualChrome:1definitiveauditfailurePASS;2genuineRED neweremailcleared/committedlostreplygenericnetwork;28.8s",
+  "browser": "3actualChromePASS8.0s",
+  "focused": "4files18PASS3.73s",
+  "static": "typegen/typecheck/zero-warning changed-file lint/production build PASS",
+  "global": "173files1601PASS0FAIL1existing optional Mailpit recovery SKIP153.02s; first configured final run passed",
+  "integrated": "cleanLOCALFF;4files18PASS3.77s;frozen32b27ec exact/accepted e1aae658 and9848e759 ancestry/migration0024 preserved",
+  "review": "One reused independentREAD-ONLY reviewer no material findings/staticonly; malformed-response and authorization negatives not covered by new browser cases; effectiveconfigunmeasured",
+  "tracker": "311Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T07:09:22Z/comment7-144;153InReview/154Backlog acceptance/resolvednull preserved",
+  "usage": {
+    "cumulative_reported_tokens": 10638716,
+    "cumulative_seconds": 56339,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": {
+    "base_verified": true,
+    "disk_free_gib": 42,
+    "registered_codex_worktrees": 13,
+    "other_checkouts_checked": 40,
+    "tracked_overlap": [],
+    "Desktop_concurrency": "UNKNOWN; previously stalled; not rescanned",
+    "new_worktree": false,
+    "installations": false,
+    "153": "InReview;154Backlogacceptance;297Done revocationfeedback unrelated"
+  },
+  "execution": "Mac; one engineer; assigned gpt-6.1-sol Medium discovery/High engineering/Medium review; effective setter unavailable, existing executor retained; normal authenticated synthetic owner/native PostgreSQL localhost55433; existing dependencies reused",
+  "external_actions": "Genuine311creation/InProgress/InReview/Done/comment/readback;Gmail311query0matching,notification generation and receipt UNVERIFIED. Owned looplocal_browser_staff_084 dropped after appstop and zero active connections. No remote push185/186/protected merge/deployment/hosted migration/provider/customer send/tag/legal/new policy action",
+  "limitations": [
+    "Invitation creation remains non-idempotent; lost one-display raw-token recovery/replay semantics unchanged. No duplicate-safe retry promise.",
+    "Malformed-success branch inspected but not new browser-exercised; authorization/tenant/expiry/revocation negatives covered by existing actual-session focused tests.",
+    "Independent review static only; model configuration and input/cache/output/browser/reviewer usage unmeasured.",
+    "Full153/154 and launch acceptance OPEN; prior081 failure precise causation remains UNPROVEN."
+  ],
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "fallback": "Unused; no third investigation",
+  "next_candidates": [
+    "LOY-49 selected-reward redemption failure feedback beyond304/305",
+    "LOY-119 referral customer recovery beyond accepted attribution/duplicate guards",
+    "LOY-145 onboarding server rejection recovery beyond accepted validation"
+  ],
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-084-red.log",
+      "bytes": 6176,
+      "sha256": "8dfad2089040505c452974412c42ba88c871adbf911fc0c4841b9588bfb080af"
+    },
+    "green": {
+      "local_path": "/tmp/loy-084-green.log",
+      "bytes": 955,
+      "sha256": "12b3a4326ddddd7a7de021c44392b91dab9d4877ea61a46dbf9868b7cf987269"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-084-focused.log",
+      "bytes": 1546,
+      "sha256": "1ba31597f63499a78d3aa525b7957fe41ca492d6f841830ee55c6500b09a442b"
+    },
+    "static": {
+      "local_path": "/tmp/loy-084-static.log",
+      "bytes": 4317,
+      "sha256": "b5150a2e421c1973d7c3761c07d7acdab0eee8687ede17a00dad99bb4721fc94"
+    },
+    "global": {
+      "local_path": "/tmp/loy-084-global.log",
+      "bytes": 38914,
+      "sha256": "5403632e457d70f0e12861f71f7a078ce58f642d140d4c892c2a1d5906e3befa"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-084-integrated.log",
+      "bytes": 1555,
+      "sha256": "de4cd19994d86f51ab696398330ff05fe6c8bf48055036828ed1a9427448950b"
+    }
+  }
+}
