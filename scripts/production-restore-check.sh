@@ -26,7 +26,26 @@ fi
 for tool in pg_restore psql age aws; do command -v "$tool" >/dev/null || { echo "Missing restore tool: $tool" >&2; exit 1; }; done
 
 export PGHOST="$RESTORE_PGHOST" PGDATABASE="$RESTORE_PGDATABASE" PGUSER="$RESTORE_PGUSER" PGPASSWORD="$RESTORE_PGPASSWORD" PGPORT="${RESTORE_PGPORT:-5432}"
-existing="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'")"
+# A fresh database has public plus PostgreSQL system schemas. Reject custom
+# schemas (even empty ones) and every object depending on the public namespace,
+# including relations, routines, types, sequences and extension-owned objects.
+# Large objects have no namespace. Only the built-in plpgsql extension in
+# pg_catalog is part of the fresh-database baseline; custom extensions refuse.
+# Catalog metadata is not filtered by the caller's table visibility privileges.
+existing="$(psql -X -At -v ON_ERROR_STOP=1 -c "
+SELECT
+  (SELECT count(*) FROM pg_catalog.pg_namespace
+   WHERE nspname NOT IN ('public', 'pg_catalog', 'information_schema')
+     AND nspname NOT LIKE 'pg_toast%')
+  +
+  (SELECT count(*) FROM pg_catalog.pg_depend AS dependency
+   JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = dependency.refobjid
+   WHERE dependency.refclassid = 'pg_catalog.pg_namespace'::regclass
+     AND namespace.nspname = 'public')
+  + (SELECT count(*) FROM pg_catalog.pg_largeobject_metadata)
+  + (SELECT count(*) FROM pg_catalog.pg_extension
+     WHERE extname <> 'plpgsql'
+        OR extnamespace <> 'pg_catalog'::regnamespace)")"
 [[ "$existing" == "0" ]] || { echo "Restore target is not empty; no changes made." >&2; exit 1; }
 encrypted="$(mktemp)"
 decrypted="$(mktemp)"
