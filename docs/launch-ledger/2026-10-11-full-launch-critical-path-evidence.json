@@ -1,0 +1,493 @@
+{
+  "assignment": "102",
+  "base": "6a87d40e478e3909f16b43dd0ebe6b36924e639e",
+  "historical_records": 277,
+  "historical_snapshots": 272,
+  "historical_must_launch": 257,
+  "register_rows": 278,
+  "coverage_warning": "Not an exhaustive current live issue inventory or current incomplete-feature count; fallback explicit UNKNOWN",
+  "live_targeted_issues": [
+    {
+      "id": "LOY-201",
+      "summary": "Cost thresholds and external-provider outage behavior",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Infrastructure / Security",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-11 10:14:33",
+      "requirement": "FEATURE-L-COST-OUTAGE",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Cost monitoring.\n- [ ] The following capability is functional and independently accepted: Provider outage behavior.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-201"
+    },
+    {
+      "id": "LOY-167",
+      "summary": "Accurate campaign outcomes, fresh data and honest empty states",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Analytics / Advice",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-11 10:24:50",
+      "requirement": "FEATURE-J-CAMPAIGN-METRICS",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Campaign outcomes.\n- [ ] The following capability is functional and independently accepted: Data freshness.\n- [ ] The following capability is functional and independently accepted: Empty states.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-167"
+    },
+    {
+      "id": "LOY-43",
+      "summary": "Customer export and actual deletion/retention handling",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "In Review",
+        "Workstream": "Customer Experience",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Local Implementation",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Automated Tests Verified",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-11 10:03:25",
+      "requirement": "FEATURE-A-CUSTOMER-RIGHTS",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Customer data export/deletion.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-43"
+    },
+    {
+      "id": "LOY-161",
+      "summary": "\u20ac39 per-location commercial behavior and entitlement boundaries",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Blocked",
+        "Workstream": "Staff / Locations",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-10 19:59:59",
+      "requirement": "FEATURE-I-LOCATION-PRICE",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Location-based pricing behavior.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-161"
+    },
+    {
+      "id": "LOY-37",
+      "summary": "Purchase earning, points and multiple reward catalogue rules",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Customer Experience",
+        "Launch requirement": "Scope Decision Required",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Founder",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-09 11:38:01",
+      "requirement": "FEATURE-A-POINTS-CATALOGUE",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Purchase-amount earning.\n- [ ] The following capability is functional and independently accepted: Points-based programmes.\n- [ ] The following capability is functional and independently accepted: Reward catalogues.\n- [ ] The following capability is functional and independently accepted: Multiple reward options.\n- [ ] The following capability is functional and independently accepted: Programme rules.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-37"
+    },
+    {
+      "id": "LOY-133",
+      "summary": "Quiet-hours win-back, reward/referral and post-visit actions",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Blocked",
+        "Workstream": "Campaigns / Marketing Automation",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Local Implementation",
+        "Execution responsibility": "Claude",
+        "Evidence state": "Automated Tests Verified",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-10 18:17:48",
+      "requirement": "FEATURE-G-RETENTION-AUTOMATIONS",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Quiet hours.\n- [ ] The following capability is functional and independently accepted: Automated win-back.\n- [ ] The following capability is functional and independently accepted: Reward reminders.\n- [ ] The following capability is functional and independently accepted: Referral campaigns.\n- [ ] The following capability is functional and independently accepted: Post-visit automation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-133"
+    },
+    {
+      "id": "LOY-139",
+      "summary": "Provider failure, rate limits, delivery logs and retry behavior",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "In Review",
+        "Workstream": "Campaigns / Marketing Automation",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Local Implementation",
+        "Execution responsibility": "Claude",
+        "Evidence state": "Automated Tests Verified",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-11 10:24:50",
+      "requirement": "FEATURE-G-CAMPAIGN-RELIABILITY",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Provider failure handling.\n- [ ] The following capability is functional and independently accepted: Rate limits.\n- [ ] The following capability is functional and independently accepted: Delivery logs.\n- [ ] The following capability is functional and independently accepted: Retry policies.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-139"
+    },
+    {
+      "id": "LOY-159",
+      "summary": "Decide multi-location staff and shared/independent programme rules",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Staff / Locations",
+        "Launch requirement": "Scope Decision Required",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Founder",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-10 13:34:15",
+      "requirement": "FEATURE-I-MULTI-LOCATION-SCOPE",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Staff working at multiple locations, if required.\n- [ ] The following capability is functional and independently accepted: Shared/independent loyalty programmes.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-159"
+    },
+    {
+      "id": "LOY-173",
+      "summary": "Metric definitions, ROI limitations and multi-location reporting",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Analytics / Advice",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Unknown / Needs Verification",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-09 11:54:24",
+      "requirement": "FEATURE-J-METRIC-DEFINITIONS",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Metric definitions.\n- [ ] The following capability is functional and independently accepted: Revenue/ROI claim accuracy.\n- [ ] The following capability is functional and independently accepted: Attribution limitations.\n- [ ] The following capability is functional and independently accepted: Multi-location reporting.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-173"
+    },
+    {
+      "id": "LOY-229",
+      "summary": "Mobile/desktop conversion and correct non-guaranteed calculator",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Website / Marketing",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Ready for Review",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-09 12:03:57",
+      "requirement": "FEATURE-O-WEBSITE-CONVERSION",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Mobile conversion.\n- [ ] The following capability is functional and independently accepted: Desktop conversion.\n- [ ] The following capability is functional and independently accepted: Calculator correctness.\n- [ ] The following capability is functional and independently accepted: No guaranteed ROI claims.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-229"
+    },
+    {
+      "id": "LOY-239",
+      "summary": "Approved provider, recurring payments, failure/cancellation and refund behavior",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Backlog",
+        "Workstream": "Billing / Commercial",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Not Started",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Missing",
+        "Type": "Feature",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-09 12:08:00",
+      "requirement": "FEATURE-P-LIVE-BILLING",
+      "criteria": "- [ ] The following capability is functional and independently accepted: Subscription contracts.\n- [ ] The following capability is functional and independently accepted: Billing provider choice.\n- [ ] The following capability is functional and independently accepted: Recurring payments.\n- [ ] The following capability is functional and independently accepted: Failed payments.\n- [ ] The following capability is functional and independently accepted: Cancellations.\n- [ ] The following capability is functional and independently accepted: Refund policy.\n- [ ] The following capability is functional and independently accepted: Test versus live billing separation.\n- [ ] Negative/retry/isolation and failure cases in the verification procedure pass.\n- [ ] Evidence records exact SHA, environment, timestamp, reviewer and applicable physical/provider result; missing evidence fails the gate.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-239"
+    },
+    {
+      "id": "LOY-271",
+      "summary": "Completed Apple synthetic production acceptance \u2014 iPhone install/update/correction/replay/void",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Done",
+        "Workstream": "Wallet / PassFast",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "Physical Acceptance Verified",
+        "Execution responsibility": "Founder",
+        "Evidence state": "Physical Test Verified",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-09 12:04:50",
+      "requirement": "EVIDENCE-APPLE-SYNTHETIC-PASS",
+      "criteria": "- [x] Physical iPhone install, automatic balance 2 \u2192 3, correction 3 \u2192 2 and void were owner-confirmed.\n- [x] Same-key replay had no additional ledger effect.\n- [x] Both web and worker were reconciled on 792e218a17287009067ce0993c33eda3bfc3f4b7; schema 0020/21 and all activation gates returned OFF.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-271"
+    },
+    {
+      "id": "LOY-272",
+      "summary": "Completed NFC candidate review/integration and local migration rehearsal; physical gate open",
+      "customFields": {
+        "Priority": "P1 \u2014 Launch blocker",
+        "Stage": "Done",
+        "Workstream": "NFC",
+        "Launch requirement": "Must Launch",
+        "Feature maturity": "RC Ready",
+        "Execution responsibility": "Codex",
+        "Evidence state": "Automated Tests Verified",
+        "Type": "Feature",
+        "Assignee": "admin",
+        "Due Date": "15 Oct 2026"
+      },
+      "updatedAt": "2026-10-10 13:24:05",
+      "requirement": "EVIDENCE-NFC-RC-REVIEW",
+      "criteria": "- [x] Exact source candidate a93fb82f3acd46045c94a89b34c140c88e4e1b9a integrated onto 792e218a17287009067ce0993c33eda3bfc3f4b7.\n- [x] Polling limits, crash-recovered fenced push leases and post-lock expiry fixes are documented.\n- [x] Local populated migration rehearsal preserves history; physical push and deployment remain separate open gates.",
+      "url": "https://loynara.youtrack.cloud/issue/LOY-272"
+    }
+  ],
+  "founder_action_queue_snapshot": [
+    {
+      "key": "LOY-138:Sender/DNS/receipt acceptance",
+      "issue": "LOY-138",
+      "action": "Review sender identity/SPF/DKIM/DMARC; separately authorize a synthetic receipt session",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-114:Google Wallet publishing",
+      "issue": "LOY-114",
+      "action": "Review the existing publishing gate and complete the provider approval",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-76:Physical stand NFC/QR acceptance",
+      "issue": "LOY-76",
+      "action": "Complete the existing authorized preview iPhone/Android NFC and QR checklist",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-235:Operator authorization",
+      "issue": "LOY-235",
+      "action": "Complete the existing operator-authorization review",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-17:Restricted unattended tracker integration",
+      "issue": "LOY-17",
+      "action": "Connect a read-only LOY identity with existing issue visibility; verify its effective permissions before wiring the unattended loop",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-134:Reward reminder live acceptance",
+      "issue": "LOY-134",
+      "action": "After sender and consent gates pass, separately authorize an opted-in synthetic recipient session; capture actual reward-reminder receipt/provider event and withdrawal, suppression, quiet-hour/DST, cooldown and retry outcomes at the exact reviewed SHA. Obtain independent merchant acceptance.",
+      "recorded_status": "waiting",
+      "notification_evidence": "Verified YouTrack LOY-134 evidence comment and readback; included in ChatGPT completed-slice checkpoint003"
+    },
+    {
+      "key": "LOY-140:Campaign reliability live acceptance",
+      "issue": "LOY-140",
+      "action": "After sender and consent gates, separately authorize an opted-in synthetic recipient session using the approved sender; capture actual receipt, authenticated failed/severity temporary/permanent events, explicit429 handling, withdrawal/suppression and quiet-hour outcomes at the exact reviewed SHA; record independent reviewer and environment. Do not use customer sends or infer activation permission.",
+      "recorded_status": "waiting",
+      "notification_evidence": "Verified trackerLOY140post/readback and ChatGPT006post/readback; completedreviewpending"
+    },
+    {
+      "key": "LOY-146:Merchant setup independent acceptance",
+      "issue": "LOY-146",
+      "action": "Independent operator follows existing runbook through approved synthetic provisioning/login/profile/location/programme/reward/branding/invitation/stamp/redemption/support recovery. Record each outcome including negative/retry/isolation with exact reviewed SHA, environment, timestamp and reviewer. Live mutations/messages require separate authorization.",
+      "recorded_status": "waiting",
+      "notification_evidence": "Verified tracker146post/readback and ChatGPT007completedreply"
+    },
+    {
+      "key": "LOY-120:Referral independent acceptance",
+      "issue": "LOY-120",
+      "action": "Two distinct synthetic people in two tenants share/enroll; confirm checkout, repeat/self-refer/race/correct; verify bounded bonuses and reporting without contact exposure. Record exact reviewed SHA/environment/time/reviewer and each outcome. Any staging/live/physical operations require separate authorization. Lifetime identity/anonymous dedup remain unresolved; do not infer new contact retention approval.",
+      "recorded_status": "waiting",
+      "notification_evidence": "Tracker120posted/readback and completedChatGPT009read"
+    },
+    {
+      "key": "LOY-159:Multi-location staff/programme decision",
+      "issue": "LOY-159",
+      "action": "Specify whether staff accounts must operate across multiple locations and whether loyalty balances/rewards are shared or independent across those locations; record the founder decision in LOY-159 before engineering expands the permission model",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-154:Staff permissions independent acceptance",
+      "issue": "LOY-154",
+      "action": "Run two synthetic tenants and locations through correct/wrong email invites, expired/revoked invites, concurrent role reactivation, owner/manager/cashier permissions and revoked-session checkout; attach exact reviewed SHA/environment/reviewer, separately authorize any hosted execution",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-158:Independent departure and recovery acceptance",
+      "issue": "LOY-158",
+      "action": "Rehearse owner revocation while a staff browser stays signed in: pending NFC list/confirmation, awards/redemptions/corrections, push cleanup and wrong-location/tenant denials. Verify approved credential recovery separately using synthetic identities with explicit hosted/credential operation authorization; record exact SHA/environment/reviewer. Resolve outstanding invitation departure policy without inventing multi-location semantics",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-38:Points and catalogue variant decision",
+      "issue": "LOY-38",
+      "action": "Record the exact agreed launch variants and acceptance standards for purchase-amount earning, points programmes, reward catalogues, multiple reward options and programme rules; retain all full-launch gates and identify any explicit exclusion evidence without implicit deferral. Separately authorize physical iPhone/Android acceptance when ready.",
+      "recorded_status": "waiting",
+      "notification_evidence": "Tracker38#7-70 posted/read back; ChatGPT018 pending"
+    },
+    {
+      "key": "LOY-50:Independent purchase and selected reward device acceptance",
+      "issue": "LOY-50",
+      "action": "After LOY38 decision, separately authorize an independent device session recording OS/browser/device, attempt counts/timings, two consecutive synthetic customers, camera-denial fallback, two-cashier race, booking-key replay, offline disconnect/reconnect reconciliation, one intended ledger effect and no wrong-customer booking; capture exact SHA, reviewer, reward and purchase/card balance/history per outcome.",
+      "recorded_status": "waiting",
+      "notification_evidence": "TrackerLOY50#7-68 posted/read back; ChatGPT checkpoint017 pending"
+    },
+    {
+      "key": "LOY-209:Approved privacy retention deletion export and incident response",
+      "issue": "LOY-209",
+      "action": "Obtain and record professional/founder-approved data-category export scope, retention grounds and periods, deletion/anonymization handling including shared recovery identity, audit/ledger and backups, processor responsibilities and an incident-response runbook. Then separately authorize independent two-tenant export/delete/expiry/replay and incident-response acceptance at an exact reviewed SHA. Do not infer legal approval or deploy/purge from this local fix.",
+      "recorded_status": "waiting",
+      "notification_evidence": "TrackerLOY43#7-73 and209#7-74 posted/read back Backlog; ChatGPT checkpoint021 sent once and completed reply read. No founder decision received."
+    },
+    {
+      "key": "LOY-133:Dispatch authorization cutoff",
+      "issue": "LOY-133",
+      "action": "Decide whether withdrawal/catalogue invalidation after durable authorization but before provider handoff must cancel delivery, or whether committed authorization is the eligibility cutoff. Existing unqualified withdrawal-before-dispatch requirement remains until explicitly amended.",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-133:Referral campaign contract",
+      "issue": "LOY-133",
+      "action": "Identify an existing approved referral campaign contract or decide whether campaign invites enrolled opted-in members to share their existing link, targets recorded referrers, or uses another defined audience; specify qualifying/reversed events and approved link personalization. No consent inferred for referred contacts.",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-139:Legacy provider event identity evidence",
+      "issue": "LOY-139",
+      "action": "Operator read-only verify whether production email_provider_events has any legacyID-only rows. If nonempty, obtain sanitized Mailgun event-generationUTCday/providerdomain/eventID mapping for exact reconciliation, or report mapping unavailable. Preserve rows; no activation/sends/secret disclosure/migration writes.",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-161:Inactive location entitlement policy",
+      "issue": "LOY-161",
+      "action": "Founder identify an existing approved rule or decide which explicit entitlement state disables which location operations, effective timing and preserved customer/staff/history access; distinguish commercial subscription status from fixture tests. Do not infer denial from unpaid invoices or change provisional pricing/159 sharing semantics.",
+      "recorded_status": "waiting",
+      "notification_evidence": "YouTrack161comment7-95 persisted/readback; coordinator041deliveredonce/completedreviewconfirmedticket-specifichold; Gmaildeliveryunverified"
+    },
+    {
+      "key": "GOAL:ChatGPT coordinator authentication",
+      "issue": "Native Goal 01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+      "action": "Sign in personally in existing Chrome profile; do not send credentials. Existing strategic conversation and four unsent reports preserved.",
+      "recorded_status": "resolved",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-282:Coordinated claim-token deployment",
+      "issue": "LOY-282",
+      "action": "At a separately authorized release, migrate additive0024 and drain/replace all old outbox claim writers, including app immediateNFC and backgroundworker, using the reviewed common SHA; verify process/source/schema custody and queue recovery before enabling any provider. Do not run mixed old/new writers.",
+      "recorded_status": "waiting for separately authorized release; independent local coding continues",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-195/196:Current encrypted backup and isolated restore acceptance",
+      "issue": "LOY-195",
+      "action": "Separately authorize an independent release operator to verify a reviewed current encrypted scheduled-backup artifact (exact source/schema identity and time) and restore only that explicitly approved artifact into isolated infrastructure. Reconcile synthetic/approved record counts, append-only constraints, migration journal and cleanup, attach exact SHA and independent evidence to195/196. Keep production overwrite/migrations, credentials, provider configuration and retention policy changes outside this authorization;0024 coordinated cutover remains a separate founder approval.",
+      "recorded_status": "waiting",
+      "notification_evidence": "Parent195comment7-114/readbackverified; coordinator060Send/userbubbleverified/completedreplyread; Gmaildeliveryunverified."
+    },
+    {
+      "key": "LOY-185:Supabase integration push-trigger verification",
+      "issue": "LOY-185",
+      "action": "Personally complete existing GitHub Confirm access on https://github.com/settings/installations/145405138 and leave installation repository scope readable. Do not change access, app configuration or create a Supabase account. Scope may not suffice to prove project triggers; exact integration push remainsUNVERIFIABLE.",
+      "recorded_status": "waiting",
+      "notification_evidence": "185comment7-119/readback2026-10-11 02:09:00UTC; report064 pending; Gmailunverified"
+    },
+    {
+      "key": "GOAL:YouTrack Gmail notification delivery",
+      "issue": null,
+      "action": "UNKNOWN exact action",
+      "recorded_status": "UNVERIFIED_RECEIPT \u2014 not a global engineering stop",
+      "notification_evidence": "LOY-294 comment7-122 persisted; coordinator066 explicitSendonce/deliveryverified/replypending"
+    },
+    {
+      "key": "LOY-93:Approved Wallet admission scope and quota",
+      "issue": "LOY-93",
+      "action": "Founder/operator record the approved tenant/location/cohort issuance cap, actual provider quota and alert/stop thresholds; explicitly decide whether unattended transactional admission is required. Do not activate provider through this task.",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-164:Independent merchant retention overview acceptance",
+      "issue": "LOY-164",
+      "action": "Assign an independent reviewer to reconcile two-tenant synthetic records, UTC30/90 windows, established14/30/60/90 inactivity controls, duplicate/reversal exclusions, report/UI figures and scope at an exact approved SHA/environment. Separately authorize any hosted execution; record each164 outcome and reviewer. See163comment7-156.",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-152:Independent onboarding support handoff trial",
+      "issue": "LOY-152",
+      "action": "UNKNOWN exact action",
+      "recorded_status": "OPEN",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    },
+    {
+      "key": "LOY-202:Independent provider outage and alert acceptance",
+      "issue": "LOY-202",
+      "action": "Independent release operator verify reviewed-SHA outage/alert/customer continuity in a separately approved environment; record actual provider identity, error/recovery, stable Wallet identity and exactly-once ledger evidence. Actual quota/alert/stop threshold approval remains existing LOY-93 founder action. No activation or permission changes authorized here.",
+      "recorded_status": "waiting",
+      "notification_evidence": "UNKNOWN / not newly notified here"
+    }
+  ],
+  "latest_global": {
+    "assignment": "101",
+    "source_sha": "9cb1f2178d54055bcd53e41ee01c6c8ba6edc58c",
+    "integrated_sha": "6a87d40e478e3909f16b43dd0ebe6b36924e639e",
+    "files": 180,
+    "passed": 1629,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 169.46,
+    "skip": "existing optional loopback Mailpit recovery",
+    "json": "/tmp/loy-101-global-final.json",
+    "scope": "Configured src/scripts Vitest suite; browser4 separately; receipt docs only"
+  },
+  "source_inspections": [
+    "src/components/card-client.tsx:Google operation no abort/operation guard, Apple has guard; runtime defect not yet reproduced",
+    "src/lib/audience-definition.ts:six non-referral kinds;133 audience/personalization scope held",
+    "src/lib/export.ts:format1 pseudonymous-card-activity-without-contact-records",
+    "src/lib/billing.ts:local_fixture only, liveBilling false",
+    "src/app/merchant/analytics/page.tsx:attempt counts conditional >0; honest attempted-not-delivered text; empty campaign section absent, required UI behavior not yet demonstrated",
+    "src/db/schema.ts:single user-bound staff role; founder159 semantics held"
+  ],
+  "input_hashes": {
+    "requirement_map": "05ff048b9c978a7345a83ac21a8e9bb3c359b248fcb08501b873ee57bd860517"
+  },
+  "usage_checkpoint": {
+    "tokens": 12981011,
+    "seconds": 70296,
+    "input_cached_output": "unmeasured"
+  }
+}
