@@ -113,3 +113,5 @@ Chronological104 amendment: fresh read-only Railway now verifies active web fe8b
 105 amendment: [Ten-merchant local verification](2026-10-11-ten-merchant-release-105.md) adds reviewed durable cross-feature evidence, not physical/provider/production acceptance. GitHub owner reauthentication resolved; linked-project automatic branch triggers remain unknown, push parked. Full release NO-GO; existing policies/cutover/external gates retained.
 
 106 amendment: [Purchase/concurrency](2026-10-11-purchase-concurrent-release-106.md) confirms actual ten-merchant overlap and supported purchase points without product change;105 completedreviewread. Exact owner GitHub permission decision and separately authorized cutover remain; no repeated audit/falseglobalclaim/physicalacceptance.
+
+107 amendment: [Reporting/export local acceptance](2026-10-11-campaign-reporting-acceptance-107.md) adds real-browser zero/failed/stale-read/limited-artifact evidence without application/policy changes;106 completedreviewread. Full launch scope and human release/provider/privacy gates remain open; no new exhaustiveaudit or completion claim.

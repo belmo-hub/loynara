@@ -62,3 +62,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 - 2026-10-11 /105: [Ten-merchant release verification](2026-10-11-ten-merchant-release-105.md) — durable actual-route/PG cohort,2 Chrome journeys/typecheck/lint/build/full suite PASS; no product defect; owner reauthentication resolved/automatic branch trigger unknown; local integration receipt follows, full launch NO-GO.
 
 - 2026-10-11 /106: [Purchase/concurrent merchant verification](2026-10-11-purchase-concurrent-release-106.md) —10 observed overlapping PGpurchaseINSERTs, attribution/replay/reward/reporting/revocationPASS; focused1PASS2.86s/staticbuildPASS, no application change; ownerpermissiondecision/hosted release gates remain, local receipt follows.
+
+- 2026-10-11 /107: [Campaign reporting and narrow export acceptance](2026-10-11-campaign-reporting-acceptance-107.md) —3 actualChromePASS8.1s/26focusedPASS3.95s/staticbuildPASS; truthfulzero/failure/staleread/retry/isolation/limitedexport, no productdefect or policy change; integration/review receipts follow.

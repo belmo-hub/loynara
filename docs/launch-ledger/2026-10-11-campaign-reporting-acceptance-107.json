@@ -1,0 +1,59 @@
+{
+  "assignment": "LOY-ENG-20261011-107",
+  "date": "2026-10-11T13:08:53.337557+00:00",
+  "issues": [
+    "LOY-167",
+    "LOY-43",
+    "LOY-28",
+    "LOY-185"
+  ],
+  "base": "45d17b3c51adc632ab8700535f4683f2b7d8d26b",
+  "result": "containing commit; integration/tracker/review receipts follow",
+  "agent": "Codex /root",
+  "model": "assigned SolMedium verification/review; effective setter unavailable/current executor retained; reviewer configuration unmeasured",
+  "execution": "existing isolated codex/campaign-reporting-107, owned loopback PGguard; installedChrome; providersOFF/no new worktree/install/cleanup",
+  "changes": [
+    "e2e/campaign-reporting-acceptance.spec.ts",
+    "incremental launch-ledger evidence/indexes"
+  ],
+  "application_changes": false,
+  "tests": {
+    "final_browser": "3PASS8.1s;375+1280 owner reporting,375 customer export fallback",
+    "reporting": "real owned fixtures:emptydraft/scheduledzero/completeddispatchonefailedattempt0providerdeliveries; actualdetail sixcounts; foreigncampaign404/notlisted;503refreshremovesoldsnapshot/retryrestores",
+    "export": "realJSONdownload format1/scopepseudonymous-card-activity-without-contact-records/ownbalance2ledger2,excludesforeignmember/bearers/scan/email;503nodownload/usablefeedbackthenretryoneartifact;foreigntokenhasonlyownbalance3;invalidtoken404",
+    "focused": "26PASS/3files3.95s campaigns/consent-order/customerexport-active-loss",
+    "static": "typegen/typecheck/changedfilelint0warnings/buildPASS",
+    "global": "105 unchangedapplication181files1630PASS0FAIL1existingoptionalMailpitskip174s; no new107globalsuite claimed",
+    "historical": "063 eight-case browser export evidence retained; frontend export files byteunchanged since0629c6f;106 purchase/concurrency retained no repeat",
+    "review": "existingreadonly loy281_sensitive_review no material findings; staticonly/no rerun"
+  },
+  "failures": "No failing product assertion/sourceRED; no speculative fix. Addedrealisticcompleteddispatchfixture andexplicitstatusassertions beforefinalbrowserrun; no thresholds invented.",
+  "status": {
+    "implemented": "durable verification test only",
+    "tested": true,
+    "integrated": "pending receipt",
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "limits": [
+    "synthetic historical failedrecipient/attempt/dispatch rows, no actualproviderdelivery",
+    "375/1280 desktopChromeviewport not actualiPhoneAndroid",
+    "failed503transport injected; actualcampaignreads/exportdownload exercised",
+    "no new freshness threshold; previoussnapshotinvalidatedonreadfailure proved, not SLA",
+    "narrowexport excludescontactrecords; broaderprivacy/deletion/retention209 unresolved",
+    "all-lane exhaustivefullscope stillINCOMPLETE/UNKNOWN; localgreen tests notfullacceptance",
+    "no populated membership-contact exclusion proof; owneremail absence is not that proof"
+  ],
+  "release": "Reuse104cutover/105cohort/106purchaseevidence; no repeatedownertriggeraudit/permissions/push/deployment. OwnerAppscope decision and separatelyauthorizedcutover gates unchanged.",
+  "usage": {
+    "native_cumulative": 13853247,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_reviewer": null,
+    "unmeasured": "granular splits unavailable; no reset"
+  },
+  "next": "Coordinator must select verified independentlyexecutable remaining gap; current fullcoverage unknown, no inventedmissingfeature. Known133 referralmarketingpersonalization and dispatch cutoff need scope/policy;209broadprivacyretention/legal; physical/provider/cutover remain gated."
+}
