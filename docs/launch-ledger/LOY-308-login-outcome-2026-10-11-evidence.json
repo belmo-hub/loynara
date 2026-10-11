@@ -1,0 +1,110 @@
+{
+  "assignment": "LOY-ENG-20261011-081",
+  "issue": "LOY-308",
+  "parent": "LOY-143",
+  "base_sha": "8fbf85a399a114a5a52bab8d6e203afd0ff9a690",
+  "source_sha": "8d0d09d5a8dce20200156134539838f90b5ba661",
+  "result_sha": "containing documentation commit; exact integration receipt in durable Goal state",
+  "implementation": "Sanitized German first-login outcomes; explicit invalid credentials, temporary server/session failure, throttling and unconfirmed transport; uncontrolled credentials retained; navigation requires data.user; no auto retry or auth/recovery policy change",
+  "red": "2 genuine unchanged-app browser failures: real PG session INSERT >=500 yields generic failure; committed real sign-in then browser-intercepted lost reply yields raw Failed to fetch",
+  "browser": "2actualChromePASS0FAIL0SKIP4.8s mobile375/desktop1280",
+  "focused": "4files40PASS5.72s",
+  "static": "typegen/typecheck/zero-warningchangedlint/buildPASS",
+  "global": "173files1601PASS0FAIL1existingoptionalMailpitSKIP158.31s",
+  "global_first": "173files1600PASS1FAIL1existingSKIP153.90s:campaign-deferral-lease contended-lock expiry; root cause unresolved",
+  "global_comparison": "Test/outbox/worker source unchanged; isolated unchangedbase5PASS2.85s,changed5PASS3.52s; one full retryPASS; no source/test change to make retry pass",
+  "integrated": "cleanLOCALFF,4files40PASS5.84s",
+  "review": "One reused independentREAD-ONLY reviewer no material findings;staticonly/no testsservices/effectiveconfigurationunmeasured; rate-limit/missing-user branches inspected but not browser-exercised",
+  "tracker": "308Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T06:31:07Z/comment7-141;143InProgress readback/full143/144OPEN",
+  "limitations": "Local actual browser/auth/routes/ownedPG; intercepted lost response, no physical/provider/production acceptance; operator-assisted recovery policy preserved",
+  "failures": "Initial alert locator matched route announcer, scoped before genuineRED. First green fixture assumed403 for nonexistentlocation; now actual foreigntenant404/no owner association change. Initial tracker create rejected unsupported field names/no issue persisted; actual schema used once. First ownedDBcleanup auto-approval timedout/noexecution, single retry succeeded.",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 10313298,
+    "cumulative_seconds": 54047,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": "43GiB/13retainedtrees; reused existingcheckout/no newtreeinstallcleanup; owned081browserDBdroppedafterappstop/zeroactive; other DBs preserved",
+  "execution": "Mac/codexmerchant-access081; assignedgpt-6.1-solMediumdiscovery/Highengineering/Mediumreview, retainedexistingexecutorwhere setterunavailable; effectiveconfiguration/input/cache/output/browser/reviewer usage unmeasured; providersOFF",
+  "external_actions": "TruthfulYouTrackchild308/InProgress/InReview/Done/comment/readback,parent143InProgress;Gmail308query0; generation/receiptUNVERIFIED. No push185186/protected/hosted/provider/customer/tag/legal/newpolicy",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "Investigate new unreproduced campaign deferral lease expiry failure, preserve accepted fences",
+    "LOY-167 one documented campaign outcome boundary beyond accepted work",
+    "LOY-127 one persistent draft definitive-save failure boundary beyond accepted preview-ordering work"
+  ],
+  "logs": {
+    "init": {
+      "local_path": "/tmp/loy-081-init.log",
+      "bytes": 302,
+      "sha256": "a2595e01836926322dad6147cd29e99e0292d528eb3b1c61928cada4e4300163"
+    },
+    "red": {
+      "local_path": "/tmp/loy-081-red.log",
+      "bytes": 5261,
+      "sha256": "6270886ca1bc43a3bc2f475c9386667d093c4ef020efc824423e4301c16c9a11"
+    },
+    "red-corrected-fixture": {
+      "local_path": "/tmp/loy-081-red-corrected-fixture.log",
+      "bytes": 5164,
+      "sha256": "6a95511529e2e3eac17329558d7beb2164fc379b26eab451216a4760418fea03"
+    },
+    "green": {
+      "local_path": "/tmp/loy-081-green.log",
+      "bytes": 3039,
+      "sha256": "d60afc624a943d673770517d6b5ef8db23807df2008b8612795c5fe7c2fddbf5"
+    },
+    "green-final": {
+      "local_path": "/tmp/loy-081-green-final.log",
+      "bytes": 789,
+      "sha256": "e618a1a72721e9fdc264da652b40e2d7a7f55ac689968941ce1df05def90d85f"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-081-focused.log",
+      "bytes": 2047,
+      "sha256": "324085cb8a1bf4bba41c98fbecb0f2d018db359f3e3721caba7cdf52fe2a692a"
+    },
+    "static": {
+      "local_path": "/tmp/loy-081-static.log",
+      "bytes": 4317,
+      "sha256": "ecfd71961e2e218c63f36f4ab383f3af0e9d134ee63fa433e2b3378d32d86194"
+    },
+    "global-final": {
+      "local_path": "/tmp/loy-081-global-final.log",
+      "bytes": 41827,
+      "sha256": "7c27f377c1277df1d08379b1b0c887972d93e71527755e0efff0fa4793dce4d5"
+    },
+    "base-regression": {
+      "local_path": "/tmp/loy-081-base-regression.log",
+      "bytes": 1339,
+      "sha256": "36f06aefcb460585b8012ef499925a18b0c27e2426b3a0d8de599248ea2b6604"
+    },
+    "changed-regression": {
+      "local_path": "/tmp/loy-081-changed-regression.log",
+      "bytes": 1332,
+      "sha256": "de8303fc12b0c89d62a42998132146570f5aa23c705ac5400589928c7a96c634"
+    },
+    "global-retry": {
+      "local_path": "/tmp/loy-081-global-retry.log",
+      "bytes": 39090,
+      "sha256": "3f0a33b1adaa85636ac251830ddbb0019ab5d900de647ec465ef8cb99eb57252"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-081-integrated.log",
+      "bytes": 2056,
+      "sha256": "c82d9d723d3c23e8b63dfcb7bc1fdd1872949e2be4e337feb6b37777e54f58a6"
+    }
+  }
+}
