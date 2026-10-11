@@ -2,7 +2,7 @@
   "issue": "LOY-297",
   "assignment": "LOY-ENG-20261011-069",
   "base_sha": "09abe7c289d6431112b4376f2566d9167103faeb",
-  "source_sha": null,
+  "source_sha": "f5e672f2a33f6222439cc9f91dccbeede07c1aef",
   "recorded_utc": "2026-10-11T03:28:44.397424+00:00",
   "environment": "synthetic actual loopback app; Chrome375/1280; owned PostgreSQL18.6localhost55433; external providers disabled",
   "primary173": {
@@ -103,12 +103,17 @@
       "path": "/tmp/loy-069-staff-confirmation-mobile.png",
       "bytes": 68349,
       "sha256": "bbe09bc086b4205fd86af77163e1239c62aee5163f4b00ec7aa69d8b4632ef4c"
+    },
+    {
+      "path": "/tmp/loy-069-integrated-unit.log",
+      "bytes": 989,
+      "sha256": "ad51ec813751e10fa41d2f26158a295ca6d9acbb6fd07efdd51091481806858e"
     }
   ],
   "statuses": {
     "implemented": true,
     "tested": true,
-    "integrated": false,
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
@@ -116,9 +121,17 @@
   },
   "native_usage": {
     "status": "active",
-    "reported_tokens": 8420864,
-    "seconds": 42957,
+    "reported_tokens": 8446882,
+    "seconds": 43130,
     "remaining_tokens": null,
     "input_cached_output_review_split": "unmeasured"
-  }
+  },
+  "integration": "clean canonical local FF;3integratedfocusedPASS271ms",
+  "tracker": {
+    "comment": "7-125",
+    "stage": "Done",
+    "readback_utc": "2026-10-11 03:29:13",
+    "broader153_154_173_174": "remain unresolved;159policyOPEN"
+  },
+  "cleanup": "only owned reporting/staff browser DB dropped after local app stopped; no worktree/dependency/branch cleanup"
 }
