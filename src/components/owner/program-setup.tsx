@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { imageToDataUrl, postJson } from "@/components/client-api";
+import { ClientApiError, imageToDataUrl, postJson } from "@/components/client-api";
 import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
@@ -103,7 +103,10 @@ export function ProgramSetup() {
       });
       await owner.refresh();
       router.replace("/merchant");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Programm konnte nicht gespeichert werden."); }
+    } catch (cause) {
+      const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
+      setError(unconfirmed ? "Die Einrichtung wurde nicht bestätigt. Sie kann bereits gespeichert sein. Bitte prüfe den gespeicherten Stand, bevor du erneut startest." : cause instanceof Error ? cause.message : "Das Programm konnte nicht gespeichert werden.");
+    }
     finally { setBusy(false); }
   }
 
