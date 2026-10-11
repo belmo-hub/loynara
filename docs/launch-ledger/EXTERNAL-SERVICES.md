@@ -7,3 +7,5 @@ Current Goal actions established by linked evidence: authorized sanitized YouTra
 External gates remain independently open: sender/DNS/provider receipts LOY-138/140/134, Google Wallet publishing LOY-114, physical NFC/QR LOY-76 and checkout devices LOY-50, operator authorization LOY-235, billing/VAT/legal/processor/support acceptance. This is not a comprehensive service inventory; verify actual canonical service records before claiming completeness.
 
 No deployment, provider/billing activation, purchase, DNS/secret/permission change, tag write, legal submission or customer send occurred in this documentation slice. Record future authorized external actions only after they actually happen, with sanitized evidence and failed outcomes as applicable.
+
+- Assignment064: followed installed Supabase GitHub Configure link145405138 read-only; GitHub Confirm access blocks scope visibility. Verify via email not activated; no credentials/codes/terms/permission/configuration changes or push. [Evidence](2026-10-11-worktree-preservation-064.md).

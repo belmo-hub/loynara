@@ -121,3 +121,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 — [LOY-292 customer export failure feedback](LOY-292-customer-export-feedback-2026-10-11.md), assignment063: actual revoked-card404 browserRED, checked HTTP/complete JSON downloads,8browserPASS375/1280,13unitPASS,163files1534globalPASS1existingoptionalSKIP; parent43/44/209 OPEN. Native Goal fresh ACTIVE7,368,879tokens/37,317s supersedes historical paused observation without reset.
 
 - 2026-10-11 /063 receipt: LOY-292 source0629c6f locally integrated,13focusedPASS; comment7-118/readback01:55:57UTC verified codingDone. Parent43/44/209 OPEN; no remote/launch acceptance.
+
+- 2026-10-11 assignment064: read-only44-worktree preservation manifest18.37GiB;31 conditional cleanup candidates11.11GiB,10KEEP,3investigation,0automaticallysafe. No cleanup/push. GitHub Supabase Configure blocked at owner reauthentication. [Evidence](2026-10-11-worktree-preservation-064.md).

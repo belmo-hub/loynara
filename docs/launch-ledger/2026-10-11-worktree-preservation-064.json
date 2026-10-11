@@ -1,0 +1,2769 @@
+{
+  "observed_at": "2026-10-11T02:02:29.394535+00:00",
+  "integration_sha": "2c7f5a74c94ab1d8813609f410288c06d9daedd8",
+  "scope": "/Users/youssefbelmokhtar/.codex/worktrees",
+  "worktree_count": 44,
+  "registered_total": 73,
+  "excluded_paths": [
+    "/Users/youssefbelmokhtar/Desktop/Loynara",
+    "/Users/youssefbelmokhtar/Desktop/Loynara/.claude/worktrees/vibrant-brahmagupta-1882a2",
+    "/Users/youssefbelmokhtar/Developer/Loynara-app-audit",
+    "/Users/youssefbelmokhtar/Developer/Loynara-cashier-fast",
+    "/Users/youssefbelmokhtar/Developer/Loynara-claude-dashboard",
+    "/Users/youssefbelmokhtar/Developer/Loynara-gtm",
+    "/Users/youssefbelmokhtar/Developer/Loynara-hardening",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing-clean",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing-concepts",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing-d",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing-final",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing-v2",
+    "/Users/youssefbelmokhtar/Developer/Loynara-marketing-v3",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-cashier",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-copy",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-fixes",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-pwa",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-qr",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-review",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-tests",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-ui",
+    "/Users/youssefbelmokhtar/Developer/Loynara-nfc-v1",
+    "/Users/youssefbelmokhtar/Developer/Loynara-overnight",
+    "/Users/youssefbelmokhtar/Developer/Loynara-pilot-hygiene",
+    "/Users/youssefbelmokhtar/Developer/Loynara-pilot-hygiene-v1",
+    "/Users/youssefbelmokhtar/Developer/Loynara-product",
+    "/Users/youssefbelmokhtar/Developer/Loynara-studio",
+    "/Users/youssefbelmokhtar/Developer/Loynara-wallet"
+  ],
+  "total_bytes": 19724500992,
+  "process_scan_error": null,
+  "metadata_caveat": "SQLite immutable snapshot ignores WAL; validate live root ownership with native list_artifacts; no absence-of-open-task inferred solely from snapshot",
+  "worktrees": [
+    {
+      "name": "analytics-snapshot-consistency",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/analytics-snapshot-consistency/Loynara",
+      "branch": "codex/analytics-snapshot-consistency",
+      "sha": "51944a0b6068844ae937dd3c4770a480f3bdc2a3",
+      "bytes": 882282496,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 183128064
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423019,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423307,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 75,
+      "unremote_latest3": [
+        "51944a0 docs: record analytics snapshot integration and tracker receipt",
+        "e54fc6e fix(analytics): read related totals from one database snapshot",
+        "df7b914 docs: record location reporting integration and tracker receipt"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T20:54:12+02:00",
+      "logs_head_mtime": "2026-10-10T18:54:12.798396+00:00",
+      "idle_hours_from_logs_head": 7.14,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "autopilot-bounded-runner",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/autopilot-bounded-runner/Loynara",
+      "branch": "codex/autopilot-bounded-runner",
+      "sha": "9848e759d999930cd3ee8bc38540e9d3b1997eea",
+      "bytes": 31346688,
+      "cache_bytes": {
+        "node_modules": 8192
+      },
+      "status": [
+        " M scripts/autopilot-runner.py",
+        "?? scripts/__pycache__/autopilot-runner.cpython-314.pyc",
+        "?? scripts/autopilot-lifecycle.test.py",
+        "?? scripts/autopilot-recovery.test.py"
+      ],
+      "untracked": [
+        "scripts/__pycache__/autopilot-runner.cpython-314.pyc",
+        "scripts/autopilot-lifecycle.test.py",
+        "scripts/autopilot-recovery.test.py"
+      ],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 3,
+          "bytes": 3751,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 3751,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 43,
+      "unremote_latest3": [
+        "9848e75 Add sanitized promotional sender configuration diagnostics",
+        "9c1e217 Add fail-closed supervised Autopilot runner and isolation checks",
+        "e1aae65 Retry confirmed campaign rate limits and restore full-launch task discovery"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T05:17:23+02:00",
+      "logs_head_mtime": "2026-10-10T03:17:23.097879+00:00",
+      "idle_hours_from_logs_head": 22.75,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a123c0-9b57-7c32-8ad0-ebe627a89bec",
+          "title": "Build Loynara autonomous workflow",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "uncommitted tracked or untracked work; preserve exact status",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 3,
+          "bytes": 3751,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "campaign-rate-limit-cycle",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/campaign-rate-limit-cycle/Loynara",
+      "branch": "codex/campaign-rate-limit-cycle",
+      "sha": "e1aae6583dbb84a7e183eab9f949ba864972b02d",
+      "bytes": 31203328,
+      "cache_bytes": {
+        "node_modules": 0
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 3,
+          "bytes": 9224,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 9224,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 41,
+      "unremote_latest3": [
+        "e1aae65 Retry confirmed campaign rate limits and restore full-launch task discovery",
+        "654fef2 Prepare bounded paused launch autopilot and retention rehearsal",
+        "32b27ec Reconcile optional NFC recovery and bounded customer-session renewal"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T04:43:51+02:00",
+      "logs_head_mtime": "2026-10-10T02:43:51.895955+00:00",
+      "idle_hours_from_logs_head": 23.31,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a1237f-cbc5-7621-9003-a72115d7b596",
+          "title": "Test Loynara ChatGPT handshake",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "REQUIRES INVESTIGATION",
+      "reasons": [
+        "separate open Codex task; completion/removal needs founder decision",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 3,
+          "bytes": 9224,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "campaign-schedule-lifecycle",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/campaign-schedule-lifecycle/Loynara",
+      "branch": "codex/campaign-schedule-lifecycle",
+      "sha": "3dcf49774e0e7f6cc420f954bb349919cd94c31f",
+      "bytes": 32288768,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423256,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423544,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 84,
+      "unremote_latest3": [
+        "3dcf497 docs: record scheduling and referral integrated evidence",
+        "be9a3fe test: cover stale campaign schedules and referral UTC boundaries",
+        "aa2e7aa docs: record integrated retry and export regression evidence"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T21:39:40+02:00",
+      "logs_head_mtime": "2026-10-10T19:39:40.366632+00:00",
+      "idle_hours_from_logs_head": 6.38,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "configured-regression-current",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/configured-regression-current/Loynara",
+      "branch": "codex/configured-regression-current",
+      "sha": "e03dc685e9330cd2ce099c116b705232e1ff1006",
+      "bytes": 31588352,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 57,
+      "unremote_latest3": [
+        "e03dc68 docs(launch): record current integrated compatibility results",
+        "9552b37 test(loyalty): characterize purchase rule snapshot concurrency",
+        "95e9793 fix: serialize selected reward booking with catalogue changes"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T16:59:09+02:00",
+      "logs_head_mtime": "2026-10-10T14:59:09.166351+00:00",
+      "idle_hours_from_logs_head": 11.05,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "full-configured-integration",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/full-configured-integration/Loynara",
+      "branch": "codex/full-configured-integration",
+      "sha": "d733234b4d8637760efe34176153b002e60c36bc",
+      "bytes": 31510528,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 51,
+      "unremote_latest3": [
+        "d733234 docs: record configured full integration results",
+        "3156a40 fix(loyalty): order checkout commits against staff revocation",
+        "667aafb fix(staff): serialize invitation role assignment per account"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T15:57:45+02:00",
+      "logs_head_mtime": "2026-10-10T13:57:45.358527+00:00",
+      "idle_hours_from_logs_head": 12.08,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "google-wallet-direct-v1",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/google-wallet-direct-v1/Loynara",
+      "branch": "codex/google-wallet-direct-v1",
+      "sha": "621364a575c5f325b9cac01cc0a421b634a36940",
+      "bytes": 1073078272,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 191885312,
+        ".next-device-test": 183222272
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 312,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 476386,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 476698,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 34,
+      "unremote_latest3": [
+        "621364a Handle Google class response aliases and required review state",
+        "bc641bd Route Google Wallet through scoped direct issuer while preserving PassFast Apple",
+        "21019e8 docs: record NFC cashier-phone RC review and physical acceptance gates"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-09T17:53:05+02:00",
+      "logs_head_mtime": "2026-10-09T15:53:05.538139+00:00",
+      "idle_hours_from_logs_head": 34.16,
+      "process_cwd": [
+        {
+          "pid": "6163",
+          "cwd": "/Users/youssefbelmokhtar/.codex/worktrees/google-wallet-direct-v1/Loynara"
+        }
+      ],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a12036-8917-7072-a9ee-6bafcc575842",
+          "title": "Review NFC cashier-phone integration",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "running process cwd"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "launch-build-triage",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-build-triage/Loynara",
+      "branch": "codex/launch-build-triage",
+      "sha": "fb73e0798cc042ffdfda8c0760352535471b1269",
+      "bytes": 215973888,
+      "cache_bytes": {
+        ".next": 184078336
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 421240,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 421528,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 46,
+      "unremote_latest3": [
+        "fb73e07 fix: validate merchant setup review before onboarding",
+        "76821a3 fix(email): normalize authenticated Mailgun failure events",
+        "1cf32d3 feat(automations): add consent-safe catalogue reward reminders"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T14:56:22+02:00",
+      "logs_head_mtime": "2026-10-10T12:59:39.731169+00:00",
+      "idle_hours_from_logs_head": 13.05,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "launch-integration-classification",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-integration-classification/Loynara",
+      "branch": "codex/launch-integration-classification",
+      "sha": "1c2345367a8b2fa9fce7293790d1a163b799f2ac",
+      "bytes": 31485952,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 48,
+      "unremote_latest3": [
+        "1c23453 docs: record configured integration failure classification",
+        "75e0751 fix: hold duplicate verified referral identities for review",
+        "fb73e07 fix: validate merchant setup review before onboarding"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T15:23:23+02:00",
+      "logs_head_mtime": "2026-10-10T13:23:23.015602+00:00",
+      "idle_hours_from_logs_head": 12.65,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "launch-ledger-record",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-ledger-record/Loynara",
+      "branch": "codex/launch-ledger-record",
+      "sha": "5a58f247fa84e3c9e47e944b11b9c13483b7a7a0",
+      "bytes": 31653888,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 60,
+      "unremote_latest3": [
+        "5a58f24 docs: establish canonical complete build and launch record",
+        "cd38bdc fix: export customer activity from one database snapshot",
+        "7e5da56 docs(recovery): record real local Mailpit capture verification"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T17:37:18+02:00",
+      "logs_head_mtime": "2026-10-10T15:37:18.339353+00:00",
+      "idle_hours_from_logs_head": 10.42,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "launch-remaining-checkpoint",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/launch-remaining-checkpoint/Loynara",
+      "branch": "codex/loy165-owner-export-evidence",
+      "sha": "a71d782aa6dd7a6a10b0cd2990ee93ccbd959bd8",
+      "bytes": 698564608,
+      "cache_bytes": {
+        "node_modules": 666877952
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 63,
+      "unremote_latest3": [
+        "a71d782 docs: characterize owner export activity coverage",
+        "38e3990 docs: preserve full-launch remaining-work checkpoint",
+        "9085a2b docs: record bounded merchant analytics reconciliation"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T17:51:36+02:00",
+      "logs_head_mtime": "2026-10-10T15:51:36.247589+00:00",
+      "idle_hours_from_logs_head": 10.18,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "location-activity-reporting",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/location-activity-reporting/Loynara",
+      "branch": "codex/location-activity-reporting",
+      "sha": "df7b914860faaf6df42ca2c0a0a0f8921102685d",
+      "bytes": 882417664,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 183275520
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 422873,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423161,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 73,
+      "unremote_latest3": [
+        "df7b914 docs: record location reporting integration and tracker receipt",
+        "34df813 feat(analytics): report activity by transaction location",
+        "3d8ea24 docs: record staff reporting integration and tracker receipt"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T20:44:53+02:00",
+      "logs_head_mtime": "2026-10-10T18:44:53.143503+00:00",
+      "idle_hours_from_logs_head": 7.29,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "location-entitlement-enforcement",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/location-entitlement-enforcement/Loynara",
+      "branch": "codex/location-entitlement-enforcement",
+      "sha": "e80d2bbda3e85c147e9c1723b8d61afa8caa50f2",
+      "bytes": 882438144,
+      "cache_bytes": {
+        "node_modules": 666927104,
+        ".next": 183193600
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423178,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423466,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 88,
+      "unremote_latest3": [
+        "e80d2bb docs(launch): record closure ordering and entitlement hold receipts",
+        "d39e560 test(recovery): preserve closure against waiting recovery and reissue",
+        "d8a1bb8 docs(launch): record push registration integration receipt"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T22:00:17+02:00",
+      "logs_head_mtime": "2026-10-10T20:00:17.951931+00:00",
+      "idle_hours_from_logs_head": 6.04,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy119-nfc-referrals",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy119-nfc-referrals/Loynara",
+      "branch": "codex/loy119-referral-abuse",
+      "sha": "75e07514c78b54e887d14a0bab5d0beb793c8734",
+      "bytes": 215216128,
+      "cache_bytes": {
+        ".next": 183308288
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 421245,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 421533,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 47,
+      "unremote_latest3": [
+        "75e0751 fix: hold duplicate verified referral identities for review",
+        "fb73e07 fix: validate merchant setup review before onboarding",
+        "76821a3 fix(email): normalize authenticated Mailgun failure events"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T15:17:08+02:00",
+      "logs_head_mtime": "2026-10-10T13:17:08.355635+00:00",
+      "idle_hours_from_logs_head": 12.75,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy125-preview-ordering",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy125-preview-ordering/Loynara",
+      "branch": "codex/loy125-preview-ordering",
+      "sha": "aae6dcc6f4428e6058651382011d8b9b29da3ce7",
+      "bytes": 309989376,
+      "cache_bytes": {
+        ".next": 277991424
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 436395,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 319,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 437002,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 54,
+      "unremote_latest3": [
+        "aae6dcc fix: discard superseded campaign audience previews",
+        "2c73a11 fix: acknowledge only submitted campaign draft revisions",
+        "154821c fix: validate campaign audiences before preview and save"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T16:24:54+02:00",
+      "logs_head_mtime": "2026-10-10T14:24:54.554423+00:00",
+      "idle_hours_from_logs_head": 11.63,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 319,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy127-audience-validation",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy127-audience-validation/Loynara",
+      "branch": "codex/loy127-audience-validation",
+      "sha": "154821c14630566f0462cee5506a8088cd3758ac",
+      "bytes": 215171072,
+      "cache_bytes": {
+        ".next": 183164928
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 468599,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 303,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 469190,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 52,
+      "unremote_latest3": [
+        "154821c fix: validate campaign audiences before preview and save",
+        "d733234 docs: record configured full integration results",
+        "3156a40 fix(loyalty): order checkout commits against staff revocation"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T16:09:45+02:00",
+      "logs_head_mtime": "2026-10-10T14:10:01.663007+00:00",
+      "idle_hours_from_logs_head": 11.87,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 303,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy127-draft-save-race",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy127-draft-save-race/Loynara",
+      "branch": "codex/loy127-draft-save-race",
+      "sha": "2c73a11ca693d43fdc087ff4fa9df32d0cf53247",
+      "bytes": 310124544,
+      "cache_bytes": {
+        ".next": 278138880
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 436272,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 324,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 436884,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 53,
+      "unremote_latest3": [
+        "2c73a11 fix: acknowledge only submitted campaign draft revisions",
+        "154821c fix: validate campaign audiences before preview and save",
+        "d733234 docs: record configured full integration results"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T16:17:18+02:00",
+      "logs_head_mtime": "2026-10-10T14:17:19.000521+00:00",
+      "idle_hours_from_logs_head": 11.75,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 324,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy133-catalogue-race",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy133-catalogue-race/Loynara",
+      "branch": "codex/loy133-catalogue-race",
+      "sha": "1cf32d3b3a91780002773e900fabe64d11e9e7bc",
+      "bytes": 31440896,
+      "cache_bytes": {
+        "node_modules": 0
+      },
+      "status": [
+        " M src/lib/reward-reminders.integration.test.ts"
+      ],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 44,
+      "unremote_latest3": [
+        "1cf32d3 feat(automations): add consent-safe catalogue reward reminders",
+        "9848e75 Add sanitized promotional sender configuration diagnostics",
+        "9c1e217 Add fail-closed supervised Autopilot runner and isolation checks"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T14:09:14+02:00",
+      "logs_head_mtime": "2026-10-10T12:23:41.402210+00:00",
+      "idle_hours_from_logs_head": 13.65,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "KEEP",
+      "reasons": [
+        "uncommitted tracked or untracked work; preserve exact status"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy133-dispatch-authorization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy133-dispatch-authorization/Loynara",
+      "branch": "codex/loy133-dispatch-authorization",
+      "sha": "a71d782aa6dd7a6a10b0cd2990ee93ccbd959bd8",
+      "bytes": 698617856,
+      "cache_bytes": {
+        "node_modules": 666927104
+      },
+      "status": [
+        " M src/lib/reward-reminders.integration.test.ts"
+      ],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 63,
+      "unremote_latest3": [
+        "a71d782 docs: characterize owner export activity coverage",
+        "38e3990 docs: preserve full-launch remaining-work checkpoint",
+        "9085a2b docs: record bounded merchant analytics reconciliation"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T17:51:36+02:00",
+      "logs_head_mtime": "2026-10-10T17:47:33.660043+00:00",
+      "idle_hours_from_logs_head": 8.25,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "uncommitted tracked or untracked work; preserve exact status"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy133-goal-reminders",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy133-goal-reminders/Loynara",
+      "branch": "codex/loy133-goal-reminders",
+      "sha": "1cf32d3b3a91780002773e900fabe64d11e9e7bc",
+      "bytes": 261693440,
+      "cache_bytes": {
+        "node_modules": 0,
+        ".next": 230256640
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 44,
+      "unremote_latest3": [
+        "1cf32d3 feat(automations): add consent-safe catalogue reward reminders",
+        "9848e75 Add sanitized promotional sender configuration diagnostics",
+        "9c1e217 Add fail-closed supervised Autopilot runner and isolation checks"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T14:09:14+02:00",
+      "logs_head_mtime": "2026-10-10T12:09:14.183392+00:00",
+      "idle_hours_from_logs_head": 13.89,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy133-reward-reminder",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy133-reward-reminder/Loynara",
+      "branch": "codex/loy133-reward-reminder-offline-20261010",
+      "sha": "9848e759d999930cd3ee8bc38540e9d3b1997eea",
+      "bytes": 31502336,
+      "cache_bytes": {
+        "node_modules": 0
+      },
+      "status": [
+        " M drizzle/meta/_journal.json",
+        " M src/app/api/merchant/automations/route.ts",
+        " M src/app/merchant/automations/page.tsx",
+        " M src/db/schema.ts",
+        " M src/lib/automations.ts",
+        "?? drizzle/0023_reward_ready_automation.sql",
+        "?? drizzle/meta/0023_snapshot.json",
+        "?? src/lib/reward-readiness.ts"
+      ],
+      "untracked": [
+        "drizzle/0023_reward_ready_automation.sql",
+        "drizzle/meta/0023_snapshot.json",
+        "src/lib/reward-readiness.ts"
+      ],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 6,
+          "bytes": 81053,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 6,
+      "ignored_bytes": 81053,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 43,
+      "unremote_latest3": [
+        "9848e75 Add sanitized promotional sender configuration diagnostics",
+        "9c1e217 Add fail-closed supervised Autopilot runner and isolation checks",
+        "e1aae65 Retry confirmed campaign rate limits and restore full-launch task discovery"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T05:17:23+02:00",
+      "logs_head_mtime": "2026-10-10T11:28:08.719228+00:00",
+      "idle_hours_from_logs_head": 14.57,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a1258b-5956-74d0-9b87-3e2261ea4f33",
+          "title": "Fix Autopilot offline recovery",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "KEEP",
+      "reasons": [
+        "uncommitted tracked or untracked work; preserve exact status",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 6,
+          "bytes": 81053,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy139-webhook-normalization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy139-webhook-normalization/Loynara",
+      "branch": "codex/loy139-webhook-normalization",
+      "sha": "76821a310567a6084bb75bf766c7e64e106a848d",
+      "bytes": 261939200,
+      "cache_bytes": {
+        "node_modules": 0,
+        ".next": 230486016
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 45,
+      "unremote_latest3": [
+        "76821a3 fix(email): normalize authenticated Mailgun failure events",
+        "1cf32d3 feat(automations): add consent-safe catalogue reward reminders",
+        "9848e75 Add sanitized promotional sender configuration diagnostics"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T14:34:05+02:00",
+      "logs_head_mtime": "2026-10-10T12:34:05.496556+00:00",
+      "idle_hours_from_logs_head": 13.47,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy145-setup-validation",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy145-setup-validation/Loynara",
+      "branch": "codex/loy145-setup-validation",
+      "sha": "fb73e0798cc042ffdfda8c0760352535471b1269",
+      "bytes": 353067008,
+      "cache_bytes": {
+        "node_modules": 0,
+        ".next": 321118208
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 296,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 464010,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 2,
+          "bytes": 374,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 4,
+      "ignored_bytes": 464680,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 46,
+      "unremote_latest3": [
+        "fb73e07 fix: validate merchant setup review before onboarding",
+        "76821a3 fix(email): normalize authenticated Mailgun failure events",
+        "1cf32d3 feat(automations): add consent-safe catalogue reward reminders"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T14:56:22+02:00",
+      "logs_head_mtime": "2026-10-10T12:56:22.793540+00:00",
+      "idle_hours_from_logs_head": 13.1,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 2,
+          "bytes": 374,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy153-invite-serialization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy153-invite-serialization/Loynara",
+      "branch": "codex/loy153-invite-serialization",
+      "sha": "667aafbe107aa0c2e54c88c220da50d19800ebd8",
+      "bytes": 215011328,
+      "cache_bytes": {
+        ".next": 183091200
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 421245,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 421533,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 49,
+      "unremote_latest3": [
+        "667aafb fix(staff): serialize invitation role assignment per account",
+        "1c23453 docs: record configured integration failure classification",
+        "75e0751 fix: hold duplicate verified referral identities for review"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T15:33:50+02:00",
+      "logs_head_mtime": "2026-10-10T13:33:50.363682+00:00",
+      "idle_hours_from_logs_head": 12.48,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy157-revocation-ordering",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy157-revocation-ordering/Loynara",
+      "branch": "codex/loy157-revocation-ordering",
+      "sha": "3156a4039c44bdb08ce67273a1057cb1d73f25a0",
+      "bytes": 215023616,
+      "cache_bytes": {
+        ".next": 183091200
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 421466,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 421754,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 50,
+      "unremote_latest3": [
+        "3156a40 fix(loyalty): order checkout commits against staff revocation",
+        "667aafb fix(staff): serialize invitation role assignment per account",
+        "1c23453 docs: record configured integration failure classification"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T15:42:54+02:00",
+      "logs_head_mtime": "2026-10-10T13:42:54.242567+00:00",
+      "idle_hours_from_logs_head": 12.33,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy165-reporting-evidence",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy165-reporting-evidence/Loynara",
+      "branch": "codex/loy165-reporting-evidence",
+      "sha": "9085a2b22366d4944d3a233f75ab167ec5badfb2",
+      "bytes": 31662080,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 61,
+      "unremote_latest3": [
+        "9085a2b docs: record bounded merchant analytics reconciliation",
+        "5a58f24 docs: establish canonical complete build and launch record",
+        "cd38bdc fix: export customer activity from one database snapshot"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T17:42:40+02:00",
+      "logs_head_mtime": "2026-10-10T15:42:40.443003+00:00",
+      "idle_hours_from_logs_head": 10.33,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy43-customer-export",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy43-customer-export/Loynara",
+      "branch": "codex/loy43-customer-export",
+      "sha": "cd38bdcdcb72135e236fd533ad5c921712347246",
+      "bytes": 215228416,
+      "cache_bytes": {
+        ".next": 183185408
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 422709,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 422997,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 59,
+      "unremote_latest3": [
+        "cd38bdc fix: export customer activity from one database snapshot",
+        "7e5da56 docs(recovery): record real local Mailpit capture verification",
+        "e03dc68 docs(launch): record current integrated compatibility results"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T17:28:59+02:00",
+      "logs_head_mtime": "2026-10-10T15:28:59.174213+00:00",
+      "idle_hours_from_logs_head": 10.56,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy49-earning-snapshot",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy49-earning-snapshot/Loynara",
+      "branch": "codex/loy49-earning-snapshot",
+      "sha": "9552b3773e6df8581127b230abb0535150e6fa50",
+      "bytes": 32083968,
+      "cache_bytes": {
+        ".next": 69632
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 422481,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 422769,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 56,
+      "unremote_latest3": [
+        "9552b37 test(loyalty): characterize purchase rule snapshot concurrency",
+        "95e9793 fix: serialize selected reward booking with catalogue changes",
+        "aae6dcc fix: discard superseded campaign audience previews"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T16:53:32+02:00",
+      "logs_head_mtime": "2026-10-10T14:53:32.637493+00:00",
+      "idle_hours_from_logs_head": 11.15,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loy49-redemption-catalogue",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loy49-redemption-catalogue/Loynara",
+      "branch": "codex/loy49-redemption-catalogue",
+      "sha": "95e97934d52a53d2e67543d37b84344ab567636a",
+      "bytes": 215457792,
+      "cache_bytes": {
+        ".next": 183455744
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 422367,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 318,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 422973,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 55,
+      "unremote_latest3": [
+        "95e9793 fix: serialize selected reward booking with catalogue changes",
+        "aae6dcc fix: discard superseded campaign audience previews",
+        "2c73a11 fix: acknowledge only submitted campaign draft revisions"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T16:40:19+02:00",
+      "logs_head_mtime": "2026-10-10T14:40:19.114714+00:00",
+      "idle_hours_from_logs_head": 11.37,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 318,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loynara-build-autopilot-v1",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loynara-build-autopilot-v1/Loynara",
+      "branch": "codex/loynara-build-autopilot-v1",
+      "sha": "654fef25c50e6f8e50be256ae6d783437040d5fc",
+      "bytes": 30965760,
+      "cache_bytes": {
+        "node_modules": 0
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 40,
+      "unremote_latest3": [
+        "654fef2 Prepare bounded paused launch autopilot and retention rehearsal",
+        "32b27ec Reconcile optional NFC recovery and bounded customer-session renewal",
+        "89f1837 Complete optional NFC recovery setup and preserve bounded session expiry"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T03:42:45+02:00",
+      "logs_head_mtime": "2026-10-10T01:42:45.932314+00:00",
+      "idle_hours_from_logs_head": 24.33,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a12369-05e5-7450-9264-716a4dc2142f",
+          "title": "Build Loynara launch autopilot",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/Desktop/Loynara/node_modules"
+      },
+      "classification": "REQUIRES INVESTIGATION",
+      "reasons": [
+        "separate open Codex task; completion/removal needs founder decision"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "loynara-engineering-integration",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/loynara-engineering-integration/Loynara",
+      "branch": "codex/loynara-engineering-integration",
+      "sha": "2c7f5a74c94ab1d8813609f410288c06d9daedd8",
+      "bytes": 699695104,
+      "cache_bytes": {
+        "node_modules": 666939392
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 421267,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 1,
+      "ignored_bytes": 421267,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 123,
+      "unremote_latest3": [
+        "2c7f5a7 docs(launch): record LOY-292 integration and Done receipt",
+        "0629c6f fix(export): reject failed customer downloads with feedback (LOY-292)",
+        "2b813dd docs: record push safety and recovery verification receipts"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-11T03:56:19+02:00",
+      "logs_head_mtime": "2026-10-11T01:56:45.977565+00:00",
+      "idle_hours_from_logs_head": 0.09,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "active engineering/canonical integration checkout"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "mailgun-event-day-dedup",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/mailgun-event-day-dedup/Loynara",
+      "branch": "codex/mailgun-event-day-dedup",
+      "sha": "aaa42974c9884840b3581420e63c4399c55127e5",
+      "bytes": 698740736,
+      "cache_bytes": {
+        "node_modules": 666927104
+      },
+      "status": [
+        " M src/lib/transactional-email.test.ts"
+      ],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 78,
+      "unremote_latest3": [
+        "aaa4297 docs: preserve Mailgun event-day collision and legacy compatibility hold",
+        "09ca88e docs: record hard suppression integration and tracker receipt",
+        "57454b8 fix(email): preserve hard suppression across unsubscribe races"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T21:08:27+02:00",
+      "logs_head_mtime": "2026-10-10T19:08:27.023021+00:00",
+      "idle_hours_from_logs_head": 6.9,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "uncommitted tracked or untracked work; preserve exact status"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "nfc-cashier-phone-release-v1",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/nfc-cashier-phone-release-v1/Loynara",
+      "branch": "codex/nfc-cashier-phone-release-v1",
+      "sha": "21019e811a9ac7a1e6a7f7c01cc43360bee5b6ec",
+      "bytes": 1845280768,
+      "cache_bytes": {
+        "node_modules": 678260736,
+        ".next": 939491328,
+        ".next-device-test": 180129792
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 312,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 475034,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 127,
+          "bytes": 16277727,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 129,
+      "ignored_bytes": 16753073,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 32,
+      "unremote_latest3": [
+        "21019e8 docs: record NFC cashier-phone RC review and physical acceptance gates",
+        "7b15b32 test(db): preserve populated Wallet history through NFC migration and rollback",
+        "d2f9f74 fix(nfc): separate card-authorized waiting reads from tap verification limits"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-09T12:57:39+02:00",
+      "logs_head_mtime": "2026-10-09T10:57:39.709857+00:00",
+      "idle_hours_from_logs_head": 39.08,
+      "process_cwd": [
+        {
+          "pid": "73607",
+          "cwd": "/Users/youssefbelmokhtar/.codex/worktrees/nfc-cashier-phone-release-v1/Loynara"
+        }
+      ],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a12036-8917-7072-a9ee-6bafcc575842",
+          "title": "Review NFC cashier-phone integration",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "running process cwd",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 127,
+          "bytes": 16277727,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "nfc-reconciled-release-v1",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/nfc-reconciled-release-v1/Loynara",
+      "branch": "codex/nfc-reconciled-release-v1",
+      "sha": "4a776797ae3c1ff86672a9fb8541cff544d21e6a",
+      "bytes": 986058752,
+      "cache_bytes": {
+        ".next": 954552320
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": ".env",
+          "files": 1,
+          "bytes": 630,
+          "symlinks": 0
+        },
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 482311,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 36,
+          "bytes": 61382,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 39,
+      "ignored_bytes": 544611,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 39,
+      "unremote_latest3": [
+        "4a77679 Renew customer session only on Done after committed cashier award",
+        "954cd45 Reconcile optional recovery and bounded NFC customer sessions",
+        "2b4fef7 Reconcile NFC rollout with integrated recovery candidate and launch gates"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": false,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T03:31:07+02:00",
+      "logs_head_mtime": "2026-10-10T01:31:07.832942+00:00",
+      "idle_hours_from_logs_head": 24.52,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a12183-11b8-7e51-90d6-2f7c2afa20f2",
+          "title": "Enable returning NFC recognition",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "REQUIRES INVESTIGATION",
+      "reasons": [
+        "committed branch not ancestor of current integration; open task and ignored configuration/data",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": ".env",
+          "files": 1,
+          "bytes": 630,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 36,
+          "bytes": 61382,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "owner-business-export-snapshot",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/owner-business-export-snapshot/Loynara",
+      "branch": "codex/owner-business-export-snapshot",
+      "sha": "76d7d33d81a75a6e43c76d00ae3eb4aded64b69c",
+      "bytes": 882343936,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 183144448
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423246,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423534,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 80,
+      "unremote_latest3": [
+        "76d7d33 docs: record integrated owner export verification",
+        "31ccd02 fix: keep owner business export in one read snapshot",
+        "aaa4297 docs: preserve Mailgun event-day collision and legacy compatibility hold"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T21:25:11+02:00",
+      "logs_head_mtime": "2026-10-10T19:25:11.510858+00:00",
+      "idle_hours_from_logs_head": 6.62,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "passfast-e2e-local",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/passfast-e2e-local/Loynara",
+      "branch": "codex/passfast-existing-recovery",
+      "sha": "2c16775abc1c562da5cf9e6b2dfdf827681483c1",
+      "bytes": 116199424,
+      "cache_bytes": {
+        ".next": 8192,
+        ".next-device-test": 86417408
+      },
+      "status": [
+        " M src/lib/wallet/passfast.ts"
+      ],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 320,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 1,
+      "ignored_bytes": 320,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 1,
+      "unremote_latest3": [
+        "2c16775 fix(wallet): localize PassFast reward readiness presentation"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": false,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-07T21:36:25+02:00",
+      "logs_head_mtime": "2026-10-08T00:34:07.279816+00:00",
+      "idle_hours_from_logs_head": 73.47,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a11891-a9e7-7d42-a8bb-864869800e85",
+          "title": "Run Loynara PassFast acceptance",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {
+        "node_modules": "/Users/youssefbelmokhtar/.codex/worktrees/passfast-reward-presentation-v1/Loynara/node_modules"
+      },
+      "classification": "KEEP",
+      "reasons": [
+        "uncommitted tracked or untracked work; preserve exact status"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "privacy-failure-atomicity",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/privacy-failure-atomicity/Loynara",
+      "branch": "codex/privacy-failure-atomicity",
+      "sha": "ac12fc312a2efeb1c3a4fc085429a8439176d23d",
+      "bytes": 882540544,
+      "cache_bytes": {
+        "node_modules": 666927104,
+        ".next": 183246848
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423638,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423926,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 94,
+      "unremote_latest3": [
+        "ac12fc3 docs: record privacy failure verification integration receipt",
+        "d06f985 test: verify privacy operation rollback and export failure cleanup",
+        "7e08740 docs: record LOY-85 worker verification integration receipt"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T23:43:41+02:00",
+      "logs_head_mtime": "2026-10-10T21:43:41.975239+00:00",
+      "idle_hours_from_logs_head": 4.31,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "push-delivery-reliability",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/push-delivery-reliability/Loynara",
+      "branch": "codex/push-delivery-reliability",
+      "sha": "d8a1bb88a8683973a88a374cab564d659a00dfe4",
+      "bytes": 882434048,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 183189504
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423173,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423461,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 86,
+      "unremote_latest3": [
+        "d8a1bb8 docs(launch): record push registration integration receipt",
+        "41c8c66 fix(push): fence late results to registration generation",
+        "3dcf497 docs: record scheduling and referral integrated evidence"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T21:52:28+02:00",
+      "logs_head_mtime": "2026-10-10T19:52:28.286879+00:00",
+      "idle_hours_from_logs_head": 6.17,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "push-retry-exhaustion",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/push-retry-exhaustion/Loynara",
+      "branch": "codex/push-retry-exhaustion",
+      "sha": "7e087407330af166149b5ab75572aec741896624",
+      "bytes": 882503680,
+      "cache_bytes": {
+        "node_modules": 666927104,
+        ".next": 183226368
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423501,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423789,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 92,
+      "unremote_latest3": [
+        "7e08740 docs: record LOY-85 worker verification integration receipt",
+        "eba1093 test: verify actual push worker retry and expiry boundaries",
+        "c8ec977 docs(launch): record reissue authorization integration receipt"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T23:37:25+02:00",
+      "logs_head_mtime": "2026-10-10T21:37:25.615724+00:00",
+      "idle_hours_from_logs_head": 4.42,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "recovery-mailpit-capture",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/recovery-mailpit-capture/Loynara",
+      "branch": "codex/recovery-mailpit-capture",
+      "sha": "7e5da56d8de0a157dfb0242c494161c43cc6e9a3",
+      "bytes": 31596544,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [],
+      "ignored_files": 0,
+      "ignored_bytes": 0,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 58,
+      "unremote_latest3": [
+        "7e5da56 docs(recovery): record real local Mailpit capture verification",
+        "e03dc68 docs(launch): record current integrated compatibility results",
+        "9552b37 test(loyalty): characterize purchase rule snapshot concurrency"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T17:12:55+02:00",
+      "logs_head_mtime": "2026-10-10T15:12:55.674862+00:00",
+      "idle_hours_from_logs_head": 10.83,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "staff-http-permissions",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/staff-http-permissions/Loynara",
+      "branch": "codex/worktree-preservation-064",
+      "sha": "2c7f5a74c94ab1d8813609f410288c06d9daedd8",
+      "bytes": 1519845376,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 820076544
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 484500,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 45,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 3,
+      "ignored_bytes": 484833,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 123,
+      "unremote_latest3": [
+        "2c7f5a7 docs(launch): record LOY-292 integration and Done receipt",
+        "0629c6f fix(export): reject failed customer downloads with feedback (LOY-292)",
+        "2b813dd docs: record push safety and recovery verification receipts"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-11T03:56:19+02:00",
+      "logs_head_mtime": "2026-10-11T02:00:29.468816+00:00",
+      "idle_hours_from_logs_head": 0.03,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "KEEP",
+      "reasons": [
+        "active engineering/canonical integration checkout",
+        "archive and verify ignored noncache data before any approved removal"
+      ],
+      "archive_required": [
+        {
+          "path": "var/",
+          "files": 1,
+          "bytes": 45,
+          "symlinks": 0
+        }
+      ],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "staff-reissue-authorization",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/staff-reissue-authorization/Loynara",
+      "branch": "codex/staff-reissue-authorization",
+      "sha": "c8ec977fde9154688c25ea78627742636e022c0b",
+      "bytes": 882647040,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 183369728
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423410,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423698,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 90,
+      "unremote_latest3": [
+        "c8ec977 docs(launch): record reissue authorization integration receipt",
+        "0d7ba08 fix(reissue): serialize credential rotation with staff departure",
+        "e80d2bb docs(launch): record closure ordering and entitlement hold receipts"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T22:11:57+02:00",
+      "logs_head_mtime": "2026-10-10T20:11:57.890625+00:00",
+      "idle_hours_from_logs_head": 5.84,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "webhook-suppression-idempotency",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/webhook-suppression-idempotency/Loynara",
+      "branch": "codex/webhook-suppression-idempotency",
+      "sha": "09ca88e90ebe1098fba87e14603b2e69f769c8ad",
+      "bytes": 882315264,
+      "cache_bytes": {
+        "node_modules": 666939392,
+        ".next": 183144448
+      },
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423023,
+          "symlinks": 0
+        },
+        {
+          "path": "var/",
+          "files": 0,
+          "bytes": 0,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423311,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 77,
+      "unremote_latest3": [
+        "09ca88e docs: record hard suppression integration and tracker receipt",
+        "57454b8 fix(email): preserve hard suppression across unsubscribe races",
+        "51944a0 docs: record analytics snapshot integration and tracker receipt"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T21:03:09+02:00",
+      "logs_head_mtime": "2026-10-10T19:03:09.016725+00:00",
+      "idle_hours_from_logs_head": 6.99,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    },
+    {
+      "name": "webhook-transaction-retry",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/webhook-transaction-retry/Loynara",
+      "branch": "codex/webhook-transaction-retry",
+      "sha": "aa2e7aa36b2d6af61a15c500022b0ecffc4bf528",
+      "bytes": 32272384,
+      "cache_bytes": {},
+      "status": [],
+      "untracked": [],
+      "ignored_noncache": [
+        {
+          "path": "next-env.d.ts",
+          "files": 1,
+          "bytes": 288,
+          "symlinks": 0
+        },
+        {
+          "path": "tsconfig.tsbuildinfo",
+          "files": 1,
+          "bytes": 423256,
+          "symlinks": 0
+        }
+      ],
+      "ignored_files": 2,
+      "ignored_bytes": 423544,
+      "upstream": "no upstream",
+      "commits_not_remote_tracking": 82,
+      "unremote_latest3": [
+        "aa2e7aa docs: record integrated retry and export regression evidence",
+        "3eef429 test: verify webhook rollback retry and owner export accounting",
+        "76d7d33 docs: record integrated owner export verification"
+      ],
+      "merged_into_railway_rc": false,
+      "ancestor_of_integration": true,
+      "named_branch_preserves_head": true,
+      "last_commit_time": "2026-10-10T21:32:00+02:00",
+      "logs_head_mtime": "2026-10-10T19:32:00.834147+00:00",
+      "idle_hours_from_logs_head": 6.51,
+      "process_cwd": [],
+      "codex_owners_snapshot": [
+        {
+          "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+          "title": "Complete Loynara launch scope",
+          "archived_snapshot": false,
+          "attachment_type": "worktree"
+        }
+      ],
+      "du_error": null,
+      "cache_symlinks": {},
+      "classification": "CANDIDATE FOR REMOVAL",
+      "reasons": [
+        "clean/process-idle/history integrated and named branch kept; attached active Goal, under24h; explicit named approval still required"
+      ],
+      "archive_required": [],
+      "codex_owner_live_confirmed": true
+    }
+  ],
+  "marker_only_or_unregistered": [
+    {
+      "name": "apple-pilot-engineering",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/apple-pilot-engineering",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    },
+    {
+      "name": "apple-wallet-production-readiness",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/apple-wallet-production-readiness",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    },
+    {
+      "name": "nfc-physical-preview-exact",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/nfc-physical-preview-exact",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    },
+    {
+      "name": "nfc-recovery-release",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/nfc-recovery-release",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    },
+    {
+      "name": "nfc-returning-customer-v1",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/nfc-returning-customer-v1",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    },
+    {
+      "name": "passfast-reward-presentation-v1",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/passfast-reward-presentation-v1",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    },
+    {
+      "name": "passfast-wallet-production",
+      "path": "/Users/youssefbelmokhtar/.codex/worktrees/passfast-wallet-production",
+      "bytes": 0,
+      "entries": [
+        ".codex-worktree-name"
+      ]
+    }
+  ],
+  "df": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk3s5   460Gi   380Gi    31Gi    93%     10M  328M    3%   /System/Volumes/Data",
+  "classification_counts": {
+    "CANDIDATE FOR REMOVAL": 31,
+    "KEEP": 10,
+    "REQUIRES INVESTIGATION": 3
+  },
+  "candidate_gross_bytes": 11930525696,
+  "safe_without_new_approval_count": 0,
+  "cleanup_performed": false,
+  "size_caveat": "du allocated sizes are estimates; APFS cloning/shared blocks/cache activity and preserved archive size can change actual reclaimed df space",
+  "owner_caveat": "36 live attachments to current active native Goal verified by list_artifacts; other owner IDs/titles appear in current native list_threads. Immutable SQLite associates paths, not proof that an idle open task is completed."
+}
