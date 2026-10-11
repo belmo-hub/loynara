@@ -11,3 +11,5 @@
 | Complete export, retention, deletion and incident policy | [LOY-43 matrix](LOY-43-customer-export-snapshot-2026-10-10.md); LOY-209 | Professional/founder decision OPEN; no invented retention or ledger purge |
 
 Automated coordinator reports and code reviews supply engineering advice, not founder-sensitive approval. Preserve source decision text and chronology; append amendments when new evidence or explicit founder decisions supersede a claim. No ACCEPTED-RISK authorization is established here.
+
+2026-10-11 /080 policy observation, not new authorization:93 canonical supervised cohort/cap and quota procedure remains. No approved unattended transactional cap/scope found; founder/operator must record scope/cohort/cap/quota/alert thresholds and decide unattended admission. PLANNED/approval pending; no cap or commercial policy introduced. See LOY-307-correction-audit-retry-2026-10-11.md; genuine tracker93comment7-139.

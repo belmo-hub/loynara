@@ -1,0 +1,89 @@
+{
+  "assignment": "LOY-ENG-20261011-080",
+  "issue": "LOY-307",
+  "parent": "LOY-53",
+  "base_sha": "dfc2ec7d01870d12d43060746ef61dff5cddeb7c",
+  "source_sha": "ed5eabf2f25e646246d50400570daf3d317b3572",
+  "result_sha": "containing documentation commit; exact receipt in durable Goal state",
+  "implementation": "CorrectionDialog reasonread-onlysaving/uncertain with explanation; definitive rejection still editable; backend/schema unchanged",
+  "red": "ActualChrome/realPG: real correction commits with response withheld, reason remainseditable;1FAIL13.2s unchangedapp",
+  "green": "2realbrowserPASS0FAIL0SKIP7.5s",
+  "focused": "2files8PASS0.864s",
+  "static": "typegen/typecheck/zero-warningchangedlint/buildPASS",
+  "global": "173files1601PASS0FAIL1existingMailpitSKIP153.34s",
+  "integrated": "cleanLOCALFF,2files8PASS0.948s",
+  "review": "One reusedREAD-ONLY sensitive reviewer no material findings;staticonly/no testsservices/effectiveconfigurationunmeasured",
+  "limitations": "No physical/browser-process/provider acceptance; full53/54and93/94OPEN",
+  "primary": "93 current pilot procedure supervises operational admission; no explicit approved unattendedtransactionalcap/scope; no quota/entitlement invented",
+  "founder_action": "93: founder/operator record approved tenant/location/cohort cap, actual provider quota and alert/stop thresholds; explicitly decide unattended transactional admission; separate provideractivationauthorization remains required",
+  "tracker": "307Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T06:09:55Z/comment7-140;93comment7-139/readback",
+  "test_configuration_failures": "Firstfixture-only60s timeout omitted displayed K- prefix; corrected before genuineRED. FirstglobalABORTED omitted existing TEST_PG_CONTAINER transport; composepostgresnotrunning. Restored exact078 existing owned testcontainer config, final backup testsPASS. No test/source weakening or Docker/Colima configuration change.",
+  "resource_usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 10127491,
+    "cumulative_seconds": 52685,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "execution": "Mac/existingcheckoutcodexwallet-admission080; assignedgpt-6.1-sol Mediumdiscovery/Highengineering/Mediumreview; retainedexecutor; native localhost55433 application PG and existingownedbackup-testcontainer; all actual providersOFF",
+  "resources": "43GiB/13retainedtrees/no newtreeinstallcleanup;080ownedDBdroppedafterappstop/zeroactive; other databases preserved",
+  "external_actions": "GenuineYouTrackchild/comment/Done/readback,93holdcomment; Gmail307query0; generation/receiptUNVERIFIED. No push185186/protected/deployment/hosted/provider/customer/tag/legal/newpolicy",
+  "logs": {
+    "init": {
+      "local_path": "/tmp/loy-080-init.log",
+      "bytes": 302,
+      "sha256": "a2595e01836926322dad6147cd29e99e0292d528eb3b1c61928cada4e4300163"
+    },
+    "red": {
+      "local_path": "/tmp/loy-080-red.log",
+      "bytes": 3006,
+      "sha256": "e6759d5cc1aac4c114916501fdd12d29742990127043f8547449f9d261ecf428"
+    },
+    "red-corrected-fixture": {
+      "local_path": "/tmp/loy-080-red-corrected-fixture.log",
+      "bytes": 3404,
+      "sha256": "6b68e0f2c8161131fb8061e05b05ae66d68e7180c0f36d77e108b8ca0a6aaef3"
+    },
+    "green": {
+      "local_path": "/tmp/loy-080-green.log",
+      "bytes": 771,
+      "sha256": "0d1d4173302a1f515aa299187bfb027c5e922aa1a7ee02293cbe0005d6642244"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-080-focused.log",
+      "bytes": 992,
+      "sha256": "c4ac63b3613fccc2837155ed71dc192fc9aef811799e7d3f2392b8a5679c52c2"
+    },
+    "static": {
+      "local_path": "/tmp/loy-080-static.log",
+      "bytes": 4317,
+      "sha256": "b6868a10afdc7c20d185f6f65983fedd891d273cf867c54b53f847dee41b2192"
+    },
+    "global": {
+      "local_path": "/tmp/loy-080-global.log",
+      "bytes": 9968,
+      "sha256": "db53171fefe6ca010ed6b9d214ab0a19214b75e07f7d9442482b0619bd2f80aa"
+    },
+    "global-final": {
+      "local_path": "/tmp/loy-080-global-final.log",
+      "bytes": 39247,
+      "sha256": "043b91b55c946db8c3b05a7cc2263226ef5b09d4d75eedaba37e36cf1edeafaa"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-080-integrated.log",
+      "bytes": 1001,
+      "sha256": "8344c378517492eb216e820afa93e19d4bea6a06bf09b3eaf0d101b742f54f31"
+    }
+  },
+  "global_report": {
+    "path": "/tmp/loy-080-global-final.json",
+    "sha256": "91b6dd09c054ea63ca07c36fb13f33c3727e04fdc489bdb6bdb629a8dd2c07c1"
+  },
+  "browser_proof": {
+    "path": "/tmp/loy-080-correction-recovery-proof.png",
+    "sha256": "67792f31c960b08fffc4bf1456e46ead8abeec25eec8b9d23d9acbb28cd01f18"
+  }
+}
