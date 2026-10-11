@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { apiJson, postJson, type PublicProgram } from "@/components/client-api";
+import { apiJson, ClientApiError, postJson, type PublicProgram } from "@/components/client-api";
 import { audienceDefinitionSchema, type AudienceDefinition } from "@/lib/audience-definition";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { germanDate, Notice, OwnerDialog, OwnerIcon, Skeleton } from "./owner-ui";
@@ -141,7 +141,12 @@ export function CampaignsView() {
       setBuilder(current => current && composerVersion.current.generation === submitted.generation ? ({ ...current, savedId: id }) : current);
       setMessage(newerEdits ? "Der Stand bei Speicherbeginn wurde gespeichert. Neuere Änderungen sind noch ungespeichert." : "Entwurf gespeichert. Es wurde nichts versendet.");
       owner.announce(newerEdits ? "Neuere Änderungen sind noch ungespeichert." : "Entwurf gespeichert.");
-    } catch (cause) { if (composerVersion.current.generation === submitted.generation) setError(reason(cause)); }
+    } catch (cause) {
+      if (composerVersion.current.generation === submitted.generation) {
+        const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
+        setError(unconfirmed ? "Die Speicherung wurde nicht bestätigt. Der Entwurf kann bereits gespeichert sein. Deine Änderungen bleiben hier erhalten. Prüfe den gespeicherten Stand, bevor du erneut speicherst." : reason(cause));
+      }
+    }
     finally { setBusy(false); }
   }
   async function act(id: string, action: "schedule" | "pause" | "cancel") {
@@ -281,7 +286,7 @@ export function CampaignsView() {
               <li>{p && p.eligibleCount > p.quotaRemaining ? "Die Zielgruppe übersteigt das verfügbare Versandlimit." : "Versandlimit: kein Konflikt bekannt."}</li>
             </ul>
           </div>
-          {builder.savedId && mode === "disabled" && <Notice tone="info"><strong>Entwurf gespeichert, nichts versendet.</strong> Sobald der E-Mail-Versand freigeschaltet ist, kannst du diesen Entwurf hier planen. Bis dahin bleibt er unverändert in deiner Liste.</Notice>}
+          {builder.savedId && !dirty && mode === "disabled" && <Notice tone="info"><strong>Entwurf gespeichert, nichts versendet.</strong> Sobald der E-Mail-Versand freigeschaltet ist, kannst du diesen Entwurf hier planen. Bis dahin bleibt er unverändert in deiner Liste.</Notice>}
           {builder.savedId && mode !== "disabled" && (
             <div className="ow-field"><label htmlFor="c-when">Termin für den Versand</label><input id="c-when" className="ow-input" style={{ maxWidth: 260 }} type="datetime-local" value={when[builder.savedId] ?? ""} onChange={event => setWhen(current => ({ ...current, [builder.savedId!]: event.target.value }))} aria-describedby="c-when-hint" /><span id="c-when-hint" className="ow-hint">Der Termin gilt in deiner Browser-Zeitzone{browserZone ? ` (${browserZone})` : ""}{timezone && browserZone && timezone !== browserZone ? `. Der Standort nutzt ${timezone}, bitte achte auf den Unterschied.` : "."} Es wird nichts gesendet, bevor du hier plan­st. Zwischen 21 und 9 Uhr Ortszeit des Standorts wartet jede Nachricht bis 9 Uhr.</span></div>
           )}
