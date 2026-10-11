@@ -27,3 +27,6 @@ Append date, original file/claim, verified source, correction, and scope/status 
 2026-10-11 /082 traceable amendment to081 observed deferral-test risk: deterministicPG evidence proves old client-Date guard may lose999us/release contended lock early. [LOY-309](LOY-309-deferral-clock-precision-2026-10-11.md) repairs exact DB expiry synchronization and strengthens claim checks, production source unchanged. Historical081 timestamps missing; exact event attribution remains UNVERIFIED. No production race/repair or ACCEPTED-RISK claimed.
 
 2026-10-11 /113: [Provider identity release hold](2026-10-11-provider-identity-release-hold-113.md) — unchanged036source/hash/schema; legacygenerationdayunknown, crossdaycollision remainsunresolved. No repeatprobe/guessedmigration/acceptedrisk.139/140OPEN; existingrelease/pushownerrequestsrefreshed.
+
+
+2026-10-11 /119 amendment: [Founder-authorized GitHub push and prepared recurring workflow](2026-10-11-github-push-119.md) — the specific push hold is resolved by direct founder acceptance and verified remote receipt. Available post-push surfaces show no unexpected action; inaccessible Supabase/future effects remain unverified. Future pushes need demonstrated nondeploying scope or new explicit residual-risk authorization.

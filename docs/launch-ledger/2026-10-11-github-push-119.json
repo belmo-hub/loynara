@@ -1,0 +1,253 @@
+{
+  "id": "LOY-COORD-119",
+  "status": "PUSHED_REMOTE_SHA_VERIFIED",
+  "founder_authorization": "Direct founder Option A: one normal nonforce push of verified integration branch; residual Supabase trigger risk explicitly accepted for this push only; no deployment/migrations/protected refs/permission changes",
+  "at": "2026-10-11T16:39:40.179880+00:00",
+  "candidate": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+  "branch": "codex/loynara-engineering-integration",
+  "remote": {
+    "archived": false,
+    "default_branch": "railway-rc",
+    "full_name": "belmo-hub/loynara",
+    "private": true
+  },
+  "remote_refs_before": "5c580be9b1887327cc456e672d2f25f29fc25830\trefs/heads/railway-rc",
+  "preserved_ancestors": [
+    "32b27ec3fe478ce57d4fd9d58b35aca1dbd6e388",
+    "e1aae6583dbb84a7e183eab9f949ba864972b02d",
+    "9848e759d999930cd3ee8bc38540e9d3b1997eea",
+    "5c580be9b1887327cc456e672d2f25f29fc25830"
+  ],
+  "clean": true,
+  "classic_branch_protection_rules": [],
+  "rulesets_read": "403: unavailable for existing private repository plan",
+  "github_deployments_before": [
+    {
+      "created_at": "2026-10-08T17:10:49Z",
+      "environment": "loynara-rc / production",
+      "id": 6941938783,
+      "ref": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "sha": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "updated_at": "2026-10-08T23:07:28Z"
+    },
+    {
+      "created_at": "2026-10-08T14:18:22Z",
+      "environment": "loynara-rc / production",
+      "id": 6938015776,
+      "ref": "21bf48cb5fdc4139a4b931f282b197c8eb97ec83",
+      "sha": "21bf48cb5fdc4139a4b931f282b197c8eb97ec83",
+      "updated_at": "2026-10-08T17:17:07Z"
+    },
+    {
+      "created_at": "2026-10-07T13:46:36Z",
+      "environment": "loynara-rc / production",
+      "id": 6911644820,
+      "ref": "b6f55c45f9f63873df3787be6f16819c58c2f5eb",
+      "sha": "b6f55c45f9f63873df3787be6f16819c58c2f5eb",
+      "updated_at": "2026-10-08T14:27:37Z"
+    },
+    {
+      "created_at": "2026-10-07T09:32:03Z",
+      "environment": "loynara-rc / production",
+      "id": 6906490947,
+      "ref": "5a60017ff66b3b2cd2f5627513fe2ebc8578d001",
+      "sha": "5a60017ff66b3b2cd2f5627513fe2ebc8578d001",
+      "updated_at": "2026-10-07T15:30:59Z"
+    },
+    {
+      "created_at": "2026-10-06T12:08:02Z",
+      "environment": "loynara-rc / production",
+      "id": 6883481616,
+      "ref": "77d63d30e65d6e83b93a86960dcc106ffe2d0ab9",
+      "sha": "77d63d30e65d6e83b93a86960dcc106ffe2d0ab9",
+      "updated_at": "2026-10-07T09:40:54Z"
+    },
+    {
+      "created_at": "2026-10-05T23:19:25Z",
+      "environment": "loynara-rc / production",
+      "id": 6871614330,
+      "ref": "c822d2381dc67544a0ba0c898bf2ddcf98035943",
+      "sha": "c822d2381dc67544a0ba0c898bf2ddcf98035943",
+      "updated_at": "2026-10-07T09:34:06Z"
+    },
+    {
+      "created_at": "2026-10-02T12:12:54Z",
+      "environment": "loynara-rc / production",
+      "id": 6808100049,
+      "ref": "65f32fdbf58b2775bdd6b3ad5e2a0783508a93ae",
+      "sha": "65f32fdbf58b2775bdd6b3ad5e2a0783508a93ae",
+      "updated_at": "2026-10-05T23:29:43Z"
+    },
+    {
+      "created_at": "2026-10-01T22:07:54Z",
+      "environment": "loynara-rc / production",
+      "id": 6796318993,
+      "ref": "5c580be9b1887327cc456e672d2f25f29fc25830",
+      "sha": "5c580be9b1887327cc456e672d2f25f29fc25830",
+      "updated_at": "2026-10-02T12:39:15Z"
+    },
+    {
+      "created_at": "2026-10-01T13:41:42Z",
+      "environment": "loynara-rc / production",
+      "id": 6785789673,
+      "ref": "6f80c72aaa930bde545eb296dc81b8568c5af826",
+      "sha": "6f80c72aaa930bde545eb296dc81b8568c5af826",
+      "updated_at": "2026-10-01T22:09:30Z"
+    },
+    {
+      "created_at": "2026-09-30T07:15:51Z",
+      "environment": "loynara-rc / production",
+      "id": 6753756427,
+      "ref": "90ad26a0f3553c89f17ce5d07e8246591240b852",
+      "sha": "90ad26a0f3553c89f17ce5d07e8246591240b852",
+      "updated_at": "2026-10-05T23:21:07Z"
+    }
+  ],
+  "github_runs_before": {
+    "runs": [],
+    "total_count": 0
+  },
+  "push_submissions": 1,
+  "push_started_at": "2026-10-11T16:39:40.188101+00:00",
+  "push_exit_code": 0,
+  "push_stdout": "To https://github.com/belmo-hub/loynara.git\n*\tee4af7b79e9e4a667d383b0b9f815f31daa53956:refs/heads/codex/loynara-engineering-integration\t[new branch]\nDone\n",
+  "push_stderr": "remote: \nremote: Create a pull request for 'codex/loynara-engineering-integration' on GitHub by visiting:        \nremote:      https://github.com/belmo-hub/loynara/pull/new/codex/loynara-engineering-integration        \nremote: \n",
+  "push_finished_at": "2026-10-11T16:39:47.648945+00:00",
+  "github_deployments_after": [
+    {
+      "created_at": "2026-10-08T17:10:49Z",
+      "environment": "loynara-rc / production",
+      "id": 6941938783,
+      "ref": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "sha": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "updated_at": "2026-10-08T23:07:28Z"
+    },
+    {
+      "created_at": "2026-10-08T14:18:22Z",
+      "environment": "loynara-rc / production",
+      "id": 6938015776,
+      "ref": "21bf48cb5fdc4139a4b931f282b197c8eb97ec83",
+      "sha": "21bf48cb5fdc4139a4b931f282b197c8eb97ec83",
+      "updated_at": "2026-10-08T17:17:07Z"
+    },
+    {
+      "created_at": "2026-10-07T13:46:36Z",
+      "environment": "loynara-rc / production",
+      "id": 6911644820,
+      "ref": "b6f55c45f9f63873df3787be6f16819c58c2f5eb",
+      "sha": "b6f55c45f9f63873df3787be6f16819c58c2f5eb",
+      "updated_at": "2026-10-08T14:27:37Z"
+    },
+    {
+      "created_at": "2026-10-07T09:32:03Z",
+      "environment": "loynara-rc / production",
+      "id": 6906490947,
+      "ref": "5a60017ff66b3b2cd2f5627513fe2ebc8578d001",
+      "sha": "5a60017ff66b3b2cd2f5627513fe2ebc8578d001",
+      "updated_at": "2026-10-07T15:30:59Z"
+    },
+    {
+      "created_at": "2026-10-06T12:08:02Z",
+      "environment": "loynara-rc / production",
+      "id": 6883481616,
+      "ref": "77d63d30e65d6e83b93a86960dcc106ffe2d0ab9",
+      "sha": "77d63d30e65d6e83b93a86960dcc106ffe2d0ab9",
+      "updated_at": "2026-10-07T09:40:54Z"
+    },
+    {
+      "created_at": "2026-10-05T23:19:25Z",
+      "environment": "loynara-rc / production",
+      "id": 6871614330,
+      "ref": "c822d2381dc67544a0ba0c898bf2ddcf98035943",
+      "sha": "c822d2381dc67544a0ba0c898bf2ddcf98035943",
+      "updated_at": "2026-10-07T09:34:06Z"
+    },
+    {
+      "created_at": "2026-10-02T12:12:54Z",
+      "environment": "loynara-rc / production",
+      "id": 6808100049,
+      "ref": "65f32fdbf58b2775bdd6b3ad5e2a0783508a93ae",
+      "sha": "65f32fdbf58b2775bdd6b3ad5e2a0783508a93ae",
+      "updated_at": "2026-10-05T23:29:43Z"
+    },
+    {
+      "created_at": "2026-10-01T22:07:54Z",
+      "environment": "loynara-rc / production",
+      "id": 6796318993,
+      "ref": "5c580be9b1887327cc456e672d2f25f29fc25830",
+      "sha": "5c580be9b1887327cc456e672d2f25f29fc25830",
+      "updated_at": "2026-10-02T12:39:15Z"
+    },
+    {
+      "created_at": "2026-10-01T13:41:42Z",
+      "environment": "loynara-rc / production",
+      "id": 6785789673,
+      "ref": "6f80c72aaa930bde545eb296dc81b8568c5af826",
+      "sha": "6f80c72aaa930bde545eb296dc81b8568c5af826",
+      "updated_at": "2026-10-01T22:09:30Z"
+    },
+    {
+      "created_at": "2026-09-30T07:15:51Z",
+      "environment": "loynara-rc / production",
+      "id": 6753756427,
+      "ref": "90ad26a0f3553c89f17ce5d07e8246591240b852",
+      "sha": "90ad26a0f3553c89f17ce5d07e8246591240b852",
+      "updated_at": "2026-10-05T23:21:07Z"
+    }
+  ],
+  "github_runs_after": {
+    "runs": [],
+    "total_count": 0
+  },
+  "github_check_runs_after": {
+    "checks": [],
+    "total_count": 0
+  },
+  "github_status_after": {
+    "state": "pending",
+    "statuses": [],
+    "total_count": 0
+  },
+  "remote_branch_readback": {
+    "name": "codex/loynara-engineering-integration",
+    "protected": false,
+    "sha": "ee4af7b79e9e4a667d383b0b9f815f31daa53956"
+  },
+  "remote_refs_after": "ee4af7b79e9e4a667d383b0b9f815f31daa53956\trefs/heads/codex/loynara-engineering-integration\n5c580be9b1887327cc456e672d2f25f29fc25830\trefs/heads/railway-rc",
+  "verified_at": "2026-10-11T16:40:14.287926+00:00",
+  "github_deployments_unchanged": true,
+  "github_runs_unchanged": true,
+  "railway_observation": {
+    "evidence": "railway-activity-119.txt",
+    "latest_visible_web_worker_deployments": "2 days ago",
+    "services": "web/worker/cloudflared Online; Postgres Online; migrate Completed; scheduled backup/ops-check succeeded",
+    "new_build_or_deployment_visible": false,
+    "limitation": "Bounded read-only observation; inaccessible Supabase activity and future effects unverified"
+  },
+  "tracker": {
+    "issue": "LOY-185",
+    "comment": "7-196",
+    "readback": "2026-10-11 16:41:45 UTC",
+    "description_amendment_verified": true,
+    "original_description_retained": true,
+    "fields_unchanged": true,
+    "unresolved": true
+  },
+  "usage": {
+    "native_cumulative_tokens_observed": 15533236,
+    "native_seconds_observed": 87360,
+    "start_tokens": 15485313,
+    "start_seconds": 87126,
+    "input": null,
+    "cached": null,
+    "output": null,
+    "browser_and_review": "UNMEASURED"
+  },
+  "statuses": {
+    "PUSHED": true,
+    "DEPLOYED_BY_THIS_TASK": false,
+    "INDEPENDENTLY_ACCEPTED": false,
+    "COMMERCIALLY_READY": false,
+    "ACCEPTED_RISK": "Direct founder: residual Supabase reaction risk for this one push only"
+  }
+}
