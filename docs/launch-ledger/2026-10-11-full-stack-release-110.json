@@ -5,7 +5,7 @@
     "LOY-229"
   ],
   "base_sha": "25b6fb6f23fc4b0d976fcaee8f626b8297e4ee8a",
-  "result_sha": "containing evidence commit; exact integration receipt follows",
+  "result_sha": "93ae78e234587d651351b95c8bf951875bf0a63f",
   "agent": "Codex /root; codex/full-stack-release-110 reused checkout",
   "model": "assignedSolMedium,HighonlyP0P1;effective setter unavailable retainedexecutor;reviewconfigurationunmeasured",
   "date": "2026-10-11",
@@ -66,7 +66,7 @@
   "status": {
     "IMPLEMENTED": "verificationonly",
     "TESTED": true,
-    "INTEGRATED": "pendingreceipt",
+    "INTEGRATED": true,
     "PUSHED": false,
     "DEPLOYED": false,
     "INDEPENDENTLY_ACCEPTED": false,
@@ -81,5 +81,13 @@
     "browser_reviewer": "unmeasured",
     "reset": false
   },
-  "issue_identity_amendment": "Coordinator described282as multi-merchantreleaseacceptance; live282is DONE outboxclaimidentitycodingbug. Preserve exactticket/Done/history; no new282acceptanceorrelabelling."
+  "issue_identity_amendment": "Coordinator described282as multi-merchantreleaseacceptance; live282is DONE outboxclaimidentitycodingbug. Preserve exactticket/Done/history; no new282acceptanceorrelabelling.",
+  "integration_receipt": {
+    "canonical_build": "PASSfreshcompiledsource",
+    "canonical_before": "1ChromePASS375px/16.1s",
+    "canonical_after": "1ChromePASS1280px/2.6s",
+    "initial_missing_artifact": "expectedrefusalbeforeDBaccess;builtcanonicalwithown10webpackagesafterdf38GiB",
+    "tracker": "LOY-28 comment7-189readback14:15:09UTC;BacklogUnknownMissing/unresolved",
+    "log_sha256": "b4a02150fbab0efdffafe26bdce1036ea510bfa1deecc5bc1ab63e7eb7d1b08a"
+  }
 }
