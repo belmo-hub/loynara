@@ -1,0 +1,54 @@
+{
+  "assignment": "LOY-ENG-20261011-106",
+  "date": "2026-10-11T12:52:20.737997+00:00",
+  "issues": [
+    "LOY-49",
+    "LOY-50",
+    "LOY-28",
+    "LOY-185",
+    "LOY-186",
+    "LOY-282"
+  ],
+  "base": "71cc71df641f2862aa5bacab8a4a757eccff703e",
+  "result": "containing commit/integration receipt follows",
+  "agent": "Codex /root",
+  "model": "assigned SolHigh engineering/SolMedium coordination/review; effective setter unavailable/current executor retained; runtime reviewer configuration unmeasured",
+  "execution": "existing isolated checkout codex/purchase-concurrent-release-106; owned local PostgreSQL; no new worktree/install/cleanup",
+  "changes": [
+    "src/lib/purchase-concurrent-release.integration.test.ts",
+    "incremental launch-ledger indexes/evidence"
+  ],
+  "application_changes": false,
+  "tests": {
+    "focused": "1PASS2.86s",
+    "concurrency": "10 actual purchase ledger INSERTs simultaneously waiting in PostgreSQL, then commit; observer clears cached stats snapshot; all10 distinct tenant entries",
+    "accounting": "EUR499minor at rates1..10:4,9,14,19,24,29,34,39,44,49 points; tenant/member/location/cashier attribution and purchaseaudit exact; samekey reused acrosstenants, replayduplicate without extra credit; redeem3 then expectedbalance; reporting/revokedstaff checks",
+    "static": "typegen/typecheck/focused lint zero warnings/productionbuildPASS",
+    "global": "105 exact unchanged application source suite181files1630PASS0FAIL1existing skip174.00s;106 additional focused testPASS; no fresh106whole-suite result asserted",
+    "review": "existing readonly loy281_sensitive_review no material findings; static only"
+  },
+  "failures": [
+    "test-only SQL string syntax corrected",
+    "observer transaction cached pg_stat_activity snapshot false0; pg_stat_clear_snapshot added, unchanged10-waiter assertion passed; not productdefectRED"
+  ],
+  "statuses": {
+    "implemented": "durable regression/acceptance verification only",
+    "tested": true,
+    "integrated": "receipt pending",
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "limits": [
+    "one bounded ten-transaction overlap, not sustained production capacity",
+    "no browser/provider/physical rerun in106;105Chrome evidence retained",
+    "purchase coverage predates106:LOY49 historical realbrowser/rounding/rule-snapshot evidence preserved,106adds actualtenmerchantoverlap",
+    "founder-held future-effective rule/programme policy undecided; no semantics invented"
+  ],
+  "github": "No repeated inspection/push. Owner decision remains: personally exclude Loynara from unusedSupabaseApp access or remove unusedinstallation; permission change notCodexauthorized. Alternatively separately explicit residual-trigger-risk push authorization; none received. Qualifying action then reverify exactscope andotherknowntriggers before conditional nonprotectedpush.",
+  "release": "Bind final receipt SHA, reuse104 gated checklist and105 cohort; no hosted actions; all-writer stop/drain, fresh encryptedbackup/independentrestore,0021..0024, sameSHA webworker, exactpostrelease gates;October13NO-GO",
+  "board": "Exact remove#Unresolved query proposed104/105 retained, shared setting specificapproval absent; no mutation",
+  "external": "authorized concise tracker comments/readback and completed coordinator review receipts follow; no hosted/provider/customer/permission/tag mutation",
+  "usage": "cumulative native to record at receipt; granular input/cached/output/browser/reviewer unmeasured; no reset"
+}
