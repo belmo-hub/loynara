@@ -260,18 +260,21 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
 
 export async function getCard(token: string) {
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
-  const [row] = await db.select({ member: memberships, program: programs, location: locations, tenant: tenants })
-    .from(memberships)
-    .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
-    .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
-    .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
-    .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
-  if (!row) throw new DomainError("NOT_FOUND", "Card not found");
-  const activity = await db.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, createdAt: ledgerEntries.createdAt, purchaseLedgerId: purchaseAwards.ledgerEntryId }).from(ledgerEntries)
-    .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
-    .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
-    .orderBy(desc(ledgerEntries.createdAt)).limit(10);
-  return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
+  // Balance, recent activity and reward progress must describe one committed state.
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select({ member: memberships, program: programs, location: locations, tenant: tenants })
+      .from(memberships)
+      .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+      .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+      .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+      .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
+    if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+    const activity = await tx.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, createdAt: ledgerEntries.createdAt, purchaseLedgerId: purchaseAwards.ledgerEntryId }).from(ledgerEntries)
+      .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
+      .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
+      .orderBy(desc(ledgerEntries.createdAt)).limit(10);
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null })) };
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
 type CounterCard = { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; tenant: typeof tenants.$inferSelect; by: "code" | "locator" };
