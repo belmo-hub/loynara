@@ -24,6 +24,8 @@ const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
 const workerDatabase = boundedWorkerDatabase(pool);
+// Housekeeping can roll back on shutdown without aborting an active job outcome.
+const housekeepingDatabase = boundedWorkerDatabase(pool, { signal: shutdown.signal });
 // Monitoring never occupies the parent pool needed to renew an active job.
 const monitorPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 });
 
@@ -210,11 +212,16 @@ async function main() {
   try {
     do {
       if (Date.now() - recoveryPrunedAt >= 60 * 60_000) {
-        await workerDatabase.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
-        await workerDatabase.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
-        const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
-        await pruneRevokedAppleRegistrations(workerDatabase);
-        recoveryPrunedAt = Date.now();
+        try {
+          await housekeepingDatabase.query("DELETE FROM card_recovery_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+          await housekeepingDatabase.query("DELETE FROM contact_verification_challenges WHERE expires_at <= now() OR consumed_at IS NOT NULL");
+          const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
+          await pruneRevokedAppleRegistrations(housekeepingDatabase);
+          recoveryPrunedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
       }
       let processed = 0;
       const counts: Record<string, number> = {};

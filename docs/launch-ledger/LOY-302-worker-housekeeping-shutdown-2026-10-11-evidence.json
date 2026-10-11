@@ -1,0 +1,55 @@
+{
+  "assignment": "LOY-ENG-20261011-075",
+  "issue": "LOY-302",
+  "parent": "LOY-187",
+  "base_sha": "f32cc8641f68b1c4bf7cf2949e8b0b93aea547f4",
+  "source_sha": "source commit by containment; receipt follows",
+  "primary183": {
+    "unchanged": true,
+    "browser_passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 6.0,
+    "reduce_seconds": 0.001,
+    "normal_seconds": 0.22,
+    "widths": [
+      375,
+      1280
+    ],
+    "overlap": "Claude app-audit owner.css dirty; untouched",
+    "acceptance": "183/184 OPEN"
+  },
+  "worker_red": {
+    "unchanged": true,
+    "failed": 1,
+    "case_ms": 5325,
+    "sanitized": "Real worker SIGTERM while housekeeping DELETE waits: expected exit0, actual1/Worker failed after query bound"
+  },
+  "focused": {
+    "files": 4,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 4.66
+  },
+  "static_failure": "new test ProcessEnv required NODE_ENV; initializer corrected, assertions unchanged",
+  "static_final": "typegen/typecheck/changedlintmaxwarnings0/configuredbuildPASS",
+  "global": {
+    "files": 171,
+    "passed": 1586,
+    "failed": 0,
+    "skipped": 1,
+    "duration_seconds": 151.65,
+    "skip": "existing Mailpit-dependent recovery case"
+  },
+  "independent_review": "read-only no material findings; effective model unmeasured",
+  "log_sha256": {
+    "loy-075-motion.log": "a29c1ba432ca901455c8be1214f7c292996b13b420860040a84065ec1ce053d3",
+    "loy-075-worker-red.log": "873ab486f1b8b3cc90990a3e31538cc74fe8021d9aa5cb1843f7bfa402ca070b",
+    "loy-075-worker-green.log": "84d3dc12448b8b4db89ac9c269dc5c7e7956e8b3041220998b6494b978bd97b1",
+    "loy-075-static.log": "a4ecce9a6615dd790b0b4859b521dc95887b5cebd49769d5506ea1b3b5008fe2",
+    "loy-075-static-final.log": "566a0c876585cd3fbcd37846b4f2b0e3767c66d96cba9d7e4af15de8a9d17c8e",
+    "loy-075-global.log": "90f127173007a48aee0ab779333d517040a9dd5dee75ff065a86710737832795",
+    "loy-075-global.json": "eb17549852fa507f276b6f61c8d1503f2e74ba83848bbf13b4cee204c9d123d0"
+  }
+}

@@ -164,3 +164,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-11 /074: [LOY-301 mobile menu focus](LOY-301-mobile-menu-focus-2026-10-11.md). Genuine unchanged Escape focus RED; restore after inert removal; Escape/backdrop, keyboard reopening and desktop guard/Back 4 browser PASS; role/PG staff 11 PASS; static/build/review PASS. Global/local integration/tracker receipts follow. LOY-169/170 and LOY-181/182 full acceptance OPEN; no deployment.
 
 /074 receipt: source555854d9e4ba71cd42c4cd7b5fc7f7968e72354c LOCAL integrated11PASS;301Done/comment7-131/readback04:37:50UTC. Final configured170files1584PASS0FAIL1existingSKIP146.10s. Full181/182 and169/170 acceptance OPEN.
+
+2026-10-11 /075: [LOY-302 worker housekeeping shutdown](LOY-302-worker-housekeeping-shutdown-2026-10-11.md). Genuine realPG/worker SIGTERM exit1 RED corrected by cancellable housekeeping only; pending attempts0/fresh-worker failure-path1 preserved,22focusedPASS; primary183 unchanged reduced-motion4browserPASS. Static/build/reviewPASS; global/integration/tracker receipts follow.187/188 and183/184 full acceptance OPEN.
