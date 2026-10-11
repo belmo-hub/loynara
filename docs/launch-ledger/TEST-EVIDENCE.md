@@ -97,3 +97,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 [LOY-290](LOY-290-atomic-local-backup-2026-10-11.md): unchanged-base three race RED failures; six focused GREEN passes; independent review and static/build PASS. First global Wallet hook timeout preserved; base and changed Wallet nine PASS each; bounded final global 161 files/1,512 PASS/0 FAIL/1 existing optional SKIP.
+
+
+[LOY-291](LOY-291-preview-backup-publication-2026-10-11.md): four RED failures/four PASS; four focused files/24 PASS; actual synthetic dump/list/restore, exclusive two-owner race and guard refusal. Independent review/static/build PASS; final 162 files/1,520 PASS/0 FAIL/1 existing optional SKIP, 145.46s.

@@ -87,3 +87,6 @@ LOY-289 narrowcashier401 source/testcriteria passed;177/178 independentacceptanc
 
 
 LOY-195/196 remain OPEN after narrow [LOY-290](LOY-290-atomic-local-backup-2026-10-11.md). Current encrypted artifact, production verification and independent isolated restore are unverified. Preview publication is a separate remaining risk; no deployment, push or broad backup acceptance claimed.
+
+
+LOY-195/196 remain OPEN after bounded [LOY-291](LOY-291-preview-backup-publication-2026-10-11.md). Exclusive synthetic preview archive publication is locally verified; current encrypted artifact, production verification and independent restore are still unverified. No deployment or remote push.

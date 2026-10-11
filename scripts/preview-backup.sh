@@ -31,6 +31,7 @@ if [ ! -s "$temporary" ]; then
   exit 1
 fi
 docker compose -p looplocal-preview -f compose.preview.yaml exec -T postgres pg_restore --list < "$temporary" >/dev/null
-mv "$temporary" "$output"
+./node_modules/.bin/tsx scripts/publish-backup.ts "$temporary" "$output"
+rm -f "$temporary"
 trap - EXIT HUP INT TERM
 echo "Preview backup written to $output"

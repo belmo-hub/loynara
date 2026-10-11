@@ -111,3 +111,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 IMPLEMENTED/TESTED [LOY-290 atomic local backup publication](LOY-290-atomic-local-backup-2026-10-11.md): three actual publication races reproduced; six real synthetic dump/list/restore regressions pass; final full suite 1,512 PASS. Earlier Wallet hook timeout and clean base comparison preserved.
+
+
+2026-10-11 IMPLEMENTED/TESTED [LOY-291 preview backup publication](LOY-291-preview-backup-publication-2026-10-11.md): four real unchanged-source race failures; shared publication helper correction; 24 focused and 1,520 global tests PASS.
