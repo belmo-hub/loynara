@@ -21,3 +21,5 @@ Automated coordinator reports and code reviews supply engineering advice, not fo
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): Direct founder CONTINUE ENGINEERING supersedes idle123; coordinator124 assigns confirmed LOY-55 correction. No server lease/accounting policy change. Native BLOCKED cannot be truthfully called ACTIVE without supported resume receipt.
 
 2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Completed124 strategic review accepted local323 and selected bounded125 under existing direct founder coding authority. Snapshot consistency uses existing read-only transaction pattern; proposed release requires consistent new pin/review and separate push/recovery/cutover authority.
+
+- 2026-10-11 / LOY-28 / Assignment126: Traceable amendment: reviewed application153928b supersedes123 ee4 target after completed125 review; immutable application SHA stays separate from later tooling/ledger HEAD. No production or push authority expanded. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).

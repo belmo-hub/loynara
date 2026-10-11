@@ -28,3 +28,5 @@ No deployment, provider/billing activation, purchase, DNS/secret/permission chan
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323: genuine YouTrack development/review/QA→Done transition read back19:32:15UTC/comment7-200 and completed coordinator124 selection. No provider, hosted, physical, permission or deployment action; Gmail receipt unverified.
 
 2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Child324Done readback19:49:41UTC/comment7-201; parent39 open in review. Read-only remote SHA verified ee4. No push, provider send, hosted configuration or physical operation; Gmail unverified.
+
+- 2026-10-11 / LOY-28 / Assignment126: 126 performed only authorized LOY28 comment7-203/readback; no Railway/R2/provider mutation or keys. No claimed Gmail delivery;119 push permission exhausted. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).

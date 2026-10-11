@@ -1,0 +1,388 @@
+{
+  "assignment": "LOY-ENG-20261011-126",
+  "issue": "LOY-28",
+  "agent": "Codex /root",
+  "date": "2026-10-11",
+  "base": "153928b10db55cbd0b40351116ee54515a6b107c",
+  "immutable_application_release": "153928b10db55cbd0b40351116ee54515a6b107c",
+  "tooling_result": "96213ff689fedf245bf7fe91f3410ae4da701534",
+  "containing_receipt_result": "exact finalized integration HEAD in original native state/report; application pin remains immutable",
+  "model": "assigned gpt-6.1-sol medium; effective executor retained when setter unavailable; existing medium readonlyreview",
+  "changed_components": [
+    "scripts/production-release-preflight.ts",
+    "scripts/production-release-preflight.test.ts"
+  ],
+  "states": [
+    "IMPLEMENTED",
+    "TESTED",
+    "INTEGRATED_LOCALLY"
+  ],
+  "not_claimed": [
+    "PUSHED",
+    "DEPLOYED",
+    "INDEPENDENTLY_ACCEPTED_PRODUCTION",
+    "COMMERCIALLY_READY"
+  ],
+  "tests": {
+    "red": {
+      "failed": 4,
+      "passed": 49,
+      "seconds": 20.11
+    },
+    "focused": {
+      "files": 3,
+      "passed": 72,
+      "seconds": 25.2,
+      "exit": 0
+    },
+    "integrated": {
+      "passed": 72,
+      "seconds": 24.25,
+      "exit": 0
+    },
+    "typecheck": "PASS nonincremental",
+    "strict_lint": "PASS",
+    "diff": "PASS",
+    "review": "no material findings, read-only; tests not independently run",
+    "application_regression_preserved": {
+      "source": "153928b10db55cbd0b40351116ee54515a6b107c",
+      "files": 184,
+      "passed": 1685,
+      "failed": 0,
+      "existing_optional_skip": 1,
+      "seconds": 195.74,
+      "rerun": false,
+      "build": "preserved125 fresh production build; unchanged application"
+    }
+  },
+  "actual_default_preflight": {
+    "status": "BLOCKED",
+    "releaseSha": "153928b10db55cbd0b40351116ee54515a6b107c",
+    "projectId": "b07a3919-b3fc-4637-8b91-d0b4418d2856",
+    "environmentId": "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
+    "executionEnabled": false,
+    "evidenceBasis": "DECLARED_OPERATOR_EVIDENCE_REQUIRES_AUTHENTICATION",
+    "meaning": "Offline prerequisite validation only. No permission is granted and no production operation can be executed by this command.",
+    "source": {
+      "status": "PASS",
+      "canonicalJournal": [
+        [
+          "7274fc079d768a164d604dfe6fd4b0dee984b4901e8453aab35728990aa4418b",
+          1790341790664
+        ],
+        [
+          "1fa5daad714bf2251b8d25303f8aabc57f6a582f32ebe54c984204f44ea1570f",
+          1790342756050
+        ],
+        [
+          "b5c06f3836ebac94a19a01aff5ec2012480e8713f1e3bbd753baef4b23d4d957",
+          1790342925349
+        ],
+        [
+          "905c850059f6b951202af1746366244ac0512bb133d8343caff5f4771f73b5e9",
+          1790343596440
+        ],
+        [
+          "e6763bae245ddeba53620c6d01da0fcbaf899b9f3db3cb297e754a1d0761e5bc",
+          1790345071657
+        ],
+        [
+          "4cc008b7009677b83f1c8382d1b82e0d87f8b113941fda9e0d1541c483086b1a",
+          1790345900549
+        ],
+        [
+          "55ebba4eb685be271b35c0e1f24f96a0884886a9cc90aa3487a05d03e65d9e04",
+          1790347449816
+        ],
+        [
+          "e035e41c01021f2d26a828be3c3b5a893b182dfa0842a0f926cce36fa444cdfd",
+          1790363870739
+        ],
+        [
+          "20f0dce395bcb6dc19ef66b7009e679051c6cc17eb787589d17f960965c1fd9b",
+          1790365412649
+        ],
+        [
+          "0ee1bcce7b97bbd1d1d39cb50d0e250899d650d94100c56172b757e65f4487da",
+          1790366483044
+        ],
+        [
+          "4e7f1f0fe5be753665aac9033b7840fb37b104a8c3097e7be5cc032d1fec390f",
+          1790367246298
+        ],
+        [
+          "71c290984548b3da95fd8047dd2f942d01b6d9823f680af814a9924700d73084",
+          1790368587151
+        ],
+        [
+          "75f4e2ba01ab3a9b5c5ec26e7fdc143077bf0102cd5b76b028358a2c140e3140",
+          1790373099963
+        ],
+        [
+          "fff65e5c30f92fe82e4faaabf7079f7e38f2f97e30a4fe7caeaf0e602d21e3f6",
+          1790374827104
+        ],
+        [
+          "c8b7d0f723f2cd65db882f9cc9c0e798b255708ffea94431527a455145fc7ed5",
+          1790477381106
+        ],
+        [
+          "da4f40b74b3e63ae8a5c8eeb6093b7b3ce1aefb7db6140b87d4a64454d24b0be",
+          1790477578300
+        ],
+        [
+          "62c59eea31a550a4e53cb443a04846b9ffe85d4fb546ad6955e3dce6de208090",
+          1790545967721
+        ],
+        [
+          "19a8a0624a32bf269606e977234072ab31f6e9f2b727c0b79917a28d3bb59ff9",
+          1790546708472
+        ],
+        [
+          "abd0e28e8b223a5273ef884033ec99a16124876009b61bb5c1ebdd716884c7c8",
+          1790956320487
+        ],
+        [
+          "f7d1d53946c9cf309896b6368d5241c97974ce009c7e8471358515e3ff496c69",
+          1791127119079
+        ],
+        [
+          "943a8fe9066159fd75840cfb073e7b41be91da0e6646ce33c6dd9ab5508debbf",
+          1791296519073
+        ]
+      ],
+      "schemaFingerprint": "e0996eb13fa3a48ef941e895e6ea1459c9c384cb2e5facc3a450c91332060d43",
+      "sourceBasis": "PINNED_COMMITTED_GIT_BLOBS_NOT_LIVE_RUNTIME",
+      "pendingMigrations": [
+        {
+          "tag": "0021_staff_push_subscriptions",
+          "when": 1791417633414,
+          "sha256": "54ab5fa338723c9d1cea6074d67d61f09b1e4d86fa82acf5ce8f300aad3a0721"
+        },
+        {
+          "tag": "0022_email_rate_limit_retry",
+          "when": 1791599328000,
+          "sha256": "8127ed8eff176d0c46754f58df193a2c74e46db18f3e6e28c23d71908349b403"
+        },
+        {
+          "tag": "0023_reward_ready_automation",
+          "when": 1791632400000,
+          "sha256": "15a15cfac72e146a1ec744ce65918ebe13f2ee46d95da4cb731229cdafe024aa"
+        },
+        {
+          "tag": "0024_outbox_claim_token",
+          "when": 1791674938227,
+          "sha256": "fb1b9256dbe2b72489753d0125ac27b02f6dfff59d313316f0e78a2c95bebd97"
+        }
+      ],
+      "fingerprints": [
+        {
+          "file": "package.json",
+          "sha256": "103e14dbc79436750287c52af9aeee77d0f0628a38b2e8cd9e0e42e9edc242e5"
+        },
+        {
+          "file": "package-lock.json",
+          "sha256": "8102ff3359372447422901e9149d228cdceed91b9c3f59741d0b744197b3330b"
+        },
+        {
+          "file": "marketing-site/package.json",
+          "sha256": "647754e3f811a8d8a642458fc6c198e24c643046bd2f52fbb419ef01bf439440"
+        },
+        {
+          "file": "marketing-site/package-lock.json",
+          "sha256": "c24e611f8f28bafd69085a9b4884227daf75046c79c2b8f0f96ddac10d9cb6bc"
+        },
+        {
+          "file": "src/app/cashier/page.tsx",
+          "sha256": "ee85d2496bc117de873d949eeae573d2fadef251e299e638cfb788fd19f796d4"
+        },
+        {
+          "file": "src/lib/product.ts",
+          "sha256": "79e6fb6daa4dc6f94a2e01fa951b89d2cc0f73b4e5dd22b34da73f3412ac3252"
+        },
+        {
+          "file": "Dockerfile",
+          "sha256": "fa8daed3594a6d6c03f5199d77a80e7f6ebdb3ceb1ecd7603162343f50533e05"
+        },
+        {
+          "file": "Dockerfile.backup",
+          "sha256": "5fcc3944771172e91ee13db5e91cf8b77676fe5262b53d34e86faf7685a72681"
+        },
+        {
+          "file": "scripts/production-guard.ts",
+          "sha256": "4ee763b234e341a45986ad31406c3b9f189953418125644a42d16ab0e804dbe0"
+        },
+        {
+          "file": "scripts/production-migrate.ts",
+          "sha256": "79bf0277e57522adf20979036f35beacbb6de6cd19464453efcaa474ad5b9888"
+        },
+        {
+          "file": "scripts/production-backup.sh",
+          "sha256": "49164c035d4a3bebe1d9398f4a2ca011ba5ef593c611b94a4e95d55d9e2ab1d5"
+        },
+        {
+          "file": "scripts/production-ops-check.ts",
+          "sha256": "c10feae4a5e5943751a9755f29f922e39c5710befa6f18c4ca629ef567bfc441"
+        },
+        {
+          "file": "scripts/worker.ts",
+          "sha256": "c3f6f9c08c7ba10e58956a06f0e98615ea94768a8e5f747e7d9899e2cd2a12b5"
+        },
+        {
+          "file": "src/lib/staff-push.ts",
+          "sha256": "d62f235866c6388b102871330071eb79f758bd0f181015522c1bab9679e7a7a3"
+        },
+        {
+          "file": "src/lib/outbox.ts",
+          "sha256": "02f9fd35b968b30a80a25c1dd6885269d306b6265adb2b24ef28cae8416bda96"
+        },
+        {
+          "file": "src/lib/outbox-replay.ts",
+          "sha256": "d436e92c4ee03601812aaef1dee0c9e172e2484b33697dc04ccf02ceff0b5ddc"
+        },
+        {
+          "file": "src/lib/wallet/refresh.ts",
+          "sha256": "6b94518cd74bc0a7bdebe5dd2b830c31a37dfbc6655104498dbec5defc75a7d0"
+        }
+      ]
+    },
+    "serviceDefinitions": [
+      {
+        "role": "web",
+        "id": "5c1303ad-42c2-4094-a996-3ac6140d088d",
+        "dockerfile": "/Dockerfile",
+        "command": null
+      },
+      {
+        "role": "worker",
+        "id": "3bfad7e8-c638-41bd-8f50-743e68c0633f",
+        "dockerfile": "/Dockerfile",
+        "command": "npm run worker"
+      },
+      {
+        "role": "migrate",
+        "id": "ba6a41c5-b9ee-463a-bc25-f7745c549f59",
+        "dockerfile": "/Dockerfile",
+        "command": "npm run production:migrate"
+      },
+      {
+        "role": "backup",
+        "id": "78ee0c58-c306-4f3a-95c0-1c94e72e793c",
+        "dockerfile": "/Dockerfile.backup",
+        "command": null
+      },
+      {
+        "role": "ops",
+        "id": "c3189719-e305-4c4c-b8ca-4d0b0335c25f",
+        "dockerfile": "/Dockerfile",
+        "command": "npm run production:ops-check"
+      },
+      {
+        "role": "postgres",
+        "id": "7eb7c68b-c890-4f79-844f-f439f9fe0234",
+        "dockerfile": null,
+        "command": null
+      },
+      {
+        "role": "cloudflared",
+        "id": "131ff3f7-3eb8-4837-a9f9-694db14f623b",
+        "dockerfile": null,
+        "command": null
+      }
+    ],
+    "writerInventory": [
+      {
+        "id": "web-http",
+        "service": "web",
+        "components": [
+          "src/app/api"
+        ],
+        "effect": "HTTP/API routes: loyalty, consent, staff, campaign and other application writes"
+      },
+      {
+        "id": "web-immediate-nfc",
+        "service": "web",
+        "components": [
+          "src/lib/staff-push.ts",
+          "src/lib/outbox.ts"
+        ],
+        "effect": "Immediate cashier notification claim/renew/outcome; not confined to the background worker"
+      },
+      {
+        "id": "worker-outbox",
+        "service": "worker",
+        "components": [
+          "scripts/worker.ts",
+          "src/lib/outbox.ts",
+          "src/lib/outbox-replay.ts"
+        ],
+        "effect": "Durable claim/replay/renew/outcome and delivery/reward/Wallet processing"
+      },
+      {
+        "id": "worker-housekeeping",
+        "service": "worker",
+        "components": [
+          "scripts/worker.ts",
+          "src/lib/wallet/refresh.ts"
+        ],
+        "effect": "Recovery/contact challenge cleanup and revoked Apple registration cleanup"
+      },
+      {
+        "id": "migration-schema",
+        "service": "migrate",
+        "components": [
+          "scripts/production-migrate.ts",
+          "drizzle/meta/_journal.json"
+        ],
+        "effect": "Auth/schema/ledger-trigger migration; scheduled/one-off invocations must remain stopped until approved"
+      }
+    ],
+    "liveWriterInventory": "UNKNOWN",
+    "requiredEvidence": [
+      "Authenticated operator receipt for exact project/environment/service identities, current generations, unchanged branch and resolved safe flags",
+      "Complete live writer inventory including immediate NFC, scheduled jobs, manual replay/migrations and any outside clients; no unaccounted writers",
+      "Authenticated exact-commit deployment eligibility and separately bounded founder deployment authorization for the pinned release",
+      "Authorized all-old-writer shutdown/drain receipt with zero in-flight work before the recovery point",
+      "Fresh encrypted approved EU R2 object after drain: source database/generation/schema, date/size/SHA256, independent retrieval and key custodian (never the key)",
+      "Explicit source and restored physical schema receipts: critical tables, tenant constraints, append-only trigger and structures through 0020; journal hashes alone are insufficient",
+      "Approved initially-empty isolated restore target distinct from production; independent operator accepted the same retrieved object, exact canonical journal and source-bound membership/ledger history, tenant isolation and reconciled counts",
+      "Separate founder backup/restore authorization; current exact canonical 0000..0020 journal/hash/timestamp and schema evidence before ordered 0021..0024"
+    ],
+    "blockers": [
+      "Operator, writer, configuration, backup, custody, independent restore and separate authorization evidence is missing"
+    ],
+    "orderedOperations": [
+      "attest-all-writers-and-separate-approvals",
+      "stop-and-drain-all-old-writers",
+      "fresh-encrypted-backup",
+      "accept-independent-isolated-restore",
+      "migrate-0021-through-0024-and-verify-exact-25-entry-journal",
+      "deploy-pinned-web-with-ingress-closed",
+      "verify-web-source-and-safe-config",
+      "deploy-identical-pinned-worker",
+      "verify-no-old-writers-and-health",
+      "authorized-two-tenant-smoke-and-reopen"
+    ]
+  },
+  "actual_exit": 2,
+  "tracker": {
+    "comment": "7-203",
+    "readback": "2026-10-11T20:00:45Z",
+    "epic_stays_open": true
+  },
+  "remote_last_verified": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+  "authorizations": "local only; previous119 push consumed; new exact integration push, bounded recovery and later separate cutover require founder",
+  "usage": {
+    "native_goal_id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+    "actual_status": "BLOCKED",
+    "last_measured_tokens": 16624937,
+    "last_measured_seconds": 92240,
+    "input": "UNMEASURED",
+    "cached_subset": "UNMEASURED",
+    "output": "UNMEASURED",
+    "browser_reviewer": "UNMEASURED",
+    "reset": false
+  },
+  "coordinator_review": "PENDING",
+  "remaining": "full launch acceptance open; no127 automatically; existing recovery/cutover facts and authority missing"
+}
