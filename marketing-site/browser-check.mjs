@@ -1,89 +1,261 @@
 import assert from 'node:assert/strict';
-import {mkdir,writeFile,readFile} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
-import {chromium} from '@playwright/test';
-const base='http://127.0.0.1:8765';
-const out='marketing-site/evidence/premium-pass';await mkdir(out,{recursive:true});
-const browser=await chromium.launch({channel:'chrome',headless:true});
-const errors=[],external=[];const report={conditions:{browser:browser.version(),host:'Mac / loopback static server',hardware:'Browser emulation only. No physical phone testing.',performance:'Single lab page load: 390×844, CPU 4× slowdown, 1.6 Mbps down / 750 Kbps up, 40 ms latency. Not field INP or real-user data.'},checks:[],lab:{},screenshots:[],sourceHash:'',contrast:{}};
-const check=(name)=>{report.checks.push({name,result:'PASS'});console.log(`PASS ${name}`)};
-try{
- const context=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
- const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(!r.url().startsWith(base)&&!r.url().startsWith('blob:'))external.push(r.url())});
- await p.goto(base);await p.locator('#demo-next').waitFor({state:'visible'});await p.waitForFunction(()=>!document.querySelector('#demo-next').disabled);
- assert.ok(await p.locator('.traffic-calculator').evaluate(e=>e.getBoundingClientRect().top<document.querySelector('.calculator').getBoundingClientRect().top),'Visit scenario must be the first calculator');
- assert.equal(await p.locator('#traffic-customers').inputValue(),'50');assert.equal(await p.locator('#traffic-basket').inputValue(),'70');assert.equal(await p.locator('#traffic-days').inputValue(),'26');assert.equal(await p.locator('#traffic-uplift').inputValue(),'10');
- assert.equal(await p.locator('#traffic-uplift-range').isVisible(),true);assert.match(await p.locator('#traffic-assumption').innerText(),/Beispielrechnung/);assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^9\.100,00/);
- await p.locator('[data-traffic-price=standard]').click();assert.equal(await p.locator('#offer').inputValue(),'standard');assert.match(await p.locator('#traffic-fee').innerText(),/^69,00/);assert.equal(await p.locator('[data-traffic-price=standard]').getAttribute('aria-pressed'),'true');await p.locator('[data-traffic-price=founding]').click();assert.equal(await p.locator('#offer').inputValue(),'founding');
- assert.equal(await p.locator('#traffic-days-range').evaluate(e=>getComputedStyle(e).backgroundImage.includes('linear-gradient')),true);
- check('Visit scenario appears first with four visible sliders and clearly labelled sample assumptions');
- await p.locator('[data-traffic-price=standard]').click();assert.equal(await p.locator('[data-price=standard]').getAttribute('aria-pressed'),'true','Price selection must agree across sections');await p.locator('[data-traffic-price=founding]').click();
- await p.locator('#traffic-customers').fill('51');assert.equal(await p.locator('#traffic-customers-range').inputValue(),'51');await p.locator('#traffic-basket').fill('70,50');assert.equal(await p.locator('#traffic-basket-range').inputValue(),'70.5');await p.locator('#traffic-basket').fill('');assert.equal(await p.locator('#traffic-basket-range').isVisible(),true,'Editing a value must not remove its slider');await p.locator('#traffic-sample').click();
- check('Calculator controls preserve layout and exact input values; price selections agree throughout the page');
- await p.locator('#contribution').fill('8');assert.equal(await p.locator('#required').innerText(),'7');assert.match(await p.locator('#cost-caveat').innerText(),/nur die monatliche Softwaregebühr/);
- await p.locator('#calc-details').evaluate(e=>e.open=true);
- await p.locator('#rewards').fill('0');await p.locator('#effort').fill('0');assert.equal(await p.locator('#required').innerText(),'7');
- await p.locator('#rewards').fill('20');await p.locator('#effort').fill('10');await p.locator('#visits').fill('10');assert.equal(await p.locator('#required').innerText(),'10');assert.match(await p.locator('#scenario-change').innerText(),/^1,00/);
- await p.locator('#visits').fill('0');assert.match(await p.locator('#scenario-change').innerText(),/-79,00/);
- await p.locator('#contribution').fill('0');assert.match(await p.locator('#result-explanation').innerText(),/Kein endlicher/);
- await p.locator('#contribution').fill('-1');assert.equal(await p.locator('#required').innerText(),'–');
- await p.locator('#contribution').fill('8,50');assert.equal(await p.locator('#required').innerText(),'10');
- await p.locator('#rewards').fill('-2');assert.match(await p.locator('#calc-error').innerText(),/nicht negativ/);
- await p.locator('#rewards').fill('1000001');assert.match(await p.locator('#calc-error').innerText(),/höchstens/);
- await p.locator('#rewards').fill('1000000');await p.locator('#effort').fill('1000000');await p.locator('#contribution').fill('0,01');await p.locator('#revenue').fill('1000000');await p.locator('#visits').fill('100000');await p.setViewportSize({width:360,height:800});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Large valid input must not overflow');await p.setViewportSize({width:1440,height:900});
- await p.locator('#load-example').click();await p.locator('#offer').selectOption('introDraft');await p.locator('#period').selectOption('first');assert.match(await p.locator('#fee').innerText(),/^99,00/);assert.match(await p.locator('#cost-caveat').innerText(),/nicht freigegeben/);
- await p.locator('#period').selectOption('recurring');assert.match(await p.locator('#fee').innerText(),/^49,00/);
- await p.locator('#offer').selectOption('founding');await p.locator('#period').selectOption('first');assert.match(await p.locator('#fee').innerText(),/^148,00/);
- await p.locator('#period').selectOption('recurring');check('Calculator: blanks, German decimals, 7/10 visits, €1/-€79 scenarios, invalid amounts and first-month pricing');
- await p.locator('#traffic-sample').click();assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^9\.100,00/);assert.match(await p.locator('#traffic-after-fee').innerText(),/^9\.051,00/);assert.equal(await p.locator('#traffic-ratio').innerText(),'186×');assert.match(await p.locator('#traffic-annual').innerText(),/^108\.612,00/);
- await p.locator('#traffic-uplift').fill('0');assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^0,00/);assert.match(await p.locator('#traffic-after-fee').innerText(),/^-49,00/);assert.equal(await p.locator('#traffic-ratio').innerText(),'0×');
- await p.locator('#traffic-uplift').fill('10');await p.locator('#traffic-basket').fill('70,50');assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^9\.165,00/);
- await p.locator('#traffic-basket').fill('70');await p.locator('#traffic-uplift-range').focus();await p.locator('#traffic-uplift-range').press('End');assert.equal(await p.locator('#traffic-uplift').inputValue(),'20');assert.match(await p.locator('#traffic-monthly-revenue').innerText(),/^18\.200,00/);
- await p.locator('#traffic-uplift-range').press('Home');await p.locator('#offer').selectOption('standard');assert.match(await p.locator('#traffic-after-fee').innerText(),/^-69,00/);await p.locator('#offer').selectOption('founding');
- await p.locator('#traffic-customers').fill('999');assert.match(await p.locator('#traffic-error').innerText(),/500/);
- await p.locator('#traffic-customers').fill('50');await p.locator('#traffic-reset').click();await p.waitForFunction(()=>document.querySelector('#traffic-monthly-revenue')?.textContent==='–');await p.waitForFunction(()=>document.querySelector('#calculation-announcement').textContent.includes('vier Annahmen'));await p.locator('#traffic-sample').click();await p.waitForFunction(()=>document.querySelector('#calculation-announcement').textContent.includes('9.100,00'));await p.locator('#load-example').click();await p.waitForFunction(()=>document.querySelector('#calculation-announcement').textContent.includes('1,00')&&document.querySelector('#calculation-announcement').textContent.includes('Beitragsänderung'));check('Four-input scenario arithmetic, zero, decimals, bounds, reset and concise announcements for programmatic changes');
- await p.locator('[data-industry-choice=barber]').click();assert.equal(await p.locator('#contribution').inputValue(),'8');await p.locator('[data-industry-choice=friseur]').click();assert.match(await p.locator('#industry-intro').innerText(),/Haarschnitten/);
- await p.locator('#business-name').fill('<img src=x onerror=alert(1)>');assert.equal(await p.locator('[data-business]').innerText(),'<img src=x onerror=alert(1)>');assert.equal(await p.locator('[data-business] img').count(),0);
- await p.locator('#business-name').fill('Café Nora');assert.equal(await p.locator('#industry-preview-name').innerText(),'Café Nora');assert.equal(await p.locator('.customer-screen [data-demo-business]').innerText(),'Café Nora');await p.locator('[data-industry-choice=cafe]').click();check('Industry changes reset demo, preserve economics, and safely display business names');
- for(const key of ['barber','friseur','nagelstudio','gastro','autopflege','wellness','fitness','cafe']){await p.locator('[data-industry-choice='+key+']').click();assert.equal(await p.locator('[data-industry-choice='+key+']').getAttribute('aria-pressed'),'true');assert.equal(await p.locator('#contribution').inputValue(),'8');}
- await p.locator('#hero-play').click();assert.match(await p.locator('#hero-balance').innerText(),/^1/);await p.locator('#hero-play').click();assert.equal(await p.locator('#hero-owner-count').innerText(),'1');await p.locator('#hero-play').click();assert.match(await p.locator('#hero-balance').innerText(),/^2/);await p.locator('#hero-play').click();assert.match(await p.locator('#hero-balance').innerText(),/^0/);check('Eight industries and explicit hero visit/activity/return/reset controls');
- await p.locator('#demo-next').click();assert.equal(await p.locator('#demo-next').isDisabled(),true);assert.equal(await p.evaluate(()=>document.activeElement?.getAttribute('data-action')),'enroll');await p.locator('[data-action=enroll]').click();await p.locator('#demo-next').click();assert.match(await p.locator('#step-title').innerText(),/Bezahlt/);await p.locator('#demo-next').click();assert.match(await p.locator('[data-cashier-balance]').innerText(),/^0/);
- await p.locator('[data-action=identify]').click();assert.match(await p.locator('[data-cashier-balance]').innerText(),/^0/);await p.locator('[data-action=award]').click();assert.match(await p.locator('[data-cashier-balance]').innerText(),/^1/);
- await p.locator('#demo-next').click();await p.locator('.demo-shell').screenshot({path:`${out}/demo-confirmed-desktop.png`,animations:'disabled'});await p.setViewportSize({width:390,height:844});await p.locator('.demo-shell').screenshot({path:`${out}/demo-confirmed-mobile.png`,animations:'disabled'});await p.setViewportSize({width:1440,height:900});await p.locator('[data-view=owner]').click();assert.match(await p.locator('.activity').innerText(),/\+1 Stempel/);await p.locator('[data-action=jump]').click();await p.locator('[data-action=last]').click();await p.locator('[data-action=redeem]').click();assert.match(await p.locator('.activity').innerText(),/−8 Stempel/);assert.equal(await p.locator('.owner-metrics strong').nth(2).innerText(),'0');
- await p.locator('#reset-demo').click();assert.equal(await p.locator('.owner-metrics strong').nth(0).innerText(),'0');check('Journey: enrollment → separate payment → identify without award → explicit +1 → owner history → labelled time jump → redemption → reset');
- await p.locator('#referral-story summary').click();await p.locator('[data-story-next=referral]').click();assert.match(await p.locator('#referral-flow').innerText(),/0 Bonusstempel/);await p.locator('[data-story-next=referral]').click();assert.match(await p.locator('#referral-flow').innerText(),/0 Bonusstempel/);await p.locator('[data-story-next=referral]').click();assert.match(await p.locator('#referral-flow').innerText(),/einmalig \+1/);assert.equal(await p.locator('[data-story-next=referral]').isDisabled(),true);await p.locator('[data-story-reset=referral]').click();
- await p.locator('#return-story summary').click();for(let i=0;i<3;i++)await p.locator('[data-story-next=return]').click();assert.match(await p.locator('#return-flow').innerText(),/Versand in dieser Demo simuliert/);await p.locator('[data-story-next=return]').click();assert.match(await p.locator('#return-flow').innerText(),/kein gemessener/);await p.locator('[data-story-reset=return]').click();check('Campaign/referral stories: no send, no click reward, explicit qualifying purchase, working rewind/reset');
- for(const [f,src] of [['activity','merchant-dashboard.webp'],['offers','campaign.webp'],['growth','referrals.webp'],['programme','rewards.webp']]){await p.locator(`[data-feature=${f}]`).click();await p.waitForFunction(src=>document.querySelector('#feature-image').src.endsWith(src)&&!document.querySelector('.product-capture').hasAttribute('aria-busy'),src);assert.equal(await p.locator(`[data-feature=${f}]`).getAttribute('aria-pressed'),'true');}
- await p.locator('#contact-business').fill('Synthetisches Café');await p.locator('#contact-email').fill('demo@example.test');await p.locator('#contact-question').fill('Wie richten wir unsere acht Stempel ein?');const download=p.waitForEvent('download');await p.locator('#download-brief').click();assert.equal((await download).suggestedFilename(),'loynara-gespraechsnotiz.txt');assert.equal(await p.locator('#contact-draft button[type=submit]').isDisabled(),true);check('Real captures load and conversation note downloads; contact submission stays disabled');
- await p.locator('[data-price=standard]').click();assert.equal(await p.locator('#offer').inputValue(),'standard');await p.locator('[data-price=founding]').click();assert.equal(await p.locator('#offer').inputValue(),'founding');check('Price controls synchronize the calculator without changing economics');
- await p.goto(base);await p.keyboard.press('Tab');assert.equal(await p.evaluate(()=>document.activeElement?.textContent),'Zum Inhalt springen');await p.keyboard.press('Enter');await p.locator('[data-industry-choice=barber]').focus();await p.keyboard.press('Enter');assert.match(await p.locator('#industry-intro').innerText(),/Schnitt/);await p.locator('#demo-next').focus();await p.keyboard.press('Enter');await p.locator('[data-action=enroll]').focus();await p.keyboard.press('Enter');assert.equal(await p.locator('#demo-next').isDisabled(),false);check('Keyboard: skip link, category choice, stepper and enrollment');
- // Static evidence uses reduced motion so section entry effects cannot tint a capture.
- await p.emulateMedia({reducedMotion:'reduce'});report.conditions.screenshots='Responsive screenshots use reduced motion; the interactive journeys above use normal motion.';
- for(const size of [{width:360,height:800},{width:390,height:844},{width:768,height:1024},{width:1024,height:768},{width:1440,height:900}]){
-  await p.setViewportSize(size);await p.goto(base);await p.waitForFunction(()=>!document.querySelector('#demo-next').disabled);const dims=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));assert.ok(dims.scroll<=dims.viewport,`Horizontal overflow at ${size.width}`);
-  const name=`home-${size.width}.png`;await p.screenshot({animations:'disabled',path:`${out}/${name}`});report.screenshots.push(name);
-  await p.locator('#ablauf').scrollIntoViewIfNeeded();await p.screenshot({animations:'disabled',path:`${out}/demo-${size.width}.png`});
-  if(size.width<760){assert.equal(await p.locator('.cashier-screen').isVisible(),false);await p.locator('[data-view=cashier]').click();assert.equal(await p.locator('.customer-screen').isVisible(),false);assert.equal(await p.locator('.cashier-screen').isVisible(),true);await p.locator('[data-view=owner]').click();assert.equal(await p.locator('.owner-screen').isVisible(),true);}
-  if(size.width===390||size.width===1440){await p.locator('#load-example').click();await p.locator('#rechner').screenshot({path:`${out}/calculator-${size.width}.png`,animations:'disabled'});await p.locator('#traffic-sample').click();await p.locator('.traffic-calculator').screenshot({path:`${out}/traffic-scenario-${size.width}.png`,animations:'disabled'});await p.locator('#preise').screenshot({path:`${out}/pricing-${size.width}.png`,animations:'disabled'});}
-  if(size.width===390){await p.locator('#menu-toggle').click();assert.equal(await p.locator('#main-nav').isVisible(),true);await p.keyboard.press('Escape');assert.equal(await p.locator('#main-nav').isVisible(),false);await p.locator('#menu-toggle').click();await p.locator('#main-nav a[href=\"#rechner\"]').click();assert.equal(await p.locator('#main-nav').isVisible(),false);await p.waitForFunction(()=>{const target=document.querySelector('#rechner').getBoundingClientRect(),header=document.querySelector('.header').getBoundingClientRect();return target.top>=header.bottom-8&&target.top<header.bottom+55;});}
-  if(size.width===390||size.width===1440){for(const [id,name] of [['wiederkehr','problem-solution'],['geschaeft','industry'],['ablauf','workflow'],['plattform','platform'],['tap','nfc'],['anfrage','final-cta']]){await p.locator('#'+id).screenshot({path:`${out}/${name}-${size.width}.png`,animations:'disabled'});}}
-  check(`${size.width}×${size.height}: layout and readable demo view switching`);
- }
- await p.emulateMedia({reducedMotion:'reduce'});await p.setViewportSize({width:390,height:844});await p.goto(base);await p.locator('#load-example').click();assert.equal(await p.locator('#required').innerText(),'10');await p.locator('#demo-next').click();assert.equal(await p.locator('#demo-screens').evaluate(e=>getComputedStyle(e).animationName),'none');check('Reduced motion retains calculator and demo actions, disables animation');
- await p.setViewportSize({width:720,height:450});await p.goto(base);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'200% equivalent reflow overflow');await p.screenshot({animations:'disabled',path:`${out}/zoom-200.png`});check('200% zoom-equivalent reflow: 1440×900 reduced to 720×450 CSS pixels, no clipping; browser UI zoom not exercised');
- const nojs=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:844}});const plain=await nojs.newPage();await plain.goto(base);assert.equal(await plain.getByRole('heading',{level:1}).count(),1);assert.equal(await plain.locator('#ablauf noscript').isVisible(),true);assert.ok(await plain.locator('#preise').innerText());await nojs.close();check('No JavaScript: navigation, prices, explanations and recording remain available');
- for(const route of ['cafe','barber','friseur','nagelstudio','gastro','autopflege','fitness','wellness','demo','demo-transcript']){assert.equal((await p.goto(`${base}/${route}/`)).status(),200);}check('All eight industry routes, demo and transcript load');
- await p.goto(base);
- const contrast=await p.evaluate(()=>{const lum=c=>{const a=c.match(/\d+(?:\.\d+)?/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return a[0]*.2126+a[1]*.7152+a[2]*.0722};const ratio=(a,b)=>{a=lum(a);b=lum(b);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)};const button=getComputedStyle(document.querySelector('.hero .primary'));const field=getComputedStyle(document.querySelector('#business-name'));const body=getComputedStyle(document.body);const offer=getComputedStyle(document.querySelector('.offer-featured')),price=getComputedStyle(document.querySelector('.offer-featured h3'));const confirmation=getComputedStyle(document.querySelector('.hero-confirm'));const benefit=getComputedStyle(document.querySelector('.contrast-row p:last-child'));const contact=getComputedStyle(document.querySelector('.contact-preview')),contactText=getComputedStyle(document.querySelector('.contact-preview>p:not(.eyebrow)'));return {primaryText:ratio(button.color,button.backgroundColor),inputBoundary:ratio(field.borderTopColor,field.backgroundColor),bodyText:ratio(body.color,getComputedStyle(document.documentElement).backgroundColor),priceText:ratio(price.color,offer.backgroundColor),heroConfirmation:ratio(confirmation.color,confirmation.backgroundColor),benefitText:ratio(benefit.color,benefit.backgroundColor),contactText:ratio(contactText.color,contact.backgroundColor)};});
- assert.ok(contrast.primaryText>=4.5);assert.ok(contrast.bodyText>=4.5);assert.ok(contrast.inputBoundary>=3);report.contrast=contrast;check('Computed core contrast: body and CTA text ≥4.5:1, input boundary ≥3:1');
- assert.ok(contrast.priceText>=4.5);assert.ok(contrast.heroConfirmation>=4.5);assert.ok(contrast.benefitText>=4.5);assert.ok(contrast.contactText>=4.5);check('Selected offer, hero confirmation, benefits and contact card retain readable contrast');
- const lab=await browser.newContext({viewport:{width:390,height:844}});const lp=await lab.newPage();const cdp=await lab.newCDPSession(lp);await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});await cdp.send('Network.enable');await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:40,downloadThroughput:200000,uploadThroughput:93750});await lp.addInitScript(()=>{window.__lab={lcp:0,cls:0,longTasks:0};new PerformanceObserver(l=>{for(const e of l.getEntries())window.__lab.lcp=e.startTime}).observe({type:'largest-contentful-paint',buffered:true});new PerformanceObserver(l=>{for(const e of l.getEntries())if(!e.hadRecentInput)window.__lab.cls+=e.value}).observe({type:'layout-shift',buffered:true});new PerformanceObserver(l=>{for(const e of l.getEntries())window.__lab.longTasks+=Math.max(0,e.duration-50)}).observe({type:'longtask',buffered:true});});await lp.goto(base);await lp.waitForTimeout(2000);report.lab=await lp.evaluate(()=>({...window.__lab,resources:performance.getEntriesByType('resource').reduce((n,e)=>n+e.transferSize,0)}));await lab.close();
- for(const summary of await p.locator('.faq summary').all()){await summary.click();assert.equal(await summary.evaluate(e=>e.parentElement.open),true);await summary.click();}
- const essential=await p.locator('.hero .button,.nav-cta,#menu-toggle,.view-options button,.industry-options button').evaluateAll(es=>es.filter(e=>e.getBoundingClientRect().width>0).map(e=>({label:e.textContent,height:e.getBoundingClientRect().height})));assert.ok(essential.every(e=>e.height>=44));check('FAQ accordions and key touch targets ≥44px');
- await p.locator('.draft-offer summary').click();await p.locator('#use-draft').click();assert.equal(await p.locator('#offer').inputValue(),'introDraft');assert.match(await p.locator('#fee').innerText(),/^99,00/);
- await p.locator('.recording summary').click();await p.locator('video').focus();await p.locator('video').press('Space');await p.waitForFunction(()=>document.querySelector('video').readyState>=2);await p.locator('video').press('Space');check('Draft pricing CTA and on-demand genuine recording controls');
- for(const link of await p.locator('a[href^=\"#\"]').all()){if((await link.getAttribute('class'))?.includes('skip'))continue;if(await link.isVisible()){const href=await link.getAttribute('href');await link.click();assert.equal(new URL(p.url()).hash,href);}}check('Every visible internal navigation/CTA reaches its declared section');
- assert.deepEqual(errors,[]);assert.deepEqual(external,[]);check('No application errors or third-party requests in exercised marketing flows');
- const hash=createHash('sha256');for(const file of ['index.html','styles.css','assets/fonts/geist-latin.woff2',...['browser','config','demo','economics','views','i18n','dynamic-copy'].map(n=>`assets/modules/${n}.js`)])hash.update(await readFile(`marketing-site/site/${file}`));report.sourceHash=hash.digest('hex');
- await writeFile('marketing-site/browser-evidence.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report.lab));
-}finally{await browser.close();}
+import { mkdir } from 'node:fs/promises';
+import { chromium } from '@playwright/test';
+
+// Concept D browser checks. Needs the loopback preview (PORT=8795 npm run marketing:preview).
+// Local Chromium (system Chrome) only: no WebKit, no Safari, no physical phone, no screen reader.
+const base = process.env.BASE ?? 'http://127.0.0.1:8765', out = 'marketing-site/evidence/screens';
+await mkdir(out, { recursive: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const results = [];
+const check = (name, ok = true, detail = '') => { if (!ok) console.error(`FAIL: ${name} ${detail}`); assert.ok(ok, `${name} ${detail}`); results.push(name); };
+const settle = page => page.waitForTimeout(420);
+const jump = (page, sel) => page.evaluate(s => document.querySelector(s).scrollIntoView({ behavior: 'instant', block: 'start' }), sel);
+const txt = async (page, sel) => (await page.locator(sel).first().innerText()).replace(/\s+/g, ' ');
+const out$ = (page, k) => page.locator(`[data-out="${k}"]`).first().textContent();
+const selected = (page, sel) => page.locator(sel).evaluateAll(els => els.filter(e => e.getAttribute('aria-selected') === 'true').map(e => e.dataset.view));
+const fill = async (page, key, text) => { const i = page.locator(`[data-in="${key}"]`); await i.click(); await i.fill(text); };
+
+async function newPage(viewport, opts = {}) {
+  const context = await browser.newContext({ viewport, isMobile: viewport.width < 600, hasTouch: viewport.width < 600, deviceScaleFactor: opts.scale ?? 1, reducedMotion: opts.reduced ? 'reduce' : 'no-preference', javaScriptEnabled: opts.js !== false });
+  const page = await context.newPage();
+  const log = { problems: [], external: [], mails: [], storage: [] };
+  page.on('console', m => { if (['error', 'warning'].includes(m.type())) log.problems.push(`${m.type()}: ${m.text()}`); });
+  page.on('pageerror', e => log.problems.push(`pageerror: ${e.message}`));
+  page.on('request', r => { const u = r.url(); if (u.startsWith('mailto:')) log.mails.push(u); else if (!u.startsWith(base) && !u.startsWith('data:')) log.external.push(u); });
+  await page.goto(base + '/');
+  await page.waitForTimeout(700);
+  return { page, context, log };
+}
+
+// ---------- every viewport: structure, overflow, console, first viewport, default-visible value ---------------------------------------
+for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 932], [390, 844], [375, 812], [360, 800], [320, 740]]) {
+  const { page, context, log } = await newPage({ width: w, height: h });
+  const tag = `${w}px`;
+  check(`${tag}: one h1, title`, (await page.locator('h1').count()) === 1 && (await page.title()).startsWith('Loynara'));
+  check(`${tag}: no horizontal overflow`, await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  const wide = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > document.documentElement.clientWidth + 1 && !e.closest('details:not([open]), svg, .ctable, .hero-scene, .studio-scene'); }).slice(0, 5).map(e => `${e.tagName}.${e.className}`));
+  check(`${tag}: nothing sticks out of the viewport`, wide.length === 0, wide.join(','));
+  check(`${tag}: no console problems, no external requests`, log.problems.length === 0 && log.external.length === 0, [...log.problems, ...log.external].join(' | '));
+  check(`${tag}: two tab modules with ARIA roles and roving tabindex`, (await page.locator('[role=tablist]').count()) === 2 && (await page.locator('[role=tab]').count()) === 5 && (await page.locator('[role=tabpanel]').count()) === 2 && (await page.locator('[role=tab][tabindex="0"]').count()) === 2);
+  const clipped = await page.evaluate(() => [...document.querySelectorAll('[role=tab], .btn')].filter(t => t.offsetParent && (t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > innerWidth + 1 || t.getBoundingClientRect().height < 40)).map(t => t.textContent));
+  check(`${tag}: no clipped tab or button labels, every control at least 40 px high`, clipped.length === 0, clipped.join(','));
+  const fv = await page.evaluate(() => { const vh = innerHeight, r = s => document.querySelector(s).getBoundingClientRect(); return { h1: r('h1').bottom <= vh, lead: r('.hero .lead').bottom <= vh, cta: r('.hero .btn-primary').bottom <= vh, product: r('.hero-scene').top < vh - 40 }; });
+  check(`${tag}: first viewport: headline, sentence, primary CTA and the start of the product scene`, fv.h1 && fv.lead && fv.cta && fv.product, JSON.stringify(fv));
+  const objects = await page.evaluate(() => { const r = document.querySelector('.hero-scene').getBoundingClientRect(); return [...document.querySelectorAll('.hero-scene .phone, .hero-scene .stand-obj')].map(e => e.getBoundingClientRect()).every(o => o.width > 90 && o.left >= r.left - 1 && o.right <= r.right + 1); });
+  check(`${tag}: hero product objects are large and inside their scene`, objects);
+  const dv = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && !e.closest('[hidden]')).map(e => e.textContent).join(' ').replace(/\s+/g, ' '));
+  for (const re of [/Kunde/, /Team/, /Inhaber/, /Karte öffnen/, /Team bestätigt/, /Prämie einlösen/, /Deine Stammkunden bringen den nächsten Kunden mit/, /Bonus verbucht/, /keinen Bonus/, /Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 €/, /pro Monat und Standort/, /Demo anfragen/]) check(`${tag}: visible by default: ${re}`, re.test(dv));
+  await context.close();
+}
+
+// ---------- functional runs: desktop + mobile ----------------------------------------------------------------------------------------
+for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 }, false], ['mobile', { width: 390, height: 844 }, true]]) {
+  const { page, context, log } = await newPage(viewport, { scale: mobile ? 2 : 1 });
+  await page.screenshot({ path: `${out}/${label}-hero.png` });
+  await page.locator('.hero .btn-primary').click(); await page.waitForTimeout(1300);
+  const reached = await page.evaluate(() => ({ hash: location.hash, top: Math.round(document.getElementById('anfrage').getBoundingClientRect().top) }));
+  check(`${label}: hero "Demo anfragen" scrolls to the contact section and does not open a mail client`, reached.hash === '#anfrage' && reached.top < 200 && log.mails.length === 0, JSON.stringify(reached));
+  await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(300);
+  await page.locator('.hero .btn-ghost').click(); await page.waitForTimeout(1300);
+  check(`${label}: "So funktioniert’s" reaches the counter scene`, (await page.evaluate(() => location.hash)) === '#ablauf');
+  check(`${label}: login is a quiet link to the app`, (await page.locator('.login').getAttribute('href')) === 'https://app.getloynara.com/login' && !(await page.locator('.login').evaluate(e => e.classList.contains('btn'))));
+  if (!mobile) for (const [name, id] of [['Ablauf', 'ablauf'], ['Empfehlungen', 'empfehlung'], ['Gestaltung', 'gestaltung'], ['Inhaber', 'inhaber'], ['Rechner', 'rechner'], ['Preis', 'angebot']]) { await page.locator('.mainnav').getByRole('link', { name, exact: true }).click(); await page.waitForTimeout(1200); check(`${label}: nav "${name}" reaches #${id}`, await page.evaluate(i => Math.abs(document.getElementById(i).getBoundingClientRect().top) < 260, id)); }
+
+  // ---- counter demo ----
+  await jump(page, '#ablauf'); await page.waitForTimeout(300);
+  const card = () => page.locator('.phone-stage .lcard').getAttribute('aria-label').then(t => Number(t.match(/(\d+) von 10/)[1]));
+  const owner = () => txt(page, '[data-bind="visit-owner"]');
+  const act = page.locator('[data-act="visit"]');
+  const lit = () => page.locator('.visit-steps li.done').count();
+  check(`${label}: counter demo starts at 8/10, nothing confirmed`, await card() === 8 && /0 bestätigte Besuche · 0 Prämien eingelöst/.test(await owner()) && (await act.textContent()) === 'Karte öffnen');
+  await act.click(); await settle(page);
+  check(`${label}: opening the card does not stamp; the request waits for the team`, await card() === 8 && /Dein Team scannt und bestätigt/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Besuch bestätigen' && await lit() === 1);
+  await act.click(); await settle(page);
+  check(`${label}: confirmation adds exactly one stamp (9/10) and the owner sees it`, await card() === 9 && /1 bestätigter Besuch · 0 Prämien eingelöst/.test(await owner()) && /Stempel erhalten/.test(await txt(page, '.phone-stage')));
+  await page.screenshot({ path: `${out}/${label}-visit-confirmed.png` });
+  await act.click(); await settle(page); await act.click(); await settle(page);
+  check(`${label}: second confirmed visit reaches 10/10 and the reward is ready`, await card() === 10 && /Prämie bereit/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Prämie einlösen');
+  await act.click(); await settle(page);
+  check(`${label}: redemption resets the card to 0/10; the owner sees two visits and one redemption`, await card() === 0 && /2 bestätigte Besuche · 1 Prämie eingelöst/.test(await owner()));
+  await act.click(); await settle(page);
+  check(`${label}: "Von vorn" returns to 8/10`, await card() === 8 && /0 bestätigte Besuche/.test(await owner()));
+  await page.locator('[data-new-card]').click(); await settle(page);
+  check(`${label}: new card: no card and no stamps before it is created`, (await page.locator('.phone-stage .lcard').count()) === 0 || await card() === 0);
+  await act.click(); await settle(page);
+  check(`${label}: new card: creation is a separate step`, /Neue Karte erstellen/.test(await txt(page, '.phone-stage')) && (await act.textContent()) === 'Karte erstellen');
+  await act.click(); await settle(page); check(`${label}: new card created at 0/10, waiting for confirmation`, await card() === 0);
+  await act.click(); await settle(page); check(`${label}: new card: first confirmed visit = exactly 1/10, no jump to a reward`, await card() === 1 && /Bis zur Prämie braucht sie zehn bestätigte Besuche/.test(await txt(page, '[data-bind="visit-caption"]')));
+  await page.locator('[data-new-card]').click(); await settle(page);
+  check(`${label}: back to the returning card at 8/10`, await card() === 8);
+
+  // ---- referral ----
+  await jump(page, '#empfehlung'); await settle(page);
+  const a = () => page.locator('.person-a .stamps-num span').textContent().then(Number);
+  const refAct = page.locator('[data-act="ref"]'), refOwner = () => txt(page, '[data-bind="ref-owner"]');
+  await page.screenshot({ path: `${out}/${label}-referral-0.png` });
+  for (let i = 0; i < 3; i++) { const l = await refAct.textContent(); await refAct.click(); await settle(page); check(`${label}: referral "${l}" earns nothing (Lena stays at 7, no bonus)`, await a() === 7 && /0 qualifizierte Empfehlungen/.test(await refOwner()) && /kein Bonus/.test(await txt(page, '.person-a'))); }
+  check(`${label}: joined: two steps lit, next action is the first confirmed visit`, (await page.locator('.ref-steps li.done').count()) === 2 && (await refAct.textContent()) === 'Ersten Besuch bestätigen');
+  await refAct.click(); await settle(page);
+  check(`${label}: qualification books exactly one bonus (7 → 8), friend at 1/10, owner sees one qualified referral`, await a() === 8 && (await page.locator('.person-b .stamps-num span').textContent()) === '1' && /1 qualifizierte Empfehlung · 1 Bonus verbucht/.test(await refOwner()) && await refAct.isDisabled());
+  await refAct.click({ force: true }).catch(() => {}); await settle(page); check(`${label}: no duplicate bonus`, await a() === 8);
+  await page.screenshot({ path: `${out}/${label}-referral-qualified.png` });
+  await page.locator('[data-reset="ref"]').click(); await settle(page);
+  check(`${label}: referral reset`, await a() === 7 && /0 qualifizierte Empfehlungen/.test(await refOwner()));
+
+  // ---- brand studio ----
+  await jump(page, '#gestaltung'); await settle(page);
+  await jump(page, '#ablauf'); await act.click(); await act.click(); await settle(page);   // loyalty state 9/10, to prove independence
+  await jump(page, '#rechner'); await fill(page, 'gain', '15'); await settle(page);
+  await jump(page, '#gestaltung'); await settle(page);
+  const colours = () => page.evaluate(() => [...document.querySelectorAll('#studio .so-face, #studio .lcard, #studio .wpass')].map(e => getComputedStyle(e).getPropertyValue('--b-dark').trim()));
+  check(`${label}: studio default shows the physical pair: stand + card in the browser`, (await page.locator('#studio .stand-obj').count()) === 1 && (await page.locator('#studio .lcard').count()) === 1 && (await page.locator('#studio .wpass').count()) === 0);
+  for (const [k, hex] of Object.entries({ wald: '#143D2E', terrakotta: '#7A3320', nachtblau: '#16264A', pflaume: '#4A1D44', graphit: '#1C2326' })) {
+    await page.locator(`[data-brand-style="${k}"]`).click(); await page.waitForTimeout(220);
+    const c = await colours(); check(`${label}: colour ${k}: stand and card share ${hex}`, c.length === 2 && c.every(v => v === hex), c.join('/'));
+    await page.locator('#screen-wallet').click(); await page.waitForTimeout(220);
+    const w = await colours(); check(`${label}: colour ${k}: stand and Wallet-Vorschau share ${hex}`, w.length === 2 && w.every(v => v === hex), w.join('/'));
+    await page.locator('#screen-karte').click(); await page.waitForTimeout(150);
+    await page.locator('#studio').screenshot({ path: `${out}/${label}-studio-${k}.png` });
+  }
+  for (const logo of ['blatt', 'welle', 'monogramm']) { await page.locator(`[data-brand-logo="${logo}"]`).click(); await page.waitForTimeout(150); check(`${label}: logo ${logo} on stand and card`, (await page.locator('#studio .so-logo').count()) === 1 && (await page.locator('#studio .lc-logo svg').count()) === 1 && (await page.locator(`[data-brand-logo="${logo}"]`).getAttribute('aria-pressed')) === 'true'); }
+  for (const [r, word] of [['aufmerksamkeit', 'Aufmerksamkeit'], ['extra', 'Extra zum nächsten Besuch'], ['branche', 'Kaffee aufs Haus']]) { await page.selectOption('#brand-reward', r); await page.waitForTimeout(150); check(`${label}: reward ${r} reaches the card`, (await txt(page, '#studio .lcard')).includes(word)); }
+  await page.locator('#screen-karte').focus(); await page.keyboard.press('ArrowRight');
+  check(`${label}: screen tabs: ArrowRight selects the Wallet-Vorschau and keeps focus`, (await page.locator('#screen-wallet').getAttribute('aria-selected')) === 'true' && await page.evaluate(() => document.activeElement?.id === 'screen-wallet') && (await page.locator('#studio .wpass').count()) === 1);
+  await page.keyboard.press('Home');
+  check(`${label}: brand changes leave the loyalty demo (9/10) and the calculator (15 % → 1.365 €) untouched`, await card() === 9 && (await page.locator('[data-in="gain"]').inputValue()) === '15' && (await out$(page, 'additional')) === '1.365 €');
+  check(`${label}: the studio makes no request and writes no storage`, log.external.length === 0 && await page.evaluate(() => localStorage.length === 0 && sessionStorage.length === 0 && document.cookie === ''));
+  await page.locator('[data-brand-style="wald"]').click();
+
+  // ---- owner ----
+  await jump(page, '#inhaber'); await settle(page);
+  check(`${label}: owner opens on "Wer kommt wieder?" with example data`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'back' && /Beispieldaten/i.test(await txt(page, '#owner')) && /12/.test(await txt(page, '#owner')));
+  await page.screenshot({ path: `${out}/${label}-owner-back.png` });
+  for (const v of ['gone', 'quiet']) {
+    await page.locator(`#owner-${v}`).click(); await settle(page);
+    const t = await txt(page, '#owner');
+    check(`${label}: owner ${v}: one view, labelled Plattform-Ausblick, message is an unsent preview`, /Plattform-Ausblick/i.test(t) && /Vorschau · nicht versendet/i.test(t) && !/wurde gesendet|zurückgekehrt/i.test(t) && (await page.locator('#owner .ov:not([hidden])').count()) === 1);
+    await page.screenshot({ path: `${out}/${label}-owner-${v}.png` });
+  }
+  await page.locator('#owner-back').focus(); await page.keyboard.press('End');
+  check(`${label}: owner tabs: End selects "Wann ist es ruhig?"`, (await selected(page, '[data-tabs="owner"] [role=tab]')).join() === 'quiet' && await page.evaluate(() => document.activeElement?.id === 'owner-quiet'));
+  await page.keyboard.press('Home');
+  // ---- calculator ----
+  await page.locator('[data-calc-reset]').click(); await jump(page, '#rechner'); await settle(page);
+  await page.locator('.more summary').click();
+  check(`${label}: calculator default: 910 / 9.100 / 39 / +871 / +10.452 / ratio 23,3×`, (await out$(page, 'additional')) === '910 €' && (await out$(page, 'baseline')) === '9.100 €' && (await out$(page, 'fee')) === '39 €' && (await out$(page, 'difference')) === '+871 €' && (await out$(page, 'annualised')) === '+10.452 €' && (await out$(page, 'ratio')) === '23,3×');
+  check(`${label}: ratio is only inside the details`, await page.evaluate(() => !!document.querySelector('.more [data-out="ratio"]') && !document.querySelector('.result [data-out="ratio"]')));
+  await page.locator('.more summary').click();
+  check(`${label}: chart label "+10.920 € Zusatzumsatz" (before fee)`, /\+10\.920 € Zusatzumsatz/.test(await page.locator('[data-chart]').innerHTML()));
+  await page.screenshot({ path: `${out}/${label}-calc-default.png` });
+  await fill(page, 'basket', '7,50'); await settle(page);
+  check(`${label}: comma decimals (975 € / +936 €)`, (await out$(page, 'additional')) === '975 €' && (await out$(page, 'difference')) === '+936 €');
+  await fill(page, 'basket', '7'); await fill(page, 'gain', '0'); await settle(page);
+  check(`${label}: 0 % is not softened: 0 €, −39 €, −468 €, ratio 0×, fee-exceeds note shown, result card not green`, (await out$(page, 'additional')) === '0 €' && (await out$(page, 'difference')) === '−39 €' && (await out$(page, 'annualised')) === '−468 €' && (await out$(page, 'ratio')) === '0×' && await page.locator('[data-zero-note]').isVisible() && await page.evaluate(() => getComputedStyle(document.querySelector('.result')).backgroundColor !== 'rgb(20, 61, 46)') && (await page.locator('[data-calc].is-negative').count()) === 1 && (await page.locator('[data-chart] .gaplabel').count()) === 0);
+  await page.screenshot({ path: `${out}/${label}-calc-zero.png` });
+  await fill(page, 'visits', '1000'); await fill(page, 'basket', '500'); await fill(page, 'days', '31'); await fill(page, 'gain', '100'); await settle(page);
+  check(`${label}: maximum values stay finite (15.500.000 €)`, (await out$(page, 'additional')) === '15.500.000 €' && !/NaN|Infinity/.test(await page.locator('[data-calc]').innerText() + await page.locator('[data-chart]').innerHTML()));
+  await fill(page, 'basket', '-3'); await page.locator('[data-in="basket"]').blur(); await settle(page);
+  check(`${label}: negative input is rejected, old results are not shown as current`, /Negative Werte/.test(await page.locator('[data-err="basket"]').innerText()) && (await out$(page, 'additional')) === '–' && await page.locator('[data-calc-empty]').isVisible());
+  for (const bad of ['1e5', 'abc', '1.234,5', '7,555']) { await fill(page, 'basket', bad); await page.locator('[data-in="basket"]').blur(); check(`${label}: "${bad}" rejected`, (await page.locator('[data-in="basket"]').getAttribute('aria-invalid')) === 'true'); }
+  await fill(page, 'basket', ''); await page.locator('[data-in="basket"]').blur(); check(`${label}: blank field explained`, /Wert eingeben/.test(await page.locator('[data-err="basket"]').innerText()));
+  await page.locator('[data-calc-reset]').click(); await settle(page);
+  check(`${label}: reset restores the example`, (await out$(page, 'additional')) === '910 €' && await page.locator('[data-calc-empty]').isHidden());
+  await page.locator('[data-range="gain"]').focus(); for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight'); await page.waitForTimeout(400);
+  check(`${label}: slider keyboard (10 → 13 %, 1.183 €)`, (await page.locator('[data-in="gain"]').inputValue()) === '13' && (await out$(page, 'additional')) === '1.183 €');
+  await page.locator('[data-calc-reset]').click();
+  const unit = await page.evaluate(() => [...document.querySelectorAll('.cf-val')].every(v => { const i = v.querySelector('input').getBoundingClientRect(), u = v.querySelector('.cf-unit'); return i.width > 40 && (!u || u.getBoundingClientRect().right <= v.getBoundingClientRect().right + 0.5); }));
+  check(`${label}: units never overflow their field; inputs stay one per row`, unit && await page.evaluate(() => { const ys = [...document.querySelectorAll('.cf')].map(e => Math.round(e.getBoundingClientRect().top)); return new Set(ys).size === 4; }));
+  const ro = await page.locator('[data-chart]').boundingBox(); check(`${label}: chart is inside the viewport`, ro.x >= 0 && ro.x + ro.width <= viewport.width + 1);
+  await page.locator('.ctable summary').click(); check(`${label}: data table has 13 month rows`, (await page.locator('[data-table] tbody tr').count()) === 13); await page.locator('.ctable summary').click();
+
+  // ---- offer + FAQ ----
+  await jump(page, '#angebot'); await settle(page);
+  const offer = await txt(page, '#angebot');
+  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /39 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /QR-Einstieg am Tresen/.test(offer) && !/NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
+  check(`${label}: no invented trial, setup fee, cancellation, hardware, discount or VAT claim`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Kündigung|MwSt|zzgl\.|inkl\.|unbegrenzt/i.test(offer));
+  const d = page.locator('.faq details').first(); await d.locator('summary').click(); check(`${label}: FAQ opens`, await d.evaluate(e => e.open)); await d.locator('summary').click();
+  await page.screenshot({ path: `${out}/${label}-offer.png` });
+
+  // ---- contact ----
+  await jump(page, '#rechner'); await settle(page);
+  await page.locator('[data-calc-share]').click();
+  check(`${label}: sharing the numbers is explicit and visible in the form`, !(await page.locator('#request-figures').isHidden()) && /Zahlen übernommen/.test(await page.locator('[data-calc-share]').textContent()));
+  await page.locator('#request-figures-remove').click(); check(`${label}: shared numbers can be removed`, await page.locator('#request-figures').isHidden());
+  await jump(page, '#anfrage'); await settle(page);
+  const mailsBefore = log.mails.length;
+  await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click();
+  check(`${label}: empty request is refused, focused on the business name, no mail opened, no false success`, /Namen deines Geschäfts/.test(await page.locator('#request-status').innerText()) && await page.evaluate(() => document.activeElement?.id === 'req-business') && log.mails.length === mailsBefore && !/gesendet!|Danke|erfolgreich/i.test(await page.locator('#request-status').innerText()));
+  await page.locator('#req-business').fill('Bäckerei & Café "Süß"'); await page.locator('#req-message').fill('Zeile 1\nZeile 2');
+  await page.locator('#req-industry').selectOption({ label: 'Café' });
+  await page.locator('[data-calc-share]').evaluate(b => b.click());
+  await page.getByRole('button', { name: /E-Mail vorbereiten/ }).click(); await page.waitForTimeout(250);
+  const mail = decodeURIComponent(log.mails.at(-1) ?? '');
+  check(`${label}: mail draft: support address, encoded umlauts/quotes/ampersand/newlines, industry, opt-in figures`, mail.startsWith('mailto:support@getloynara.com?subject=Demo-Anfrage Loynara – Bäckerei & Café "Süß"') && mail.includes('Zeile 1\nZeile 2') && mail.includes('Branche: Café') && mail.includes('Käufe pro Tag: 50') && mail.includes('kein Gewinn'));
+  check(`${label}: page says nothing was sent yet and offers the copy fallback`, /Gesendet ist noch nichts/.test(await page.locator('#request-status').innerText()) && !(await page.locator('#request-copy').isHidden()));
+  await page.locator('#request-copy').click(); await page.waitForTimeout(250);
+  check(`${label}: denied clipboard gets a fallback message, never a success claim`, /Kopieren war nicht möglich|Text kopiert/.test(await page.locator('#request-status').innerText()));
+  check(`${label}: contact explains what happens next without a response-time promise`, /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/.test(await txt(page, '.next')) && !/innerhalb|Stunden|werktags|binnen/i.test(await txt(page, '#anfrage')));
+  const mailtoLinks = await page.locator('#anfrage a[href^="mailto:"], footer a[href^="mailto:"]').evaluateAll(a => a.map(x => x.getAttribute('href').split('?')[0]));
+  check(`${label}: every mail link targets support@getloynara.com`, mailtoLinks.length >= 2 && mailtoLinks.every(h => h === 'mailto:support@getloynara.com'));
+  await page.screenshot({ path: `${out}/${label}-contact.png` });
+  for (const [name, href] of [['Impressum', '/impressum/'], ['Datenschutz', '/datenschutz/']]) check(`${label}: footer ${name}`, (await page.locator('footer').getByRole('link', { name }).getAttribute('href')) === href);
+  check(`${label}: no console problems, no external requests during the whole run`, log.problems.length === 0 && log.external.length === 0, [...log.problems, ...log.external].join(' | '));
+  await context.close();
+}
+
+// ---------- 320 px: the tight cases ------------------------------------------------------------------------------------------------------
+{ const { page, context } = await newPage({ width: 320, height: 740 }, { scale: 2 });
+  await jump(page, '#rechner'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-calc.png` });
+  check('320px: calculator inputs inside their card with the unit visible', await page.evaluate(() => { const card = document.querySelector('.inputs').getBoundingClientRect(); return [...document.querySelectorAll('.cf-val')].every(e => { const r = e.getBoundingClientRect(); return r.left >= card.left && r.right <= card.right; }); }));
+  await fill(page, 'basket', '12,75'); await page.waitForTimeout(300); check('320px: typing keeps the caret and updates the result (1.658 €)', (await page.locator('[data-in="basket"]').inputValue()) === '12,75' && (await out$(page, 'additional')) === '1.658 €');
+  await jump(page, '#empfehlung'); for (let i = 0; i < 4; i++) await page.locator('[data-act="ref"]').click(); await page.waitForTimeout(300);
+  await page.locator('.ref-pair').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${out}/w320-referral.png` });
+  check('320px: referral picture, steps and action stay inside the viewport', await page.evaluate(() => [...document.querySelectorAll('#empfehlung *')].every(e => e.getBoundingClientRect().right <= innerWidth + 1)));
+  await jump(page, '#hero'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/w320-hero.png` });
+  await jump(page, '#gestaltung'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-studio.png` });
+  check('320px: studio controls keep 44 px targets', await page.evaluate(() => [...document.querySelectorAll('#studio button, #studio select')].every(e => e.getBoundingClientRect().width >= 43.5 && e.getBoundingClientRect().height >= 43.5)));
+  await jump(page, '#anfrage'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w320-contact.png` });
+  await context.close(); }
+
+// ---------- legal pages, reveals/print, orientation, text size, reduced motion, no JS ------------------------------------------------------------
+{ const { page, context } = await newPage({ width: 1280, height: 800 });
+  for (const path of ['/impressum/', '/datenschutz/']) { const errs = []; page.on('pageerror', e => errs.push(e.message)); const r = await page.goto(base + path); await page.waitForTimeout(400); check(`${path}: loads with content, no script error`, r.status() === 200 && (await page.locator('main').innerText()).length > 200 && (await page.locator('h1').count()) === 1 && errs.length === 0, errs.join('|')); }
+  await context.close(); }
+{ const { page, context } = await newPage({ width: 1280, height: 800 });
+  await page.emulateMedia({ media: 'print' });
+  const st = await page.evaluate(() => ({ header: getComputedStyle(document.querySelector('.top')).position, hiddenViews: [...document.querySelectorAll('[data-show]')].filter(e => getComputedStyle(e).display === 'none').length, buttons: [...document.querySelectorAll('.seg')].filter(e => getComputedStyle(e).display !== 'none').length }));
+  check('print: header static, every owner view is visible, tab controls hidden', st.header === 'static' && st.hiddenViews === 0 && st.buttons === 0, JSON.stringify(st));
+  await page.screenshot({ path: `${out}/print-top.png`, fullPage: true });
+  const pdf = await page.pdf({ format: 'A4', printBackground: true }); check('print: a PDF can be produced', pdf.length > 20000);
+  await context.close(); }
+{ const { page, context } = await newPage({ width: 390, height: 844 }, { scale: 2 });
+  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click(); await settle(page);
+  const state = await page.locator('.phone-stage .lcard').getAttribute('aria-label');
+  await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(600);
+  check('orientation: landscape keeps state, no overflow', (await page.locator('.phone-stage .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(600);
+  check('orientation: portrait again, state kept, no overflow', (await page.locator('.phone-stage .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  await page.evaluate(() => { document.documentElement.style.fontSize = '125%'; }); await page.waitForTimeout(400);
+  check('text size 125 %: no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
+  await jump(page, '#rechner'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/mobile-text125-calc.png` });
+  await context.close(); }
+{ const { page, context } = await newPage({ width: 390, height: 844 }, { reduced: true });
+  check('reduced motion: smooth scrolling off, transitions off', await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior === 'auto' && getComputedStyle(document.querySelector('.btn')).transitionDuration === '0s'));
+  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click();
+  check('reduced motion: the counter demo works with instant state changes', /1\sbestätigter\sBesuch/.test(await page.locator('[data-bind="visit-owner"]').textContent()));
+  await jump(page, '#empfehlung'); for (let i = 0; i < 4; i++) await page.locator('[data-act="ref"]').click();
+  check('reduced motion: the referral demo works with instant state changes', /1\squalifizierte\sEmpfehlung/.test(await page.locator('[data-bind="ref-owner"]').textContent()));
+  await jump(page, '#rechner'); await fill(page, 'gain', '20'); check('reduced motion: calculator updates immediately', (await out$(page, 'additional')) === '1.820 €');
+  await context.close(); }
+{ const { page, context } = await newPage({ width: 390, height: 844 }, { js: false });
+  const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+  check('no JS: headline, roles, counter flow, referral rule, price, calculator example and contact are present', /Ein guter Besuch/.test(body) && /Bestätigt den Besuch mit einem Tipp/.test(body) && /Karte öffnen/.test(body) && /keinen Bonus/.test(body) && /39 €/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
+  check('no JS: the product objects and the first owner view are rendered', (await page.locator('.hero-scene .phone').count()) === 1 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
+  await page.screenshot({ path: `${out}/nojs-top.png`, fullPage: true });
+  await context.close(); }
+
+// ---------- intermediate widths: desktop composition ------------------------------------------------------------------------------------------
+for (const [w, h] of [[1280, 800], [1024, 768], [768, 1024]]) { const { page, context } = await newPage({ width: w, height: h }); await page.screenshot({ path: `${out}/w${w}-hero.png` }); await jump(page, '#ablauf'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w${w}-stage.png` }); await jump(page, '#gestaltung'); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/w${w}-studio.png` }); await context.close(); }
+await browser.close();
+console.log(`PASS: ${results.length} browser checks.`);

@@ -1,0 +1,27 @@
+NACH-DER-DEMO-NACHRICHT (Vorlage, nur senden, wenn der Inhaber den Weg ausdrücklich erlaubt hat)
+Felder in [eckigen Klammern] anpassen. Nichts davon ist ein Vertrag oder eine Zahlungszusage.
+
+──── WhatsApp / Kurz ────
+Hallo [Vorname], danke für deine Zeit am [Tag]. Kurz, wie das bei [Laden] aussehen könnte:
+
+• Dein Kunde scannt den QR-Code am Tresen, die Karte öffnet sich im Browser (keine App).
+• Dein Team zeigt sich die Karte, scannt und bestätigt. Erst dann zählt der Besuch.
+• Regel-Vorschlag: bei [10] Stempeln [Prämie]. Du entscheidest.
+• Du siehst, wie viele Karten wiederkommen, und pro Karte den letzten Besuch (pseudonym).
+
+Preis: 39 € pro Monat und Standort, vorgeschlagener Pilotpreis. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst. Bei rund [Warenkorb] € pro Besuch sind 39 € etwa [n] Besuche im Monat (Rechenbeispiel, keine Prognose).
+
+Wie geht's weiter? [Ich melde mich, sobald die Bedingungen schriftlich stehen. Bis dahin gibt es kein Startdatum und keine Zahlung. / Termin: …]
+
+Noch nicht dabei (Ausblick): Nachrichten an Kunden, Wallet-Karte, Logo auf der Karte, Anbindung an Kasse oder Lieferplattformen. Antippen per NFC ist vorbereitet; heute startest du mit dem QR-Code.
+
+Viele Grüße
+[Name] · [Telefon]
+
+──── E-Mail ────
+Betreff: stempelkarte für [Laden]
+
+(Text wie oben, davor: „Hallo [Vorname],“ danach: „Viele Grüße“ und die Signatur mit Impressums-Pflichtangaben, sobald O-001 geklärt ist. Wenn der Inhaber keine weiteren Nachrichten möchte: „Antworte einfach mit ‚Stopp‘.“)
+
+──── Wenn die Gates passiert sind (nicht jetzt verwenden) ────
+Siehe gtm/15-copy-switches.md. Dann ändern sich: NFC-Zeile (Antippen primär, QR Alternative), Wiederherstellung (Neu ausstellen mit gleichem Stand), Korrektur (mit Begründung).

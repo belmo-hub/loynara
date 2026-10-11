@@ -1,0 +1,47 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Loynara · Pilotinteresse-Karte (intern)</title>
+<link rel="stylesheet" href="../print.css">
+<style>
+.page{padding:11mm 13mm 9mm;background:#fff}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid var(--deep);padding-bottom:2mm}
+.hd h1{font-size:17pt}
+.warn{margin:3mm 0;background:#F7E8E0;border-radius:2.4mm;padding:2.4mm 3.4mm;font-size:9pt}
+.sec{margin-top:3.2mm}.sec h2{font-size:9pt;letter-spacing:.12em;text-transform:uppercase;color:var(--warm);margin-bottom:1.2mm}
+.row{display:grid;gap:3mm;margin-top:2.2mm}
+.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}.c4{grid-template-columns:1.4fr 1fr 1fr 1fr}
+.f label{display:block;font-size:7.4pt;font-weight:760;color:var(--muted);letter-spacing:.03em}
+.f .ln{border-bottom:.3mm solid var(--ink);height:6.6mm}
+.f .ln.tall{height:13mm;background:repeating-linear-gradient(transparent 0 6mm,var(--line) 6mm 6.3mm)}
+.f .ln.tall2{height:19.6mm;background:repeating-linear-gradient(transparent 0 6.3mm,var(--line) 6.3mm 6.6mm)}
+.opts{display:flex;flex-wrap:wrap;gap:1.6mm 4mm;font-size:9.2pt;margin-top:1mm}
+.opts span::before{content:"";display:inline-block;width:3.4mm;height:3.4mm;border:.3mm solid var(--ink);border-radius:.7mm;margin-right:1.5mm;vertical-align:-.6mm}
+.level{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:1.4mm}
+.level div{border:.3mm solid var(--ink);border-radius:2.2mm;padding:2mm 2.4mm;font-size:8.6pt;line-height:1.3}
+.level b{display:block;font-size:9.4pt}
+.perm{background:var(--soft);border-radius:3mm;padding:2.6mm 3.4mm}
+.fine2{margin-top:3mm;font-size:7.8pt;color:var(--muted);line-height:1.4}
+</style></head><body><section class="page">
+<div class="hd"><h1>Pilotinteresse-Karte <em>(intern)</em></h1><p class="fine" style="text-align:right">Ein Blatt pro Laden · nach dem Gespräch ausfüllen<br>{{variant}}</p></div>
+<p class="warn"><b>Kein Vertrag, keine Zahlungszusage, kein Startdatum.</b> Das Blatt bleibt beim Gründer. Es hält fest, was ein Inhaber gesagt hat („Das klingt interessant“), und ob und wie ich mich melden darf. Nur Geschäftsdaten, keine privaten Daten, nichts über Dritte.</p>
+
+<div class="sec"><h2>Geschäft</h2>
+ <div class="row c4"><div class="f"><label>Geschäft</label><div class="ln"></div></div><div class="f"><label>Ansprechpartner (Vorname/Funktion)</label><div class="ln"></div></div><div class="f"><label>Datum</label><div class="ln"></div></div><div class="f"><label>Merchant-ID (K-…)</label><div class="ln"></div></div></div>
+ <div class="row c3"><div class="f"><label>Branche</label><div class="opts"><span>Barber</span><span>Pizzeria</span><span>Imbiss</span><span>Sonstige</span></div></div><div class="f"><label>Standorte</label><div class="ln"></div></div><div class="f"><label>Mitarbeiter an Kasse/Stuhl</label><div class="ln"></div></div></div></div>
+
+<div class="sec"><h2>Heute</h2>
+ <div class="row c2"><div class="f"><label>Aktuelle Kundenbindung</label><div class="opts"><span>Papierkarte</span><span>Digitale Karte</span><span>Rabatt/Treue mündlich</span><span>nichts</span></div><div class="ln" style="margin-top:1mm"></div></div>
+ <div class="f"><label>Stärkstes Problem (in seinen Worten)</label><div class="ln tall"></div></div></div>
+ <div class="row c2"><div class="f"><label>Stärkster Winkel (Canonical-ID, z. B. CORE-03)</label><div class="ln"></div></div><div class="f"><label>Gewünschte Prämie / Stempelzahl (Idee des Inhabers)</label><div class="ln"></div></div></div></div>
+
+<div class="sec"><h2>Einwände und Reaktionen</h2>
+ <div class="row c2"><div class="f"><label>Einwände (Codes wie auf dem Einwand-Spickzettel: PAPER, APP, STAFF, PRICE, LOST …)</label><div class="ln tall"></div></div><div class="f"><label>Reaktion auf 39 € / Funktionswünsche (wörtlich)</label><div class="ln tall"></div></div></div></div>
+
+<div class="sec"><h2>Interesse (Skala)</h2>
+ <div class="level"><div><b>1 · Höflich</b>Hört zu, kein Bedarf.</div><div><b>2 · Neugierig</b>Fragt nach, nimmt Handzettel.</div><div><b>3 · Interessiert</b>„Klingt interessant“, nennt ein konkretes Problem.</div><div><b>4 · Bereit</b>Möchte einer der ersten sein, sobald die Bedingungen stehen.</div></div>
+ <p class="fine2" style="margin-top:1.2mm">Stufe 4 ist <b>Pilotinteresse</b>, kein Abschluss. Der Abschluss (Bedingungen schriftlich akzeptiert) kommt erst, wenn der Inhaber die kaufmännischen Freigaben erteilt hat.</p></div>
+
+<div class="sec perm"><h2 style="color:var(--deep)">Erlaubnis für die Rückmeldung</h2>
+ <div class="row c2"><div class="f"><label>Wie darf ich mich melden?</label><div class="opts"><span>Ich komme vorbei</span><span>WhatsApp</span><span>E-Mail</span><span>Anruf</span><span>Er meldet sich</span><span>Keine Rückmeldung</span></div></div>
+ <div class="f"><label>Wortlaut der Erlaubnis (wörtlich)</label><div class="ln tall"></div></div></div>
+ <div class="row c3"><div class="f"><label>Kontaktweg (nur wenn erlaubt)</label><div class="ln"></div></div><div class="f"><label>Wann</label><div class="ln"></div></div><div class="f"><label>Nächste Aktion</label><div class="ln"></div></div></div></div>
+<p class="fine2">Übernehmen in <b>pipeline.csv</b>: pilot_interest_date · permission_channel · permission_date · permission_words · top_objection · angle_ids. Danach nach dem Gespräch ins Lernblatt (learning-sheet).</p>
+</section></body></html>

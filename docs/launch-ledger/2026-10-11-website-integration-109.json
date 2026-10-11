@@ -1,0 +1,69 @@
+{
+  "assignment": "LOY-ENG-20261011-109",
+  "issue": "LOY-229",
+  "date": "2026-10-11T13:48:46.878637+00:00",
+  "base_sha": "90d722beaa9a93bfeb814b83d53c389416f45f2c",
+  "incoming_sha": "7db86c62863fc0bc8c8028e7b6d772006cba3c36",
+  "result_sha": "containing merge commit; exact integration receipt appended separately",
+  "agent": "Codex /root; reused codex/website-conversion-109",
+  "model": "Coordinator assigns SolMedium discovery/review,High confirmed implementation; effective setter unavailable/current executor retained; granular configuration unmeasured",
+  "status": {
+    "IMPLEMENTED": true,
+    "TESTED": true,
+    "INTEGRATED": "pending receipt",
+    "PUSHED": false,
+    "DEPLOYED": false,
+    "INDEPENDENTLY_ACCEPTED": false,
+    "COMMERCIALLY_READY": false
+  },
+  "tests": {
+    "website_unit": "79 PASS/0 fail/1.096s",
+    "static": "6pages/180links PASS",
+    "chrome_homepage": "400 checks PASS; nine widths320..1440 including375/1280; simulatedinteractions/calculatornegatives/contactdraftnotdelivery",
+    "chrome_supporting": "211 checks PASS;4pages6widths/reducedmotion/keyboard200percent/noJS",
+    "typegen_typecheck_applicationbuild": "PASS",
+    "source_lint": "45 hand-authored files PASS zero warnings",
+    "global": "182 files/1631 PASS/0 FAIL/1existingoptionalMailpitSKIP/182.52s",
+    "local_change_diffcheck": "PASS",
+    "whole_import_lint": "FAIL232warningsinitial;227unchangedminifiedbundleswarnings remain,5sourcewarningscorrected",
+    "whole_import_diffcheck": "inheritedCRLFcsv/trailingblank warnings retained; no falsePASS"
+  },
+  "review": "Existing independent readonlyreviewer loy281_sensitive_review no materialconcerns;app,NFC,Wallet,session,worker,migrationsmatchbase; no runtime checks rerun",
+  "boundaries": "No apppolicy,actualprovider,production,deploy,permission,tag or email-send action",
+  "tokens": {
+    "native_cumulative": 14484991,
+    "seconds": 79847,
+    "input": "unmeasured",
+    "cached_subset": "unmeasured",
+    "output": "unmeasured",
+    "browser_reviewer": "unmeasured",
+    "reset": false
+  },
+  "evidence": {
+    "loy-109-marketing-tests-final.log": {
+      "sha256": "ebdbe0b9f13d3de7ee23ca05c74ec615e66e82eaff0eb64db22c4d7870a848df",
+      "bytes": 11097,
+      "local_reference": "/tmp/loy-109-marketing-tests-final.log"
+    },
+    "loy-109-browser.log": {
+      "sha256": "1221296bb623e29554f357b8e48a0515546137f41fa749e7d4ecf1f9ceb87838",
+      "bytes": 26,
+      "local_reference": "/tmp/loy-109-browser.log"
+    },
+    "loy-109-pages.log": {
+      "sha256": "0e5fcc63a2c2ed97262ca8c6eec3f7bdced9f201f3c00a132ff46733f5ada398",
+      "bytes": 157,
+      "local_reference": "/tmp/loy-109-pages.log"
+    },
+    "loy-109-static-final.log": {
+      "sha256": "6e4e61fcf78acb38f6f661c9fb532afb5dd52c2ac2eac88392509b3c61e8c1e4",
+      "bytes": 4347,
+      "local_reference": "/tmp/loy-109-static-final.log"
+    },
+    "loy-109-global-final.json": {
+      "sha256": "d4023072772666c15555955270692c5e15a81d6dcb19b15a1cba6f57a2ffe2c0",
+      "bytes": 643117,
+      "local_reference": "/tmp/loy-109-global-final.json"
+    }
+  }
+}

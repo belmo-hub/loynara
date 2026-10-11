@@ -1,0 +1,19 @@
+row,metric,conservative,target,stretch,type,note
+2,goal_paying_locations,100,100,100,input,Fixed goal. Price stays 39 EUR / location / month.
+3,locations_per_paying_merchant,1.05,1.1,1.2,input,Some owners have a second shop.
+4,share_of_merchants_from_referrals,0.05,0.15,0.25,input,Merchant-to-merchant introductions that end up paying (see 10-merchant-referrals.md).
+5,rate_door_to_owner_conversation,0.35,0.45,0.55,input,Decision-maker present AND willing to talk for >1 minute.
+6,rate_conversation_to_demo,0.40,0.50,0.60,input,Owner holds the card on their own phone or sees the 2-minute demo.
+7,rate_demo_to_pilot,0.25,0.35,0.45,input,Pilot = live at the counter (see 04-funnel.md for the commercial gate).
+8,rate_pilot_to_paid,0.60,0.75,0.85,input,Decided after the first 30 live days.
+9,doors_per_field_day,20,25,30,input,Walk-ins incl. walking; about 3.5 field hours.
+10,field_days_per_week,4,4,4,input,Day 5 = onboarding + follow-ups + learning review.
+11,paying_merchants_needed,=ROUNDUP(C2/C3;0),=ROUNDUP(D2/D3;0),=ROUNDUP(E2/E3;0),formula,
+12,paying_merchants_from_walkins,=ROUNDUP(C11*(1-C4);0),=ROUNDUP(D11*(1-D4);0),=ROUNDUP(E11*(1-E4);0),formula,
+13,pilots_needed,=ROUNDUP(C12/C8;0),=ROUNDUP(D12/D8;0),=ROUNDUP(E12/E8;0),formula,
+14,demos_needed,=ROUNDUP(C13/C7;0),=ROUNDUP(D13/D7;0),=ROUNDUP(E13/E7;0),formula,
+15,owner_conversations_needed,=ROUNDUP(C14/C6;0),=ROUNDUP(D14/D6;0),=ROUNDUP(E14/E6;0),formula,
+16,doors_needed,=ROUNDUP(C15/C5;0),=ROUNDUP(D15/D5;0),=ROUNDUP(E15/E5;0),formula,
+17,field_weeks_needed,=ROUNDUP(C16/(C9*C10);0),=ROUNDUP(D16/(D9*D10);0),=ROUNDUP(E16/(E9*E10);0),formula,Add ~4 weeks for the last pilots to reach their paid decision.
+18,demos_per_week,=ROUND(C14/C17;1),=ROUND(D14/D17;1),=ROUND(E14/E17;1),formula,
+19,pilot_setups_per_week,=ROUND(C13/C17;1),=ROUND(D13/D17;1),=ROUND(E13/E17;1),formula,Each setup ~45-60 min on site.

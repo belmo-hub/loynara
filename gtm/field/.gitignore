@@ -1,0 +1,9 @@
+# regenerable build output
+collateral/build/
+collateral/build-post/
+collateral/preview/
+collateral/preview-post/
+stand/preview/
+__pycache__/
+*.pyc
+# real prospects work files stay local (personal data); the committed prospects.csv/xlsx hold public business data only

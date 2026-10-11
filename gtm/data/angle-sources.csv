@@ -1,0 +1,170 @@
+source_id,section,original,detail,coverage_before,merged_into,status
+O1,Appendix A · Repeat / retention,Repeat-customer,Give each visit a reason to lead to another.,partial,CORE-01,SELL NOW
+O2,Appendix A · Repeat / retention,Turn customers into regulars,Make regulars out of customers.,partial,CORE-01,SELL NOW
+O3,Appendix A · Repeat / retention,The next visit,Sell the next transaction rather than “loyalty software.”,missing,CORE-01,SELL NOW
+O4,Appendix A · Repeat / retention,Reward progress,Make proximity to a reward visible.,partial,CORE-02,SELL NOW
+O5,Appendix A · Repeat / retention,Goal completion,Show 7/10 → 8/10 → reward as momentum.,partial,CORE-02,SELL NOW
+O6,Appendix A · Repeat / retention,Habit building,Turn frequent repeat visits into a visible routine.,missing,CORE-02,SELL NOW
+O7,Appendix A · Repeat / retention,Don’t lose the regular,A disappearing regular should not disappear unnoticed.,represented,RET-01,QUALIFIED
+O8,Appendix A · Repeat / retention,Dormant customer / win-back,Know who stopped coming and have a path to act.,represented,FUT-01,FUTURE
+O9,Appendix A · Repeat / retention,Personal visit rhythm,Spot when a customer breaks their normal cadence — future/advanced.,partial,FUT-02,FUTURE
+O10,Appendix A · Revenue / utilization,Quiet hours,Give regulars a reason to visit during weak periods.,represented,FUT-08,FUTURE
+O11,Appendix A · Revenue / utilization,Fixed-cost utilization,Rent and staff still cost money when the shop is quiet.,missing,FUT-08,FUTURE
+O12,Appendix A · Revenue / utilization,Empty Tuesday,Make a weak weekday/time slot tangible.,represented,FUT-08,FUTURE
+O13,Appendix A · Revenue / utilization,More value from existing customers,"Before paying to find strangers, work with the customers already earned.",missing,ECO-01,SELL NOW
+O14,Appendix A · Revenue / utilization,Repeat-purchase frequency,Move the next visit sooner.,missing,ECO-02,SELL NOW
+O15,Appendix A · Revenue / utilization,Lifetime value,One extra visit matters; repeated extra visits matter more.,missing,ECO-02,SELL NOW
+O16,Appendix A · Revenue / utilization,Revenue scenario / calculator,Let merchants model their own assumptions.,represented,CORE-09,SELL NOW
+O17,Appendix A · Revenue / utilization,€39 in context,Put one clear fee next to the merchant’s own economic scenario.,represented,CORE-09,SELL NOW
+O18,Appendix A · Acquisition / referrals,Referral acquisition,Keep the customer and let them help bring the next one.,represented,CORE-07,SELL NOW
+O19,Appendix A · Acquisition / referrals,Customer as advocate,Turn satisfied regulars into introducers.,partial,ACQ-01,SELL NOW
+O20,Appendix A · Acquisition / referrals,Reward for introduction,Reward not only repeat visits but qualified introductions.,represented,CORE-07,SELL NOW
+O21,Appendix A · Acquisition / referrals,Structured word of mouth,Word of mouth already exists; give it a system.,represented,ACQ-01,SELL NOW
+O22,Appendix A · Acquisition / referrals,Measurable referral,Know which recommendations became real visits.,partial,ACQ-02,QUALIFIED
+O23,Appendix A · Acquisition / referrals,Qualified referral,A shared link is not a customer; a confirmed visit is.,represented,CORE-07,SELL NOW
+O24,Appendix A · Acquisition / referrals,Strong referrers,Identify customers who consistently introduce others.,missing,ACQ-03,QUALIFIED
+O25,Appendix A · Acquisition / referrals,Referral flywheel,Visit → reward → referral → new customer → new loyalty relationship.,missing,CORE-07,SELL NOW
+O26,Appendix A · Direct relationship / owned audience,Relationship survives the transaction,The sale ends; the customer relationship does not have to.,missing,CORE-01,SELL NOW
+O27,Appendix A · Direct relationship / owned audience,Direct customer connection,Do not let every customer become anonymous again after leaving.,missing,FUT-06,FUTURE
+O28,Appendix A · Direct relationship / owned audience,Social-algorithm independence,Complement social reach with direct customer relationships where permission allows.,missing,FUT-06,FUTURE
+O29,Appendix A · Direct relationship / owned audience,Existing audience,The next campaign can start with people who already bought from you.,missing,FUT-06,FUTURE
+O30,Appendix A · Marketing / reactivation,"Right offer, right people",Do not send every offer to everybody.,missing,FUT-07,FUTURE
+O31,Appendix A · Marketing / reactivation,Relevance,The same offer is not right for every customer.,missing,FUT-07,FUTURE
+O32,Appendix A · Marketing / reactivation,Welcome journey,Use the first visit as the beginning of the relationship.,missing,FUT-04,FUTURE
+O33,Appendix A · Marketing / reactivation,Near-reward reminder,A customer one visit from a reward has a concrete reason to return.,missing,FUT-03,FUTURE
+O34,Appendix A · Marketing / reactivation,Reward waiting,Do not let an earned reward be forgotten.,missing,FUT-03,FUTURE
+O35,Appendix A · Marketing / reactivation,Birthday / occasion,Give customers a reason to celebrate with the merchant — only with appropriate data/permission.,missing,FUT-05,FUTURE
+O36,Appendix A · Marketing / reactivation,Inactive-regular automation,Prepare the right win-back action when a regular goes quiet.,represented,FUT-01,FUTURE
+O37,Appendix A · Marketing / reactivation,Quiet-hour automation,Connect a weak time slot to a merchant-approved action.,represented,FUT-08,FUTURE
+O38,Appendix A · Insight / analytics,Know who returns,Stop guessing who the regulars are.,represented,CORE-08,QUALIFIED
+O39,Appendix A · Insight / analytics,Know who stopped,See who used to return and no longer does.,represented,RET-01,QUALIFIED
+O40,Appendix A · Insight / analytics,Near-reward visibility,See who is one visit from a reward.,missing,FUT-03,FUTURE
+O41,Appendix A · Insight / analytics,Best-customer visibility,"See genuine activity, not only familiar faces.",missing,CORE-08,QUALIFIED
+O42,Appendix A · Insight / analytics,Visit frequency,Understand how often loyalty customers return.,partial,CORE-08,QUALIFIED
+O43,Appendix A · Insight / analytics,Day/time pattern,See when loyalty activity is strong or quiet.,partial,FUT-09,FUTURE
+O44,Appendix A · Insight / analytics,Reward performance,See which rewards people work toward and redeem.,missing,CORE-08,QUALIFIED
+O45,Appendix A · Insight / analytics,Referral performance,"See referral shares, qualification and rewards.",missing,ACQ-02,QUALIFIED
+O46,Appendix A · Insight / analytics,Campaign return,Do not stop at sends; see what happened afterward.,missing,FUT-10,FUTURE
+O47,Appendix A · Insight / analytics,Honest attribution,Show what happened after an action without pretending causation is proven.,represented,TRU-04,SELL NOW
+O48,Appendix A · Insight / analytics,Acquisition source,"Know whether customers came from the counter, referral, QR, link or campaign.",missing,FUT-11,FUTURE
+O49,Appendix A · Actionable dashboard,See → Understand → Act,A dashboard should move from observation to useful action.,missing,FUT-12,FUTURE
+O50,Appendix A · Actionable dashboard,Observation → action,Pair a meaningful signal with the next supported workflow.,missing,FUT-12,FUTURE
+O51,Appendix A · Actionable dashboard,Smart recommendations,"Surface weak hours, dormant regulars, near-reward customers, strong referrers and similar opportunities — future until built.",partial,TRU-10,QUALIFIED
+O52,Appendix A · Customer simplicity,No app,Your customers do not need another app.,represented,CORE-04,SELL NOW
+O53,Appendix A · Customer simplicity,Tap-and-go,Tap. Open. Collect.,represented,CORE-11,QUALIFIED
+O54,Appendix A · Customer simplicity,QR fallback,NFC when convenient; QR as the fallback.,represented,CORE-11,QUALIFIED
+O55,Appendix A · Customer simplicity,No pre-install/setup burden,"Start the customer journey at the counter, not in an app store.",represented,CORE-04,SELL NOW
+O56,Appendix A · Customer simplicity,Browser loyalty,A modern loyalty experience directly in the browser.,represented,CORE-04,SELL NOW
+O57,Appendix A · Staff / counter,Rush-hour simplicity,"If staff cannot use it in a rush, it fails.",partial,CORE-05,SELL NOW
+O58,Appendix A · Staff / counter,One confirmation,Customer opens; staff confirms; done.,represented,CORE-05,SELL NOW
+O59,Appendix A · Staff / counter,Staff accounts,Staff can operate loyalty without sharing the owner account.,partial,OPS-05,SELL NOW
+O60,Appendix A · Staff / counter,Role control,Cashiers do cashier work; owners keep owner controls.,partial,OPS-05,SELL NOW
+O61,Appendix A · Staff / counter,Staff accountability,Know which staff action changed a balance.,partial,TRU-02,RC READY
+O62,Appendix A · Staff / counter,Mistake correction,Correct errors without rewriting history.,partial,OPS-02,RC READY
+O63,Appendix A · Staff / counter,Scanner-failure fallback,"When scanning fails, staff can still find the card through a short locator.",partial,OPS-03,RC READY
+O64,Appendix A · Staff / counter,Lost-card recovery,Safely reissue access without losing balance/history.,partial,OPS-04,RC READY
+O65,Appendix A · Physical product,Real thing on the counter,Not just software: something customers see and use in the shop.,partial,OPS-09,SELL NOW
+O66,Appendix A · Physical product,Physical-to-digital bridge,The counter becomes the entrance to the customer relationship.,missing,OPS-09,SELL NOW
+O67,Appendix A · Physical product,Premium stand,"Make the touchpoint feel professional, not like a cheap QR printout — hardware dependent.",partial,FUT-16,FUTURE
+O68,Appendix A · Physical product,Location-aware stand,Each location can have the correct physical entry point.,missing,OPS-06,SELL NOW
+O69,Appendix A · Branding / premium experience,"Your brand, not ours",The loyalty experience should look like the merchant.,partial,TRU-08,QUALIFIED
+O70,Appendix A · Branding / premium experience,Counter-to-phone consistency,Stand and customer card should feel like one branded system.,missing,TRU-08,QUALIFIED
+O71,Appendix A · Branding / premium experience,Brand professionalism,The loyalty experience should feel as professional as the business.,missing,TRU-08,QUALIFIED
+O72,Appendix A · Branding / premium experience,Wallet presence,Keep the merchant brand visible in a digital wallet where enabled.,represented,FUT-14,FUTURE
+O73,Appendix A · Branding / premium experience,Modern-business image,Replace worn paper-card feel with a current customer experience.,missing,TRU-08,QUALIFIED
+O74,Appendix A · Paper-card replacement,Paper only remembers stamps,A paper card remembers stamps; Loynara can support a broader customer relationship.,represented,CORE-03,SELL NOW
+O75,Appendix A · Paper-card replacement,Paper gives no owner visibility,Paper tells the customer progress and tells the owner almost nothing.,represented,CORE-03,SELL NOW
+O76,Appendix A · Paper-card replacement,Paper cannot reactivate,A paper card cannot tell the owner that a regular stopped coming.,partial,RET-01,QUALIFIED
+O77,Appendix A · Paper-card replacement,Paper cannot measure referrals,Digital referral flows can make word of mouth measurable.,missing,ACQ-02,QUALIFIED
+O78,Appendix A · Paper-card replacement,Paper-loss comparison,Digital access can have managed recovery; lost paper typically cannot.,partial,OPS-04,RC READY
+O79,Appendix A · Trust / control,Staff-confirmed integrity,A tap does not automatically create a reward; the team stays in control.,represented,CORE-06,SELL NOW
+O80,Appendix A · Trust / control,Duplicate protection,Retries should not create double rewards.,missing,TRU-01,SELL NOW
+O81,Appendix A · Trust / control,Correction history,Every correction leaves a trail.,partial,OPS-02,RC READY
+O82,Appendix A · Trust / control,Auditability,See who did what and when.,partial,TRU-02,RC READY
+O83,Appendix A · Trust / control,Reissue without history loss,"Change access, not the customer’s history.",partial,OPS-04,RC READY
+O84,Appendix A · Trust / control,Data export / portability,Operational data should not feel trapped.,represented,TRU-03,SELL NOW
+O85,Appendix A · Trust / control,Privacy-conscious messaging,"Relevant communication with permissions and limits, not spam.",partial,TRU-06,QUALIFIED
+O86,Appendix A · Trust / control,Quiet-hours safety,Automation should know when not to message.,missing,TRU-06,QUALIFIED
+O87,Appendix A · Trust / control,Frequency protection,Bring customers back without becoming annoying.,missing,TRU-06,QUALIFIED
+O88,Appendix A · Onboarding / activation,Guided launch,Always know what remains before launch.,partial,OPS-08,RC READY
+O89,Appendix A · Onboarding / activation,Start-ready,No guessing whether the loyalty programme is actually ready.,partial,OPS-08,RC READY
+O90,Appendix A · Onboarding / activation,Industry-aware setup,Start from a setup that makes sense for the type of business.,missing,FUT-13,FUTURE
+O91,Appendix A · Onboarding / activation,Fast first success,Move from setup to the first real customer interaction quickly.,represented,CORE-10,SELL NOW
+O92,Appendix A · Support / service,Real help when stuck,A merchant should not be abandoned with a dashboard.,represented,TRU-07,SELL NOW
+O93,Appendix A · Support / service,Assisted setup,Help configure the programme around the merchant’s business.,represented,CORE-10,SELL NOW
+O94,Appendix A · Support / service,Human demo,Show Loynara using the merchant’s own business as the example.,represented,CORE-10,SELL NOW
+O95,Appendix A · Pricing / commercial,One-price simplicity,"One location, one clear monthly price.",represented,ECO-03,SELL NOW
+O96,Appendix A · Pricing / commercial,No feature maze,Pricing should not require a spreadsheet to understand.,partial,ECO-03,SELL NOW
+O97,Appendix A · Pricing / commercial,Pilot / founding merchant,Join early and shape the product — only if genuinely offered.,missing,ECO-05,FUTURE
+O98,Appendix A · Pricing / commercial,Cost of doing nothing,Lost repeat business can matter more than the software fee.,missing,ECO-04,QUALIFIED
+O99,Appendix A · Pricing / commercial,Market to customers already acquired,The merchant already did the hard part by getting them through the door.,missing,ECO-01,SELL NOW
+O100,Appendix A · Multi-location / growth,Multi-location consistency,One loyalty experience across multiple locations where supported.,partial,OPS-06,SELL NOW
+O101,Appendix A · Multi-location / growth,Location comparison,Compare activity by location when analytics supports it.,missing,FUT-20,FUTURE
+O102,Appendix A · Multi-location / growth,Staff/location control,"Give teams access to the right location, not everything.",missing,OPS-06,SELL NOW
+O103,Appendix A · Reputation,Positive-moment review request,Potential future neutral review request after a positive moment; never incentivize positive reviews.,missing,FUT-21,FUTURE
+O104,Appendix A · Loyalty-model breadth,Stamps,"Buy X, get Y — without paper.",represented,RET-02,SELL NOW
+O105,Appendix A · Loyalty-model breadth,Points,Reward spend or activity more flexibly than fixed stamps.,represented,RET-02,SELL NOW
+O106,Appendix A · Loyalty-model breadth,Reward catalogue,Let customers choose what they work toward.,missing,FUT-17,FUTURE
+O107,Appendix A · Loyalty-model breadth,Tiers / status,Give best customers something worth keeping — future if justified.,missing,FUT-18,FUTURE
+O108,Appendix A · Loyalty-model breadth,Packages / prepaid,Sell repeat visits up front — future with additional financial complexity.,missing,FUT-19,FUTURE
+O109,Appendix A · Competitive local business,Shop-next-door,Give regulars another reason to choose you instead of the shop next door.,missing,ACQ-05,SELL NOW
+O110,Appendix A · Competitive local business,Professionalism,A modern loyalty experience can make a small business feel more polished.,missing,TRU-08,QUALIFIED
+O111,Appendix A · Competitive local business,Convenience,"No plastic, no paper stamp card, no extra app.",partial,CORE-04,SELL NOW
+O112,Appendix A · Measurement / proof,Is loyalty working?,Do not just run a programme; see whether customers use it.,partial,CORE-08,QUALIFIED
+O113,Appendix A · Measurement / proof,New vs returning,See whether loyalty customers actually come back.,partial,CORE-08,QUALIFIED
+O114,Appendix A · Measurement / proof,Reward redemption,See whether people reach and use rewards.,missing,CORE-08,QUALIFIED
+O115,Appendix A · Measurement / proof,Loyalty funnel,Joined → returned → rewarded → referred.,missing,CORE-08,QUALIFIED
+O116,Appendix A · Product maturity,Built for a real shift,"Designed for busy operations, not only demos.",partial,OPS-01,QUALIFIED
+O117,Appendix A · Product maturity,Failure recovery,"Camera fails, link lost, staff mistake: there is a recovery path.",partial,OPS-04,RC READY
+O118,Appendix A · Product maturity,Ready to operate,A loyalty system is useful only when staff can actually run it.,partial,OPS-01,QUALIFIED
+O119,Appendix A · Differentiation,Insight → Action,Do not just show the problem; make the next action obvious.,missing,FUT-12,FUTURE
+O120,Appendix A · Differentiation,Intelligent local-business assistant,"Surface opportunities and help the merchant act, without fake AI.",partial,TRU-10,QUALIFIED
+O121,Appendix A · Differentiation,Industry-aware intelligence,A barbershop should not receive the same assumptions as a café.,missing,FUT-13,FUTURE
+O122,Appendix A · Differentiation,Physical + digital ecosystem,"Counter, customer phone, staff workflow and owner dashboard as one system.",missing,OPS-09,SELL NOW
+O123,Appendix A · Differentiation,Premium but simple,"Powerful for the owner, simple for the customer.",missing,CORE-04,SELL NOW
+O124,Appendix A · Differentiation,Operational completeness,Not just the card: the workflows around it.,missing,OPS-01,QUALIFIED
+P1,Priority 1,More repeat visits,The first sale is done. What about the next one?,partial,CORE-01,SELL NOW
+P2,Priority 2,Win back disappearing regulars,WHEN ENABLED,represented,FUT-01,FUTURE
+P3,Priority 3,Quiet hours,WHEN ENABLED,represented,FUT-08,FUTURE
+P4,Priority 4,Referral acquisition,NOW / STRONG,represented,CORE-07,SELL NOW
+P5,Priority 5,Reward progress,9/10 feels different from 1/10,partial,CORE-02,SELL NOW
+P6,Priority 6,No app / low friction,NOW / VERY STRONG (original copy says „NFC antippen oder QR scannen“),represented,CORE-04,SELL NOW
+P7,Priority 7,Simple staff workflow,„Kunde tippt. Team bestätigt. Fertig.“,partial,CORE-05,SELL NOW
+P8,Priority 8,Physical + branded experience,PARTIAL / HARDWARE DEPENDENT,partial,TRU-08,QUALIFIED
+P9,Priority 9,Know who returns,NOW / PARTIAL ANALYTICS,represented,CORE-08,QUALIFIED
+P10,Priority 10,Insight → Action,FUTURE DIFFERENTIATOR,missing,FUT-12,FUTURE
+P11,Priority 11,€39 economics,Merchant inputs own numbers,represented,CORE-09,SELL NOW
+P12,Priority 12,Operational maturity / recovery,NOW AFTER HARDENING (original treats reissue as live),partial,OPS-01,QUALIFIED
+V-pizzeria,Vertical,Pizzeria / takeaway,Aus einer Bestellung wird der nächste Besuch.,represented,VER-02,SELL NOW
+V-barber,Vertical,Barber,Den Rhythmus nicht verlieren.,represented,VER-01,SELL NOW
+V-cafe,Vertical,Café / bakery,Aus Laufkundschaft können Stammgäste werden.,represented,VER-04,SELL NOW
+V-salon,Vertical,Salon / beauty,Einzelne Termine → langfristige Beziehung.,represented,VER-05,SELL NOW
+V-carwash,Vertical,Car wash / detailing,Wann wird er wieder fällig?,missing,VER-06,QUALIFIED
+V-gym,Vertical,Gym / fitness,Regelmäßigkeit belohnen.,missing,VER-07,QUALIFIED
+V-restaurant,Vertical,Restaurant,Regelmäßig wiederkommen.,missing,VER-08,QUALIFIED
+AD-A,Original ad,Ad A — Retention,Dein Kunde war heute da …,partial,CORE-01,SELL NOW
+AD-B,Original ad,Ad B — Referral,Dein bester Kunde kennt vielleicht deinen nächsten Kunden.,represented,CORE-07,SELL NOW
+AD-C,Original ad,Ad C — Paper card,Eine Papierkarte zählt Stempel. Mehr weiß sie nicht.,represented,CORE-03,SELL NOW
+AD-D,Original ad,Ad D — No app,NFC antippen oder QR scannen.,represented,CORE-04,SELL NOW
+AD-E,Original ad,Ad E — Quiet hours,Only when campaigns are usable.,represented,FUT-08,FUTURE
+CC-cafe,Content „Was würdest du tun?“,"Café, Dienstag 15:30",12 Stammkunden waren diesen Monat noch nicht da.,partial,FUT-08,FUTURE
+CC-barber,Content „Was würdest du tun?“,"Barber, 3 → 7 Wochen",Würdest du es merken?,represented,RET-01,QUALIFIED
+CC-pizzeria,Content „Was würdest du tun?“,"Pizzeria, seit einem Monat nichts",Was machst du?,represented,RET-01,QUALIFIED
+CC-near-reward,Content „Was würdest du tun?“,18 Kunden einen Besuch vor der Prämie,Was machst du?,missing,FUT-03,FUTURE
+CC-referral,Content „Was würdest du tun?“,Welche Empfehlungen wurden echte Besuche?,,missing,ACQ-02,QUALIFIED
+OB-paper,Objection bank B,Paper cards are enough,,represented,CORE-03,SELL NOW
+OB-regulars,Objection bank B,My regulars already return,,missing,OBJ-01,SELL NOW
+OB-app,Objection bank B,Customers won’t download an app,,represented,CORE-04,SELL NOW
+OB-staff,Objection bank B,Staff will hate another system,,represented,CORE-05,SELL NOW
+OB-slow,Objection bank B,It will slow checkout,,represented,CORE-05,SELL NOW
+OB-spam,Objection bank B,I don’t want to spam customers,,partial,TRU-06,QUALIFIED
+OB-instagram,Objection bank B,I already use Instagram,,missing,OBJ-02,SELL NOW
+OB-works,Objection bank B,I don’t know if it works,,represented,OBJ-04,SELL NOW
+OB-39,Objection bank B,€39 is another subscription,,represented,CORE-09,SELL NOW
+OB-wrong,Objection bank B,What if something goes wrong?,,missing,OPS-01,QUALIFIED
+OB-employees,Objection bank B,I have several employees,,partial,OPS-05,SELL NOW
+OB-stores,Objection bank B,I have several stores,,missing,OPS-06,SELL NOW
+OH-older,Objection handling §9,My customers are older,,represented,OBJ-03,SELL NOW
+OH-mistake,Objection handling §9,What if an employee makes a mistake?,,missing,OPS-02,RC READY
+OH-lost,Objection handling §9,What if the customer loses the card?,(original states reissue as live),represented,OPS-04,RC READY
+S6-mm,Acquisition stack §6,Merchant-to-merchant referrals,Ask each new merchant for 1–2 owner introductions.,represented,ACQ-04,SELL NOW

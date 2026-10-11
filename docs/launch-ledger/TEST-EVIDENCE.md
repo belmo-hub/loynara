@@ -206,3 +206,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 /107: [Campaign reporting and narrow export acceptance](2026-10-11-campaign-reporting-acceptance-107.md) —3 actualChromePASS8.1s/26focusedPASS3.95s/staticbuildPASS; truthfulzero/failure/staleread/retry/isolation/limitedexport, no productdefect or policy change; integration/review receipts follow.
 
 2026-10-11 /108: [LOY-195/196 local encrypted recovery](2026-10-11-encrypted-recovery-108.md): real age/PG five-case drill,51-table fingerprints and idle restored worker; existing scripts unchanged. Hosted storage, custody and independent production restore remain open; no push/deploy/fullscope acceptance.
+
+- 2026-10-11 /109: [LOY-229 reviewed website integration](2026-10-11-website-integration-109.md) — approved website/GTM source reconciled, portability/typecheck corrections;79unit/611Chrome/1631globalPASS,1existing skip; inheritedgeneratedlint/collateralwhitespace reported, no deployment/acceptance.
