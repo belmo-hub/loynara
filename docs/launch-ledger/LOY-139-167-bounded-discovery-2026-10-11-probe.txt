@@ -1,0 +1,35 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, expect, it } from "vitest";
+import { db, pool } from "@/db";
+import { campaigns, campaignRecipients, outboxJobs } from "@/db/schema";
+import { createMerchant, enroll } from "@/lib/product";
+import { getMerchantAnalytics } from "@/lib/merchant-analytics";
+if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Disposable local test database required");
+afterAll(async () => { await pool.end(); });
+it("099 counts all 507 attempts beyond 500 with status, window and tenant isolation", async () => {
+  await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
+  async function seed(label: string) {
+    const owner = randomUUID();
+    await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [owner,label,`${owner}@example.test`]);
+    const shop = await createMerchant({ userId:owner,businessName:label,city:"Kassel",country:"DE",timezone:"Europe/Berlin",locale:"de",currency:"EUR",programName:label,programType:"stamp",rulesText:"Synthetic local",rewardTitle:"Coffee",rewardCost:5 });
+    const member = await enroll({slug:shop.programSlug,acceptedTerms:true});
+    const [campaign] = await db.insert(campaigns).values({tenantId:shop.tenantId,programId:shop.programId,createdByUserId:owner,title:label,subject:"Synthetic",body:"No delivery",audienceDefinition:{kind:"new",withinDays:30}}).returning();
+    const [recipient] = await db.insert(campaignRecipients).values({tenantId:shop.tenantId,campaignId:campaign.id,membershipId:member.id,status:"complete"}).returning();
+    const [job] = await db.insert(outboxJobs).values({tenantId:shop.tenantId,kind:"email.campaign",payload:{}}).returning();
+    return {owner,shop,recipient,job};
+  }
+  const a = await seed("Synthetic boundary A"), b = await seed("Synthetic boundary B"), empty = await seed("Synthetic empty");
+  const asOf = (await pool.query<{at:Date}>("SELECT now() + interval '1 second' AS at")).rows[0].at;
+  await pool.query(`INSERT INTO campaign_attempts (tenant_id,recipient_id,outbox_job_id,attempt,status,created_at)
+    SELECT $1,$2,$3,n,CASE WHEN n<=500 THEN 'complete' WHEN n<=502 THEN 'suppressed' WHEN n<=504 THEN 'retry' WHEN n<=506 THEN 'failed' ELSE 'blocked' END,$4::timestamptz-interval '1 day'
+    FROM generate_series(1,507) n`,[a.shop.tenantId,a.recipient.id,a.job.id,asOf]);
+  await pool.query(`INSERT INTO campaign_attempts (tenant_id,recipient_id,outbox_job_id,attempt,status,created_at)
+    VALUES ($1,$2,$3,508,'complete',$4::timestamptz-interval '91 days'),($1,$2,$3,509,'complete',$4::timestamptz)`,[a.shop.tenantId,a.recipient.id,a.job.id,asOf]);
+  await pool.query(`INSERT INTO campaign_attempts (tenant_id,recipient_id,outbox_job_id,attempt,status,created_at)
+    SELECT $1,$2,$3,n,'failed',$4::timestamptz-interval '1 day' FROM generate_series(1,501) n`,[b.shop.tenantId,b.recipient.id,b.job.id,asOf]);
+  const expected = {total:507,complete:500,suppressed:2,retry:2,failed:2,blocked:1};
+  for (const windowDays of [30,90] as const) expect((await getMerchantAnalytics(a.owner,{windowDays,asOf})).campaignAttempts).toEqual(expected);
+  expect((await getMerchantAnalytics(b.owner,{windowDays:30,asOf})).campaignAttempts).toEqual({total:501,complete:0,suppressed:0,retry:0,failed:501,blocked:0});
+  expect((await getMerchantAnalytics(empty.owner,{windowDays:30,asOf})).campaignAttempts).toEqual({total:0,complete:0,suppressed:0,retry:0,failed:0,blocked:0});
+  expect(Number((await pool.query('SELECT count(*) FROM campaign_attempts WHERE tenant_id=$1',[a.shop.tenantId])).rows[0].count)).toBe(509);
+});

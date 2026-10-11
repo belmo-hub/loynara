@@ -1,0 +1,9 @@
+{
+  "assignment": "099",
+  "base": "0de549ed61c905c3b72d5d1c9d234b5914d8da2c",
+  "probe_pass": 1,
+  "production_change": false,
+  "probe_sha256": "379acc3832d4db873b67a9eeb9b7b6ca36568d892bf9884e06bdd873f20bdf39",
+  "log_sha256": "28d38997c39d2a1157329dd2e497f1773cdf97f5a22675006a78b66cd6ac422d",
+  "status": "bounded no-defect discovery; broader gates open"
+}
