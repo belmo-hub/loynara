@@ -6,7 +6,8 @@ import { POST as issue } from "@/app/api/wallet/apple/route";
 import * as statusRoute from "@/app/api/wallet/status/route";
 import { GET as download } from "@/app/api/wallet/apple/download/[ticket]/route";
 import { refreshWalletForMembership } from "./refresh";
-import { claimOutboxJob, markOutboxJob } from "@/lib/outbox";
+import { claimOutboxJob, completeWalletOutboxJob, markOutboxJob } from "@/lib/outbox";
+import { award } from "@/lib/loyalty";
 import { createDownloadTicket } from "./ticket";
 import { closeCard } from "@/lib/card-lifecycle";
 import { passFastSerial } from "./passfast";
@@ -35,7 +36,7 @@ async function fixture(name="Synthetic async café") {
   const merchant=await createMerchant({userId:owner,businessName:name,city:"Kassel",country:"DE",timezone:"Europe/Berlin",locale:"de",currency:"EUR",programName:"Coffee",programType:"stamp",rulesText:"One per purchase",rewardTitle:"Coffee",rewardCost:5});
   const member=await enroll({slug:merchant.programSlug,acceptedTerms:true});
   vi.stubEnv("PASSFAST_TENANT_TEMPLATES",JSON.stringify([{tenantId:merchant.tenantId,locationId:merchant.locationId,templateId:template}]));
-  return {merchant,member};
+  return {owner,merchant,member};
 }
 async function processRefresh() {
   const job=await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:5});expect(job).not.toBeNull();
@@ -132,4 +133,29 @@ describe("managed Apple asynchronous customer workflow",()=>{
     expect(await(await status(f.member.cardToken)).json()).toMatchObject({apple:"unavailable",google:"unavailable",applePass:{status:"unavailable"}});
     expect(await(await statusRoute.GET()).json()).toEqual({apple:"unavailable",google:"unavailable"});expect(calls).toHaveLength(0);
   });
+});
+
+it("keeps successful Apple reconciliation ready when an older exhausted claim expires afterwards",async()=>{
+  const f=await fixture();expect((await issue(post("/api/wallet/apple",f.member.cardToken))).status).toBe(202);
+  outage=true;
+  for(let attempt=1;attempt<5;attempt++){
+    const old=await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:5});expect(old?.attempts).toBe(attempt);
+    await expect(refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).rejects.toThrow();
+    expect(await markOutboxJob(pool,old!,"retry","Synthetic provider outage",0)).toBe(true);
+  }
+  // The exhausted owner stops before I/O. Let its real short lease expire after
+  // a separate normal award queues and successfully synchronizes a fresh job.
+  const exhausted=await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:0.05});expect(exhausted?.attempts).toBe(5);
+  outage=false;
+  await award({userId:f.owner,locationId:f.merchant.locationId,membershipId:f.member.id,quantity:1,requestId:randomUUID(),idempotencyKey:randomUUID()});
+  const fresh=await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:5});expect(fresh?.id).not.toBe(exhausted!.id);expect(fresh?.attempts).toBe(1);
+  expect(await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).toEqual({status:"complete"});
+  expect(await completeWalletOutboxJob(pool,fresh!)).toBe(true);expect((await projection(f.member.id)).status).toBe("created");
+  expect(remote!.dynamic_data.balance).toBe(1);
+  await pool.query("SELECT pg_sleep(LEAST(3.1,GREATEST(0,extract(epoch FROM(next_attempt_at-clock_timestamp()))+0.01))) FROM outbox_jobs WHERE id=$1",[exhausted!.id]);
+  expect(await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:5})).toBeNull();
+  const before=calls.length;const result=await(await status(f.member.cardToken)).json();
+  expect(result.applePass.status).toBe("ready");expect(result.applePass.url).toMatch(/^\/api\/wallet\/apple\/download\//);
+  expect(calls).toHaveLength(before);expect(calls.filter(c=>c.path.endsWith("generate-pass"))).toHaveLength(1);
+  expect((await pool.query("SELECT status,attempts FROM outbox_jobs WHERE id=$1",[exhausted!.id])).rows[0]).toEqual({status:"suppressed",attempts:5});
 });

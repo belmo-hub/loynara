@@ -15,11 +15,21 @@ type Limits = { maxAttempts: number; leaseMinutes: number };
 
 /**
  * Takes the oldest due job under a lease. Each claim spends one attempt; a job whose lease expired on its last attempt
- * is failed instead of being retried forever.
+ * is failed instead of being retried forever, or suppressed when a later successful Wallet refresh covers it.
  */
 export async function claimOutboxJob(pool: Pick<Pool, "query">, { maxAttempts, leaseMinutes }: Limits): Promise<OutboxJob | null> {
+  // A stopped last-attempt owner may expire after a newer refresh succeeded.
+  // Preserve that durable coverage instead of resurrecting a preparation error.
   await pool.query(
-    "UPDATE outbox_jobs SET status = 'failed', last_error = 'Worker lease expired after retry limit' WHERE status = 'processing' AND next_attempt_at <= now() AND attempts >= $1",
+    `UPDATE outbox_jobs AS expired SET
+       status = CASE WHEN expired.kind = 'wallet.refresh' AND EXISTS (
+         SELECT 1 FROM outbox_jobs covered WHERE covered.kind = 'wallet.refresh' AND covered.status = 'complete'
+           AND covered.tenant_id = expired.tenant_id
+           AND covered.payload ->> 'membershipId' = expired.payload ->> 'membershipId'
+           AND covered.id <> expired.id AND covered.created_at >= expired.created_at
+       ) THEN 'suppressed' ELSE 'failed' END,
+       last_error = 'Worker lease expired after retry limit'
+     WHERE expired.status = 'processing' AND expired.next_attempt_at <= now() AND expired.attempts >= $1`,
     [maxAttempts],
   );
   const result = await pool.query<OutboxJob>(`
@@ -87,7 +97,10 @@ export async function renewOutboxJob(pool: Pick<Pool, "query">, job: Pick<Outbox
   return result.rowCount === 1;
 }
 
-/** Completion and suppression share the same atomic ownership fence. */
+/** Completion and suppression share the same atomic ownership fence.
+ * Include expired processing rows so a concurrent expiry sweep cannot leave a
+ * late failure behind. Unexpired owners are never suppressed.
+ */
 export async function completeWalletOutboxJob(pool: Pick<Pool, "query">, job: OutboxJob): Promise<boolean> {
   const result = await pool.query<{ owned: boolean }>(`
     WITH locked AS MATERIALIZED (
@@ -101,7 +114,8 @@ export async function completeWalletOutboxJob(pool: Pick<Pool, "query">, job: Ou
       RETURNING outbox_jobs.created_at
     ), suppressed AS (
       UPDATE outbox_jobs AS older SET status = 'suppressed', last_error = 'Superseded by a later successful wallet refresh'
-      FROM completed WHERE older.kind = 'wallet.refresh' AND older.status IN ('failed', 'blocked')
+      FROM completed WHERE older.kind = 'wallet.refresh'
+        AND (older.status IN ('failed', 'blocked') OR (older.status = 'processing' AND older.next_attempt_at <= clock_timestamp()))
         AND older.tenant_id = $3 AND older.payload ->> 'membershipId' = $4 AND older.id <> $1
         AND older.created_at <= completed.created_at
       RETURNING older.id

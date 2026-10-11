@@ -42,3 +42,6 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 
 
 2026-10-11 /071: [LOY-299 idle connection survival after export](LOY-299-export-idle-connection-2026-10-11.md), actual process-exit RED corrected with sanitized idle handler/real database regression; primary47 unchanged customer/cashier browser evidence. Implemented/tested locally; integrated/tracker receipts follow.43/44/209 and47/48 external/full gates OPEN; no deployment/acceptance claim.
+
+
+2026-10-11 /072: [LOY-300 later Wallet success survives old lease expiry](LOY-300-wallet-late-expiry-2026-10-11.md). Actual customer-status RED corrected with tenant/card coverage and concurrent completion/expiry regression; focused/static/build/global/review evidence in entry. Primary163 bounded unchanged classification PASS;97/98 and163/164 full gates OPEN. Local integration/tracker receipts follow; no remote/deployment/acceptance claim.
