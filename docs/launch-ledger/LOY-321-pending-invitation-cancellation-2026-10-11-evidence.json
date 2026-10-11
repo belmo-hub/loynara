@@ -1,0 +1,33 @@
+{
+  "assignment": "101",
+  "issue": "LOY-321",
+  "parent": "LOY-153",
+  "base": "b5a5d270c0b40933141b908e688e0970d5c7ef24",
+  "focused": {
+    "files": 7,
+    "passed": 33
+  },
+  "browser": {
+    "passed": 4,
+    "seconds": 11.4
+  },
+  "global": {
+    "files": 180,
+    "passed": 1629,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 169.46,
+    "skip": "Existing optional loopback Mailpit card recovery"
+  },
+  "static": "typegen/typecheck/lint0warnings/defaultbuild PASS",
+  "review": "existing read-only sensitive reviewer, no material finding; no reviewer tests",
+  "log_sha256": {
+    "loy-101-red-final.log": "5cd8bdac17130bd7b1ba4e3542208adcb6dea07dcf6fdcda49d7e925124009f8",
+    "loy-101-focused-final.log": "cbd90f184ed924cd61ce44276741c0a04b27d0af6b8dbd63671124912ad22d58",
+    "loy-101-browser-selector-failure.log": "4c62047221293940fcae743a26a21f34a4a5d3beca2ce890d09b4fdea4fe0741",
+    "loy-101-browser-final.log": "d487aeea954525cc6efa05e109dfd80c4cd38e7fc06c74455d07540d484cf782",
+    "loy-101-static-final.log": "8ea63db44a90035c70eaf9e82af839a69a50ad892be9d54ffe9eb85f9e4f38c7",
+    "loy-101-global.log": "67e94b7f9b6bf36b12102900487dc408e159217acbe57e0afa68736314314198",
+    "loy-101-global-final.json": "f9b98b7b92e788e875509d773c38bcafa0f3834d311992ffa76f68a9f8df8e7f"
+  }
+}

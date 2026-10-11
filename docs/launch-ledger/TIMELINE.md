@@ -220,3 +220,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /099: [LOY-139-167-bounded-discovery-2026-10-11.md](LOY-139-167-bounded-discovery-2026-10-11.md) —139 correlation already covered;167507-attempt synthetic aggregate PASS; no new product defect, broader gates OPEN.
 
 - 2026-10-11 /100: [LOY-125-135-consent-materialization-order-2026-10-11.md](LOY-125-135-consent-materialization-order-2026-10-11.md) — deterministic withdrawal/materialization test PASS; missing actual owner pending-invite revocation identified for coordinator; broad gates OPEN.
+
+- 2026-10-11 /101: [LOY-321-pending-invitation-cancellation-2026-10-11.md](LOY-321-pending-invitation-cancellation-2026-10-11.md) —321 owner pending invitation cancellation;33 focused/4 browser/global1629PASS,1 existing skip; LOCAL integration/tracker receipt follows,153154 broad gates OPEN.
