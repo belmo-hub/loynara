@@ -1,0 +1,79 @@
+{
+  "assignment": "LOY-ENG-20261011-082",
+  "issue": "LOY-309",
+  "parent": "LOY-139",
+  "base_sha": "a04281f914627146a98f12aa1f4c474050437691",
+  "test_source_sha": "3590785f365d66db79d9fd394396198319f038fa",
+  "app_source_sha": "8d0d09d5a8dce20200156134539838f90b5ba661",
+  "result_sha": "containing documentation commit; exact receipt in durable state/map",
+  "classification": "B: proven test guard synchronization/precision defect; exact historical081failure causation unproven",
+  "proof": {
+    "actual_postgres": true,
+    "writes": false,
+    "exact_deadline": "2030-01-01T00:00:00.123999Z",
+    "parsed_client_deadline": "2030-01-01T00:00:00.123Z",
+    "comparison_instant": "2030-01-01T00:00:00.123500Z",
+    "original_guard_expired": true,
+    "exact_guard_expired": false,
+    "lost_microseconds": 999
+  },
+  "implementation": "Only contended-lock regression: database-precision statement-start/expiry checks, originalclaim/processing1/expired assertion; worker/outbox/schema unchanged",
+  "focused": "4files22PASS12.46s",
+  "integrated": "cleanLOCALFF;4files22PASS12.35s",
+  "static": "typegen/typecheck/zero-warningchanged-testlint/buildPASS",
+  "review": "One reused independentREAD-ONLY reviewer no material findings/staticonly; agreesBsupported/historicalcauseunproven; no services/tests/configurationunmeasured",
+  "global": "Prior081unchangedAPPLICATIONsource173files1601PASS0FAIL1existingoptionalMailpitSKIP158.31s; no082fullglobalrerunclaim",
+  "historical_failure": "081first173files1600PASS1FAIL1SKIP153.90s; original exact timestamps absent. Same failure not reproduced in isolatedbase5PASS/changed5PASS or finalglobalretry. Precisionmechanismproved, originalcausationUNVERIFIED.",
+  "tracker": "309Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T06:41:30Z/comment7-142;281/282Done preserved,parent139InReview/140OPEN,133separateBlockedpolicyuntouched",
+  "execution": "Mac/reusedcleancheckoutcodexdeferral-diagnostic082; one engineer; assignedSolHighdiagnosis/correction,Mediumreview; retainedexecutorifswitchunavailable;providersOFF/ownednativePG andactualworkers",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 10386931,
+    "cumulative_seconds": 54668,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": "42GiB/13retainedtrees; no newtreeinstallcleanup/newDB/service/provider changes;41nonprimarytrackedpaths no overlap,Desktopstatusunknown/no source touch",
+  "external_actions": "Truthful309creation/progress/review/Done/comment/readback;Gmail309query0/generationreceiptUNVERIFIED;no push185186/protected/hosted/provider/customer/tag/legal/policy",
+  "fallback": "Unused; primary actionable test fixture correction, no third investigation",
+  "statuses": {
+    "test_fixture_implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "application_modified": false,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-127 actual definitive persistent draft rejection beyond accepted revision/preview race",
+    "LOY-153 staff invitation definite-failure recovery beyond accepted concurrency",
+    "LOY-49 selected reward/redemption failure feedback beyond accepted ledger conflicts"
+  ],
+  "logs": {
+    "precision-probe": {
+      "local_path": "/tmp/loy-082-precision-probe.log",
+      "bytes": 373,
+      "sha256": "baa380d1f0dbfa8b6f30034adfebca06cb8e38a4d94a646f731115f6ed8fea0f"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-082-focused.log",
+      "bytes": 3002,
+      "sha256": "91b6bd910ac09f15211528126750b89a0c035e72f51e9cba14875d46194664fe"
+    },
+    "static": {
+      "local_path": "/tmp/loy-082-static.log",
+      "bytes": 5379,
+      "sha256": "8084ff330552065c7b2e0896ad4778dbd4d0a2e5d8776126c728f67df90a222f"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-082-integrated.log",
+      "bytes": 3011,
+      "sha256": "7f5ad583498fcf763be4f04597ed3c2b4b13b32d694a80aa27643272b38b1986"
+    }
+  }
+}
