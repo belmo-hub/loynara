@@ -108,5 +108,18 @@
       "path": "/tmp/loy-066-list-error-mobile.png",
       "sha256": "cf251df2466b312ae9e98a40c2f93f6ac5eecaba9163bc60a7a9e4379cad8d33"
     }
+  },
+  "receipt": {
+    "source_sha": "56cb97ad2a409402b08e8111aa49a4bff10b71dc",
+    "local_integration": "verified cleanfastforward; integrated18PASS110ms",
+    "tracker_comment": "7-122",
+    "readback_utc": "2026-10-11 02:48:51",
+    "child_stage": "Done",
+    "parents": "33InReview/34Backlogunresolved",
+    "cleanup": "three ownedbrowserDBsdropped; all13worktrees/branches/archives retained",
+    "native_tokens": 7975966,
+    "native_seconds": 40709,
+    "usage_breakdown": "unmeasured input/cachedsubset/output/browser/reviewer",
+    "push_deployment_acceptance": false
   }
 }
