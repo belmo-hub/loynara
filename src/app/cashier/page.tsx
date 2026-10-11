@@ -367,7 +367,8 @@ export default function CashierPage() {
     } catch (cause) {
       if (cause instanceof ClientApiError && (cause.status === 401 || cause.status === 403)) { setAccessState("blocked"); setAccessMessage(cause.status === 401 ? "Deine Anmeldung ist nicht mehr aktiv. Bitte melde dich erneut an." : "Dein Kassenzugang ist nicht mehr aktiv."); }
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
-      const unclear = cause instanceof ClientApiError && (cause.status === 0 || cause.status >= 500);
+      // A successful HTTP status without readable JSON may follow a committed booking. Keep its key for explicit replay.
+      const unclear = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300) || cause.status >= 500);
       settle(unclear);
       if (activeCardId.current !== selectedCard.id) {
         // The cashier already moved on, so this card cannot be retried from here. Say so plainly, only on an empty counter.
