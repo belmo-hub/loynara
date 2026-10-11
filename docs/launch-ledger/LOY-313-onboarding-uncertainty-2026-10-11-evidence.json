@@ -1,0 +1,99 @@
+{
+  "assignment": "LOY-ENG-20261011-086",
+  "issue": "LOY-313",
+  "parent": "LOY-145",
+  "base_sha": "e5a73ed28cdf7d793200f61fe3ba25a18da0c094",
+  "source_sha": "031a9271db44766722cc959cde774f1e25dc379e",
+  "result_sha": "Containing documentation commit; exact durable state/map after integration",
+  "implementation": "Onboarding transport failure or unreadable successful acknowledgment classified unconfirmed/may already be saved; no automatic retry/provisioning/auth/billing change",
+  "authority": "Founder master directive and completed086 contract",
+  "red": "Initial3FAIL included incorrect mobile desktop-navigation fixture; corrected before application change. Valid unchanged-source1late rollbackPASS/2genuine feedbackRED7.1s",
+  "browser": "3realChromePASS6.1s mobile375/desktop1280: actual late billing-plan insert failure full rollback/input retention/explicit success; committed201 aborted or empty acknowledgment uncertainty; unchanged retry identical IDs/exact rows/one each; reload persisted/no memberships/outbox",
+  "focused": "4files40PASS1.99s",
+  "static": "typegen/typecheck/zero-warning changed-file lint/production build PASS",
+  "global": "173files1601PASS0FAIL1existing optional Mailpit recovery SKIP157.98s; first configured run",
+  "integrated": "cleanLOCALFF;4files40PASS2.22s; frozen32b27ec exact/e1aae658+9848e759 ancestry/history preserved",
+  "review": "One independent read-only sensitive static review no material findings; no source change after review; model/effort unmeasured",
+  "tracker": "313Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T07:41:43Z/comment7-146;145InReview/146Backlog resolvednull OPEN",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11224138,
+    "cumulative_seconds": 58298,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": {
+    "disk_free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "new_worktree": false,
+    "installations": false,
+    "cleanup": false,
+    "other_registered_exact_paths_checked": 40,
+    "tracked_overlap": [],
+    "Desktop_concurrency": "UNKNOWN/not rescanned"
+  },
+  "execution": "Mac/one engineer; assigned gpt-6.1-sol Medium discovery/High engineering/Medium review; effective setter unavailable/existing executor retained; normal synthetic sessions/nativePG/provider delivery OFF",
+  "external_actions": "Actual313create/InProgress/InReview/Done/comment/readback. Gmail313query0matching notification generation/receiptUNVERIFIED. Owned onboarding086 DB dropped after appstop/zeroactive. No remote push185/186/protected/hosted/provider/customer/tag/legal/newpolicy action",
+  "limitations": [
+    "Newer-edit races and arbitrary truthy JSON shape not newly covered; existing validation and owner serialization retained.",
+    "Initial mobile fixture error corrected and genuine RED recorded before source modification.",
+    "Full145/146/launch acceptance OPEN; no independent operator/physical/provider acceptance.",
+    "Prior081 exact failure-event cause still UNPROVEN."
+  ],
+  "fallback": "Unused",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-119 referral interrupted-response recovery beyond accepted invalid-referral slice",
+    "LOY-43 export browser failure/recovery under existing privacy policy",
+    "LOY-161 billing-entitlement server failure recovery within approved commercial boundaries"
+  ],
+  "evidence": "docs/launch-ledger/LOY-313-onboarding-uncertainty-2026-10-11.md",
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-086-red.log",
+      "bytes": 9583,
+      "sha256": "0f3f39571f4f399c8c7c2ae222c96dddb1f061bbe4e747c55a39403566883296"
+    },
+    "red-valid": {
+      "local_path": "/tmp/loy-086-red-valid.log",
+      "bytes": 5860,
+      "sha256": "8d1351b4bb37b31556784da75c409aa225d1355b941e06f45d71755065c50529"
+    },
+    "green": {
+      "local_path": "/tmp/loy-086-green.log",
+      "bytes": 1019,
+      "sha256": "1a0e87b42155ecafc4aa9af4365a6e9c28369c74e3a3a3b353fa1d819d64fe48"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-086-focused.log",
+      "bytes": 1499,
+      "sha256": "ad06c59b73b8f85c460e341880cce2a4432d069ae70f86e780f33acd643e0d52"
+    },
+    "static": {
+      "local_path": "/tmp/loy-086-static.log",
+      "bytes": 4317,
+      "sha256": "c5d1cf691940f0e55a7dddbddabe552ef6c73395146aedbe4a8320536363cf73"
+    },
+    "global": {
+      "local_path": "/tmp/loy-086-global.log",
+      "bytes": 39682,
+      "sha256": "b806aa1a7451359c9ef61e4ce0fe08874d8d46d26596eb5189270dad9dd4ea65"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-086-integrated.log",
+      "bytes": 1508,
+      "sha256": "6fc517618d5aff0864043755382ce36c88f65652d3db931538760fed4cbb1bff"
+    }
+  }
+}
