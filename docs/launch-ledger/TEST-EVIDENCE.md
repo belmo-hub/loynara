@@ -82,3 +82,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 [LOY-286](LOY-286-operations-heartbeat-ack-2026-10-11.md): actual CLI synthetic transports;2 validRED failures; focused3files11PASS, configured159files1481PASS0FAIL1existingoptionalMailpitSKIP.
+
+
+[LOY-287](LOY-287-secret-safe-ops-diagnostics-2026-10-11.md): actualCLI2validRED then focused3files80PASS, private fields withheld/usefulclassificationpreserved; full/static receipts separately appended.

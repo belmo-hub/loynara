@@ -96,3 +96,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 LOY-286: actual CLI503/network falselyPASS RED -> required heartbeat acknowledgment. No remote monitor contacted.
+
+
+2026-10-11 LOY-287: connect/query rawstderr syntheticsecretRED -> fixed safecategories/controlled refusal diagnostics; no actual secret exposure asserted.

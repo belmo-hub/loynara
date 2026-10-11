@@ -72,3 +72,6 @@ LOY-177/178 OPEN: bounded285 manual refresh feedback locally verified; complete 
 
 
 LOY-181/182 remainOPEN after bounded no-defect source discovery; LOY-193/194 remainOPEN despite narrow286localmonitor acknowledgment correction. Actual monitor delivery/independent operations gates are unverified.
+
+
+LOY-193/194 remainOPEN: bounded287secret-safe CLI correction does not prove every logging boundary secure or independently accepted.

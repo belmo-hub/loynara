@@ -30,3 +30,6 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 
 
 [LOY-286 operations heartbeat acknowledgment](LOY-286-operations-heartbeat-ack-2026-10-11.md): bounded193 coding delta; exact receipts appended to entry.
+
+
+[LOY-287 secret-safe operations diagnostics](LOY-287-secret-safe-ops-diagnostics-2026-10-11.md): actual CLI controlled exception leakage correction; completion receipts in entry.
