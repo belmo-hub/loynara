@@ -217,3 +217,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 2026-10-11 /120: [Fresh read-only hosted preflight120](2026-10-11-hosted-preflight-120.md) — fresh public health/root GET200 and exact21-row migration hash/timestamp comparison; own shell flagsfalse but app-process environ EACCES. No new local/global test/build or broad acceptance claim.
+
+
+2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.

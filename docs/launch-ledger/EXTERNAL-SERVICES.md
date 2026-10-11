@@ -17,3 +17,6 @@ No deployment, provider/billing activation, purchase, DNS/secret/permission chan
 
 
 2026-10-11 /120: [Fresh read-only hosted preflight120](2026-10-11-hosted-preflight-120.md) — authorized fresh metadata/GET and two whitelisted read-only web-console probes; EACCES preserved, no bypass. No hosted service/config/customer/schema changes or extra push.
+
+
+2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.

@@ -207,3 +207,6 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 
 
 2026-10-11 /120: [Fresh read-only hosted preflight120](2026-10-11-hosted-preflight-120.md) — exact-source rollout mechanism, complete writer/process flags attestation, fresh encrypted artifact/key custody and independent restore remain missing before founder release decision. Source/deployment readiness distinct from full-scope policy/provider/physical acceptance.
+
+
+2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.

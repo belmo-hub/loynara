@@ -1,0 +1,185 @@
+{
+  "assignment": "LOY-ENG-20261011-121",
+  "at": "2026-10-11T17:17:51.480437+00:00",
+  "base_local": "a20ec9c0aacf01d46fb605e2b80ebb5457d43bc4",
+  "release_revision": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+  "parity": {
+    "base": "a20ec9c0aacf01d46fb605e2b80ebb5457d43bc4",
+    "release_revision": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+    "all_non_ledger_tracked_mode_type_blob_path_records_equal": true,
+    "non_ledger_records": 1065,
+    "changed_files": [
+      "docs/launch-ledger/2026-10-11-github-push-119.json",
+      "docs/launch-ledger/2026-10-11-github-push-119.md",
+      "docs/launch-ledger/2026-10-11-hosted-preflight-120.json",
+      "docs/launch-ledger/2026-10-11-hosted-preflight-120.md",
+      "docs/launch-ledger/DECISIONS.md",
+      "docs/launch-ledger/EXTERNAL-SERVICES.md",
+      "docs/launch-ledger/OPEN-ITEMS.md",
+      "docs/launch-ledger/RELEASES.md",
+      "docs/launch-ledger/RISKS-AND-EXCEPTIONS.md",
+      "docs/launch-ledger/TEST-EVIDENCE.md",
+      "docs/launch-ledger/TIMELINE.md"
+    ],
+    "deployable_parity": "PASS for all tracked content outside evidence ledger; Dockerfile/context exclusions inspected separately",
+    "source_changed": false
+  },
+  "docker_context_limit": "Dockerfile COPY . . includes ledger: documentation blobs/image contents differ; application/migrations/dependencies/build/worker/website assets outside ledger have exact mode/blob/path equality. Not a claim of identical image digest.",
+  "railway_api": {
+    "classification": "CONDITIONALLY AVAILABLE",
+    "official_docs": "https://docs.railway.com/integrations/api/manage-services",
+    "operation": "serviceInstanceDeployV2(serviceId, environmentId, commitSha)",
+    "documented_validation": "commitSha checked in connected GitHub repository, returns deployment ID; connected-branch restriction not explicitly established and real target eligibility not tested",
+    "authentication_docs": "https://docs.railway.com/integrations/api",
+    "read_only_query": "GraphiQL serviceInstance for exact worker/environment ID; executed once",
+    "result": "Not Authorized; data:null",
+    "trace": "10561248766636035509",
+    "deployment_mutations": 0,
+    "existing_local_cli_config": "No ~/.railway/config.json or ~/.config/railway/config.json; no credential scan or creation",
+    "scope_limit": "Authenticated dashboard access is verified; GraphQL read access and deployment permission not verified. No new token, header edit, cookie/session extraction or new CLI."
+  },
+  "environment": "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
+  "project": "b07a3919-b3fc-4637-8b91-d0b4418d2856",
+  "service_config": {
+    "web": {
+      "id": "5c1303ad-42c2-4094-a996-3ac6140d088d",
+      "repo": "belmo-hub/loynara",
+      "branch": "railway-rc",
+      "dockerfile": "/Dockerfile",
+      "start_override": "none configured; Dockerfile CMD npm start / production guard then next start",
+      "predeploy": "Add pre-deploy step; no configured command observed",
+      "healthcheck": "/api/health"
+    },
+    "worker": {
+      "id": "3bfad7e8-c638-41bd-8f50-743e68c0633f",
+      "repo": "belmo-hub/loynara",
+      "branch": "railway-rc",
+      "dockerfile": "/Dockerfile",
+      "start_override": "npm run worker",
+      "predeploy": "Add pre-deploy step; no configured command observed",
+      "flags": {
+        "evidence": "Supported worker Variables UI; configuration only, not main process env; shared/default resolution unverified",
+        "flags": [
+          {
+            "name": "APPLE_WALLET_ENABLED",
+            "value": "false",
+            "hide_control": true
+          },
+          {
+            "name": "GOOGLE_WALLET_ENABLED",
+            "value": "false",
+            "hide_control": true
+          },
+          {
+            "name": "PASSFAST_ENABLED",
+            "value": "false",
+            "hide_control": true
+          },
+          {
+            "name": "EXTERNAL_EMAIL_ENABLED",
+            "value": "false",
+            "hide_control": true
+          },
+          {
+            "name": "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED",
+            "value": "false",
+            "hide_control": true
+          },
+          {
+            "name": "LIVE_BILLING_ENABLED",
+            "value": "false",
+            "hide_control": true
+          },
+          {
+            "name": "TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED",
+            "value": "NO_EXPLICIT_WORKER_ROW_OBSERVED"
+          },
+          {
+            "name": "WALLET_PRODUCTION_APPROVED",
+            "value": "NO_EXPLICIT_WORKER_ROW_OBSERVED"
+          },
+          {
+            "name": "PUBLIC_REGISTRATION_ENABLED",
+            "value": "NO_EXPLICIT_WORKER_ROW_OBSERVED"
+          }
+        ]
+      }
+    },
+    "migrate": {
+      "id": "ba6a41c5-b9ee-463a-bc25-f7745c549f59",
+      "dockerfile": "/Dockerfile",
+      "start_override": "npm run production:migrate",
+      "predeploy": "none observed",
+      "restart": "Never",
+      "state": "Completed; re-execution would mutate schema and requires authorization"
+    },
+    "backup": {
+      "id": "78ee0c58-c306-4f3a-95c0-1c94e72e793c",
+      "dockerfile": "/Dockerfile.backup",
+      "start_override": "none; repository ENTRYPOINT production-backup.sh",
+      "schedule": "0 3 * * * UTC",
+      "state": "Last run succeeded does not verify actual artifact"
+    },
+    "ops_check": {
+      "id": "c3189719-e305-4c4c-b8ca-4d0b0335c25f",
+      "dockerfile": "/Dockerfile",
+      "start_override": "npm run production:ops-check",
+      "schedule": "*/5 * * * * UTC",
+      "source_behavior": "candidate SELECT outbox health + monitor heartbeat, no claim writes; actual utility source/process custody not established"
+    }
+  },
+  "writer_inventory": {
+    "source_verified": "candidate web immediate NFC path writes outbox and worker claims/completes/renews/replays and performs housekeeping; migrate writes schema; backup pg_dump reads DB/uploads ciphertext; ops source SELECT+heartbeat",
+    "control_plane_verified": "web/worker/migrate/backup/ops build/start configuration; worker six explicit flagsfalse",
+    "not_established": "Every actual process/generation/runtime flag and possible manual/utility DB writer; cloudflared/other utility source custody; shared/default worker resolution for three no-explicit-row flags",
+    "action": "Existing authorized operator attest exhaustive service-instance/process/generation list and planned stop/drain; no /proc retry, privilege or isolation bypass"
+  },
+  "backup": {
+    "source_verified": "existing pg_dump->age->private EU R2 upload/HEAD check workflow; owner-only age identity, separate empty target restore guard",
+    "artifact_key_pattern": "loynara/YYYY/MM/DD/<UTC>-<random>.dump.age",
+    "metadata_or_custody_readback": "Unavailable in verified current storage access; no artifact/keys/data retrieved",
+    "independent_acceptance": "195/196 remains missing; existing108 local synthetic drill does not supply it",
+    "exact_operator_action": "Using existing approved storage credentials in operator custody, provide actual object key/time/size/checksum/source-schema and key-access responsibility; separately authorize fresh production backup and restore of the specific artifact into a named approved isolated target, no production overwrite or new paid infrastructure"
+  },
+  "plan": "Reuse104 all-writer source/schema attestation -> separate applicable authorization -> drain/stop old web+worker and hold any unverified write-capable utilities -> fresh encrypted artifact and independent accepted restore -> authorized0021..0024 using same pinned revision migration role -> identical pinned web+worker only after journal25 exact + no old writers -> identity/health/approved tenant negatives and merchant/customer/cashier smoke. Guard/refusal or mixed generation stops execution; app rollback does not revert DB; keep providers/physical restrictions and postbackup recovery limits.",
+  "mutations": {
+    "git_push": 0,
+    "deployment": 0,
+    "migration": 0,
+    "service_settings": 0,
+    "permission_or_token": 0,
+    "backup_or_restore": 0,
+    "provider_customer_or_tag": 0
+  },
+  "verification": "exact nonledger Git parity, relevant source/config check; no runtime tests/global rerun",
+  "failures": [
+    "One GraphiQL read query Not Authorized, no retry/token creation",
+    "Canvas worker link left web settings unchanged; direct observed URL resolved navigation",
+    "Two guessed Dockerfile helper names absent in rg; actual backup Dockerfile and main ops source inspected, no install/source change"
+  ],
+  "decision": "NO-GO for production execution; API candidate conditional, recovery/writer/authorization gates unresolved",
+  "independent_review": {
+    "reviewer": "existing /root/loy281_sensitive_review",
+    "outcome": "No material findings",
+    "scope": "Exact object parity and source role/plan static review; no repeated hosted/API observations",
+    "source": "reviewer-121.txt",
+    "model_effort": "unmeasured"
+  },
+  "agent_model": "existing root executor retained; requested SolHigh/Medium review, effective setter unavailable; no new agent/model/worktree",
+  "usage": {
+    "native_tokens": 16145550,
+    "native_seconds": 89565,
+    "input": null,
+    "cached": null,
+    "output": null,
+    "unmeasured": "input/cache/output/browser/reviewer split and effective model",
+    "reset": false
+  },
+  "tracker": {
+    "issue": "LOY-28",
+    "comment": "7-198",
+    "stage": "Backlog",
+    "resolved": false,
+    "exact_readback": true
+  }
+}
