@@ -32,3 +32,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 
 
 2026-10-11 /072: [LOY-300 later Wallet success survives old lease expiry](LOY-300-wallet-late-expiry-2026-10-11.md). Actual customer-status RED corrected with tenant/card coverage and concurrent completion/expiry regression; focused/static/build/global/review evidence in entry. Primary163 bounded unchanged classification PASS;97/98 and163/164 full gates OPEN. Local integration/tracker receipts follow; no remote/deployment/acceptance claim.
+
+2026-10-11 /073 TESTED/LOCALINTEGRATED verification coverage only: LOY-113-125-recovery-eligibility-verification-2026-10-11.md. No application release/deployment/acceptance.
