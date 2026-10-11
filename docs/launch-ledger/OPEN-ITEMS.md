@@ -111,3 +111,6 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-11 /068 LOY-296 bounded local save feedback implemented/tested;175/176 broader branding/independent acceptance OPEN. No remote/deployment/commercial claim. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).
 
 - 2026-10-11 /069 LOY-297 bounded confirmation feedback corrected;153/154/173/174/159 wider scopes OPEN. No reporting defect, remote or external acceptance claim. [Evidence](LOY-297-staff-confirmation-feedback-2026-10-11.md).
+
+
+2026-10-11 /070: [LOY-298 explicit referral error recovery](LOY-298-referral-error-recovery-2026-10-11.md), bounded177 coding correction after115 unchanged browser verification. Actual foreign referral rejection is preserved; localized explicit ordinary-enrollment action,7browser/21focused/static PASS. Global/integration/tracker receipts follow.115/116/119/177/178 independent scope and185/186 remote hold OPEN; no deployment/acceptance claim.

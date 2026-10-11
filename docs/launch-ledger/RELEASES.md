@@ -23,3 +23,6 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 2026-10-10 LOY-276: bounded local analytics consistent-snapshot correction verified. No push/deployment or independent acceptance. [Entry](LOY-276-analytics-snapshot-2026-10-10.md).
 
 2026-10-10 LOY-277: hard suppression correctness implemented/tested locally; integration receipt follows. No push/deploy/provider acceptance. [Entry](LOY-277-hard-suppression-2026-10-10.md).
+
+
+2026-10-11 /070: [LOY-298 explicit referral error recovery](LOY-298-referral-error-recovery-2026-10-11.md), bounded177 coding correction after115 unchanged browser verification. Actual foreign referral rejection is preserved; localized explicit ordinary-enrollment action,7browser/21focused/static PASS. Global/integration/tracker receipts follow.115/116/119/177/178 independent scope and185/186 remote hold OPEN; no deployment/acceptance claim.

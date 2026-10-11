@@ -36,3 +36,6 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 
 
 [LOY-288 migration CLI diagnostics](LOY-288-migration-safe-diagnostics-2026-10-11.md): actual subprocess synthetic leak correction, exact completion receipts appended separately.
+
+
+2026-10-11 /070: [LOY-298 explicit referral error recovery](LOY-298-referral-error-recovery-2026-10-11.md), bounded177 coding correction after115 unchanged browser verification. Actual foreign referral rejection is preserved; localized explicit ordinary-enrollment action,7browser/21focused/static PASS. Global/integration/tracker receipts follow.115/116/119/177/178 independent scope and185/186 remote hold OPEN; no deployment/acceptance claim.

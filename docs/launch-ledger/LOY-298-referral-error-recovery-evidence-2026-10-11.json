@@ -1,0 +1,74 @@
+{
+  "issue": "LOY-298",
+  "assignment": "LOY-ENG-20261011-070",
+  "base_sha": "0df871f395020617a4ed5e0e01a70151709e2584",
+  "recorded_utc": "2026-10-11T03:39:40.205688+00:00",
+  "primary115": {
+    "application_source_changed": false,
+    "browser_passed": 2,
+    "seconds": 6.5,
+    "result": "valid context/attribution/returning/no premature rewards or marketing consent; no defect shown"
+  },
+  "browser": {
+    "first_unscoped_red": "fixture selector ambiguity; preserved",
+    "valid_red": "actual400INVALID_REFERRAL untranslated/no recovery; source unchanged",
+    "first_green": "1PASS2.4s",
+    "final_passed": 7,
+    "final_failed": 0,
+    "seconds": 12.7
+  },
+  "focused": "21PASS1.95s",
+  "static": "typegen/typecheck/max-warnings0 changedlint/normalproductionbuild PASS",
+  "review": "existing assigned SolMedium read-only no material findings; effective runtime unmeasured",
+  "global": "pending",
+  "artifacts": [
+    {
+      "path": "/tmp/loy-070-primary.log",
+      "bytes": 749,
+      "sha256": "f22737dc1c337d2aaaba7cb473a089a2a79a810e5e60571e01c3d98e4d4a2ec6"
+    },
+    {
+      "path": "/tmp/loy-070-red.log",
+      "bytes": 4314,
+      "sha256": "c8ea12672d5b38cb9f16c88b48da1c60978bd52f4fba4fa4be09842de6c4ca45"
+    },
+    {
+      "path": "/tmp/loy-070-red-scoped.log",
+      "bytes": 4355,
+      "sha256": "ad2c0225ece94ec1d4a435f40760ea6a61ae2f67fbe97cf55d50d34d643f83e9"
+    },
+    {
+      "path": "/tmp/loy-070-first-green.log",
+      "bytes": 600,
+      "sha256": "46575322d7221dc974299af6f13b43733910793c7dd7fe9c4597f8bb008abf5b"
+    },
+    {
+      "path": "/tmp/loy-070-browser-final.log",
+      "bytes": 1565,
+      "sha256": "f194fca0b53d5c7e908fc071ceaf7cb4997199c77010d9fc1a93ad6f0024dd05"
+    },
+    {
+      "path": "/tmp/loy-070-unit.log",
+      "bytes": 1101,
+      "sha256": "8e4be319bc6cfa1218a4a9151aa6ee4dbbd62b3c37c6287f6fb6aa3471723daa"
+    },
+    {
+      "path": "/tmp/loy-070-static.log",
+      "bytes": 4317,
+      "sha256": "94edcb623a24e235a0a6426acce2d60c92bd5b480b357169a4a5f2a6adbf47b3"
+    }
+  ],
+  "accounting": {
+    "native_cumulative_reported_tokens": 8583728,
+    "native_cumulative_seconds": 43713,
+    "input_cached_output_browser_reviewer": "unmeasured",
+    "remaining_tokens": null
+  },
+  "external_status": {
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false,
+    "gmail_received": "unverified"
+  }
+}

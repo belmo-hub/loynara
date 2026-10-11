@@ -119,3 +119,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 /068 LOY-296:9browserPASS13.4s,17focusedPASS, static/build/reviewPASS;166files1575globalPASS0FAIL1existingSKIP. Initial enrollment fixture failure preserved. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).
 
 - 2026-10-11 /069 LOY-297:6actualstaffbrowserPASS19.3s plus mobileartifact1PASS4.3s; primaryreporting2PASS4.9s unchanged;3focused/static/build/reviewPASS. [Evidence](LOY-297-staff-confirmation-feedback-2026-10-11.md).
+
+
+2026-10-11 /070: [LOY-298 explicit referral error recovery](LOY-298-referral-error-recovery-2026-10-11.md), bounded177 coding correction after115 unchanged browser verification. Actual foreign referral rejection is preserved; localized explicit ordinary-enrollment action,7browser/21focused/static PASS. Global/integration/tracker receipts follow.115/116/119/177/178 independent scope and185/186 remote hold OPEN; no deployment/acceptance claim.

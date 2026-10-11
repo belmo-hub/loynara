@@ -145,3 +145,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /069 LOY-297:173reporting unchanged2PASS; pivot153 actual401/obsolete confirmation RED corrected. [Evidence](LOY-297-staff-confirmation-feedback-2026-10-11.md).
 
 - /069 receipt:297sourcef5e672f2a33f6222439cc9f91dccbeede07c1aef locally integrated;3focusedPASS271ms;comment7-125/readback03:29:13UTC codingDone.153/154/173/174/159 broader gates OPEN.
+
+
+2026-10-11 /070: [LOY-298 explicit referral error recovery](LOY-298-referral-error-recovery-2026-10-11.md), bounded177 coding correction after115 unchanged browser verification. Actual foreign referral rejection is preserved; localized explicit ordinary-enrollment action,7browser/21focused/static PASS. Global/integration/tracker receipts follow.115/116/119/177/178 independent scope and185/186 remote hold OPEN; no deployment/acceptance claim.
