@@ -187,6 +187,15 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
     await tx.insert(redemptions).values({ tenantId: member.tenantId, membershipId: member.id, ledgerEntryId: entry.id, rewardVersionId: selected.version.id, rewardTitle: selected.version.title, cost: selected.version.cost });
     await enqueueWalletRefresh(tx, member.tenantId, member.id);
     return { balance, duplicate: false, entryId: entry.id };
+  }).catch((error: unknown) => {
+    // Different cards do not share a membership lock. A racing tenant-wide key collision is still a definitive
+    // rejection, after the failed transaction has rolled back, rather than an ambiguous server failure.
+    const databaseError = error instanceof Error && error.cause ? error.cause : error;
+    if (databaseError && typeof databaseError === "object" && "code" in databaseError && databaseError.code === "23505"
+      && "constraint" in databaseError && databaseError.constraint === "ledger_idempotency_uq") {
+      throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+    }
+    throw error;
   });
 }
 
