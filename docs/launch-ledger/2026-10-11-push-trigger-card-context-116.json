@@ -1,0 +1,72 @@
+{
+  "assignment": "LOY-ENG-20261011-116",
+  "date": "2026-10-11",
+  "issues": [
+    "LOY-185",
+    "LOY-186",
+    "LOY-201",
+    "LOY-322"
+  ],
+  "base": "8590b3090ce3743f5ed8501fe6b218d3bc765c1e",
+  "result": "containing commit; later exact receipt",
+  "application_source": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184",
+  "application_tree": "73155698a3368b14a846bb4ec90001125b89fa61",
+  "push": "UNVERIFIABLE",
+  "remote_integration": "ABSENT",
+  "remote_railway_rc": "5c580be9b1887327cc456e672d2f25f29fc25830",
+  "github_hooks": 0,
+  "github_actions_workflows": 0,
+  "supabase": "existing project integration inaccessible; App installation alone not trigger proof",
+  "railway": {
+    "web": "railway-rc / auto deploy disabled",
+    "worker": "railway-rc / auto deploy disabled",
+    "migrate": "railway-rc / auto deploy disabled",
+    "backup": "repository observed; branch/auto state not established",
+    "ops_check": "repository observed; branch/auto state not established",
+    "cloudflared": "repository observed; branch/auto state not established",
+    "postgres": "image postgres-ssl:18"
+  },
+  "fallback": "same-instance token replacement NOT APPLICABLE to current supported flows",
+  "browser": "native URL context corroboration 1PASS607ms total2.2s; no held Wallet request",
+  "static": "typecheck/lint/diff PASS",
+  "first_failure": "text selector strict mode3 matches; fixture corrected to heading",
+  "review": "existing read-only reviewer no material findings; static only",
+  "next_source_keys": [
+    "next/dist/client/components/router-reducer/create-router-cache-key.js:16",
+    "next/dist/client/components/layout-router.js:549",
+    "next/dist/client/components/layout-router.js:673"
+  ],
+  "provider_io": false,
+  "pushed": false,
+  "deployed": false,
+  "accepted": false,
+  "full_scope": "INCOMPLETE/UNKNOWN/NO-GO",
+  "usage": {
+    "native_tokens": 15239856,
+    "native_seconds": 85030,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_reviewer": null
+  },
+  "evidence": {
+    "loy-116-browser.log": {
+      "sha256": "2babe4812bcef5425d62af48e730e9a0b1e8bbe412b87e90b5578799c89051aa"
+    },
+    "loy-116-browser-final.log": {
+      "sha256": "5027d2f23832106a5145a7aec222f9b7648171f0383fb089f737f597a7f8be35"
+    },
+    "loy-116-run.py": {
+      "sha256": "629a618ddb8791b7c4b311f17afcc21f1c385af27b44afaa6e10d0ba2e0cd063"
+    },
+    "loy-116-typecheck.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "card-route-context.spec.ts": {
+      "sha256": "b8a4436818b972269653fd976add63a925d34ed0170d1ecf52272d437b1f5588"
+    },
+    "railway-source-116.json": {
+      "sha256": "d2705a35e605d34f9a7b2a1621c2808bade691bb3bfb270a325e18a46d20adfb"
+    }
+  }
+}
