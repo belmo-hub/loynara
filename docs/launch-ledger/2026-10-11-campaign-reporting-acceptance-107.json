@@ -8,7 +8,7 @@
     "LOY-185"
   ],
   "base": "45d17b3c51adc632ab8700535f4683f2b7d8d26b",
-  "result": "containing commit; integration/tracker/review receipts follow",
+  "result": "ed4079efb3b6b90c05aafefd5dafdfb56f95e858",
   "agent": "Codex /root",
   "model": "assigned SolMedium verification/review; effective setter unavailable/current executor retained; reviewer configuration unmeasured",
   "execution": "existing isolated codex/campaign-reporting-107, owned loopback PGguard; installedChrome; providersOFF/no new worktree/install/cleanup",
@@ -25,13 +25,14 @@
     "static": "typegen/typecheck/changedfilelint0warnings/buildPASS",
     "global": "105 unchangedapplication181files1630PASS0FAIL1existingoptionalMailpitskip174s; no new107globalsuite claimed",
     "historical": "063 eight-case browser export evidence retained; frontend export files byteunchanged since0629c6f;106 purchase/concurrency retained no repeat",
-    "review": "existingreadonly loy281_sensitive_review no material findings; staticonly/no rerun"
+    "review": "existingreadonly loy281_sensitive_review no material findings; staticonly/no rerun",
+    "integrated_focused": "26 PASS / 3 files / 4.21s on canonical ed4079e"
   },
   "failures": "No failing product assertion/sourceRED; no speculative fix. Addedrealisticcompleteddispatchfixture andexplicitstatusassertions beforefinalbrowserrun; no thresholds invented.",
   "status": {
     "implemented": "durable verification test only",
     "tested": true,
-    "integrated": "pending receipt",
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
@@ -55,5 +56,20 @@
     "browser_reviewer": null,
     "unmeasured": "granular splits unavailable; no reset"
   },
-  "next": "Coordinator must select verified independentlyexecutable remaining gap; current fullcoverage unknown, no inventedmissingfeature. Known133 referralmarketingpersonalization and dispatch cutoff need scope/policy;209broadprivacyretention/legal; physical/provider/cutover remain gated."
+  "next": "Coordinator must select verified independentlyexecutable remaining gap; current fullcoverage unknown, no inventedmissingfeature. Known133 referralmarketingpersonalization and dispatch cutoff need scope/policy;209broadprivacyretention/legal; physical/provider/cutover remain gated.",
+  "tracker": {
+    "LOY-167": {
+      "comment": "7-184",
+      "Stage": "In Review",
+      "Feature maturity": "Local Implementation",
+      "Evidence state": "Automated Tests Verified",
+      "resolved": false
+    },
+    "LOY-43": {
+      "comment": "7-185",
+      "Stage": "In Review",
+      "resolved": false
+    },
+    "readback_utc": "2026-10-11T13:13:40Z"
+  }
 }
