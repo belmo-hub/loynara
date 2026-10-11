@@ -180,3 +180,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 /094: [LOY-135/165 bounded source discovery](LOY-135-165-bounded-discovery-2026-10-11.md) — no demonstrated source defect or missing existing export interface; no new tests; acceptance OPEN; coordinator reassignment.
 
 - 2026-10-11 /095: [LOY-318 verified local operator handoff](LOY-318-operator-handoff-2026-10-11.md) —8focused/integratedPASS;318Done;151InReview/152human gateOPEN; no deployed/accepted claim.
+
+- 2026-10-11 /096: [LOY-117/193 bounded discovery](LOY-117-193-bounded-discovery-2026-10-11.md) — approved referral transaction and accepted worker/ops distinction observed; no demonstrated source gap or new tests; both full gates OPEN; coordinator reassignment.
