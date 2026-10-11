@@ -218,3 +218,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /098: [LOY-320 Wallet permission failure continuity](LOY-320-wallet-permission-continuity-2026-10-11.md) — new real-route/ownedPG1PASS, stableidentity/exactlyonce earning/recovery; no source defect;2012029798OPEN; integration/tracker receipt follows.
 
 - 2026-10-11 /099: [LOY-139-167-bounded-discovery-2026-10-11.md](LOY-139-167-bounded-discovery-2026-10-11.md) —139 correlation already covered;167507-attempt synthetic aggregate PASS; no new product defect, broader gates OPEN.
+
+- 2026-10-11 /100: [LOY-125-135-consent-materialization-order-2026-10-11.md](LOY-125-135-consent-materialization-order-2026-10-11.md) — deterministic withdrawal/materialization test PASS; missing actual owner pending-invite revocation identified for coordinator; broad gates OPEN.

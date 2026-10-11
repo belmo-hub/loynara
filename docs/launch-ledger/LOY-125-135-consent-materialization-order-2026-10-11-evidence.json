@@ -1,0 +1,26 @@
+{
+  "assignment": "100",
+  "base": "800c5a2af21a925a7979d6b9ae51374060e3cb6c",
+  "production_change": false,
+  "focused_pass": 1,
+  "review": "one static read-only review; no material findings",
+  "logs": [
+    {
+      "name": "loy-100-focused-first.log",
+      "sha256": "f2c59e9c2d3145953cc576dbe30a7efe29ef29d4be8b81a9ea8159bda2ed0430"
+    },
+    {
+      "name": "loy-100-focused-final.log",
+      "sha256": "161a8e4a561091acd29a7a779fe4018b7d816ac425ba9f8362a1a4a6eb285f59"
+    },
+    {
+      "name": "loy-100-static.log",
+      "sha256": "ec14097bcc15609e31c13728d961e912df372b8c4f43579ea71618b36346b9bb"
+    },
+    {
+      "name": "loy-100-static-final.log",
+      "sha256": "fc47a1df7825ae8444ce79a8f88a46a2e6f2ee3838dca0fdc2c1c06edca525db"
+    }
+  ],
+  "broader_acceptance": "OPEN"
+}
