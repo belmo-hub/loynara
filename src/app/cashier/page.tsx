@@ -193,7 +193,7 @@ export default function CashierPage() {
       // after a short pause, so a guest holding the phone still is not stuck.
       const transient = cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.status >= 500);
       closedCode.current = { code, seenAt: Date.now(), ...(transient ? { retryAt: Date.now() + TRANSIENT_RETRY_MS } : {}) };
-      if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
+      if (cause instanceof ClientApiError && (cause.status === 401 || cause.status === 403)) { setAccessState("blocked"); setAccessMessage(cause.status === 401 ? "Deine Anmeldung ist nicht mehr aktiv. Bitte melde dich erneut an." : "Dein Kassenzugang ist nicht mehr aktiv."); }
       setCard(null); setPreview(null);
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
       setStatus(isNetworkFailure(cause) ? "offline" : "rejected");
@@ -358,7 +358,7 @@ export default function CashierPage() {
       }
       finishBooking(summary.booked, "success", summary.statusMessage);
     } catch (cause) {
-      if (cause instanceof ClientApiError && cause.status === 403) { setAccessState("blocked"); setAccessMessage("Dein Kassenzugang ist nicht mehr aktiv."); }
+      if (cause instanceof ClientApiError && (cause.status === 401 || cause.status === 403)) { setAccessState("blocked"); setAccessMessage(cause.status === 401 ? "Deine Anmeldung ist nicht mehr aktiv. Bitte melde dich erneut an." : "Dein Kassenzugang ist nicht mehr aktiv."); }
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
       const unclear = cause instanceof ClientApiError && (cause.status === 0 || cause.status >= 500);
       settle(unclear);

@@ -78,3 +78,6 @@ LOY-193/194 remainOPEN: bounded287secret-safe CLI correction does not prove ever
 
 
 LOY-193/194 and0024productioncutover remainOPEN;288diagnostic rehearsal is not productionmigration or independent all-boundary log acceptance.
+
+
+LOY-177/057 cashier401 guidance source preserved, verification held by local signup429;177/178 OPEN, no codingchildDone. [Evidence](LOY-177-cashier-session-feedback-stalled-2026-10-11.md).

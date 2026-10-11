@@ -88,3 +88,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 [LOY-288](LOY-288-migration-safe-diagnostics-2026-10-11.md): actual subprocess PG/childdrizzle intercepted; focused3files32PASS plus static/build; full receipt pending at draft.
+
+
+LOY-177/057: valid unchangedapp401RED; partial3browserPASS; bounded redesign1fixtureFAIL3NOTRUN. FullGREEN absent; see stalled record. [Evidence](LOY-177-cashier-session-feedback-stalled-2026-10-11.md).
