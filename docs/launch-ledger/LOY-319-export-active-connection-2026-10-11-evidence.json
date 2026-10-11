@@ -46,5 +46,31 @@
     "primary/other-owner target-file overlap unverified due filesystem stalls, no writes there",
     "fixture lint alias fixed without assertions weakened",
     "input/cache/output/effective model/browser usage unmeasured"
-  ]
+  ],
+  "verified_receipt": {
+    "source_sha": "f4459f90552da553e19d3fb1d54574cfc6b2332f",
+    "local_integrated": true,
+    "integrated_focused": {
+      "passed": 6,
+      "failed": 0,
+      "seconds": 3.29,
+      "sha256": "bf25458e2bf3275dd3f0b27484e1bf7e8401a7ab639ccde845a2766c7f8541c1"
+    },
+    "final_focused_seconds": 2.83,
+    "console_global_seconds": 159.63,
+    "tracker": {
+      "LOY-319": {
+        "stage": "Done",
+        "comment": "7-163"
+      },
+      "LOY-43": {
+        "stage": "In Review",
+        "comment": "7-164"
+      }
+    },
+    "readback_utc": "2026-10-11 10:03:25",
+    "gmail_message_ids_found": 0,
+    "tokens": 12468332,
+    "seconds": 66799
+  }
 }
