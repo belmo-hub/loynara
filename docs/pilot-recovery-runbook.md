@@ -1,5 +1,7 @@
 # Pilot runbook — manual account and card recovery (production e-mail disabled)
 
+> 2026-10-11 amendment (LOY-151): this record describes the historical pilot procedure and its production restrictions. For the current integrated, local-only same-membership reissue/onboarding rehearsal, see [merchant-onboarding-support-handoff.md](merchant-onboarding-support-handoff.md). This pointer does not assert deployment or supersede the original production approvals.
+
 IDs such as O-004 or R-010 refer to the Launch Ledger (`docs/launch-ledger/` on branch `docs/launch-ledger-checkpoint-001`).
 
 **Scope:** the minimum pilot-safe handling of lost access while production external e-mail stays **disabled** (R-013, O-006). This is policy and procedure only. It does not enable e-mail, change code, or add database edits. Anything that would write to production data outside the normal product flows needs its own explicit owner approval at action time.
