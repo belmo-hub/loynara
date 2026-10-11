@@ -24,11 +24,22 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
     setBusy(true); setError("");
     try {
       const result = await authClient.signIn.email({ email, password });
-      if (result.error) throw new Error(result.error.message || "Anmeldung fehlgeschlagen.");
+      if (result.error) {
+        // HTTP rejection and lost transport have different certainty. Never display library diagnostics.
+        if (result.error.code === "INVALID_EMAIL_OR_PASSWORD") setError("E-Mail-Adresse oder Passwort stimmen nicht. Prüfe deine Angaben.");
+        else if (result.error.status === 429) setError("Zu viele Anmeldeversuche. Warte bitte etwas und versuche es erneut.");
+        else if (result.error.status >= 500 || result.error.code === "FAILED_TO_CREATE_SESSION") setError("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.");
+        else setError("Die Anmeldung wurde nicht bestätigt. Prüfe deine Angaben oder wende dich an Loynara.");
+        return;
+      }
+      if (!result.data?.user) {
+        setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
+        return;
+      }
       router.push("/merchant");
       router.refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Anmeldung fehlgeschlagen.");
+    } catch {
+      setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
     } finally { setBusy(false); }
   }
 
