@@ -275,3 +275,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 / direct founder push054 / LOY-185,28: 20:24:33–35UTC: single founder-authorized non-force push→remote054f483 verified;20:29UTC LOY1857-204/LOY287-205 read back. No deployment observed. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
 
 - 2026-10-12 / LOY-195,196: Exact R2 retrieve/decrypt/one PG18 local restore→21journal/49schema/12 zero-violation checks→sanitized review→owned cleanup. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).
+
+- 2026-10-12: [LOY-325 / Assignment 127 — restore-target safety](2026-10-12-restore-target-safety-127.md). Synthetic-only catalog guard correction; production recovery/deployment acceptance remains open.

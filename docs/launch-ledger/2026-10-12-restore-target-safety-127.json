@@ -1,0 +1,28 @@
+{
+  "assignment": "LOY-ENG-20261012-127",
+  "issue": "LOY-325",
+  "parent": "LOY-195",
+  "acceptanceGate": "LOY-196",
+  "base": "fb02f5b626b0f8f95f82a20db00039f221506c4f",
+  "implementationSHA": "3276de303d9e51cac9fb60e946136129f6a20fa6",
+  "unchangedRedFailures": 15,
+  "reviewRedFailures": 3,
+  "finalGreenMethods": 7,
+  "objectVariants": 17,
+  "applicationSourceChanged": false,
+  "actualBackupOperations": 0,
+  "status": [
+    "IMPLEMENTED",
+    "TESTED",
+    "TECHNICALLY_REVIEWED"
+  ],
+  "deployed": false,
+  "independentProductionAccepted": false,
+  "nativeGoal": {
+    "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+    "status": "BLOCKED",
+    "reportedTokens": 16624937,
+    "reportedSeconds": 92240,
+    "incrementalUsage": "UNMEASURED"
+  }
+}

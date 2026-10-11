@@ -41,3 +41,5 @@ Append date, original file/claim, verified source, correction, and scope/status 
 - 2026-10-11 / direct founder push054 / LOY-185,28: Bounded GitHub/Railway observations do not establish inaccessible Supabase/future effects. Recovery custody/target/verifier, exact-SHA eligibility/stop semantics and separate approvals remain missing; nativeBLOCKED retained. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
 
 - 2026-10-12 / LOY-195,196: No trustedSHA manifest/source reconciliation/full schema equivalence/independent production acceptance/fresh drained backup. Private key unchanged and no raw records disclosed. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).
+
+- 2026-10-12: [LOY-325 / Assignment 127 — restore-target safety](2026-10-12-restore-target-safety-127.md). Synthetic-only catalog guard correction; production recovery/deployment acceptance remains open.
