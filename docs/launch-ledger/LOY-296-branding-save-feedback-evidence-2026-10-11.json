@@ -2,7 +2,7 @@
   "issue": "LOY-296",
   "assignment": "LOY-ENG-20261011-068",
   "base_sha": "82813f143bbdf9a89c4af04d7423042349ebaab6",
-  "source_sha": null,
+  "source_sha": "2a45c0d2af21f88489c38f010d726ac636d0bb31",
   "recorded_utc": "2026-10-11T03:15:15.767627+00:00",
   "environment": "synthetic actual local app; Chrome375/1280; owned native PostgreSQL18.6 localhost55433; external providers disabled",
   "global": {
@@ -82,12 +82,17 @@
       "path": "/tmp/loy-068-save-uncertainty-mobile.png",
       "bytes": 42038,
       "sha256": "c8953daad6dc34224baf1a82c2886635233c8af0462b627eb65b12151912309c"
+    },
+    {
+      "path": "/tmp/loy-068-integrated-unit.log",
+      "bytes": 1008,
+      "sha256": "d0c57b14eeec8dcb7a5689bffff997cfaa074c2f058daa1cc0d31e1abb406d0e"
     }
   ],
   "statuses": {
     "implemented": true,
     "tested": true,
-    "integrated": false,
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
@@ -99,5 +104,14 @@
     "seconds": 42243,
     "remaining_tokens": null,
     "input_cached_output_review_split": "unmeasured"
-  }
+  },
+  "integration": "canonical local FF verified;17 focusedPASS831ms",
+  "tracker": {
+    "issue": "LOY-296",
+    "comment": "7-124",
+    "stage": "Done",
+    "readback_utc": "2026-10-11 03:15:48",
+    "broader175_176": "Backlog/unresolved"
+  },
+  "cleanup": "only guarded owned branding browser database dropped after local app/clients stopped; no worktree/dependency/branch cleanup"
 }
