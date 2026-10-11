@@ -21,14 +21,15 @@ export async function createStaffInvite(raw: z.input<typeof inviteInput>) {
   const input = inviteInput.parse(raw);
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  await db.transaction(async tx => {
+  const id = await db.transaction(async tx => {
     const owner = await ownerRole(input.actorUserId, tx);
     const [location] = await tx.select({ id: locations.id }).from(locations).where(and(eq(locations.id, input.locationId), eq(locations.tenantId, owner.tenantId)));
     if (!location) throw new DomainError("NOT_FOUND", "Location not found");
     const [invite] = await tx.insert(staffInvites).values({ tenantId: owner.tenantId, locationId: location.id, invitedEmail: input.email.toLowerCase(), role: input.role, tokenHash: hash(token), invitedByUserId: input.actorUserId, expiresAt }).returning({ id: staffInvites.id });
     await tx.insert(staffAuditEvents).values({ tenantId: owner.tenantId, action: "invite_created", actorUserId: input.actorUserId, inviteId: invite.id, locationId: location.id, role: input.role });
+    return invite.id;
   });
-  return { token, expiresAt, email: input.email.toLowerCase(), role: input.role };
+  return { id, token, expiresAt, email: input.email.toLowerCase(), role: input.role };
 }
 
 export async function acceptStaffInvite(input: { userId: string; token: string }) {
@@ -83,5 +84,39 @@ export async function revokeStaff(input: { actorUserId: string; userId: string }
     await tx.update(staffRoles).set({ active: false }).where(and(eq(staffRoles.tenantId, owner.tenantId), eq(staffRoles.userId, input.userId)));
     await tx.insert(staffAuditEvents).values({ tenantId: owner.tenantId, action: "access_revoked", actorUserId: input.actorUserId, subjectUserId: input.userId, locationId: target.locationId, role: target.role });
     return { userId: input.userId, active: false };
+  });
+}
+
+/** Owner-only invitation metadata; bearer tokens and their hashes are never returned. */
+export async function listStaffInvites(actorUserId: string) {
+  const owner = await ownerRole(actorUserId);
+  const rows = await db.select({ id: staffInvites.id, email: staffInvites.invitedEmail, role: staffInvites.role,
+    locationId: staffInvites.locationId, expiresAt: staffInvites.expiresAt, acceptedAt: staffInvites.acceptedAt,
+    revokedAt: staffInvites.revokedAt }).from(staffInvites).where(eq(staffInvites.tenantId, owner.tenantId))
+    .orderBy(desc(staffInvites.createdAt), desc(staffInvites.id));
+  const now = new Date();
+  return rows.map(({ acceptedAt, revokedAt, ...row }) => ({ ...row,
+    status: acceptedAt ? "accepted" as const : revokedAt ? "revoked" as const : row.expiresAt <= now ? "expired" as const : "pending" as const }));
+}
+
+export async function revokeStaffInvite(raw: { actorUserId: string; inviteId: string }) {
+  const input = z.object({ actorUserId: z.string().min(1), inviteId: z.uuid() }).parse(raw);
+  return db.transaction(async tx => {
+    const owner = await ownerRole(input.actorUserId, tx);
+    // Acceptance also owns this invitation row before assigning a role. We do
+    // not acquire the candidate user lock or mutate staff roles, avoiding a
+    // reverse identity/invitation lock order.
+    const [invite] = await tx.select().from(staffInvites)
+      .where(and(eq(staffInvites.id, input.inviteId), eq(staffInvites.tenantId, owner.tenantId))).for("update");
+    if (!invite) throw new DomainError("NOT_FOUND", "Einladung nicht gefunden.");
+    if (invite.acceptedAt) throw new DomainError("INVITE_USED", "Die Einladung wurde bereits angenommen. Verwende die Verwaltung der Teamzugänge.");
+    if (invite.revokedAt) return { inviteId: invite.id, status: "revoked" as const };
+    if (invite.expiresAt <= new Date()) throw new DomainError("INVALID_INVITE", "Die Einladung ist bereits abgelaufen.");
+    await tx.update(staffInvites).set({ revokedAt: new Date() }).where(eq(staffInvites.id, invite.id));
+    // Existing access_revoked event, scoped to an invitation rather than an
+    // assigned staff account. No new audit action or retroactive role removal.
+    await tx.insert(staffAuditEvents).values({ tenantId: owner.tenantId, action: "access_revoked", actorUserId: input.actorUserId,
+      inviteId: invite.id, locationId: invite.locationId, role: invite.role });
+    return { inviteId: invite.id, status: "revoked" as const };
   });
 }

@@ -7,8 +7,10 @@ import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } 
 import { useLoad } from "@/components/owner/use-load";
 
 type StaffMember = { userId: string; email?: string; role: "owner" | "manager" | "cashier"; locationId: string | null; active: boolean };
-type InviteResult = { token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
-type AuditEvent = { id: string; action: "invite_created" | "invite_accepted" | "access_revoked"; actorUserId: string; subjectUserId: string | null; locationId: string | null; role: "manager" | "cashier"; createdAt: string };
+type InviteResult = { id: string; token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
+type Invitation = { id: string; email: string; role: "manager" | "cashier"; locationId: string; expiresAt: string; status: "pending" | "accepted" | "revoked" | "expired" };
+const INVITATION_LABEL = { pending: "Offen", accepted: "Angenommen", revoked: "Widerrufen", expired: "Abgelaufen" } as const;
+type AuditEvent = { id: string; inviteId?: string | null; action: "invite_created" | "invite_accepted" | "access_revoked"; actorUserId: string; subjectUserId: string | null; locationId: string | null; role: "manager" | "cashier"; createdAt: string };
 const AUDIT_LABEL = { invite_created: "Einladung erstellt", invite_accepted: "Einladung angenommen", access_revoked: "Zugang gesperrt" } as const;
 const ROLE_LABEL = { owner: "Inhaber:in", manager: "Leitung", cashier: "Kasse" } as const;
 /** Mirrors the server checks (lib/loyalty, card-reissue, merchant-members, owner-only APIs); the server stays the authority. */
@@ -27,7 +29,7 @@ const ROLE_HINT = { cashier: "Bucht an der Kasse. Bis 10 Stempel je Vorgang, sie
 export default function StaffPage() {
   const { me, locations } = useOwner();
   const owner = me?.role === "owner";
-  const [staff, reloadStaff] = useLoad<{ staff: StaffMember[]; accountCreation?: "public" | "invite" | "operator" }>(owner ? "/api/staff" : null);
+  const [staff, reloadStaff] = useLoad<{ staff: StaffMember[]; invitations?: Invitation[]; accountCreation?: "public" | "invite" | "operator" }>(owner ? "/api/staff" : null);
   const [audit, reloadAudit] = useLoad<{ events: AuditEvent[] }>(owner ? "/api/staff/audit" : null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"manager" | "cashier">("cashier");
@@ -36,6 +38,8 @@ export default function StaffPage() {
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<StaffMember | null>(null);
   const [revokingTarget, setRevokingTarget] = useState<StaffMember | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Invitation | null>(null);
+  const [cancellingTarget, setCancellingTarget] = useState<Invitation | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   useDirtyGuard("staff-invite", email.trim().length > 0);
@@ -57,7 +61,7 @@ export default function StaffPage() {
       const result = await postJson<InviteResult>("/api/staff/invite", { locationId: me.locationId, email: submitted.email, role: submitted.role });
       setInvite(result);
       if (inviteDraftRevision.current === submitted.revision) setEmail("");
-      reloadAudit();
+      reloadStaff(); reloadAudit();
     } catch (cause) {
       const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
       if (unconfirmed) {
@@ -76,6 +80,21 @@ export default function StaffPage() {
       setMessage("Der Teamzugang wurde gesperrt."); setRevokeTarget(current => current === target ? null : current); reloadStaff(); reloadAudit();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Zugang konnte nicht gesperrt werden."); setRevokeTarget(current => current === target ? null : current); }
     finally { setBusy(false); setRevokingTarget(null); }
+  }
+  async function cancelInvitation() {
+    if (!cancelTarget || busy) return;
+    const target = cancelTarget;
+    setBusy(true); setCancellingTarget(target); setError(""); setMessage("");
+    try {
+      const result = await postJson<{ inviteId: string; status: string }>("/api/staff/invite/revoke", { inviteId: target.id });
+      if (result.inviteId !== target.id || result.status !== "revoked") throw new Error("Der Widerruf wurde nicht bestätigt. Prüfe den Einladungsstatus vor einem erneuten Versuch.");
+      setMessage(`Die Einladung für ${target.email} wurde widerrufen.`);
+      setInvite(current => current?.id === target.id ? null : current);
+      setCancelTarget(current => current === target ? null : current);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Einladung konnte nicht widerrufen werden.");
+      setCancelTarget(current => current === target ? null : current);
+    } finally { reloadStaff(); reloadAudit(); setBusy(false); setCancellingTarget(null); }
   }
   async function copy() {
     try { await navigator.clipboard.writeText(inviteUrl); setMessage("Link kopiert. Er wurde nicht versendet."); setError(""); }
@@ -112,6 +131,15 @@ export default function StaffPage() {
           )}
         </section>
       </div>
+      <section className="ow-card ow-stack" aria-labelledby="st-invitations">
+        <div><h2 id="st-invitations">Einladungen</h2><p className="ow-muted">Offene Einladungen können widerrufen werden. Bereits angenommene Teamzugänge verwaltest du separat.</p></div>
+        {staff.state === "loading" && <LoadingBlock rows={1} height={48} />}
+        {staff.state === "ok" && ((staff.data.invitations ?? []).length
+          ? <ul className="ow-feed" aria-label="Einladungen">{staff.data.invitations!.map(item => <li key={item.id}>
+              <span><strong>{item.email}</strong><br /><span className="ow-muted">{ROLE_LABEL[item.role]} · {locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {INVITATION_LABEL[item.status]} · Gültig bis {germanDate(item.expiresAt)}</span></span>
+              {item.status === "pending" && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCancelTarget({ ...item })}>Widerrufen</button>}
+            </li>)}</ul> : <p className="ow-muted">Noch keine Einladungen.</p>)}
+      </section>
       <section className="ow-card ow-stack" aria-labelledby="st-perm">
         <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Kasse und Leitung arbeiten nur an ihrem Standort. Die Rechte prüft Loynara bei jeder Buchung auf dem Server.</p></div>
         <div className="ow-table-wrap"><table className="ow-perm">
@@ -124,9 +152,12 @@ export default function StaffPage() {
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length
-          ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted" style={{ fontSize: 13 }}>{event.role === "manager" ? "Leitung" : "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
+          ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted" style={{ fontSize: 13 }}>{event.role === "manager" ? "Leitung" : "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
           : <p className="ow-muted">Noch keine Teamereignisse erfasst. Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</p>)}
       </section>
+      {cancelTarget && <OwnerDialog title="Einladung widerrufen?" tone="danger" onClose={() => setCancelTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setCancelTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelInvitation()}>{cancellingTarget === cancelTarget ? "Wird widerrufen …" : "Einladung widerrufen"}</button></>}>
+        <p>Der Einladungslink für {cancelTarget.email} kann danach keinen neuen Teamzugang mehr erteilen. Bereits angenommene Zugänge bleiben bestehen.</p>
+      </OwnerDialog>}
       {revokeTarget && (
         <OwnerDialog title="Zugang sperren?" tone="danger" onClose={() => setRevokeTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setRevokeTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void revoke()} disabled={busy}>{revokingTarget === revokeTarget ? "Wird gesperrt …" : "Zugang sperren"}</button></>}>
           <p>{revokeTarget.email} verliert den Zugriff auf den Standort und kann keine neuen Buchungen mehr ausführen.</p>
