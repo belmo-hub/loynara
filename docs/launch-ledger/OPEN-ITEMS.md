@@ -90,3 +90,6 @@ LOY-195/196 remain OPEN after narrow [LOY-290](LOY-290-atomic-local-backup-2026-
 
 
 LOY-195/196 remain OPEN after bounded [LOY-291](LOY-291-preview-backup-publication-2026-10-11.md). Exclusive synthetic preview archive publication is locally verified; current encrypted artifact, production verification and independent restore are still unverified. No deployment or remote push.
+
+
+Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, authenticated linked-project branch/preview/migration settings unavailable. Railway railway-rc deployment trigger and disabled PR environments verified; Cloudflare two Pages apps show no Git connection. LOY-185/186 and broad33/34 remain OPEN. [Evidence](2026-10-11-push-safety-062.md).

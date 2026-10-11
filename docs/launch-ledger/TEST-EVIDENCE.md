@@ -100,3 +100,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 [LOY-291](LOY-291-preview-backup-publication-2026-10-11.md): four RED failures/four PASS; four focused files/24 PASS; actual synthetic dump/list/restore, exclusive two-owner race and guard refusal. Independent review/static/build PASS; final 162 files/1,520 PASS/0 FAIL/1 existing optional SKIP, 145.46s.
+
+
+[Assignment062](2026-10-11-push-safety-062.md): new LOY-33 late PostgreSQL abort rolls back credential/challenge/audit state; same-link retry and foreign-tenant isolation PASS. Affected file12 PASS/1 existing optional SKIP; first test-only lint failure corrected, final types/lint/targeted regression PASS. Application suite/build unchanged from061, not rerun.

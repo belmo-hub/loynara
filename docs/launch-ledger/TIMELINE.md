@@ -114,3 +114,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 IMPLEMENTED/TESTED [LOY-291 preview backup publication](LOY-291-preview-backup-publication-2026-10-11.md): four real unchanged-source race failures; shared publication helper correction; 24 focused and 1,520 global tests PASS.
+
+
+2026-10-11 [Assignment062 push safety and recovery retry](2026-10-11-push-safety-062.md): live GitHub/Railway/Cloudflare read-only triggers narrowed; Supabase signed-out integration prevents safe-push proof. One actual recovery database-abort regression passes existing source; no product defect fabricated.

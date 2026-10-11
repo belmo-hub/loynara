@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
@@ -233,3 +234,43 @@ it.each(["recovery", "reissue"] as const)("keeps committed closure authoritative
     await gate.query("ROLLBACK"); gate.release(); await Promise.allSettled([closure, attempt]);
   }
 }, 15000);
+
+
+it("rolls back an authorized recovery if its final notice insert fails, preserving the same link for retry", async () => {
+  const f = await fixture(); const foreign = await fixture("foreign-retry@example.test");
+  await award({ userId: f.userId, locationId: f.merchant.locationId, membershipId: f.card.id, quantity: 2, requestId: randomUUID(), idempotencyKey: randomUUID() });
+  const token = await recovery();
+  const snapshot = async (tenantId: string) => Promise.all(["memberships", "membership_contacts", "ledger_entries", "card_security_events", "outbox_jobs", "consent_events"].map(table => pool.query(`SELECT * FROM ${table} AS t WHERE tenant_id=$1 ORDER BY to_jsonb(t)::text`, [tenantId]).then(result => result.rows)));
+  const before = await snapshot(f.merchant.tenantId); const foreignBefore = await snapshot(foreign.merchant.tenantId);
+  expect(before[0]).toHaveLength(1); expect(foreignBefore[0]).toHaveLength(1);
+  expect(before[2]).toHaveLength(1);
+  const challengesBefore = await db.select().from(cardRecoveryChallenges);
+  const original = Client.prototype.query; const observed: { client?: Client; rolledBack: boolean } = { rolledBack: false };
+  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
+    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
+    if (!observed.client && text?.startsWith('insert into "outbox_jobs"')) {
+      observed.client = this;
+      // Let PostgreSQL abort the real transaction after rotation/challenge deletion/audit,
+      // rather than fabricating rows or skipping the application operation.
+      return Reflect.apply(original, this, ["select 1 / 0"]);
+    }
+    if (this === observed.client && text?.toLowerCase() === "rollback") observed.rolledBack = true;
+    return Reflect.apply(original, this, args);
+  }) as typeof original);
+  try {
+    await expect(completeCardRecovery(token, f.card.id)).rejects.toMatchObject({ cause: { code: "22012" } });
+    expect(observed.client).toBeDefined(); expect(observed.rolledBack).toBe(true);
+  } finally { spy.mockRestore(); }
+  expect(await snapshot(f.merchant.tenantId)).toEqual(before);
+  expect(await snapshot(foreign.merchant.tenantId)).toEqual(foreignBefore);
+  expect(await db.select().from(cardRecoveryChallenges)).toEqual(challengesBefore);
+  expect((await getCard(f.card.cardToken)).balance).toBe(2);
+  const restored = await completeCardRecovery(token, f.card.id);
+  expect(restored.membershipId).toBe(f.card.id); expect(restored.cardToken).not.toBe(f.card.cardToken);
+  expect((await getCard(restored.cardToken)).scanCode).toBe(f.card.scanCode);
+  expect((await getCard(restored.cardToken)).balance).toBe(2);
+  expect(await db.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.membershipId, f.card.id))).toHaveLength(1);
+  expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toHaveLength(1);
+  await expect(completeCardRecovery(token, f.card.id)).rejects.toMatchObject({ code: "INVALID_RECOVERY" });
+  expect(await snapshot(foreign.merchant.tenantId)).toEqual(foreignBefore);
+});
