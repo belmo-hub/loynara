@@ -3,7 +3,7 @@
   "issue": "LOY-302",
   "parent": "LOY-187",
   "base_sha": "f32cc8641f68b1c4bf7cf2949e8b0b93aea547f4",
-  "source_sha": "source commit by containment; receipt follows",
+  "source_sha": "c8a32a6acc0296aa44e2f1e33de305656c19a3c6",
   "primary183": {
     "unchanged": true,
     "browser_passed": 4,
@@ -50,6 +50,34 @@
     "loy-075-static.log": "a4ecce9a6615dd790b0b4859b521dc95887b5cebd49769d5506ea1b3b5008fe2",
     "loy-075-static-final.log": "566a0c876585cd3fbcd37846b4f2b0e3767c66d96cba9d7e4af15de8a9d17c8e",
     "loy-075-global.log": "90f127173007a48aee0ab779333d517040a9dd5dee75ff065a86710737832795",
-    "loy-075-global.json": "eb17549852fa507f276b6f61c8d1503f2e74ba83848bbf13b4cee204c9d123d0"
+    "loy-075-global.json": "eb17549852fa507f276b6f61c8d1503f2e74ba83848bbf13b4cee204c9d123d0",
+    "loy-075-integrated.log": "ca44798971e3547c05b1c601e912806b78faff92bfa42e06fd4243d06dbedef3"
+  },
+  "result_sha": "documentation receipt by containment",
+  "integrated": {
+    "method": "LOCAL fast-forward",
+    "files": 4,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 4.82
+  },
+  "tracker": {
+    "issue": "LOY-302",
+    "stage": "Done",
+    "comment": "7-133",
+    "readback": "2026-10-11T04:51:15Z",
+    "primary183_comment": "7-132 persisted",
+    "full_gates": "187/188 and183/184 OPEN"
+  },
+  "native_usage": {
+    "status": "ACTIVE",
+    "cumulative_reported_tokens": 9402647,
+    "cumulative_seconds": 47975,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
   }
 }

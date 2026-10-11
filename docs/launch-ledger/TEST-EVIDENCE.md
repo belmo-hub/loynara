@@ -136,3 +136,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 /074 receipt: source555854d9e4ba71cd42c4cd7b5fc7f7968e72354c LOCAL integrated11PASS;301Done/comment7-131/readback04:37:50UTC. Final configured170files1584PASS0FAIL1existingSKIP146.10s. Full181/182 and169/170 acceptance OPEN.
 
 2026-10-11 /075: [LOY-302 worker housekeeping shutdown](LOY-302-worker-housekeeping-shutdown-2026-10-11.md). Genuine realPG/worker SIGTERM exit1 RED corrected by cancellable housekeeping only; pending attempts0/fresh-worker failure-path1 preserved,22focusedPASS; primary183 unchanged reduced-motion4browserPASS. Static/build/reviewPASS; global/integration/tracker receipts follow.187/188 and183/184 full acceptance OPEN.
+
+/075 receipt: sourcec8a32a6acc0296aa44e2f1e33de305656c19a3c6 LOCAL integrated22PASS4.82s;302Done/comment7-133/readback04:51:15UTC,183evidencecomment7-132. Current171files1586PASS0FAIL1existingSKIP151.65s;183/184 and187/188 full gatesOPEN.
