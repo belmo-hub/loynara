@@ -1,0 +1,96 @@
+{
+  "assignment": "LOY-ENG-20261011-087",
+  "issue": "LOY-314",
+  "parent": "LOY-115",
+  "related": "LOY-119",
+  "base_sha": "ab578dee2ebb13cd841fbf17dc522fc316d88721",
+  "source_sha": "dc8e7ffc65fd2c9680eea03e5e3d4ffee0419920",
+  "result_sha": "Containing documentation commit; exact durable state/map after integration",
+  "implementation": "src/components/join-client.tsx adds DE/FR uncertainty copy for transport failure/unreadable successful acknowledgment; suggests reload/check stored card without automatic creation or guaranteed credential recovery",
+  "authority": "Founder master directive and completed087 contract; actual enrollment parent115 verified instead of119abuse feature; no sensitive policy change",
+  "red": "1actual late referral-insert rollbackPASS/2genuine feedbackRED30.6s; no fixture failure",
+  "browser": "3realChromePASS4.6s mobile375DE/desktop1280FR; actual referralINSERT failure full membership+referral rollback/termsretained/explicit success; real committed201 then empty body retained-cookie reload/open exact card; abort and explicit removal of request-jar side-effect cookies before reload models no delivered credentials; no automatic creation/safe retry guarantee; exact tenant snapshots/pending attribution/zero balances/ledger/consent/contact/outbox",
+  "focused": "4files44PASS3.43s",
+  "static": "typegen/typecheck/zero-warning changed-file lint/productionbuild PASS",
+  "global": "173files1601PASS0FAIL1existing optional Mailpit recoverySKIP154.82s; FIRST configured run",
+  "integrated": "cleanLOCALFF;4files44PASS3.60s; frozen32b27ec exact/e1aae658+9848e759 ancestry/all migrations preserved",
+  "review": "One independentREADONLY sensitive static review no material findings; no source changed afterreview; effectiveconfig unmeasured",
+  "tracker": "314Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T07:53:56Z/comment7-147;115InProgress readback verified/full metadata unknown/missing retained;116Backlog/119InReview/120Backlog allresolvednull OPEN",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11306991,
+    "cumulative_seconds": 58987,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": {
+    "disk_free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "new_worktree": false,
+    "installations": false,
+    "cleanup": false,
+    "other_registered_exact_paths_checked": 40,
+    "tracked_overlap": [],
+    "Desktop_concurrency": "UNKNOWN/not rescanned"
+  },
+  "execution": "Mac/one engineer; assigned gpt-6.1-sol Medium discovery/High engineering/Medium review; effective setter unavailable/existing executor retained; normal owner signup/onboarding routes; nativePG/whitelisted env/all deliveryOFF",
+  "external_actions": "Actual314create/InProgress/InReview/Done/comment/readback;115truthful active progress transition/readback. Gmail314query0matching generation/receiptUNVERIFIED. Owned referral087DB dropped after stoppedapp/zeroactive. No remote push185/186/protected/hosted/provider/customer/tag/legal/newpolicy action",
+  "limitations": [
+    "Entirely undelivered membership credentials cannot guarantee returning-card recognition or duplicate-safe first-enrollment retry. No new identity/idempotency/dedup policy implemented.",
+    "Lost-response fixture request jar can acquire cookies even though UI fetch aborted; explicit cookie removal models complete credential loss before reload, not proof about transport delivery.",
+    "New tests cover empty JSON plus network loss, not arbitrary truthy malformed JSON shapes or new delayed-edit races.",
+    "Independent review static only; broader115/116/119/120/full launch acceptance OPEN. Prior081 precise event attribution UNPROVEN."
+  ],
+  "fallback": "LOY43 unused; no third investigation",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-43 precise uncovered export failure boundary within existing scope",
+    "LOY-147 branding asset upload interruption beyond accepted brand-save/contrast slices",
+    "LOY-125 audience preview request-failure recovery beyond accepted count/scale tests"
+  ],
+  "evidence": "docs/launch-ledger/LOY-314-referral-ack-recovery-2026-10-11.md",
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-087-red.log",
+      "bytes": 6174,
+      "sha256": "88203bd147e8fc38a0f763a256bbcf6983cbeb2316d13764f4c8970e368dc72b"
+    },
+    "green": {
+      "local_path": "/tmp/loy-087-green.log",
+      "bytes": 871,
+      "sha256": "fadca813fa629e49f6595fc663a33a379a81a807d65b8daa0ff44a025befa251"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-087-focused.log",
+      "bytes": 1498,
+      "sha256": "ca42c286a77e8e36d906e684d4fa605951479d9302ed8b9b4bc8cde3a1f6fa9c"
+    },
+    "static": {
+      "local_path": "/tmp/loy-087-static.log",
+      "bytes": 4316,
+      "sha256": "fe03440e0af9f792674ead25c34b40cf524ab5f9a9dc6f18a6573de7dfba1b1e"
+    },
+    "global": {
+      "local_path": "/tmp/loy-087-global.log",
+      "bytes": 39042,
+      "sha256": "177452c729538d22ecb505a180a1dc8240ff09dcabb0d1ef038a58ebb289e160"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-087-integrated.log",
+      "bytes": 1507,
+      "sha256": "6cd7c0231e58d522b607f3f121a74fd3f97fe867397a60e75387383309fe483e"
+    }
+  },
+  "traceable_amendment": "086 report relayed stale31worktree cleanup request. Durable cleanup_decision_064/worktree_cleanup_064_01 and completed086review confirm already31removed/13retained under historical founder delegation; no cleanup repeated. State086 amendment/user clarification recorded; preserve all13 and archives."
+}
