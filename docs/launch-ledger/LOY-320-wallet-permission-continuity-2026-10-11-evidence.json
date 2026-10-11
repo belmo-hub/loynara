@@ -1,0 +1,32 @@
+{
+  "assignment": "LOY-ENG-20261011-098",
+  "issue": "LOY-320",
+  "parent": "LOY-201",
+  "base_sha": "00b17dd15b453185f2b72c40b2fe67743cb1ae96",
+  "result_sha": "containing commit; exact receipt in durable native state",
+  "source_changes": false,
+  "focused": {
+    "passed": 1,
+    "failed": 0,
+    "seconds": 1.1
+  },
+  "static": {
+    "typegen": true,
+    "typecheck": true,
+    "changed_lint_zero_warnings": true,
+    "build": true
+  },
+  "review": "One existing read-only sensitive reviewer: no material findings",
+  "global": "Not rerun: test-only. Historical097177files1620PASS0FAIL1optionalMailpitSKIP covers application source f4459f9; excludes this new test",
+  "logs": {
+    "/tmp/loy-098-focused-first.log": "b31ff078326d438bc362a5eb8e7744cf25b55a50d6b40096df1c690a8194e124",
+    "/tmp/loy-098-focused-final.log": "6e3bfc8d5c9f45232998776a3dbb106cb032f25d8a16d4fcec5988456f000a67",
+    "/tmp/loy-098-static.log": "5167c3bfdfd1ce93047405b7d3426497c55f1d7369aadf8159392cc33e98e2f4"
+  },
+  "tokens": 12536822,
+  "seconds": 67351,
+  "input_cached_output_effective_configuration": "unmeasured",
+  "integration": "pending at entry creation",
+  "deployment": false,
+  "independent_acceptance": false
+}

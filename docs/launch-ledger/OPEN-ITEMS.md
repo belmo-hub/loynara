@@ -172,3 +172,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-11 /096: [LOY-117/193 bounded discovery](LOY-117-193-bounded-discovery-2026-10-11.md) — approved referral transaction and accepted worker/ops distinction observed; no demonstrated source gap or new tests; both full gates OPEN; coordinator reassignment.
 
 - 2026-10-11 /097: [LOY-319 active export connection failure](LOY-319-export-active-connection-2026-10-11.md) — genuine process-crash RED;6focusedPASS; static/global verified; local integration/tracker receipt follows;43/44 broader gatesOPEN.
+
+- 2026-10-11 /098: [LOY-320 Wallet permission failure continuity](LOY-320-wallet-permission-continuity-2026-10-11.md) — new real-route/ownedPG1PASS, stableidentity/exactlyonce earning/recovery; no source defect;2012029798OPEN; integration/tracker receipt follows.
