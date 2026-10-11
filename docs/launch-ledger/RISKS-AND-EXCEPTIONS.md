@@ -30,3 +30,6 @@ Append date, original file/claim, verified source, correction, and scope/status 
 
 
 2026-10-11 /119 amendment: [Founder-authorized GitHub push and prepared recurring workflow](2026-10-11-github-push-119.md) — the specific push hold is resolved by direct founder acceptance and verified remote receipt. Available post-push surfaces show no unexpected action; inaccessible Supabase/future effects remain unverified. Future pushes need demonstrated nondeploying scope or new explicit residual-risk authorization.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323 narrow local lease lifecycle closure does not close55/56 full acceptance. Initial test setup failures corrected with accepted fixtures, no weakening; default Docker comparison auto-review rejected, verified owned-container alternative used. Native incremental usage unmeasured while Goal remainsBLOCKED.

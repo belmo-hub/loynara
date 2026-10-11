@@ -16,3 +16,6 @@ Automated coordinator reports and code reviews supply engineering advice, not fo
 
 
 2026-10-11 /119: [Founder-authorized GitHub push and prepared recurring workflow](2026-10-11-github-push-119.md) — direct founder explicitly accepts residual Supabase trigger risk for this one normal integration push. ACCEPTED-RISK is branch/action-specific; does not expand future risk, deployment/migration/protected-ref/permission authority. Earlier no-authorization records remain historical.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): Direct founder CONTINUE ENGINEERING supersedes idle123; coordinator124 assigns confirmed LOY-55 correction. No server lease/accounting policy change. Native BLOCKED cannot be truthfully called ACTIVE without supported resume receipt.

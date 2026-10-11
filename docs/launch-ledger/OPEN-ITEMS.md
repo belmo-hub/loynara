@@ -213,3 +213,6 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 
 
 2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: operator facts, complete live writer custody, exact-source/stop eligibility, independent encrypted object retrieval, physical schema/history restore acceptance and separate backup/restore then deployment authorizations remain open. Existing133/139/privacy/location/billing/Wallet and physical/provider/full-merchant acceptance holds preserved.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323 stale cashier lease reply coding Done after verified local integration/source1d69574049042cba6e67d55865e7aab045fac13f and19:32:15UTC readback. Parent55/56, physical acceptance, production backup/independent restore/cutover authority and held full-scope requirements remainOPEN. ee4 remote candidate excludes this fix.

@@ -80,3 +80,6 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 
 
 2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: reviewed production candidate remains ee4af7b79e9e4a667d383b0b9f815f31daa53956; last exact running generation792e218. New operator tooling is local only. Source PASS/operator prerequisites BLOCKED; migrations0021–0024 and same-generation rollout PLANNED, not executed.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323 source1d69574049042cba6e67d55865e7aab045fac13f verified and locally integrated; childDone/readback19:32:15UTC. Already-pushed ee4af7b79e9e4a667d383b0b9f815f31daa53956 does not contain it; no new push/deployment. Release source may change only after applicable review/authorization.

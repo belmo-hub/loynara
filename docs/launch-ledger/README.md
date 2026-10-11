@@ -113,3 +113,6 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 114 amendment: [Physical NFC authorization and release status](2026-10-11-physical-access-release-status-114.md) — existing consumed physical session and later explicit no-retry directive verified; zero hardware calls; no physical acceptance or full-scope completion claimed.
 
 2026-10-11 /116: [Git push triggers and card context](2026-10-11-push-trigger-card-context-116.md) — authenticated GitHub PASS; push UNVERIFIABLE (no push); supported same-instance token replacement NOT APPLICABLE; native URL context1ChromePASS/static/review, no application change/full Wallet acceptance. Exact integration/tracker receipts follow.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): [LOY-323 cashier lease generation](LOY-323-cashier-lease-generation-2026-10-11.md) — confirmed stale success/failure correction;5 browser PASS and full183files/1679PASS/1 existingSKIP. Local-only; full cashier/physical/release gates open.

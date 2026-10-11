@@ -223,3 +223,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: 67 real-CLI synthetic cases in3files PASS20.68s, full typecheck/focused lint PASS; missing backup, unknown writers, mixed generations, unaccepted restoration and physical schema/history refusal verified. Independent review finding closed. No accepted cohort/browser/restore/global suite repeated.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323: three unchanged-source browser RED/twoPASS→fiveGREEN; env-free production webpack build/typecheck/lintPASS; full183files/1679PASS/0FAIL/1existingSKIP. Initial configuration failures reproduced on unchanged base;59 affected casesPASS with accepted owned setup.

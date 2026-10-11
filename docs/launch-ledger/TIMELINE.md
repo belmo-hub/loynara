@@ -264,3 +264,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: offline release preflight and 23:00 handoff — genuine journal-only false-PASS RED corrected; 67 focused cases, typecheck and lint PASS; independent finding closed. Default remains BLOCKED. Local integration receipt follows; no push or production action.
+
+
+2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): Assignment124 / LOY-323: confirmed RED within selection window, minimal generation guard,5 browser PASS,1679 full regression PASS; reviewed source1d69574049042cba6e67d55865e7aab045fac13f locally integrated; integrated5PASS; child323Done/comment7-200/readback19:32:15UTC.
