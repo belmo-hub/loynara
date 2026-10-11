@@ -1,0 +1,78 @@
+{
+  "assignment": "LOY-ENG-20261011-077",
+  "issue": "LOY-304",
+  "parent": "LOY-49",
+  "base_sha": "68151ca96df570ad8f3e4107cd59a0003b2c94e8",
+  "source_sha": "f67ba931a8cec5fbffdba8a2f500307a5b808435",
+  "result_sha": "documentation receipt by containment",
+  "red": {
+    "unchanged": true,
+    "failed": 1,
+    "duration_seconds": 0.913,
+    "sanitized": "Concurrent real redeem handlers on different cards, same tenant key:200/500 instead of200/409; one booking preserved"
+  },
+  "focused": {
+    "files": 5,
+    "passed": 29,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 4.03
+  },
+  "static": "typegen/typecheck/changedlintmaxwarnings0/configured build PASS; final added security test typecheck/lint PASS",
+  "global": {
+    "files": 172,
+    "passed": 1590,
+    "failed": 0,
+    "skipped": 1,
+    "duration_seconds": 148.22,
+    "skip": "existing Mailpit recovery sender case"
+  },
+  "integrated": {
+    "method": "LOCAL fast-forward",
+    "files": 5,
+    "passed": 29,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 4.67
+  },
+  "independent_review": "Reused loy281_sensitive_review READ-ONLY no material findings; static only, configuration unmeasured",
+  "tracker": {
+    "stage": "Done",
+    "receipt": "Done/evidence readback follows",
+    "full_gates": "LOY-37/38 and49/50 OPEN",
+    "comment": "7-136",
+    "readback": "2026-10-11T05:23:02Z"
+  },
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 9732482,
+    "cumulative_seconds": 49904,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "status": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "disk_gib_available": 43,
+  "retained_codex_worktrees": 13,
+  "restrictions": "No remote push185/186, protected/hosted/provider/customer/tag/legal/product policy action",
+  "log_sha256": {
+    "loy-077-red.log": "efbeb69f98d28e75070fd5daf8f92d62a8e243a23776424ea351f57a19a7653e",
+    "loy-077-focused.log": "88e9a338ac51ba7a92dc7ff5ed4f689234987d69a281b3ae2c2b7c9fcae0e599",
+    "loy-077-focused-final.log": "55779a41be6c4f96ee2badd5de60b9a8f0b4df7a1f759b1930b093e86afe29bd",
+    "loy-077-static.log": "d27112ca195d1df2956afeb0e628433c42e5c97c12d1640ff4daa0f6052eab76",
+    "loy-077-testcheck.log": "3fbdf84a06d1fcfaf5b173925f5ca677efe63cb05f112f97cb7d55aa82a36499",
+    "loy-077-global.log": "a55dcb52d5da84d581528b95297cadd25837950517c6bd0824b58c9f20d2e126",
+    "loy-077-global.json": "21d9e9845b107d8b66dc5e9e64a32081045b360a2ad3c37f1d0a1cecbf63083e",
+    "loy-077-integrated.log": "e93b56f712edaed4d13157734ec1d69c68f1e943df0a667f5dffe601032ecbd6"
+  }
+}

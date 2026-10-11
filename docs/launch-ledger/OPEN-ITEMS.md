@@ -128,3 +128,7 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 2026-10-11 /075: [LOY-302 worker housekeeping shutdown](LOY-302-worker-housekeeping-shutdown-2026-10-11.md). Genuine realPG/worker SIGTERM exit1 RED corrected by cancellable housekeeping only; pending attempts0/fresh-worker failure-path1 preserved,22focusedPASS; primary183 unchanged reduced-motion4browserPASS. Static/build/reviewPASS; global/integration/tracker receipts follow.187/188 and183/184 full acceptance OPEN.
 
 2026-10-11 /076: [LOY-303 offline sync view fence](LOY-303-offline-sync-view-2026-10-11.md). Actual samecard stale balance RED corrected;4realChrome/36focused/global1586PASS;static/build/read-only reviewPASS,LOCAL integrated36PASS5.15s.303Done/comment7-135/readback05:06:41UTC;57evidencecomment7-134.55/56and57/58full gatesOPEN,no deployment.
+
+2026-10-11 /077: [LOY-304 redemption key conflict](LOY-304-redemption-key-conflict-2026-10-11.md). Genuine concurrent two-card200/500 RED corrected to definitive409 after rollback; real late-fault/security negatives, focused29PASS, current global1590PASS/1existingSKIP, static/build/read-only review PASS, LOCAL integrated29PASS4.67s. Coding tracker receipt follows;37/38/49/50 full gates OPEN, no deployment.
+
+/077 receipt: LOY-304 Done/comment7-136/readback05:23:02UTC; sourcef67ba931a8cec5fbffdba8a2f500307a5b808435 LOCAL integrated29PASS4.67s.37/38/49/50 broad gates OPEN; no deployment or independent acceptance.

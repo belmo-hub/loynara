@@ -140,3 +140,7 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 /075 receipt: sourcec8a32a6acc0296aa44e2f1e33de305656c19a3c6 LOCAL integrated22PASS4.82s;302Done/comment7-133/readback04:51:15UTC,183evidencecomment7-132. Current171files1586PASS0FAIL1existingSKIP151.65s;183/184 and187/188 full gatesOPEN.
 
 2026-10-11 /076: [LOY-303 offline sync view fence](LOY-303-offline-sync-view-2026-10-11.md). Actual samecard stale balance RED corrected;4realChrome/36focused/global1586PASS;static/build/read-only reviewPASS,LOCAL integrated36PASS5.15s.303Done/comment7-135/readback05:06:41UTC;57evidencecomment7-134.55/56and57/58full gatesOPEN,no deployment.
+
+2026-10-11 /077: [LOY-304 redemption key conflict](LOY-304-redemption-key-conflict-2026-10-11.md). Genuine concurrent two-card200/500 RED corrected to definitive409 after rollback; real late-fault/security negatives, focused29PASS, current global1590PASS/1existingSKIP, static/build/read-only review PASS, LOCAL integrated29PASS4.67s. Coding tracker receipt follows;37/38/49/50 full gates OPEN, no deployment.
+
+/077 receipt: LOY-304 Done/comment7-136/readback05:23:02UTC; sourcef67ba931a8cec5fbffdba8a2f500307a5b808435 LOCAL integrated29PASS4.67s.37/38/49/50 broad gates OPEN; no deployment or independent acceptance.
