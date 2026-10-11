@@ -33,3 +33,5 @@ Append date, original file/claim, verified source, correction, and scope/status 
 
 
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323 narrow local lease lifecycle closure does not close55/56 full acceptance. Initial test setup failures corrected with accepted fixtures, no weakening; default Docker comparison auto-review rejected, verified owned-container alternative used. Native incremental usage unmeasured while Goal remainsBLOCKED.
+
+2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Narrow local snapshot correction does not close39/40 or full launch. Browser proof uses actual route via owned loopback harness, not full Next navigation/physical devices. NativeBLOCKED, incremental usage unmeasured; new candidate pin/approvals outstanding.

@@ -226,3 +226,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323: three unchanged-source browser RED/twoPASS→fiveGREEN; env-free production webpack build/typecheck/lintPASS; full183files/1679PASS/0FAIL/1existingSKIP. Initial configuration failures reproduced on unchanged base;59 affected casesPASS with accepted owned setup.
+
+2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Four genuine unchanged-source concurrency RED/twoPASS→sixGREEN; compatible and integrated29PASS/1 existing skip; current global184 files/1685PASS/0FAIL/1 existing skip; build/typecheck/lint/reviewPASS.

@@ -267,3 +267,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): Assignment124 / LOY-323: confirmed RED within selection window, minimal generation guard,5 browser PASS,1679 full regression PASS; reviewed source1d69574049042cba6e67d55865e7aab045fac13f locally integrated; integrated5PASS; child323Done/comment7-200/readback19:32:15UTC.
+
+2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Assignment125: fresh browser-route RED confirmed within15min; read-only snapshot correction source08ebe7c6edbf258040a5ca7c136e1ccf20430718, integrated29PASS; child324Done/comment7-201/readback19:49:41UTC.

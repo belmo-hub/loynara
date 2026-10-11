@@ -83,3 +83,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 
 
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): LOY-323 source1d69574049042cba6e67d55865e7aab045fac13f verified and locally integrated; childDone/readback19:32:15UTC. Already-pushed ee4af7b79e9e4a667d383b0b9f815f31daa53956 does not contain it; no new push/deployment. Release source may change only after applicable review/authorization.
+
+2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Proposed new LOCAL candidate includes123 tooling,124 cashier guards and125 card snapshots. GitHub readback remains ee4; default preflight still pins ee4 and isBLOCKED. Locks, worker, Dockerfiles and25 migration SQL/journal entries unchanged; no deployment.

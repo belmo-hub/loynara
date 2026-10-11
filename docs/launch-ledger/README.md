@@ -116,3 +116,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 
 
 2026-10-11 — [Cashier lease generation124](LOY-323-cashier-lease-generation-2026-10-11.md): [LOY-323 cashier lease generation](LOY-323-cashier-lease-generation-2026-10-11.md) — confirmed stale success/failure correction;5 browser PASS and full183files/1679PASS/1 existingSKIP. Local-only; full cashier/physical/release gates open.
+
+2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): LOY-324 fixes confirmed balance/history/catalogue snapshot inconsistency; current global184 files/1685PASS/1 existing skip. LOCAL integration and proposed next candidate; no push or launch claim.
