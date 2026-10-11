@@ -42,7 +42,8 @@
   ],
   "status": [
     "IMPLEMENTED durable test",
-    "TESTED narrow local scope"
+    "TESTED narrow local scope",
+    "INTEGRATED local"
   ],
   "pushed": false,
   "deployed": false,
@@ -71,6 +72,18 @@
     },
     "/tmp/loy-112-run.py": {
       "sha256": "957619611362bb2a604850d62e21190c3ef763aea2a54731fe97ffcc82450ff5"
+    },
+    "/tmp/loy-112-integrated-browser.log": {
+      "sha256": "26e034a0a828d8a3fba08ba66186dd200d1de1e4f5de36061cf6c78562fb44ae"
     }
+  },
+  "test_commit": "658c33ac52e2029d60a575a7e428ba2129f76d4a",
+  "canonical_integrated_test": "1PASS2.9s exit0; uniqueDB/compiledweb normalcleanup",
+  "tracker": {
+    "issue": "LOY-43",
+    "comment": "7-191",
+    "readback": "2026-10-11 14:35:20UTC",
+    "Stage": "In Review",
+    "resolved": false
   }
 }
