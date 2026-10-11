@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Client } from "pg";
+import { databaseFailureDiagnostic } from "./operational-error";
 import { productionConfigIssues } from "./config-check";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 
@@ -9,22 +10,8 @@ class OperationsCheckRefusal extends Error {}
 
 function failureDiagnostic(error: unknown): string {
   if (error instanceof OperationsCheckRefusal) return error.message;
-  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
-  switch (code) {
-    case "28P01": case "28000":
-      return "Database authentication failed; check reviewed operations-check credentials";
-    case "ECONNREFUSED": case "ENOTFOUND": case "EAI_AGAIN": case "ETIMEDOUT":
-    case "08000": case "08001": case "08003": case "08004": case "08006": case "08007": case "08P01":
-      return "Database connection failed; check database availability and reviewed connection configuration";
-    case "42501":
-      return "Database permission denied; check reviewed operations-check access";
-    case "42P01": case "42703":
-      return "Database schema mismatch; check reviewed migration and release identity";
-    case "57014":
-      return "Database query cancelled or timed out; check database availability";
-    default:
-      return "Operations check failed; check reviewed configuration and database availability (details withheld)";
-  }
+  return databaseFailureDiagnostic(error)
+    ?? "Operations check failed; check reviewed configuration and database availability (details withheld)";
 }
 
 export function outboxHealth(counts: { failed: number; blocked: number; overdue: number }) {

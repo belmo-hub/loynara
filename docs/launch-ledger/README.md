@@ -33,3 +33,6 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 
 
 [LOY-287 secret-safe operations diagnostics](LOY-287-secret-safe-ops-diagnostics-2026-10-11.md): actual CLI controlled exception leakage correction; completion receipts in entry.
+
+
+[LOY-288 migration CLI diagnostics](LOY-288-migration-safe-diagnostics-2026-10-11.md): actual subprocess synthetic leak correction, exact completion receipts appended separately.

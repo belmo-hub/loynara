@@ -85,3 +85,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 [LOY-287](LOY-287-secret-safe-ops-diagnostics-2026-10-11.md): actualCLI2validRED then focused3files80PASS, private fields withheld/usefulclassificationpreserved; full/static receipts separately appended.
+
+
+[LOY-288](LOY-288-migration-safe-diagnostics-2026-10-11.md): actual subprocess PG/childdrizzle intercepted; focused3files32PASS plus static/build; full receipt pending at draft.
