@@ -132,3 +132,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 2026-10-11 /073: [LOY-113-125-recovery-eligibility-verification-2026-10-11](LOY-113-125-recovery-eligibility-verification-2026-10-11.md), TESTED unchanged actual Google-worker429/503 recovery and real501page2optout afterpreview;26focused/static/build/reviewPASS. No application defect/change, complete-feature or provider acceptance claim;113/114 and125/126 OPEN.
 
 2026-10-11 /074: [LOY-301 mobile menu focus](LOY-301-mobile-menu-focus-2026-10-11.md). Genuine unchanged Escape focus RED; restore after inert removal; Escape/backdrop, keyboard reopening and desktop guard/Back 4 browser PASS; role/PG staff 11 PASS; static/build/review PASS. Global/local integration/tracker receipts follow. LOY-169/170 and LOY-181/182 full acceptance OPEN; no deployment.
+
+/074 receipt: source555854d9e4ba71cd42c4cd7b5fc7f7968e72354c LOCAL integrated11PASS;301Done/comment7-131/readback04:37:50UTC. Final configured170files1584PASS0FAIL1existingSKIP146.10s. Full181/182 and169/170 acceptance OPEN.

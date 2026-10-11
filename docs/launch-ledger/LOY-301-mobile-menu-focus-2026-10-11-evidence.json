@@ -3,7 +3,7 @@
   "issue": "LOY-301",
   "parent": "LOY-181",
   "base_sha": "d542923369cf9cb73847b4b406b890fe06b36b23",
-  "source_sha": "this source commit by containment; exact SHA follows in receipt",
+  "source_sha": "555854d9e4ba71cd42c4cd7b5fc7f7968e72354c",
   "status": [
     "IMPLEMENTED",
     "TESTED"
@@ -46,6 +46,32 @@
     "loy-074-focused.log": "5fa8664b06dc2ac3ae53b622fa9a7907fb4d6ba99bd694e9f463f5b75d3ac23a",
     "loy-074-static.log": "e86f0b0522ccf7ab9af97577587ed8889e17a812a121976825be56f522fcc507",
     "loy-074-global.log": "041ad185d586837f62e21c20b0084c172bb4325d1005b8dd87a292241680260a",
-    "loy-074-global.json": "ccbe62caa23c135e1944021a0726c0806ac895e59a3ac9eb60e3bbb10297c43b"
+    "loy-074-global.json": "ccbe62caa23c135e1944021a0726c0806ac895e59a3ac9eb60e3bbb10297c43b",
+    "loy-074-integrated.log": "9804606556bd1e7229fd519c4373e42dfae2886fdfd7dbf6711211f398871f55"
+  },
+  "result_sha": "documentation receipt commit by containment",
+  "integrated": {
+    "method": "LOCAL fast-forward",
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 730
+  },
+  "tracker": {
+    "issue": "LOY-301",
+    "stage": "Done",
+    "comment": "7-131",
+    "readback": "2026-10-11T04:37:50Z",
+    "parent_full_gate": "LOY-181/182 OPEN"
+  },
+  "native_usage": {
+    "status": "ACTIVE",
+    "cumulative_reported_tokens": 9284520,
+    "cumulative_seconds": 47193,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
   }
 }
