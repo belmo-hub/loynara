@@ -109,3 +109,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - Assignment064: readonly status/ancestry/logs-HEAD/du/lsof + native ownership observations; JSON arithmetic/classification and diff validation only. No product/test-suite rerun for documentation-only change. [Evidence](2026-10-11-worktree-preservation-064.md).
 
 - 2026-10-11 064-01 preservation verified: fresh per-candidate clean/no cwd/exact branch, archive paths/count/bytes/hash before-after, all branch refs unchanged, retained13 raw statuses unchanged; empty prune dryrun then registry prune. Two formatting/stale expected-value corrections preserved. [Receipt](2026-10-11-worktree-cleanup-064-01.md).
+
+- 2026-10-11 /065 [LOY-293 recovery request feedback](LOY-293-recovery-request-feedback-2026-10-11.md): actualHTTP400 browserRED; fixed German failure feedback/retained retry,6browser+9unitPASS; type/lint/normalbuildPASS; configuredglobal and integration receipts recorded in entry. Parent33/34 OPEN.

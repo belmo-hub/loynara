@@ -1,0 +1,107 @@
+{
+  "issue": "LOY-293",
+  "assignment": "LOY-ENG-20261011-065-CONTINUE",
+  "base_sha": "7b8dbdd40b84c255556133150a7f8ec9f437888a",
+  "source_sha": "containing source commit",
+  "browser": {
+    "passed": 6,
+    "seconds": 5.9,
+    "widths": [
+      375,
+      1280
+    ],
+    "real_http": [
+      400,
+      500
+    ],
+    "retry_own_jobs": 1,
+    "retry_foreign_jobs": 0,
+    "snapshots": "card credentials/ledger/consent unchanged"
+  },
+  "unit": {
+    "passed": 9,
+    "seconds": 0.109
+  },
+  "global": {
+    "files": 164,
+    "passed": 1543,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 145.82,
+    "skip_names": []
+  },
+  "static": "typegen/typecheck/changed lint/diff and normal production build PASS",
+  "independent_review": "gpt-6.1-sol medium readonly existing agent; no material findings; tests not rerun",
+  "failures": {
+    "initial_global": [
+      1519,
+      10,
+      15
+    ],
+    "exact_base_fourfiles": [
+      35,
+      10,
+      14
+    ],
+    "base_build": "same useContext error with NODE_ENVdevelopment",
+    "symlink_probe": "different Turbopack root error, not valid baseline match",
+    "resolution": "one-off verifier environment only; no application/config/test guard changes"
+  },
+  "artifacts": {
+    "valid-red": {
+      "path": "/tmp/loy-065-valid-red.log",
+      "bytes": 3004,
+      "sha256": "394638aeb97dc5fb41ad0664ceb172168e22e298d9ee8727f7244645689db2e4"
+    },
+    "red": {
+      "path": "/tmp/loy-065-red.log",
+      "bytes": 3019,
+      "sha256": "a242014d75d7c4d278839fb04aaa9330e750551317ad35ccbe99fa8671b4a1db"
+    },
+    "browser-green": {
+      "path": "/tmp/loy-065-browser-green.log",
+      "bytes": 1264,
+      "sha256": "394ad0a00c239bd8cbbeb2c0969034cf0d7b71af784790e0effae3150a2a5df9"
+    },
+    "unit": {
+      "path": "/tmp/loy-065-unit.log",
+      "bytes": 883,
+      "sha256": "d7de510e5a8bca652679479fc02f254f9cd75139e47fc5cbd893ae3f24f1295f"
+    },
+    "static": {
+      "path": "/tmp/loy-065-static.log",
+      "bytes": 5128,
+      "sha256": "0944f3ff034140028513c341f535138de0ec2a18a5faa7fd861488f50f64ec0a"
+    },
+    "global": {
+      "path": "/tmp/loy-065-global.log",
+      "bytes": 54346,
+      "sha256": "fe52d7d3ebe631efab36fd89a85ebebc80fc09ad15f1ffeb7ae356c6be6903f1"
+    },
+    "base-failures": {
+      "path": "/tmp/loy-065-base-failures.log",
+      "bytes": 22865,
+      "sha256": "ab76b469e7fe92a1601759afd2b37e266dd4cdb97acb9ac24faa9980dca630da"
+    },
+    "base-build": {
+      "path": "/tmp/loy-065-base-build.log",
+      "bytes": 3097,
+      "sha256": "0c4d6b8e263ed4fe4b9a32101fbee1ea1bf320e3cc1e8fe858f298a44afadd93"
+    },
+    "base-build-development": {
+      "path": "/tmp/loy-065-base-build-development.log",
+      "bytes": 4559,
+      "sha256": "9e0b0633bb50454631b09ee127053244d82a5a87c183aa6b6dddfc10769e8b66"
+    },
+    "build-production": {
+      "path": "/tmp/loy-065-build-production.log",
+      "bytes": 4213,
+      "sha256": "db845b31f45cf8ff4972d6b5b8ebc8d3045e3833dba0b4bc03b5d34c8cfef388"
+    },
+    "global-configured": {
+      "path": "/tmp/loy-065-global-configured.log",
+      "bytes": 34726,
+      "sha256": "b3dabf173e77d14b25cdb1a047d3c34349fa8b7f55744c41b2f923500e3785c8"
+    }
+  }
+}

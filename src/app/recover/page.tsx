@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { BrandMark } from "@/components/loyalty-ui";
 import { postJson } from "@/components/client-api";
+import { recoveryRequestFeedback } from "@/components/recovery-request-feedback";
 
 export default function RecoverPage() {
   const [email, setEmail] = useState("");
@@ -16,7 +17,7 @@ export default function RecoverPage() {
       const result = await postJson<{ message: string }>("/api/recover", { email });
       setMessage(result.message);
       setEmail("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Anfrage fehlgeschlagen."); }
+    } catch (cause) { setError(recoveryRequestFeedback(cause)); }
     finally { setBusy(false); }
   }
   return <main className="card-state-page"><div><BrandMark /><h1>Karte wiederfinden</h1>

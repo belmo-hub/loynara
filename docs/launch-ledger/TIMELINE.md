@@ -125,3 +125,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 assignment064: read-only44-worktree preservation manifest18.37GiB;31 conditional cleanup candidates11.11GiB,10KEEP,3investigation,0automaticallysafe. No cleanup/push. GitHub Supabase Configure blocked at owner reauthentication. [Evidence](2026-10-11-worktree-preservation-064.md).
 
 - 2026-10-11 Delegated064-01: exact31 worktrees removed without force after private archive/hash checks; every branch and retained13 raw status unchanged. Net disk6.704GiB,30→37GiB; archives28files7,982B. [Receipt](2026-10-11-worktree-cleanup-064-01.md).
+
+- 2026-10-11 /065 [LOY-293 recovery request feedback](LOY-293-recovery-request-feedback-2026-10-11.md): actualHTTP400 browserRED; fixed German failure feedback/retained retry,6browser+9unitPASS; type/lint/normalbuildPASS; configuredglobal and integration receipts recorded in entry. Parent33/34 OPEN.
