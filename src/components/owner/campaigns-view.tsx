@@ -7,6 +7,7 @@ import { audienceDefinitionSchema, type AudienceDefinition } from "@/lib/audienc
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { germanDate, Notice, OwnerDialog, OwnerIcon, Skeleton } from "./owner-ui";
 import { useLoad } from "./use-load";
+import { campaignSaveId } from "./campaign-save-response";
 
 type Kind = AudienceDefinition["kind"];
 type Editor = { title: string; subject: string; body: string; kind: Kind; withinDays: number; daysSinceLast: number; minCheckouts: number; maxRemaining: number; rewardId: string };
@@ -132,8 +133,12 @@ export function CampaignsView() {
     try {
       const common = { title: builder.editor.title.trim(), subject: builder.editor.subject.trim(), body: builder.editor.body.trim(), audienceDefinition: definitionOf(builder.editor) };
       let id = builder.editingId ?? builder.savedId;
-      if (id) await postJson("/api/merchant/campaigns", { action: "edit", campaignId: id, ...common });
-      else { const created = await postJson<{ id?: string; campaignId?: string; campaign?: { id: string } }>("/api/merchant/campaigns", { action: "create", programSlug: me.programSlug, ...common }); id = created.id ?? created.campaignId ?? created.campaign?.id ?? null; }
+      const response = await postJson<unknown>("/api/merchant/campaigns", id
+        ? { action: "edit", campaignId: id, ...common }
+        : { action: "create", programSlug: me.programSlug, ...common });
+      const confirmedId = campaignSaveId(response, id ?? undefined);
+      if (!confirmedId) throw new ClientApiError(200, "Die Antwort bestätigt den gespeicherten Entwurf nicht.");
+      id = confirmedId;
       reloadList();
       if (composerVersion.current.generation !== submitted.generation) return;
       const newerEdits = composerVersion.current.revision !== submitted.revision;
