@@ -1,0 +1,39 @@
+# Loynara release status — assignment 114, 2026-10-11
+
+Full launch remains **INCOMPLETE / UNKNOWN / NO-GO**. This is an incremental founder-facing status record, not the final complete build-and-launch record. Base/local candidate: `b05190944f20a3c60945802f954f55a605e89274`; application source remains `a6f281b216efcdfcdf0cb543aa0f5c43e69fb184`. No deployment, remote push, provider activation, tag write or independent production acceptance occurred here.
+
+## Physical NFC result: BLOCKED BY AUTHORIZATION
+
+Existing dedicated **Provision TAG-02 NFC** thread `01a126c7-dd52-7f11-9e2e-43f249623d3a` was read once, without messaging or changing its work. The founder-authorized six-command physical session was consumed: setup exited2 `PCSC_TRANSPORT_ERROR`, with zero APDU transmissions. The subsequent founder directive authorized diagnostic-only host context/list/release and explicitly prohibited SCardConnect, SCardTransmit, scans and physical retry. Founder confirmed READER EMPTY for that diagnostic only. Host enumeration succeeded; it does not establish card/RF transport, tag originality, credentials, counter state or returning-tap acceptance. Historical native failing operation remains unknown.
+
+Saved diagnostic identifies incorrect ctypes handle bindings and lost operation/native-status reporting in the old controller. These are reported controller gaps, not proven causes of the physical error. The specific diagnostic requires separate local-copy correction/review approval; physical retry additionally requires separate approval and fresh TAG-02-only readiness. This Goal did not change controller, markers, drivers, system settings or dedicated evidence, and made **zero hardware calls**. No automated assignment expands this founder restriction.
+
+**Next precise TAG-02 owner action:** review and explicitly authorize the dedicated workstream's new local controller correction copy with explicit Apple ABI and operation-specific diagnostics; any later physical session must be separately reviewed and authorized, preserving the consumed controller/marker. TAG-01 and TAG-03–05 remain untouched. LOY-70/260 acceptance stays open.
+
+## Product capabilities and limits
+
+| Capability | Current evidence and remaining requirement |
+|---|---|
+| Approved six-page website, merchant onboarding, branding, staff lifecycle and permissions | IMPLEMENTED / locally TESTED / INTEGRATED for covered contracts. 109 website, 110 real merchant/cashier journey, prior staff evidence preserved. Actual contact receipt, full independent onboarding/support and current hosted activation remain unaccepted. |
+| Stamps, purchase points, reward selection/redemption, analytics and returning membership | Covered local PostgreSQL/browser contracts TESTED, including exactly-once accounting and tenant isolation in 105/106/110. Full programme variant/effective-time policy contracts 37/38 remain unresolved; full launch coverage is UNKNOWN. |
+| Passive NTAG424 DNA cashier-phone approval, QR fallback, sessions and recovery | Existing frozen32b27ec and accepted NFC RC history preserved. Simulated/local journeys are not physical stands/locked phones/Safari/Android acceptance. TAG-02 production provisioning, originality/credentials and actual returning phone journey remain unavailable. No VAS/Smart Tap replacement. |
+| Apple and Google Wallet | Accepted historical Apple synthetic production record271 preserved; current merchant binding/branding, Google publishing and exact current candidate synchronization require provider/physical acceptance. No live update sent here. |
+| Referral attribution/qualification, campaign audience/composer/scheduling/reporting, retention/reminders | Existing local implementation and regression evidence retained; genuine sender/provider acceptance remains open. Reward/consent dispatch cutoff and referral marketing contracts133 remain unresolved. No customer campaigns activated. |
+| Provider event delivery accounting | **Known defective behavior, unresolved139**: global event-ID hash can drop legitimate reused IDs across event days, including later hard failure/suppression. Legacy receipts lack reliable generation-day identity; prospective-only correction does not establish safe legacy compatibility. Need agreed compatibility data/contract and any separately approved migration. |
+| Customer card-activity export |112 populated-contact exclusion/isolation/failure retry TESTED. Full merchant data export165 referral/category/date contract unresolved; full personal-data export/deletion/retention209 and44 are not proven complete or legally accepted. |
+| Multi-location/staff sharing and billing entitlements | Existing permitted source retained; programme/location sharing159 and entitlement timing/actions161 contracts unresolved. Billing/merchant commercial activation and actual payment acceptance remain unverified; no invented policy. |
+| Operations, workers and recovery | Claim-token/migration0024 and local restart/backup restore evidence retained. Exact production-mode positive worker processing111 BLOCKED by approved production configuration policy. Local encrypted restore108 is not current production backup/custody/independent195196 acceptance. |
+| Legal, tax, commercial onboarding and support | Operator235, VAT/invoices237, billing239, contracts/DPA/privacy/Impressum241/243 and support245 remain human/external gates. No legal/commercial readiness inferred. |
+
+No exhaustive new audit was performed. The existing [full scope register](2026-10-11-full-launch-requirement-register.csv) and [critical path](2026-10-11-full-launch-critical-path.md) retain all workstreams, unknowns and dependencies. Entries above summarize evidence and explicit unresolved capabilities; source presence alone is not evidence every requirement is implemented.
+
+## Smallest release checks for the first ten merchants
+
+1. Resolve the exact owner integration-push gate: personally exclude Loynara/remove unused Supabase GitHub App, or explicitly accept the identified residual trigger uncertainty for the named nonprotected branch. Then branch-specific safe push and remote SHA verification. Neither occurred here.
+2. Separately authorize the existing [104 release sequence](2026-10-11-release-manifest-104.md), after fresh hosted identity/all writer inventory and fresh encrypted production custody/independent restore acceptance. Old web/immediate-NFC/worker writers must stop/drain before ordered0021–0024 and same-generation web/worker; no unsupported mixed writer interval or assumed database downgrade recovery.
+3. On the exact hosted candidate, independently verify merchant setup, customer enrollment/returning recognition, cashier award/redemption/accounting/isolation and restart. Complete real phones/stands/locked notification/QR, existing Wallet and separately authorized provider receipt/suppression/retry acceptance.
+4. Resolve the listed missing/defective/undecided capabilities and merchant-specific admission93, commercial/legal/operator/support gates. Do not activate merchants while a required gate is UNKNOWN or failed; no silent MVP reduction.
+
+## Execution and evidence
+
+Assigned Sol Medium retained executor; actual model/effort setter unavailable. Existing checkout reused; no install/build/global test or accepted audit repeated. New checks: source/document readback, preservation of consumed marker, own diff check; no new runtime PASS. Historical1091631PASS/0FAIL/1existing optional SKIP and112 focused browser tests remain dated evidence, not current production certification. Source unchanged. Diagnostic evidence hashes and exact limitation are in the companion JSON; local paths contain no exported keys or credentials. Cumulative native usage is preserved; input/cache/output/browser/reviewer splits unmeasured. Tracker and coordinator receipts are recorded after actual delivery in durable Goal state.

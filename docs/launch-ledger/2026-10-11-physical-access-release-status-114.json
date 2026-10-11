@@ -1,0 +1,25 @@
+{
+  "assignment": "LOY-ENG-20261011-114",
+  "issues": [
+    "LOY-70",
+    "LOY-260"
+  ],
+  "base_sha": "b05190944f20a3c60945802f954f55a605e89274",
+  "date_utc": "2026-10-11T14:54:52.670368+00:00",
+  "execution": "existing isolated codex/full-stack-release-110 checkout; assigned gpt-6.1-sol medium, effective model setter unavailable; no new worker/worktree",
+  "physical_status": "BLOCKED_BY_AUTHORIZATION",
+  "hardware_calls_this_assignment": 0,
+  "prior_physical_attempt": "exit2 PCSC_TRANSPORT_ERROR, empty APDU trace, consumed marker preserved",
+  "prior_host_diagnostic": "4 host-only calls succeeded; zero card connects/transmits; historical exact failing call unknown",
+  "evidence_sha256": {
+    "diagnostic-20261011/REPORT.md": "26ca0b1833307b294185d3b7ce826e023516427c859067d11b87863be8ec9bd5",
+    "controller-20261011/physical-failure-summary.json": "38397be2424e889dd78ef34483515fd1b494c38027d99b5ce6269a1aa5c11db3",
+    "controller-20261011/physical-session.used": "55267a3387a15d91e47d3ee7b3305d134900493428f8a3070852cf1b017534be"
+  },
+  "new_tests": "NONE: documentation only; source unchanged",
+  "historical_regression": "109: 1631 PASS/0 FAIL/1 existing optional SKIP; 112 new contact-export browser PASS task and canonical",
+  "external_actions": "read existing TAG-02 thread and live LOY-70; no hardware/provider/deployment/push",
+  "remaining_scope": "INCOMPLETE/UNKNOWN/NO-GO",
+  "usage": "native cumulative accounting preserved; input/cache/output/reviewer/browser split unmeasured",
+  "next_action": "Dedicated TAG-02 owner reviews and explicitly authorizes a new local controller correction copy; physical retry requires its separate authorization and fresh TAG-02 isolation. Do not reset consumed marker or alter dedicated workstream."
+}

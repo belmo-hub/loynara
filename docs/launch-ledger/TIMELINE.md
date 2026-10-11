@@ -246,3 +246,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 2026-10-11 /112: [Populated contact export exclusion](2026-10-11-contact-export-exclusion-112.md) — realChrome1PASS3.0s with positive two-tenantcontactfixtures, actualdownload whitelist/canary absence/isolation/503retry. No applicationcorrection.165contract/full43/209 and externalgatesOPEN; localreceipt follows.
 
 2026-10-11 /113: [Provider identity release hold](2026-10-11-provider-identity-release-hold-113.md) — unchanged036source/hash/schema; legacygenerationdayunknown, crossdaycollision remainsunresolved. No repeatprobe/guessedmigration/acceptedrisk.139/140OPEN; existingrelease/pushownerrequestsrefreshed.
+
+114 amendment: [Physical NFC authorization and release status](2026-10-11-physical-access-release-status-114.md) — existing consumed physical session and later explicit no-retry directive verified; zero hardware calls; no physical acceptance or full-scope completion claimed.
