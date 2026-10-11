@@ -69,3 +69,6 @@ LOY-167/168 OPEN: bounded LOY-284 snapshot correction does not close independent
 
 
 LOY-177/178 OPEN: bounded285 manual refresh feedback locally verified; complete accessibility/locale/physical acceptance not inferred.
+
+
+LOY-181/182 remainOPEN after bounded no-defect source discovery; LOY-193/194 remainOPEN despite narrow286localmonitor acknowledgment correction. Actual monitor delivery/independent operations gates are unverified.

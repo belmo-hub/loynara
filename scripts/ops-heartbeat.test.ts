@@ -16,7 +16,7 @@ describe("worker heartbeat", () => {
   it("sends only to the configured monitor and prints no URL on a network failure", async () => {
     const request = vi.fn().mockRejectedValue(new Error("secret URL in network error"));
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    await sendWorkerHeartbeat("https://heartbeat.uptimerobot.com/m123-abc", request);
+    expect(await sendWorkerHeartbeat("https://heartbeat.uptimerobot.com/m123-abc", request)).toBe(false);
     expect(request).toHaveBeenCalledTimes(1);
     expect(log.mock.calls.flat().join(" ")).not.toContain("m123-abc");
     log.mockRestore();
@@ -32,6 +32,21 @@ describe("worker heartbeat", () => {
     try {
       expect(await Promise.race([pending.then(() => true), new Promise(resolve => setTimeout(() => resolve(false),30))])).toBe(true);
     } finally { log.mockRestore(); }
+  });
+
+  it("reports acknowledgment only for a successful response; unset and rejected requests are not acknowledgments", async () => {
+    const request = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    expect(await sendWorkerHeartbeat(undefined, request)).toBe(false);
+    expect(request).not.toHaveBeenCalled();
+    expect(await sendWorkerHeartbeat("https://heartbeat.uptimerobot.com/m123-abc", request)).toBe(true);
+    request.mockResolvedValue(new Response("private provider body", { status: 403 }));
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      expect(await sendWorkerHeartbeat("https://heartbeat.uptimerobot.com/m123-abc", request)).toBe(false);
+      expect(log.mock.calls).toEqual([["Worker heartbeat rejected by monitor"]]);
+    } finally { log.mockRestore(); }
+    await expect(sendWorkerHeartbeat("https://unapproved.example/token", request)).rejects.toThrow("Invalid worker heartbeat configuration");
+    expect(request).toHaveBeenCalledTimes(2);
   });
 
 });

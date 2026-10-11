@@ -23,7 +23,7 @@ async function main() {
     `);
     const counts = { failed: Number(result.rows[0]?.failed), blocked: Number(result.rows[0]?.blocked), overdue: Number(result.rows[0]?.overdue) };
     if (!outboxHealth(counts)) throw new Error(`Outbox requires operator review: ${JSON.stringify(counts)}`);
-    await sendWorkerHeartbeat(process.env.OPS_HEARTBEAT_URL);
+    if (!await sendWorkerHeartbeat(process.env.OPS_HEARTBEAT_URL)) throw new Error("Operations heartbeat was not acknowledged; check monitor availability and reviewed configuration");
     console.log("Production operations check PASS: database and outbox healthy");
   } finally { await client.end(); }
 }

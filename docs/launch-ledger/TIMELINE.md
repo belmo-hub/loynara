@@ -93,3 +93,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 IMPLEMENTED/TESTED [LOY-285 manual refresh feedback](LOY-285-manual-card-refresh-feedback-2026-10-11.md): valid request-observed browserRED for silently failed customer GET; localized last-known-balance alert/recovery, mobile+desktop2PASS.
+
+
+2026-10-11 LOY-286: actual CLI503/network falselyPASS RED -> required heartbeat acknowledgment. No remote monitor contacted.

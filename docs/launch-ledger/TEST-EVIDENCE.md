@@ -79,3 +79,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 [LOY-285](LOY-285-manual-card-refresh-feedback-2026-10-11.md): initial fakeclockfixture invalidRED explicitly corrected; exactHEAD1GET503 validRED then mobile/desktop2PASS, keyboard2reads0mutations/cardunchanged; focused4files12PASS.
+
+
+[LOY-286](LOY-286-operations-heartbeat-ack-2026-10-11.md): actual CLI synthetic transports;2 validRED failures; focused3files11PASS, configured159files1481PASS0FAIL1existingoptionalMailpitSKIP.
