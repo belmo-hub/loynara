@@ -81,6 +81,25 @@ describe("operator credential reset (existing owner or staff identity)", () => {
     log.mockRestore(); err.mockRestore();
   });
 
+  it("rolls back password replacement when real session deletion fails, and permits explicit recovery retry", async () => {
+    const created = await provision(), other = await provision("fault.other@example.test");
+    await addSession(created.userId, "fault-owner-session"); await addSession(other.userId, "fault-other-session");
+    const tenant = (await pool.query("INSERT INTO tenants(name,slug) VALUES('Synthetic recovery fault','synthetic-recovery-fault') RETURNING id")).rows[0].id;
+    await pool.query("INSERT INTO staff_roles(tenant_id,user_id,role) VALUES($1,$2,'owner')", [tenant, created.userId]);
+    const hash = await passwordOf(created.userId), foreignHash = await passwordOf(other.userId), before = await counts();
+    await pool.query(`CREATE FUNCTION synthetic_reset_session_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic session deletion failure'; END $$; CREATE TRIGGER synthetic_reset_session_fault BEFORE DELETE ON session FOR EACH ROW EXECUTE FUNCTION synthetic_reset_session_fault()`);
+    try {
+      await expect(reset()).rejects.toBeTruthy();
+      expect(await passwordOf(created.userId)).toBe(hash); expect(await passwordOf(other.userId)).toBe(foreignHash); expect(await counts()).toEqual(before);
+      expect((await pool.query("SELECT token FROM session ORDER BY token")).rows.map(row => row.token)).toEqual(["fault-other-session", "fault-owner-session"]);
+      expect((await pool.query("SELECT tenant_id,user_id,role FROM staff_roles WHERE tenant_id=$1", [tenant])).rows).toEqual([{ tenant_id: tenant, user_id: created.userId, role: "owner" }]);
+    } finally { await pool.query("DROP TRIGGER synthetic_reset_session_fault ON session; DROP FUNCTION synthetic_reset_session_fault()"); }
+    const result = await reset(); expect(result.audit).toMatchObject({ sessionsRevoked: 1, sessionsRemaining: 0, usersCreated: 0, merchantStateTouched: false });
+    const ctx = await context(); expect(await ctx.password.verify({ hash: await passwordOf(created.userId), password: open(result.envelope).temporary_password })).toBe(true);
+    expect(await passwordOf(other.userId)).toBe(foreignHash); expect((await pool.query("SELECT token FROM session")).rows.map(row => row.token)).toEqual(["fault-other-session"]);
+    expect(await counts()).toEqual({ ...before, session: before.session - 1 });
+  });
+
   it("finds the account case-insensitively", async () => {
     const created = await provision();
     const result = await reset({ email: "  PILOT.Owner@Example.TEST " });
