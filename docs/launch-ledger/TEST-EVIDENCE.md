@@ -113,3 +113,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 /065 [LOY-293 recovery request feedback](LOY-293-recovery-request-feedback-2026-10-11.md): actualHTTP400 browserRED; fixed German failure feedback/retained retry,6browser+9unitPASS; type/lint/normalbuildPASS; configuredglobal and integration receipts recorded in entry. Parent33/34 OPEN.
 
 - 2026-10-11 /066 [LOY-294 recovery confirmation uncertainty](LOY-294-recovery-confirm-feedback-2026-10-11.md): actualHTTP500/challenge-preserved RED, fixed invalid-proof vs temporary/ambiguous feedback;12real browser+18helperPASS, static/normalbuild/reviewPASS. Final global and integration receipts in entry; parent33/34 OPEN.
+
+- /067: [LOY-295 campaign outcome browser evidence](LOY-295-campaign-outcome-feedback-2026-10-11.md), persisted positive/zero/foreign fixtures, real API500/transport loss/explicit current-data retry, abandoned old success/error, mobile/desktop; failed test observations retained.

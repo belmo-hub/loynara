@@ -90,6 +90,8 @@ export function CampaignsView() {
   const previewRequest = useRef(0);
   const [preview, setPreview] = useState<{ state: "idle" | "loading" | "ok" | "error"; data?: Preview; message?: string }>({ state: "idle" });
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const detailRequest = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -103,6 +105,9 @@ export function CampaignsView() {
   const browserZone = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
 
   function start(editor: Editor, step = 0, editingId: string | null = null, goal: string | null = null) {
+    detailRequest.current++;
+    if (loadingDetail) setBusy(false);
+    setLoadingDetail(false);
     composerVersion.current = { generation: composerVersion.current.generation + 1, revision: 0 };
     setBuilder({ step, editor, editingId, savedId: editingId, goal }); setDirty(false); setPreview({ state: "idle" }); setError(""); setMessage(""); setDetail(null);
   }
@@ -158,13 +163,17 @@ export function CampaignsView() {
     finally { setBusy(false); }
   }
   async function open(id: string, edit = false) {
+    const request = ++detailRequest.current;
+    // A fresh read must not present a previous campaign snapshot as current.
+    setDetail(null); setLoadingDetail(true);
     setBusy(true); setError(""); setMessage("");
     try {
       const result = await apiJson<Detail>(`/api/merchant/campaigns/${encodeURIComponent(id)}`);
-      if (edit) { if (result.campaign.status !== "draft") throw new Error("Nur Entwürfe können geändert werden."); start(editorFrom(result.campaign), 2, id); }
+      if (request !== detailRequest.current) return;
+      if (edit) { if (result.campaign.status !== "draft") throw new Error("Nur Entwürfe können geändert werden."); setBusy(false); start(editorFrom(result.campaign), 2, id); }
       else setDetail(result);
-    } catch (cause) { setError(reason(cause)); }
-    finally { setBusy(false); }
+    } catch (cause) { if (request === detailRequest.current) setError(`Kampagnendaten konnten nicht geladen werden. Bitte öffne die Details erneut. ${reason(cause)}`); }
+    finally { if (request === detailRequest.current) { setBusy(false); setLoadingDetail(false); } }
   }
 
   const head = (
@@ -203,6 +212,7 @@ export function CampaignsView() {
               </li>))}</ul>
           )}
         </section>
+        {loadingDetail && <div role="status" aria-live="polite"><Notice>Kampagnendaten werden geladen …</Notice></div>}
         {detail && <DetailPanel detail={detail} onClose={() => setDetail(null)} />}
         {confirmCancel && <OwnerDialog title={`„${confirmCancel.title}“ abbrechen?`} tone="danger" onClose={() => setConfirmCancel(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setConfirmCancel(null)}>Zurück</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => { const target = confirmCancel; setConfirmCancel(null); void act(target.id, "cancel"); }}>Kampagne abbrechen</button></>}><p>Eine abgebrochene Kampagne wird nicht mehr versendet.</p></OwnerDialog>}
       </div>

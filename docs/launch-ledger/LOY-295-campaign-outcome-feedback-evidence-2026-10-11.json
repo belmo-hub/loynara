@@ -1,0 +1,109 @@
+{
+  "issue": "LOY-295",
+  "assignment": "LOY-ENG-20261011-067",
+  "base_sha": "75ca3b183f9aa60c0f6b93cc02b8185aa4bdf420",
+  "source_sha": "containing source commit; exact receipt follows",
+  "recorded_utc": "2026-10-11T03:02:10.679946+00:00",
+  "environment": "synthetic local application; Chrome375/1280; owned PostgreSQL18.6 localhost55433; no provider dispatch",
+  "global": {
+    "files": 165,
+    "passed": 1561,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 143.13,
+    "skips": [
+      "lost browser-card recovery captures the recovery message in loopback Mailpit through the real sender"
+    ]
+  },
+  "browser": {
+    "final_passed": 12,
+    "failed": 0,
+    "seconds": 47.0,
+    "artifact_case_passed": 1,
+    "artifact_case_seconds": 4.5,
+    "initial_selector": "1FAIL invalid selector; not productRED",
+    "valid_red": "1FAIL11.8s stale region after actualHTTP500",
+    "first_green": "1PASS4.0s",
+    "extended_fixture_attempt": "10PASS2FAIL59.2s wrong existing-draft label/navigation"
+  },
+  "focused": "21PASS53ms",
+  "static": "typegen/typecheck/changed lint/normalproductionbuild PASS; finaltestcheck PASS",
+  "review": "existing gpt-6.1-sol Medium read-only; no material findings; no tests rerun; source unchanged after review",
+  "artifacts": [
+    {
+      "path": "/tmp/loy-067-selector-failure.log",
+      "bytes": 3220,
+      "sha256": "a3adbb475808447f4d6d2caf35924ae035354a339c46078c45494d0b8bfcbd31"
+    },
+    {
+      "path": "/tmp/loy-067-red.log",
+      "bytes": 3203,
+      "sha256": "0446bb2e45483eb2d97f175ac1de960efaaff250ff23569ab6839d357d3c1f31"
+    },
+    {
+      "path": "/tmp/loy-067-first-green.log",
+      "bytes": 614,
+      "sha256": "27e509e31a7798a08ada20ea839f402d33b6fc3fc27c99ab9d630a1503209c1f"
+    },
+    {
+      "path": "/tmp/loy-067-browser-green.log",
+      "bytes": 1984,
+      "sha256": "b0f989578697c227e5d5011099561ad5c15bb7173a2cd21d5e1f8e199e7972f9"
+    },
+    {
+      "path": "/tmp/loy-067-browser-final.log",
+      "bytes": 6660,
+      "sha256": "0233a5987b92c2ac3a5781f8b0f36242455b2d945064482091dd528016e7b33d"
+    },
+    {
+      "path": "/tmp/loy-067-browser-verified.log",
+      "bytes": 2269,
+      "sha256": "83cd5e79cfe9eae400f0c196780fdded99dfe4b650ce505d06643f8b4f90aebc"
+    },
+    {
+      "path": "/tmp/loy-067-mobile-artifact.log",
+      "bytes": 614,
+      "sha256": "1ad1ceee7d83a8522696891837db46c6de68dc8a49afb1034417eb1d5196de36"
+    },
+    {
+      "path": "/tmp/loy-067-unit.log",
+      "bytes": 883,
+      "sha256": "fed9f0bd07b0778b56b32bfad1f220e58221fa369aa0eb9af7d88abdf9715ede"
+    },
+    {
+      "path": "/tmp/loy-067-static.log",
+      "bytes": 4317,
+      "sha256": "99d5a54246e4944ab7b3fd9a55143595dbf3297825ff983bf33ff8986e169b6a"
+    },
+    {
+      "path": "/tmp/loy-067-testcheck-final.log",
+      "bytes": 45,
+      "sha256": "3fbdf84a06d1fcfaf5b173925f5ca677efe63cb05f112f97cb7d55aa82a36499"
+    },
+    {
+      "path": "/tmp/loy-067-global.log",
+      "bytes": 35212,
+      "sha256": "30a05e66a38034a20cdbbb65132f0c7aac6305365638623230de4b077e1c243f"
+    },
+    {
+      "path": "/tmp/loy-067-global.json",
+      "bytes": 615319,
+      "sha256": "02b2e57d6a3db96426653f32b64f2da1e694198554f80f223225e0c36f47cc31"
+    },
+    {
+      "path": "/tmp/loy-067-current-outcomes-mobile.png",
+      "bytes": 62713,
+      "sha256": "5931861495204839606d5b2151c45e799db01633efb85a49ac3d17bdddb128bf"
+    }
+  ],
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "integrated": "pending receipt",
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "usage": "native cumulative token/time receipt follows; input/cachedsubset/output/reviewer split unmeasured"
+}

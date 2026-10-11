@@ -133,3 +133,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /066 [LOY-294 recovery confirmation uncertainty](LOY-294-recovery-confirm-feedback-2026-10-11.md): actualHTTP500/challenge-preserved RED, fixed invalid-proof vs temporary/ambiguous feedback;12real browser+18helperPASS, static/normalbuild/reviewPASS. Final global and integration receipts in entry; parent33/34 OPEN.
 
 - /066 receipt: LOY-294 source56cb97ad2a409402b08e8111aa49a4bff10b71dc locally integrated;18focusedPASS;comment7-122/readback02:48:51UTC verified codingDone. Parent33/34 unresolved; GmailreceiptUNVERIFIED.
+
+- 2026-10-11 /067 [LOY-295 campaign detail freshness](LOY-295-campaign-outcome-feedback-2026-10-11.md): actualGET500/stale-panel RED; clear previous detail at read start, explicit loading/error/retry and abandoned-response guard. Verification/integration receipt in entry;167/168 OPEN.

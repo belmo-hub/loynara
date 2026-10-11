@@ -46,7 +46,7 @@ describe("disabled delivery has no paused campaign scheduler", () => {
 
 function builderMarkup(patch: Record<string, unknown>, step = 0) {
   const editor = { title: "Synthetic draft", subject: "Synthetic subject", body: "Synthetic body", kind: "inactive", withinDays: 30, daysSinceLast: 30, minCheckouts: 2, maxRemaining: 2, rewardId: "", ...patch };
-  state.overrides = [{ goal: null, options: {} }, { step, editor, editingId: null, savedId: null, goal: null }, true, { state: "idle" }, null, false, "", "", {}, null];
+  state.overrides = [{ goal: null, options: {} }, { step, editor, editingId: null, savedId: null, goal: null }, true, { state: "idle" }, null, false, false, "", "", {}, null];
   return renderToStaticMarkup(createElement(CampaignsView));
 }
 function buttonMarkup(html: string, label: string) {
