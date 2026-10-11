@@ -182,3 +182,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-11 /101: [LOY-321-pending-invitation-cancellation-2026-10-11.md](LOY-321-pending-invitation-cancellation-2026-10-11.md) —321 owner pending invitation cancellation;33 focused/4 browser/global1629PASS,1 existing skip; LOCAL integration/tracker receipt follows,153154 broad gates OPEN.
 
 - 2026-10-11 /102: [Full launch critical path](2026-10-11-full-launch-critical-path.md) — bounded fallback,278-row historical-plus321 register/17workstreams,13 targeted live issues,10 priority open deliverables; current full coverage/timeframe UNKNOWN, accepted271/272 preserved; no application change.
+
+- 2026-10-11 /105: [Ten-merchant release verification](2026-10-11-ten-merchant-release-105.md) — durable actual-route/PG cohort,2 Chrome journeys/typecheck/lint/build/full suite PASS; no product defect; owner reauthentication resolved/automatic branch trigger unknown; local integration receipt follows, full launch NO-GO.

@@ -1,0 +1,32 @@
+# LOYNARA — ten-merchant release verification 105
+
+Assignment105 /2026-10-11 /Codex /root. LOY-28,185/186,282. Base `25a9813e4868748dfc121f620be15caa6995e53d`; unchanged application source `a6f281b216efcdfcdf0cb543aa0f5c43e69fb184`. Existing isolated branch codex/ten-merchant-release-105; resulting commit/integration receipt follows. [Sanitized evidence](2026-10-11-ten-merchant-release-105.json). Assigned SolMedium preflight/SolHigh cohort; effective setter unavailable/executor retained. Reviewer model and granular input/cached/output usage unmeasured. Native cumulative observation13,675,025tokens, no reset.40GiB initially/39GiB after checks; reused existing checkout, no install/new tree/cleanup.
+
+## Actual changes and verification
+
+Durable files: src/lib/ten-merchant-release.integration.test.ts, scripts/loy-105-browser-seed.ts, e2e/ten-merchant-release.spec.ts. Synthetic owned PostgreSQL guard before normal fixture reset, real auth signups/sessions/onboarding/enrollment/cashier routes and domain transactions. No production correction was demonstrated or made.
+
+| Covered local contract | Actual outcome |
+|---|---|
+| Ten merchants, each owner/location/cashier/programme/customer |10 isolated tenants;5 manual stamp+5 manual point variants;20 initial memberships, real staff invite/accept/revoke |
+| Tenant permissions and returning recognition |Foreign read/brand/award/redemption denied; unauthenticated/revoked staff denied; existing session recognized, duplicate enrollment refused |
+| Earning, selected rewards and referrals |Concurrent identical award yields one ledger entry; selected redemption debits correctly; referral qualification/bonuses and analytics reconcile50 initial cohort ledger rows |
+| Campaigns and consent |Real composition/preview/scheduling; one eligible contact out of2; withdrawal before dispatch materialization gives0 queued recipients, no send |
+| Wallet and recovery |Mocked Google issuance/refresh; wrong-tenant refresh harmless; recovery rotates bearer while preserving membership/balance/original Wallet pass/object |
+| Real Chrome at375px and1280px |2 PASS12.9s; one stamp merchant enrollment→QR/cashier earning→selected reward redemption→card closure→owner overview; actual identity components asserted |
+
+Type generation/typecheck/focused lint zero warnings/production build PASS. Full configured suite:181 files,1630PASS/0FAIL/1existing optional skip,174.00s. JSON nested-suite counters: {"numTotalTestSuites": 432, "numPassedTestSuites": 432, "numFailedTestSuites": 0, "numTotalTests": 1631, "numPassedTests": 1630, "numFailedTests": 0, "numPendingTests": 1}. Existing readonly reviewer /root/loy281_sensitive_review: no material findings, static review only. Exact local integration receipt follows. No skipped new tests.
+
+These are sequential coexisting tenant workflows, not a10-merchant concurrent load test. Points are manual; purchase earning, ten physical merchants, real Wallet providers, actual passive NFC stand and phone delivery remain outside105. Local QR URLs do not establish physical NFC acceptance. The existing Mailpit skip remains unverified optional-provider coverage.
+
+Traceable failures: fixture/input/cookie/error-contract corrections preceded backend PASS without application changes. Desktop exact-text locator hit hidden responsive label; asserted actual mobile topbar/desktop sidebar instead. Repeated browser attempts hit conservative enrollment rate limit; rebuilt normal guarded disposable cohort and ran both cases once successfully, with no rate-limit modification. Typecheck caught new implicit fixture-array type; explicit domain-derived type fixed it. These are test authoring/setup failures, not product-defect RED evidence. Original logs retained locally; sanitized facts above are reconstructable without tmp logs.
+
+## Release holds and amendments
+
+105 RESOLVES the historical GitHub owner-reauthentication hold: existing installation145405138 is now readable, Supabase All repositories selected, no settings changed. Remaining precise hold is UNVERIFIABLE linked-project/automatic-branching configuration. Official Supabase GitHub docs describe optional hosted branch creation on a new Git branch; installation scope does not prove it disabled. Exact nonmutating ls-remote: integration ref absent, railway-rc5c580be9b1887327cc456e672d2f25f29fc25830; no configured custom hook path or executable pre-push hook. No push/dryrun. Restricted-trigger uncertainty parks the push only. PLANNED alternative: founder separately approves a named private Git-only backup destination, then verify no integration triggers before any creation/push; no new repository, account or permission change now.
+
+Reuse [104 release manifest](2026-10-11-release-manifest-104.md) without repeating accepted audit: latest observed hosted web+worker792e218,21 exact migration rows0000..0020; candidate25 through0024. Ordered all-writer stop/drain, fresh encrypted backup and independently restored approved artifact,0021→0024 migration, same-SHA web/worker rollout, postdeployment synthetic tenant checks and safe recovery remain separately authorized operator work. No unsupported old/new writer overlap or assumed old-binary rollback.105 does not refresh hosted runtime facts.
+
+Board proposal remains exactly `project: LOY Launch requirement: {Must Launch}, {Scope Decision Required}` (remove only #Unresolved). Preserve stages/hierarchy/acceptance. Specific shared-board setting approval still absent; NOT APPLIED. Existing read-only Done/Local Implementation engineering view, parent review, independent acceptance and release blocker views described104 remain available. No new duplicate search or falsely closed feature. Tracker comments/readback follow.
+
+IMPLEMENTED/TESTED local verification; INTEGRATED receipt pending; NOT PUSHED/DEPLOYED/INDEPENDENTLY ACCEPTED/COMMERCIALLY READY. October13 full merchant-ready **NO-GO** until exact required policy, commercial, physical/provider and separately authorized release gates close. Target is not a promise or authorization. Frozen32b27/e1aae658/9848e759 ancestry preserved. Next: positively resolve branch-trigger safety or separately approve Git-only backup; approved exact-SHA cutover after backup/restore; independent exact-SHA physical/provider and remaining full-scope decisions. Full coding scope remains INCOMPLETE/UNKNOWN, no reduced MVP.

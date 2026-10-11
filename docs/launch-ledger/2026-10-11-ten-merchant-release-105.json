@@ -1,0 +1,83 @@
+{
+  "assignment": "LOY-ENG-20261011-105",
+  "date": "2026-10-11T12:39:38.905697+00:00",
+  "issues": [
+    "LOY-28",
+    "LOY-185",
+    "LOY-186",
+    "LOY-282"
+  ],
+  "base": "25a9813e4868748dfc121f620be15caa6995e53d",
+  "application_source": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184; unchanged production code in105",
+  "result": "containing commit; exact source/integration receipt follows",
+  "branch": "codex/ten-merchant-release-105",
+  "model": "assigned SolMedium preflight/SolHigh cohort, supported effective setter unavailable; executor retained; actual reviewer configuration unmeasured",
+  "execution": "existing isolated Mac checkout, owned loopback PostgreSQL /private/tmp/loynara-goal-133-pg /looplocal_test; installed Chrome channel; no new tree/install/cleanup",
+  "status": {
+    "implemented": "durable integration/browser verification only; no product correction demonstrated",
+    "tested": true,
+    "integrated": "pending receipt",
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "tests": {
+    "cohort": "one actual-route/PG test:10 distinct merchants,5manual stamps+5manual points,20 initial customer memberships; concurrent same-key awards, tenant isolation, real staff/session lifecycle, selected reward/referral, campaign withdrawal before materialization, analytics/recovery/stable mockedGoogleWallet",
+    "browser": "2 PASS12.9s,375px+1280px customer/cashier/owner journey in installed Chrome; one stamp merchant",
+    "static": "next typegen/typecheck/zero-warning focused lint/production build PASS",
+    "global": {
+      "numTotalTestSuites": 432,
+      "numPassedTestSuites": 432,
+      "numFailedTestSuites": 0,
+      "numTotalTests": 1631,
+      "numPassedTests": 1630,
+      "numFailedTests": 0,
+      "numPendingTests": 1,
+      "files": 181,
+      "duration_seconds": 174.0
+    },
+    "review": "existing readonly reviewer loy281_sensitive_review no material findings; no independent runtime rerun"
+  },
+  "limits": [
+    "cohort exercised sequentially, not10-merchant concurrent load",
+    "manual points, not purchase earning",
+    "one stamp browser tenant, not10 physical merchants",
+    "Google mocked; no real provider/Apple/physical NFC acceptance",
+    "local QR/customer URLs do not prove NTAG424 stand or locked-phone push acceptance",
+    "global existing optional Mailpit skip is not acceptance"
+  ],
+  "failures": [
+    "fixture contract corrections before backend PASS; no product defect inferred",
+    "desktop exact text selected hidden responsive label; corrected actual sidebar/topbar identity without changing application",
+    "repeated browser attempts exhausted conservative local enrollment rate limit; fresh normal guarded cohort setup followed by one2-case run PASS, no limiter weakening",
+    "new fixture array type initially implicit any; fixed explicit domain-derived type, static PASS"
+  ],
+  "github": {
+    "owner_reauthentication": "RESOLVED: existing installation145405138 now readable",
+    "installation": "Supabase All repositories selected; no settings changed",
+    "trigger": "UNVERIFIABLE linked projects / automatic branching / Supabase-changes-only setting",
+    "documentation": "https://supabase.com/docs/guides/deployment/branching/github-integration \u2014 optional automatic branching can create hosted branch on a new Git branch; installed scope does not prove it disabled",
+    "remote_integration_ref": "ABSENT, read-only ls-remote",
+    "remote_railway_rc": "5c580be9b1887327cc456e672d2f25f29fc25830",
+    "prepush": "no configured core.hooksPath/no executable pre-push hook",
+    "push": "NOT ATTEMPTED; unknown hosted mutation trigger parks only remote operation",
+    "alternative": "PLANNED only: separately approve a named private Git-only backup repository with no deployment connections; verify app scope/triggers before creation/push, no new permissions/account/configuration now"
+  },
+  "release": "Reuse104 exact source792e218/schema0000..0020 evidence; candidate0021..0024 ordered release checklist; all-writer drain+encrypted backup/independent restore+sameSHA rollout restricted/unexecuted; October13 NO-GO",
+  "board": "Reuse104 verified #Unresolved root cause. Proposed query project: LOY Launch requirement: {Must Launch}, {Scope Decision Required}; shared config change NOT APPLIED, specific authorization required. Existing readonly Done engineering view retained. No false acceptance transitions.",
+  "external_actions": "read-only GitHub installation and remote refs; authorized tracker evidence and coordinator review receipts follow. No remote/hosted/provider/customer/tag writes.",
+  "usage": {
+    "native_cumulative_observed": 13675025,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_reviewer": null,
+    "unmeasured": "granular split unavailable, no accounting reset"
+  },
+  "next": [
+    "positively verify existing Supabase project/automatic-branching trigger or separately authorize nondeploying backup destination",
+    "authorize exact-SHA all-writer/backup/restore/migration cutover only after required gates",
+    "independent exact-SHA physical/provider and remaining policy/commercial full-scope acceptance"
+  ]
+}
