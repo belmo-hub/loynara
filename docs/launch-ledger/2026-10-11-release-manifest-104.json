@@ -1,0 +1,228 @@
+{
+  "assignment": "LOY-ENG-20261011-104",
+  "observed_utc": "2026-10-11T11:57:28.303285+00:00",
+  "base": "7e0dfa45034bf76ee4686601d34a4149323dab17",
+  "result": "containing evidence commit; local integration receipt follows",
+  "branch": "codex/release-readiness-104",
+  "agent": "Codex /root",
+  "execution": "existing isolated Mac checkout; no install/new tree/cleanup",
+  "model": "assigned SolHigh release/Medium tracker+review; effective setter unavailable/executor retained, exact config unmeasured",
+  "production": {
+    "project": "b07a3919-b3fc-4637-8b91-d0b4418d2856",
+    "environment": "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
+    "web": {
+      "service": "5c1303ad-42c2-4094-a996-3ac6140d088d",
+      "active_deployment": "fe8b9d81-d6a9-452f-8807-c811f3c49421",
+      "source": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "ui_status": "Active/Online",
+      "start_log": "production guard passed / Next16.3.6 ready; dated Oct9, not current live application attestation"
+    },
+    "worker": {
+      "service": "3bfad7e8-c638-41bd-8f50-743e68c0633f",
+      "active_deployment": "5471cb46-237e-40a5-a3eb-ad780db9bc59",
+      "source": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "ui_status": "Active/Online",
+      "start_command": "npm run worker"
+    },
+    "journal": {
+      "rows": [
+        [
+          "1",
+          "7274fc079d768a164d604dfe6fd4b0dee984b4901e8453aab35728990aa4418b",
+          "1790341790664"
+        ],
+        [
+          "2",
+          "1fa5daad714bf2251b8d25303f8aabc57f6a582f32ebe54c984204f44ea1570f",
+          "1790342756050"
+        ],
+        [
+          "3",
+          "b5c06f3836ebac94a19a01aff5ec2012480e8713f1e3bbd753baef4b23d4d957",
+          "1790342925349"
+        ],
+        [
+          "4",
+          "905c850059f6b951202af1746366244ac0512bb133d8343caff5f4771f73b5e9",
+          "1790343596440"
+        ],
+        [
+          "5",
+          "e6763bae245ddeba53620c6d01da0fcbaf899b9f3db3cb297e754a1d0761e5bc",
+          "1790345071657"
+        ],
+        [
+          "6",
+          "4cc008b7009677b83f1c8382d1b82e0d87f8b113941fda9e0d1541c483086b1a",
+          "1790345900549"
+        ],
+        [
+          "7",
+          "55ebba4eb685be271b35c0e1f24f96a0884886a9cc90aa3487a05d03e65d9e04",
+          "1790347449816"
+        ],
+        [
+          "8",
+          "e035e41c01021f2d26a828be3c3b5a893b182dfa0842a0f926cce36fa444cdfd",
+          "1790363870739"
+        ],
+        [
+          "9",
+          "20f0dce395bcb6dc19ef66b7009e679051c6cc17eb787589d17f960965c1fd9b",
+          "1790365412649"
+        ],
+        [
+          "10",
+          "0ee1bcce7b97bbd1d1d39cb50d0e250899d650d94100c56172b757e65f4487da",
+          "1790366483044"
+        ],
+        [
+          "11",
+          "4e7f1f0fe5be753665aac9033b7840fb37b104a8c3097e7be5cc032d1fec390f",
+          "1790367246298"
+        ],
+        [
+          "12",
+          "71c290984548b3da95fd8047dd2f942d01b6d9823f680af814a9924700d73084",
+          "1790368587151"
+        ],
+        [
+          "13",
+          "75f4e2ba01ab3a9b5c5ec26e7fdc143077bf0102cd5b76b028358a2c140e3140",
+          "1790373099963"
+        ],
+        [
+          "14",
+          "fff65e5c30f92fe82e4faaabf7079f7e38f2f97e30a4fe7caeaf0e602d21e3f6",
+          "1790374827104"
+        ],
+        [
+          "15",
+          "c8b7d0f723f2cd65db882f9cc9c0e798b255708ffea94431527a455145fc7ed5",
+          "1790477381106"
+        ],
+        [
+          "16",
+          "da4f40b74b3e63ae8a5c8eeb6093b7b3ce1aefb7db6140b87d4a64454d24b0be",
+          "1790477578300"
+        ],
+        [
+          "17",
+          "62c59eea31a550a4e53cb443a04846b9ffe85d4fb546ad6955e3dce6de208090",
+          "1790545967721"
+        ],
+        [
+          "18",
+          "19a8a0624a32bf269606e977234072ab31f6e9f2b727c0b79917a28d3bb59ff9",
+          "1790546708472"
+        ],
+        [
+          "19",
+          "abd0e28e8b223a5273ef884033ec99a16124876009b61bb5c1ebdd716884c7c8",
+          "1790956320487"
+        ],
+        [
+          "20",
+          "f7d1d53946c9cf309896b6368d5241c97974ce009c7e8471358515e3ff496c69",
+          "1791127119079"
+        ],
+        [
+          "21",
+          "943a8fe9066159fd75840cfb073e7b41be91da0e6646ce33c6dd9ab5508debbf",
+          "1791296519073"
+        ]
+      ],
+      "matches_canonical_through": "0020",
+      "candidate_rows": 25
+    },
+    "current_web_configured_flags": {
+      "source": "Railway current web service Variables UI; not running-process environment attestation",
+      "APPLE_WALLET_ENABLED": false,
+      "GOOGLE_WALLET_ENABLED": false,
+      "PASSFAST_ENABLED": false,
+      "EXTERNAL_EMAIL_ENABLED": false,
+      "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED": false,
+      "TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED": false,
+      "LIVE_BILLING_ENABLED": false,
+      "WALLET_PRODUCTION_APPROVED": false,
+      "PUBLIC_REGISTRATION_ENABLED": false
+    },
+    "worker_flags": "UNKNOWN",
+    "all_running_writer_inventory": "UNKNOWN; architecture displays worker/web/migrate/backup/ops/cloudflared/Postgres, not exhaustive process proof",
+    "public_root": "app.getloynara.com -> /login application form; no Cloudflare identity page observed",
+    "health": "Browser net::ERR_BLOCKED_BY_CLIENT; UNKNOWN; no bypass",
+    "actual_customer_membership_route_access": "UNKNOWN; no production customer/token used",
+    "backup": "scheduled Last run succeeded shown; encryption/object freshness/restore acceptance UNKNOWN"
+  },
+  "candidate": {
+    "source_sha": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184",
+    "integration_base": "7e0dfa45034bf76ee4686601d34a4149323dab17",
+    "migration": "0024 /25rows",
+    "pending_migrations": [
+      "0021_staff_push_subscriptions",
+      "0022_email_rate_limit_retry",
+      "0023_reward_ready_automation",
+      "0024_outbox_claim_token"
+    ],
+    "diff_files": 431,
+    "diff_top_level": {
+      "src": 155,
+      "docs": 166,
+      "e2e": 52,
+      "scripts": 37,
+      "drizzle": 9,
+      "public": 6,
+      "other": 6
+    },
+    "full_scope": "INCOMPLETE/UNKNOWN criteria coverage; feature count not derived from file/issue counts",
+    "global": "103:180files1629PASS0FAIL1existingoptionalSKIP166.09s",
+    "browser": "103:4PASS6.8s",
+    "static": "103:typegen/typecheck/lint0/buildPASS",
+    "local_rehearsal": "103:34migrationCLIconfigPASS, web/workerstartup/restorePASS; no repeated tests for104docs"
+  },
+  "board": {
+    "id": "204-1",
+    "name": "Loynara \u2014 Full Launch Control",
+    "query": "project: LOY Launch requirement: {Must Launch}, {Scope Decision Required} #Unresolved",
+    "behavior": "Filter cards to match a query",
+    "sprints": "Disabled",
+    "ignore_subtasks": false,
+    "columns": "Stage",
+    "done_mapping": "Done marked resolved",
+    "swimlane_field": "Workstream",
+    "uncategorized": true,
+    "root_cause": "#Unresolved explicitly excludes resolved Done issues; no type filter present; not subtask/sprint exclusion",
+    "counterprobe": "same query +StageDone returns0; removing#Unresolved returns322321andmore",
+    "current_local_done_view_count": 48,
+    "count_warning": "issue records/field labels only, not48 independently accepted features",
+    "existing_saved_completed_search": "Launch \u2014 Completed with Evidence",
+    "saved_search_query": "project: LOY Stage: Done Evidence state: {Repository Verified}, {Automated Tests Verified}, {Production Verified}, {Physical Test Verified}, {Commercial / Legal Verified}",
+    "proposed_board_query": "project: LOY Launch requirement: {Must Launch}, {Scope Decision Required}",
+    "settings_changed": false
+  },
+  "push": {
+    "status": "UNVERIFIABLE /not pushed",
+    "scope": "exact codex/loynara-engineering-integration",
+    "reused_evidence": "fresh103 GitHub installation145405138 Confirm access; no new owner reauth observed; unchanged investigation not repeated",
+    "installed_app": "does not itself prove deployment trigger; no Supabase account/dependency inferred",
+    "human_action": "Existing GitHub owner personally reauthenticate on installation Configure, expose actual repository scope/trigger evidence without changing access; separate off-machine private Git backup requires founder destination/approval"
+  },
+  "external_actions": "authorized read-only Railway schema/deployment/flag pages and YouTrack queries only; tracker evidence receipt follows; no hosted mutation",
+  "state": "EVIDENCE VERIFIED /PLANNED RELEASE; NOT DEPLOYED/INDEPENDENTLY ACCEPTED/COMMERCIALLY READY",
+  "decision": "NO-GO",
+  "usage": {
+    "native_cumulative_tokens": 13345286,
+    "native_seconds": 73474,
+    "input": "unmeasured",
+    "cached_subset": "unmeasured",
+    "output": "unmeasured",
+    "browser_reviewer": "unmeasured",
+    "reset": false
+  },
+  "failures": [
+    "Initial browser binding name unavailable; rebound same verifiedChrome3, no new strategic conversation",
+    "Unnamed board button opened chart; found actual gear visually, no setting changed",
+    "Guessed production docs/glob absent; resolved relevant actual paths",
+    "Public health blocked by client; no bypass or status inference"
+  ]
+}

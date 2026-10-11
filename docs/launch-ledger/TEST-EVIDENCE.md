@@ -196,3 +196,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 /102: [Full launch critical path](2026-10-11-full-launch-critical-path.md) — bounded fallback,278-row historical-plus321 register/17workstreams,13 targeted live issues,10 priority open deliverables; current full coverage/timeframe UNKNOWN, accepted271/272 preserved; no application change.
 
 - 2026-10-11 /103: [LOY-322 Google Wallet lifecycle](LOY-322-google-wallet-lifecycle-2026-10-11.md) — actual browser RED->4PASS, reviewed cancellation ownership;34 migration tests and synthetic backup/worker startup PASS; final global/integration receipts follow, full commercial launch NO-GO.
+
+- 2026-10-11 /104: [Release identity and board visibility](2026-10-11-release-manifest-104.md) — fresh ACTIVE792e218 web/worker and21 exact journal rows; board #Unresolved proven exclusion/48localDone view; planned all-migration cutover/NO-GO, no hosted mutation or repeated global suite.
