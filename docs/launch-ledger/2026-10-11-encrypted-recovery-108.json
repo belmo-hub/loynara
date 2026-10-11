@@ -6,7 +6,7 @@
     "LOY-196"
   ],
   "base": "9946057a1ac2e0a10fdbc09423f1ee86b9afeb91",
-  "result": "containing commit; integration/tracker receipt follows",
+  "result": "b658fef808d602cea160385bf52b5656013026ec",
   "agent": "Codex /root",
   "model": "assigned gpt-6.1-sol medium inspection/review; no defect requiring High correction; effective setter unavailable retained executor; reviewer model unmeasured",
   "execution": "reused clean existing codex/encrypted-recovery-108; owned PG127.0.0.1:55433/data_directory verified; existing age1.3.2/PostgreSQL18.6; no install/new worktree/cleanup",
@@ -23,7 +23,8 @@
     "startup": "real restored getCard probes and actual worker --once exit0/examined0 due jobs with all providersOFF/dotenv disabled; probe after housekeeping preserves business invariants; not authenticated web or job/provider execution",
     "static": "typecheck/changed-fixture zero-warning ESLint/shell syntax PASS; existing production-backup transport check PASS; diffcheck PASS",
     "global_build": "no application/tool-source change; no fresh108 global/build. Reuse unchanged application105181files1630PASS0FAIL1existingoptionalMailpitskip and107buildPASS; historical evidence explicitly",
-    "review": "existing authorized readonly reviewer no material findings incl narrow worker delta; static only/no rerun"
+    "review": "existing authorized readonly reviewer no material findings incl narrow worker delta; static only/no rerun",
+    "integrated": "5 cases PASS10.630s on canonical b658fef; independent fresh disposable drill"
   },
   "failures": "Temporary test-generator nested quoting SyntaxError corrected before test creation/execution; no product RED or failed encryption approach. Initial drill5PASS8.674s; setup-failure cleanup guard rerun5PASS7.968s; final startup-complete5PASS9.539s. No weakened assertions or product fixes.",
   "evidence": {
@@ -40,7 +41,7 @@
   "status": {
     "implemented": "durable verification only; existing scripts already support encrypted recovery",
     "tested": true,
-    "integrated": "pending receipt",
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
@@ -62,5 +63,20 @@
     "browser_reviewer": null,
     "unmeasured": "granular splits unavailable; no reset"
   },
-  "next": "LOY-195/196 hosted artifact/key custody/independent acceptance still required; coordinator review before109; no speculative229 fallback because108bounded local drill completed; GitHub owner decision unchanged/not re-audited"
+  "next": "LOY-195/196 hosted artifact/key custody/independent acceptance still required; coordinator review before109; no speculative229 fallback because108bounded local drill completed; GitHub owner decision unchanged/not re-audited",
+  "tracker": {
+    "LOY-195": {
+      "comment": "7-186",
+      "stage": "In Review",
+      "maturity": "Local Implementation",
+      "evidence": "Automated Tests Verified",
+      "resolved": false
+    },
+    "LOY-196": {
+      "comment": "7-187",
+      "stage": "Backlog",
+      "resolved": false
+    },
+    "readback_utc": "2026-10-11T13:29:31Z"
+  }
 }
