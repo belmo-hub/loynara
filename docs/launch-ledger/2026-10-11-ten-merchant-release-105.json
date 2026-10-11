@@ -9,14 +9,14 @@
   ],
   "base": "25a9813e4868748dfc121f620be15caa6995e53d",
   "application_source": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184; unchanged production code in105",
-  "result": "containing commit; exact source/integration receipt follows",
+  "result": "6f164b6301f97bdd99f5cf7a58fef8fe43e79e25",
   "branch": "codex/ten-merchant-release-105",
   "model": "assigned SolMedium preflight/SolHigh cohort, supported effective setter unavailable; executor retained; actual reviewer configuration unmeasured",
   "execution": "existing isolated Mac checkout, owned loopback PostgreSQL /private/tmp/loynara-goal-133-pg /looplocal_test; installed Chrome channel; no new tree/install/cleanup",
   "status": {
     "implemented": "durable integration/browser verification only; no product correction demonstrated",
     "tested": true,
-    "integrated": "pending receipt",
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
@@ -37,7 +37,8 @@
       "files": 181,
       "duration_seconds": 174.0
     },
-    "review": "existing readonly reviewer loy281_sensitive_review no material findings; no independent runtime rerun"
+    "review": "existing readonly reviewer loy281_sensitive_review no material findings; no independent runtime rerun",
+    "integrated": "1PASS3.85s"
   },
   "limits": [
     "cohort exercised sequentially, not10-merchant concurrent load",
@@ -79,5 +80,9 @@
     "positively verify existing Supabase project/automatic-branching trigger or separately authorize nondeploying backup destination",
     "authorize exact-SHA all-writer/backup/restore/migration cutover only after required gates",
     "independent exact-SHA physical/provider and remaining policy/commercial full-scope acceptance"
-  ]
+  ],
+  "tracker": {
+    "LOY-185": "7-180 readback12:40:25UTC Backlog/unresolved",
+    "LOY-28": "7-181 readback12:40:25UTC Backlog/unresolved"
+  }
 }
