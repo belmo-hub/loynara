@@ -214,3 +214,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 2026-10-11 /111: [Production worker startup gate](2026-10-11-production-worker-gate-111.md) — expected synthetic production refusal verified; positive production-job acceptance BLOCKED by existing policy, no bypass/source correction.43/165 bounded fallback unresolved; full scope OPEN/UNKNOWN. No push/deployment.
 
 2026-10-11 /112: [Populated contact export exclusion](2026-10-11-contact-export-exclusion-112.md) — realChrome1PASS3.0s with positive two-tenantcontactfixtures, actualdownload whitelist/canary absence/isolation/503retry. No applicationcorrection.165contract/full43/209 and externalgatesOPEN; localreceipt follows.
+
+
+2026-10-11 /120: [Fresh read-only hosted preflight120](2026-10-11-hosted-preflight-120.md) — fresh public health/root GET200 and exact21-row migration hash/timestamp comparison; own shell flagsfalse but app-process environ EACCES. No new local/global test/build or broad acceptance claim.

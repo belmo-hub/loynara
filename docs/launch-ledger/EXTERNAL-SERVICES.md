@@ -14,3 +14,6 @@ No deployment, provider/billing activation, purchase, DNS/secret/permission chan
 
 
 2026-10-11 /119: [Founder-authorized GitHub push and prepared recurring workflow](2026-10-11-github-push-119.md) — direct founder Option A executed once to existing private integration branch; remoteSHAee4af7b verified, railway-rc unchanged. No unexpected activity observed on available surfaces; inaccessible Supabase/delayed effects unverified. No hosted configuration/deployment/provider/App permission mutation.
+
+
+2026-10-11 /120: [Fresh read-only hosted preflight120](2026-10-11-hosted-preflight-120.md) — authorized fresh metadata/GET and two whitelisted read-only web-console probes; EACCES preserved, no bypass. No hosted service/config/customer/schema changes or extra push.

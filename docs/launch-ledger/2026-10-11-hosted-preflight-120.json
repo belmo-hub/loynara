@@ -1,0 +1,251 @@
+{
+  "assignment": "LOY-ENG-20261011-120",
+  "observed_at": "2026-10-11T16:58:46.481508+00:00",
+  "local": "21d1ccb12c50774829b4792fa6ac9daa44e2f633",
+  "remote": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+  "source_subtree": "73155698a3368b14a846bb4ec90001125b89fa61",
+  "web": {
+    "active_deployment": "fe8b9d81-d6a9-452f-8807-c811f3c49421",
+    "source": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+    "build_id": "yUWLHV29RyeGhz3HhrhG7",
+    "UI_metadata": "Fresh Details source link/active ID",
+    "shell_attestation": {
+      "at": "2026-10-11T16:56:50.964Z",
+      "processes": [
+        {
+          "pid": 1,
+          "error": "EACCES"
+        },
+        {
+          "pid": 15,
+          "error": "EACCES"
+        },
+        {
+          "pid": 3,
+          "error": "EACCES"
+        },
+        {
+          "pid": 73,
+          "error": "EACCES"
+        },
+        {
+          "pid": 93,
+          "comm": "bash",
+          "sha": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+          "deployment": "fe8b9d81-d6a9-452f-8807-c811f3c49421",
+          "flags": {
+            "APPLE_WALLET_ENABLED": false,
+            "GOOGLE_WALLET_ENABLED": false,
+            "PASSFAST_ENABLED": false,
+            "EXTERNAL_EMAIL_ENABLED": false,
+            "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED": false,
+            "TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED": false,
+            "LIVE_BILLING_ENABLED": false,
+            "WALLET_PRODUCTION_APPROVED": false,
+            "PUBLIC_REGISTRATION_ENABLED": false
+          }
+        }
+      ]
+    },
+    "main_app_environment_attested": false
+  },
+  "worker": {
+    "active_deployment": "5471cb46-237e-40a5-a3eb-ad780db9bc59",
+    "source": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+    "command": "npm run worker",
+    "UI_metadata": "Fresh Details source link/active ID",
+    "running_process_environment": "UNKNOWN"
+  },
+  "journal": {
+    "at": "2026-10-11T16:53:26.650427+00:00",
+    "journal_rows": [
+      {
+        "id": 1,
+        "hash": "7274fc079d768a164d604dfe6fd4b0dee984b4901e8453aab35728990aa4418b",
+        "created_at": 1790341790664
+      },
+      {
+        "id": 2,
+        "hash": "1fa5daad714bf2251b8d25303f8aabc57f6a582f32ebe54c984204f44ea1570f",
+        "created_at": 1790342756050
+      },
+      {
+        "id": 3,
+        "hash": "b5c06f3836ebac94a19a01aff5ec2012480e8713f1e3bbd753baef4b23d4d957",
+        "created_at": 1790342925349
+      },
+      {
+        "id": 4,
+        "hash": "905c850059f6b951202af1746366244ac0512bb133d8343caff5f4771f73b5e9",
+        "created_at": 1790343596440
+      },
+      {
+        "id": 5,
+        "hash": "e6763bae245ddeba53620c6d01da0fcbaf899b9f3db3cb297e754a1d0761e5bc",
+        "created_at": 1790345071657
+      },
+      {
+        "id": 6,
+        "hash": "4cc008b7009677b83f1c8382d1b82e0d87f8b113941fda9e0d1541c483086b1a",
+        "created_at": 1790345900549
+      },
+      {
+        "id": 7,
+        "hash": "55ebba4eb685be271b35c0e1f24f96a0884886a9cc90aa3487a05d03e65d9e04",
+        "created_at": 1790347449816
+      },
+      {
+        "id": 8,
+        "hash": "e035e41c01021f2d26a828be3c3b5a893b182dfa0842a0f926cce36fa444cdfd",
+        "created_at": 1790363870739
+      },
+      {
+        "id": 9,
+        "hash": "20f0dce395bcb6dc19ef66b7009e679051c6cc17eb787589d17f960965c1fd9b",
+        "created_at": 1790365412649
+      },
+      {
+        "id": 10,
+        "hash": "0ee1bcce7b97bbd1d1d39cb50d0e250899d650d94100c56172b757e65f4487da",
+        "created_at": 1790366483044
+      },
+      {
+        "id": 11,
+        "hash": "4e7f1f0fe5be753665aac9033b7840fb37b104a8c3097e7be5cc032d1fec390f",
+        "created_at": 1790367246298
+      },
+      {
+        "id": 12,
+        "hash": "71c290984548b3da95fd8047dd2f942d01b6d9823f680af814a9924700d73084",
+        "created_at": 1790368587151
+      },
+      {
+        "id": 13,
+        "hash": "75f4e2ba01ab3a9b5c5ec26e7fdc143077bf0102cd5b76b028358a2c140e3140",
+        "created_at": 1790373099963
+      },
+      {
+        "id": 14,
+        "hash": "fff65e5c30f92fe82e4faaabf7079f7e38f2f97e30a4fe7caeaf0e602d21e3f6",
+        "created_at": 1790374827104
+      },
+      {
+        "id": 15,
+        "hash": "c8b7d0f723f2cd65db882f9cc9c0e798b255708ffea94431527a455145fc7ed5",
+        "created_at": 1790477381106
+      },
+      {
+        "id": 16,
+        "hash": "da4f40b74b3e63ae8a5c8eeb6093b7b3ce1aefb7db6140b87d4a64454d24b0be",
+        "created_at": 1790477578300
+      },
+      {
+        "id": 17,
+        "hash": "62c59eea31a550a4e53cb443a04846b9ffe85d4fb546ad6955e3dce6de208090",
+        "created_at": 1790545967721
+      },
+      {
+        "id": 18,
+        "hash": "19a8a0624a32bf269606e977234072ab31f6e9f2b727c0b79917a28d3bb59ff9",
+        "created_at": 1790546708472
+      },
+      {
+        "id": 19,
+        "hash": "abd0e28e8b223a5273ef884033ec99a16124876009b61bb5c1ebdd716884c7c8",
+        "created_at": 1790956320487
+      },
+      {
+        "id": 20,
+        "hash": "f7d1d53946c9cf309896b6368d5241c97974ce009c7e8471358515e3ff496c69",
+        "created_at": 1791127119079
+      },
+      {
+        "id": 21,
+        "hash": "943a8fe9066159fd75840cfb073e7b41be91da0e6646ce33c6dd9ab5508debbf",
+        "created_at": 1791296519073
+      }
+    ],
+    "exact_local_0000_to_0020_match": true,
+    "candidate_journal_count": 25,
+    "pending": [
+      "0021_staff_push_subscriptions",
+      "0022_email_rate_limit_retry",
+      "0023_reward_ready_automation",
+      "0024_outbox_claim_token"
+    ],
+    "physical_schema_objects": "NOT independently verified by journal alone",
+    "read_only": true
+  },
+  "public_health": {
+    "at": "2026-10-11T16:50:33.828113+00:00",
+    "requests": [
+      {
+        "url": "https://app.getloynara.com/api/health",
+        "exit": 0,
+        "status": "200",
+        "effective_url": "https://app.getloynara.com/api/health",
+        "error": "",
+        "response": {
+          "status": "ok",
+          "database": "reachable"
+        }
+      },
+      {
+        "url": "https://app.getloynara.com/",
+        "exit": 0,
+        "status": "200",
+        "effective_url": "https://app.getloynara.com/login",
+        "error": ""
+      }
+    ]
+  },
+  "backup": {
+    "Railway_volume_backups": "No Backups; this volume has no backups",
+    "Railway_new_backup_feature": "Upgrade to Pro required; no upgrade authorized/performed",
+    "custom_encrypted_backup_artifact_and_custody": "UNVERIFIED; scheduled success does not prove artifact/restore",
+    "independent_production_restore_acceptance": "LOY-195 In Review, LOY-196 Backlog/unresolved"
+  },
+  "deployment_mechanism": {
+    "web_source_branch": "railway-rc",
+    "web_auto_deploy": "disabled",
+    "supported_exact_candidate_mechanism": "UNVERIFIED; connected branch is not the reviewed integration branch; no branch/service source change or protected merge",
+    "local_railway_cli": "Unavailable; no installation attempted"
+  },
+  "writer_inventory": {
+    "known": "old web immediate-NFC writer + old worker require coordinated drain",
+    "complete_active_process_generation_inventory": "UNVERIFIED; production app PIDs1/3/15/73 environ EACCES, shell flags are not app-process attestation; utility writer/heartbeat custody incomplete"
+  },
+  "read_only": true,
+  "mutations": {
+    "pushes": 0,
+    "deployments": 0,
+    "migrations": 0,
+    "flags_or_permissions": 0,
+    "backup_restore_or_customer_actions": 0
+  },
+  "decision": "NO-GO for execution; conditional manifest requires exact-source mechanism, complete writer drain, fresh encrypted backup/custody and independent restore plus separate founder release authorization",
+  "failures": [
+    "CLI not installed; browser used instead",
+    "First process probe returned empty after read errors; explicit second probe records EACCES. No third/bypass attempt",
+    "Worker activity locator matched3; corrected to known active deployment ID; no mutation"
+  ],
+  "source_or_test_changes": false,
+  "prior_release_plan": "104 preserved; local108 recovery evidence historical; no fresh global suite",
+  "console_session": "exit submitted once; fresh UI confirmed session ended at 2026-10-11 17:02 UTC",
+  "independent_review": {
+    "reviewer": "existing /root/loy281_sensitive_review",
+    "outcome": "No material findings",
+    "scope": "Static journal/hash/plan review; no repeated independent hosted observations",
+    "source": "reviewer-120.txt",
+    "model_effort": "unmeasured"
+  },
+  "tracker_title_correction": "Live LOY-28 is Full launch acceptance (Epic), not a completed release-preparation coding task; original criteria remain open.",
+  "tracker": {
+    "issue": "LOY-28",
+    "comment": "7-197",
+    "exact_readback": "2026-10-11 17:04:17 UTC",
+    "stage": "Backlog",
+    "resolved": false,
+    "original_description_and_fields_preserved": true
+  }
+}

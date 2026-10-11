@@ -204,3 +204,6 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 114 amendment: [Physical NFC authorization and release status](2026-10-11-physical-access-release-status-114.md) — existing consumed physical session and later explicit no-retry directive verified; zero hardware calls; no physical acceptance or full-scope completion claimed.
 
 2026-10-11 /116: [Git push triggers and card context](2026-10-11-push-trigger-card-context-116.md) — authenticated GitHub PASS; push UNVERIFIABLE (no push); supported same-instance token replacement NOT APPLICABLE; native URL context1ChromePASS/static/review, no application change/full Wallet acceptance. Exact integration/tracker receipts follow.
+
+
+2026-10-11 /120: [Fresh read-only hosted preflight120](2026-10-11-hosted-preflight-120.md) — exact-source rollout mechanism, complete writer/process flags attestation, fresh encrypted artifact/key custody and independent restore remain missing before founder release decision. Source/deployment readiness distinct from full-scope policy/provider/physical acceptance.
