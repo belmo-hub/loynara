@@ -67,6 +67,24 @@
     },
     "railway-source-116.json": {
       "sha256": "d2705a35e605d34f9a7b2a1621c2808bade691bb3bfb270a325e18a46d20adfb"
+    },
+    "loy-116-integrated-browser.log": {
+      "sha256": "14cc2b52ee8c255e8771ae4911e0487ec2e4f912e355ad541dacd85e6b534721"
+    }
+  },
+  "integration_receipt": {
+    "commit": "c13fce23a7e1bca4bbaad3132dff5e771c3dc5d1",
+    "browser": "1PASS975ms total2.9s exit0",
+    "source_unchanged": true,
+    "tracker": {
+      "LOY-185": "7-194 Backlog unresolved",
+      "LOY-322": "7-195 Done local tests only"
+    },
+    "readback": "2026-10-11 15:39:21UTC",
+    "usage": {
+      "native_tokens": 15288160,
+      "native_seconds": 85156,
+      "granular": "unmeasured"
     }
   }
 }
