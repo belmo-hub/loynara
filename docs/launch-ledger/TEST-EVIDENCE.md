@@ -91,3 +91,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 LOY-177/057: valid unchangedapp401RED; partial3browserPASS; bounded redesign1fixtureFAIL3NOTRUN. FullGREEN absent; see stalled record. [Evidence](LOY-177-cashier-session-feedback-stalled-2026-10-11.md).
+
+
+LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS53s, focused3files6PASS, finalconfigured160files1506PASS0FAIL1optionalMailpitSKIP128.54s. [Evidence](LOY-289-cashier-session-feedback-2026-10-11.md).

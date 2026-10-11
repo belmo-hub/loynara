@@ -105,3 +105,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 LOY-177 assignment057 stalled after real401 browserRED; two fixture approaches and bounded shared-identity redesign hit actual signup limit. Not integrated/accepted. [Evidence](LOY-177-cashier-session-feedback-stalled-2026-10-11.md).
+
+
+2026-10-11 LOY-289: assignment059 resumed preserved057 after verified naturalcooldown; realbrowser4PASS, finalfull1506PASS/0FAIL/1existingSKIP. Localintegration receipt pending. [Evidence](LOY-289-cashier-session-feedback-2026-10-11.md).

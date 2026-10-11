@@ -81,3 +81,6 @@ LOY-193/194 and0024productioncutover remainOPEN;288diagnostic rehearsal is not p
 
 
 LOY-177/057 cashier401 guidance source preserved, verification held by local signup429;177/178 OPEN, no codingchildDone. [Evidence](LOY-177-cashier-session-feedback-stalled-2026-10-11.md).
+
+
+LOY-289 narrowcashier401 source/testcriteria passed;177/178 independentacceptance staysOPEN; no deployment/push/commercialclaim. [Evidence](LOY-289-cashier-session-feedback-2026-10-11.md).

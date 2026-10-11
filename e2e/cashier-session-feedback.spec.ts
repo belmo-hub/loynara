@@ -25,6 +25,10 @@ test.beforeAll(async ({ baseURL }) => {
   } finally { await owner.dispose(); await staff.dispose(); }
 });
 
+// Respect BetterAuth's rolling ten-second sign-in window between cases.
+// No retry, limiter override, or authentication storage mutation is used.
+test.beforeEach(async () => { await new Promise(resolve => setTimeout(resolve, 11_000)); });
+
 for (const width of [375, 1280]) for (const operation of ["award", "lookup"] as const) {
   test(`terminated cashier session blocks stale booking controls with sign-in guidance (${operation}, ${width}px)`, async ({ baseURL, browser }) => {
     const url = baseURL ?? "http://localhost:3000";
