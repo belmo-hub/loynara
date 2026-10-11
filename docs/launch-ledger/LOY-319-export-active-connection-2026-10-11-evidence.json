@@ -1,0 +1,50 @@
+{
+  "assignment": "LOY-ENG-20261011-097",
+  "issue": "LOY-319",
+  "parent": "LOY-43",
+  "base_sha": "068d169ae251a8f95f313fc046e406cd3a78bd38",
+  "source_result": "containing implementation commit; exact receipt stored in native state",
+  "red": {
+    "failed": 1,
+    "passed": 5,
+    "seconds": 3.08,
+    "cause": "unhandled checked-out PostgreSQL client error crashes actual export route subprocess"
+  },
+  "focused": {
+    "passed": 6,
+    "failed": 0,
+    "seconds": 2.78
+  },
+  "global": {
+    "numPassedTests": 1620,
+    "numFailedTests": 0,
+    "numPendingTests": 1,
+    "numTotalTestSuites": 428,
+    "numPassedTestSuites": 428,
+    "files": 177,
+    "seconds": 159.68
+  },
+  "static": {
+    "typegen": true,
+    "typecheck": true,
+    "changed_lint_zero_warnings": true,
+    "build": true
+  },
+  "review": "one existing read-only sensitive reviewer; no material findings; actual route invoked in-process, not network HTTP",
+  "logs": {
+    "/tmp/loy-097-red.log": "fa7565acc95279f2a42c698da7d8d3a9a700bc6709a1fbbd86e65ebf5a179cac",
+    "/tmp/loy-097-green-final.log": "5c9c3e4cff82e880495afbee06a9a5980457767b9aca2ed3f7e23ad6d08f497f",
+    "/tmp/loy-097-static.log": "abab9bdb3e8fc265d32575ad814769077bc29e786a6f8960c40621146d981df1",
+    "/tmp/loy-097-static-final.log": "409f897c92a7405707699ffd5ac91a99a5fd715ed2135a463b9d155b35c438c8",
+    "/tmp/loy-097-global.log": "88d57c44fd612550a8fec800e81fa0056b118408f1d2838d71f3c4eb96ef2fd5",
+    "/tmp/loy-097-global-final.json": "e0f31e240b277aa0e8072f2ee58a6e60944c911de9ab25e1d82e369dd9027409"
+  },
+  "integration": "pending at record creation",
+  "deployment": false,
+  "independent_acceptance": false,
+  "limitations": [
+    "primary/other-owner target-file overlap unverified due filesystem stalls, no writes there",
+    "fixture lint alias fixed without assertions weakened",
+    "input/cache/output/effective model/browser usage unmeasured"
+  ]
+}

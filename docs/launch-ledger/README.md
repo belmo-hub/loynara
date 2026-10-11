@@ -79,3 +79,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 - 2026-10-11 /095: [LOY-318 verified local operator handoff](LOY-318-operator-handoff-2026-10-11.md) —8focused/integratedPASS;318Done;151InReview/152human gateOPEN; no deployed/accepted claim.
 
 - 2026-10-11 /096: [LOY-117/193 bounded discovery](LOY-117-193-bounded-discovery-2026-10-11.md) — approved referral transaction and accepted worker/ops distinction observed; no demonstrated source gap or new tests; both full gates OPEN; coordinator reassignment.
+
+- 2026-10-11 /097: [LOY-319 active export connection failure](LOY-319-export-active-connection-2026-10-11.md) — genuine process-crash RED;6focusedPASS; static/global verified; local integration/tracker receipt follows;43/44 broader gatesOPEN.
