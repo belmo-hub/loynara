@@ -11,7 +11,7 @@
   },
   "browser": {
     "first_unscoped_red": "fixture selector ambiguity; preserved",
-    "valid_red": "actual400INVALID_REFERRAL untranslated/no recovery; source unchanged",
+    "valid_red": "1genuine scopedFAIL10.5s actual400INVALID_REFERRAL; unchanged source",
     "first_green": "1PASS2.4s",
     "final_passed": 7,
     "final_failed": 0,
@@ -20,7 +20,16 @@
   "focused": "21PASS1.95s",
   "static": "typegen/typecheck/max-warnings0 changedlint/normalproductionbuild PASS",
   "review": "existing assigned SolMedium read-only no material findings; effective runtime unmeasured",
-  "global": "pending",
+  "global": {
+    "files": 166,
+    "passed": 1575,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 142.06,
+    "skip_names": [
+      "lost browser-card recovery captures the recovery message in loopback Mailpit through the real sender"
+    ]
+  },
   "artifacts": [
     {
       "path": "/tmp/loy-070-primary.log",
@@ -56,11 +65,26 @@
       "path": "/tmp/loy-070-static.log",
       "bytes": 4317,
       "sha256": "94edcb623a24e235a0a6426acce2d60c92bd5b480b357169a4a5f2a6adbf47b3"
+    },
+    {
+      "path": "/tmp/loy-070-global.log",
+      "bytes": 35132,
+      "sha256": "2dcb9f9f2617b17ad63ac2da53c3d24b939b1cc39a32a95171808f21caa19bba"
+    },
+    {
+      "path": "/tmp/loy-070-global.json",
+      "bytes": 620184,
+      "sha256": "08c8c3a31d2441a51e691539cd1c30fde5e048df58d54b925c608b7bbf85d2a2"
+    },
+    {
+      "path": "/tmp/loy-070-integrated-unit.log",
+      "bytes": 1109,
+      "sha256": "d44678127983a46c6f115cd20d3ea6922b5035469bdab8a02a34789f7301512d"
     }
   ],
   "accounting": {
-    "native_cumulative_reported_tokens": 8583728,
-    "native_cumulative_seconds": 43713,
+    "native_cumulative_reported_tokens": 8609854,
+    "native_cumulative_seconds": 43915,
     "input_cached_output_browser_reviewer": "unmeasured",
     "remaining_tokens": null
   },
@@ -70,5 +94,20 @@
     "independently_accepted": false,
     "commercially_ready": false,
     "gmail_received": "unverified"
-  }
+  },
+  "source_sha": "6027c5654fcf8e3bb7395b20625e5f82720cdbda",
+  "integrated_source_sha": "6027c5654fcf8e3bb7395b20625e5f82720cdbda",
+  "owned_browser_databases": "070a/070b both dropped after app/clients stopped",
+  "disk_free": "44GiB",
+  "integrated_focused": "21PASS1.81s",
+  "tracker": {
+    "id": "LOY-298",
+    "stage": "Done",
+    "evidence": "Automated Tests Verified",
+    "feature_maturity": "Local Implementation",
+    "readback_utc": "2026-10-11 03:42:21",
+    "comment": "7-126",
+    "broader_scopes": "115116119177178OPEN"
+  },
+  "recording_failure": "first completion parser assumed Vitest assertion status pending; actual skipped status prevented JSON update, source commit correctly preserved pending record; fixed via append-only receipt without changing tests"
 }
