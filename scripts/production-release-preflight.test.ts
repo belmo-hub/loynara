@@ -5,7 +5,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repo = path.resolve(__dirname, "..");
-const release = "ee4af7b79e9e4a667d383b0b9f815f31daa53956";
+const release = "153928b10db55cbd0b40351116ee54515a6b107c";
+const previousRelease = "ee4af7b79e9e4a667d383b0b9f815f31daa53956";
 const current = "792e218a17287009067ce0993c33eda3bfc3f4b7";
 const ids = {
   web: "5c1303ad-42c2-4094-a996-3ac6140d088d", worker: "3bfad7e8-c638-41bd-8f50-743e68c0633f",
@@ -86,6 +87,28 @@ describe("offline release preflight through the existing migration CLI", () => {
       "0021_staff_push_subscriptions", "0022_email_rate_limit_retry", "0023_reward_ready_automation", "0024_outbox_claim_token",
     ]);
     expect(r.output.writerInventory.map((v: { id: string }) => v.id)).toContain("web-immediate-nfc");
+  });
+  it("binds the reviewed application snapshot independently of later local tooling commits", () => {
+    const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
+    expect(r.output.releaseSha).toBe(release); expect(r.output.executionEnabled).toBe(false);
+    expect(r.output.source.fingerprints).toEqual(expect.arrayContaining([
+      { file: "src/app/cashier/page.tsx", sha256: "ee85d2496bc117de873d949eeae573d2fadef251e299e638cfb788fd19f796d4" },
+      { file: "src/lib/product.ts", sha256: "79e6fb6daa4dc6f94a2e01fa951b89d2cc0f73b4e5dd22b34da73f3412ac3252" },
+    ]));
+    expect(r.output.source.fingerprints.map((v: { file: string }) => v.file)).toEqual(expect.arrayContaining([
+      "package.json", "package-lock.json", "marketing-site/package.json", "marketing-site/package-lock.json",
+    ]));
+  });
+  it("rejects receipts for the superseded release without echoing them or enabling execution", () => {
+    const e = fixture(); e.releaseSha = previousRelease; e.authorizations.releaseSha = previousRelease;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED");
+    expect(r.output.releaseSha).toBe(release); expect(r.output.executionEnabled).toBe(false);
+    expect(JSON.stringify(r.output)).not.toContain(previousRelease);
+  });
+  it.each(["web", "worker", "migrate"])("rejects the superseded planned %s generation", role => {
+    const e = fixture(); e.services.find(v => v.role === role)!.plannedGeneration = previousRelease;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED");
+    expect(r.output.executionEnabled).toBe(false);
   });
   it("validates a complete synthetic evidence manifest without granting execution authority", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
