@@ -135,3 +135,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - /066 receipt: LOY-294 source56cb97ad2a409402b08e8111aa49a4bff10b71dc locally integrated;18focusedPASS;comment7-122/readback02:48:51UTC verified codingDone. Parent33/34 unresolved; GmailreceiptUNVERIFIED.
 
 - 2026-10-11 /067 [LOY-295 campaign detail freshness](LOY-295-campaign-outcome-feedback-2026-10-11.md): actualGET500/stale-panel RED; clear previous detail at read start, explicit loading/error/retry and abandoned-response guard. Verification/integration receipt in entry;167/168 OPEN.
+
+- /067 receipt:295source615183065ad610b047912278f899a4f8c69043a6 locally integrated;21focusedPASS;comment7-123/readback03:02:38UTC codingDone.167/168 broader gates OPEN; no remote/deployment acceptance.

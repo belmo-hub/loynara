@@ -2,7 +2,7 @@
   "issue": "LOY-295",
   "assignment": "LOY-ENG-20261011-067",
   "base_sha": "75ca3b183f9aa60c0f6b93cc02b8185aa4bdf420",
-  "source_sha": "containing source commit; exact receipt follows",
+  "source_sha": "615183065ad610b047912278f899a4f8c69043a6",
   "recorded_utc": "2026-10-11T03:02:10.679946+00:00",
   "environment": "synthetic local application; Chrome375/1280; owned PostgreSQL18.6 localhost55433; no provider dispatch",
   "global": {
@@ -94,16 +94,37 @@
       "path": "/tmp/loy-067-current-outcomes-mobile.png",
       "bytes": 62713,
       "sha256": "5931861495204839606d5b2151c45e799db01633efb85a49ac3d17bdddb128bf"
+    },
+    {
+      "path": "/tmp/loy-067-integrated-unit.log",
+      "bytes": 892,
+      "sha256": "1fdf5a552ef6ae9b55f1066b46436fe63dd7ab357a3049aa336461dbb294f6e0"
     }
   ],
   "statuses": {
     "implemented": true,
     "tested": true,
-    "integrated": "pending receipt",
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
     "commercially_ready": false
   },
-  "usage": "native cumulative token/time receipt follows; input/cachedsubset/output/reviewer split unmeasured"
+  "usage": "native cumulative token/time receipt follows; input/cachedsubset/output/reviewer split unmeasured",
+  "integration": "canonical local FF verified;21 focusedPASS50ms",
+  "tracker": {
+    "issue": "LOY-295",
+    "comment": "7-123",
+    "stage": "Done",
+    "readback_utc": "2026-10-11 03:02:38",
+    "broader167_168": "Backlog/unresolved"
+  },
+  "cleanup": "one guarded owned native campaign browser database dropped after local app stopped; no worktree/dependency cleanup",
+  "native_usage": {
+    "status": "active",
+    "reported_tokens": 8152562,
+    "seconds": 41546,
+    "remaining_tokens": null,
+    "input_cached_output_review_split": "unmeasured"
+  }
 }
