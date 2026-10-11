@@ -37,3 +37,5 @@ Append date, original file/claim, verified source, correction, and scope/status 
 2026-10-11 /125 — [Card progress snapshot and candidate handoff](LOY-324-card-progress-snapshot-2026-10-11.md): Narrow local snapshot correction does not close39/40 or full launch. Browser proof uses actual route via owned loopback harness, not full Next navigation/physical devices. NativeBLOCKED, incremental usage unmeasured; new candidate pin/approvals outstanding.
 
 - 2026-10-11 / LOY-28 / Assignment126: Actual126 default BLOCKED: sourcePASS but authenticated writer/drain/config/recovery/approvals missing. Independent retrieval/restore and exact-SHA eligibility remain unverified; original nativeBLOCKED/control gap, incremental usageUNMEASURED. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
+
+- 2026-10-11 / direct founder push054 / LOY-185,28: Bounded GitHub/Railway observations do not establish inaccessible Supabase/future effects. Recovery custody/target/verifier, exact-SHA eligibility/stop semantics and separate approvals remain missing; nativeBLOCKED retained. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).

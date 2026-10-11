@@ -384,5 +384,66 @@
     "reset": false
   },
   "coordinator_review": "PENDING",
-  "remaining": "full launch acceptance open; no127 automatically; existing recovery/cutover facts and authority missing"
+  "remaining": "full launch acceptance open; no127 automatically; existing recovery/cutover facts and authority missing",
+  "founder_push_amendment_20261011": {
+    "id": "FOUNDER-PUSH-20261011-054F483",
+    "before": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+    "target": "054f4838bb99856d778dc471a4e7a58cd9dc81d6",
+    "branch": "codex/loynara-engineering-integration",
+    "repository": "belmo-hub/loynara",
+    "startedAt": "2026-10-11T20:24:33.117018+00:00",
+    "finishedAt": "2026-10-11T20:24:34.765891+00:00",
+    "exit": 0,
+    "pushSubmissions": 1,
+    "remoteSha": "054f4838bb99856d778dc471a4e7a58cd9dc81d6",
+    "verifiedAt": "2026-10-11T20:25:08.580319+00:00",
+    "remoteRailwayRc": "5c580be9b1887327cc456e672d2f25f29fc25830",
+    "githubNewDeploymentsSincePush": [],
+    "githubRuns": {
+      "total": 0,
+      "runs": []
+    },
+    "githubCandidateCheckRuns": {
+      "total": 0,
+      "checks": []
+    },
+    "githubLatestDeployment": {
+      "id": 6941938783,
+      "created_at": "2026-10-08T17:10:49Z",
+      "updated_at": "2026-10-08T23:07:28Z",
+      "environment": "loynara-rc / production",
+      "sha": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+      "ref": "792e218a17287009067ce0993c33eda3bfc3f4b7"
+    },
+    "railwayNewDeployments": [],
+    "railwayObservedAt": "2026-10-11T20:25:54.085807+00:00",
+    "boundedObservationLimit": "Available GitHub/Railway only; inaccessible Supabase activity and future asynchronous effects not independently verified",
+    "tracker": {
+      "LOY-185": {
+        "comment": "7-204",
+        "textReadback": true,
+        "createdAt": "2026-10-11 20:29:24 UTC",
+        "state": "Backlog/unresolved"
+      },
+      "LOY-28": {
+        "comment": "7-205",
+        "textReadback": true,
+        "createdAt": "2026-10-11 20:29:36 UTC",
+        "state": "Backlog/unresolved"
+      }
+    },
+    "authority": "Direct founder exact initial push plus future reviewed same-branch non-force pushes conditional on unchanged safety/trigger risks; accepted residual Supabase risk",
+    "production_target": "153928b10db55cbd0b40351116ee54515a6b107c",
+    "production_observed_sha": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+    "preflight": "Prior actual sourcePASS/overallBLOCKED/exit2/executionEnabledfalse; unknown recovery/approvals remain",
+    "recovery": "PLANNED, missing named source/destination/custodian/empty isolated target/verifier and bounded authorization; reported object upload/HEAD only",
+    "handoff": "This dated MD amendment updates preserved123 sequence/target; no duplicate script",
+    "coordinator": "PENDING actual completion report",
+    "native": "Original BLOCKED16624937tokens92240seconds; incremental input/cached/output/browser unmeasured",
+    "not_claimed": [
+      "DEPLOYED",
+      "INDEPENDENTLY_ACCEPTED_PRODUCTION",
+      "COMMERCIALLY_READY"
+    ]
+  }
 }
