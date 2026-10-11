@@ -1,0 +1,112 @@
+{
+  "issue": "LOY-294",
+  "assignment": "LOY-ENG-20261011-066",
+  "base_sha": "33c8e474dfff1c4f54bccf8427bfd716933542fc",
+  "source_sha": "containing source commit",
+  "red": {
+    "failed": 1,
+    "case_seconds": 11.7,
+    "actual_http": 500,
+    "state": "unchanged after temporary table fault restored",
+    "ui": "incorrect invalid/expired/used proof message"
+  },
+  "first_green": {
+    "passed": 1,
+    "seconds": 2.2
+  },
+  "browser": {
+    "passed": 12,
+    "seconds": 9.5,
+    "widths": [
+      375,
+      1280
+    ],
+    "actual_cases": [
+      "lookup500",
+      "list connectionreset",
+      "late noticeinsert rollback",
+      "real committed rotation response lost",
+      "invalid proof",
+      "expired proof"
+    ],
+    "automatic_mutation_replays": 0,
+    "after_commit_notices": {
+      "own": 1,
+      "foreign": 0
+    },
+    "after_explicit_replay": "actualINVALID_RECOVERY400 completecommittedsnapshot unchanged",
+    "privacy": "proofscrub/noURLreferrerleak, fixedfeedback",
+    "membership": "sameidentity/scan/history/balance2 foreign3"
+  },
+  "helper": {
+    "passed": 18,
+    "seconds": 0.111
+  },
+  "global": {
+    "files": 165,
+    "passed": 1561,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 144.01,
+    "skip_names": [
+      "lost browser-card recovery captures the recovery message in loopback Mailpit through the real sender"
+    ]
+  },
+  "static": "typegen/typecheck/changedlint/normalproductionbuild/diff PASS",
+  "independent_review": "existinggpt-6.1-sol medium readonly no materialfindings; tests not rerun",
+  "failure": {
+    "first_extended_browser": {
+      "passed": 6,
+      "failed": 6,
+      "seconds": 15.0
+    },
+    "cause": "Chrome navigation disposed successfulresponsebody beforePlaywrightjson",
+    "correction": "observe actual delivered private destination/status200 +persistedcredential/state; no product/testlimit/assertionweakening"
+  },
+  "gmail": {
+    "query": "in:anywhere newer_than:1d {LOY-293 LOY-294}",
+    "message_ids": [],
+    "delivery": "UNVERIFIED"
+  },
+  "artifacts": {
+    "red": {
+      "path": "/tmp/loy-066-red.log",
+      "bytes": 3203,
+      "sha256": "4f29943b8ff9c002457cd338996a1e4977c5fdcb93d777869b2761ae6df26373"
+    },
+    "first-green": {
+      "path": "/tmp/loy-066-first-green.log",
+      "bytes": 579,
+      "sha256": "f4cb1451a43e9e2f11f08154f2fa156f2bd51d85fba9ff84a0dd4da161ef7038"
+    },
+    "unit": {
+      "path": "/tmp/loy-066-unit.log",
+      "bytes": 887,
+      "sha256": "aeac9681a8dca22e298cdac4ea4293c4fd2bd98e3e99eece15bb227f209821bc"
+    },
+    "browser-final": {
+      "path": "/tmp/loy-066-browser-final.log",
+      "bytes": 11662,
+      "sha256": "d61bf5caf03375fa0db465eee01af9119d8a07fed7977975568c484359dc10fd"
+    },
+    "browser-green": {
+      "path": "/tmp/loy-066-browser-green.log",
+      "bytes": 2117,
+      "sha256": "db63eaadb31aa4e5b17896a536c96737d63344f35cf4b84a979b2e37d884b31f"
+    },
+    "static": {
+      "path": "/tmp/loy-066-static.log",
+      "bytes": 4563,
+      "sha256": "b3abe494cace85cf3fe72d4d83f10ae38099659f7c72e713d2901379453a5187"
+    },
+    "global": {
+      "path": "/tmp/loy-066-global.log",
+      "bytes": 34978,
+      "sha256": "eba472c104a458aa24de3130bf791f85eeb7a4b2b46233ff383331788b8e8275"
+    },
+    "mobile_screenshot": {
+      "path": "/tmp/loy-066-list-error-mobile.png",
+      "sha256": "cf251df2466b312ae9e98a40c2f93f6ac5eecaba9163bc60a7a9e4379cad8d33"
+    }
+  }
+}

@@ -103,3 +103,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-11 064-01 supersedes pending31 cleanup approval only: direct founder delegated to coordinator, exact31 removed/preserved.13 retained (10KEEP+3investigation), newworktrees barred while over10; Github owner authentication/push visibility185/186 stillOPEN. [Receipt](2026-10-11-worktree-cleanup-064-01.md).
 
 - 2026-10-11 /065 [LOY-293 recovery request feedback](LOY-293-recovery-request-feedback-2026-10-11.md): actualHTTP400 browserRED; fixed German failure feedback/retained retry,6browser+9unitPASS; type/lint/normalbuildPASS; configuredglobal and integration receipts recorded in entry. Parent33/34 OPEN.
+
+- 2026-10-11 /066 [LOY-294 recovery confirmation uncertainty](LOY-294-recovery-confirm-feedback-2026-10-11.md): actualHTTP500/challenge-preserved RED, fixed invalid-proof vs temporary/ambiguous feedback;12real browser+18helperPASS, static/normalbuild/reviewPASS. Final global and integration receipts in entry; parent33/34 OPEN.

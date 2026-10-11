@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/loyalty-ui";
 import { postJson } from "@/components/client-api";
+import { recoveryConfirmationFeedback } from "@/components/recovery-confirm-feedback";
 
 type Option = { membershipId: string; merchantName: string; programmeName: string };
 export default function RecoverConfirmPage() {
@@ -34,7 +35,7 @@ export default function RecoverConfirmPage() {
     try {
       const result = await postJson<{ cards: Option[] }>("/api/recover/confirm", { action: "list", token: proof });
       if (generation.current === submitted) setCards(result.cards);
-    } catch { if (generation.current === submitted) setError("Der Link ist ungültig, abgelaufen oder wurde bereits verwendet."); }
+    } catch (cause) { if (generation.current === submitted) setError(recoveryConfirmationFeedback(cause, "list")); }
     finally { if (generation.current === submitted) setBusy(false); }
   }
   async function recover(membershipId: string) {
@@ -47,7 +48,7 @@ export default function RecoverConfirmPage() {
       // Keep the successful rotated private link even if later browser binding fails.
       // CardClient requires explicit authentication/switching; no second cookie-setting race here.
       window.location.replace(`/card/${encodeURIComponent(result.cardToken)}`);
-    } catch { if (generation.current === submitted) { setError("Diese Karte konnte nicht wiederhergestellt werden. Fordere bei Bedarf einen neuen Link an."); setBusy(false); } }
+    } catch (cause) { if (generation.current === submitted) { setError(recoveryConfirmationFeedback(cause, "rotate")); setBusy(false); } }
   }
   return <main className="card-state-page"><div><BrandMark /><h1>Karte wiederherstellen</h1>
     <p>Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.</p>
