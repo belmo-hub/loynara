@@ -122,3 +122,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 - 2026-10-11 / LOY-28 / Assignment126: 126 fixes the offline pin for reviewed application153928b; local tooling96213ff and exact final HEAD are distinct. Full launch/recovery/cutover remain unaccepted. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
 
 - 2026-10-11 / direct founder push054 / LOY-185,28: Verified remote054f483; immutable application153928b; recovery/cutover remainBLOCKED. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
+
+- 2026-10-12 / LOY-195,196: One named-object local recovery reviewed/cleaned;195/196 independent acceptance remains open. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).

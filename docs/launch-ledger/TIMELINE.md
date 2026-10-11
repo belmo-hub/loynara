@@ -273,3 +273,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 / LOY-28 / Assignment126: 20:00UTC:126 locally implemented/reviewed/integrated,72 focused and72 integration PASS; actual preflight sourcePASS/overallBLOCKED. LOY28 comment7-203 read back. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
 
 - 2026-10-11 / direct founder push054 / LOY-185,28: 20:24:33–35UTC: single founder-authorized non-force push→remote054f483 verified;20:29UTC LOY1857-204/LOY287-205 read back. No deployment observed. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
+
+- 2026-10-12 / LOY-195,196: Exact R2 retrieve/decrypt/one PG18 local restore→21journal/49schema/12 zero-violation checks→sanitized review→owned cleanup. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).

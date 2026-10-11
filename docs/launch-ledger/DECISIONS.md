@@ -25,3 +25,5 @@ Automated coordinator reports and code reviews supply engineering advice, not fo
 - 2026-10-11 / LOY-28 / Assignment126: Traceable amendment: reviewed application153928b supersedes123 ee4 target after completed125 review; immutable application SHA stays separate from later tooling/ledger HEAD. No production or push authority expanded. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
 
 - 2026-10-11 / direct founder push054 / LOY-185,28: Direct founder now authorizes future reviewed same-development-branch normal pushes under unchanged safety conditions and accepts residual Supabase risk; material risk change requires renewed approval. Production authority remains separate. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
+
+- 2026-10-12 / LOY-195,196: Direct founder Oct12 Section5 ONE local test authority used/exhausted; no production cutover authority. Canonical auth.sql supplements application snapshot. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).

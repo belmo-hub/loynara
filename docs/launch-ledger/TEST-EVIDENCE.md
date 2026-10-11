@@ -232,3 +232,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-11 / LOY-28 / Assignment126: 126 original tool4RED/49PASS; corrected72PASS25.20s, canonical72PASS24.25s, fresh typecheck/lint/diffPASS, readonlyreview no findings. Preserve1251685PASS/1existingoptionalSKIP/build for unchanged app; no redundant full rerun. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
 
 - 2026-10-11 / direct founder push054 / LOY-185,28: No runtime change: preserve1251685PASS/one existing optional skip/build and12672PASS/typecheck/lint/review. Actual remote SHA and bounded post-push deployment checks verified; no redundant acceptance rerun. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
+
+- 2026-10-12 / LOY-195,196: One PG18 restorePASS;21journal/49app+auth schema columns;12 zero-invariant counts; tenant/append-only/cipher/target/timeout negatives; readonlyreview and cleanup verified. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).

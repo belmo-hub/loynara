@@ -1,0 +1,164 @@
+{
+  "id": "LOY-RECOVERY-20261012-ONE-ISOLATED-TEST",
+  "issues": [
+    "LOY-195",
+    "LOY-196"
+  ],
+  "state": "LOCAL_RECOVERY_TECHNICALLY_REVIEWED_TEMPORARIES_REMOVED",
+  "object": "loynara/2026/10/11/20261011T030225Z-19970f3c172a.dump.age",
+  "bucket": "loynara-rc-backups",
+  "encryptedBytes": 175156,
+  "ciphertextSha256": "2907f22ed330d59be55a13a4615f56b2e1dd1d1093ce97b355cffeb91dd58b0a",
+  "etagMd5Verified": true,
+  "trustedSha256Manifest": "NOT_PROVIDED_OR_FOUND_IN_EXISTING_SPECIFIC_OBJECT_RECORD",
+  "exactCiphertextCheckedBeforeDecryption": true,
+  "authenticatedDecryption": "PASS",
+  "postgresql18Restore": "PASS",
+  "restoreAttempts": 1,
+  "ownedLocalEmptyTargetBeforeRestore": true,
+  "canonicalJournalMatch": true,
+  "journalEntries": 21,
+  "expectedJournalEntries": 21,
+  "lastMigration": "0020",
+  "expectedSchemaTables": 49,
+  "restoredPublicTables": 49,
+  "columnDefinitionErrors": [],
+  "structure": {
+    "constraints": 583,
+    "foreignKeys": 76,
+    "invalidIndexes": 0,
+    "appendOnlyTrigger": 1,
+    "unvalidatedConstraints": 0,
+    "walletLifecycleColumns": 5
+  },
+  "aggregateCounts": {
+    "tenants": 1,
+    "programs": 1,
+    "locations": 1,
+    "memberships": 4,
+    "redemptions": 3,
+    "ledgerEntries": 11,
+    "journalEntries": 21
+  },
+  "businessInvariantViolationCounts": {
+    "membershipProgramTenantMismatch": 0,
+    "ledgerMembershipTenantMismatch": 0,
+    "ledgerLocationTenantMismatch": 0,
+    "contactMembershipTenantMismatch": 0,
+    "membershipBalanceLedgerMismatch": 0,
+    "negativeMembershipBalances": 0,
+    "duplicateLedgerIdempotency": 0,
+    "invalidCardLocators": 0,
+    "duplicateTenantCardLocators": 0,
+    "invalidReversals": 0,
+    "redemptionLedgerMismatch": 0,
+    "redemptionVersionMismatch": 0
+  },
+  "crossTenantNegative": {
+    "crossTenantProgrammeMembershipRejected": true
+  },
+  "appendOnlyNegative": {
+    "appendOnlyDeleteRejected": true
+  },
+  "rollbackProbeCountsUnchanged": true,
+  "nonemptyTargetRefused": true,
+  "invalidTargetGuardsRejected": 3,
+  "corruptCiphertextRejected": true,
+  "keyMetadataUnchanged": true,
+  "failures": [],
+  "independentReview": {
+    "reviewer": "existing /root/release123_review retained configuration",
+    "mode": "READ_ONLY source and sanitized results; no execution, DB connection or private artifact access",
+    "outcome": "No material findings",
+    "closedFindings": [
+      "Refresh exact owned empty-target/key/script identity immediately before attempt",
+      "Kill/wait owned process group on timeout",
+      "Bind nonempty reviewed checksum checkpoint exactly once immediately before decryption"
+    ],
+    "limits": [
+      "No source-production count reconciliation",
+      "No full physical-schema equivalence proof",
+      "Independent production recovery acceptance remains outstanding"
+    ]
+  },
+  "productionRecoveryAcceptance": "OUTSTANDING",
+  "limitations": [
+    "No trusted independently recorded SHA256 manifest was provided; ciphertext MD5/ETag and authenticated age decrypt verified",
+    "No source-production database access/count comparison was authorized or performed",
+    "Database tenant constraints/probes are not HTTP authorization or live merchant acceptance",
+    "October11 snapshot is not a fresh post-drain cutover recovery point",
+    "No deployment/migration/service stop/provider/customer/physical operation"
+  ],
+  "cleanup": {
+    "ownedClusterStopped": true,
+    "ownedDirectoryRemoved": true,
+    "localPortNotListening": true,
+    "temporaryCiphertextPlaintextPasswordAndPrivateLogsRemoved": true,
+    "originalAgeIdentityUnchanged": true,
+    "otherResourcesUntouched": true
+  },
+  "schemaSources": [
+    "drizzle/meta/0020_snapshot.json (45 application tables)",
+    "drizzle/auth.sql (4 auth tables used by existing migration entrypoint)"
+  ],
+  "schemaSourceFingerprint": "b529a5b95ba4fc604f046d95514c93ae872cf084b39e40eedfc85be8978abce0",
+  "authStructure": {
+    "primaryKeys": 4,
+    "userEmailUnique": 1,
+    "canonicalIndexes": 3,
+    "sessionTokenUnique": 1,
+    "cascadeUserForeignKeys": 2
+  },
+  "schemaAmendment": "Initial45-table snapshot-only check correctly refused extra tables; source verification established the four canonical auth tables, checked all49 column/type/nullability/length definitions plus auth PK/unique/cascade/index structures. No arbitrary extra table accepted, no schema/data changed; preserved initial evidence.",
+  "assignment": "FOUNDER-SPRINT-20261012-RECOVERY",
+  "agent": "Codex /root; existing effective executor/reviewer retained",
+  "clientDate": "2026-10-12",
+  "baseSha": "99b4564d62bf8f372e874a3d31b7d8e289787701",
+  "applicationReleaseSha": "153928b10db55cbd0b40351116ee54515a6b107c",
+  "remoteBefore": "054f4838bb99856d778dc471a4e7a58cd9dc81d6",
+  "localResultSha": "Final receipt SHA recorded exactly in original native checkpoint/report; immutable application pin unchanged",
+  "states": [
+    "RETRIEVED",
+    "AUTHENTICATED_DECRYPTION_VERIFIED",
+    "ISOLATED_LOCAL_RESTORE_VERIFIED",
+    "TESTED",
+    "INDEPENDENT_READ_ONLY_TECHNICAL_REVIEW",
+    "TEMPORARY_RESOURCES_REMOVED"
+  ],
+  "notClaimed": [
+    "DEPLOYED",
+    "INDEPENDENT_PRODUCTION_RECOVERY_ACCEPTANCE",
+    "COMMERCIALLY_READY"
+  ],
+  "authorization": "Direct founder Oct12 Section5: ONE named-object empty owned LOCAL restore; used/exhausted. Standing reviewed same-development-branch push conditional on unchanged risks; no production operations",
+  "safetyTests": {
+    "originalIPv4ExactStringReproducer": "RED",
+    "validIdentityForms": 2,
+    "unsafeIdentitiesRejected": 6,
+    "ownedProcessGroupTimeout": "PASS parent/child no longer running",
+    "productionAccessInTests": false,
+    "initialProbeLimitation": "Default sandbox denied ps read; founder-authorized own-process check completed with normal escalation",
+    "changedTargetBeforeExecution": {
+      "unguardedBaseline": "RED would start synthetic restore/count1",
+      "fixed": "GREEN refused before restore/count0",
+      "realExternalCalls": 0,
+      "initialFixtureFailure": "Missing synthetic CANON binding corrected; no target or production operation"
+    },
+    "checksumCheckpointBinding": {
+      "baseline": "RED accepted uninstrumented/empty checkpoint",
+      "fixed": "GREEN authentic single checkpoint accepted;4 absent/blank/tampered/duplicate variants rejected",
+      "reviewedCheckpointSha256": "c744aaed3c63373d8e93ae6763de0206682d9c24ca54189866e1c49bfe15ace4"
+    }
+  },
+  "originalGoal": {
+    "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+    "status": "BLOCKED",
+    "reportedTokens": 16624937,
+    "reportedSeconds": 92240,
+    "incrementalInputCachedOutputBrowserReviewer": "UNMEASURED",
+    "resetOrSuccessor": false
+  },
+  "tracker": "Pending truthful evidence comments;195/196 not closed",
+  "push": "Pending reviewed normal push after fresh trigger verification",
+  "coordinator": "Pending single completed review"
+}

@@ -89,3 +89,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 - 2026-10-11 / LOY-28 / Assignment126: Proposed immutable application153928b; offline tooling96213ff follows it. GitHub remains last-verifiedee4. No push/deployment/production acceptance; exact final integration HEAD recorded in native/report. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
 
 - 2026-10-11 / direct founder push054 / LOY-185,28: PUSHED remote054f483; proposed immutable migrate/web/worker153928b; fresh observed production792e218. Local handoff evidence does not move application generation. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
+
+- 2026-10-12 / LOY-195,196: Application153928b unchanged; substantial recovery receipt local, pending safe normal development push; no deployment. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).

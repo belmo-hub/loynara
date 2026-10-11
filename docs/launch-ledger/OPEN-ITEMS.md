@@ -222,3 +222,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-11 / LOY-28 / Assignment126: Founder handoff: new exact integration-HEAD push authorization; identified R2 source/artifact/custodian/empty isolated target/verifier and bounded recovery approval; later separate source153928b cutover authority. Full gates remain open; no127 automatically. [2026-10-11-release-alignment-126](2026-10-11-release-alignment-126.md).
 
 - 2026-10-11 / direct founder push054 / LOY-185,28: Initial push authorization hold resolved; standing conditional development push permission recorded.23:00: identify recovery facts and authorize independent restore first, then separate exact153928b cutover after acceptance; fullscope still incomplete. [Founder push and23:00 handoff amendment](2026-10-11-release-alignment-126.md).
+
+- 2026-10-12 / LOY-195,196: 195/196 independent recovery/custody/source acceptance and fresh post-drain recovery remain open. Do not repeat exhausted test; continue grounded independent engineering after strategic review. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).
