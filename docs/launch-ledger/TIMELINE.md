@@ -108,3 +108,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 LOY-289: assignment059 resumed preserved057 after verified naturalcooldown; realbrowser4PASS, finalfull1506PASS/0FAIL/1existingSKIP. Localintegration receipt pending. [Evidence](LOY-289-cashier-session-feedback-2026-10-11.md).
+
+
+2026-10-11 IMPLEMENTED/TESTED [LOY-290 atomic local backup publication](LOY-290-atomic-local-backup-2026-10-11.md): three actual publication races reproduced; six real synthetic dump/list/restore regressions pass; final full suite 1,512 PASS. Earlier Wallet hook timeout and clean base comparison preserved.

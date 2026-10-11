@@ -94,3 +94,6 @@ LOY-177/057: valid unchangedapp401RED; partial3browserPASS; bounded redesign1fix
 
 
 LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS53s, focused3files6PASS, finalconfigured160files1506PASS0FAIL1optionalMailpitSKIP128.54s. [Evidence](LOY-289-cashier-session-feedback-2026-10-11.md).
+
+
+[LOY-290](LOY-290-atomic-local-backup-2026-10-11.md): unchanged-base three race RED failures; six focused GREEN passes; independent review and static/build PASS. First global Wallet hook timeout preserved; base and changed Wallet nine PASS each; bounded final global 161 files/1,512 PASS/0 FAIL/1 existing optional SKIP.

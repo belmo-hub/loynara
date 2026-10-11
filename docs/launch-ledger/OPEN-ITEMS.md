@@ -84,3 +84,6 @@ LOY-177/057 cashier401 guidance source preserved, verification held by local sig
 
 
 LOY-289 narrowcashier401 source/testcriteria passed;177/178 independentacceptance staysOPEN; no deployment/push/commercialclaim. [Evidence](LOY-289-cashier-session-feedback-2026-10-11.md).
+
+
+LOY-195/196 remain OPEN after narrow [LOY-290](LOY-290-atomic-local-backup-2026-10-11.md). Current encrypted artifact, production verification and independent isolated restore are unverified. Preview publication is a separate remaining risk; no deployment, push or broad backup acceptance claimed.
