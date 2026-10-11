@@ -75,3 +75,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 2026-10-11 /093: [Retention contract/location report scope](LOY-163-155-scope-verification-2026-10-11.md). Required163 metric implementations observed; no approved absent metric found, fallback155 used once. New2 actual authenticated route/PG scope cases, focused16PASS3.46s/integrated16PASS3.26s/staticbuildPASS/read-onlyreview no findings. Fixture typing failures preserved.155InReview/comment7-155/readback09:10:44UTC;163comment7-156/readback09:11:06UTC/full163164155156OPEN. Test-only/no productionfix/newglobal/browser/deployment.
 
 - 2026-10-11 /094: [LOY-135/165 bounded source discovery](LOY-135-165-bounded-discovery-2026-10-11.md) — no demonstrated source defect or missing existing export interface; no new tests; acceptance OPEN; coordinator reassignment.
+
+- 2026-10-11 /095: [LOY-318 verified local operator handoff](LOY-318-operator-handoff-2026-10-11.md) —8focused/integratedPASS;318Done;151InReview/152human gateOPEN; no deployed/accepted claim.

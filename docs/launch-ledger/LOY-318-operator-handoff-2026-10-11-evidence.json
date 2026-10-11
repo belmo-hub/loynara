@@ -1,0 +1,123 @@
+{
+  "assignment": "LOY-ENG-20261011-095",
+  "message_id": "LOY-GOAL-20261011-095",
+  "issues": [
+    "LOY-318",
+    "LOY-151",
+    "LOY-152"
+  ],
+  "date": "2026-10-11",
+  "base_sha": "01821cac97358ea3878b0e0e57665333dff8d91d",
+  "implementation_local_sha": "30e1189f62175ae82b5d18338e211e26a9d8d6ab",
+  "receipt_sha": "containing commit; exact final recorded in native state",
+  "changes": [
+    "docs/merchant-onboarding-support-handoff.md",
+    "docs/pilot-recovery-runbook.md traceable pointer",
+    "src/lib/merchant-handoff.integration.test.ts"
+  ],
+  "application_source_changed": false,
+  "focused": {
+    "files": 2,
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "skip": 0,
+    "seconds": 1.76
+  },
+  "integrated": {
+    "files": 2,
+    "pass": 8,
+    "fail": 0,
+    "skip": 0,
+    "seconds": 1.93
+  },
+  "initial_fixture_failure": {
+    "pass": 7,
+    "fail": 1,
+    "seconds": 1.74,
+    "cause": "Public card intentionally omits internal membership ID; fixture corrected to authorized cashier lookup, unchanged assertions"
+  },
+  "static": {
+    "typegen": "PASS",
+    "typecheck": "PASS",
+    "changed_file_lint_zero_warnings": "PASS",
+    "build": "PASS",
+    "diff_and_refs": "PASS"
+  },
+  "global_suite": "Not rerun: no application-source change; historical092 suite retained, not new095 proof",
+  "review": {
+    "kind": "Independent static read-only",
+    "findings": "None material",
+    "tests_rerun": false,
+    "limits": [
+      "Browser/network",
+      "Manager reissue",
+      "Real entitlement",
+      "Wallet/device propagation"
+    ]
+  },
+  "tracker": {
+    "318": "InProgress -> initial InReview transport failure/readback unchanged -> one retry InReview -> Done/readback09:38:26UTC",
+    "318_comment": "7-159",
+    "151": "InReview/LocalImplementation/AutomatedTestsVerified/unresolved/readback09:38:29UTC",
+    "151_comment": "7-160",
+    "152": "Independent human acceptance OPEN"
+  },
+  "gmail": {
+    "query": "LOY-318 newer_than:2d",
+    "messages_found": 0,
+    "generation": "UNVERIFIED",
+    "delivery": "UNVERIFIED"
+  },
+  "usage": {
+    "native_reported_cumulative_tokens": 12289175,
+    "native_seconds": 65283,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_review_usage": null,
+    "effective_model": null,
+    "assigned": "Sol Medium contract / High implementation / Medium review; switch unavailable executor retained"
+  },
+  "external_actions": [
+    "Authorized YouTrack task creation/transitions/comments/readback",
+    "Read-only Gmail search, no matching message"
+  ],
+  "statuses": {
+    "implemented": "Technical handoff and tests",
+    "tested": "Owned local synthetic route-handler+PG",
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "logs": {
+    "initial": {
+      "reference": "/tmp/loy-095-focused-first.log",
+      "sha256": "80bfe1ece0dca684a1d0e5cb39d98498c9a459c7233e403ed3ce4b3c3808b253",
+      "bytes": 3523
+    },
+    "focused": {
+      "reference": "/tmp/loy-095-focused-final.log",
+      "sha256": "710822d8fa9eb9236aae6e4d1ac260ec7a0056a3827733054abf8261d25dda8c",
+      "bytes": 1172
+    },
+    "static": {
+      "reference": "/tmp/loy-095-static.log",
+      "sha256": "c734972c50025ce600b33f7ccee88b534a44918538bb4ee1aa0e88ebd82880cc",
+      "bytes": 5378
+    },
+    "integrated": {
+      "reference": "/tmp/loy-095-integrated.log",
+      "sha256": "dd7ded87c95fd43cc7f9a976345c6aa228b4bed8f4c83cb5e355ced51c56747f",
+      "bytes": 1180
+    }
+  },
+  "founder_action": "Exact152 independent UI/time/entitlement trial queued; notified151 comment7-160",
+  "next_candidates": [
+    "LOY-167 outcome reporting completeness",
+    "LOY-193 actionable monitoring/secret-safe observability",
+    "LOY-117 established confirmed-visit qualification gap only"
+  ]
+}
