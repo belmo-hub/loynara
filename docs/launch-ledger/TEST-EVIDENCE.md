@@ -103,3 +103,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 [Assignment062](2026-10-11-push-safety-062.md): new LOY-33 late PostgreSQL abort rolls back credential/challenge/audit state; same-link retry and foreign-tenant isolation PASS. Affected file12 PASS/1 existing optional SKIP; first test-only lint failure corrected, final types/lint/targeted regression PASS. Application suite/build unchanged from061, not rerun.
+
+- 2026-10-11 LOY-292 /063: [canonical evidence](LOY-292-customer-export-feedback-2026-10-11.md). Actual browserRED closed-card404missingfeedback; finalisolated8PASS8.8s, helper13PASS162ms, static/buildPASS, complete163files1534PASS0FAIL1existingoptionalMailpitSKIP150.97s. Shared peer quota/alert-selector/native-vs-Docker initialization failures preserved; no limiter reset or assertion weakening.

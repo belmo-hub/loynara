@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { CustomerExportLink } from "./customer-export-link";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
 
@@ -445,7 +446,7 @@ export function CustomerCardView({ businessName, locationName, programType, bala
       <section className="customer-activity"><div className="panel-title-row"><h2>{t.activity}</h2><Icon name="clock" size={19} /></div>{activity.length ? <div className="customer-activity-list">{activity.map(item => <div key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><strong>{item.change > 0 ? "+" : ""}{item.change} {unit}</strong></div>)}</div> : <p>{t.activityEmpty}</p>}</section>
       {rulesText && <section className="customer-rules"><h2>{t.rules}</h2><p>{rulesText}</p><a href="/teilnahmebedingungen">{t.terms}</a> · <a href="/datenschutz">{t.privacy}</a></section>}
       {programTermsUrl && <a className="terms-link" href={programTermsUrl}>{t.terms} <Icon name="arrow" size={15} /></a>}
-      {exportUrl && <a className="terms-link" href={exportUrl} download><Icon name="download" size={15} /> {t.export}</a>}
+      {exportUrl && <CustomerExportLink url={exportUrl} locale={locale}><Icon name="download" size={15} /> {t.export}</CustomerExportLink>}
       {onCloseCard && <section className="customer-close"><button type="button" className="text-button" aria-expanded={closeExpanded} onClick={() => setCloseExpanded(value => !value)}>{isFrench ? "Fermer ma carte" : "Karte schließen"}</button>{closeExpanded && <div className="customer-close-confirm"><p>{closeMessage}</p><button type="button" className="button button--outline" onClick={onCloseCard} disabled={closeBusy}>{closeBusy ? isFrench ? "Fermeture …" : "Wird geschlossen …" : isFrench ? "Confirmer la fermeture définitive" : "Schließung verbindlich bestätigen"}</button>{closeError && <p role="alert">{closeError}</p>}</div>}</section>}
     </main><footer className="customer-footer">{t.footer}</footer>
   </div>;
