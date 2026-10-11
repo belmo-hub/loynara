@@ -1,0 +1,85 @@
+{
+  "assignment": "LOY-ENG-20261011-110",
+  "issues": [
+    "LOY-28",
+    "LOY-229"
+  ],
+  "base_sha": "25b6fb6f23fc4b0d976fcaee8f626b8297e4ee8a",
+  "result_sha": "containing evidence commit; exact integration receipt follows",
+  "agent": "Codex /root; codex/full-stack-release-110 reused checkout",
+  "model": "assignedSolMedium,HighonlyP0P1;effective setter unavailable retainedexecutor;reviewconfigurationunmeasured",
+  "date": "2026-10-11",
+  "implementation": "3durable guarded local rehearsal files; no application/product correction",
+  "application_tree": "73155698a3368b14a846bb4ec90001125b89fa61",
+  "compiled_build_id": "3D8EhV7Ttwnmp3VaKY3bf",
+  "steps": {
+    "website_routes_and_CTA": "PASS local staticservice/demoanchor/preserved publicapp.getloynara.com loginhref; localpathmapping; no hosted navigation or realcontactreceipt",
+    "synthetic_onboarding": "PASS2owners+1cashier; actual HTTPsignin/onboard201;staffdomaininviteaccept; secondmerchantonlyisolation",
+    "enrollment_returning": "PASSactualjoin/browser membershipcookie thenreload/samecard",
+    "cashier_award_redemption": "PASSUIapproval/selectedreward;3awarded3redeemed;1redemption/exact2ledger;replayduplicate before/after restart",
+    "reporting": "PASSrealownerreport1card1qualifyingcheckout1award3units1redemption;cashier403",
+    "consent_campaign": "PASSoptout200/false;optin400CONTACT_DISABLED;draftcreated/eligible0;OFFschedule400/refused;0recipients;positiveproviderdispatchNOTTESTED",
+    "restart": "PASSall3ownedservicesSIGTERMnormalstop/newPIDs; savedcustomer/cashier/ownersessions/durableaccounting/replayretained",
+    "tenant_isolation": "PASSforeignaward/campaignlist404",
+    "public_signup": "PASS403 while runningweb; syntheticdirectidentityprovisioning separatebeforeweb",
+    "worker": "PASSactualworker alivebeforeandafterrestart; development/providerOFFstartup mirrorssupportedcompiledpreview; productionmonitor/dueproviderdeliveryNOTTESTED"
+  },
+  "tests": {
+    "authoritative_before": "1ChromePASS375px/15.9s",
+    "authoritative_after": "1ChromePASS1280px/2.7s",
+    "typecheck": "PASS",
+    "changed_source_lint": "PASS0warnings",
+    "python_syntax": "PASS",
+    "optimized_refusal": "PASSbeforeDBaccess",
+    "new_global_build": "notrun:applicationunchanged;reuse1091631PASS0FAIL1existingskip/182files and productionbuild"
+  },
+  "review": "Existingreadonlyreviewfound Pythonassertoptimizationrisk; explicitnot__debug__refusalbeforeDBaccess applied/tested; otherwise no materialfindings;staticonly",
+  "failures": [
+    "Initialcashierlogin429:production3attempt/10sratecontrol; harnessnowassertsrealwarningandhonorsX-RetryAfteronce",
+    "Diagnosticnegativegrant/scheduleexpectations correctedtoexisting400contract before those assertionsran",
+    "HarnessalertlocatorambiguouswithNextrouteannouncer narrowed, no appchange",
+    "Harnessmembership_balancesSQLwrong; canonicalmembershipsbalanceused; no app/schema change",
+    "Non-escalatedtypechecktsbuildinfoEPERM rerunwithauthorizedworktreewritePASS"
+  ],
+  "evidence": {
+    "loy-110-full-stack-authoritative.log": {
+      "sha256": "6ffab5c403a11a3d043f55fb1409e820c4cbff741e5dc6bd53ee78b316721c89",
+      "bytes": 2656,
+      "reference": "/tmp/loy-110-full-stack-authoritative.log"
+    },
+    "loy-110-optimized-refusal.log": {
+      "sha256": "e31da906bf87838d12ce7bafb1187e73c2c6dcfc0760001fd64f181a740212ed",
+      "bytes": 389,
+      "reference": "/tmp/loy-110-optimized-refusal.log"
+    },
+    "loy-110-typecheck-authoritative.log": {
+      "sha256": "3fbdf84a06d1fcfaf5b173925f5ca677efe63cb05f112f97cb7d55aa82a36499",
+      "bytes": 45,
+      "reference": "/tmp/loy-110-typecheck-authoritative.log"
+    },
+    "loy-110-lint-authoritative.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reference": "/tmp/loy-110-lint-authoritative.log"
+    }
+  },
+  "status": {
+    "IMPLEMENTED": "verificationonly",
+    "TESTED": true,
+    "INTEGRATED": "pendingreceipt",
+    "PUSHED": false,
+    "DEPLOYED": false,
+    "INDEPENDENTLY_ACCEPTED": false,
+    "COMMERCIALLY_READY": false
+  },
+  "resources": {
+    "native_cumulative_tokens": 14617531,
+    "native_seconds": 81201,
+    "input": "unmeasured",
+    "cached_subset": "unmeasured",
+    "output": "unmeasured",
+    "browser_reviewer": "unmeasured",
+    "reset": false
+  },
+  "issue_identity_amendment": "Coordinator described282as multi-merchantreleaseacceptance; live282is DONE outboxclaimidentitycodingbug. Preserve exactticket/Done/history; no new282acceptanceorrelabelling."
+}
