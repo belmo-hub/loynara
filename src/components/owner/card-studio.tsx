@@ -38,6 +38,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   const [savedVersion, setSavedVersion] = useState(0);
   const saving = useRef(false);
   const revision = useRef(0);
+  const logoRevision = useRef(0);
 
   const colorValid = HEX.test(draft.brandColor);
   const nameValid = draft.businessName.trim().length >= 2 && draft.locationName.trim().length >= 2;
@@ -56,9 +57,14 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
 
   async function pickLogo(file: File | undefined) {
     if (!file) return;
+    const selectedRevision = ++logoRevision.current;
     setLogoError("");
-    try { edit({ logoData: await imageToDataUrl(file) }); }
-    catch (cause) { setLogoError(cause instanceof Error ? cause.message : "Das Logo konnte nicht gelesen werden."); }
+    try {
+      const logoData = await imageToDataUrl(file);
+      if (selectedRevision === logoRevision.current) edit({ logoData });
+    } catch (cause) {
+      if (selectedRevision === logoRevision.current) setLogoError(cause instanceof Error ? cause.message : "Das Logo konnte nicht gelesen werden.");
+    }
   }
 
   async function save() {
@@ -80,7 +86,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
       setState("error"); setError(feedback.message); setErrorLabel(feedback.label); owner.announce(feedback.label);
     } finally { saving.current = false; }
   }
-  function discard() { revision.current++; setDraft(saved); setState("clean"); setError(""); setLogoError(""); }
+  function discard() { logoRevision.current++; revision.current++; setDraft(saved); setState("clean"); setError(""); setLogoError(""); }
 
   const logoIsPng = draft.logoData?.startsWith("data:image/png;base64,") ?? false;
   return (
@@ -116,7 +122,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
               <div className="ow-logo-row">
                 {draft.logoData && <Image unoptimized className="ow-logo-thumb" src={draft.logoData} width={56} height={56} alt="Ausgewähltes Logo" />}
                 <label htmlFor="cs-logo" className="ow-btn ow-btn--secondary ow-filebtn">{draft.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="cs-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void pickLogo(event.target.files?.[0])} /></label>
-                {draft.logoData && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => edit({ logoData: null })}>Logo entfernen</button>}
+                {draft.logoData && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { logoRevision.current++; setLogoError(""); edit({ logoData: null }); }}>Logo entfernen</button>}
               </div>
               <span className="ow-hint">PNG, JPG oder WebP bis 2 MB.</span>
               {logoError && <span className="ow-error" role="alert">{logoError}</span>}
