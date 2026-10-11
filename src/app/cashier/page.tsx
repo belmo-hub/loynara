@@ -180,16 +180,18 @@ export default function CashierPage() {
         }
       }
       // The offline lease is only a fallback; the card is usable at once, without waiting for it.
+      // The same membership can be reopened while an earlier view still has a lease request in flight.
+      const cardGeneration = activeCardGeneration.current;
       const membershipId = result.membershipId;
       void (async () => {
         try {
           const deviceId = getOfflineDeviceId(localStorage);
           const lease = await postJson<{ leaseId: string; expiresAt: string }>("/api/cashier/offline/lease", { membershipId, deviceId });
-          if (activeCardId.current !== membershipId) return;
+          if (activeCardId.current !== membershipId || activeCardGeneration.current !== cardGeneration) return;
           setOfflineLease({ ...lease, membershipId });
           setOfflineError("");
         } catch (error) {
-          if (activeCardId.current !== membershipId) return;
+          if (activeCardId.current !== membershipId || activeCardGeneration.current !== cardGeneration) return;
           if (isNetworkFailure(error)) setNetworkTrouble(true);
           setOfflineError(error instanceof Error ? error.message : "Offline earning unavailable for this card");
         }
