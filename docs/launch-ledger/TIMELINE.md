@@ -90,3 +90,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 IMPLEMENTED/TESTED [LOY-284 campaign report snapshot](LOY-284-campaign-report-snapshot-2026-10-11.md): real delivery committed between reads, summary/outcome contradicted; one read-only snapshot preserves report consistency and fresh next read.
+
+
+2026-10-11 IMPLEMENTED/TESTED [LOY-285 manual refresh feedback](LOY-285-manual-card-refresh-feedback-2026-10-11.md): valid request-observed browserRED for silently failed customer GET; localized last-known-balance alert/recovery, mobile+desktop2PASS.

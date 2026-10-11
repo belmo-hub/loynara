@@ -66,3 +66,6 @@ LOY-175 remains OPEN: LOY-283 fixes one existing colour-contract defect locally;
 
 
 LOY-167/168 OPEN: bounded LOY-284 snapshot correction does not close independent reporting/production acceptance or invent KPI/attribution semantics.
+
+
+LOY-177/178 OPEN: bounded285 manual refresh feedback locally verified; complete accessibility/locale/physical acceptance not inferred.

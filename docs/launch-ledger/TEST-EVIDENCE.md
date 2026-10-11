@@ -76,3 +76,6 @@ LOY153 actual HTTP/session role/origin/tenant/actor-identity matrix15PASS0FAIL; 
 
 
 [LOY-284](LOY-284-campaign-report-snapshot-2026-10-11.md): actual PG report/delivery RED then concurrency+query-failure/rollback/reuse+empty checks; focused3files52PASS; final/full receipt in entry.
+
+
+[LOY-285](LOY-285-manual-card-refresh-feedback-2026-10-11.md): initial fakeclockfixture invalidRED explicitly corrected; exactHEAD1GET503 validRED then mobile/desktop2PASS, keyboard2reads0mutations/cardunchanged; focused4files12PASS.
