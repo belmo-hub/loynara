@@ -4,13 +4,13 @@
   "date": "2026-10-11T13:48:46.878637+00:00",
   "base_sha": "90d722beaa9a93bfeb814b83d53c389416f45f2c",
   "incoming_sha": "7db86c62863fc0bc8c8028e7b6d772006cba3c36",
-  "result_sha": "containing merge commit; exact integration receipt appended separately",
+  "result_sha": "7231b94c5c360f7d706e702c1c8cc2c649581107",
   "agent": "Codex /root; reused codex/website-conversion-109",
   "model": "Coordinator assigns SolMedium discovery/review,High confirmed implementation; effective setter unavailable/current executor retained; granular configuration unmeasured",
   "status": {
     "IMPLEMENTED": true,
     "TESTED": true,
-    "INTEGRATED": "pending receipt",
+    "INTEGRATED": true,
     "PUSHED": false,
     "DEPLOYED": false,
     "INDEPENDENTLY_ACCEPTED": false,
@@ -65,5 +65,11 @@
       "bytes": 643117,
       "local_reference": "/tmp/loy-109-global-final.json"
     }
+  },
+  "integration_receipt": {
+    "canonical_sha": "7231b94c5c360f7d706e702c1c8cc2c649581107",
+    "website_unit": "79PASS0.871s",
+    "static_checks": 180,
+    "tracker": "LOY-229 comment7-188 readback2026-10-11 13:49:27UTC;In Review/Local Implementation/Automated Tests Verified;unresolved"
   }
 }
