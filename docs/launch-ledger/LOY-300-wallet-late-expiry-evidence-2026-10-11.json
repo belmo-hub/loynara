@@ -31,8 +31,8 @@
     "gmail_received": "unverified"
   },
   "accounting": {
-    "native_cumulative_reported_tokens": 8980085,
-    "native_cumulative_seconds": 45667,
+    "native_cumulative_reported_tokens": 9000803,
+    "native_cumulative_seconds": 45818,
     "remaining_tokens": null,
     "input": null,
     "cached_subset": null,
@@ -75,6 +75,24 @@
       "bytes": 35767,
       "sha256": "c7f0ce4de628fe5eb642d3317b10f3bb706cf559a98bf555f9ff142c5a89c9a1",
       "raw_log_shared": false
+    },
+    {
+      "path": "/tmp/loy-072-integrated.log",
+      "bytes": 2644,
+      "sha256": "efb6546e4748cc1703db6ed2fa491953c95a76bd549df5238b57994c4eebae59",
+      "raw_log_shared": false
     }
-  ]
+  ],
+  "source_sha": "350d4e40415d7d492710f5d7890833e9967738cc",
+  "integrated_source_sha": "350d4e40415d7d492710f5d7890833e9967738cc",
+  "integrated_focused": "28PASS7.04s",
+  "tracker": {
+    "id": "LOY-300",
+    "stage": "Done",
+    "feature_maturity": "Local Implementation",
+    "evidence": "Automated Tests Verified",
+    "comment": "7-128",
+    "readback_utc": "2026-10-11 04:14:01",
+    "broader_scopes": "97/98 and163/164OPEN"
+  }
 }

@@ -154,3 +154,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 /072: [LOY-300 later Wallet success survives old lease expiry](LOY-300-wallet-late-expiry-2026-10-11.md). Actual customer-status RED corrected with tenant/card coverage and concurrent completion/expiry regression; focused/static/build/global/review evidence in entry. Primary163 bounded unchanged classification PASS;97/98 and163/164 full gates OPEN. Local integration/tracker receipts follow; no remote/deployment/acceptance claim.
+
+/072 receipt:300source350d4e40415d7d492710f5d7890833e9967738cc locally integrated;28focusedPASS;comment7-128/Done readback04:14:01UTC.97/98 and163/164 broader gatesOPEN.
