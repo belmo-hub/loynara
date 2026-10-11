@@ -95,3 +95,5 @@ LOY-195/196 remain OPEN after bounded [LOY-291](LOY-291-preview-backup-publicati
 Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, authenticated linked-project branch/preview/migration settings unavailable. Railway railway-rc deployment trigger and disabled PR environments verified; Cloudflare two Pages apps show no Git connection. LOY-185/186 and broad33/34 remain OPEN. [Evidence](2026-10-11-push-safety-062.md).
 
 - 2026-10-11 amendment /063: LOY-292 bounded export UI implemented/tested; exact integration/tracker receipt follows. LOY-43/44 independent mobile/production acceptance and209 privacy policy remainOPEN. Supabase push-trigger visibility185 stillholds remoteintegrationpush only. Fresh nativeGoal ACTIVE (same identity/accounting); no claim of resumedstatus for historical062 observation.
+
+- 2026-10-11 /063 receipt amendment: LOY-292 codingDone readback01:55:57UTC/source0629c6f locally integrated; supersedes pending child status only. Full43/44/209 scopes and185 push holdOPEN.
