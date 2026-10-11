@@ -109,3 +109,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - /067: LOY-295 bounded local campaign detail freshness correction; final receipt in [entry](LOY-295-campaign-outcome-feedback-2026-10-11.md).167/168 wider freshness/outcome and independent acceptance remain OPEN; no new interval/metric or provider acceptance claimed.
 
 - 2026-10-11 /068 LOY-296 bounded local save feedback implemented/tested;175/176 broader branding/independent acceptance OPEN. No remote/deployment/commercial claim. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).
+
+- 2026-10-11 /069 LOY-297 bounded confirmation feedback corrected;153/154/173/174/159 wider scopes OPEN. No reporting defect, remote or external acceptance claim. [Evidence](LOY-297-staff-confirmation-feedback-2026-10-11.md).

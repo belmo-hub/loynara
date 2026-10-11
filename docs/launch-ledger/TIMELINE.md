@@ -141,3 +141,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-11 /068 LOY-296: two actual branding-save RED failures; uncertain committed result and newer-edit preservation corrected. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).
 
 - /068 receipt:296source2a45c0d2af21f88489c38f010d726ac636d0bb31 locally integrated;17focusedPASS831ms;comment7-124/readback03:15:48UTC codingDone.175/176 broader gates OPEN.
+
+- 2026-10-11 /069 LOY-297:173reporting unchanged2PASS; pivot153 actual401/obsolete confirmation RED corrected. [Evidence](LOY-297-staff-confirmation-feedback-2026-10-11.md).

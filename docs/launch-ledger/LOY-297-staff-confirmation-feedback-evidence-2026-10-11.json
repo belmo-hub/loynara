@@ -1,0 +1,124 @@
+{
+  "issue": "LOY-297",
+  "assignment": "LOY-ENG-20261011-069",
+  "base_sha": "09abe7c289d6431112b4376f2566d9167103faeb",
+  "source_sha": null,
+  "recorded_utc": "2026-10-11T03:28:44.397424+00:00",
+  "environment": "synthetic actual loopback app; Chrome375/1280; owned PostgreSQL18.6localhost55433; external providers disabled",
+  "primary173": {
+    "source_changed": false,
+    "browser_passed": 2,
+    "seconds": 4.9,
+    "scenarios": "real30/90 counts; late90 ignored after selecting30; real401 displays error/no numeric report; legitimate retry selected90",
+    "failed_fixture": "1FAIL1NOTRUN ledger timestamp UPDATE correctly rejected append-only; corrected fixture inserting historical immutable events with normal analytics test pattern"
+  },
+  "global": {
+    "files": 166,
+    "passed": 1575,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 139.16,
+    "skips": [
+      "lost browser-card recovery captures the recovery message in loopback Mailpit through the real sender"
+    ]
+  },
+  "browser": {
+    "valid_red": "1 actual401/obsolete confirmation failure11.3s unchangedbase",
+    "first_green": "1PASS4.7s",
+    "final_passed": 6,
+    "final_failed": 0,
+    "seconds": 19.3,
+    "artifact_case": "1PASS4.3s"
+  },
+  "focused": "3PASS328ms",
+  "static": "typegen/typecheck/normalproductionbuild PASS; inherited lint paths corrected; exact lint warning unused fixture binding removed; final types/max-warnings0 lint PASS",
+  "review": "existing verified gpt-6.1-sol Medium read-only no material findings; no edits/test reruns",
+  "artifacts": [
+    {
+      "path": "/tmp/loy-069-reporting-unchanged.log",
+      "bytes": 3006,
+      "sha256": "68457c326ac757d37f1086c1d4b5367541570c863d4f7668798ecb160b9bfc45"
+    },
+    {
+      "path": "/tmp/loy-069-reporting-verified.log",
+      "bytes": 734,
+      "sha256": "6f4c9e4844bd91b2f203e8fea7d98537c4bc2707d8c64a88737608ee8114f222"
+    },
+    {
+      "path": "/tmp/loy-069-staff-red.log",
+      "bytes": 3122,
+      "sha256": "3bf33eb4334ad75e502e6a26a2e05f5b3bd586da3b17ebf83d073b667b742466"
+    },
+    {
+      "path": "/tmp/loy-069-staff-first-green.log",
+      "bytes": 571,
+      "sha256": "1879046b038942e4b85f4de5e3962af8e8cb0f595f064b2927371d865e7f6928"
+    },
+    {
+      "path": "/tmp/loy-069-staff-browser-final.log",
+      "bytes": 1354,
+      "sha256": "b819f12d9528d6ba331af9de5b9af5ec2406b6a69970a77de16b48e0efb3d385"
+    },
+    {
+      "path": "/tmp/loy-069-static.log",
+      "bytes": 4315,
+      "sha256": "5ac7e5633b49eab7ad71a5f93620ed62a05e926c92554e2b14a5ba5a0db469d3"
+    },
+    {
+      "path": "/tmp/loy-069-focused.log",
+      "bytes": 980,
+      "sha256": "1727b63dc7714234d7dea411f18e92e3da279b7ea1e37ab9022378c133e400af"
+    },
+    {
+      "path": "/tmp/loy-069-final-check.log",
+      "bytes": 292,
+      "sha256": "9ad747be5cf8b844a696858a55c9e26152190dc6fd6728d60520a9a6b44b1e8f"
+    },
+    {
+      "path": "/tmp/loy-069-final-check-verified.log",
+      "bytes": 45,
+      "sha256": "3fbdf84a06d1fcfaf5b173925f5ca677efe63cb05f112f97cb7d55aa82a36499"
+    },
+    {
+      "path": "/tmp/loy-069-mobile-artifact.log",
+      "bytes": 583,
+      "sha256": "11c74020f29ae1e1b16359a5c5f62113c5650fa78af6e6baa7e528d683e5cbab"
+    },
+    {
+      "path": "/tmp/loy-069-final-artifact-check.log",
+      "bytes": 45,
+      "sha256": "3fbdf84a06d1fcfaf5b173925f5ca677efe63cb05f112f97cb7d55aa82a36499"
+    },
+    {
+      "path": "/tmp/loy-069-global.log",
+      "bytes": 35134,
+      "sha256": "78ba6ca7178d45811d26c8fcd72b23c60a3f444ce158d98cb1f635dfe2948444"
+    },
+    {
+      "path": "/tmp/loy-069-global.json",
+      "bytes": 620267,
+      "sha256": "5ce6759f585a008d9530bcee45ec0bf08dcbc11c38c801437cda49c560aa019a"
+    },
+    {
+      "path": "/tmp/loy-069-staff-confirmation-mobile.png",
+      "bytes": 68349,
+      "sha256": "bbe09bc086b4205fd86af77163e1239c62aee5163f4b00ec7aa69d8b4632ef4c"
+    }
+  ],
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "integrated": false,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "native_usage": {
+    "status": "active",
+    "reported_tokens": 8420864,
+    "seconds": 42957,
+    "remaining_tokens": null,
+    "input_cached_output_review_split": "unmeasured"
+  }
+}

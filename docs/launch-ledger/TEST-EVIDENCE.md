@@ -117,3 +117,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - /067: [LOY-295 campaign outcome browser evidence](LOY-295-campaign-outcome-feedback-2026-10-11.md), persisted positive/zero/foreign fixtures, real API500/transport loss/explicit current-data retry, abandoned old success/error, mobile/desktop; failed test observations retained.
 
 - 2026-10-11 /068 LOY-296:9browserPASS13.4s,17focusedPASS, static/build/reviewPASS;166files1575globalPASS0FAIL1existingSKIP. Initial enrollment fixture failure preserved. [Evidence](LOY-296-branding-save-feedback-2026-10-11.md).
+
+- 2026-10-11 /069 LOY-297:6actualstaffbrowserPASS19.3s plus mobileartifact1PASS4.3s; primaryreporting2PASS4.9s unchanged;3focused/static/build/reviewPASS. [Evidence](LOY-297-staff-confirmation-feedback-2026-10-11.md).

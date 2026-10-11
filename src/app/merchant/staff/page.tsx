@@ -34,6 +34,7 @@ export default function StaffPage() {
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<StaffMember | null>(null);
+  const [revokingTarget, setRevokingTarget] = useState<StaffMember | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   useDirtyGuard("staff-invite", email.trim().length > 0);
@@ -57,14 +58,14 @@ export default function StaffPage() {
     finally { setBusy(false); }
   }
   async function revoke() {
-    if (!revokeTarget) return;
+    if (!revokeTarget || busy) return;
     const target = revokeTarget;
-    setBusy(true); setError(""); setMessage("");
+    setBusy(true); setRevokingTarget(target); setError(""); setMessage("");
     try {
       await postJson("/api/staff/revoke", { userId: target.userId });
-      setMessage("Der Teamzugang wurde gesperrt."); setRevokeTarget(null); reloadStaff(); reloadAudit();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Zugang konnte nicht gesperrt werden."); setRevokeTarget(null); }
-    finally { setBusy(false); }
+      setMessage("Der Teamzugang wurde gesperrt."); setRevokeTarget(current => current === target ? null : current); reloadStaff(); reloadAudit();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Zugang konnte nicht gesperrt werden."); setRevokeTarget(current => current === target ? null : current); }
+    finally { setBusy(false); setRevokingTarget(null); }
   }
   async function copy() {
     try { await navigator.clipboard.writeText(inviteUrl); setMessage("Link kopiert. Er wurde nicht versendet."); setError(""); }
@@ -97,7 +98,7 @@ export default function StaffPage() {
           {staff.state === "loading" ? <LoadingBlock rows={2} height={48} /> : (
             <ul className="ow-feed">{people.map(item => (
               <li key={item.userId} style={item.active ? undefined : { opacity: .7 }}><span><strong>{item.email || "E-Mail nicht verfügbar"}</strong>{item.userId === me.userId && <span className="ow-muted"> (du)</span>}<br /><span className="ow-row" style={{ gap: 6, marginTop: 4 }}><span className={`ow-chip ${item.role === "owner" ? "ow-chip--ok" : item.role === "manager" ? "ow-chip--info" : ""}`}>{ROLE_LABEL[item.role]}</span><span className="ow-muted" style={{ fontSize: 13 }}>{item.role === "owner" ? "Alle Standorte" : locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {item.active ? "Aktiv" : "Gesperrt"}</span></span></span>
-                {item.role !== "owner" && item.active && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setRevokeTarget(item)}>Sperren</button>}</li>))}</ul>
+                {item.role !== "owner" && item.active && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setRevokeTarget({ ...item })}>Sperren</button>}</li>))}</ul>
           )}
         </section>
       </div>
@@ -117,7 +118,7 @@ export default function StaffPage() {
           : <p className="ow-muted">Noch keine Teamereignisse erfasst. Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</p>)}
       </section>
       {revokeTarget && (
-        <OwnerDialog title="Zugang sperren?" tone="danger" onClose={() => setRevokeTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setRevokeTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void revoke()} disabled={busy}>{busy ? "Wird gesperrt …" : "Zugang sperren"}</button></>}>
+        <OwnerDialog title="Zugang sperren?" tone="danger" onClose={() => setRevokeTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setRevokeTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void revoke()} disabled={busy}>{revokingTarget === revokeTarget ? "Wird gesperrt …" : "Zugang sperren"}</button></>}>
           <p>{revokeTarget.email} verliert den Zugriff auf den Standort und kann keine neuen Buchungen mehr ausführen.</p>
         </OwnerDialog>
       )}
