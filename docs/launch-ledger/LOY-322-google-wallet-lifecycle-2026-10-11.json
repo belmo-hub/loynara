@@ -50,7 +50,14 @@
   "push": "UNVERIFIABLE; GitHub Confirm access; not performed",
   "launch": "NO-GO full scope incomplete/unverified",
   "credentials": "omitted",
-  "usage": "native cumulative receipt follows; granular input/cache/output/browser/reviewer unmeasured",
+  "usage": {
+    "native_cumulative_tokens": 13177089,
+    "seconds": 72505,
+    "input": "unmeasured",
+    "cached_subset": "unmeasured",
+    "output": "unmeasured",
+    "browser_reviewer": "unmeasured"
+  },
   "external_actions": "tracker child322 In Review created; no push/deployment/provider action",
   "local_logs": [
     "/tmp/loy-103-browser-red-final.log",
@@ -60,5 +67,19 @@
     "/tmp/loy-103-release.log",
     "/tmp/loy-103-worker-startup.log",
     "/tmp/loy-103-backup-restore.log"
-  ]
+  ],
+  "source_sha": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184",
+  "local_integrated_sha": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184",
+  "integrated_focused": {
+    "pass": 24,
+    "files": 5,
+    "seconds": 10.98
+  },
+  "tracker": {
+    "322": "Done /7-175",
+    "201": "Backlog unresolved /7-176",
+    "185": "Backlog unresolved /7-177",
+    "readback_utc": "2026-10-11 11:39:33"
+  },
+  "cleanup": "owned browser server stopped/browser DB dropped; no worktree/cache removal"
 }
