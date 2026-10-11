@@ -87,3 +87,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 - 2026-10-11 /099: [LOY-139-167-bounded-discovery-2026-10-11.md](LOY-139-167-bounded-discovery-2026-10-11.md) —139 correlation already covered;167507-attempt synthetic aggregate PASS; no new product defect, broader gates OPEN.
 
 - 2026-10-11 /100: [LOY-125-135-consent-materialization-order-2026-10-11.md](LOY-125-135-consent-materialization-order-2026-10-11.md) — deterministic withdrawal/materialization test PASS; missing actual owner pending-invite revocation identified for coordinator; broad gates OPEN.
+
+- 2026-10-11 /103: [LOY-322 Google Wallet lifecycle](LOY-322-google-wallet-lifecycle-2026-10-11.md) — actual browser RED->4PASS, reviewed cancellation ownership;34 migration tests and synthetic backup/worker startup PASS; final global/integration receipts follow, full commercial launch NO-GO.

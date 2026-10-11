@@ -136,18 +136,28 @@ export function CardClient({ token }: { token: string }) {
       downloadReset.current = setTimeout(() => { walletOperation.current = null; setWalletBusy(null); }, 4000);
     } catch (cause) {
       if (!controller.signal.aborted) { setWalletError(walletMessage(cause, card?.locale === "fr")); setWalletBusy(null); }
-      walletOperation.current = null;
+      if (walletOperation.current === controller) walletOperation.current = null;
     }
   }
 
   async function addToGoogleWallet() {
+    if (walletOperation.current) return;
+    const controller = new AbortController(); walletOperation.current = controller;
     setWalletBusy("google"); setWalletError("");
     try {
-      const { url } = await postJson<{ url: string }>("/api/wallet/google", { token });
+      const { url } = await apiJson<{ url: string }>("/api/wallet/google", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }), signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       const target = new URL(url);
       if (target.protocol !== "https:" || target.hostname !== "pay.google.com") throw new Error("Unexpected Google Wallet link");
       window.location.assign(target.href);
-    } catch (cause) { setWalletError(walletMessage(cause, card?.locale === "fr")); setWalletBusy(null); }
+    } catch (cause) {
+      if (!controller.signal.aborted) { setWalletError(walletMessage(cause, card?.locale === "fr")); setWalletBusy(null); }
+    } finally {
+      if (walletOperation.current === controller) walletOperation.current = null;
+    }
   }
 
   async function bindBrowser(data: { authenticate: true } | { switchAccount: true }) {

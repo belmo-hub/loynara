@@ -1,0 +1,64 @@
+{
+  "assignment": "LOY-ENG-20261011-103",
+  "issue": "LOY-322",
+  "parent": "LOY-201",
+  "base": "f4c5a5da6ee0c8449590df8327b9e7889b991f47",
+  "source_result": "containing commit; exact receipt follows",
+  "global": {
+    "files": 180,
+    "pass": 1629,
+    "fail": 0,
+    "existing_optional_skip": 1,
+    "seconds": 166.09
+  },
+  "browser": {
+    "unchanged_source_red_fail": 2,
+    "unchanged_source_pass": 1,
+    "final_pass": 4,
+    "seconds": 6.8,
+    "token_replacement_runtime": "UNVERIFIED",
+    "provider": "STRICTLY SYNTHETIC"
+  },
+  "focused": {
+    "files": 5,
+    "pass": 24,
+    "seconds": 9.62,
+    "phase": "before reviewed Apple ownership guard; final source covered globally"
+  },
+  "release": {
+    "migration_config_cli_pass": 34,
+    "seconds": 7.26,
+    "worker_startup_sigterm": "PASS",
+    "web_browser_startup": "PASS",
+    "schema": "0024",
+    "journal_rows": 25,
+    "backup_restore": "PASS synthetic unencrypted only",
+    "archive_bytes": 166430,
+    "counts": {
+      "tenants": 3,
+      "memberships": 18,
+      "ledger_entries": 0,
+      "wallet_passes": 9,
+      "outbox_jobs": 17,
+      "staff_audit_events": 0,
+      "journal": 25
+    },
+    "mixed_old_new_writers": "NOT ACCEPTED; required stop/drain both web and worker; not automatic enforcement"
+  },
+  "static": "typegen/typecheck/lint0/build PASS",
+  "independent_review": "no material remaining finding; static only",
+  "push": "UNVERIFIABLE; GitHub Confirm access; not performed",
+  "launch": "NO-GO full scope incomplete/unverified",
+  "credentials": "omitted",
+  "usage": "native cumulative receipt follows; granular input/cache/output/browser/reviewer unmeasured",
+  "external_actions": "tracker child322 In Review created; no push/deployment/provider action",
+  "local_logs": [
+    "/tmp/loy-103-browser-red-final.log",
+    "/tmp/loy-103-browser-final.log",
+    "/tmp/loy-103-global.log",
+    "/tmp/loy-103-static-final.log",
+    "/tmp/loy-103-release.log",
+    "/tmp/loy-103-worker-startup.log",
+    "/tmp/loy-103-backup-restore.log"
+  ]
+}

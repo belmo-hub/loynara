@@ -54,3 +54,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 - 2026-10-11 /101: [LOY-321-pending-invitation-cancellation-2026-10-11.md](LOY-321-pending-invitation-cancellation-2026-10-11.md) —321 owner pending invitation cancellation;33 focused/4 browser/global1629PASS,1 existing skip; LOCAL integration/tracker receipt follows,153154 broad gates OPEN.
 
 - 2026-10-11 /102: [Full launch critical path](2026-10-11-full-launch-critical-path.md) — bounded fallback,278-row historical-plus321 register/17workstreams,13 targeted live issues,10 priority open deliverables; current full coverage/timeframe UNKNOWN, accepted271/272 preserved; no application change.
+
+- 2026-10-11 /103: [LOY-322 Google Wallet lifecycle](LOY-322-google-wallet-lifecycle-2026-10-11.md) — actual browser RED->4PASS, reviewed cancellation ownership;34 migration tests and synthetic backup/worker startup PASS; final global/integration receipts follow, full commercial launch NO-GO.
