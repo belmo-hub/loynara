@@ -86,15 +86,35 @@
       "bytes": 14,
       "sha256": "6e0504038d9284f24a4e629866b4a95050b3e6c28d03d72a3068b6023026ad30",
       "raw_log_shared": false
+    },
+    {
+      "path": "/tmp/loy-071-integrated-unit.log",
+      "bytes": 1150,
+      "sha256": "12a9acfa57009c35bd85c6ac33d2dc3d2642a58cd50f8e26e68a00150b7a4d16",
+      "raw_log_shared": false
     }
   ],
   "accounting": {
-    "native_cumulative_reported_tokens": 8741032,
-    "native_cumulative_seconds": 44592,
+    "native_cumulative_reported_tokens": 8799836,
+    "native_cumulative_seconds": 44829,
     "remaining_tokens": null,
     "input": null,
     "cached_subset": null,
     "output": null,
     "browser_reviewer_runtime": "unmeasured"
+  },
+  "source_sha": "60e0e650d1a640b8b7419edbe7eb6b9907730f73",
+  "integrated_source_sha": "60e0e650d1a640b8b7419edbe7eb6b9907730f73",
+  "integrated_focused": "3PASS1.02s",
+  "disk_free": "43GiB",
+  "owned_browser_database": "071a dropped after app/browser stopped",
+  "tracker": {
+    "id": "LOY-299",
+    "stage": "Done",
+    "feature_maturity": "Local Implementation",
+    "evidence": "Automated Tests Verified",
+    "readback_utc": "2026-10-11 03:57:44",
+    "comment": "7-127",
+    "broader_scopes": "43/44/209 and47/48OPEN"
   }
 }
