@@ -1,0 +1,108 @@
+{
+  "assignment": "LOY-ENG-20261011-088",
+  "issue": "LOY-315",
+  "parent": "LOY-175",
+  "base_sha": "cef195ec760f8c33eec0a48ede53c2d7a130aa82",
+  "source_sha": "c2e6be38ebff787187354739417a20f25dd9bd20",
+  "result_sha": "Containing documentation commit; exact durable state/map after integration",
+  "implementation": "src/components/owner/card-studio.tsx dedicated logo selection revision invalidates older read success/error on newer selection/removal/discard; keeps established branding-save revision unchanged",
+  "authority": "Founder master directive and completed088 contract;175actualbranding/176independent verified;147actualQRmaterials unrelated",
+  "contract": "Local nativeFileReader supported PNG/JPEG/WebP\u22642MiB followed by owner-authorized brandPOST/validated dataURL persisted in tenant locationPG; browser card deliberatelybusinessname notlogo; no hostedstorage/newprovider/retentionpolicy",
+  "red": "3genuine realChrome nativeReadRED newer21.7s/remove11.1s/discard21.3s; firsttwo staleexactbytes persisted via normal actual brandPOST/reload; discard restores unwanted dirtydraft; no RED fixture failure",
+  "browser": "Initial3PASS4.5s; added negative3PASS1fixtureFAIL5.4s ambiguousalert matched logo+Nextannouncer; correctedonly .ow-error[role=alert], final4realChromePASS5.5s375/1280 newestbytes/nullpersist/reload, discardclean/disabled, delayed injectedreaderror cannot overwrite latest actualSVGvalidation; exactforeignrows/no memberships/outbox",
+  "focused": "4files42PASS2.48s",
+  "static": "typegen/typecheck/zero-warning changedlint/productionbuild PASS",
+  "global": "173files1601PASS0FAIL1existing optional Mailpit recoverySKIP155.76s FIRSTrun",
+  "integrated": "cleanLOCALFF;4files42PASS2.75s; frozen32b27ec exact/e1aae658+9848e759 ancestry/allmigrations preserved",
+  "review": "One independentREADONLY sensitive staticreview no material findings; no source changed afterreview; configunmeasured",
+  "tracker": "315Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T08:10:57Z/comment7-148;175truthfulInProgress08:11:02UTC while fullUnknown/Missing/Claude metadata preserved;176Backlog/resolvednull OPEN",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11393305,
+    "cumulative_seconds": 60027,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": {
+    "disk_free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "new_worktree": false,
+    "installations": false,
+    "cleanup": false,
+    "other_registered_exact_paths_checked": 40,
+    "tracked_overlap": [],
+    "Desktop_concurrency": "UNKNOWN/not rescanned"
+  },
+  "execution": "Mac/one engineer; assignedgpt-6.1-sol Mediumverification/Highengineering/Mediumreadonlyreview; effective setterunavailable/existing executorretained; normal synthetic owner signup/onboarding, actual file reads/routes/localPG/providerdeliveryOFF",
+  "external_actions": "Actual315create/InProgress/InReview/Done/comment/readback;175activeprogresstransition/readback. Gmail3150matching generation/receiptUNVERIFIED. Ownedbranding088DB dropped after stoppedapp/zeroactive. No remote push185/186/protected/hosted/provider/customer/tag/legal/newpolicyactions",
+  "limitations": [
+    "Error is injected after actual native read, not naturally occurring diskIOfailure.",
+    "Accepted PNG streams have harmless distinct trailing fixture labels; exactbyteprovenance tested, no visualdifference claim.",
+    "Only local dataURL persistence/owner preview/ordering; independent physicalWallet branding/full175176acceptance OPEN. No browserpubliclogo addition.",
+    "Focused existing validation/isolation/savefeedback/sessiontests retained; no new storage/provider/retention/security policy. Prior081 precise event attribution UNPROVEN."
+  ],
+  "fixture_failures": [
+    "Added fourth negative initially strictmode ambiguousalert: actuallogoerror plusNext announcer. Sameassertion scoped to actual .ow-error[role=alert]; no sourcecorrection/testweakening."
+  ],
+  "fallback": "LOY125unused; no thirdinvestigation",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-125 consent-aware audience preview request failure beyond accepted validation/scale/stale-response fences",
+    "LOY-147 QR material generation/persistence/print recovery under existing kit contract",
+    "LOY-169 existing deterministic measured recommendations accuracy, no171model-policy invention"
+  ],
+  "evidence": "docs/launch-ledger/LOY-315-logo-read-ordering-2026-10-11.md",
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-088-red.log",
+      "bytes": 14597,
+      "sha256": "989843e2efc327f3288a714661c253d6f44836abc26db5a3437c0612ef1135cf"
+    },
+    "green": {
+      "local_path": "/tmp/loy-088-green.log",
+      "bytes": 782,
+      "sha256": "c3a87b806f8ce4be212b5918f538bba2f185af08e86d7f575b9bc41261d30c77"
+    },
+    "green-final": {
+      "local_path": "/tmp/loy-088-green-final.log",
+      "bytes": 4161,
+      "sha256": "79bdc06d06c871800660d999b9e9e2207ced009ad335818d1a0c772246cf2309"
+    },
+    "green-corrected": {
+      "local_path": "/tmp/loy-088-green-corrected.log",
+      "bytes": 900,
+      "sha256": "192b18d36dc680db727beb80c63fd7bfd7a1d68b11cec2a7b67755a9d30bd355"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-088-focused.log",
+      "bytes": 1253,
+      "sha256": "3becc5eabc2f22ac952f3c0bacaed0aee137a368f0dfaa4eee5c600adb902159"
+    },
+    "static": {
+      "local_path": "/tmp/loy-088-static.log",
+      "bytes": 4316,
+      "sha256": "dc8ac6bdef449cd754f6d2ac916d80a1319b1b72f2586a6cb16cf3f2c9c58da7"
+    },
+    "global": {
+      "local_path": "/tmp/loy-088-global.log",
+      "bytes": 39665,
+      "sha256": "c8f9be19b8f7f402a6d55d4571c513dc34dfcc735d7de585c3060c91ba1fb721"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-088-integrated.log",
+      "bytes": 1525,
+      "sha256": "d468a0f44d8b45f7813e9eeea62c77e59a62132b618391b8a5d084fc63097abc"
+    }
+  }
+}
