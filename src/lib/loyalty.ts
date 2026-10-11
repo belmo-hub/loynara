@@ -14,6 +14,17 @@ export class DomainError extends Error {
   }
 }
 
+// Called only after the transaction has rolled back. Different cards have independent
+// membership locks, but a racing tenant-wide key collision is a definitive rejection.
+function rethrowLedgerKeyConflict(error: unknown): never {
+  const databaseError = error instanceof Error && error.cause ? error.cause : error;
+  if (databaseError && typeof databaseError === "object" && "code" in databaseError && databaseError.code === "23505"
+    && "constraint" in databaseError && databaseError.constraint === "ledger_idempotency_uq") {
+    throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+  }
+  throw error;
+}
+
 export type AwardInput = {
   userId: string;
   locationId: string;
@@ -42,7 +53,7 @@ async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) 
 }
 
 export async function award(input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
-  return db.transaction(tx => awardInTransaction(tx, input));
+  return db.transaction(tx => awardInTransaction(tx, input)).catch(rethrowLedgerKeyConflict);
 }
 
 // Offline reconciliation holds its lease lock and books the ledger in the
@@ -187,16 +198,7 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
     await tx.insert(redemptions).values({ tenantId: member.tenantId, membershipId: member.id, ledgerEntryId: entry.id, rewardVersionId: selected.version.id, rewardTitle: selected.version.title, cost: selected.version.cost });
     await enqueueWalletRefresh(tx, member.tenantId, member.id);
     return { balance, duplicate: false, entryId: entry.id };
-  }).catch((error: unknown) => {
-    // Different cards do not share a membership lock. A racing tenant-wide key collision is still a definitive
-    // rejection, after the failed transaction has rolled back, rather than an ambiguous server failure.
-    const databaseError = error instanceof Error && error.cause ? error.cause : error;
-    if (databaseError && typeof databaseError === "object" && "code" in databaseError && databaseError.code === "23505"
-      && "constraint" in databaseError && databaseError.constraint === "ledger_idempotency_uq") {
-      throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
-    }
-    throw error;
-  });
+  }).catch(rethrowLedgerKeyConflict);
 }
 
 export type ReversalInput = {
@@ -238,5 +240,5 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     }
     const [updated] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, member.id));
     return { balance: updated.balance, duplicate: false, entryId: entry.id };
-  });
+  }).catch(rethrowLedgerKeyConflict);
 }
