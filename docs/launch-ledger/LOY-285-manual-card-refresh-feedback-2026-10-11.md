@@ -15,3 +15,5 @@ PLANNED/OPEN: broader LOY-177/178 mobile/accessibility/German journeys, screen-r
 Native cumulative observed6,477,589tokens/33,167seconds; input/cachedsubset/output/reviewer/browser breakdown unmeasured, accounting not reset. Genuine tracker285creation/link177 verified; no parent completion inferred. Exact final suite/integration/tracker receipt follows.
 
 Final configured full159files1477PASS0FAIL1existing optionalMailpitSKIP,122.28seconds,exit0; Chrome2PASS recorded separately. No unexpected final failures/new skips/test weakening.
+
+INTEGRATED receipt: code90e1d798ee46a4f412898ad34c5a3ccde1fb3063 fast-forwarded into local candidate; integrated4files12PASS.285Done/LocalImplementation/AutomatedTestsVerified, genuinecomment7-107/parent177 read back2026-10-11 00:02:49UTC. Creation description premature375/1280RED wording corrected with appended traceable evidence amendment (original retained); validRED375px, finalGREENbothwidths. Native6,485,660tokens/33,313seconds; detailed subset unmeasured. Receipt-only commit leaves globally/browser-tested app source unchanged.
