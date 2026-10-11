@@ -1,0 +1,104 @@
+{
+  "assignment": "LOY-ENG-20261011-093",
+  "issues": [
+    "LOY-163",
+    "LOY-164",
+    "LOY-155",
+    "LOY-156"
+  ],
+  "date": "2026-10-11",
+  "base_sha": "3b4b794026e08d9c2bb24a6e69bd22603bbc2454",
+  "test_sha": "5275022f328495e6b32c282d95a024e64335c16a",
+  "primary_matrix": [
+    {
+      "requirement": "Owner overview/visits/returning cards",
+      "implementation": "Overview/PeriodMetrics and merchant analytics page; getMerchantAnalytics distinct qualifying unreversed staff requests, repeatCards/participatingCards, UTC30/90 windows and countingRule",
+      "status": "IMPLEMENTED source observed; full acceptance UNVERIFIED"
+    },
+    {
+      "requirement": "Inactivity/retention segmentation",
+      "implementation": "getRetentionSummary/retentionPredicate recent/drifting/never and reward states; last unreversed staff checkout; existing14/30/60/90 controls; CardBase/customer filters and exact rules",
+      "status": "IMPLEMENTED source observed; full acceptance UNVERIFIED"
+    },
+    {
+      "requirement": "Truthful zero/error/current versus period data",
+      "implementation": "Analytics page explicitly distinguishes current retention from upper reporting window; existing zero/error states and no causal revenue guarantee",
+      "status": "IMPLEMENTED source observed; full acceptance UNVERIFIED"
+    }
+  ],
+  "primary_result": "No explicitly required absent metric with an approved definition was established. No session-expiry/churn/cohort rule invented. Authorized fallback used once; no third engineering investigation.",
+  "implementation": "Only new src/lib/location-http-scope.integration.test.ts. Actual BetterAuth sign-in cookies and GET route handlers backed by owned PostgreSQL; two tenants, two sibling locations and legitimate manager/cashier invitations. Manager forged selection cookie and sibling/foreign query cannot widen customer list/detail/retention. Owner can view both own locations, foreign detail denied; cashier403/anonymous401; no financial/closed-card/outbox effects.",
+  "tests": {
+    "focused_first": "16PASS3.29s in4files",
+    "focused_final": "16PASS3.46s after fixture typing correction",
+    "integrated": "16PASS3.26s",
+    "static": "typegen/typecheck/zero-warning changed-test lint/productionbuild/diff checkPASS",
+    "global": "Not rerun for test-only changes. Prior appsource6fc9cf097defb0ba40a3c1ffbc505538f093ec24 global174files1616PASS0FAIL1existingoptionalMailpitSKIP159.20s retained as092 result, not a new093suite.",
+    "browser": "No UI behavior changed; no new real browser claim. Real authenticated Request/route/session/PostgreSQL evidence."
+  },
+  "review": "One independent read-only sensitive static review found no material issue; no tests rerun. Owner foreign denial covers detail only; manager foreign denial covers allthree report paths. Exact runtime model/effort unmeasured.",
+  "failures": "Initial typecheck failed due widened fixture locale and extra email property not in acceptStaffInvite signature. Corrected literal locale and removed unsupported property; identical runtime assertions retained, finalfocused/static rerun. No productRED/sourcefix/assertionweakening. Initial trackersearch limit30 rejected; boundedcorrected20 returned164only.",
+  "tracker": "155comment7-155 and StageInReview/LocalImplementation/AutomatedTestsVerified readback09:10:44UTC;163comment7-156/Backlog/Missing/unresolved readback09:11:06UTC. Full163164155156 acceptance OPEN; no fakeBugchild/Done.",
+  "founder_actions": "Existing154 independent staff queue extended with related156 location acceptance;164 separate independent metrics acceptance queued. Exact actions notified in persisted155/163 comments; actual external acceptance not performed.159 policy boundary unchanged.",
+  "execution": "Mac, one reused isolated worktree; coordinator assignedSolMediumcontract/Highengineering/Mediumreview; switching unavailable/currentexecutor retained. Synthetic identities/ownedPG55433/providersOFF. No newtree/install/browserDB/cleanup.",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 12055304,
+    "cumulative_seconds": 63552,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model_effort": null
+  },
+  "resources": {
+    "free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "concurrent_exact_path_conflicts": [],
+    "unknown_other_codex_paths": [],
+    "Desktop_status": "UNKNOWN earlier boundedstall/notrescanned"
+  },
+  "external_actions": "Authorized YouTrack evidencecomments/stage/readback. Gmail notification delivery not checked anew; no delivery claim. No push185186/protected/hosted/provider/customer/tag/legal/newpolicy action.",
+  "statuses": {
+    "test_implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "production_fix": false,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-165 activity and exports: exact current reporting definitions, verify missing date-filtered report export under existing data/auth contracts",
+    "LOY-135 remaining consent capture/unsubscribe correctness, preserve strict dispatch133 hold and no live sends",
+    "LOY-151 operator onboarding/recovery handoff missing technical tooling within approved procedure; independent timed/operator acceptance remains human"
+  ],
+  "logs": {
+    "focused": {
+      "local_path": "/tmp/loy-093-focused.log",
+      "bytes": 1572,
+      "sha256": "1cb82ad578026d4a151a250020e8fa895bd7b21fe4fce48284f47d0ab92c4071"
+    },
+    "focused-final": {
+      "local_path": "/tmp/loy-093-focused-final.log",
+      "bytes": 1836,
+      "sha256": "80060cbf1b504031a5b3954a8faa08806ee4e4ea8615f57d99b4b2530df55f12"
+    },
+    "static-first": {
+      "local_path": "/tmp/loy-093-static-first.log",
+      "bytes": 2695,
+      "sha256": "4d722e352da63ac6d1c8c2ff7ba8a0619d2b683fbae744e42be817c9c29b8d8f"
+    },
+    "static": {
+      "local_path": "/tmp/loy-093-static.log",
+      "bytes": 5378,
+      "sha256": "045b978f7f227d71535ba88b49a443b9e6ced3f6a1054421f29236eee01cde79"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-093-integrated.log",
+      "bytes": 1581,
+      "sha256": "770ea5ce2feb7248f5b3486a40c3bb0630abdd10c69d31827d6865a4c5b522ba"
+    }
+  }
+}
