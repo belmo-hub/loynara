@@ -160,5 +160,10 @@
   },
   "tracker": "Pending truthful evidence comments;195/196 not closed",
   "push": "Pending reviewed normal push after fresh trigger verification",
-  "coordinator": "Pending single completed review"
+  "coordinator": "Pending single completed review",
+  "evidenceValidationAmendment": {
+    "initial": "Default-sandbox formatting write denied before validation; initial receipt committed before failed check noticed",
+    "correction": "Full JSON/privacy/diff/source checks completed with authorized worktree access before push; historical initial commit preserved",
+    "formatting": "CommonMark bullets corrected; no factual recovery result altered"
+  }
 }

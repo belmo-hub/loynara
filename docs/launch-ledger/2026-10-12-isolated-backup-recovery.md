@@ -14,12 +14,12 @@ Existing pinned restore-script guards were preserved. A temporary operation-loca
 
 - **21 canonical journal hashes/timestamps through0020 match.**
 - **49 table/column definitions match**:45 application tables from0020 snapshot plus4 separately defined in committed auth.sql. Types/nullability/varchar lengths checked. Auth4PK, email/token uniqueness,2 cascading user FKs and3 canonical indexes verified.
--583 constraints/76FKs; zero unvalidated constraints or invalid/not-ready indexes; enabled append-only ledger trigger and5 Wallet lifecycle columns verified.
--Aggregate counts only:1tenant,1location,1programme,4memberships,11ledger entries,3redemptions,21journal entries. No individual identity/contact/card/token/production row exported to AI or Git.
--**12 business invariant violation counts are zero**: tenant references, balance/ledger agreement, nonnegative balances, idempotency/locator uniqueness/format, reversal conservation and redemption ledger/version binding.
--Synthetic cross-tenant membership is refused by the exact tenant FK; ledger deletion is refused by the append-only trigger. Both transactions rolled back; aggregate counts unchanged.
--Corrupted ciphertext fails authentication;3 invalid target configurations and a populated local target refuse before restore. No second actual restoration.
--Synthetic safety checks:2 valid loopback forms,6 invalid identities, changed-target refusal before attempt,4 unsafe checkpoint variants and bounded parent/child process-group termination.
+- 583 constraints/76FKs; zero unvalidated constraints or invalid/not-ready indexes; enabled append-only ledger trigger and5 Wallet lifecycle columns verified.
+- Aggregate counts only:1tenant,1location,1programme,4memberships,11ledger entries,3redemptions,21journal entries. No individual identity/contact/card/token/production row exported to AI or Git.
+- **12 business invariant violation counts are zero**: tenant references, balance/ledger agreement, nonnegative balances, idempotency/locator uniqueness/format, reversal conservation and redemption ledger/version binding.
+- Synthetic cross-tenant membership is refused by the exact tenant FK; ledger deletion is refused by the append-only trigger. Both transactions rolled back; aggregate counts unchanged.
+- Corrupted ciphertext fails authentication;3 invalid target configurations and a populated local target refuse before restore. No second actual restoration.
+- Synthetic safety checks:2 valid loopback forms,6 invalid identities, changed-target refusal before attempt,4 unsafe checkpoint variants and bounded parent/child process-group termination.
 
 Initial preparation stopped on PostgreSQL's127.0.0.1/32 format. Strict parsing fixed it without weakening address/port/database/data-directory/emptiness gates. Initial snapshot-only schema validation refused four auth tables; fresh canonical auth.sql checks correctly established the complete49-table inventory. Initial sanitized failure is preserved; no arbitrary extra tables accepted or database schema/data altered. Minor fixture/serialization/default-sandbox process-inspection failures caused no restoration; normal escalation inspected only owned synthetic processes.
 
@@ -36,3 +36,5 @@ Application source unchanged: preserve dated125184files/1685PASS/0FAIL/one exist
 Original native Goal01a125a6-7124-70f1-a0f7-8b6f83d9a191 stays **BLOCKED**,16624937tokens/92240seconds preserved; additional input/cached/output/browser/reviewer usage UNMEASURED, no reset/successor/bypass. Founder permits normal independent local work. Next: complete strategic review, then grounded MustLaunch task selected within15–20minutes; recovery task completion is not Goal/launch completion.
 
 Sanitized evidence: native recovery-20261012-result.json, safety tests, restored-ciphertext binding, preserved initial schema check and source-only operation archive. No private recovery artifacts in this ledger.
+
+Traceable evidence-validation amendment: the first default-sandbox formatting/validation call was refused before validation and the receipt was committed before that failed check was noticed. Full JSON/privacy/diff/source checks were rerun successfully under normal authorized access before any push; no accepted history rewritten or product source changed. This formatting amendment preserves the initial commit and all recovery evidence.
