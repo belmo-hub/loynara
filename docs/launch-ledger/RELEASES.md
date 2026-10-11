@@ -77,3 +77,6 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 
 
 2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.
+
+
+2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: reviewed production candidate remains ee4af7b79e9e4a667d383b0b9f815f31daa53956; last exact running generation792e218. New operator tooling is local only. Source PASS/operator prerequisites BLOCKED; migrations0021–0024 and same-generation rollout PLANNED, not executed.

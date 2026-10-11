@@ -220,3 +220,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.
+
+
+2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: 67 real-CLI synthetic cases in3files PASS20.68s, full typecheck/focused lint PASS; missing backup, unknown writers, mixed generations, unaccepted restoration and physical schema/history refusal verified. Independent review finding closed. No accepted cohort/browser/restore/global suite repeated.

@@ -210,3 +210,6 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 
 
 2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.
+
+
+2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: operator facts, complete live writer custody, exact-source/stop eligibility, independent encrypted object retrieval, physical schema/history restore acceptance and separate backup/restore then deployment authorizations remain open. Existing133/139/privacy/location/billing/Wallet and physical/provider/full-merchant acceptance holds preserved.

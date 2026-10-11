@@ -261,3 +261,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 
 
 2026-10-11 — [121: exact-SHA Railway path](2026-10-11-railway-exact-sha-path-121.md):1,065 nonledger objects exact; documented commitSha path CONDITIONALLY AVAILABLE, read-only GraphiQL Not Authorized; fresh role/hooks and six worker booleansfalse. Recovery/full writer inventory and execution approval still open. Local evidence only, no new push/deployment/acceptance.
+
+
+2026-10-11 — [Release preparation123](2026-10-11-release-preparation-123.md): 123: offline release preflight and 23:00 handoff — genuine journal-only false-PASS RED corrected; 67 focused cases, typecheck and lint PASS; independent finding closed. Default remains BLOCKED. Local integration receipt follows; no push or production action.

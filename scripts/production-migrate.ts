@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -10,6 +9,7 @@ import { productionMigrationIssues } from "./production-migrate-config";
 class MigrationRefusal extends Error {}
 
 async function main() {
+  await import("dotenv/config");
   const issues = productionMigrationIssues(process.env);
   if (["var/demo-access.json", "var/preview-access.json", "var/preview.env", "var/device-test-access.json", "var/device-test.env", "var/nfc-development-keys.json"]
     .some(file => existsSync(path.resolve(file)))) issues.push("Local test credentials or NFC development keys exist in the deployment directory");
@@ -54,7 +54,18 @@ async function main() {
   }
 }
 
-main().catch(error => {
+async function entrypoint() {
+  const args = process.argv.slice(2);
+  if (args[0] === "--release-preflight") {
+    const { runReleasePreflight } = await import("./production-release-preflight");
+    runReleasePreflight(args.slice(1));
+    return;
+  }
+  if (args.length) throw new MigrationRefusal("Unknown migration arguments; no operation performed");
+  await main();
+}
+
+entrypoint().catch(error => {
   console.error(error instanceof MigrationRefusal ? error.message : databaseFailureDiagnostic(error)
     ?? "Production migration failed; check reviewed configuration and database availability (details withheld)");
   process.exitCode = 1;

@@ -1,0 +1,440 @@
+{
+  "assignment": 123,
+  "recorded_at": "2026-10-11T18:09:30.527135+00:00",
+  "issues": [
+    "LOY-28",
+    "LOY-282",
+    "LOY-195",
+    "LOY-196",
+    "LOY-185",
+    "LOY-186"
+  ],
+  "objective": "Offline fail-closed preflight and exact-source operator release preparation; no production execution",
+  "base_sha": "5e5e61af4b8d34ab5fcb28f8cc4efc785db6847b",
+  "result_sha": "Containing commit; exact local integration receipt recorded in native Goal checkpoint",
+  "reviewed_github_release_sha": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+  "production_generation": {
+    "last_exact_readback": "792e218a17287009067ce0993c33eda3bfc3f4b7",
+    "basis": "Assignment120 exact readback; Assignment123 founder-supplied coordinator evidence confirms October8 generation, not a fresh exact process SHA"
+  },
+  "founder_reported_backup": {
+    "at": "2026-10-11T03:02:00Z",
+    "encrypted_offsite_upload": "reported successful",
+    "head_verification": "reported successful",
+    "independent_retrieval": "UNKNOWN",
+    "accepted_production_restore": "UNKNOWN",
+    "basis": "Fresh read-only coordinator evidence supplied in founder Assignment123"
+  },
+  "agent_model": {
+    "executor": "Codex root retained effective executor; requested gpt-6.1-sol high; root setter unavailable",
+    "reviewer": "gpt-6.1-sol medium; independent read-only review"
+  },
+  "context": {
+    "worktree": "staff-http-permissions/Loynara",
+    "branch": "codex/full-stack-release-110",
+    "new_worktree": false,
+    "dependency_install": false
+  },
+  "changes": [
+    "package.json: existing migration CLI preflight script alias",
+    "scripts/production-migrate.ts: preflight dispatch before lazy dotenv; no-argument migrator preserved",
+    "scripts/production-release-preflight.ts: pinned source/role/migration validation, sanitized strict operator receipts and ordered plan; no execution adapter",
+    "scripts/production-release-preflight.test.ts: real CLI positive and negative synthetic evidence plus transport/secret refusal coverage",
+    "docs/launch-ledger: incremental release preparation and affected indexes"
+  ],
+  "preflight": {
+    "status": "BLOCKED",
+    "releaseSha": "ee4af7b79e9e4a667d383b0b9f815f31daa53956",
+    "projectId": "b07a3919-b3fc-4637-8b91-d0b4418d2856",
+    "environmentId": "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
+    "executionEnabled": false,
+    "evidenceBasis": "DECLARED_OPERATOR_EVIDENCE_REQUIRES_AUTHENTICATION",
+    "source": {
+      "status": "PASS",
+      "canonicalJournal": [
+        [
+          "7274fc079d768a164d604dfe6fd4b0dee984b4901e8453aab35728990aa4418b",
+          1790341790664
+        ],
+        [
+          "1fa5daad714bf2251b8d25303f8aabc57f6a582f32ebe54c984204f44ea1570f",
+          1790342756050
+        ],
+        [
+          "b5c06f3836ebac94a19a01aff5ec2012480e8713f1e3bbd753baef4b23d4d957",
+          1790342925349
+        ],
+        [
+          "905c850059f6b951202af1746366244ac0512bb133d8343caff5f4771f73b5e9",
+          1790343596440
+        ],
+        [
+          "e6763bae245ddeba53620c6d01da0fcbaf899b9f3db3cb297e754a1d0761e5bc",
+          1790345071657
+        ],
+        [
+          "4cc008b7009677b83f1c8382d1b82e0d87f8b113941fda9e0d1541c483086b1a",
+          1790345900549
+        ],
+        [
+          "55ebba4eb685be271b35c0e1f24f96a0884886a9cc90aa3487a05d03e65d9e04",
+          1790347449816
+        ],
+        [
+          "e035e41c01021f2d26a828be3c3b5a893b182dfa0842a0f926cce36fa444cdfd",
+          1790363870739
+        ],
+        [
+          "20f0dce395bcb6dc19ef66b7009e679051c6cc17eb787589d17f960965c1fd9b",
+          1790365412649
+        ],
+        [
+          "0ee1bcce7b97bbd1d1d39cb50d0e250899d650d94100c56172b757e65f4487da",
+          1790366483044
+        ],
+        [
+          "4e7f1f0fe5be753665aac9033b7840fb37b104a8c3097e7be5cc032d1fec390f",
+          1790367246298
+        ],
+        [
+          "71c290984548b3da95fd8047dd2f942d01b6d9823f680af814a9924700d73084",
+          1790368587151
+        ],
+        [
+          "75f4e2ba01ab3a9b5c5ec26e7fdc143077bf0102cd5b76b028358a2c140e3140",
+          1790373099963
+        ],
+        [
+          "fff65e5c30f92fe82e4faaabf7079f7e38f2f97e30a4fe7caeaf0e602d21e3f6",
+          1790374827104
+        ],
+        [
+          "c8b7d0f723f2cd65db882f9cc9c0e798b255708ffea94431527a455145fc7ed5",
+          1790477381106
+        ],
+        [
+          "da4f40b74b3e63ae8a5c8eeb6093b7b3ce1aefb7db6140b87d4a64454d24b0be",
+          1790477578300
+        ],
+        [
+          "62c59eea31a550a4e53cb443a04846b9ffe85d4fb546ad6955e3dce6de208090",
+          1790545967721
+        ],
+        [
+          "19a8a0624a32bf269606e977234072ab31f6e9f2b727c0b79917a28d3bb59ff9",
+          1790546708472
+        ],
+        [
+          "abd0e28e8b223a5273ef884033ec99a16124876009b61bb5c1ebdd716884c7c8",
+          1790956320487
+        ],
+        [
+          "f7d1d53946c9cf309896b6368d5241c97974ce009c7e8471358515e3ff496c69",
+          1791127119079
+        ],
+        [
+          "943a8fe9066159fd75840cfb073e7b41be91da0e6646ce33c6dd9ab5508debbf",
+          1791296519073
+        ]
+      ],
+      "schemaFingerprint": "e0996eb13fa3a48ef941e895e6ea1459c9c384cb2e5facc3a450c91332060d43",
+      "sourceBasis": "PINNED_COMMITTED_GIT_BLOBS_NOT_LIVE_RUNTIME",
+      "pendingMigrations": [
+        {
+          "tag": "0021_staff_push_subscriptions",
+          "when": 1791417633414,
+          "sha256": "54ab5fa338723c9d1cea6074d67d61f09b1e4d86fa82acf5ce8f300aad3a0721"
+        },
+        {
+          "tag": "0022_email_rate_limit_retry",
+          "when": 1791599328000,
+          "sha256": "8127ed8eff176d0c46754f58df193a2c74e46db18f3e6e28c23d71908349b403"
+        },
+        {
+          "tag": "0023_reward_ready_automation",
+          "when": 1791632400000,
+          "sha256": "15a15cfac72e146a1ec744ce65918ebe13f2ee46d95da4cb731229cdafe024aa"
+        },
+        {
+          "tag": "0024_outbox_claim_token",
+          "when": 1791674938227,
+          "sha256": "fb1b9256dbe2b72489753d0125ac27b02f6dfff59d313316f0e78a2c95bebd97"
+        }
+      ],
+      "fingerprints": [
+        {
+          "file": "Dockerfile",
+          "sha256": "fa8daed3594a6d6c03f5199d77a80e7f6ebdb3ceb1ecd7603162343f50533e05"
+        },
+        {
+          "file": "Dockerfile.backup",
+          "sha256": "5fcc3944771172e91ee13db5e91cf8b77676fe5262b53d34e86faf7685a72681"
+        },
+        {
+          "file": "scripts/production-guard.ts",
+          "sha256": "4ee763b234e341a45986ad31406c3b9f189953418125644a42d16ab0e804dbe0"
+        },
+        {
+          "file": "scripts/production-migrate.ts",
+          "sha256": "6534208187a9f2c2bf055ea91ed8df57880f2dcb12ab4756767833eba694fcd7"
+        },
+        {
+          "file": "scripts/production-backup.sh",
+          "sha256": "49164c035d4a3bebe1d9398f4a2ca011ba5ef593c611b94a4e95d55d9e2ab1d5"
+        },
+        {
+          "file": "scripts/production-ops-check.ts",
+          "sha256": "c10feae4a5e5943751a9755f29f922e39c5710befa6f18c4ca629ef567bfc441"
+        },
+        {
+          "file": "scripts/worker.ts",
+          "sha256": "c3f6f9c08c7ba10e58956a06f0e98615ea94768a8e5f747e7d9899e2cd2a12b5"
+        },
+        {
+          "file": "src/lib/staff-push.ts",
+          "sha256": "d62f235866c6388b102871330071eb79f758bd0f181015522c1bab9679e7a7a3"
+        },
+        {
+          "file": "src/lib/outbox.ts",
+          "sha256": "02f9fd35b968b30a80a25c1dd6885269d306b6265adb2b24ef28cae8416bda96"
+        },
+        {
+          "file": "src/lib/outbox-replay.ts",
+          "sha256": "d436e92c4ee03601812aaef1dee0c9e172e2484b33697dc04ccf02ceff0b5ddc"
+        },
+        {
+          "file": "src/lib/wallet/refresh.ts",
+          "sha256": "6b94518cd74bc0a7bdebe5dd2b830c31a37dfbc6655104498dbec5defc75a7d0"
+        }
+      ]
+    },
+    "serviceDefinitions": [
+      {
+        "role": "web",
+        "id": "5c1303ad-42c2-4094-a996-3ac6140d088d",
+        "dockerfile": "/Dockerfile",
+        "command": null
+      },
+      {
+        "role": "worker",
+        "id": "3bfad7e8-c638-41bd-8f50-743e68c0633f",
+        "dockerfile": "/Dockerfile",
+        "command": "npm run worker"
+      },
+      {
+        "role": "migrate",
+        "id": "ba6a41c5-b9ee-463a-bc25-f7745c549f59",
+        "dockerfile": "/Dockerfile",
+        "command": "npm run production:migrate"
+      },
+      {
+        "role": "backup",
+        "id": "78ee0c58-c306-4f3a-95c0-1c94e72e793c",
+        "dockerfile": "/Dockerfile.backup",
+        "command": null
+      },
+      {
+        "role": "ops",
+        "id": "c3189719-e305-4c4c-b8ca-4d0b0335c25f",
+        "dockerfile": "/Dockerfile",
+        "command": "npm run production:ops-check"
+      },
+      {
+        "role": "postgres",
+        "id": "7eb7c68b-c890-4f79-844f-f439f9fe0234",
+        "dockerfile": null,
+        "command": null
+      },
+      {
+        "role": "cloudflared",
+        "id": "131ff3f7-3eb8-4837-a9f9-694db14f623b",
+        "dockerfile": null,
+        "command": null
+      }
+    ],
+    "writerInventory": [
+      {
+        "id": "web-http",
+        "service": "web",
+        "components": [
+          "src/app/api"
+        ],
+        "effect": "HTTP/API routes: loyalty, consent, staff, campaign and other application writes"
+      },
+      {
+        "id": "web-immediate-nfc",
+        "service": "web",
+        "components": [
+          "src/lib/staff-push.ts",
+          "src/lib/outbox.ts"
+        ],
+        "effect": "Immediate cashier notification claim/renew/outcome; not confined to the background worker"
+      },
+      {
+        "id": "worker-outbox",
+        "service": "worker",
+        "components": [
+          "scripts/worker.ts",
+          "src/lib/outbox.ts",
+          "src/lib/outbox-replay.ts"
+        ],
+        "effect": "Durable claim/replay/renew/outcome and delivery/reward/Wallet processing"
+      },
+      {
+        "id": "worker-housekeeping",
+        "service": "worker",
+        "components": [
+          "scripts/worker.ts",
+          "src/lib/wallet/refresh.ts"
+        ],
+        "effect": "Recovery/contact challenge cleanup and revoked Apple registration cleanup"
+      },
+      {
+        "id": "migration-schema",
+        "service": "migrate",
+        "components": [
+          "scripts/production-migrate.ts",
+          "drizzle/meta/_journal.json"
+        ],
+        "effect": "Auth/schema/ledger-trigger migration; scheduled/one-off invocations must remain stopped until approved"
+      }
+    ],
+    "requiredEvidence": [
+      "Authenticated operator receipt for exact project/environment/service identities, current generations, unchanged branch and resolved safe flags",
+      "Complete live writer inventory including immediate NFC, scheduled jobs, manual replay/migrations and any outside clients; no unaccounted writers",
+      "Authenticated exact-commit deployment eligibility and separately bounded founder deployment authorization for the pinned release",
+      "Authorized all-old-writer shutdown/drain receipt with zero in-flight work before the recovery point",
+      "Fresh encrypted approved EU R2 object after drain: source database/generation/schema, date/size/SHA256, independent retrieval and key custodian (never the key)",
+      "Explicit source and restored physical schema receipts: critical tables, tenant constraints, append-only trigger and structures through 0020; journal hashes alone are insufficient",
+      "Approved initially-empty isolated restore target distinct from production; independent operator accepted the same retrieved object, exact canonical journal and source-bound membership/ledger history, tenant isolation and reconciled counts",
+      "Separate founder backup/restore authorization; current exact canonical 0000..0020 journal/hash/timestamp and schema evidence before ordered 0021..0024"
+    ],
+    "blockers": [
+      "Operator, writer, configuration, backup, custody, independent restore and separate authorization evidence is missing"
+    ],
+    "orderedOperations": [
+      "attest-all-writers-and-separate-approvals",
+      "stop-and-drain-all-old-writers",
+      "fresh-encrypted-backup",
+      "accept-independent-isolated-restore",
+      "migrate-0021-through-0024-and-verify-exact-25-entry-journal",
+      "deploy-pinned-web-with-ingress-closed",
+      "verify-web-source-and-safe-config",
+      "deploy-identical-pinned-worker",
+      "verify-no-old-writers-and-health",
+      "authorized-two-tenant-smoke-and-reopen"
+    ]
+  },
+  "tests": {
+    "focused": {
+      "command": "node node_modules/vitest/vitest.mjs run scripts/production-release-preflight.test.ts scripts/production-migrate-cli.test.ts scripts/production-migrate-config.test.ts",
+      "files": 3,
+      "pass": 67,
+      "fail": 0,
+      "duration_seconds": 20.68
+    },
+    "typecheck": {
+      "command": "node node_modules/typescript/bin/tsc --noEmit",
+      "exit": 0
+    },
+    "lint": {
+      "command": "node node_modules/eslint/bin/eslint.js scripts/production-migrate.ts scripts/production-release-preflight.ts scripts/production-release-preflight.test.ts",
+      "exit": 0
+    },
+    "actual_default_cli": {
+      "command": "node --import tsx scripts/production-migrate.ts --release-preflight",
+      "exit": 2,
+      "source": "PASS",
+      "status": "BLOCKED"
+    },
+    "not_repeated": [
+      "accepted ten-merchant cohort",
+      "browser regressions",
+      "encrypted synthetic restoration",
+      "global suite"
+    ],
+    "new_next_build": false
+  },
+  "independent_review": {
+    "initial_finding": "Important: journal-only manifest could PASS without explicit source/restored physical schema and tenant-history acceptance",
+    "reproducer": "Old fixture returned exit0; required exit2, genuine RED",
+    "correction": "Required explicit source/restored schema receipts, restored canonical journal fingerprint and source-bound tenant/history reconciliation",
+    "closure": "Finding closed; no material regression in changed guard/test lines",
+    "reviewer_reran_tests": false
+  },
+  "decisions": {
+    "authority": "Direct founder Assignment123",
+    "source_pin": "Use reviewed already-pushed ee4af7b; local operator tooling is not a replacement production candidate",
+    "readonly": "No execution transport; always executionEnabled:false; authenticated operator/founder receipts remain external",
+    "physical_schema": "Journal fingerprint is not physical schema/history acceptance",
+    "freshness": "One-hour release evidence validity guard; fail closed if expired"
+  },
+  "failures_and_limits": [
+    "Test-harness escaping and loader resolution corrected before genuine RED",
+    "Initial typecheck clean-env NODE_ENV typing error corrected; final PASS",
+    "tsx CLI sandbox IPC EPERM; supported existing Node import loader used",
+    "Existing Vite and Node26 loader deprecation warnings unsuppressed",
+    "No live receipt authentication or physical production schema acceptance",
+    "Exact connected-source deployment eligibility and supported stop/grace/restart method require operator confirmation"
+  ],
+  "external_actions": {
+    "production_deployments": 0,
+    "migrations": 0,
+    "service_stops_or_restart": 0,
+    "backup_restore_or_key_reads": 0,
+    "push": 0,
+    "secret_permission_or_provider_changes": 0,
+    "physical_nfc": 0,
+    "tracker_and_coordinator": "Actual receipts recorded only after delivery; pending at this containing commit"
+  },
+  "statuses": {
+    "implementation": "IMPLEMENTED",
+    "focused_verification": "TESTED",
+    "local_integration": "Exact receipt follows in native checkpoint",
+    "release_operations": "PLANNED",
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted_in_production": false,
+    "commercially_ready": false
+  },
+  "usage": {
+    "start_native_tokens": 16258554,
+    "latest_observed_native_tokens": 16495972,
+    "start_seconds": 90505,
+    "latest_observed_seconds": 91502,
+    "reset": false,
+    "input": "UNMEASURED",
+    "cached_subset": "UNMEASURED",
+    "output": "UNMEASURED",
+    "browser_and_reviewer": "UNMEASURED",
+    "budget": "Native current budget none; historical first-window limit not reset; actual account/runtime limits still apply"
+  },
+  "next_dependencies": [
+    "Authenticate operator identities/writers/flags/exact-source and stop path",
+    "Name approved backup destination/object, source DB, custodian, empty isolated target and independent verifier; separate backup/restore authorization first",
+    "After independent recovery acceptance, separate bounded exact-SHA all-writer/drain/migration/web-worker cutover authorization",
+    "No speculative task after Assignment123; full product and external acceptance gates remain open"
+  ],
+  "evidence_files": {
+    "loy-123-focused.txt": {
+      "sha256": "3af181a1bacad870ee9011d8d23ecbade03a501c23804a7915772f12c38e0cfa",
+      "native_checkpoint_copy": "var/native-goal-20261010/assignment-123-evidence/loy-123-focused.txt"
+    },
+    "loy-123-typecheck.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "native_checkpoint_copy": "var/native-goal-20261010/assignment-123-evidence/loy-123-typecheck.txt"
+    },
+    "loy-123-lint.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "native_checkpoint_copy": "var/native-goal-20261010/assignment-123-evidence/loy-123-lint.txt"
+    },
+    "loy-123-preflight.json": {
+      "sha256": "ea4a7c9c08e820457c4d1dc69077db7840fef4f2c617be17beac2f29992bd12f",
+      "native_checkpoint_copy": "var/native-goal-20261010/assignment-123-evidence/loy-123-preflight.json"
+    },
+    "loy-123-schema-red.txt": {
+      "sha256": "bdebed316e0cc2d6c91ff4d5d405f7ff6c9e02cbb91cf7183c369d4efd76d430",
+      "native_checkpoint_copy": "var/native-goal-20261010/assignment-123-evidence/loy-123-schema-red.txt"
+    }
+  }
+}
