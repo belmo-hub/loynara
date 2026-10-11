@@ -1,0 +1,98 @@
+{
+  "assignment": "LOY-ENG-20261011-083",
+  "issue": "LOY-310",
+  "parent": "LOY-127",
+  "base_sha": "6458e71eddea0e3b027121e2096ec35338981063",
+  "source_sha": "4640b2e97986dc29ae5eb289c6b4560a10141c47",
+  "result_sha": "containing documentation commit; exact receipt in durable state/map",
+  "implementation": "src/components/owner/campaigns-view.tsx: hide saved badge while dirty; distinguish transport/empty-success acknowledgement as unconfirmed within existing generation guard. e2e/campaign-save-recovery.spec.ts: actual database rollback/commit, explicit latest edit retry/reload and tenant denial. Backend/auth/schema/queue/policy unchanged.",
+  "authority": "Founder master engineering directive and completed coordinator assignment083; no new founder-sensitive decisions.",
+  "red": "Verified delivery-OFF unchanged source: actual valid existing-draft UPDATE rejected by isolated PostgreSQL trigger leaves row/queue unchanged yet saved badge count1; successful actual UPDATE then aborted reply shows generic connection error rather than unconfirmed outcome.2 genuine failures.",
+  "browser": "2realChromePASS9.0s (375px/1280px);4existing composer generation/edit/audience racePASS5.9s",
+  "focused": "4files51PASS2.64s",
+  "static": "typegen/typecheck/zero-warningchanged-filelint/productionbuildPASS",
+  "global": "173files1601PASS0FAIL1existing optional Mailpit recovery SKIP150.94s; first configured final run PASS; prior historical081 anomaly not reattributed",
+  "integrated": "cleanLOCALFF;4files51PASS2.77s",
+  "review": "One reused independentREAD-ONLY reviewer no material findings; staticonly/no services/tests; newdraft creation and malformed-successresponse not browser-exercised; runtimeconfigunmeasured",
+  "tracker": "310Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T06:57:26Z/comment7-143;127InReview/128OPEN preserved",
+  "fixture_amendments": [
+    "Initial generic HTTP500 wording assumption incorrect; actual Internal error envelope asserted, production assertions retained.",
+    "Mobile rejected save initially passed in local Mailpit mode; then SMTP omitted only from dev/browser environment and delivery OFF explicitly read back, genuine2RED reproduced before source change.",
+    "Initial create rejected unsupported Evidence state=Evidence Missing without persistence; one310 created using actual Repository Verified value."
+  ],
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 10543401,
+    "cumulative_seconds": 55625,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": "42GiBfree/13registeredCodexworktrees;40other registered tracked relevant paths checked no overlaps; DesktopconcurrencyUNKNOWN after prior bounded stalls/not rescanned; reused checkout, no installation/newtree/cleanup",
+  "execution": "Mac;one engineer;assignedSolMediumdiscovery/Highengineering/Mediumreview; effective setter unavailable so existing executor retained; minimal whitelisted syntheticenv/no private dotenv; actual normal owner sessions/nativePG localhost55433",
+  "external_actions": "Truthful310creation/InProgress/InReview/Done/comment/readback;Gmail310query0matching/generationreceiptUNVERIFIED. Owned looplocal_browser_campaign_083 removed after appstop/zeroactiveconnections. Existing047backup container unchanged. No push185186/protected/hosted/provider/customer/tag/legal/newpolicy action.",
+  "fallback": "Unused; primary actionable; no third investigation",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-153 invitation rejection/ambiguous reply recovery beyond accepted297",
+    "LOY-49 selected reward/redemption failure feedback beyond accepted ledger conflicts",
+    "LOY-43 customer export browser failure/retry completeness without legal retention policy"
+  ],
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-083-red.log",
+      "bytes": 5185,
+      "sha256": "366f72b379bb01a2ecd0bfe6392233c4bb3eb086748bcd4af64d7b2748c3611e"
+    },
+    "red-final": {
+      "local_path": "/tmp/loy-083-red-final.log",
+      "bytes": 3288,
+      "sha256": "2e78d9b668140532bb401dde9964ddecba22704a89ed8eba92a9bdaa45b22e31"
+    },
+    "red-off": {
+      "local_path": "/tmp/loy-083-red-off.log",
+      "bytes": 5245,
+      "sha256": "503cfb3dbd80418aebc7ffcaed084751530023d0f0285a2a868ed0184721b992"
+    },
+    "green": {
+      "local_path": "/tmp/loy-083-green.log",
+      "bytes": 790,
+      "sha256": "ea51f87259cf37492275d005918803de78c30b95f8957999be952293209c4cd9"
+    },
+    "browser-compat": {
+      "local_path": "/tmp/loy-083-browser-compat.log",
+      "bytes": 1009,
+      "sha256": "ab1f1f2b696fdfe634029ce0484a60b982dd85cc63922dee8ff1c2d9aeea7f9f"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-083-focused.log",
+      "bytes": 1392,
+      "sha256": "15038580b52fd59f0fc6fb9d8f909c2817a6c44bdf9acd115699ff85b4b8f076"
+    },
+    "static": {
+      "local_path": "/tmp/loy-083-static.log",
+      "bytes": 4317,
+      "sha256": "1eddc3af34ba0ea08328f228f4231da80ef69d17d00cff5b756f4b6ca7ee4b92"
+    },
+    "global": {
+      "local_path": "/tmp/loy-083-global.log",
+      "bytes": 39274,
+      "sha256": "f5ab0f9c898fd634896d4ce8d2a8dca14b89706f148b75121b3ca26fadb579a9"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-083-integrated.log",
+      "bytes": 1401,
+      "sha256": "60cb2fa60635647461a91a7da7fab8c9ac17ed7d06a9dd1881b49ea137d7c3e5"
+    }
+  }
+}
