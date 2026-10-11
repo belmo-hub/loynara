@@ -1,0 +1,105 @@
+{
+  "assignment": "LOY-ENG-20261011-090",
+  "issue": "LOY-316",
+  "parent": "LOY-169",
+  "base_sha": "4db9386c30e6c62ca4d011a398885b9b6ebe84f0",
+  "source_sha": "dd4f91122581135bec6a041f993b5d5ddd019318",
+  "date": "2026-10-11",
+  "implementation": "Adviser owns one read-only REPEATABLE READ snapshot with statement/idle transaction timeouts; passes its internal client through analytics, retention authorization and all supporting queries. Standalone readers retain transaction/client ownership. No rule/threshold/schema/provider changes or writer locks.",
+  "components": [
+    "src/lib/adviser.ts",
+    "src/lib/merchant-analytics.ts",
+    "src/lib/retention.ts",
+    "src/lib/adviser.integration.test.ts"
+  ],
+  "red": "Unchanged source21PASS1genuineFAIL2.38s: legitimate concurrent award commits between analytics and retention, same response0checkouts plus reward_waiting. Pg barrier delays actual query submission only/no fake rows/manual ledger edits.",
+  "tests": {
+    "focused": "23PASS2.48s",
+    "browser": "1ChromePASS3.9s normal synthetic authenticated adviser/API/UI legitimate award/reversal duplicate/window/tenant isolation/anonymous denial; reused089durableguard/db newlycreatedthen dropped after stoppedapp/zeroactive",
+    "static": "typegen/typecheck/zero-warning changed-file lint/productionbuildPASS",
+    "global": "FIRSTrun173files1603PASS0FAIL1existingoptionalMailpitSKIP155.30s",
+    "integrated": "23PASS2.53s"
+  },
+  "regressions": "One coherent pre-state response while real writer completes; fresh report sees committed post-state. Actual PGdivisionzero retention read rejects/rollsback; subsequent adviser query succeeds. Existing cashier/revoked-owner/tenant/standalone analytics-retention checks retained.",
+  "review": "One independent read-only sensitive staticreview no material findings; no tests rerun/effective configuration unmeasured.",
+  "primary": "175 SaveBar intentionally disablesDiscard while state=saving. No UI bypass/repeated296315accepted tests/new discard policy. Assigned169fallback usedonce; no third investigation.",
+  "tracker": "316created/InProgress/InReview/Done/comment7-151/readback2026-10-11T08:36:16UTC LocalImplementation/AutomatedTestsVerified.169truthfulInProgress/readback08:36:20UTC originalproduction-notaccepted/Missing/fullcriteria retained.170independentacceptanceOPEN. Gmail3160matches generation/receiptUNVERIFIED.",
+  "execution": "Mac/one engineer existing isolated checkout; assignedgpt-6.1-sol Mediumdiscovery/Highengineering/Mediumindependentreview, effective setter unavailable/existing executor retained. Owned syntheticPG55433/normal auth/providerdeliveryOFF.",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11592662,
+    "cumulative_seconds": 61554,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model_effort": null
+  },
+  "resources": {
+    "free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "new_worktree": false,
+    "installations": false,
+    "cleanup": false,
+    "tracked_overlap": [],
+    "Desktop_status": "UNKNOWN/prior boundedstalls/notrescanned"
+  },
+  "external_actions": "Actual truthful316tracker transitions/comment/readback and169progress/readback. No remote push185186 safety unresolved/protected/hosted/provider/customer/tag/legal/newpolicyaction. Owned browserDB dropped after stop/zeroactive.",
+  "limitations": [
+    "Only local synthetic implementation/test/integration verified; independent merchant/production169170acceptance OPEN.",
+    "Optional internal snapshot caller owns transaction; existing standalone retention behavior unchanged.",
+    "No identical-snapshot guarantee across distinct requests; fresh requests intentionally see later committed state.",
+    "Prior081 event attribution remainsUNPROVEN; no new accepted risk/launch claim."
+  ],
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-143 merchant billing-entitlement read/error correctness under existing commercial policy",
+    "LOY-43 privacy-export shared snapshot/remaining coverage preserving accepted309 fix and209legal hold",
+    "LOY-147 QR download request failure/retry under established material contract"
+  ],
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-090-red.log",
+      "bytes": 4103,
+      "sha256": "6cf13e705504e86d4d716ee2966bf06e657fd3457e01780046e61326fc61f7a1"
+    },
+    "green": {
+      "local_path": "/tmp/loy-090-green.log",
+      "bytes": 1222,
+      "sha256": "15f28db393fbab7ff3f0147654565f549657a725a0c76ecb9b34402507c60105"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-090-focused.log",
+      "bytes": 1485,
+      "sha256": "9d50e24cf0d73fdd03c8ef46130a830930cb19600da6646c0fa08c4c4f069ca1"
+    },
+    "browser": {
+      "local_path": "/tmp/loy-090-browser.log",
+      "bytes": 583,
+      "sha256": "e2f4aa6cea329e4d8e79d9c70a80b6fd83f2b8dc8282e74799c21b083a772921"
+    },
+    "static": {
+      "local_path": "/tmp/loy-090-static.log",
+      "bytes": 5376,
+      "sha256": "66351bc5cf1913873291a44d0effbdd25ce149530216405fc73c26eef58a88a3"
+    },
+    "global": {
+      "local_path": "/tmp/loy-090-global.log",
+      "bytes": 39440,
+      "sha256": "d488c79022a2c5c2f5973a8251370cac18481da4e0732df5c65ed21c6fd4e965"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-090-integrated.log",
+      "bytes": 1231,
+      "sha256": "a5a6be5ceb12f9e6f406ddeb92b94abf991dd86a6576aa3ab7bdbd7b4e3762bf"
+    }
+  }
+}
