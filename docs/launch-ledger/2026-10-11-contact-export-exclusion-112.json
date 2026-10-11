@@ -1,0 +1,76 @@
+{
+  "assignment": "LOY-ENG-20261011-112",
+  "date": "2026-10-11",
+  "issues": [
+    "LOY-165",
+    "LOY-43"
+  ],
+  "base": "9059f912e03c12d5e9d8c74b9d5090f61f156600",
+  "result": "containing commit; native integration receipt follows",
+  "source": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184 unchanged",
+  "changes": [
+    "e2e/customer-contact-export.spec.ts",
+    "incremental launch-ledger evidence/indexes"
+  ],
+  "agent": "Codex /root",
+  "model_requested": "gpt-6.1-sol/medium verification/review, effective executor retained because setter unavailable; no source correction/High escalation",
+  "primary": "165POLICY/CONTRACTBLOCKED: existing indexed map/live111read describes general capabilities but no exact referral/date download fields; no new exportpolicy inferred",
+  "fallback": "43 narrow populated-contact exclusion PASS; not broad data rights/compliance acceptance",
+  "tests": {
+    "browser": "1PASS3.0s actual installedChrome375px, unique ownedPG0024/25journalentries, compiledweb",
+    "positive_fixture": "two merchants, supported membership_contacts email/emailVerified/recoveryTokenHash persisted; real enrollment/awards balances2/3",
+    "artifact": "actual download format1 expected top-level whitelist, no eithercontactcanary/forbiddencontactfield/privatebearer/foreignmembership",
+    "isolation": "foreign bearer returns only ownid/balance3, invalid404",
+    "transport": "simulated503 no download then actualretry exactlyonevalidartifact",
+    "typecheck": "tsc --noEmit --incremental false PASS",
+    "lint": "new test ESLint zero warnings PASS",
+    "diffcheck": "PASS",
+    "global": "109182files1631PASS0FAIL1existingoptionalMailpitSKIP dated evidence reused, not rerun",
+    "build": "no source changes; existing compiled109/110 build retained; no new112productionbuild"
+  },
+  "review": "existing loy281_sensitive_review no material findings; static only/no rerun; notes seededverification, simulated503,mobileGermanonly",
+  "external_actions": [
+    "completed111coordinatorreview read;112contractsaved",
+    "tracker read reused111 current43/165 criteria; materially affected43 comment pending"
+  ],
+  "failures": [],
+  "limitations": [
+    "contactverification seeded not delivered",
+    "not personal data export/deletion/retention209 compliance",
+    "no physical Safari/Android/provider/production acceptance",
+    "165 fields/dateinterpretation contract undecided"
+  ],
+  "status": [
+    "IMPLEMENTED durable test",
+    "TESTED narrow local scope"
+  ],
+  "pushed": false,
+  "deployed": false,
+  "independently_accepted": false,
+  "commercially_ready": false,
+  "full_scope": "INCOMPLETE/UNKNOWN, merchant-ready NO-GO",
+  "usage": {
+    "native_tokens": 14812250,
+    "native_seconds": 82606,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_reviewer": null
+  },
+  "next": [
+    "coordinator exact permitted next full-scope coding contract",
+    "owner existingSupabaseAppscope action or narrow integrationpush riskacceptance",
+    "separately authorized104allwriterdrain/freshencryptedbackup+independentrestore195196/0021..24/sameSHAwebworker/hostedphysicalprovideracceptance"
+  ],
+  "evidence": {
+    "/tmp/loy-112-browser.log": {
+      "sha256": "2aa52a163e09e57e5b79db2d687b65a9b39a8dbdf3f85abf519494d2328104ec"
+    },
+    "/tmp/loy-112-typecheck.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/tmp/loy-112-run.py": {
+      "sha256": "957619611362bb2a604850d62e21190c3ef763aea2a54731fe97ffcc82450ff5"
+    }
+  }
+}
