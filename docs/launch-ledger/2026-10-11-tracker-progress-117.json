@@ -1,0 +1,128 @@
+{
+  "assignment": "LOY-ENG-20261011-117",
+  "date": "2026-10-11",
+  "base": "aee439459c1f00d8df66a5db8d2ed05b3c2039d2",
+  "result": "commit containing this actual tracker-change record",
+  "scope": "Truthful current-progress annotations under existing tracker evidence authority; no wholesale editorial rewrite",
+  "issues": [
+    {
+      "issue": "LOY-28",
+      "summary": "Full launch acceptance",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nThe integrated local candidate has evidence for merchant onboarding, customer enrollment, cashier awards and redemption, campaign/reporting flows and recovery. This does not establish complete launch coverage or current production acceptance.\n\nStill needed: every required subsystem and scope decision, the authorized hosted release, and independent physical, provider and commercial acceptance. The full launch remains incomplete; this epic stays open.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "be12633942b0e7a25a6607e074e7b00f73a74fb249b55a2c866cb4a0440c9226",
+      "updated_description_sha256": "8b5b1abaa69bad577dfb3bb0ad435ea655ac83bf10383ad21a94ea1c436ddb97",
+      "readback_utc": "2026-10-11 15:54:10",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-185",
+      "summary": "Verified web/worker SHA, schema and safe deployment identity",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nThe local release candidate is integrated and GitHub authentication works. The development branch has not been pushed: the remaining deployment-trigger configuration is unverified. An installed GitHub App alone does not demonstrate an enabled deployment trigger.\n\nStill needed: the specific owner evidence or decision for the development-branch push, followed by separately authorized release preparation and fresh hosted web, worker and schema verification. This release gate remains open.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "a0ac09fde1e1c014c9525d8772be85709b75a29275eabdfa15f9bcb3ea2331f9",
+      "updated_description_sha256": "24d01dcf3e494c2b80d6fcc8af5b3b5889030dbb1b8b86a9f8675c28bfce79b2",
+      "readback_utc": "2026-10-11 15:54:12",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-186",
+      "summary": "Independently accept Verified web/worker SHA, schema and safe deployment identity",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nThis is the independent acceptance gate for the deployed web, worker, migration history and release identity. Local rehearsal evidence is available; it does not accept the hosted release.\n\nAn authorized release operator must verify the actual deployed identities, schema, flags, heartbeat and queue behavior, including the required failure and recovery checks. Record the independent results before completing this task.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "34646b8072053668be2edbb063d03d20737da516438c436cee02a7bd26f4f846",
+      "updated_description_sha256": "89da029580a74373d6ba6cec9f35c2f449dab35343f5b135c3d316308c8c0b32",
+      "readback_utc": "2026-10-11 15:54:14",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-195",
+      "summary": "Current encrypted backup and isolated restore drill",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nLocal verification passed a real encrypted PostgreSQL backup/restore round trip, accounting and migration-history checks, safe wrong-key/corruption failures and restored-worker startup with providers disabled.\n\nStill needed: a current approved production backup artifact, actual storage and recovery-key custody evidence, and an independently controlled restore to an approved isolated target. In Review reflects the local evidence; production recovery acceptance remains open.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "8865363d9677df814e729e3f9809eb898c656f9dcb9b3b7d66733dae01d4a70b",
+      "updated_description_sha256": "9bc65455f7a16ee64998f32a3d111f979a15ddd6cef0dfa1ac65cf49cf99b50e",
+      "readback_utc": "2026-10-11 15:54:19",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-196",
+      "summary": "Independently accept Current encrypted backup and isolated restore drill",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nLocal encrypted recovery evidence is available, but this independent production-recovery gate has not been accepted.\n\nThe founder or separately authorized release operator must identify the current approved encrypted artifact, establish recovery-key custody, restore it to the approved isolated target, reconcile the data and migration journal, and record independent review and cleanup. Hosted actions require their separate authorization.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "3e1acae62549672e4823f7933e0a51471ad6eed4ee4756f7d03bf99df0c3fb3c",
+      "updated_description_sha256": "dec8ddc53f1d14c8334843e66bebdcf19c881d2db40c8af8d920e79757eee5f6",
+      "readback_utc": "2026-10-11 15:54:24",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-133",
+      "summary": "Quiet-hours win-back, reward/referral and post-visit actions",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nLocal retention and reminder implementation has test evidence. The dispatch authorization/cancellation cutoff and the referral-marketing audience and link contract remain unresolved; this feature stays Blocked.\n\nRequired decisions: identify the approved dispatch cutoff and referral audience/qualification/link behavior, preserving promotional consent. Referral attribution does not grant consent to contact a referred person. Real provider delivery and receipt acceptance remain separate outstanding requirements.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "2a789d59641abf326f05f53332851ebf6e6d9907cdcbcbcbcbf364c1f219099a",
+      "updated_description_sha256": "9771b8d0be13047be768e8c4ae149706d1fcb194ee48c932c7e21137cb10a3f6",
+      "readback_utc": "2026-10-11 15:54:28",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-139",
+      "summary": "Provider failure, rate limits, delivery logs and retry behavior",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nLocal retry and delivery-accounting evidence exists, but a known event-identity defect remains: deduplication can discard a legitimate reused event ID from a later UTC day, including a hard-failure event.\n\nHistorical receipts do not contain enough identity information for a proven safe migration. Required next step: sanitized legacy identity mapping or an explicitly agreed compatibility policy, plus separate authorization for any migration outside the reviewed release sequence. Real provider acceptance remains open; In Review does not mean this defect is resolved.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "344c8b656f16200e7838b5e2215f954d3c18c175d6c5dcb5c0bf5d1a376ca64d",
+      "updated_description_sha256": "c9d0e0db467801ea719a4a77b06e06148a91ab3283f31b3d48a019a1b112a3ee",
+      "readback_utc": "2026-10-11 15:54:31",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-159",
+      "summary": "Decide multi-location staff and shared/independent programme rules",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nCurrent staff/location authorization evidence covers the existing permitted model. The broader multi-location behavior has not been decided or accepted.\n\nFounder decision needed: whether staff accounts operate across multiple locations, and whether loyalty programmes, balances and rewards are shared or independent. Record the agreed rules here before expanding permissions or programme behavior. Existing tests do not decide this product scope.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "2990956d9fcf389f458d0879624d80b7aaefe7af18fd266c536e5922a8a08493",
+      "updated_description_sha256": "0f1f40cb9cd8c03f5361e839c7c7428cbfe8d4fd646c4e6cf352e431955e4eab",
+      "readback_utc": "2026-10-11 15:54:34",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-161",
+      "summary": "\u20ac39 per-location commercial behavior and entitlement boundaries",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nThe current location open-card limit is implemented. This is separate from the commercial rules for inactive or unpaid location entitlements, which remain undecided; the feature stays Blocked.\n\nSpecify the approved inactive state, its effective timing, the operations it restricts, and the customer, staff and history access that must remain available. Do not infer these rules from test fixtures or an unpaid invoice. Commercial activation and acceptance remain outstanding.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "3c92074d8c43e30a260683868b6e4d40591f25f9f39e2b37b55d6a5ff22d34f7",
+      "updated_description_sha256": "d4317058bc2d30d1c82bb8c9c08d44333fbebc6f2e436214022d415e5cfbd595",
+      "readback_utc": "2026-10-11 15:54:37",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    },
+    {
+      "issue": "LOY-165",
+      "summary": "Customer/reward/referral/staff/location activity and exports",
+      "annotation": "**Current engineering progress \u2014 11 October 2026**\n\nThe existing owner-only business JSON download is available. Local reporting and export evidence does not yet accept every required activity category, referral field, location boundary and date-filter behavior.\n\nStill needed: an approved export/category/date contract, or a reference to the existing decision, and verification against known ledger and event data. The current JSON download is not evidence of a filtered 30/90-day analytics export. This issue remains In Review; full acceptance is open.\n\nDetailed implementation and verification evidence: `docs/launch-ledger/`. Local tests, deployment and independent acceptance are separate milestones.\n",
+      "original_description_sha256": "ed5457bbcb8a0e542cbadb8c13c88d4dba59c104fcc02eec78b65febd09dcc0a",
+      "updated_description_sha256": "e58a737c7694d77bc969a16178d97ab9fc707ea6e61cdfe362acd014b22af0ca",
+      "readback_utc": "2026-10-11 15:54:41",
+      "original_description_preserved_verbatim": true,
+      "summary_status_fields_resolved_state_unchanged": true
+    }
+  ],
+  "board_changed": false,
+  "board_proposed_query": "project: LOY Launch requirement: {Must Launch}, {Scope Decision Required}",
+  "board_approval": "explicit shared setting authorization not established; preserve existing settings",
+  "application_changed": false,
+  "tests": "not rerun for tracker/ledger only; exact annotation and original-description/field readbacks verified",
+  "model": "assigned gpt-6.1-sol medium; retained executor/setter unavailable",
+  "pushed": false,
+  "deployed": false,
+  "accepted": false,
+  "gmail_delivery": "unverified",
+  "usage": {
+    "native_tokens": 15361120,
+    "native_seconds": 86079,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_reviewer": null
+  },
+  "limitations": "human-readable lead added; original technical record retained, not entire tracker humanized; full launch still incomplete/unknown"
+}

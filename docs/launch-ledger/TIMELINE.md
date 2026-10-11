@@ -250,3 +250,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 114 amendment: [Physical NFC authorization and release status](2026-10-11-physical-access-release-status-114.md) — existing consumed physical session and later explicit no-retry directive verified; zero hardware calls; no physical acceptance or full-scope completion claimed.
 
 2026-10-11 /116: [Git push triggers and card context](2026-10-11-push-trigger-card-context-116.md) — authenticated GitHub PASS; push UNVERIFIABLE (no push); supported same-instance token replacement NOT APPLICABLE; native URL context1ChromePASS/static/review, no application change/full Wallet acceptance. Exact integration/tracker receipts follow.
+
+2026-10-11 /117: [Ten launch-critical tracker progress annotations](2026-10-11-tracker-progress-117.md) — actual edits/readbacks verified; original descriptions and all fields retained. Board/settings/statuses unchanged; no app change, push or deployment.
