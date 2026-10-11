@@ -107,3 +107,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 2026-10-11 /111: [Production worker startup gate](2026-10-11-production-worker-gate-111.md) — expected synthetic production refusal verified; positive production-job acceptance BLOCKED by existing policy, no bypass/source correction.43/165 bounded fallback unresolved; full scope OPEN/UNKNOWN. No push/deployment.
 
 2026-10-11 /112: [Populated contact export exclusion](2026-10-11-contact-export-exclusion-112.md) — realChrome1PASS3.0s with positive two-tenantcontactfixtures, actualdownload whitelist/canary absence/isolation/503retry. No applicationcorrection.165contract/full43/209 and externalgatesOPEN; localreceipt follows.
+
+2026-10-11 /113: [Provider identity release hold](2026-10-11-provider-identity-release-hold-113.md) — unchanged036source/hash/schema; legacygenerationdayunknown, crossdaycollision remainsunresolved. No repeatprobe/guessedmigration/acceptedrisk.139/140OPEN; existingrelease/pushownerrequestsrefreshed.

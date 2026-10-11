@@ -1,0 +1,47 @@
+{
+  "assignment": "LOY-ENG-20261011-113",
+  "issues": [
+    "LOY-139",
+    "LOY-28",
+    "LOY-185",
+    "LOY-186"
+  ],
+  "base": "0c7ea6eb0c30260425f85d37e860f29cf6049a81",
+  "source": "a6f281b216efcdfcdf0cb543aa0f5c43e69fb184 unchanged",
+  "result": "containing evidence commit",
+  "date": "2026-10-11",
+  "agent": "Codex /root",
+  "requested_model": "SolMedium inspection, High only permittedcorrection; currentexecutorretainedsetterunavailable",
+  "current_comparison_036": {
+    "src/lib/transactional-email.ts": true,
+    "src/db/schema.ts": false
+  },
+  "reproducer": "preserved036RED1FAIL648ms, not rerun113",
+  "blocked": "legacydaymapping/compatibilitydecision absent; no safe completeforwardonlycorrection undercurrentstorage/releasecontract established",
+  "current_behavior": "recordMailgunWebhook hashesonlyevent.id; verifiedpayload eventtimestamp not used/durablystored; receiptcreated_at is arrivaltime notgenerationtime",
+  "impact": "reuseddifferentdayID may drop validhardfailureeventandhardrecipient suppression; newdaykeyalone can reprocesslegacyreceipt; oldhashfallbackdropsnewdayreuse",
+  "implemented_correction": false,
+  "tests113": "No runtime tests; bounded source/schema read and exact comparison only; own documentationdiffcheck pending",
+  "historical_suite": "109182files1631PASS0FAIL1existingoptionalMailpitSKIP, notrerun113/notproof139resolved",
+  "external": [
+    "139livecriteriastatusread",
+    "existingfounderqueue113amendments; no approvalsreceived or restrictedactionsperformed"
+  ],
+  "status": [
+    "PLANNED release handoff",
+    "BLOCKED ticket-specific139correction"
+  ],
+  "not_claimed": [
+    "PUSHED",
+    "DEPLOYED",
+    "INDEPENDENTLY ACCEPTED",
+    "ACCEPTED-RISK",
+    "COMMERCIALLY READY",
+    "fullcodingcomplete"
+  ],
+  "next": [
+    "coordinator defensiblelegacycompatibility or preciseindependentfullscope task",
+    "ownerexistingpushdecision",
+    "separatelyauthorized104release plusindependentphysicalproviderrecoveryacceptance"
+  ]
+}
