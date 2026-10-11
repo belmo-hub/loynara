@@ -115,3 +115,5 @@ Chronological104 amendment: fresh read-only Railway now verifies active web fe8b
 106 amendment: [Purchase/concurrency](2026-10-11-purchase-concurrent-release-106.md) confirms actual ten-merchant overlap and supported purchase points without product change;105 completedreviewread. Exact owner GitHub permission decision and separately authorized cutover remain; no repeated audit/falseglobalclaim/physicalacceptance.
 
 107 amendment: [Reporting/export local acceptance](2026-10-11-campaign-reporting-acceptance-107.md) adds real-browser zero/failed/stale-read/limited-artifact evidence without application/policy changes;106 completedreviewread. Full launch scope and human release/provider/privacy gates remain open; no new exhaustiveaudit or completion claim.
+
+108 amendment: real age-encrypted synthetic recovery now locally verified (five tests/51 table fingerprints/25 journal entries/idle worker); replaces no historical evidence. Actual scheduled production artifact, storage/custody and independent195/196 gate remain open. [Evidence](2026-10-11-encrypted-recovery-108.md). No source defect/newcrypto architecture/hosted action.

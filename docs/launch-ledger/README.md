@@ -97,3 +97,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 - 2026-10-11 /106: [Purchase/concurrent merchant verification](2026-10-11-purchase-concurrent-release-106.md) —10 observed overlapping PGpurchaseINSERTs, attribution/replay/reward/reporting/revocationPASS; focused1PASS2.86s/staticbuildPASS, no application change; ownerpermissiondecision/hosted release gates remain, local receipt follows.
 
 - 2026-10-11 /107: [Campaign reporting and narrow export acceptance](2026-10-11-campaign-reporting-acceptance-107.md) —3 actualChromePASS8.1s/26focusedPASS3.95s/staticbuildPASS; truthfulzero/failure/staleread/retry/isolation/limitedexport, no productdefect or policy change; integration/review receipts follow.
+
+2026-10-11 /108: [LOY-195/196 local encrypted recovery](2026-10-11-encrypted-recovery-108.md): real age/PG five-case drill,51-table fingerprints and idle restored worker; existing scripts unchanged. Hosted storage, custody and independent production restore remain open; no push/deploy/fullscope acceptance.

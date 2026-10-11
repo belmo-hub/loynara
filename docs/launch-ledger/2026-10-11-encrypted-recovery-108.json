@@ -1,0 +1,66 @@
+{
+  "assignment": "LOY-ENG-20261011-108",
+  "date": "2026-10-11T13:28:51.158858+00:00",
+  "issues": [
+    "LOY-195",
+    "LOY-196"
+  ],
+  "base": "9946057a1ac2e0a10fdbc09423f1ee86b9afeb91",
+  "result": "containing commit; integration/tracker receipt follows",
+  "agent": "Codex /root",
+  "model": "assigned gpt-6.1-sol medium inspection/review; no defect requiring High correction; effective setter unavailable retained executor; reviewer model unmeasured",
+  "execution": "reused clean existing codex/encrypted-recovery-108; owned PG127.0.0.1:55433/data_directory verified; existing age1.3.2/PostgreSQL18.6; no install/new worktree/cleanup",
+  "changes": [
+    "scripts/production-encrypted-backup.test.py",
+    "scripts/encrypted-backup-fixture.ts",
+    "incremental ledger/indexes"
+  ],
+  "application_or_backup_script_changes": false,
+  "tests": {
+    "encrypted": "5 unittest cases PASS9.539s; real age/keygen/pg_dump/pg_restore/psql, existing backup+restore shell scripts; filesystem-only AWS adapter and guarded dump-host mapping; no actual AWS command/network",
+    "restored": "all51 public/drizzle table counts+ordered row fingerprints match before startup;25 migration entries;2 real domain merchants/enrollments,contactrecords,balances2 each,4 award/redemption ledger entries,2 reward redemptions,2 synthetic Wallet identities,2 processing jobs/claim tokens; append-only UPDATE and cross-tenant FK rejection preserve snapshots",
+    "negatives": "ciphertext not a usable pg_restore archive; wrong age identity/corrupted/truncated ciphertext leave fresh targets empty; nonempty target preserved; broad identity mode0644 refused; encrypted/decrypted script temps removed; source fingerprints unchanged",
+    "startup": "real restored getCard probes and actual worker --once exit0/examined0 due jobs with all providersOFF/dotenv disabled; probe after housekeeping preserves business invariants; not authenticated web or job/provider execution",
+    "static": "typecheck/changed-fixture zero-warning ESLint/shell syntax PASS; existing production-backup transport check PASS; diffcheck PASS",
+    "global_build": "no application/tool-source change; no fresh108 global/build. Reuse unchanged application105181files1630PASS0FAIL1existingoptionalMailpitskip and107buildPASS; historical evidence explicitly",
+    "review": "existing authorized readonly reviewer no material findings incl narrow worker delta; static only/no rerun"
+  },
+  "failures": "Temporary test-generator nested quoting SyntaxError corrected before test creation/execution; no product RED or failed encryption approach. Initial drill5PASS8.674s; setup-failure cleanup guard rerun5PASS7.968s; final startup-complete5PASS9.539s. No weakened assertions or product fixes.",
+  "evidence": {
+    "ciphertext_bytes": 158813,
+    "ciphertext_sha256": "470c865fbfff8d088f5fe9acab2f91fa40082c167bb663efe8d7c1c7d9be1cab",
+    "log": "/tmp/loy-108-encrypted-final.log",
+    "ciphertext_and_keys": "private ephemeral test directory removed by unittest class cleanup; no credential/ciphertext/customer data committed",
+    "disposable_databases": "ordinary DROP without FORCE on exact generated names after no-running-session assertion; setup-failure cleanup registered"
+  },
+  "decisions": [
+    "Existing age format and backup/recovery architecture retained; no crypto design change",
+    "Local filesystem transport is labeled synthetic and cannot establish EU R2 or actual credential/custody/retention acceptance"
+  ],
+  "status": {
+    "implemented": "durable verification only; existing scripts already support encrypted recovery",
+    "tested": true,
+    "integrated": "pending receipt",
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "limits": [
+    "No hosted R2 upload/HEAD/download/real storage failure or real credentials tested",
+    "No current scheduled production artifact or independently controlled key custody/human restore acceptance",
+    "No authenticated web startup, restored due-job/provider execution or physical Wallet acceptance",
+    "Representative populated tables only; all-table fingerprints include empty tables; not full launch scope acceptance",
+    "Production792e218/schema0020 evidence remains historical104; coordinated cutover separatelyauthorized; fullscope INCOMPLETE/UNKNOWN"
+  ],
+  "usage": {
+    "native_cumulative": 14063158,
+    "native_seconds": 78535,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "browser_reviewer": null,
+    "unmeasured": "granular splits unavailable; no reset"
+  },
+  "next": "LOY-195/196 hosted artifact/key custody/independent acceptance still required; coordinator review before109; no speculative229 fallback because108bounded local drill completed; GitHub owner decision unchanged/not re-audited"
+}
