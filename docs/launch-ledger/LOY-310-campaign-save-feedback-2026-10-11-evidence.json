@@ -18,7 +18,8 @@
   "fixture_amendments": [
     "Initial generic HTTP500 wording assumption incorrect; actual Internal error envelope asserted, production assertions retained.",
     "Mobile rejected save initially passed in local Mailpit mode; then SMTP omitted only from dev/browser environment and delivery OFF explicitly read back, genuine2RED reproduced before source change.",
-    "Initial create rejected unsupported Evidence state=Evidence Missing without persistence; one310 created using actual Repository Verified value."
+    "Initial create rejected unsupported Evidence state=Evidence Missing without persistence; one310 created using actual Repository Verified value.",
+    "Traceable administrative amendment: first temporary ledger writer used JSON null as a Python literal and failed before creating any ledger files; corrected parser, source/test evidence unchanged. Initial no-op commit/FF attempt made no changes."
   ],
   "usage": {
     "status": "active",
