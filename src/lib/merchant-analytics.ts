@@ -1,4 +1,5 @@
 import { pool } from "@/db";
+import type { PoolClient } from "pg";
 import { DomainError } from "./loyalty";
 
 export type AnalyticsWindowDays = 30 | 90;
@@ -52,18 +53,21 @@ const checkoutCte = `
 export async function getMerchantAnalytics(
   actorUserId: string,
   options: { windowDays: AnalyticsWindowDays; asOf?: Date },
+  snapshot?: PoolClient,
 ): Promise<MerchantAnalytics> {
   if (options.windowDays !== 30 && options.windowDays !== 90) {
     throw new DomainError("INVALID_WINDOW", "Choose a 30 or 90 day window");
   }
-  const client = await pool.connect();
+  const client = snapshot ?? await pool.connect();
   let discardClient = false;
   try {
     // Related aggregates and their labels describe the same committed state.
     // Read-only MVCC neither locks award writers nor calls providers.
-    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    await client.query("SET LOCAL statement_timeout = '5s'");
-    await client.query("SET LOCAL idle_in_transaction_session_timeout = '5s'");
+    if (!snapshot) {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await client.query("SET LOCAL statement_timeout = '5s'");
+      await client.query("SET LOCAL idle_in_transaction_session_timeout = '5s'");
+    }
     // Ledger timestamps are assigned by PostgreSQL. Use its clock for live
     // reports so a freshly committed redemption cannot fall just after a host
     // clock that is slightly behind the database.
@@ -164,7 +168,7 @@ export async function getMerchantAnalytics(
       `, params),
     ]);
 
-    await client.query("COMMIT");
+    if (!snapshot) await client.query("COMMIT");
 
     const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
     const perBucketCheckouts = new Map(checkoutBuckets.rows.map(row => [row.bucket, row.count]));
@@ -204,9 +208,9 @@ export async function getMerchantAnalytics(
       limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
     };
   } catch (error) {
-    try { await client.query("ROLLBACK"); } catch { discardClient = true; }
+    if (!snapshot) { try { await client.query("ROLLBACK"); } catch { discardClient = true; } }
     throw error;
   } finally {
-    client.release(discardClient);
+    if (!snapshot) client.release(discardClient);
   }
 }

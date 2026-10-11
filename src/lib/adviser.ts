@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pool } from "@/db";
 import { DomainError } from "./loyalty";
 import { getMerchantAnalytics, type AnalyticsWindowDays, type MerchantAnalytics } from "./merchant-analytics";
 import { retentionCustomerHref } from "./retention-links";
@@ -118,9 +119,18 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
 }
 
 export async function getMerchantAdvice(actorUserId: string, options: { windowDays: AnalyticsWindowDays; asOf?: Date }): Promise<MerchantAdvice> {
-  const report = await getMerchantAnalytics(actorUserId, options);
-  const retention = await getRetentionSummary(actorUserId, { inactiveDays: 30, asOf: new Date(report.asOf) });
-  return {
+  const client = await pool.connect();
+  let discardClient = false;
+  try {
+    // One response must derive counts and explanations from the same committed state.
+    // Read-only MVCC keeps award writers free; no provider I/O runs in this transaction.
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    await client.query("SET LOCAL statement_timeout = '5s'");
+    await client.query("SET LOCAL idle_in_transaction_session_timeout = '5s'");
+    const report = await getMerchantAnalytics(actorUserId, options, client);
+    const retention = await getRetentionSummary(actorUserId, { inactiveDays: 30, asOf: new Date(report.asOf) }, client);
+    await client.query("COMMIT");
+    return {
     mode: "rule_based", windowDays: report.windowDays, from: report.from, asOf: report.asOf,
     metrics: metrics(report), recommendations: buildRuleBasedAdvice(report, retention),
     limitations: [
@@ -128,7 +138,11 @@ export async function getMerchantAdvice(actorUserId: string, options: { windowDa
       "Erfasste Aktivität beweist keine zusätzlichen Verkäufe.",
       "Die Beratung ändert nichts an deinem Programm, deinen Prämien oder deinen Kosten.",
     ],
-  };
+    };
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { discardClient = true; }
+    throw error;
+  } finally { client.release(discardClient); }
 }
 
 export type AdviceModelRequest = {

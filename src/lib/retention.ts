@@ -1,4 +1,7 @@
 import { and, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import type { PoolClient } from "pg";
+import * as schema from "@/db/schema";
 import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
@@ -91,8 +94,9 @@ export const RETENTION_RULES = {
   rewardReady: "Karten, deren aktueller Stand für die günstigste aktive Prämie reicht.",
 } as const;
 
-async function retentionScope(actorUserId: string, requestedLocationId?: string | null) {
-  const [staff] = await db.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
+async function retentionScope(actorUserId: string, requestedLocationId?: string | null, snapshot?: PoolClient) {
+  const scopedDb = snapshot ? drizzle({ client: snapshot, schema }) : db;
+  const [staff] = await scopedDb.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
     throw new DomainError("FORBIDDEN", "Owner or manager access required");
@@ -102,7 +106,7 @@ async function retentionScope(actorUserId: string, requestedLocationId?: string 
     return { tenantId: staff.tenantId, locationId: staff.locationId! };
   }
   if (!requestedLocationId) return { tenantId: staff.tenantId, locationId: null };
-  const [location] = await db.select({ id: locations.id }).from(locations)
+  const [location] = await scopedDb.select({ id: locations.id }).from(locations)
     .where(and(eq(locations.id, requestedLocationId), eq(locations.tenantId, staff.tenantId))).limit(1);
   if (!location) throw new DomainError("NOT_FOUND", "Location not found in your scope");
   return { tenantId: staff.tenantId, locationId: location.id };
@@ -110,17 +114,18 @@ async function retentionScope(actorUserId: string, requestedLocationId?: string 
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function getRetentionSummary(actorUserId: string, options: { inactiveDays?: RetentionDays; locationId?: string | null; asOf?: Date } = {}): Promise<RetentionSummary> {
+export async function getRetentionSummary(actorUserId: string, options: { inactiveDays?: RetentionDays; locationId?: string | null; asOf?: Date } = {}, snapshot?: PoolClient): Promise<RetentionSummary> {
   const inactiveDays = options.inactiveDays ?? 30;
   if (!RETENTION_DAYS.includes(inactiveDays)) throw new DomainError("INVALID_FILTER", "Choose 14, 30, 60 or 90 days");
   if (options.locationId && !uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Location not found in your scope");
-  const scope = await retentionScope(actorUserId, options.locationId);
-  const asOf = options.asOf ?? (await pool.query<{ now: Date }>("SELECT now() AS now")).rows[0].now;
+  const scope = await retentionScope(actorUserId, options.locationId, snapshot);
+  const reader = snapshot ?? pool;
+  const asOf = options.asOf ?? (await reader.query<{ now: Date }>("SELECT now() AS now")).rows[0].now;
   const day = 86_400_000;
   const weekAgo = new Date(asOf.getTime() - 7 * day);
   const cutoff = (at: Date) => new Date(at.getTime() - inactiveDays * day);
   const [now, then, programmes] = await Promise.all([
-    pool.query<{ open: number; recent: number; drifting: number; never: number; neverAfterWeek: number; nearReward: number; rewardReady: number }>(`
+    reader.query<{ open: number; recent: number; drifting: number; never: number; neverAfterWeek: number; nearReward: number; rewardReady: number }>(`
       SELECT count(*)::int AS open,
         count(*) FILTER (WHERE ${retentionPredicate("recent", "$4")})::int AS recent,
         count(*) FILTER (WHERE ${retentionPredicate("drifting", "$4")})::int AS drifting,
@@ -133,14 +138,14 @@ export async function getRetentionSummary(actorUserId: string, options: { inacti
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
         AND m.closed_at IS NULL AND m.created_at <= $3
     `, [scope.tenantId, scope.locationId, asOf, cutoff(asOf), weekAgo]),
-    pool.query<{ drifting: number }>(`
+    reader.query<{ drifting: number }>(`
       SELECT count(*) FILTER (WHERE ${retentionPredicate("drifting", "$4")})::int AS drifting
       FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       ${retentionJoins("$3")}
       WHERE m.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
         AND (m.closed_at IS NULL OR m.closed_at > $3) AND m.created_at <= $3
     `, [scope.tenantId, scope.locationId, weekAgo, cutoff(weekAgo)]),
-    pool.query<{ cost: number | null; rewardId: string | null }>(`
+    reader.query<{ cost: number | null; rewardId: string | null }>(`
       SELECT selected.cost, selected.reward_id AS "rewardId" FROM programs p
       LEFT JOIN LATERAL (SELECT r.id AS reward_id, latest.cost FROM rewards r
         JOIN LATERAL (SELECT rv.cost FROM reward_versions rv WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= $3 ORDER BY rv.version DESC LIMIT 1) latest ON true
