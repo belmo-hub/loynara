@@ -1,0 +1,81 @@
+{
+  "assignment": "LOY-ENG-20261011-078",
+  "issue": "LOY-305",
+  "parent": "LOY-49",
+  "base_sha": "64684112213df524246b96b20886e23b0bfdb6f1",
+  "source_sha": "b4d2e6cd57c7c7e50352d84319c9674aab3a8a6b",
+  "result_sha": "documentation receipt by containment",
+  "red": {
+    "unchanged": true,
+    "failed": 2,
+    "duration_seconds": 1.12,
+    "sanitized": "Actual award and reversal handlers, different cards/same tenant key, each200/500 rather than200/409"
+  },
+  "initial_green": {
+    "passed": 2,
+    "seconds": 1.11
+  },
+  "focused": {
+    "files": 6,
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 7.14
+  },
+  "static": "typegen/typecheck/zero-warning changed lint/configured build PASS",
+  "global": {
+    "files": 173,
+    "passed": 1601,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 152.51,
+    "skip": "existing Mailpit recovery sender case"
+  },
+  "integrated": {
+    "method": "LOCAL fast-forward",
+    "files": 6,
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 7.28
+  },
+  "independent_review": "Reused loy281_sensitive_review READ-ONLY no material findings; static only, effective configuration unmeasured",
+  "tracker": {
+    "stage": "Done",
+    "comment": "7-137",
+    "readback": "2026-10-11T05:36:07Z",
+    "full_gates": "LOY-37/38/49/50 OPEN"
+  },
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 9829423,
+    "cumulative_seconds": 50717,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "status": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "notifications": "Gmail305query0matching;generation/receiptUNVERIFIED",
+  "inspection_limitation": "Desktop focused status/file reads stalled; owned checks bounded/stopped, source untouched; other registered trees no modified relevant overlap",
+  "disk_gib_available": 43,
+  "retained_codex_worktrees": 13,
+  "log_sha256": {
+    "loy-078-red.log": "36caf46ba0406c1e42f0a3342ffcbd3ec0e7abc2488efc4c2b338309705ae0c8",
+    "loy-078-green.log": "5744a91ba4a562701b7245d6ba7c3dc10ff48f28ae70c88cd1cd6686d8202890",
+    "loy-078-focused.log": "618085e658d387de6c9b57409820c08a5f314c38298ecd765190289a7cc77a78",
+    "loy-078-static.log": "814c5850553d02a70a4ba0a597bbf35b5d4d4017073e15a35bc435b1e9fb40a3",
+    "loy-078-global.log": "63a707a2ec387ba6027a9013c6000b84b3f0088390c9743891b1092413cf48a3",
+    "loy-078-global.json": "b79424b4cf4f2ff68921dffcad954c4778461d8baae8784181e4d15ceb1f37af",
+    "loy-078-integrated.log": "e5a8415c3971cf53d8006afcb7a229e382e7d396b585724db42a4e1c9cf81959"
+  }
+}

@@ -144,3 +144,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 2026-10-11 /077: [LOY-304 redemption key conflict](LOY-304-redemption-key-conflict-2026-10-11.md). Genuine concurrent two-card200/500 RED corrected to definitive409 after rollback; real late-fault/security negatives, focused29PASS, current global1590PASS/1existingSKIP, static/build/read-only review PASS, LOCAL integrated29PASS4.67s. Coding tracker receipt follows;37/38/49/50 full gates OPEN, no deployment.
 
 /077 receipt: LOY-304 Done/comment7-136/readback05:23:02UTC; sourcef67ba931a8cec5fbffdba8a2f500307a5b808435 LOCAL integrated29PASS4.67s.37/38/49/50 broad gates OPEN; no deployment or independent acceptance.
+
+2026-10-11 /078: [LOY-305 award/reversal key conflicts](LOY-305-award-reversal-key-conflict-2026-10-11.md). Genuine2RED200/500 corrected to definitive409 after rollback;40focused/global1601PASS/1existingSKIP/static/build/read-only review PASS; LOCAL integrated40PASS7.28s.305Done/comment7-137/readback05:36:07UTC.37/38/49/50 full gates OPEN; no deployment.
