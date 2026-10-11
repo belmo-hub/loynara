@@ -1,0 +1,114 @@
+{
+  "assignment": "LOY-ENG-20261011-085",
+  "issue": "LOY-312",
+  "parent": "LOY-49",
+  "base_sha": "44b24d5b6c8c17f6685478d3603461f3acd54b83",
+  "source_sha": "6c73cd0bbc65753475f9f2280125f3327ae66d0e",
+  "result_sha": "Containing ledger commit; exact receipt in durable state/map",
+  "implementation": "One uncertainty classification condition adds unreadable2xx; original idempotency/request IDs retained through explicit same-action confirmation; no automaticretry/newpolicy/backendchanges",
+  "authority": "Founder master directive and completed085 contract; no new sensitive policy",
+  "red": "Actual unchanged-source1archived-reward rejectionPASS/2genuineRED12.9s: committed200 unreadableJSON, fresh retrykey, two spends balance9\u21926\u21923",
+  "browser": "Initial3PASS6.0s; strengthened foreground/gated display final3PASS16.1s",
+  "focused": "4files22PASS3.47s",
+  "static": "typegen/typecheck/zero-warning changed-file lint/production build PASS",
+  "global": "173files1601PASS0FAIL1existing optional Mailpit recovery SKIP158.90s; first configured run passed",
+  "integrated": "cleanLOCALFF;4files22PASS3.61s; frozen32b27ec exact/accepted e1aae658+9848e759 ancestry/0024 history preserved",
+  "review": "One independentREADONLY staticreview no material findings; source unchanged afterreview; customer convergence via established visible/gated mechanism, not uniquely manual request; effectiveconfigunmeasured",
+  "fixture_failures": [
+    "After initial3PASS, strengthened customer display assertion tried background refresh and failed2cases/1PASS29.2s. Source accounting stayed correct.",
+    "Foreground return before existing5s gate also2FAIL/1PASS29.5s; accounting stayed correct. Real5.1s wait+actual response observation, no clock/gate/assertion change; final3PASS16.1s."
+  ],
+  "tracker": "312Done/LocalImplementation/AutomatedTestsVerified readback2026-10-11T07:26:13Z/comment7-145;49InReview/50Blocked resolvednull preserved",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 10950740,
+    "cumulative_seconds": 57348,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "resources": {
+    "base_verified": true,
+    "disk_free_gib": 42,
+    "registered_codex_worktrees": 13,
+    "other_checkouts_checked": 40,
+    "tracked_overlap": [],
+    "Desktop_concurrency": "UNKNOWN/not rescanned",
+    "new_worktree": false,
+    "installations": false,
+    "LOY49": "InReview;50Blocked externalacceptance;304/305Done existingchildren"
+  },
+  "execution": "Mac/one engineer; assigned gpt-6.1-sol Medium discovery/High engineering/Medium read-only review; effective setter unavailable, existing executor retained; nativePG/normal synthetic sessions/whitelisted env/all provider delivery OFF; existing dependencies reused",
+  "external_actions": "Actual312creation/InProgress/InReview/Done/comment/readback. Gmail312query0matching; notification generation/receiptUNVERIFIED. Owned looplocal_browser_redemption_085 dropped after appstop/zeroactive. No remote push185/186/protected/hosted/provider/customer/tag/legal/newpolicy action",
+  "limitations": [
+    "Empty or invalid JSON after successful status verified; arbitrary structurally wrong truthy JSON not newly validated.",
+    "New browser tests use authenticated owner checkout; anonymous/origin/foreign/revoked negatives covered by focused actual-route/domain compatibility suites.",
+    "Customer convergence uses existing foreground/gated refresh; does not uniquely attribute refresh to manual click.",
+    "Pending IDs survive via existing mounted cashier state; no new full-browser restart persistence claim.",
+    "Independent review static only. Prior081 precise failure-event attribution UNPROVEN. Full49/50/launch acceptance OPEN."
+  ],
+  "fallback": "Unused; no third investigation",
+  "statuses": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-145 onboarding server-rejection recovery beyond accepted validation",
+    "LOY-119 customer referral recovery beyond accepted attribution/duplicate guards",
+    "LOY-43 export customer browser failure/recovery within existing privacy policy"
+  ],
+  "logs": {
+    "red": {
+      "local_path": "/tmp/loy-085-red.log",
+      "bytes": 28586,
+      "sha256": "bdbdb2b761e82451c954c23e8c5d73513239c69da89fa7f3b84eb4e2a13ef168"
+    },
+    "green": {
+      "local_path": "/tmp/loy-085-green.log",
+      "bytes": 933,
+      "sha256": "aad406af53f2fb980c0181a1c58534adc13b3c95e6cbf35333e6da8c363f61ab"
+    },
+    "green-final": {
+      "local_path": "/tmp/loy-085-green-final.log",
+      "bytes": 6000,
+      "sha256": "4248977d96ffbf849831801b2fb083d821273e8e3a022cf51b658b00bcbd61b6"
+    },
+    "green-visible": {
+      "local_path": "/tmp/loy-085-green-visible.log",
+      "bytes": 5798,
+      "sha256": "38c4bbd413eb9304864f138fe0537a886ae8901f2ebf99cc90228e215262a7ee"
+    },
+    "green-gated": {
+      "local_path": "/tmp/loy-085-green-gated.log",
+      "bytes": 934,
+      "sha256": "e33a676ec8e013ccc4cdb1f164f5c46cf1b88a33b0074223249a7832c3007b1e"
+    },
+    "focused": {
+      "local_path": "/tmp/loy-085-focused.log",
+      "bytes": 2374,
+      "sha256": "61204db61d5e9b63826769ed9d59ebc873bd166a768b846a8f3feea14813e7eb"
+    },
+    "static": {
+      "local_path": "/tmp/loy-085-static.log",
+      "bytes": 4317,
+      "sha256": "a5b547a42ce68f5729ae91713cd874dee481af4522c531d4f9427569608ff2eb"
+    },
+    "global": {
+      "local_path": "/tmp/loy-085-global.log",
+      "bytes": 39088,
+      "sha256": "31bf36570e9e6d5964200594c1d0591b6ecb1f927b9e4be1fc32c64c07ed8164"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-085-integrated.log",
+      "bytes": 2121,
+      "sha256": "de0a96c4b97dd878614fa39d8e94990dd8f9bea12c0e1bb5b1f3dcef1d39c140"
+    }
+  }
+}
