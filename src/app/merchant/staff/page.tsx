@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { postJson } from "@/components/client-api";
+import { useRef, useState, type FormEvent } from "react";
+import { ClientApiError, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
@@ -31,6 +31,7 @@ export default function StaffPage() {
   const [audit, reloadAudit] = useLoad<{ events: AuditEvent[] }>(owner ? "/api/staff/audit" : null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"manager" | "cashier">("cashier");
+  const inviteDraftRevision = useRef(0);
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<StaffMember | null>(null);
@@ -50,11 +51,20 @@ export default function StaffPage() {
   async function createInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!me?.locationId || busy) return;
+    const submitted = { email: email.trim(), role, revision: inviteDraftRevision.current };
     setBusy(true); setError(""); setMessage(""); setInvite(null);
     try {
-      const result = await postJson<InviteResult>("/api/staff/invite", { locationId: me.locationId, email: email.trim(), role });
-      setInvite(result); setEmail(""); reloadAudit();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Einladung konnte nicht erstellt werden."); }
+      const result = await postJson<InviteResult>("/api/staff/invite", { locationId: me.locationId, email: submitted.email, role: submitted.role });
+      setInvite(result);
+      if (inviteDraftRevision.current === submitted.revision) setEmail("");
+      reloadAudit();
+    } catch (cause) {
+      const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
+      if (unconfirmed) {
+        setError(`Die Erstellung für ${submitted.email} wurde nicht bestätigt. Die Einladung kann bereits erstellt sein. Prüfe den Team-Verlauf, bevor du einen weiteren Link erstellst. Es wurde nichts automatisch versendet.`);
+        reloadAudit();
+      } else setError(cause instanceof Error ? cause.message : "Einladung konnte nicht erstellt werden.");
+    }
     finally { setBusy(false); }
   }
   async function revoke() {
@@ -81,8 +91,8 @@ export default function StaffPage() {
         <section className="ow-card ow-stack" aria-labelledby="st-invite">
           <div><h2 id="st-invite">Person einladen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Der Link wird einmalig angezeigt und nicht automatisch versendet. Zugriff gilt für {me.locationName}.</p></div>
           <form className="ow-stack" onSubmit={createInvite}>
-            <div className="ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" className="ow-input" type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required placeholder="team@geschaeft.de" /></div>
-            <div className="ow-field"><label htmlFor="st-role">Rolle</label><select id="st-role" className="ow-select" value={role} onChange={event => setRole(event.target.value as "manager" | "cashier")}><option value="cashier">Kasse</option><option value="manager">Leitung</option></select><span className="ow-hint">{ROLE_HINT[role]}</span></div>
+            <div className="ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" className="ow-input" type="email" value={email} onChange={event => { inviteDraftRevision.current++; setEmail(event.target.value); }} autoComplete="email" required placeholder="team@geschaeft.de" /></div>
+            <div className="ow-field"><label htmlFor="st-role">Rolle</label><select id="st-role" className="ow-select" value={role} onChange={event => { inviteDraftRevision.current++; setRole(event.target.value as "manager" | "cashier"); }}><option value="cashier">Kasse</option><option value="manager">Leitung</option></select><span className="ow-hint">{ROLE_HINT[role]}</span></div>
             <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy}>Einladungslink erstellen</button></div>
           </form>
           {invite && (
