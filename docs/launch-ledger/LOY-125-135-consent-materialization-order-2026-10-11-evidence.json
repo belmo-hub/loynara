@@ -22,5 +22,13 @@
       "sha256": "fc47a1df7825ae8444ce79a8f88a46a2e6f2ee3838dca0fdc2c1c06edca525db"
     }
   ],
-  "broader_acceptance": "OPEN"
+  "broader_acceptance": "OPEN",
+  "integrated_pass": 1,
+  "integrated_log_sha256": "2996f4d67eba2b916ffa0deda0f08bc0fb23637b0527292eee4126caf036eaf6",
+  "tracker_comments": [
+    "7-169",
+    "7-170",
+    "7-171"
+  ],
+  "readback_utc": "2026-10-11T10:33:54Z"
 }
