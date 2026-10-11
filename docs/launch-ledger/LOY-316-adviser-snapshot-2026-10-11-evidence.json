@@ -101,5 +101,13 @@
       "bytes": 1231,
       "sha256": "a5a6be5ceb12f9e6f406ddeb92b94abf991dd86a6576aa3ab7bdbd7b4e3762bf"
     }
-  }
+  },
+  "amendments": [
+    {
+      "reason": "Live next-candidate title readback",
+      "original": "LOY-143 billing-entitlement label incorrect",
+      "correct": "LOY-143 Approved merchant provisioning, first login and credential recovery; candidate existing credential-recovery errors/isolation only",
+      "issue_mutated": false
+    }
+  ]
 }
