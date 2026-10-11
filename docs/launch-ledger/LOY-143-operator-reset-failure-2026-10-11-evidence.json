@@ -1,0 +1,76 @@
+{
+  "assignment": "LOY-ENG-20261011-091",
+  "issues": [
+    "LOY-143",
+    "LOY-144"
+  ],
+  "date": "2026-10-11",
+  "base_sha": "551ca20934052f43c345f62505dff3dd5fb32a1f",
+  "source_sha": "bb9687539cf3efc7758054e07a4f348ae4084408",
+  "implementation": "Only scripts/operator-reset.test.ts new regression; no production defect/source change. Real PGsession-delete failure after existing BetterAuth password update rejects and preserves old/foreign hashes, sessions, exact owner role and tablecounts. Explicit retry verifies sealed newpassword and revokesonlyownsession.",
+  "contract": "Existing operator-assisted resetCredential in runWithTransaction; documented in pilot-recovery/identity runbooks; existing owner identity/session revocation/sealed credential/no-email behavior unchanged. No privileged interface/self-service channel/identitypolicy added. Real named-person recovery requires in-person verification and action-time approval.",
+  "tests": {
+    "focused": "37PASS4.97s FIRST",
+    "integrated": "37PASS5.00s",
+    "static": "typegen/typecheck/zero-warning changed-test lint/productionbuildPASS",
+    "browser": "Not needed for supported transactional fault; no new browser claim.",
+    "global": "Not rerun for test-only changes; last appsource dd4f911 173files1603PASS0FAIL1existingoptionalMailpitSKIP155.30s preserved, not represented as current newrun."
+  },
+  "review": "One independent read-only security staticreview no material findings; no test/services rerun/effectiveconfigurationunmeasured.",
+  "failure": "Intentional realPGexception successfully rolls back; no failing regression/productRED, no testweakening or security bypass. Only owned testtrigger/function dropped.",
+  "fallback": "Unused: primary supported andlocallytestable passed; fallbackcondition was unsupported recovery or newpolicy dependency, notinvented. No third investigation.",
+  "tracker": "143comment7-152 persisted/readback2026-10-11T08:43:03UTC; InProgress/unresolved/fullMissing criteria preserved.144independentoperatorgateOPEN. No fakecodingchild/Done.",
+  "execution": "Mac/one existing isolated engineer; assignedgpt-6.1-sol Mediumcontract/Highengineering/Mediumreview; effective setter unavailable/existing executor retained; synthetic auth context/ownedlocalPG55433/providerdeliveryOFF, no realcredentials.",
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 11637247,
+    "cumulative_seconds": 61914,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model_effort": null
+  },
+  "resources": {
+    "free_gib": 43,
+    "registered_codex_worktrees": 13,
+    "new_worktrees": false,
+    "installs": false,
+    "cleanup": false,
+    "concurrent_tracked_overlap": [],
+    "Desktop_status": "UNKNOWN/notrescanned"
+  },
+  "external_actions": "Authorized tracker evidencecomment/readback only. No real recovery/provisioning/email/customer/provider/hosted/push/protected/tag/legal/policyaction.",
+  "statuses": {
+    "regression_implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "production_fix": false,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "next_candidates": [
+    "LOY-147 existing QR-download HTTP failure/incomplete response recovery",
+    "LOY-43 remaining customer export coverage/deletion implementation under established policy preserving309snapshot/209hold",
+    "LOY-127 campaign composition error/persistence correctness distinct from accepted validation/preview/scale fences"
+  ],
+  "logs": {
+    "focused": {
+      "local_path": "/tmp/loy-091-focused.log",
+      "bytes": 1527,
+      "sha256": "b25598f3843052f266904891ba0f02897d7e0bace49955dc0b41eeaab1aee70f"
+    },
+    "static": {
+      "local_path": "/tmp/loy-091-static.log",
+      "bytes": 5378,
+      "sha256": "8e81392d3c448246024ea28ff675c7d2a5ff3ea394b2e1bc3d3e431917df8c94"
+    },
+    "integrated": {
+      "local_path": "/tmp/loy-091-integrated.log",
+      "bytes": 1536,
+      "sha256": "de95eee156e83c07097b9c9bdb3010f6ac105ddaf94369894540cd74d9838521"
+    }
+  }
+}
