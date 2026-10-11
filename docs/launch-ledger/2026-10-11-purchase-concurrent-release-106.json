@@ -10,7 +10,7 @@
     "LOY-282"
   ],
   "base": "71cc71df641f2862aa5bacab8a4a757eccff703e",
-  "result": "containing commit/integration receipt follows",
+  "result": "b426b864bbfc8d834b6628c3ba351bced96c59a6",
   "agent": "Codex /root",
   "model": "assigned SolHigh engineering/SolMedium coordination/review; effective setter unavailable/current executor retained; runtime reviewer configuration unmeasured",
   "execution": "existing isolated checkout codex/purchase-concurrent-release-106; owned local PostgreSQL; no new worktree/install/cleanup",
@@ -25,7 +25,8 @@
     "accounting": "EUR499minor at rates1..10:4,9,14,19,24,29,34,39,44,49 points; tenant/member/location/cashier attribution and purchaseaudit exact; samekey reused acrosstenants, replayduplicate without extra credit; redeem3 then expectedbalance; reporting/revokedstaff checks",
     "static": "typegen/typecheck/focused lint zero warnings/productionbuildPASS",
     "global": "105 exact unchanged application source suite181files1630PASS0FAIL1existing skip174.00s;106 additional focused testPASS; no fresh106whole-suite result asserted",
-    "review": "existing readonly loy281_sensitive_review no material findings; static only"
+    "review": "existing readonly loy281_sensitive_review no material findings; static only",
+    "integrated": "1PASS2.87s"
   },
   "failures": [
     "test-only SQL string syntax corrected",
@@ -34,7 +35,7 @@
   "statuses": {
     "implemented": "durable regression/acceptance verification only",
     "tested": true,
-    "integrated": "receipt pending",
+    "integrated": true,
     "pushed": false,
     "deployed": false,
     "independently_accepted": false,
@@ -50,5 +51,9 @@
   "release": "Bind final receipt SHA, reuse104 gated checklist and105 cohort; no hosted actions; all-writer stop/drain, fresh encryptedbackup/independentrestore,0021..0024, sameSHA webworker, exactpostrelease gates;October13NO-GO",
   "board": "Exact remove#Unresolved query proposed104/105 retained, shared setting specificapproval absent; no mutation",
   "external": "authorized concise tracker comments/readback and completed coordinator review receipts follow; no hosted/provider/customer/permission/tag mutation",
-  "usage": "cumulative native to record at receipt; granular input/cached/output/browser/reviewer unmeasured; no reset"
+  "usage": "cumulative native to record at receipt; granular input/cached/output/browser/reviewer unmeasured; no reset",
+  "tracker": {
+    "LOY-49": "7-182 readback12:52:49UTC InReview",
+    "LOY-185": "7-183 readback12:52:49UTC Backlog"
+  }
 }
