@@ -1,0 +1,104 @@
+{
+  "assignment": "LOY-ENG-20261011-076",
+  "issue": "LOY-303",
+  "parent": "LOY-55",
+  "base_sha": "ff74818216d38d022b03b150cc2b60fca1f95c49",
+  "source_sha": "03e039e361b43b9653a9c38486e92c7cde8fc315",
+  "result_sha": "documentation receipt by containment",
+  "primary57": {
+    "unchanged": true,
+    "browser_passed": 2,
+    "duration_seconds": 7.0,
+    "widths": [
+      375,
+      1280
+    ],
+    "actual_camera_permission": "denied",
+    "acceptance": "57/58 OPEN"
+  },
+  "red": {
+    "unchanged": true,
+    "failed": 1,
+    "duration_seconds": 12.1,
+    "sanitized": "Actual old offline-sync balance1 acknowledgement overwrites reopened balance2; database correct"
+  },
+  "fixture_failures": [
+    "crossmerchant reused customer session409; isolated contexts fixed",
+    "unchanged enrollment peer rate429 after probes; fresh owned076b without limiter changes"
+  ],
+  "browser_final": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 13.3
+  },
+  "focused": {
+    "files": 5,
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 5.22
+  },
+  "static": "typegen/typecheck/changedlintmaxwarnings0/configuredbuildPASS",
+  "global": {
+    "files": 171,
+    "passed": 1586,
+    "failed": 0,
+    "skipped": 1,
+    "duration_seconds": 147.02,
+    "skip": "existing Mailpit-dependent recovery case"
+  },
+  "integrated": {
+    "method": "LOCAL fast-forward",
+    "files": 5,
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 5.15
+  },
+  "independent_review": "READ-ONLY no material findings; effective configuration unmeasured",
+  "tracker": {
+    "issue": "LOY-303",
+    "stage": "Done",
+    "comment": "7-135",
+    "readback": "2026-10-11T05:06:41Z",
+    "primary_comment": "7-134 persisted",
+    "full_gates": "55/56 and57/58 OPEN"
+  },
+  "usage": {
+    "status": "active",
+    "cumulative_reported_tokens": 9587917,
+    "cumulative_seconds": 48978,
+    "remaining": null,
+    "input": null,
+    "cached_subset": null,
+    "output": null,
+    "effective_model": null
+  },
+  "log_sha256": {
+    "loy-076-primary-browser.log": "ec316f4c39c5055c642191039c801e0e5f7b256503c469fe11a2186a145c965f",
+    "loy-076-primary-browser-fixture-corrected.log": "00b4dbdbbfed967481e43f5910bf00adb7763e782db2d070cb8775f7bbf90ba5",
+    "loy-076-fallback-red.log": "3c1a293ed35e84d287d1d62d15c687473aaeb3cfa82c865b536ac9d108a7630f",
+    "loy-076-browser-green.log": "dd3a338700353226ec5cd9ff6f78fff51e70c42595f121412bc89fef30bdff46",
+    "loy-076-browser-final.log": "ccfb7f712dff55518b4ea618ec483d8d1ab83fca19a423b4f8ac4c612739fb19",
+    "loy-076-browser-final-fresh.log": "76f48eebc3fe4ad011340120aa2c3716490b9c2fd09b6e04f44f68743dbcaeb4",
+    "loy-076-focused.log": "947f1d61caf474416c218859601387be0165f8e77ac8ce0ba9cc1111a84bd4c3",
+    "loy-076-static.log": "4e82c25e6d529169e25ae04ea2299c961a4343cb61855ce79c6f005a62dbbeba",
+    "loy-076-global.log": "7adf369cb777d78691f51abb76be127d1b9ecfaae5bf7dd5cb0801ec177ee8a4",
+    "loy-076-global.json": "0c127d66438a1ae320726c030a4df2a2c931faacba3546844940a163d5a66f17",
+    "loy-076-integrated.log": "ab2e20512c1732e63e6a2cd80a3145d7d3aef4066809f71608a86926e155c02d"
+  },
+  "cdp_primary_source": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/browser_protocol.json",
+  "status": {
+    "implemented": true,
+    "tested": true,
+    "local_integrated": true,
+    "pushed": false,
+    "deployed": false,
+    "independently_accepted": false,
+    "commercially_ready": false
+  },
+  "notifications": "Gmail303search0; generation/receipt unverified",
+  "disk_gib_available": 43,
+  "retained_codex_worktrees": 13
+}

@@ -38,3 +38,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 2026-10-11 /074 LOCAL candidate adds LOY-301 at555854d9e4ba71cd42c4cd7b5fc7f7968e72354c; reviewed mobilefocus fix,4browser/11focused/global1584PASS. Receipt resultSHA by containment. No remote push185/186 or deployment/physical/commercial acceptance.
 
 2026-10-11 /075 LOCAL candidate adds LOY-302 atc8a32a6acc0296aa44e2f1e33de305656c19a3c6; reviewed housekeeping shutdown fix/realPGworker restart evidence/global1586PASS. Receipt resultSHA by containment. No push185/186/deployment/physical/commercial acceptance.
+
+2026-10-11 /076: [LOY-303 offline sync view fence](LOY-303-offline-sync-view-2026-10-11.md). Actual samecard stale balance RED corrected;4realChrome/36focused/global1586PASS;static/build/read-only reviewPASS,LOCAL integrated36PASS5.15s.303Done/comment7-135/readback05:06:41UTC;57evidencecomment7-134.55/56and57/58full gatesOPEN,no deployment.
