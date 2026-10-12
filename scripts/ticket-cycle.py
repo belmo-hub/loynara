@@ -145,6 +145,15 @@ class Tracker:
         q = urllib.parse.quote(query)
         return self.request("GET", f"/api/issues?query={q}&fields=idReadable,summary&$top={top}") or []
 
+    def issue_text(self, issue, fallback):
+        """The ticket title and description as plain text, so the command needs no tracker access of its own."""
+        try:
+            data = self.request("GET", f"/api/issues/{issue}?fields=idReadable,summary,description") or {}
+            return f"# {data.get('idReadable', issue)}: {data.get('summary', fallback)}\n\n{data.get('description') or '(no description)'}\n"
+        except RuntimeError as e:
+            log(f"warning: could not read {issue}: {e}")
+            return f"# {issue}: {fallback}\n\n(the description could not be read)\n"
+
     def tag_id(self, name):
         if name in self._tags:
             return self._tags[name]
@@ -266,7 +275,10 @@ class Loop:
         t.remove_tag(issue, cfg["TAG_READY"])
         t.comment(issue, "Automated run started. It works on a separate branch and opens a pull request for review. Nothing is merged without a person.")
 
-        env = dict(os.environ, AGENT_CMD=cfg["IMPLEMENT_CMD"], AGENT_TIMEOUT_SEC=cfg["IMPLEMENT_TIMEOUT_SEC"],
+        ticket_file = self.runs / "tickets" / f"{issue}.md"
+        ticket_file.parent.mkdir(parents=True, exist_ok=True)
+        ticket_file.write_text(redact(t.issue_text(issue, summary)))
+        env = dict(os.environ, TICKET_FILE=str(ticket_file), AGENT_CMD=cfg["IMPLEMENT_CMD"], AGENT_TIMEOUT_SEC=cfg["IMPLEMENT_TIMEOUT_SEC"],
                    AGENT_MAX_TURNS=cfg["IMPLEMENT_MAX_TURNS"], AGENT_MAX_BUDGET=cfg["IMPLEMENT_MAX_BUDGET"],
                    BASE_REF=cfg["BASE_REF"], RUNS_DIR=str(self.runs))
         if self.dry:

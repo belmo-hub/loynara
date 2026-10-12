@@ -20,7 +20,7 @@
 #   SKIP_INSTALL=1     do not run npm ci (for quick tests of this script)
 #   KEEP_WORKTREE=1    never remove the worktree
 #
-# The command sees: TICKET_ID, TICKET_NUMBER, TICKET_URL, AGENT_PROMPT, AGENT_MAX_TURNS, RUN_DIR,
+# The command sees: TICKET_ID, TICKET_NUMBER, TICKET_URL, TICKET_FILE (when set), AGENT_PROMPT, AGENT_MAX_TURNS, RUN_DIR,
 # DATABASE_URL (a throwaway database named looplocal_test), PGPORT.
 set -euo pipefail
 
@@ -149,7 +149,13 @@ echo "ticket-run: database ready on port $port"
 
 export TICKET_ID="$ticket" TICKET_NUMBER="$number" RUN_DIR="$run_dir" AGENT_MAX_TURNS="$MAX_TURNS"
 export TICKET_URL="${TICKET_BASE_URL:-https://loynara.youtrack.cloud/issue}/$ticket"
-export AGENT_PROMPT="${AGENT_PROMPT:-Work on ticket $ticket ($TICKET_URL). Read CONTRIBUTING.md first and follow it. Read the ticket and its acceptance checklist. Write a failing test for the behaviour, then implement the smallest change that makes it pass. Run npm run typecheck, npm run lint and npx vitest run before you finish (DATABASE_URL already points at a throwaway database). Keep it to one pull request of about 300 lines or fewer. Commit with a plain developer-style message. Do not push. Do not touch production credentials. If a decision, real device or external account is needed, stop and state the exact question instead of guessing.}"
+ticket_text=""
+if [ -n "${TICKET_FILE:-}" ] && [ -r "$TICKET_FILE" ]; then ticket_text=" The ticket text follows.
+
+$(cat "$TICKET_FILE")
+
+End of ticket text."; fi
+export AGENT_PROMPT="${AGENT_PROMPT:-Work on ticket $ticket ($TICKET_URL). Read CONTRIBUTING.md first and follow it.$ticket_text Use the acceptance checklist in the ticket. Write a failing test for the behaviour, then implement the smallest change that makes it pass. Run npm run typecheck, npm run lint and npx vitest run before you finish (DATABASE_URL already points at a throwaway database). Keep it to one pull request of about 300 lines or fewer. Commit with a plain developer-style message. Do not push. Do not touch production credentials. If a decision, real device or external account is needed, stop and state the exact question instead of guessing.}"
 
 echo "ticket-run: starting command (turn cap $MAX_TURNS, time limit ${TIMEOUT}s)"
 set +e
