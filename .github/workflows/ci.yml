@@ -78,7 +78,7 @@ jobs:
           done
       - name: Prepare the test database
         run: |
-          psql -h localhost -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
+          psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
           npx drizzle-kit migrate
       # Same command `npm test` ends with. `npm test` itself starts a local Docker database, which CI already provides.
       #
