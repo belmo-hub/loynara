@@ -6,15 +6,15 @@ import { SITE } from '../src/site.js';
 const FEE = SITE.price.amount;
 const with_ = (patch: Partial<Inputs>): Inputs => ({ ...EXAMPLE, ...patch });
 
-test('the fee comes from the single site configuration', () => { assert.equal(FEE, 39); });
+test('the fee comes from the single site configuration', () => { assert.equal(FEE, 49); });
 
-test('Loynara example: 50 purchases × €7 × 26 days, +10 %, €39 fee', () => {
+test('Loynara example: 50 purchases × €7 × 26 days, +10 %, €49 fee', () => {
   const s = compute(EXAMPLE, FEE);
   assert.equal(s.baseline, 9100); assert.equal(s.additional, 910); assert.equal(s.scenario, 10010);
-  assert.equal(s.difference, 871); assert.equal(s.annualised, 10452);
-  assert.equal(Math.round((s.ratio ?? 0) * 10) / 10, 23.3);
-  assert.equal(ratioText(s.ratio), '23,3×');
-  assert.equal(euro(s.annualised), '10.452 €'); assert.equal(euro(s.baseline), '9.100 €');
+  assert.equal(s.difference, 861); assert.equal(s.annualised, 10332);
+  assert.equal(Math.round((s.ratio ?? 0) * 10) / 10, 18.6);
+  assert.equal(ratioText(s.ratio), '18,6×');
+  assert.equal(euro(s.annualised), '10.332 €'); assert.equal(euro(s.baseline), '9.100 €');
 });
 
 test('reference case observed on fidelix.ma (50 × 70 × 26, +10 %, fee 397) is reproduced by the same formula', () => {
@@ -30,13 +30,13 @@ test('reference case observed on fidelix.ma (50 × 70 × 26, +10 %, fee 397) is 
 
 test('zero increase is shown honestly as a negative difference', () => {
   const s = compute(with_({ gain: 0 }), FEE);
-  assert.equal(s.additional, 0); assert.equal(s.difference, -39); assert.equal(s.annualised, -468); assert.equal(s.ratio, 0);
-  assert.equal(signedEuro(s.difference), '−39 €'); assert.equal(ratioText(s.ratio), '0×');
+  assert.equal(s.additional, 0); assert.equal(s.difference, -49); assert.equal(s.annualised, -588); assert.equal(s.ratio, 0);
+  assert.equal(signedEuro(s.difference), '−49 €'); assert.equal(ratioText(s.ratio), '0×');
 });
 
 test('zero customers, basket or opening days; zero fee gives "not applicable", never Infinity', () => {
   for (const patch of [{ visits: 0 }, { basket: 0 }, { days: 0 }] as Partial<Inputs>[]) {
-    const s = compute(with_(patch), FEE); assert.equal(s.baseline, 0); assert.equal(s.additional, 0); assert.equal(s.difference, -39);
+    const s = compute(with_(patch), FEE); assert.equal(s.baseline, 0); assert.equal(s.additional, 0); assert.equal(s.difference, -49);
   }
   const free = compute(EXAMPLE, 0);
   assert.equal(free.ratio, null); assert.equal(ratioText(free.ratio), 'nicht anwendbar'); assert.equal(free.difference, 910);

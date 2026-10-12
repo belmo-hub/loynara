@@ -15,7 +15,7 @@ WINDOWS = {
  'evening': 'Di–Do 15:15–16:45, kurz nach Öffnung. Nicht ab 18:00.',
  'lunch_only': 'Mo–Fr 14:00–15:30 (nach dem Mittagsansturm).',
 }
-OBJ = {'PAPER': 'Ich habe schon Stempelkarten (PAPER)', 'REGULARS': 'Ich kenne meine Stammkunden (REGULARS)', 'PRICE': '39 € ist zu teuer (PRICE)', 'STAFF': 'Meine Mitarbeiter machen das nicht (STAFF)',
+OBJ = {'PAPER': 'Ich habe schon Stempelkarten (PAPER)', 'REGULARS': 'Ich kenne meine Stammkunden (REGULARS)', 'PRICE': '49 € ist zu teuer (PRICE)', 'STAFF': 'Meine Mitarbeiter machen das nicht (STAFF)',
        'TIME-COUNTER': 'Das dauert an der Kasse zu lange (TIME-COUNTER)', 'LIEFERANDO': 'Bestellungen laufen über Lieferando (LIEFERANDO)', 'CHAIN': 'Die Zentrale/der Vermieter entscheidet (CHAIN)'}
 ANGLE = {'CORE-01': 'Der nächste Besuch', 'CORE-02': 'Sichtbarer Fortschritt', 'CORE-03': 'Papierkarte ablösen', 'CORE-05': 'Ein Ablauf im Stress', 'CORE-07': 'Empfehlung zählt beim echten Besuch',
          'OPS-05': 'Eigene Zugänge und Rollen', 'ACQ-05': 'Nicht der Laden nebenan', 'VER-02': 'Pizzeria: aus einer Bestellung die nächste', 'RET-03': 'Gehört deinem Laden, nicht einer Plattform'}

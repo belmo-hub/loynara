@@ -33,7 +33,7 @@ test('zero interaction: roles, flow, referral rule, owner value, branding, price
   assert.match(section('ablauf', 'empfehlung'), /Karte öffnen[\s\S]*Team bestätigt[\s\S]*Stempel wächst[\s\S]*Prämie einlösen/);
   assert.match(section('empfehlung', 'gestaltung'), /Link geteilt[\s\S]*Karte erstellt[\s\S]*Erster Besuch bestätigt[\s\S]*Bonus verbucht/);
   assert.match(section('empfehlung', 'gestaltung'), /Teilen, Öffnen oder Anmelden allein bringt keinen Bonus/);
-  for (const re of [/Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /12 wiederholte Besuche/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 € \/ Monat \/ Standort|39 € pro Monat und Standort/, /Demo anfragen/]) assert.match(defaultVisible, re, String(re));
+  for (const re of [/Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /12 wiederholte Besuche/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /49 € \/ Monat \/ Standort|49 € pro Monat und Standort/, /Demo anfragen/]) assert.match(defaultVisible, re, String(re));
 });
 test('interactive modules: two real tablists (screen, owner), roving tabindex, one tabpanel each', () => {
   assert.equal((home.match(/role="tablist"/g) ?? []).length, 2);
@@ -43,15 +43,15 @@ test('interactive modules: two real tablists (screen, owner), roving tabindex, o
   assert.ok(home.includes('data-act="visit"') && home.includes('data-act="ref"'), 'the two demos are single explicit actions, not tabs');
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
-  assert.equal(SITE.price.amount, 39); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
-  assert.match(text, /39 € \/ Monat \/ Standort/); assert.match(text, /Pilotangebot – Details im persönlichen Gespräch/);
+  assert.equal(SITE.price.amount, 49); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
+  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Pilotangebot – Details im persönlichen Gespräch/);
   assert.ok(home.includes('mailto:support@getloynara.com')); assert.ok(home.includes('href="https://app.getloynara.com/login"'));
   assert.doesNotMatch(home, /getlyonara/i);
   const src = ['../template.ts', '../src/final-parts.ts', '../src/d-parts.ts', '../src/d.ts', '../src/calc.ts', '../src/demo.ts', '../src/ref.ts'].map(f => readFileSync(resolve(import.meta.dirname, f), 'utf8')).join('\n');
   assert.ok(!/(?<![#\d,.])\b39\b(?![\d,.;])/.test(src), 'the fee is never hard-coded outside src/site.ts');
 });
 test('no stale price, internal wording or old brand', () => {
-  assert.doesNotMatch(text, /\b49\s*€|€\s*49|\b69\s*€|\b99\s*€|\b397\b|Einrichtungsgebühr|Rabatt|Jahresrabatt|nur noch|begrenzt|kostenlos|Testphase|Probemonat|Kündigung|zzgl\.|inkl\./i);
+  assert.doesNotMatch(text, /\b69\s*€|\b99\s*€|\b397\b|Einrichtungsgebühr|Rabatt|Jahresrabatt|nur noch|begrenzt|kostenlos|Testphase|Probemonat|Kündigung|zzgl\.|inkl\./i);
   assert.doesNotMatch(text, /LoopLocal|synthetic|synthetisch|Audit|Entwurf|nicht geprüft|nicht getestet|in Vorbereitung|Testdaten|lokal getestet/i);
 });
 test('no fabricated proof, misleading referral economics or unsupported availability claims', () => {
@@ -77,19 +77,19 @@ test('calculator copy: scope, disclaimer next to the result, honest zero case, r
   const calc = section('rechner', 'angebot');
   assert.match(calc, /Für einen Standort/); assert.match(calc, /Was wäre ein zusätzlicher Besuch wert\?/);
   assert.match(calc, /Rechenbeispiel, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
-  assert.match(calc, /910 €/); assert.match(calc, /\+871 €/); assert.match(calc, /\+10\.452 €/); assert.match(calc, /9\.100 €/);
+  assert.match(calc, /910 €/); assert.match(calc, /\+861 €/); assert.match(calc, /\+10\.332 €/); assert.match(calc, /9\.100 €/);
   assert.match(calc, /Bei dieser Annahme übersteigt die Monatsgebühr den Zusatzumsatz\./);
   assert.ok(home.includes('data-zero-note hidden'));
   assert.doesNotMatch(calc, /Nettogewinn|Netto-Nutzen|Return on|Ihr Geld|verdienst du|mindestens \d/i);
   const detailsAt = home.indexOf('<details class="more">'), ratioAt = home.indexOf('data-out="ratio"');
   assert.ok(detailsAt > 0 && ratioAt > detailsAt, 'the ratio appears only inside the expandable details');
-  assert.match(visible(home.slice(detailsAt, home.indexOf('</details>', detailsAt))), /23,3× .*kein Gewinn und keine garantierte Rendite/);
+  assert.match(visible(home.slice(detailsAt, home.indexOf('</details>', detailsAt))), /18,6× .*kein Gewinn und keine garantierte Rendite/);
   const calcHtml = home.slice(home.indexOf('data-calc'), home.indexOf('id="angebot"'));
   assert.equal((calcHtml.match(/data-range="/g) ?? []).length, 4); assert.equal((calcHtml.match(/data-in="/g) ?? []).length, 4);
 });
-test('offer: what 39 € means, what is included, the pilot qualifier and what happens next', () => {
+test('offer: what 49 € means, what is included, the pilot qualifier and what happens next', () => {
   const offer = section('angebot', 'anfrage');
-  assert.match(offer, /39 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
+  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
   for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
   assert.match(offer, /Vorläufiger Einstiegspreis\. Konditionen besprechen wir vor dem Start persönlich\./);
   assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');

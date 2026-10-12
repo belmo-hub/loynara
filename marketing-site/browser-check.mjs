@@ -45,7 +45,7 @@ for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 
   const objects = await page.evaluate(() => { const r = document.querySelector('.hero-scene').getBoundingClientRect(); return [...document.querySelectorAll('.hero-scene .phone, .hero-scene .stand-obj')].map(e => e.getBoundingClientRect()).every(o => o.width > 90 && o.left >= r.left - 1 && o.right <= r.right + 1); });
   check(`${tag}: hero product objects are large and inside their scene`, objects);
   const dv = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && !e.closest('[hidden]')).map(e => e.textContent).join(' ').replace(/\s+/g, ' '));
-  for (const re of [/Kunde/, /Team/, /Inhaber/, /Karte öffnen/, /Team bestätigt/, /Prämie einlösen/, /Deine Stammkunden bringen den nächsten Kunden mit/, /Bonus verbucht/, /keinen Bonus/, /Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 €/, /pro Monat und Standort/, /Demo anfragen/]) check(`${tag}: visible by default: ${re}`, re.test(dv));
+  for (const re of [/Kunde/, /Team/, /Inhaber/, /Karte öffnen/, /Team bestätigt/, /Prämie einlösen/, /Deine Stammkunden bringen den nächsten Kunden mit/, /Bonus verbucht/, /keinen Bonus/, /Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /49 €/, /pro Monat und Standort/, /Demo anfragen/]) check(`${tag}: visible by default: ${re}`, re.test(dv));
   await context.close();
 }
 
@@ -143,15 +143,15 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   // ---- calculator ----
   await page.locator('[data-calc-reset]').click(); await jump(page, '#rechner'); await settle(page);
   await page.locator('.more summary').click();
-  check(`${label}: calculator default: 910 / 9.100 / 39 / +871 / +10.452 / ratio 23,3×`, (await out$(page, 'additional')) === '910 €' && (await out$(page, 'baseline')) === '9.100 €' && (await out$(page, 'fee')) === '39 €' && (await out$(page, 'difference')) === '+871 €' && (await out$(page, 'annualised')) === '+10.452 €' && (await out$(page, 'ratio')) === '23,3×');
+  check(`${label}: calculator default: 910 / 9.100 / 49 / +861 / +10.332 / ratio 18,6×`, (await out$(page, 'additional')) === '910 €' && (await out$(page, 'baseline')) === '9.100 €' && (await out$(page, 'fee')) === '49 €' && (await out$(page, 'difference')) === '+861 €' && (await out$(page, 'annualised')) === '+10.332 €' && (await out$(page, 'ratio')) === '18,6×');
   check(`${label}: ratio is only inside the details`, await page.evaluate(() => !!document.querySelector('.more [data-out="ratio"]') && !document.querySelector('.result [data-out="ratio"]')));
   await page.locator('.more summary').click();
   check(`${label}: chart label "+10.920 € Zusatzumsatz" (before fee)`, /\+10\.920 € Zusatzumsatz/.test(await page.locator('[data-chart]').innerHTML()));
   await page.screenshot({ path: `${out}/${label}-calc-default.png` });
   await fill(page, 'basket', '7,50'); await settle(page);
-  check(`${label}: comma decimals (975 € / +936 €)`, (await out$(page, 'additional')) === '975 €' && (await out$(page, 'difference')) === '+936 €');
+  check(`${label}: comma decimals (975 € / +926 €)`, (await out$(page, 'additional')) === '975 €' && (await out$(page, 'difference')) === '+926 €');
   await fill(page, 'basket', '7'); await fill(page, 'gain', '0'); await settle(page);
-  check(`${label}: 0 % is not softened: 0 €, −39 €, −468 €, ratio 0×, fee-exceeds note shown, result card not green`, (await out$(page, 'additional')) === '0 €' && (await out$(page, 'difference')) === '−39 €' && (await out$(page, 'annualised')) === '−468 €' && (await out$(page, 'ratio')) === '0×' && await page.locator('[data-zero-note]').isVisible() && await page.evaluate(() => getComputedStyle(document.querySelector('.result')).backgroundColor !== 'rgb(20, 61, 46)') && (await page.locator('[data-calc].is-negative').count()) === 1 && (await page.locator('[data-chart] .gaplabel').count()) === 0);
+  check(`${label}: 0 % is not softened: 0 €, −49 €, −588 €, ratio 0×, fee-exceeds note shown, result card not green`, (await out$(page, 'additional')) === '0 €' && (await out$(page, 'difference')) === '−49 €' && (await out$(page, 'annualised')) === '−588 €' && (await out$(page, 'ratio')) === '0×' && await page.locator('[data-zero-note]').isVisible() && await page.evaluate(() => getComputedStyle(document.querySelector('.result')).backgroundColor !== 'rgb(20, 61, 46)') && (await page.locator('[data-calc].is-negative').count()) === 1 && (await page.locator('[data-chart] .gaplabel').count()) === 0);
   await page.screenshot({ path: `${out}/${label}-calc-zero.png` });
   await fill(page, 'visits', '1000'); await fill(page, 'basket', '500'); await fill(page, 'days', '31'); await fill(page, 'gain', '100'); await settle(page);
   check(`${label}: maximum values stay finite (15.500.000 €)`, (await out$(page, 'additional')) === '15.500.000 €' && !/NaN|Infinity/.test(await page.locator('[data-calc]').innerText() + await page.locator('[data-chart]').innerHTML()));
@@ -172,7 +172,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   // ---- offer + FAQ ----
   await jump(page, '#angebot'); await settle(page);
   const offer = await txt(page, '#angebot');
-  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /39 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /QR-Einstieg am Tresen/.test(offer) && !/NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
+  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /49 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /QR-Einstieg am Tresen/.test(offer) && !/NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
   check(`${label}: no invented trial, setup fee, cancellation, hardware, discount or VAT claim`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Kündigung|MwSt|zzgl\.|inkl\.|unbegrenzt/i.test(offer));
   const d = page.locator('.faq details').first(); await d.locator('summary').click(); check(`${label}: FAQ opens`, await d.evaluate(e => e.open)); await d.locator('summary').click();
   await page.screenshot({ path: `${out}/${label}-offer.png` });
@@ -250,7 +250,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { js: false });
   const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
-  check('no JS: headline, roles, counter flow, referral rule, price, calculator example and contact are present', /Ein guter Besuch/.test(body) && /Bestätigt den Besuch mit einem Tipp/.test(body) && /Karte öffnen/.test(body) && /keinen Bonus/.test(body) && /39 €/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
+  check('no JS: headline, roles, counter flow, referral rule, price, calculator example and contact are present', /Ein guter Besuch/.test(body) && /Bestätigt den Besuch mit einem Tipp/.test(body) && /Karte öffnen/.test(body) && /keinen Bonus/.test(body) && /49 €/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
   check('no JS: the product objects and the first owner view are rendered', (await page.locator('.hero-scene .phone').count()) === 1 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
   await page.screenshot({ path: `${out}/nojs-top.png`, fullPage: true });
   await context.close(); }

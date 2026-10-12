@@ -4,7 +4,7 @@ from xml.sax.saxutils import escape
 here = os.path.dirname(os.path.abspath(__file__))
 COLS = [('date','Datum',12,None),('merchant_id','Merchant-ID (K-…)',11,None),('led_angle','Geführter Winkel (Canonical-ID)',16,'angles'),('real_conversation','Echtes Gespräch (>1 Min)?',12,'yn'),
         ('demo','Demo gezeigt?',10,'yn'),('strongest_reaction','Stärkste Reaktion (wörtlich)',34,None),('top_objection','Top-Einwand (Code)',16,'objections'),('current_loyalty_method','Aktuelle Kundenbindung',18,'methods'),
-        ('price_reaction','Reaktion auf 39 €',24,'price'),('feature_requested','Gewünschte Funktion (wörtlich)',28,None),('outcome','Ergebnis',10,'outcome'),('reason','Grund',30,None),
+        ('price_reaction','Reaktion auf 49 €',24,'price'),('feature_requested','Gewünschte Funktion (wörtlich)',28,None),('outcome','Ergebnis',10,'outcome'),('reason','Grund',30,None),
         ('follow_up_permission','Erlaubnis Rückmeldung',16,'perm'),('next_action','Nächste Aktion',28,None),('next_action_date','Wann',11,None)]
 LISTS = {
  'yn': ['ja','nein'],

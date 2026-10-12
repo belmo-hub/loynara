@@ -49,12 +49,12 @@ test('collateral (today): claim-safe German, price from the single source, NFC a
     for (const m of t.match(/[^.?!]*(?:NFC|antipp)[^.?!]*[.?!]/gi) ?? []) assert.match(m, /vorbereitet|Ausblick|NFC nicht geht|nicht geht|\?$|Nie|nie sagen|als vorhanden|als live/i, `${f}: ${m}`);
     for (const m of t.match(/[^.?!]*(?:Wallet|Nachrichten|Logo)[^.?!]*[.?!]/g) ?? []) assert.match(m, /Ausblick|nicht Teil|Nie|nie|als vorhanden|als live|noch nicht|nicht dabei|schickt Loynara nichts|zeigen wir/, `${f}: ${m}`);
   }
-  assert.match(visible(docs['handout.html']), /39 €[^]*pro Monat und Standort/);
+  assert.match(visible(docs['handout.html']), /49 €[^]*pro Monat und Standort/);
   assert.match(visible(docs['handout.html']), /Rechenbeispiel, keine Prognose/);
   for (const q of ['Was ist Loynara?', 'Was macht der Kunde?', 'Was macht das Team?', 'Was hat der Inhaber davon?', 'Was kostet es?', 'Was passiert als Nächstes?']) assert.ok(visible(docs['handout.html']).includes(q), q);
   assert.doesNotMatch(visible(docs['handout.html']), /Kartennummer|neu ausstellen|korrigier/i, 'RC capabilities are not on the handout');
   const obj = visible(docs['objection-sheet.html']);
-  for (const o of ['Ich habe schon Stempelkarten', 'Meine Kunden laden keine App runter', 'Meine Mitarbeiter machen das nicht', 'Das dauert an der Kasse zu lange', 'Ich kenne meine Stammkunden', 'Ich habe Instagram', '39 € ist zu teuer', 'Was, wenn ein Mitarbeiter einen Fehler macht', 'Was, wenn der Kunde seine Karte verliert', 'Was, wenn NFC nicht geht', 'Ich muss darüber nachdenken']) assert.ok(obj.includes(o), o);
+  for (const o of ['Ich habe schon Stempelkarten', 'Meine Kunden laden keine App runter', 'Meine Mitarbeiter machen das nicht', 'Das dauert an der Kasse zu lange', 'Ich kenne meine Stammkunden', 'Ich habe Instagram', '49 € ist zu teuer', 'Was, wenn ein Mitarbeiter einen Fehler macht', 'Was, wenn der Kunde seine Karte verliert', 'Was, wenn NFC nicht geht', 'Ich muss darüber nachdenken']) assert.ok(obj.includes(o), o);
   assert.match(obj, /kommt mit dem nächsten Update/, 'RC items are phrased as upcoming');
   const demo = visible(docs['demo-cheat-sheet.html']);
   for (const b of ['1 Kunde', '2 Tresen', '3 Fortschritt', '4 Empfehlung', '5 Inhaber', '6 Preis', '7 Frage', '20-Sekunden-Pitch', '2-Minuten-Pitch', '5-Minuten-Demo', 'Abschlussfrage']) assert.ok(demo.includes(b), b);
