@@ -7,7 +7,7 @@ import { z } from "zod";
 // This is an offline evidence validator. It has no execution or transport adapter.
 // Immutable reviewed application source; later local tooling/ledger commits do not move this pin.
 // No CLI or environment override may select a different release generation.
-export const RELEASE_SHA = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
+export const RELEASE_SHA = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
 const PROJECT = "b07a3919-b3fc-4637-8b91-d0b4418d2856";
 const ENVIRONMENT = "a3ba3a4a-3d4c-4149-91c4-735e8bae3447";
 const reference = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9./:_-]{2,199}$/).refine(v => !/^(unknown|tbd|pending|placeholder)$/i.test(v));

@@ -5,10 +5,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repo = path.resolve(__dirname, "..");
-const release = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
+const release = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
 const supersededOnboardingRelease = "153928b10db55cbd0b40351116ee54515a6b107c";
 const previousRelease = "ee4af7b79e9e4a667d383b0b9f815f31daa53956";
 const current = "792e218a17287009067ce0993c33eda3bfc3f4b7";
+const previousPinnedRelease = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
 const utilitySource = "90ad26a0f3553c89f17ce5d07e8246591240b852";
 const utilityDeployments: Record<string, string> = { backup: "dac712d4-3061-486f-9a0f-9677f87fcfe1", ops: "56bb5199-79e9-4b6b-8005-696c72769937" };
 const ids = {
@@ -97,12 +98,22 @@ describe("offline release preflight through the existing migration CLI", () => {
     ]);
     expect(r.output.writerInventory.map((v: { id: string }) => v.id)).toContain("web-immediate-nfc");
   });
+  it("validates complete synthetic declarations for the newly reviewed staff-revocation release", () => {
+    const e = fixture(), selected = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
+    e.releaseSha = selected; e.authorizations.releaseSha = selected; e.operationsUpgrade.sourceSha = selected;
+    for (const service of e.services) if (["web", "worker", "migrate", "ops"].includes(service.role)) service.plannedGeneration = selected;
+    const r = run(e); expect(r.exit, JSON.stringify(r.output)).toBe(0); expect(r.output.executionEnabled).toBe(false);
+  });
+  it("pins the newly reviewed staff-revocation application rather than the previous candidate", () => {
+    expect(run().output.releaseSha).toBe("43b54d2edbf5059d662ffa4aeb50ae6cced72ee9");
+  });
   it("binds the reviewed application snapshot independently of later local tooling commits", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
     expect(r.output.releaseSha).toBe(release); expect(r.output.executionEnabled).toBe(false);
     expect(r.output.source.fingerprints).toEqual(expect.arrayContaining([
       { file: "src/app/cashier/page.tsx", sha256: "ee85d2496bc117de873d949eeae573d2fadef251e299e638cfb788fd19f796d4" },
       { file: "src/lib/product.ts", sha256: "79e6fb6daa4dc6f94a2e01fa951b89d2cc0f73b4e5dd22b34da73f3412ac3252" },
+      { file: "src/lib/staff-push.ts", sha256: "21490c4d8d2b96cfd03701cbf771d4f35c4db063c262a7ae3d19cc6581165ae7" },
       { file: "src/components/owner/owner-context.tsx", sha256: "42effe679c1fb55b92a87621772fee9eb8d054d5f68516b932df65c34bea8b72" },
       { file: "src/components/owner/program-setup.tsx", sha256: "3de9d7dfa17ec494af3c4d6dd36d8374943f3af91d5acec4fd141de9de90fcc6" },
       { file: "scripts/production-restore-check.sh", sha256: "f4f46d4a93db6a20be23860f3844170b6d9173fd4d0f7d6e196082698621adac" },
@@ -111,6 +122,15 @@ describe("offline release preflight through the existing migration CLI", () => {
       "package.json", "package-lock.json", "marketing-site/package.json", "marketing-site/package-lock.json",
       "scripts/config-check.ts", "scripts/ops-heartbeat.ts", "scripts/operational-error.ts",
     ]));
+  });
+  it("rejects complete declarations that retain the superseded onboarding-only release", () => {
+    const e = fixture(); e.releaseSha = previousPinnedRelease; e.authorizations.releaseSha = previousPinnedRelease; e.operationsUpgrade.sourceSha = previousPinnedRelease;
+    for (const service of e.services) if (["web", "worker", "migrate", "ops"].includes(service.role)) service.plannedGeneration = previousPinnedRelease;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED"); expect(r.output.executionEnabled).toBe(false); expect(r.output.releaseSha).toBe(release);
+  });
+  it.each(["web", "worker", "migrate", "ops"])("rejects a superseded onboarding-only planned %s generation", role => {
+    const e = fixture(); e.services.find(service => service.role === role)!.plannedGeneration = previousPinnedRelease;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED"); expect(r.output.executionEnabled).toBe(false);
   });
   it("rejects receipts for the superseded release without echoing them or enabling execution", () => {
     const e = fixture(); e.releaseSha = previousRelease; e.authorizations.releaseSha = previousRelease;
