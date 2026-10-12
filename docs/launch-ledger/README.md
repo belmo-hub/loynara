@@ -128,3 +128,5 @@ At project end, compile **LOYNARA — COMPLETE BUILD & LAUNCH RECORD** from thes
 - 2026-10-12: [LOY-325 / Assignment 127 — restore-target safety](2026-10-12-restore-target-safety-127.md). Synthetic-only catalog guard correction; production recovery/deployment acceptance remains open.
 
 - 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.
+
+- 2026-10-12: [LOY-327 / Assignment129 — reviewed release alignment](2026-10-12-release-alignment-129.md). Application519e156 / separate operator tooling4069af6; default sourcePASS, executionBLOCKED, no production acceptance.

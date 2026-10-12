@@ -1,0 +1,79 @@
+{
+  "assignment": "LOY-ENG-20261012-129",
+  "issue": "LOY-327",
+  "base": "689f05b7d3115882c2b735002c602ca85d1116dd",
+  "applicationSource": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "toolingSHA": "4069af6e7d84c355a2fdfcf8b11b28d8c6626ac2",
+  "previousApplicationSource": "153928b10db55cbd0b40351116ee54515a6b107c",
+  "red": {
+    "targetedFailures": 3,
+    "oldCompleteEvidenceWasAccepted": true,
+    "testFilterOnly": "no skip definitions added"
+  },
+  "green": {
+    "files": 3,
+    "pass": 76,
+    "fail": 0,
+    "seconds": 28.12
+  },
+  "defaultPreflight": {
+    "source": "PASS",
+    "overall": "BLOCKED",
+    "exit": 2,
+    "executionEnabled": false,
+    "fingerprints": 20
+  },
+  "static": {
+    "typecheck": "PASS",
+    "lint": "PASS zero-warning",
+    "diff": "PASS"
+  },
+  "review": "existing independent read-only reviewer no material findings",
+  "applicationChanged": false,
+  "retainedApplicationRegression": {
+    "application": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+    "files": 184,
+    "pass": 1690,
+    "fail": 0,
+    "existingMailpitSkip": 1,
+    "date": "2026-10-12",
+    "seconds": 204.03
+  },
+  "operatorToolingRequirement": "Run reviewed129 tooling; application519 itself includes historical preflight pin1539, not operator129",
+  "evidence": [
+    {
+      "path": "assignment-129-red.txt",
+      "bytes": 17323,
+      "sha256": "51730e853ab0e9c4a3e73e0aa111bde21972020d037152c45ad3263cd912f838"
+    },
+    {
+      "path": "assignment-129-old-source-red.txt",
+      "bytes": 6252,
+      "sha256": "aaba48fd83062f0cae1677f5faf77ab1f2042119849477875bdfb6b5936872de"
+    },
+    {
+      "path": "assignment-129-green.txt",
+      "bytes": 6234,
+      "sha256": "1ef3f10a124b7e9cca281cb8aa8875aff790ae5cc909e5333353b616b5ce48a4"
+    },
+    {
+      "path": "assignment-129-typecheck.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "assignment-129-lint.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "assignment-129-default-preflight.json",
+      "bytes": 11231,
+      "sha256": "bf7bdebaeaff894b9fbe2cee549b07258809b9def26f45ef4e690b295f57ce91"
+    }
+  ],
+  "parent": "LOY-28",
+  "executionEnabled": false,
+  "deployed": false,
+  "productAcceptance": false
+}

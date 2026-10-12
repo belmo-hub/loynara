@@ -39,3 +39,7 @@ Original Goal identity 01a125a6-7124-70f1-a0f7-8b6f83d9a191 preserved. A fresh n
 Fallback LOY-53 was unused because the primary requirement supplied a genuine reproducible gap. The next work package is selected only after one completion report and the complete strategic response. Do not reopen LOY-133/139, founder programme/location policy or physical TAG-02 gates.
 
 Sanitized reproducible tests: e2e/onboarding-account-refresh.spec.ts. Durable receipts: primary var/native-goal-20261010/assignment-128-evidence.json and its RED/GREEN/base-comparison/full-regression/static/review records. No private keys, real customer contact details, production rows or provider credentials are recorded.
+
+## Subsequent integration/push/tracker and technical source-selection receipt
+
+Canonical LOCAL/GitHub689f05b7d3115882c2b735002c602ca85d1116dd verified after normal development push; zero new deployments in bounded GitHub/Railway observation. LOY-326 Done readback/comment7-209 verified. Completed strategic review128 accepted the narrow correction and selected519e156 as reviewed application source for129 alignment; full145/146 acceptance remains open. Native completion read128 reportsACTIVE /17,286,513tokens /97,080seconds with original identity and no executor resume/reset/replacement.
