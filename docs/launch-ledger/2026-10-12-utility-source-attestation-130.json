@@ -1,0 +1,41 @@
+{
+  "assignment": "LOY-ENG-20261012-130",
+  "issue": "LOY-328",
+  "parent": "LOY-28",
+  "base": "8ba45fd3255867d1339118d649c5a73f1e28768f",
+  "implementation": "818430f876a2a72dedc70ae15a93207ce90d5c22",
+  "application": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "status": [
+    "IMPLEMENTED",
+    "TESTED",
+    "INDEPENDENT_TECHNICAL_REVIEW"
+  ],
+  "executionEnabled": false,
+  "default": {
+    "source": "PASS",
+    "overall": "BLOCKED",
+    "exit": 2
+  },
+  "tests": {
+    "files": 3,
+    "passed": 82,
+    "failed": 0,
+    "seconds": 49.19,
+    "utilityNegativeVariants": 30,
+    "connectedRoleNegativeVariants": 9
+  },
+  "nativeGoal": {
+    "id": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+    "status": "active",
+    "tokensUsed": 17467976,
+    "secondsUsed": 99270,
+    "input": "unmeasured",
+    "cachedSubset": "unmeasured",
+    "output": "unmeasured"
+  },
+  "utilityGeneration": "90ad26a0f3553c89f17ce5d07e8246591240b852",
+  "backupDeployment": "dac712d4-3061-486f-9a0f-9677f87fcfe1",
+  "opsDeployment": "56bb5199-79e9-4b6b-8005-696c72769937",
+  "independentReview": "Existing read-only reviewer: no material findings; source attestation is not operational suitability or production acceptance",
+  "externalActions": "Read-only Railway service/deployment metadata and YouTrack coding-child creation only. Development push is a separate later receipt. No private-key/production-data/backup access or production mutation."
+}

@@ -281,3 +281,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.
 
 - 2026-10-12: [LOY-327 / Assignment129 — reviewed release alignment](2026-10-12-release-alignment-129.md). Application519e156 / separate operator tooling4069af6; default sourcePASS, executionBLOCKED, no production acceptance.
+
+- 2026-10-12: [LOY-328 / Assignment130 — branchless utility source attestation](2026-10-12-utility-source-attestation-130.md). Exact known provenance/role/cron safeguards;82focusedPASS; default sourcePASS/overallBLOCKED; old ops safeguards remain undeployed.
