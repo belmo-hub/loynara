@@ -224,5 +224,19 @@
     "Unnamed board button opened chart; found actual gear visually, no setting changed",
     "Guessed production docs/glob absent; resolved relevant actual paths",
     "Public health blocked by client; no bypass or status inference"
+  ],
+  "release_amendments": [
+    {
+      "assignment": "LOY-ENG-20261012-129",
+      "date": "2026-10-12",
+      "application_source": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+      "previous_reviewed_source": "153928b10db55cbd0b40351116ee54515a6b107c",
+      "authority": "Founder continuous local engineering directive; completed strategic review128/assignment129 technical source selection",
+      "purpose": "Include reviewed onboarding recovery and restore-target safety; preserve original104 observations and126 history",
+      "executionEnabled": false,
+      "production_status": "NOT DEPLOYED; release execution blocked pending authenticated external prerequisites",
+      "noncritical_changes_frozen": true,
+      "recovery_script_source": "519e1569195c20a01c8b55c3877dfc0ab0ca3463:scripts/production-restore-check.sh"
+    }
   ]
 }

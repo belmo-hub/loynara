@@ -7,7 +7,7 @@ import { z } from "zod";
 // This is an offline evidence validator. It has no execution or transport adapter.
 // Immutable reviewed application source; later local tooling/ledger commits do not move this pin.
 // No CLI or environment override may select a different release generation.
-export const RELEASE_SHA = "153928b10db55cbd0b40351116ee54515a6b107c";
+export const RELEASE_SHA = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
 const PROJECT = "b07a3919-b3fc-4637-8b91-d0b4418d2856";
 const ENVIRONMENT = "a3ba3a4a-3d4c-4149-91c4-735e8bae3447";
 const reference = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9./:_-]{2,199}$/).refine(v => !/^(unknown|tbd|pending|placeholder)$/i.test(v));
@@ -103,7 +103,8 @@ function inspectCandidate(repository: string) {
   if (entries.slice(21).some((e, i) => e.tag !== tags[i])) throw new Error("pending order");
   // Fingerprints bind this inventory to committed source, never to a moving branch or working-copy .env.
   const files = ["package.json", "package-lock.json", "marketing-site/package.json", "marketing-site/package-lock.json",
-    "src/app/cashier/page.tsx", "src/lib/product.ts", "Dockerfile", "Dockerfile.backup", "scripts/production-guard.ts", "scripts/production-migrate.ts", "scripts/production-backup.sh",
+    "src/app/cashier/page.tsx", "src/lib/product.ts", "src/components/owner/owner-context.tsx", "src/components/owner/program-setup.tsx",
+    "scripts/production-restore-check.sh", "Dockerfile", "Dockerfile.backup", "scripts/production-guard.ts", "scripts/production-migrate.ts", "scripts/production-backup.sh",
     "scripts/production-ops-check.ts", "scripts/worker.ts", "src/lib/staff-push.ts", "src/lib/outbox.ts", "src/lib/outbox-replay.ts", "src/lib/wallet/refresh.ts"];
   const fingerprints = files.map(file => ({ file, sha256: createHash("sha256").update(blob(file)).digest("hex") }));
   if (!blob("Dockerfile").includes('npm start -- --hostname 0.0.0.0 --port ${PORT:-3000}')

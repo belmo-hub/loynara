@@ -5,7 +5,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repo = path.resolve(__dirname, "..");
-const release = "153928b10db55cbd0b40351116ee54515a6b107c";
+const release = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
+const supersededOnboardingRelease = "153928b10db55cbd0b40351116ee54515a6b107c";
 const previousRelease = "ee4af7b79e9e4a667d383b0b9f815f31daa53956";
 const current = "792e218a17287009067ce0993c33eda3bfc3f4b7";
 const ids = {
@@ -94,6 +95,9 @@ describe("offline release preflight through the existing migration CLI", () => {
     expect(r.output.source.fingerprints).toEqual(expect.arrayContaining([
       { file: "src/app/cashier/page.tsx", sha256: "ee85d2496bc117de873d949eeae573d2fadef251e299e638cfb788fd19f796d4" },
       { file: "src/lib/product.ts", sha256: "79e6fb6daa4dc6f94a2e01fa951b89d2cc0f73b4e5dd22b34da73f3412ac3252" },
+      { file: "src/components/owner/owner-context.tsx", sha256: "42effe679c1fb55b92a87621772fee9eb8d054d5f68516b932df65c34bea8b72" },
+      { file: "src/components/owner/program-setup.tsx", sha256: "3de9d7dfa17ec494af3c4d6dd36d8374943f3af91d5acec4fd141de9de90fcc6" },
+      { file: "scripts/production-restore-check.sh", sha256: "f4f46d4a93db6a20be23860f3844170b6d9173fd4d0f7d6e196082698621adac" },
     ]));
     expect(r.output.source.fingerprints.map((v: { file: string }) => v.file)).toEqual(expect.arrayContaining([
       "package.json", "package-lock.json", "marketing-site/package.json", "marketing-site/package-lock.json",
@@ -109,6 +113,17 @@ describe("offline release preflight through the existing migration CLI", () => {
     const e = fixture(); e.services.find(v => v.role === role)!.plannedGeneration = previousRelease;
     const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED");
     expect(r.output.executionEnabled).toBe(false);
+  });
+  it("rejects the previous onboarding generation and old fingerprint override claims", () => {
+    const old = fixture(); old.releaseSha = supersededOnboardingRelease; old.authorizations.releaseSha = supersededOnboardingRelease;
+    for (const service of old.services) if (["web", "worker", "migrate"].includes(service.role)) service.plannedGeneration = supersededOnboardingRelease;
+    const r = run(old); expect(r.exit).toBe(2); expect(r.output.executionEnabled).toBe(false); expect(r.output.releaseSha).toBe(release);
+    const override = { ...fixture(), sourceFingerprints: [{ file: "src/components/owner/owner-context.tsx", sha256: "e0fa80bf127251122bdd480f508ca2b11945b6c02aad1221ece1812a97f599aa" }] };
+    const rejected = run(override); expect(rejected.exit).toBe(2); expect(rejected.output.executionEnabled).toBe(false);
+  });
+  it.each(["web", "worker", "migrate"])("rejects the previous onboarding planned %s generation", role => {
+    const e = fixture(); e.services.find(v => v.role === role)!.plannedGeneration = supersededOnboardingRelease;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.executionEnabled).toBe(false);
   });
   it("validates a complete synthetic evidence manifest without granting execution authority", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
