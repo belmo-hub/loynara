@@ -9,6 +9,8 @@ const release = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
 const supersededOnboardingRelease = "153928b10db55cbd0b40351116ee54515a6b107c";
 const previousRelease = "ee4af7b79e9e4a667d383b0b9f815f31daa53956";
 const current = "792e218a17287009067ce0993c33eda3bfc3f4b7";
+const utilitySource = "90ad26a0f3553c89f17ce5d07e8246591240b852";
+const utilityDeployments: Record<string, string> = { backup: "dac712d4-3061-486f-9a0f-9677f87fcfe1", ops: "56bb5199-79e9-4b6b-8005-696c72769937" };
 const ids = {
   web: "5c1303ad-42c2-4094-a996-3ac6140d088d", worker: "3bfad7e8-c638-41bd-8f50-743e68c0633f",
   migrate: "ba6a41c5-b9ee-463a-bc25-f7745c549f59", backup: "78ee0c58-c306-4f3a-95c0-1c94e72e793c",
@@ -22,10 +24,12 @@ function fixture() {
     version: 1, releaseSha: release,
     projectId: "b07a3919-b3fc-4637-8b91-d0b4418d2856", environmentId: "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
     operator: { id: "OPERATOR-A", reference: "OPERATOR-ATTESTATION-123", observedAt: at(-300_000), validUntil: at(1_800_000) },
-    services: Object.entries(ids).map(([role, id]) => ({ role, id, currentGeneration: current,
-      plannedGeneration: ["web", "worker", "migrate"].includes(role) ? release : current,
+    services: Object.entries(ids).map(([role, id]) => ({ role, id, currentGeneration: ["backup", "ops"].includes(role) ? utilitySource : current,
+      plannedGeneration: ["web", "worker", "migrate"].includes(role) ? release : ["backup", "ops"].includes(role) ? utilitySource : current,
       repository: ["postgres", "cloudflared"].includes(role) ? "platform-image" : "belmo-hub/loynara",
-      branch: ["postgres", "cloudflared"].includes(role) ? null : "railway-rc",
+      branch: ["web", "worker", "migrate"].includes(role) ? "railway-rc" : null,
+      cronSchedule: role === "backup" ? "0 3 * * *" : role === "ops" ? "*/5 * * * *" : null,
+      ...(["backup", "ops"].includes(role) ? { deploymentProvenance: { reference: "SYNTHETIC-DEPLOYMENT-RECEIPT-" + role, deploymentId: utilityDeployments[role], commitSha: utilitySource, branch: "railway-rc", independentlyVerified: true } } : {}),
       dockerfile: ["postgres", "cloudflared"].includes(role) ? null : role === "backup" ? "/Dockerfile.backup" : "/Dockerfile",
       startCommand: ({ web: null, worker: "npm run worker", migrate: "npm run production:migrate", backup: null, ops: "npm run production:ops-check", postgres: null, cloudflared: null } as Record<string, string | null>)[role],
       preDeployCommand: null,
@@ -124,6 +128,44 @@ describe("offline release preflight through the existing migration CLI", () => {
   it.each(["web", "worker", "migrate"])("rejects the previous onboarding planned %s generation", role => {
     const e = fixture(); e.services.find(v => v.role === role)!.plannedGeneration = supersededOnboardingRelease;
     const r = run(e); expect(r.exit).toBe(2); expect(r.output.executionEnabled).toBe(false);
+  });
+  it("accepts accurate known branchless utility metadata only with exact independently attested deployed provenance", () => {
+    const e = fixture();
+    expect(e.services.find(v => v.role === "backup")!.branch).toBeNull();
+    expect(e.services.find(v => v.role === "ops")!.branch).toBeNull();
+    const r = run(e); expect(r.exit).toBe(0); expect(r.output.status).toBe("PASS"); expect(r.output.executionEnabled).toBe(false);
+  });
+  it.each(["backup", "ops"])("keeps %s utility provenance and configuration fail-closed", role => {
+    const mutations: Array<[string, (service: ReturnType<typeof fixture>["services"][number]) => void]> = [
+      ["wrong repository", service => { service.repository = "unreviewed/repository"; }],
+      ["invented connected branch", service => { service.branch = "railway-rc"; }],
+      ["missing provenance", service => { delete service.deploymentProvenance; }],
+      ["missing generation", service => { delete (service as Record<string, unknown>).currentGeneration; }],
+      ["unknown generation", service => { service.currentGeneration = "b".repeat(40); }],
+      ["new planned generation", service => { service.plannedGeneration = release; }],
+      ["unverified provenance", service => { service.deploymentProvenance!.independentlyVerified = false; }],
+      ["wrong provenance generation", service => { service.deploymentProvenance!.commitSha = release; }],
+      ["wrong deployment identity", service => { service.deploymentProvenance!.deploymentId = "00000000-0000-4000-8000-000000000009"; }],
+      ["swapped deployment identity", service => { service.deploymentProvenance!.deploymentId = utilityDeployments[role === "backup" ? "ops" : "backup"]; }],
+      ["missing provenance reference", service => { service.deploymentProvenance!.reference = ""; }],
+      ["wrong Dockerfile", service => { service.dockerfile = "/unreviewed.Dockerfile"; }],
+      ["wrong start command", service => { service.startCommand = "npm start"; }],
+      ["wrong cron", service => { service.cronSchedule = "* * * * *"; }],
+      ["missing cron", service => { delete (service as Record<string, unknown>).cronSchedule; }],
+    ];
+    for (const [name, mutate] of mutations) {
+      const e = fixture(); mutate(e.services.find(v => v.role === role)!);
+      const r = run(e); expect(r.exit, name).toBe(2); expect(r.output.status, name).toBe("BLOCKED"); expect(r.output.executionEnabled, name).toBe(false);
+    }
+  });
+  it.each(["web", "worker", "migrate"])("does not accept a branchless or scheduled connected %s role", role => {
+    for (const mode of ["branchless", "wrong branch", "scheduled"]) {
+      const e = fixture(); const service = e.services.find(v => v.role === role)!;
+      if (mode === "branchless") service.branch = null;
+      else if (mode === "wrong branch") service.branch = "unreviewed-branch";
+      else service.cronSchedule = "* * * * *";
+      const r = run(e); expect(r.exit, mode).toBe(2); expect(r.output.executionEnabled, mode).toBe(false);
+    }
   });
   it("validates a complete synthetic evidence manifest without granting execution authority", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);

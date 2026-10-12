@@ -18,11 +18,21 @@ const generation = z.union([sha, z.string().regex(/^sha256:[0-9a-f]{64}$/)]);
 const flags = z.object({ APPLE_WALLET_ENABLED: z.literal(false), GOOGLE_WALLET_ENABLED: z.literal(false), PASSFAST_ENABLED: z.literal(false),
   EXTERNAL_EMAIL_ENABLED: z.literal(false), PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: z.literal(false), TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: z.literal(false),
   LIVE_BILLING_ENABLED: z.literal(false), WALLET_PRODUCTION_APPROVED: z.literal(false), PUBLIC_REGISTRATION_ENABLED: z.literal(false) }).strict();
+// Configured branch and deployed build provenance are separate facts. These
+// utility snapshots were independently observed via Railway read-only metadata.
+// They are current-baseline identities, not permission to deploy another source.
+const utilityDeployments = {
+  backup: { deploymentId: "dac712d4-3061-486f-9a0f-9677f87fcfe1", commitSha: "90ad26a0f3553c89f17ce5d07e8246591240b852" },
+  ops: { deploymentId: "56bb5199-79e9-4b6b-8005-696c72769937", commitSha: "90ad26a0f3553c89f17ce5d07e8246591240b852" },
+} as const;
+const utilityProvenance = z.object({ reference, deploymentId: z.string().uuid(), commitSha: sha,
+  branch: z.literal("railway-rc"), independentlyVerified: z.literal(true) }).strict();
 const serviceSchema = z.object({
   role: z.enum(["web", "worker", "migrate", "backup", "ops", "postgres", "cloudflared"]), id: z.string().uuid(),
   currentGeneration: generation, plannedGeneration: generation, repository: z.enum(["belmo-hub/loynara", "platform-image"]),
   branch: z.enum(["railway-rc"]).nullable(), dockerfile: z.enum(["/Dockerfile", "/Dockerfile.backup"]).nullable(),
   startCommand: z.string().max(100).nullable(), preDeployCommand: z.string().max(100).nullable(),
+  cronSchedule: z.string().max(100).nullable(), deploymentProvenance: utilityProvenance.optional(),
 }).strict();
 const physicalSchema = z.object({ reference, criticalTablesPresent: z.literal(true), tenantConstraintsAccepted: z.literal(true),
   appendOnlyTriggerAccepted: z.literal(true), structuresThrough0020Accepted: z.literal(true) }).strict();
@@ -46,13 +56,13 @@ const evidenceSchema = z.object({
 }).strict();
 
 const definitions = [
-  { role: "web", id: "5c1303ad-42c2-4094-a996-3ac6140d088d", dockerfile: "/Dockerfile", command: null },
-  { role: "worker", id: "3bfad7e8-c638-41bd-8f50-743e68c0633f", dockerfile: "/Dockerfile", command: "npm run worker" },
-  { role: "migrate", id: "ba6a41c5-b9ee-463a-bc25-f7745c549f59", dockerfile: "/Dockerfile", command: "npm run production:migrate" },
-  { role: "backup", id: "78ee0c58-c306-4f3a-95c0-1c94e72e793c", dockerfile: "/Dockerfile.backup", command: null },
-  { role: "ops", id: "c3189719-e305-4c4c-b8ca-4d0b0335c25f", dockerfile: "/Dockerfile", command: "npm run production:ops-check" },
-  { role: "postgres", id: "7eb7c68b-c890-4f79-844f-f439f9fe0234", dockerfile: null, command: null },
-  { role: "cloudflared", id: "131ff3f7-3eb8-4837-a9f9-694db14f623b", dockerfile: null, command: null },
+  { role: "web", id: "5c1303ad-42c2-4094-a996-3ac6140d088d", dockerfile: "/Dockerfile", command: null, cronSchedule: null },
+  { role: "worker", id: "3bfad7e8-c638-41bd-8f50-743e68c0633f", dockerfile: "/Dockerfile", command: "npm run worker", cronSchedule: null },
+  { role: "migrate", id: "ba6a41c5-b9ee-463a-bc25-f7745c549f59", dockerfile: "/Dockerfile", command: "npm run production:migrate", cronSchedule: null },
+  { role: "backup", id: "78ee0c58-c306-4f3a-95c0-1c94e72e793c", dockerfile: "/Dockerfile.backup", command: null, cronSchedule: "0 3 * * *" },
+  { role: "ops", id: "c3189719-e305-4c4c-b8ca-4d0b0335c25f", dockerfile: "/Dockerfile", command: "npm run production:ops-check", cronSchedule: "*/5 * * * *" },
+  { role: "postgres", id: "7eb7c68b-c890-4f79-844f-f439f9fe0234", dockerfile: null, command: null, cronSchedule: null },
+  { role: "cloudflared", id: "131ff3f7-3eb8-4837-a9f9-694db14f623b", dockerfile: null, command: null, cronSchedule: null },
 ] as const;
 const writers = [
   { id: "web-http", service: "web", components: ["src/app/api"], effect: "HTTP/API routes: loyalty, consent, staff, campaign and other application writes" },
@@ -64,6 +74,7 @@ const writers = [
 const requiredEvidence = [
   "Authenticated operator receipt for exact project/environment/service identities, current generations, unchanged branch and resolved safe flags",
   "Complete live writer inventory including immediate NFC, scheduled jobs, manual replay/migrations and any outside clients; no unaccounted writers",
+  "Known branchless backup/ops utilities need exact configured repository/cron/command plus independently verified deployed commit/deployment identity; absence of a connected branch is not code provenance",
   "Authenticated exact-commit deployment eligibility and separately bounded founder deployment authorization for the pinned release",
   "Authorized all-old-writer shutdown/drain receipt with zero in-flight work before the recovery point",
   "Fresh encrypted approved EU R2 object after drain: source database/generation/schema, date/size/SHA256, independent retrieval and key custodian (never the key)",
@@ -136,11 +147,20 @@ export function releasePreflight(repository: string, evidence?: unknown, now = D
         const matches = e.services.filter(v => v.role === definition.role);
         const s = matches[0];
         block(matches.length !== 1 || s?.id !== definition.id || s?.dockerfile !== definition.dockerfile
-          || s?.startCommand !== definition.command || s?.preDeployCommand !== null, "Service identity, source role, command or pre-deploy definition is inconsistent");
+          || s?.startCommand !== definition.command || s?.preDeployCommand !== null || s?.cronSchedule !== definition.cronSchedule,
+          "Service identity, source role, command, cron or pre-deploy definition is inconsistent");
         if (s && ["postgres", "cloudflared"].includes(s.role)) block(s.repository !== "platform-image" || s.branch !== null, "Platform service definitions must not masquerade as application sources");
-        if (s && !["postgres", "cloudflared"].includes(s.role)) {
+        if (s && ["web", "worker", "migrate"].includes(s.role)) {
           block(s.repository !== "belmo-hub/loynara" || s.branch !== "railway-rc", "Connected repository/branch must remain unchanged");
         }
+        if (s && (s.role === "backup" || s.role === "ops")) {
+          const baseline = utilityDeployments[s.role]; const provenance = s.deploymentProvenance;
+          block(s.repository !== "belmo-hub/loynara" || s.branch !== null,
+            "Known utility source configuration must preserve its repository and absent connected branch");
+          block(!provenance || provenance.deploymentId !== baseline.deploymentId || provenance.commitSha !== baseline.commitSha
+            || s.currentGeneration !== baseline.commitSha || s.plannedGeneration !== baseline.commitSha,
+            "Utility deployed provenance must be independently attested at its exact known deployment/source; no new generation is authorized");
+        } else if (s) block(s.deploymentProvenance !== undefined, "Utility provenance cannot stand in for another service role");
         if (s && ["web", "worker", "migrate"].includes(s.role)) block(s.plannedGeneration !== RELEASE_SHA, "Web, worker and migration must target the same pinned source generation");
       }
       block(e.authorizations.backupRestore === e.authorizations.deployment, "Backup/restore and production cutover need separate authenticated founder receipts");
