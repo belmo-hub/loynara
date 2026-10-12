@@ -22,7 +22,7 @@ type OwnerValue = {
   switchError: string;
   /** Bumps whenever the active location changes so location-scoped pages remount and refetch. */
   epoch: number;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<boolean>;
   reload: () => void;
   resetAfterSignOut: () => void;
   setDirty: (key: string, dirty: boolean) => void;
@@ -93,7 +93,7 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
     if (kind === "silent") return; // keep the last known account instead of blanking the shell on a transient error
     setError(result.message); setStatus("error");
   }, [router]);
-  const load = useCallback((kind: "initial" | "silent") => fetchAccount().then(result => apply(result, kind)), [apply]);
+  const load = useCallback((kind: "initial" | "silent") => fetchAccount().then(result => { apply(result, kind); return result.kind === "ok"; }), [apply]);
 
   const resetAfterSignOut = useCallback(() => {
     dirtyKeys.current.clear(); setDirtyCount(0); setPending(null);

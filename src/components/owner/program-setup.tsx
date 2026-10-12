@@ -101,7 +101,7 @@ export function ProgramSetup() {
         brandColor: f.brandColor, effectiveDate: f.date, logoData,
         ...reviewValidation.coordinates,
       });
-      await owner.refresh();
+      if (!await owner.refresh()) throw new Error("Die Einrichtung konnte noch nicht geladen werden. Sie kann bereits gespeichert sein. Bitte prüfe den gespeicherten Stand, bevor du erneut startest.");
       router.replace("/merchant");
     } catch (cause) {
       const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
