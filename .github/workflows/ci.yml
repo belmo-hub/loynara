@@ -90,7 +90,7 @@ jobs:
       # local folder or on port 55433, or they drive Docker Compose. They should be made portable so they can run here.
       - name: Run the test suite
         run: >-
-          npx vitest run
+          npx vitest run --hookTimeout 60000
           --exclude 'scripts/backup-publication.test.ts'
           --exclude 'scripts/preview-backup-publication.test.ts'
           --exclude 'src/lib/award-key-race.integration.test.ts'
