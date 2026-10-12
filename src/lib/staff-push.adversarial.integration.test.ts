@@ -4,6 +4,7 @@ import { WebPushError } from "web-push";
 import { pool } from "@/db";
 import { addStaff, nfcFixture } from "./nfc-test-db";
 import { deliverTapPush, saveStaffPushSubscription } from "./staff-push";
+import { acceptStaffInvite, createStaffInvite, revokeStaff } from "./staff";
 
 /*
  * Adversarial review of a7a7c12 (agent 6). Push subscription ownership and retry behaviour.
@@ -85,5 +86,69 @@ describe("retry after a temporary failure (reproduction)", () => {
     // Expected: "fine" is woken exactly once. Actual on a7a7c12: twice (the second attempt starts again from every recipient).
     const finePushes = send.mock.calls.filter(([subscription]) => subscription.endpoint === endpoint("fine")).length;
     expect(finePushes).toBe(1);
+  });
+});
+
+
+describe("recipient authorization after selection", () => {
+  it("does not notify a selected device after its login expires before transport", async () => {
+    const f = await nfcFixture(), login = await session(f.userId);
+    await saveStaffPushSubscription({ userId: f.userId, sessionId: login, tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint("expired-after-selection"), keys } });
+    const requestId = await pendingRequest(f), send = vi.fn(async () => ({ statusCode: 201, body: "", headers: {} }));
+    const result = await deliverTapPush({ payload: { tapRequestId: requestId } }, { send, renew: async () => {
+      // Synthetic passage of the persisted login expiry, after the initial recipient read.
+      await pool.query(`UPDATE "session" SET "expiresAt"=clock_timestamp()-interval '1 second' WHERE id=$1`, [login]);
+      return true;
+    } });
+    expect(send).not.toHaveBeenCalled(); expect(result.sent).toBe(0);
+    expect((await pool.query("SELECT status FROM tap_requests WHERE id=$1", [requestId])).rows).toEqual([{ status: "pending_staff" }]);
+  });
+  it("keeps a valid device reachable after an unrelated merchant revokes its own cashier", async () => {
+    const f = await nfcFixture(), foreign = await nfcFixture();
+    const cashier = await addStaff(foreign.tenant.id, foreign.location.id, "cashier");
+    await saveStaffPushSubscription({ userId: f.userId, sessionId: await session(f.userId), tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint("authorized-own-device"), keys } });
+    await saveStaffPushSubscription({ userId: cashier, sessionId: await session(cashier), tenantId: foreign.tenant.id, locationId: foreign.location.id, subscription: { endpoint: endpoint("foreign-revoked-device"), keys } });
+    const requestId = await pendingRequest(f), send = vi.fn(async () => ({ statusCode: 201, body: "", headers: {} }));
+    const result = await deliverTapPush({ payload: { tapRequestId: requestId } }, { send, renew: async () => {
+      await revokeStaff({ actorUserId: foreign.userId, userId: cashier }); return true;
+    } });
+    expect(result).toMatchObject({ status: "complete", sent: 1 }); expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ endpoint: endpoint("authorized-own-device") }), expect.any(String), expect.any(Object));
+    expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries")).rows[0].n).toBe(0);
+    expect((await pool.query("SELECT balance FROM memberships WHERE id = ANY($1)", [[f.member.id, foreign.member.id]])).rows).toEqual([{ balance: 0 }, { balance: 0 }]);
+    const retry = await deliverTapPush({ payload: { tapRequestId: requestId } }, { send });
+    expect(retry.sent).toBe(0); expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify a cashier whose supported revocation commits before the network send", async () => {
+    const f = await nfcFixture(), cashier = await addStaff(f.tenant.id, f.location.id, "cashier");
+    await saveStaffPushSubscription({ userId: cashier, sessionId: await session(cashier), tenantId: f.tenant.id, locationId: f.location.id, subscription: { endpoint: endpoint("revoked-after-selection"), keys } });
+    const requestId = await pendingRequest(f);
+    const before = (await pool.query("SELECT balance FROM memberships WHERE id=$1", [f.member.id])).rows;
+    const send = vi.fn(async () => ({ statusCode: 201, body: "", headers: {} }));
+    const renew = vi.fn(async () => {
+      await expect(revokeStaff({ actorUserId: f.userId, userId: cashier })).resolves.toMatchObject({ active: false });
+      return true;
+    });
+    const result = await deliverTapPush({ payload: { tapRequestId: requestId } }, { send, renew });
+    expect(renew).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+    expect(result.sent).toBe(0);
+    expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [f.member.id])).rows).toEqual(before);
+    expect((await pool.query("SELECT status FROM tap_requests WHERE id=$1", [requestId])).rows).toEqual([{ status: "pending_staff" }]);
+    expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE tenant_id=$1", [f.tenant.id])).rows[0].n).toBe(0);
+    expect((await pool.query("SELECT count(*)::int AS n FROM staff_audit_events WHERE tenant_id=$1 AND subject_user_id=$2 AND action='access_revoked'", [f.tenant.id, cashier])).rows[0].n).toBe(1);
+    // A later explicit owner invitation can restore the same account's access.
+    // The originally suppressed request remains recoverable, without another role or loyalty entry.
+    const email = (await pool.query('SELECT email FROM "user" WHERE id=$1', [cashier])).rows[0].email as string;
+    const invitation = await createStaffInvite({ actorUserId: f.userId, locationId: f.location.id, email, role: "cashier" });
+    await acceptStaffInvite({ userId: cashier, token: invitation.token });
+    const recovered = await deliverTapPush({ payload: { tapRequestId: requestId } }, { send });
+    expect(recovered).toMatchObject({ status: "complete", sent: 1 }); expect(send).toHaveBeenCalledTimes(1);
+    expect((await deliverTapPush({ payload: { tapRequestId: requestId } }, { send })).sent).toBe(0);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((await pool.query("SELECT count(*)::int AS n FROM staff_roles WHERE user_id=$1", [cashier])).rows[0].n).toBe(1);
+    expect((await pool.query("SELECT balance FROM memberships WHERE id=$1", [f.member.id])).rows).toEqual(before);
+    expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE tenant_id=$1", [f.tenant.id])).rows[0].n).toBe(0);
   });
 });

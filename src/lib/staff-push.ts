@@ -158,6 +158,18 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
     if (deps.renew && !await deps.renew()) return { status: "retry", reason: "Push lease lost", delaySeconds: RETRY_DELAY_SECONDS, sent };
     const { rows: current } = await pool.query("SELECT 1 FROM tap_requests WHERE id = $1 AND status = 'pending_staff' AND expires_at > clock_timestamp()", [tapRequestId]);
     if (!current.length) return { status: "suppressed", reason: "Request no longer waiting", sent };
+    // Recipient selection is a snapshot: a role or login can end while another
+    // device is being sent to. Recheck this registration's current authorization
+    // at each send boundary; never retain database locks across provider I/O.
+    const { rows: authorized } = await pool.query(`
+      SELECT 1 FROM staff_push_subscriptions s
+      JOIN staff_roles r ON r.user_id = s.user_id AND r.tenant_id = s.tenant_id AND r.active
+      JOIN "session" se ON se.id = s.session_id AND se."userId" = s.user_id AND se."expiresAt" > clock_timestamp()
+      WHERE s.id = $1 AND s.tenant_id = $2 AND s.location_id = $3
+        AND (r.role = 'owner' OR r.location_id = $3)
+        AND (s.last_success_at IS NULL OR s.last_success_at < $4)`,
+      [recipient.id, request.tenant_id, request.location_id, request.created_at]);
+    if (!authorized.length) continue;
     if (!validPushEndpoint(recipient.endpoint)) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
     const payload = JSON.stringify({ v: 1, kind: "tap_pending", locale: recipient.locale === "fr" ? "fr" : "de" });
     try {
