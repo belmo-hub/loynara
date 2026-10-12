@@ -25,6 +25,8 @@ await writeFile(resolve(root, 'index.html'), homePage());
 await writeFile(resolve(root, 'impressum/index.html'), legalPage('impressum', legal));
 await writeFile(resolve(root, 'datenschutz/index.html'), legalPage('datenschutz', legal));
 for (const p of SUB_PAGES) { await mkdir(resolve(root, '.' + p.path), { recursive: true }); await writeFile(resolve(root, '.' + p.path, 'index.html'), subPage(p)); }
+// Sets html.js before first paint so motion can wait until it is seen (the CSP forbids inline scripts). If app.js never runs, everything plays after 4 s.
+await writeFile(resolve(root, 'assets/boot.js'), `(function(d){d.classList.add('js');setTimeout(function(){if(d.classList.contains('app'))return;var s=document.querySelectorAll('.hero-scene,[data-reveal]');for(var i=0;i<s.length;i++){s[i].setAttribute('data-play','');s[i].setAttribute('data-seen','')}},4000)})(document.documentElement);\n`);
 await writeFile(resolve(root, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE.origin}/sitemap.xml\n`);
 await writeFile(resolve(root, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`+`<url><loc>${SITE.origin}/</loc></url>${SUB_PAGES.map(p => `<url><loc>${SITE.origin}${p.path}</loc></url>`).join('')}${missing.includes('impressum') ? '' : `<url><loc>${SITE.origin}/impressum/</loc></url>`}${missing.includes('datenschutz') ? '' : `<url><loc>${SITE.origin}/datenschutz/</loc></url>`}</urlset>`);
 await writeFile(resolve(root, '_headers'), `/*

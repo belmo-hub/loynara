@@ -12,7 +12,7 @@ import { LIMITS, SLIDER_RANGE, compute, euro, formatNumber, niceScale, parseFiel
 import { plot, tableHtml, COMPACT, WIDE } from './chart.js';
 import { buildRequest } from './request.js';
 import { SITE } from './site.js';
-import { statusFor } from './final-parts.js';
+import { stampCount, statusFor } from './final-parts.js';
 import { browserScreen, phone, refVisual, refLit, standObj, visitScreen, visitStep, walletScreen } from './d-parts.js';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
@@ -75,7 +75,8 @@ function renderVisit(prev?: DemoState) {
   bind(visitRoot, 'visit-owner', `${plural(v.confirmedVisits, 'bestätigter\u00a0Besuch', 'bestätigte\u00a0Besuche')} · ${plural(v.redemptions, 'Prämie\u00a0eingelöst', 'Prämien\u00a0eingelöst')}`);
   visitAct.textContent = isNewDone ? 'Von vorn' : VISIT[visit.phase].label;
   newCard.textContent = visit.identity === 'new' ? 'Mit Stammkundin (8 von 10)' : 'Mit neuer Karte';
-  if (prev && viewOf(prev).balance < v.balance) fx(stagePhone.querySelectorAll('.lc-stamps li')[v.balance - 1], [{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], 320);
+  // The new stamp lands like the hero's: CSS keyframes (coral flash + ink ring); reduced motion switches them off.
+  if (prev && viewOf(prev).balance < v.balance) stagePhone.querySelectorAll('.lc-stamps li')[v.balance - 1]?.classList.add('land');
   if (prev && prev.phase !== visit.phase) fx(stagePhone.querySelector('.sheet'), [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0px)' }], 260);
 }
 visitAct.addEventListener('click', () => {
@@ -111,6 +112,28 @@ refReset.addEventListener('click', () => { ref = refTransition(ref, 'reset'); re
 // ---- brand studio: one brand for stand, card and Wallet-Vorschau (page memory only) -------------------------------------------------------
 const studio = $('#studio')!;
 let brand: BrandState = initialBrand(), screen: 'karte' | 'wallet' = 'karte';
+/**
+ * Colour flood: a text-free copy of the old scene lies over the new one and is masked away by a circle growing from the
+ * pressed control (clamped to the scene edge), so the new brand spreads like ink. The copy lives outside #studio, has no ids,
+ * is aria-hidden and inert, and removes itself.
+ */
+function flood(from: Element): boolean {
+  const scene = $('.studio-scene', studio);
+  if (!scene || calm()) return false;
+  const r = scene.getBoundingClientRect(), f = from.getBoundingClientRect();
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+  const old = document.createElement('div'), copy = scene.cloneNode(true) as HTMLElement;
+  for (const e of [copy, ...copy.querySelectorAll('[id],[aria-label],[role]')]) { e.removeAttribute('id'); e.removeAttribute('aria-label'); e.removeAttribute('role'); }
+  old.className = 'flood'; old.dataset.brand = brand.style; old.setAttribute('aria-hidden', 'true'); old.inert = true; old.append(copy);
+  for (const [k, v] of [['left', r.left + scrollX], ['top', r.top + scrollY], ['width', r.width], ['height', r.height]] as const) old.style.setProperty(k, `${v}px`);
+  old.style.setProperty('--fx', `${clamp(f.left + f.width / 2, r.left, r.right) - r.left}px`);
+  old.style.setProperty('--fy', `${clamp(f.top + f.height / 2, r.top, r.bottom) - r.top}px`);
+  for (const prev of $$('.flood')) prev.remove();
+  document.body.append(old);
+  const done = () => old.remove();
+  old.addEventListener('animationend', done, { once: true }); setTimeout(done, 1600);
+  return true;
+}
 function renderStudio(changed = false) {
   studio.dataset.brand = brand.style;
   $('[data-studio-stand]', studio)!.innerHTML = standObj(brand);
@@ -127,7 +150,8 @@ studio.addEventListener('click', e => {
   const next = { ...brand };
   if (isStyle(t.dataset.brandStyle)) next.style = t.dataset.brandStyle; if (isLogo(t.dataset.brandLogo)) next.logo = t.dataset.brandLogo;
   if (next.style === brand.style && next.logo === brand.logo) return;
-  brand = next; renderStudio(true);
+  const flooded = flood(t);
+  brand = next; renderStudio(!flooded);
 });
 $('[data-brand-reward]', studio)?.addEventListener('change', e => { const v = (e.target as HTMLSelectElement).value; if (isReward(v) && v !== brand.reward) { brand = { ...brand, reward: v }; renderStudio(true); } });
 
@@ -156,6 +180,9 @@ function update() {
   $('[data-zero-note]', calc)!.hidden = !(s.difference < 0);
   if (chart) { const g = chart.getBoundingClientRect().width < 520 ? COMPACT : WIDE; chart.setAttribute('viewBox', `0 0 ${g.width} ${g.height}`); chart.innerHTML = plot({ points: pts, top: sc.top, tickStep: sc.step, active: null, geometry: g }); }
   if (table) table.innerHTML = tableHtml(pts);
+  // Stamp grid: one coral stamp per 5 % of assumed increase; newly added stamps land, removed ones simply clear.
+  const extra = $$('[data-stampbar] span:nth-child(n+21)', calc), n = stampCount(complete()!.gain);
+  extra.forEach((el, i) => { const on = i < n, was = el.classList.contains('sb-extra'); el.classList.toggle('sb-extra', on); if (on && !was) { el.classList.remove('land'); void el.offsetWidth; el.classList.add('land'); } });
   window.clearTimeout(liveTimer);
   liveTimer = window.setTimeout(() => { const live = $('[data-calc-live]', calc); if (live) live.textContent = `Beispiel: ${euro(s.additional)} zusätzlicher Monatsumsatz, Differenz nach Abogebühr ${signedEuro(s.difference)}.`; }, 700);
 }
@@ -212,4 +239,29 @@ if (form) {
 }
 
 renderVisit(); renderRef(); renderStudio(); update(); renderFigures();
+
+// ---- motion: play when seen ----------------------------------------------------------------------------------------------------------
+// boot.js set html.js, so CSS holds every entrance at its first frame. The hero plays once 45 % of it is visible and the fonts are
+// ready; sections play when they enter the lower part of the viewport and lose their entrance rules afterwards (data-done), so
+// demo re-renders never replay them. The final picture is the CSS base: no JS and reduced motion show it directly.
+document.documentElement.classList.add('app');
+const seen = (el: Element, init: IntersectionObserverInit, run: () => void) => {
+  if (!('IntersectionObserver' in window)) { run(); return; }
+  const io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); run(); } }, init);
+  io.observe(el);
+};
+const heroScene = $('.hero-scene');
+if (heroScene) seen(heroScene, { threshold: 0.45 }, () => document.fonts.ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => { heroScene.dataset.play = ''; }))));
+// Any click ends the entrances that are already playing, so a demo re-render never replays them (capture phase: before the handlers render).
+addEventListener('click', () => { for (const e of $$('[data-reveal][data-seen]')) e.dataset.done = ''; }, true);
+// Hero depth (fine pointers only, never under reduced motion): stand, phone and cue drift at different depths toward the cursor.
+// One rAF loop with a lerp that sleeps once settled; it writes two CSS variables, the transforms live in CSS.
+if (heroScene && matchMedia('(pointer: fine)').matches && !calm()) {
+  const hero = $('#hero')!; let tx = 0, ty = 0, x = 0, y = 0, raf = 0;
+  const tick = () => { x += (tx - x) * 0.08; y += (ty - y) * 0.08; heroScene.style.setProperty('--px', x.toFixed(4)); heroScene.style.setProperty('--py', y.toFixed(4)); raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.002 ? requestAnimationFrame(tick) : 0; };
+  const aim = (nx: number, ny: number) => { tx = Math.max(-1, Math.min(1, nx)); ty = Math.max(-1, Math.min(1, ny)); if (!raf) raf = requestAnimationFrame(tick); };
+  hero.addEventListener('pointermove', e => { const r = heroScene.getBoundingClientRect(); aim((e.clientX - r.left - r.width / 2) / (r.width / 2), (e.clientY - r.top - r.height / 2) / (r.height / 2)); });
+  hero.addEventListener('pointerleave', () => aim(0, 0));
+}
+for (const sec of $$('[data-reveal]')) seen(sec, { rootMargin: '0px 0px -22% 0px' }, () => { sec.dataset.seen = ''; setTimeout(() => { sec.dataset.done = ''; }, 2800); });
 addEventListener('resize', () => update());
