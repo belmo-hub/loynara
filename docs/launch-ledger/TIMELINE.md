@@ -285,3 +285,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-12: [LOY-328 / Assignment130 — branchless utility source attestation](2026-10-12-utility-source-attestation-130.md). Exact known provenance/role/cron safeguards;82focusedPASS; default sourcePASS/overallBLOCKED; old ops safeguards remain undeployed.
 
 - 2026-10-12: [LOY-329 / Assignment132 — explicit ops release guard;131 limited compatibility outcome](2026-10-12-ops-release-guard-132.md). Actual2RED/85GREEN, pinnedopsplan/authorization/configuration/monitor gate;source519immutable/defaultBLOCKED. Includes130verifiedpush amendment.
+
+- 2026-10-12: [LOY-330 / Assignment135 — pre-send staff/session authorization](2026-10-12-push-recipient-authorization-135.md). ActualPGRED1→36focused/2Chrome/1706globalPASS; newAPP43b54d2proposed,519pinunchanged. Includes132push and133/134limitedoutcomes.
