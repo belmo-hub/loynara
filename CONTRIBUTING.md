@@ -58,3 +58,13 @@ See `.github/workflows/ci.yml` for exactly what CI runs.
 ## Running one ticket in isolation
 
 `scripts/ticket-run.sh LOY-123` creates a separate working copy and its own throwaway database, runs the command you configure in `AGENT_CMD` with a turn and time cap, and cleans up. Read the header of the script for the environment variables.
+
+## The automated ticket loop
+
+Tickets tagged `agent-ready` can be picked up by a scheduled loop (`scripts/ticket-cycle.py`). It runs each ticket through `scripts/ticket-run.sh`, pushes only a `ticket/LOY-<number>` branch, opens a pull request, comments the link on the ticket and moves it to review. It never merges. Everything about it follows the rules above, and a person reviews every pull request.
+
+- `scripts/ticket-cycle.py check` verifies access and configuration without changing anything.
+- `scripts/ticket-cycle.py once LOY-123` runs one ticket now, for a supervised trial.
+- `scripts/ticket-cycle.py pause` and `resume` stop and restart all cycles; `status` shows what is going on.
+- `scripts/ticket-loop-install.sh install` schedules it on macOS; see `scripts/ticket-loop.config.example` for the settings.
+- Tag a ticket `needs-founder`, `needs-hardware`, `needs-legal` or `needs-decision` and the loop will never pick it.
