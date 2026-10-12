@@ -41,3 +41,7 @@ Durable sanitized RED/GREEN receipts: primary var/native-goal-20261010/assignmen
 ## Next dependencies
 
 LOY-195/196 remain open for independent production recovery acceptance, final fresh recovery-point procedure, writer shutdown/drain and separate cutover authorization. Reviewed application release remains 153928b; production last observed generation remains 792e218a17287009067ce0993c33eda3bfc3f4b7 / schema 0020. Migrations 0021–0024, same-generation web/worker deployment and hosted acceptance are not executed. After integration, one coordinator completion review selects the next grounded independently executable requirement; no speculative feature is authorized by this record.
+
+## Subsequent integration/push/tracker receipt
+
+Verified LOCAL fast-forward and GitHub normal push: 5b5d7af0076fd7e87898d426df4bc2a4870451e0. Exact remote readback; zero new deployments in observed GitHub/Railway surfaces. LOY-325 Done readback verified, parent LOY-195/196 remain open. Completed coordinator review accepted the narrow correction and assigned 128. Fresh native observation during 128 reports ACTIVE/17,254,855 tokens/96,640 seconds; the earlier BLOCKED observation above remains historical. No native resume command or replacement Goal was issued.

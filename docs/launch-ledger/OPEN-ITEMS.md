@@ -226,3 +226,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-12 / LOY-195,196: 195/196 independent recovery/custody/source acceptance and fresh post-drain recovery remain open. Do not repeat exhausted test; continue grounded independent engineering after strategic review. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).
 
 - 2026-10-12: [LOY-325 / Assignment 127 — restore-target safety](2026-10-12-restore-target-safety-127.md). Synthetic-only catalog guard correction; production recovery/deployment acceptance remains open.
+
+- 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.

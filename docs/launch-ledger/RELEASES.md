@@ -93,3 +93,5 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 - 2026-10-12 / LOY-195,196: Application153928b unchanged; substantial recovery receipt local, pending safe normal development push; no deployment. [Actual isolated backup recovery](2026-10-12-isolated-backup-recovery.md).
 
 - 2026-10-12: [LOY-325 / Assignment 127 — restore-target safety](2026-10-12-restore-target-safety-127.md). Synthetic-only catalog guard correction; production recovery/deployment acceptance remains open.
+
+- 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.

@@ -1,0 +1,71 @@
+{
+  "assignment": "LOY-ENG-20261012-128",
+  "issue": "LOY-326",
+  "parent": "LOY-145",
+  "acceptanceGate": "LOY-146",
+  "base": "5b5d7af0076fd7e87898d426df4bc2a4870451e0",
+  "implementationSHA": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "proposedApplicationCandidate": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "immutableReviewedRelease": "153928b10db55cbd0b40351116ee54515a6b107c",
+  "tests": {
+    "newBrowser": 2,
+    "browserCompatibility": 8,
+    "focused": 38,
+    "typegen": true,
+    "typecheck": true,
+    "lintZeroWarnings": true,
+    "productionBuild": true
+  },
+  "finalRegression": {
+    "files": 184,
+    "passed": 1690,
+    "failed": 0,
+    "skipped": 1,
+    "seconds": 204.03,
+    "existingSkip": "optional Mailpit"
+  },
+  "initialRegressionFailure": {
+    "files": 184,
+    "passed": 1666,
+    "failed": 10,
+    "skipped": 15,
+    "durationSeconds": 189.33,
+    "failureFiles": [
+      "scripts/backup-publication.test.ts",
+      "scripts/preview-backup-publication.test.ts",
+      "src/lib/billing.integration.test.ts",
+      "src/lib/transactional-email.test.ts"
+    ],
+    "unchangedBaseComparison": "same4files10fail14skip3.12s",
+    "causes": [
+      "TEST_PG_CONTAINER omitted",
+      "TEST_PG_PORT omitted",
+      "explicit transaction emailfalse overrides mockedprovider config"
+    ],
+    "testAssertionsChanged": false
+  },
+  "review": "no material findings; existing independent read-only reviewer",
+  "status": [
+    "IMPLEMENTED",
+    "TESTED",
+    "TECHNICALLY_REVIEWED"
+  ],
+  "deployed": false,
+  "independentlyAccepted": false,
+  "nativeObservation": {
+    "threadId": "01a125a6-7124-70f1-a0f7-8b6f83d9a191",
+    "status": "active",
+    "tokensUsed": 17254855,
+    "timeUsedSeconds": 96640,
+    "createdAt": 1791633028,
+    "updatedAt": 1791763525,
+    "remainingTokens": null,
+    "readEpoch": 1791763584.993717,
+    "resumeCommandIssued": false,
+    "replacementCreated": false,
+    "priorReportedBlockedPreserved": true,
+    "input": "UNMEASURED",
+    "cachedSubset": "UNMEASURED",
+    "output": "UNMEASURED"
+  }
+}
