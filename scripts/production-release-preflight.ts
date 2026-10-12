@@ -51,6 +51,14 @@ const evidenceSchema = z.object({
     isolated: z.literal(true), initiallyEmpty: z.literal(true), approved: z.literal(true), independentOperator: reference, integrityAccepted: z.literal(true), schemaFingerprint: digest, physicalSchema,
     history: z.object({ reference, sourceDatabase: reference, membershipHistoryAccepted: z.literal(true), ledgerHistoryAccepted: z.literal(true),
       tenantIsolationAccepted: z.literal(true), countsReconciled: z.literal(true) }).strict() }).strict(),
+  // A utility rollout is not implied by a web/worker deployment or a missing connected branch.
+  // This declaration must be authenticated separately; unknown runtime/configuration stays blocking.
+  operationsUpgrade: z.object({ serviceId: z.literal("c3189719-e305-4c4c-b8ca-4d0b0335c25f"), sourceSha: z.literal(RELEASE_SHA),
+    configuration: z.object({ reference, accepted: z.literal(true) }).strict(),
+    runtime: z.object({ reference, accepted: z.literal(true) }).strict(),
+    monitor: z.object({ reference, accepted: z.literal(true) }).strict(),
+    exactCommit: z.object({ reference, accepted: z.literal(true) }).strict(),
+    deploymentAuthorization: reference }).strict(),
   authorizations: z.object({ backupRestore: reference, deployment: reference, releaseSha: z.literal(RELEASE_SHA) }).strict(),
   currentJournal: z.object({ reference, rows: z.array(z.tuple([digest, z.number().int().positive()])).length(21) }).strict(),
 }).strict();
@@ -72,6 +80,7 @@ const writers = [
   { id: "migration-schema", service: "migrate", components: ["scripts/production-migrate.ts", "drizzle/meta/_journal.json"], effect: "Auth/schema/ledger-trigger migration; scheduled/one-off invocations must remain stopped until approved" },
 ];
 const requiredEvidence = [
+  "Explicit pinned operations-service rollout: independently authenticated configuration/runtime/monitor compatibility, exact-commit eligibility and scoped deployment authorization; old baseline provenance alone cannot satisfy the upgraded operational safeguards",
   "Authenticated operator receipt for exact project/environment/service identities, current generations, unchanged branch and resolved safe flags",
   "Complete live writer inventory including immediate NFC, scheduled jobs, manual replay/migrations and any outside clients; no unaccounted writers",
   "Known branchless backup/ops utilities need exact configured repository/cron/command plus independently verified deployed commit/deployment identity; absence of a connected branch is not code provenance",
@@ -116,7 +125,7 @@ function inspectCandidate(repository: string) {
   const files = ["package.json", "package-lock.json", "marketing-site/package.json", "marketing-site/package-lock.json",
     "src/app/cashier/page.tsx", "src/lib/product.ts", "src/components/owner/owner-context.tsx", "src/components/owner/program-setup.tsx",
     "scripts/production-restore-check.sh", "Dockerfile", "Dockerfile.backup", "scripts/production-guard.ts", "scripts/production-migrate.ts", "scripts/production-backup.sh",
-    "scripts/production-ops-check.ts", "scripts/worker.ts", "src/lib/staff-push.ts", "src/lib/outbox.ts", "src/lib/outbox-replay.ts", "src/lib/wallet/refresh.ts"];
+    "scripts/production-ops-check.ts", "scripts/config-check.ts", "scripts/ops-heartbeat.ts", "scripts/operational-error.ts", "scripts/worker.ts", "src/lib/staff-push.ts", "src/lib/outbox.ts", "src/lib/outbox-replay.ts", "src/lib/wallet/refresh.ts"];
   const fingerprints = files.map(file => ({ file, sha256: createHash("sha256").update(blob(file)).digest("hex") }));
   if (!blob("Dockerfile").includes('npm start -- --hostname 0.0.0.0 --port ${PORT:-3000}')
     || !blob("Dockerfile.backup").includes('ENTRYPOINT ["bash", "/opt/loynara/production-backup.sh"]')) throw new Error("docker role mismatch");
@@ -158,12 +167,13 @@ export function releasePreflight(repository: string, evidence?: unknown, now = D
           block(s.repository !== "belmo-hub/loynara" || s.branch !== null,
             "Known utility source configuration must preserve its repository and absent connected branch");
           block(!provenance || provenance.deploymentId !== baseline.deploymentId || provenance.commitSha !== baseline.commitSha
-            || s.currentGeneration !== baseline.commitSha || s.plannedGeneration !== baseline.commitSha,
-            "Utility deployed provenance must be independently attested at its exact known deployment/source; no new generation is authorized");
+            || s.currentGeneration !== baseline.commitSha || s.plannedGeneration !== (s.role === "ops" ? RELEASE_SHA : baseline.commitSha),
+            "Utility current provenance must match its exact known deployment/source; only the separately attested pinned ops upgrade may change the planned generation");
         } else if (s) block(s.deploymentProvenance !== undefined, "Utility provenance cannot stand in for another service role");
         if (s && ["web", "worker", "migrate"].includes(s.role)) block(s.plannedGeneration !== RELEASE_SHA, "Web, worker and migration must target the same pinned source generation");
       }
       block(e.authorizations.backupRestore === e.authorizations.deployment, "Backup/restore and production cutover need separate authenticated founder receipts");
+      block(e.operationsUpgrade.deploymentAuthorization === e.authorizations.backupRestore, "Operations deployment requires explicitly scoped deployment authority, not backup/restore authority");
       if ("canonicalJournal" in source) {
         block(JSON.stringify(e.currentJournal.rows) !== JSON.stringify(source.canonicalJournal) || e.backup.schemaFingerprint !== source.schemaFingerprint || e.restore.schemaFingerprint !== source.schemaFingerprint,
           "Observed production journal, backup and restored journal fingerprints must match the exact canonical pre-migration journal");
@@ -190,7 +200,8 @@ export function releasePreflight(repository: string, evidence?: unknown, now = D
     requiredEvidence, blockers: [...new Set(blockers)],
     orderedOperations: ["attest-all-writers-and-separate-approvals", "stop-and-drain-all-old-writers", "fresh-encrypted-backup", "accept-independent-isolated-restore",
       "migrate-0021-through-0024-and-verify-exact-25-entry-journal", "deploy-pinned-web-with-ingress-closed", "verify-web-source-and-safe-config",
-      "deploy-identical-pinned-worker", "verify-no-old-writers-and-health", "authorized-two-tenant-smoke-and-reopen"],
+      "deploy-identical-pinned-worker", "deploy-pinned-ops-under-separate-authorization", "verify-ops-source-safe-config-and-acknowledged-heartbeat",
+      "verify-no-old-writers-and-health", "authorized-two-tenant-smoke-and-reopen"],
   };
 }
 

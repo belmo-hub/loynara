@@ -25,7 +25,7 @@ function fixture() {
     projectId: "b07a3919-b3fc-4637-8b91-d0b4418d2856", environmentId: "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
     operator: { id: "OPERATOR-A", reference: "OPERATOR-ATTESTATION-123", observedAt: at(-300_000), validUntil: at(1_800_000) },
     services: Object.entries(ids).map(([role, id]) => ({ role, id, currentGeneration: ["backup", "ops"].includes(role) ? utilitySource : current,
-      plannedGeneration: ["web", "worker", "migrate"].includes(role) ? release : ["backup", "ops"].includes(role) ? utilitySource : current,
+      plannedGeneration: ["web", "worker", "migrate", "ops"].includes(role) ? release : ["backup", "ops"].includes(role) ? utilitySource : current,
       repository: ["postgres", "cloudflared"].includes(role) ? "platform-image" : "belmo-hub/loynara",
       branch: ["web", "worker", "migrate"].includes(role) ? "railway-rc" : null,
       cronSchedule: role === "backup" ? "0 3 * * *" : role === "ops" ? "*/5 * * * *" : null,
@@ -50,6 +50,10 @@ function fixture() {
       schemaFingerprint: "e0996eb13fa3a48ef941e895e6ea1459c9c384cb2e5facc3a450c91332060d43",
       physicalSchema: { reference: "RESTORED-SCHEMA-123", criticalTablesPresent: true, tenantConstraintsAccepted: true, appendOnlyTriggerAccepted: true, structuresThrough0020Accepted: true },
       history: { reference: "RESTORED-HISTORY-123", sourceDatabase: "PRODUCTION-DB-123", membershipHistoryAccepted: true, ledgerHistoryAccepted: true, tenantIsolationAccepted: true, countsReconciled: true } },
+    operationsUpgrade: { serviceId: ids.ops, sourceSha: release,
+      configuration: { reference: "SYNTHETIC-OPS-CONFIG", accepted: true }, runtime: { reference: "SYNTHETIC-OPS-RUNTIME", accepted: true },
+      monitor: { reference: "SYNTHETIC-OPS-MONITOR", accepted: true }, exactCommit: { reference: "SYNTHETIC-OPS-EXACT-COMMIT", accepted: true },
+      deploymentAuthorization: "SYNTHETIC-FOUNDER-OPS-DEPLOYMENT" },
     authorizations: { backupRestore: "FOUNDER-BACKUP-RESTORE-123", deployment: "FOUNDER-DEPLOYMENT-123", releaseSha: release },
     currentJournal: { reference: "JOURNAL-123", rows: [["7274fc079d768a164d604dfe6fd4b0dee984b4901e8453aab35728990aa4418b",1790341790664],["1fa5daad714bf2251b8d25303f8aabc57f6a582f32ebe54c984204f44ea1570f",1790342756050],["b5c06f3836ebac94a19a01aff5ec2012480e8713f1e3bbd753baef4b23d4d957",1790342925349],["905c850059f6b951202af1746366244ac0512bb133d8343caff5f4771f73b5e9",1790343596440],["e6763bae245ddeba53620c6d01da0fcbaf899b9f3db3cb297e754a1d0761e5bc",1790345071657],["4cc008b7009677b83f1c8382d1b82e0d87f8b113941fda9e0d1541c483086b1a",1790345900549],["55ebba4eb685be271b35c0e1f24f96a0884886a9cc90aa3487a05d03e65d9e04",1790347449816],["e035e41c01021f2d26a828be3c3b5a893b182dfa0842a0f926cce36fa444cdfd",1790363870739],["20f0dce395bcb6dc19ef66b7009e679051c6cc17eb787589d17f960965c1fd9b",1790365412649],["0ee1bcce7b97bbd1d1d39cb50d0e250899d650d94100c56172b757e65f4487da",1790366483044],["4e7f1f0fe5be753665aac9033b7840fb37b104a8c3097e7be5cc032d1fec390f",1790367246298],["71c290984548b3da95fd8047dd2f942d01b6d9823f680af814a9924700d73084",1790368587151],["75f4e2ba01ab3a9b5c5ec26e7fdc143077bf0102cd5b76b028358a2c140e3140",1790373099963],["fff65e5c30f92fe82e4faaabf7079f7e38f2f97e30a4fe7caeaf0e602d21e3f6",1790374827104],["c8b7d0f723f2cd65db882f9cc9c0e798b255708ffea94431527a455145fc7ed5",1790477381106],["da4f40b74b3e63ae8a5c8eeb6093b7b3ce1aefb7db6140b87d4a64454d24b0be",1790477578300],["62c59eea31a550a4e53cb443a04846b9ffe85d4fb546ad6955e3dce6de208090",1790545967721],["19a8a0624a32bf269606e977234072ab31f6e9f2b727c0b79917a28d3bb59ff9",1790546708472],["abd0e28e8b223a5273ef884033ec99a16124876009b61bb5c1ebdd716884c7c8",1790956320487],["f7d1d53946c9cf309896b6368d5241c97974ce009c7e8471358515e3ff496c69",1791127119079],["943a8fe9066159fd75840cfb073e7b41be91da0e6646ce33c6dd9ab5508debbf",1791296519073]] },
   };
@@ -105,6 +109,7 @@ describe("offline release preflight through the existing migration CLI", () => {
     ]));
     expect(r.output.source.fingerprints.map((v: { file: string }) => v.file)).toEqual(expect.arrayContaining([
       "package.json", "package-lock.json", "marketing-site/package.json", "marketing-site/package-lock.json",
+      "scripts/config-check.ts", "scripts/ops-heartbeat.ts", "scripts/operational-error.ts",
     ]));
   });
   it("rejects receipts for the superseded release without echoing them or enabling execution", () => {
@@ -129,6 +134,40 @@ describe("offline release preflight through the existing migration CLI", () => {
     const e = fixture(); e.services.find(v => v.role === role)!.plannedGeneration = supersededOnboardingRelease;
     const r = run(e); expect(r.exit).toBe(2); expect(r.output.executionEnabled).toBe(false);
   });
+  it("refuses a release receipt that leaves the older operations safeguards outside the coordinated rollout", () => {
+    const e = fixture();
+    delete (e as Partial<typeof e>).operationsUpgrade;
+    e.services.find(service => service.role === "ops")!.plannedGeneration = utilitySource;
+    const r = run(e);
+    expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED"); expect(r.output.executionEnabled).toBe(false);
+  });
+  it("requires source-scoped operations compatibility, eligibility and deployment evidence", () => {
+    const mutations: Array<[string, (e: ReturnType<typeof fixture>) => void]> = [
+      ["wrong service", e => { e.operationsUpgrade.serviceId = ids.worker; }],
+      ["old source", e => { e.operationsUpgrade.sourceSha = utilitySource; }],
+      ["unknown source", e => { e.operationsUpgrade.sourceSha = "b".repeat(40); }],
+      ["old planned ops", e => { e.services.find(service => service.role === "ops")!.plannedGeneration = utilitySource; }],
+      ["unknown planned ops", e => { e.services.find(service => service.role === "ops")!.plannedGeneration = "b".repeat(40); }],
+      ["missing authority", e => { e.operationsUpgrade.deploymentAuthorization = ""; }],
+      ["backup authority reused", e => { e.operationsUpgrade.deploymentAuthorization = e.authorizations.backupRestore; }],
+    ];
+    for (const field of ["configuration", "runtime", "monitor", "exactCommit"] as const) {
+      mutations.push([`${field} unknown`, e => { delete (e.operationsUpgrade as Partial<typeof e.operationsUpgrade>)[field]; }]);
+      mutations.push([`${field} unaccepted`, e => { e.operationsUpgrade[field].accepted = false; }]);
+      mutations.push([`${field} missing reference`, e => { e.operationsUpgrade[field].reference = ""; }]);
+    }
+    for (const [name, mutate] of mutations) {
+      const e = fixture(); mutate(e);
+      const r = run(e); expect(r.exit, name).toBe(2); expect(r.output.status, name).toBe("BLOCKED"); expect(r.output.executionEnabled, name).toBe(false);
+    }
+  });
+  it("orders explicit pinned operations deployment and verification before final health and reopening", () => {
+    const operations = run().output.orderedOperations as string[];
+    expect(operations).toContain("deploy-pinned-ops-under-separate-authorization");
+    expect(operations).toContain("verify-ops-source-safe-config-and-acknowledged-heartbeat");
+    expect(operations.indexOf("deploy-pinned-ops-under-separate-authorization")).toBeGreaterThan(operations.indexOf("deploy-identical-pinned-worker"));
+    expect(operations.indexOf("verify-ops-source-safe-config-and-acknowledged-heartbeat")).toBeLessThan(operations.indexOf("verify-no-old-writers-and-health"));
+  });
   it("accepts accurate known branchless utility metadata only with exact independently attested deployed provenance", () => {
     const e = fixture();
     expect(e.services.find(v => v.role === "backup")!.branch).toBeNull();
@@ -142,7 +181,7 @@ describe("offline release preflight through the existing migration CLI", () => {
       ["missing provenance", service => { delete service.deploymentProvenance; }],
       ["missing generation", service => { delete (service as Record<string, unknown>).currentGeneration; }],
       ["unknown generation", service => { service.currentGeneration = "b".repeat(40); }],
-      ["new planned generation", service => { service.plannedGeneration = release; }],
+      ["unreviewed planned generation", service => { service.plannedGeneration = role === "ops" ? utilitySource : release; }],
       ["unverified provenance", service => { service.deploymentProvenance!.independentlyVerified = false; }],
       ["wrong provenance generation", service => { service.deploymentProvenance!.commitSha = release; }],
       ["wrong deployment identity", service => { service.deploymentProvenance!.deploymentId = "00000000-0000-4000-8000-000000000009"; }],
