@@ -1,0 +1,33 @@
+{
+  "assignment": "LOY-ENG-20261012-132",
+  "issue": "LOY-329",
+  "parent": "LOY-28",
+  "base": "67d30c47911c3e76e2fc3a10503717f664873aa2",
+  "implementation": "4609ebcd42f62e6be3db04461633508be88de8eb",
+  "application": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "primary": "No new approved campaign125/127 defect established; accepted validation, save-response/recovery, preview/composer ordering and isolation work excluded",
+  "fallback": "Concrete missing offline ops upgrade evidence gate/ordering",
+  "red": {
+    "failed": 2,
+    "oldReceiptExit": 0,
+    "missingOpsOrder": true
+  },
+  "green": {
+    "files": 3,
+    "pass": 85,
+    "fail": 0,
+    "seconds": 60.9,
+    "opsEvidenceNegativeVariants": 19
+  },
+  "default": {
+    "source": "PASS",
+    "overall": "BLOCKED",
+    "exit": 2,
+    "executionEnabled": false,
+    "fingerprints": 23
+  },
+  "review": "Existing independent read-only reviewer: no material findings in tooling and separate narrow manifest amendment review; no services/sensitive artifacts",
+  "model": "Assigned existing Sol medium selection/high correction/medium review; effective switching unavailable; existing executor retained",
+  "native": "Latest observed originalGoal ACTIVE17,715,131tokens/99,818seconds at131; since then input/cached subset/output unmeasured",
+  "external": "YouTrack necessary329child afterduplicatecheck; no production/backup/key/configuration/provider operation. Laterintegration/push receipts separate."
+}

@@ -283,3 +283,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-12: [LOY-327 / Assignment129 — reviewed release alignment](2026-10-12-release-alignment-129.md). Application519e156 / separate operator tooling4069af6; default sourcePASS, executionBLOCKED, no production acceptance.
 
 - 2026-10-12: [LOY-328 / Assignment130 — branchless utility source attestation](2026-10-12-utility-source-attestation-130.md). Exact known provenance/role/cron safeguards;82focusedPASS; default sourcePASS/overallBLOCKED; old ops safeguards remain undeployed.
+
+- 2026-10-12: [LOY-329 / Assignment132 — explicit ops release guard;131 limited compatibility outcome](2026-10-12-ops-release-guard-132.md). Actual2RED/85GREEN, pinnedopsplan/authorization/configuration/monitor gate;source519immutable/defaultBLOCKED. Includes130verifiedpush amendment.
