@@ -14,7 +14,10 @@ const VISIBLE_MS = 5000;
 const EXIT_MS = 160;
 const icons = { success: Check, error: TriangleAlert, info: Info } as const;
 
-/** Mount once per shell. Announces every toast through one polite live region. */
+/**
+ * Mount once per shell. Announces every toast through one polite live region. The region has no status role, so a
+ * page keeps exactly one status message of its own (specs and screen readers rely on that).
+ */
 export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: { children?: ReactNode; closeLabel?: string }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
@@ -48,7 +51,7 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
   const api = useMemo(() => ({ show }), [show]);
   return <ToastContext.Provider value={api}>
     {children}
-    <div className={styles.live} role="status" aria-live="polite">{toasts.findLast((t) => !t.leaving)?.message}</div>
+    <div className={styles.live} aria-live="polite" aria-atomic="true">{toasts.findLast((t) => !t.leaving)?.message}</div>
     <div className={styles.region} onPointerEnter={() => { paused.current = true; }} onPointerLeave={() => { paused.current = false; }} onFocus={() => { paused.current = true; }} onBlur={() => { paused.current = false; }}>
       {toasts.map((t) => { const Icon = icons[t.tone]; return <div key={t.id} className={cx(styles.toast, styles[t.tone], t.leaving && styles.leaving)}>
         <Icon size={18} aria-hidden="true" className={styles.icon} /><span className={styles.message} aria-hidden="true">{t.message}</span>
