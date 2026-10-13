@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
-import { ArrowRight, Minus, Plus, ScanLine, X } from "lucide-react";
-import { Icon, type ProgramType, type UiLocale } from "@/components/loyalty-ui";
+import { ArrowRight, Check, Clock, Minus, Plus, ScanLine, ShieldAlert, ShieldCheck, WifiOff, X } from "lucide-react";
+import type { ProgramType, UiLocale } from "@/components/loyalty-ui";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
 import { cx } from "@/components/ui/cx";
+import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { StampGrid } from "@/components/ui/stamp-grid";
@@ -155,8 +156,19 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
       <p>{card ? t.foundIntro : t.scanIntro}</p>
     </div>
     {nfcPanel}
-      {status !== "idle" && !booked && <div className={`cashier-status cashier-status--${status}`} role="status" aria-live="polite"><Icon name={status === "success" ? "check" : status === "offline" ? "clock" : "shield"} size={22} /><span><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <small>{message}</small>}</span></div>}
-      {booked && <section className={`cashier-booked cashier-booked--${booked.tone}${camera ? " cashier-booked--compact" : ""}`} role="status" aria-live="polite"><span className="cashier-booked-icon"><Icon name={booked.tone === "success" ? "check" : "clock"} size={26} /></span><h2>{booked.title}</h2><p className="cashier-booked-detail">{booked.detail}</p>{booked.hint && <p className="cashier-booked-hint">{booked.hint}</p>}{!camera && <button type="button" className="button button--outline button--full" onClick={onClear}>{t.other}</button>}</section>}
+      {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
+        <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
+        <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <span>{message}</span>}</span>
+      </div>}
+      {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
+        <span className={styles.outcomeIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={24} /> : <Clock size={24} />}</span>
+        <div className={styles.outcomeText}>
+          <h2>{booked.title}</h2>
+          <p>{booked.detail}</p>
+          {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
+        </div>
+        {!camera && <Button variant="secondary" size="lg" block className={styles.bookedAction} onClick={onClear}>{t.other}</Button>}
+      </section>}
     {camera}
     {!card && preview ? <section className={cx("cashier-preview", styles.panel)} aria-labelledby="cashier-preview-title">
       <span className={styles.eyebrow}>{t.cardFound}</span>
@@ -212,9 +224,17 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
         </div> : <p className={styles.help}>{t.noRewards}</p>}
       </div>
     </section>}
-      {card && offlineLeaseExpiresAt && <p className="cashier-footnote" role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "Un ajout en attente ne change pas le solde." : "Eine vorgemerkte Vergabe ändert den Kontostand nicht."}</p>}
+      {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "Un ajout en attente ne change pas le solde." : "Eine vorgemerkte Vergabe ändert den Kontostand nicht."}</p>}
       {offlinePanel}
-      <p className="cashier-footnote"><Icon name="shield" size={16} /> {t.footnote}</p>
-    {confirm && card && <div className="confirm-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setConfirm(null); }}><div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><span className="confirm-icon"><Icon name={confirm.kind === "award" ? "stamp" : "wallet"} size={28} /></span><h2 id="confirm-title">{confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}</h2><p>{confirm.kind === "award" ? `${"quantity" in confirm.award ? `${confirm.award.quantity} ${unit}` : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${confirm.reward.cost} ${unit}) ${t.redeemFor} ${card.cardLocator}.`}</p>{confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <p className="confirm-offline-note" role="note">{locale === "fr" ? "Connexion au serveur perturbée. « Oui, ajouter » tente l’enregistrement en ligne. La mise en attente hors ligne garde l’ajout seulement sur cet appareil ; il ne compte qu’après la synchronisation." : "Verbindung zum Server gestört. „Ja, vergeben“ versucht die Buchung online. „Offline-Vergabe vormerken“ speichert sie nur auf diesem Gerät; sie zählt erst nach der Synchronisierung."}</p>}<div className="confirm-actions"><button type="button" className="button button--outline" onClick={() => setConfirm(null)}>{t.cancel}</button><button type="button" className="button button--ink" onClick={submitConfirmed} disabled={busy}>{confirm.kind === "award" ? t.yesAward : t.yesRedeem}</button>{confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <button type="button" className="button button--outline" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</button>}</div></div></div>}
+      <p className={styles.footnote}><ShieldCheck size={16} aria-hidden="true" /> {t.footnote}</p>
+    {confirm && card && <Dialog open onClose={() => setConfirm(null)} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
+      description={confirm.kind === "award" ? `${"quantity" in confirm.award ? `${confirm.award.quantity} ${unit}` : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${confirm.reward.cost} ${unit}) ${t.redeemFor} ${card.cardLocator}.`}
+      actions={<>
+        <Button variant="secondary" onClick={() => setConfirm(null)}>{t.cancel}</Button>
+        {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
+        <Button variant="primary" onClick={submitConfirmed} disabled={busy}>{confirm.kind === "award" ? t.yesAward : t.yesRedeem}</Button>
+      </>}>
+      {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <p className={styles.note} role="note">{locale === "fr" ? "Connexion au serveur perturbée. « Oui, ajouter » tente l’enregistrement en ligne. La mise en attente hors ligne garde l’ajout seulement sur cet appareil ; il ne compte qu’après la synchronisation." : "Verbindung zum Server gestört. „Ja, vergeben“ versucht die Buchung online. „Offline-Vergabe vormerken“ speichert sie nur auf diesem Gerät; sie zählt erst nach der Synchronisierung."}</p>}
+    </Dialog>}
   </CashierShell>;
 }

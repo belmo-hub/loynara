@@ -1,11 +1,12 @@
-.panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 18px; }
+.panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); }
 .panel h2, .panel p { margin: 0; }
-.panel h2 { font-size: 19px; }
-.panel p { color: #3c5746; line-height: 1.5; }
+.panel h2 { font-size: var(--text-18); font-weight: var(--weight-heavy); }
+.panel p { color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
 .panel > button { justify-self: start; max-width: 100%; white-space: normal; text-align: left; }
-.list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.item { display: grid; min-width: 0; overflow-wrap: anywhere; gap: 4px; padding: 12px 14px; border: 1px solid #dce6da; border-radius: 9px; line-height: 1.4; }
-.item small { color: #657a68; }
-.item button { justify-self: start; margin-top: 4px; }
-.state { color: #285b3f; }
-.rejected { color: #8f412e; }
+.error { padding: var(--space-3); border-radius: var(--radius-md); box-shadow: inset 0 0 0 1.5px var(--color-danger); color: var(--color-ink) !important; }
+.list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.item { display: grid; min-width: 0; overflow-wrap: anywhere; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-line); border-radius: var(--radius-md); font-size: var(--text-16); line-height: 1.4; }
+.item small { color: var(--color-ink-muted); font-size: var(--text-14); }
+.item button { justify-self: start; margin-left: calc(-1 * var(--space-3)); }
+.state { color: var(--color-success); font-weight: var(--weight-label); }
+.rejected { color: var(--color-danger); font-weight: var(--weight-label); }

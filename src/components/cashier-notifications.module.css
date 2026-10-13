@@ -1,89 +1,17 @@
-.card {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid #c9d8cf;
-  border-radius: 0.75rem;
-  background: #f4f7f5;
-  color: #17251f;
-  font-size: 0.9375rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 0.75rem;
-  min-width: 0;
-}
-
-.text {
-  margin: 0;
-  min-width: 0;
-  flex: 1 1 12rem;
-}
-
-.title {
-  margin: 0;
-  font-weight: 600;
-}
-
-.steps {
-  margin: 0;
-  padding-left: 1.25rem;
-}
-
+/* Inside the dark cashier shell: colours come from the theme tokens. */
+.card { display: grid; gap: var(--space-2); min-width: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); font-size: var(--text-16); line-height: 1.4; overflow-wrap: anywhere; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); min-width: 0; }
+.text { margin: 0; min-width: 0; flex: 1 1 12rem; }
+.title { margin: 0; font-weight: var(--weight-strong); }
+.steps { margin: 0; padding-left: 1.25rem; }
 .button {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0.5rem 1rem;
-  border: 1px solid #214739;
-  border-radius: 0.625rem;
-  background: #214739;
-  color: #ffffff;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+  min-height: var(--target); min-width: var(--target); padding: 0 var(--space-4); border: 1.5px solid var(--color-action); border-radius: var(--radius-pill);
+  background: var(--color-action); color: var(--color-on-action); font: inherit; font-weight: var(--weight-strong); cursor: pointer;
+  touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out);
 }
-
-.button:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.secondary {
-  background: #ffffff;
-  color: #214739;
-}
-
-.error {
-  margin: 0;
-  color: #8a1c1c;
-}
-
-@media (prefers-color-scheme: dark) {
-  .card {
-    border-color: #2f4a3f;
-    background: #17251f;
-    color: #e6efe9;
-  }
-
-  .button {
-    border-color: #8fc2a6;
-    background: #8fc2a6;
-    color: #10201a;
-  }
-
-  .secondary {
-    background: transparent;
-    color: #8fc2a6;
-  }
-
-  .error {
-    color: #ffb4b4;
-  }
-}
+.button:active:not(:disabled) { transform: scale(.97); }
+.button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.button:disabled { opacity: .6; cursor: progress; }
+.secondary { background: transparent; color: var(--color-ink); border-color: var(--color-line-strong); }
+.error { margin: 0; color: var(--color-danger); }
+@media (prefers-reduced-motion: reduce) { .button { transition: none; } .button:active:not(:disabled) { transform: none; } }
