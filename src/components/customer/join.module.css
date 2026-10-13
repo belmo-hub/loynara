@@ -1,0 +1,37 @@
+/* Join page: a preview of the card the guest is about to get, then one clear way to get it. */
+.hero { display: grid; gap: var(--space-2); padding: var(--space-5) var(--space-4) var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%); box-shadow: var(--shadow-object); }
+.welcome { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); }
+.business { margin: 0; font-family: var(--font-display); font-weight: 540; font-size: var(--text-28); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
+.location { margin: 0 0 var(--space-3); font-size: var(--text-14); overflow-wrap: anywhere; }
+.stamps li { max-width: 40px; justify-self: center; width: 100%; }
+.reward { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-2) 0 0; padding-top: var(--space-3); border-top: 1px solid color-mix(in oklab, var(--merchant-ink), transparent 78%); font-size: var(--text-14); line-height: 1.4; }
+.reward svg { flex: none; margin-top: 2px; }
+.reward small { display: block; font-size: var(--text-14); }
+.reward strong { font-size: var(--text-16); font-weight: var(--weight-heavy); }
+
+.panel { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
+.headline { margin: 0; font-family: var(--font-display); font-weight: 520; font-size: var(--text-28); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; }
+.title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; }
+.lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; }
+.muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
+.note { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-action-soft); font-size: var(--text-14); line-height: 1.5; }
+.warning { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-warning), transparent 88%); font-size: var(--text-14); line-height: 1.5; }
+.error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.cardNumber { display: grid; justify-items: center; gap: 2px; margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); }
+.cardNumber span { font-size: var(--text-14); color: var(--color-ink-muted); }
+.cardNumber strong { font-size: 1.625rem; font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+
+.rewardList { display: grid; margin: 0; padding: 0; list-style: none; }
+.rewardList li { display: flex; justify-content: space-between; gap: var(--space-3); min-height: 44px; align-items: center; border-top: 1px solid var(--color-line); }
+.rewardList li:first-child { border-top: 0; }
+.rewardList span { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
+
+.rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+.rules h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
+.rules p { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; }
+
+.form { display: grid; gap: var(--space-3); }
+.form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
+.link { margin: 0; }
+.link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); }
+.footer { margin: 0; text-align: center; }
