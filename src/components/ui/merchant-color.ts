@@ -40,7 +40,8 @@ export function merchantPalette(input: string, theme: Theme): MerchantPalette {
   const merchantDeep = contrast(merchantInk, deepTarget) >= 4.5 ? deepTarget : merchant;
   const surface = SURFACE[theme];
   const merchantText = shiftUntil(base, theme === "light" ? BLACK : WHITE, (c) => contrast(c, surface) >= 4.5);
-  const coralWorks = contrast(STAMP, merchant) >= 3 && contrast(STAMP, merchantDeep) >= 3;
+  // The check mark (ink on coral, about 6:1) carries "earned"; the disc only has to stand apart from the card.
+  const coralWorks = contrast(STAMP, merchant) >= 2 && contrast(STAMP, merchantDeep) >= 2;
   const stampFill = coralWorks ? STAMP : merchantInk;
   const stampInk = coralWorks ? INK : merchant;
   return {

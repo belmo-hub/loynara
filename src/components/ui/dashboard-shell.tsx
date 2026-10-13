@@ -9,7 +9,7 @@ import { Sheet } from "./sheet";
 import { ToastProvider } from "./toast";
 import styles from "./dashboard-shell.module.css";
 
-export type NavItem = { id: string; href: string; label: string; icon: ReactNode; current?: boolean };
+export type NavItem = { id: string; href: string; label: string; icon: ReactNode; current?: boolean; /** One word for the phone bottom bar. */ tabLabel?: string };
 export type NavGroup = { id: string; label: string; items: NavItem[] };
 type LinkProps = { href: string; className?: string; "aria-current"?: "page"; onClick?: () => void; children?: ReactNode };
 
@@ -18,8 +18,13 @@ type Props = {
   /** Item ids shown in the phone bottom bar (four at most); everything else lives in "Mehr". */
   tabIds: string[];
   brandHref: string;
+  /** Each slot renders exactly once, so ids inside them stay unique. Sidebar (≥ 1024 px): */
   location: ReactNode;
   user: ReactNode;
+  /** Phone and tablet top bar. */
+  compactLocation: ReactNode;
+  /** Bottom of the "Mehr" sheet, e.g. account and sign-out. */
+  moreFooter?: ReactNode;
   primaryAction: ReactNode;
   compactAction: ReactNode;
   /** Owner pages pass their guarded link so unsaved edits are never lost by navigating. */
@@ -29,7 +34,7 @@ type Props = {
   children?: ReactNode;
 };
 
-export function DashboardShell({ groups, tabIds, brandHref, location, user, primaryAction, compactAction, LinkComponent = NextLink, mainId = "inhalt", busy, children }: Props) {
+export function DashboardShell({ groups, tabIds, brandHref, location, user, compactLocation, moreFooter, primaryAction, compactAction, LinkComponent = NextLink, mainId = "inhalt", busy, children }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const Link = LinkComponent;
   const items = groups.flatMap((g) => g.items);
@@ -48,22 +53,23 @@ export function DashboardShell({ groups, tabIds, brandHref, location, user, prim
       <aside className={styles.side} aria-label="Seitenleiste">
         <Link href={brandHref} className={styles.brand}><BrandMark label="Loynara, zur Übersicht" /></Link>
         <div className={styles.location}>{location}</div>
+        {primaryAction}
         <nav aria-label="Hauptnavigation" className={styles.nav}>{navList()}</nav>
-        <div className={styles.sideFoot}>{primaryAction}<div className={styles.user}>{user}</div></div>
+        <div className={styles.sideFoot}><div className={styles.user}>{user}</div></div>
       </aside>
       <header className={styles.top}>
         <Link href={brandHref} className={styles.topBrand}><BrandMark word={false} label="Loynara, zur Übersicht" /></Link>
-        <div className={styles.topLocation}>{location}</div>
+        <div className={styles.topLocation}>{compactLocation}</div>
         {compactAction}
       </header>
       <main id={mainId} className={styles.main} tabIndex={-1} aria-busy={busy || undefined}>{children}</main>
       <nav className={styles.tabs} aria-label="Bereiche">
-        {tabs.map((tab) => <Link key={tab.id} href={tab.href} className={styles.tab} aria-current={tab.current ? "page" : undefined}><span aria-hidden="true">{tab.icon}</span>{tab.label}</Link>)}
+        {tabs.map((tab) => <Link key={tab.id} href={tab.href} className={styles.tab} aria-current={tab.current ? "page" : undefined}><span aria-hidden="true">{tab.icon}</span>{tab.tabLabel ?? tab.label}</Link>)}
         <button type="button" className={styles.tab} data-current={currentInMore || undefined} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}><MoreHorizontal size={22} aria-hidden="true" />Mehr</button>
       </nav>
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Mehr" side="bottom">
         <nav aria-label="Alle Bereiche" className={styles.moreNav}>{navList(() => setMoreOpen(false))}</nav>
-        <div className={styles.moreUser}>{user}</div>
+        {moreFooter ? <div className={styles.moreUser}>{moreFooter}</div> : null}
       </Sheet>
     </ToastProvider>
   </div>;
