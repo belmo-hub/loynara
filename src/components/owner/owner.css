@@ -30,7 +30,7 @@
   --ow-preview: 300ms;
   --ow-ease: cubic-bezier(.2, .7, .2, 1);
   --ow-sidebar: 264px;
-  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   color: var(--ow-ink);
   background: var(--ow-bg);
   min-height: 100vh;
