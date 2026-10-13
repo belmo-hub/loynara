@@ -1,0 +1,17 @@
+.scroll { max-width: 100%; }
+.scroll:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-md); }
+@media (max-width: 699px) { .scroll { overflow-x: auto; } }
+.table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--text-16); font-variant-numeric: tabular-nums; }
+.hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.caption { padding-bottom: var(--space-2); text-align: left; font-weight: var(--weight-strong); }
+.table th { position: sticky; top: var(--sticky-offset, 0px); z-index: 1; padding: var(--space-3); background: var(--color-surface); border-bottom: 1px solid var(--color-line); color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-align: left; white-space: nowrap; }
+.table td { padding: var(--space-3); height: 52px; border-bottom: 1px solid var(--color-line); vertical-align: middle; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table :is(th, td)[data-align="end"] { text-align: right; }
+@media (hover: hover) and (pointer: fine) { .table tbody tr:has(a, button):hover td { background: color-mix(in oklab, var(--color-action-soft), transparent 40%); } }
+@media (max-width: 699px) {
+  .table[data-stack] thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .table[data-stack] tr { display: grid; padding: var(--space-3) 0; border-bottom: 1px solid var(--color-line); }
+  .table[data-stack] td { display: flex; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 32px; padding: var(--space-1) 0; border: 0; text-align: right; }
+  .table[data-stack] td::before { content: attr(data-label); color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); text-align: left; }
+}

@@ -1,0 +1,15 @@
+.dialog {
+  width: min(calc(100vw - 2 * var(--space-4)), 440px); max-height: calc(100dvh - 2 * var(--space-4)); margin: auto; padding: 0; overflow: auto;
+  border: 0; border-radius: var(--radius-xl); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
+  opacity: 1; transform: scale(1);
+  transition: opacity var(--dur-ui) var(--ease-out), transform var(--dur-ui) var(--ease-out), overlay var(--dur-ui) allow-discrete, display var(--dur-ui) allow-discrete;
+}
+.dialog:not([open]) { opacity: 0; transform: scale(.96); transition-duration: 160ms; }
+@starting-style { .dialog[open] { opacity: 0; transform: scale(.96); } }
+.dialog::backdrop { background: rgba(15, 23, 19, .48); }
+.body { display: grid; gap: var(--space-3); padding: var(--space-6); }
+.title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
+.description { margin: 0; color: var(--color-ink-muted); }
+.actions { display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+@media (max-width: 479px) { .actions > * { flex: 1 1 100%; } }
+@media (prefers-reduced-motion: reduce) { .dialog, .dialog:not([open]) { transform: none; } }
