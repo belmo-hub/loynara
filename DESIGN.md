@@ -67,7 +67,7 @@ bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong
 
 ## Typography
 
-Manrope (variable 200–800) for all text; Fraunces (variable, normal + italic) for page titles, the customer goal line and
+Manrope (variable 200–800) for all text; Fraunces (variable) for page titles, the customer goal line and
 large numerals. Both self-hosted through `next/font/local` from OFL files; no external requests.
 
 | Token | Size / line | Use |
