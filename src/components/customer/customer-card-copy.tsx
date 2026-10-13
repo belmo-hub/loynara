@@ -1,0 +1,74 @@
+// Guest card copy in German (Du-form) and French. Texts that e2e specs read are kept word for word.
+const de = {
+  yourCard: "Deine Treuekarte", cardLabel: "Deine Treuekarte", footer: "Mit Loynara",
+  stamps: "Stempel", points: "Punkte", point: "Punkt",
+  still: "Noch",
+  toGo: (unit: string, several: boolean) => `${unit} bis zur ${several ? "nächsten " : ""}Prämie`,
+  readyOne: "Deine Prämie ist bereit.", readyMany: (n: number) => `${n} Prämien sind bereit.`, readyTag: "Prämie bereit",
+  nextGoal: (n: string, unit: string, title: string) => `Nächstes Ziel: noch ${n} ${unit} für „${title}“.`,
+  balance: "Dein Kontostand",
+  rewardReady: "Prämie verfügbar. Lass sie an der Kasse einlösen.",
+  remaining: (n: string, unit: string, title: string) => `Noch ${n} ${unit} für „${title}“.`,
+  refresh: "Kontostand aktualisieren", refreshing: "Wird aktualisiert …",
+  refreshFailed: "Der Kontostand konnte nicht aktualisiert werden. Angezeigt wird der zuletzt geladene Stand. Bitte versuche es erneut.",
+  codeHeading: "Dein QR-Code", qrAlt: "QR-Code für Karte", missingQr: "QR-Code nicht verfügbar. Nenne an der Kasse deine Kartennummer.",
+  cardNumber: "Kartennummer", cardNumberHint: "An der Kasse nennen, falls der Code nicht scannt.",
+  scanNote: "Dieser Code zeigt deine Karte an. Buchungen müssen an der Kasse bestätigt werden.",
+  showToRedeem: "Zum Einlösen an der Kasse zeigen.",
+  walletTitle: "In Wallet speichern",
+  walletIntro: "Deine Karte liegt dann bei deinen anderen Karten auf dem Handy. Stempel und Prämien aktualisieren sich dort automatisch; gebucht wird weiterhin an der Kasse.",
+  addApple: "Zu Apple Wallet hinzufügen", addGoogle: "Zu Google Wallet hinzufügen", walletLoading: "Wird vorbereitet …",
+  googleDemo: "Google Wallet ist für dieses Geschäft noch in der Testphase. Speichern ist nur mit freigegebenen Testkonten möglich.",
+  chooseReward: "Deine Prämien", rewardsGroup: "Prämien", redeemable: "Einlösbar", short: (n: string) => `noch ${n}`,
+  save: "So findest du deine Karte wieder",
+  stepBookmark: "Speichere diese Seite als Lesezeichen oder auf dem Home-Bildschirm.",
+  stepScanAgain: "Oder scanne beim nächsten Besuch einfach wieder den QR-Code am Tresen: Auf diesem Handy und in diesem Browser bieten wir dir dann deine Karte an. Im privaten Modus oder nach dem Löschen der Browserdaten klappt das nicht.",
+  stepNumber: (locator: string) => <>Notiere dir deine Kartennummer <strong>{locator}</strong>. Verlierst du den Zugang zu dieser Karte, kann das Geschäft sie mit dieser Nummer finden und dir nach einer Prüfung einen neuen Kartenlink geben.</>,
+  linkWarning: "Wer den Kartenlink hat, kann die Karte öffnen. Gib ihn nicht weiter.",
+  copyLink: "Kartenlink kopieren", copied: "Kartenlink kopiert.", copyFailed: "Kopieren nicht möglich. Speichere diese Seite über deinen Browser.",
+  activity: "Letzte Aktivität", activityEmpty: "Noch keine Buchungen. Deine Besuche erscheinen hier, sobald die Kasse sie bestätigt.",
+  rules: "Programmregeln", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
+  closeCard: "Karte schließen", confirmClose: "Schließung verbindlich bestätigen", closing: "Wird geschlossen …",
+  closeMessage: (wallet: boolean): string => wallet
+    ? "Exportiere deine Kartendaten zuerst. Danach funktionieren dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte nicht mehr; das Guthaben ist nicht mehr nutzbar. Kontakt- und Wiederherstellungsdaten werden entfernt. Buchungen und Einlösungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."
+    : "Exportiere deine Kartendaten zuerst. Danach funktionieren dieser Kartenlink und der QR-Code nicht mehr; das Guthaben ist nicht mehr nutzbar. Kontakt- und Wiederherstellungsdaten werden entfernt. Buchungen und Einlösungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht.",
+};
+
+export type Copy = typeof de;
+
+const fr: Copy = {
+  yourCard: "Votre carte de fidélité", cardLabel: "Votre carte de fidélité", footer: "Avec Loynara",
+  stamps: "tampons", points: "points", point: "point",
+  still: "Encore",
+  toGo: (unit, several) => `${unit} avant la ${several ? "prochaine " : ""}récompense`,
+  readyOne: "Votre récompense est prête.", readyMany: (n) => `${n} récompenses sont prêtes.`, readyTag: "Récompense prête",
+  nextGoal: (n, unit, title) => `Prochain objectif : encore ${n} ${unit} pour « ${title} ».`,
+  balance: "Votre solde",
+  rewardReady: "Récompense disponible. Demandez son utilisation en caisse.",
+  remaining: (n, unit, title) => `Encore ${n} ${unit} pour « ${title} ».`,
+  refresh: "Actualiser le solde", refreshing: "Actualisation …",
+  refreshFailed: "Le solde n’a pas pu être actualisé. Le dernier solde chargé est affiché. Veuillez réessayer.",
+  codeHeading: "Votre QR code", qrAlt: "QR code de la carte", missingQr: "QR code indisponible. Indiquez votre numéro de carte en caisse.",
+  cardNumber: "Numéro de carte", cardNumberHint: "À indiquer en caisse si le code ne se scanne pas.",
+  scanNote: "Ce code identifie votre carte. Toute opération doit être confirmée en caisse.",
+  showToRedeem: "À présenter en caisse pour utiliser la récompense.",
+  walletTitle: "Ajouter à Wallet",
+  walletIntro: "Votre carte rejoint vos autres cartes sur le téléphone. Tampons et récompenses s’y mettent à jour automatiquement ; les opérations restent confirmées en caisse.",
+  addApple: "Ajouter à Apple Wallet", addGoogle: "Ajouter à Google Wallet", walletLoading: "Préparation …",
+  googleDemo: "Google Wallet est encore en phase de test pour ce commerce. L’enregistrement n’est possible que pour des comptes de test autorisés.",
+  chooseReward: "Vos récompenses", rewardsGroup: "Récompenses", redeemable: "Disponible", short: (n) => `encore ${n}`,
+  save: "Comment retrouver votre carte",
+  stepBookmark: "Ajoutez cette page aux favoris ou à l’écran d’accueil.",
+  stepScanAgain: "Ou scannez simplement le QR code au comptoir lors de votre prochaine visite : sur ce téléphone et dans ce navigateur, nous vous proposerons alors votre carte. Cela ne fonctionne pas en navigation privée ni après la suppression des données du navigateur.",
+  stepNumber: (locator) => <>Notez votre numéro de carte <strong>{locator}</strong>. Si vous perdez l’accès à cette carte, le commerce peut la retrouver avec ce numéro et, après vérification, vous remettre un nouveau lien.</>,
+  linkWarning: "Toute personne qui possède le lien de la carte peut l’ouvrir. Ne le partagez pas.",
+  copyLink: "Copier le lien de la carte", copied: "Lien privé copié.", copyFailed: "Copie impossible. Enregistrez cette page avec votre navigateur.",
+  activity: "Activité récente", activityEmpty: "Aucune opération pour le moment. Vos visites apparaîtront ici après confirmation en caisse.",
+  rules: "Règles du programme", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",
+  closeCard: "Fermer ma carte", confirmClose: "Confirmer la fermeture définitive", closing: "Fermeture …",
+  closeMessage: (wallet) => wallet
+    ? "Exportez d’abord les données de votre carte. Après fermeture, ce lien, le QR code et une carte enregistrée dans Wallet ne fonctionneront plus ; le solde ne sera plus utilisable. Les données de contact et de récupération sont supprimées. Les opérations restent provisoirement enregistrées sous un identifiant de carte pseudonyme, jusqu’à la définition d’une règle de conservation vérifiée."
+    : "Exportez d’abord les données de votre carte. Après fermeture, ce lien et le QR code ne fonctionneront plus ; le solde ne sera plus utilisable. Les données de contact et de récupération sont supprimées. Les opérations restent provisoirement enregistrées sous un identifiant de carte pseudonyme, jusqu’à la définition d’une règle de conservation vérifiée.",
+};
+
+export const copyFor = (locale: "de" | "fr"): Copy => (locale === "fr" ? fr : de);
