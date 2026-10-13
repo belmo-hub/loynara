@@ -3,6 +3,9 @@
 import jsQR from "jsqr";
 import { useEffect, useRef, useState } from "react";
 import type { UiLocale } from "./loyalty-ui";
+import { Button } from "./ui/button";
+import { cx } from "./ui/cx";
+import styles from "./qr-scanner.module.css";
 
 type CameraState = "starting" | "ready" | "error";
 
@@ -164,5 +167,26 @@ export function QrScanner({ onDetected, onClose, locale = "de", paused = false, 
   }
 
   const status = state === "starting" ? french ? "Démarrage de la caméra …" : "Kamera wird gestartet …" : state === "ready" ? french ? "Caméra prête. Présentez le QR code de la carte suivante." : "Kamera bereit. QR-Code der nächsten Karte in den Rahmen halten." : error;
-  return <section className="counter-camera" aria-label={french ? "Caméra de caisse" : "Kassenkamera"} lang={locale} hidden={paused}><div className="scanner-video-wrap"><video ref={videoRef} autoPlay muted playsInline aria-label={french ? "Aperçu de la caméra" : "Kameravorschau für den QR-Code"} /><span className="scanner-sight" aria-hidden="true" /></div><p role={state === "error" ? "alert" : "status"}>{status}</p><div className="counter-camera-actions">{state === "error" && <button type="button" className="button button--outline" onClick={restartScanner}>{french ? "Réessayer la caméra" : "Kamera erneut versuchen"}</button>}{state === "ready" && <button type="button" className="text-button" onClick={restartScanner}>{french ? "Redémarrer la caméra" : "Kamera neu starten"}</button>}<button type="button" className="text-button" onClick={closeScanner}>{french ? "Éteindre la caméra" : "Kamera ausschalten"}</button></div></section>;
+  // `counter-camera` and `scanner-video-wrap` stay as hooks for the counter specs.
+  return <section className={cx("counter-camera", styles.camera)} aria-label={french ? "Caméra de caisse" : "Kassenkamera"} lang={locale} hidden={paused}>
+    <div className={cx("scanner-video-wrap", styles.video)}>
+      <video ref={videoRef} autoPlay muted playsInline aria-label={french ? "Aperçu de la caméra" : "Kameravorschau für den QR-Code"} />
+      <span className={styles.sight} aria-hidden="true" />
+    </div>
+    <p className={styles.state} data-state={state} role={state === "error" ? "alert" : "status"}>{status}</p>
+    <div className={styles.actions}>
+      {state === "error" && <Button variant="secondary" size="sm" onClick={restartScanner}>{french ? "Réessayer la caméra" : "Kamera erneut versuchen"}</Button>}
+      {state === "ready" && <Button variant="quiet" size="sm" onClick={restartScanner}>{french ? "Redémarrer la caméra" : "Kamera neu starten"}</Button>}
+      <Button variant="quiet" size="sm" onClick={closeScanner}>{french ? "Éteindre la caméra" : "Kamera ausschalten"}</Button>
+    </div>
+  </section>;
+}
+
+/** The counter camera after it went to sleep (idle, hidden tab, failure): one tap wakes it, or it can be turned off. */
+export function SleepingCamera({ locale, hidden, onWake, onClose }: { locale: UiLocale; hidden: boolean; onWake: () => void; onClose: () => void }) {
+  const french = locale === "fr";
+  return <section className={cx("counter-camera counter-camera--sleeping", styles.camera, styles.sleeping)} hidden={hidden}>
+    <Button variant="primary" size="lg" block onClick={onWake}>{french ? "Rallumer la caméra" : "Kamera fortsetzen"}</Button>
+    <div className={styles.actions}><Button variant="quiet" size="sm" onClick={onClose}>{french ? "Éteindre la caméra" : "Kamera ausschalten"}</Button></div>
+  </section>;
 }

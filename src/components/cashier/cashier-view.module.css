@@ -1,0 +1,19 @@
+/* Counter screen inside CashierShell (always dark). Every target is at least 44 px; booking actions 56–64 px. */
+.headerActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.headerActions p[role="alert"] { max-width: 16rem; margin: var(--space-1) 0 0; color: var(--color-ink); font-size: var(--text-14); }
+.locale {
+  min-width: 64px; min-height: var(--target); padding: 0 var(--space-2); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1 var(--font-sans);
+}
+.locale:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+.intro h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
+.intro p { margin: var(--space-1) 0 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
+
+.panel { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
+.ready, .stack { display: grid; gap: var(--space-3); }
+.stack > :global(button):last-child:not(:first-child) { justify-self: start; }
+.eyebrow { color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
+.locator { margin: 0; font: var(--weight-heavy) var(--text-28)/1.1 var(--font-sans); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.meta { margin: 0; font-weight: var(--weight-label); }
+.help { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
