@@ -1,8 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { BrandMark } from "@/components/loyalty-ui";
+import { MailSearch } from "lucide-react";
+import { CustomerState } from "@/components/customer/customer-state";
+import styles from "@/components/customer/states.module.css";
+import { Button } from "@/components/ui/button";
+import { TextField } from "@/components/ui/field";
 import { postJson } from "@/components/client-api";
 import { recoveryRequestFeedback } from "@/components/recovery-request-feedback";
 
@@ -20,9 +23,12 @@ export default function RecoverPage() {
     } catch (cause) { setError(recoveryRequestFeedback(cause)); }
     finally { setBusy(false); }
   }
-  return <main className="card-state-page"><div><BrandMark /><h1>Karte wiederfinden</h1>
-    <p>Gib die E-Mail-Adresse ein, die du zuvor auf deiner Karte bestätigt hast. Ohne bestätigte E-Mail wende dich an das Geschäft. Nach einer Berechtigungsprüfung kann es dir einen neuen Kartenlink ausstellen.</p>
-    <form className="recovery-form" onSubmit={submit}><label htmlFor="recovery-email">Bestätigte E-Mail-Adresse</label><input id="recovery-email" type="email" required autoComplete="email" maxLength={320} value={email} onChange={event => setEmail(event.target.value)} /><button className="button" disabled={busy} type="submit">{busy ? "Wird geprüft …" : "Link anfordern"}</button></form>
-    {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}<Link href="/">Zur Startseite</Link>
-  </div></main>;
+  return <CustomerState icon={<MailSearch size={22} />} title="Karte wiederfinden" message="Gib die E-Mail-Adresse ein, die du auf deiner Karte bestätigt hast. Wir schicken dir einen Link, mit dem du die Karte auf diesem Gerät wieder öffnest. Ohne bestätigte Adresse hilft dir das Geschäft nach einer Prüfung mit einem neuen Kartenlink.">
+    <form className={styles.form} onSubmit={submit}>
+      <TextField id="recovery-email" label="Bestätigte E-Mail-Adresse" type="email" required autoComplete="email" inputMode="email" maxLength={320} value={email} onChange={event => setEmail(event.target.value)} />
+      <Button type="submit" block loading={busy}>{busy ? "Wird geprüft …" : "Link anfordern"}</Button>
+    </form>
+    {message && <p className={styles.status} role="status">{message}</p>}
+    {error && <p className={styles.error} role="alert">{error}</p>}
+  </CustomerState>;
 }
