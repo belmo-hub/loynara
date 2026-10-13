@@ -1,5 +1,5 @@
 .row { display: flex; align-items: flex-start; gap: var(--space-3); min-height: var(--target); padding-block: var(--space-2); cursor: pointer; font-size: var(--text-16); line-height: 1.45; color: var(--color-ink); }
 .box { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--color-action); cursor: pointer; }
 .box:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-.text { display: grid; gap: 2px; }
-.description { font-size: var(--text-14); color: var(--color-ink-muted); }
+.text { display: block; }
+.description { display: block; margin-top: 2px; font-size: var(--text-14); color: var(--color-ink-muted); }
