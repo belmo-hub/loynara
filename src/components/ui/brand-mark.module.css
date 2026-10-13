@@ -1,0 +1,3 @@
+.lockup { display: inline-flex; align-items: center; gap: 10px; color: var(--color-ink); }
+.symbol { width: 32px; height: 32px; flex: none; }
+.word { font-size: var(--text-18); font-weight: var(--weight-heavy); letter-spacing: -.01em; }
