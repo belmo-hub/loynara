@@ -2,6 +2,6 @@
 @media (prefers-color-scheme: dark) { .shell { --merchant-text: var(--merchant-text-dark); } }
 .header, .main, .footer { width: 100%; max-width: 440px; margin: 0 auto; padding-inline: max(var(--gutter), env(safe-area-inset-left)) max(var(--gutter), env(safe-area-inset-right)); }
 .header { padding-top: calc(var(--space-3) + env(safe-area-inset-top)); }
-.main { display: grid; gap: var(--space-4); padding-block: var(--space-4) var(--space-8); }
+.main { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--space-4); padding-block: var(--space-4) var(--space-8); }
 .header + .main { padding-top: var(--space-2); }
 .footer { padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom)); color: var(--color-ink-muted); font-size: var(--text-14); }

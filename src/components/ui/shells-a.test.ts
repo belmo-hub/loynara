@@ -20,7 +20,7 @@ describe("CustomerShell", () => {
   });
   it("has one main landmark and a live region inside the themed area", () => {
     expect(out.match(/<main/g)).toHaveLength(1);
-    expect(out.indexOf('role="status"')).toBeGreaterThan(out.indexOf("ly-theme-auto"));
+    expect(out.indexOf('aria-live="polite"')).toBeGreaterThan(out.indexOf("ly-theme-auto"));
   });
 });
 

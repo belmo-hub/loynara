@@ -54,8 +54,9 @@ describe("Dialog and Sheet", () => {
 });
 
 describe("ToastProvider", () => {
-  it("renders a polite live region for announcements", () => {
+  it("renders a polite live region that does not claim the page's status role", () => {
     const out = html(h(ToastProvider, { closeLabel: "Fermer" }, h("main", null)));
-    expect(out).toMatch(/role="status"[^>]*aria-live="polite"|aria-live="polite"[^>]*role="status"/);
+    expect(out).toContain('aria-live="polite"');
+    expect(out).not.toContain('role="status"');
   });
 });
