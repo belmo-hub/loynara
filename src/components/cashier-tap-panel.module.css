@@ -4,13 +4,11 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  border: 1px solid #cfe0d2;
-  border-radius: 16px;
-  background: #fff;
-  color: #1d302a;
-  box-shadow: 0 10px 24px rgba(20, 60, 30, .05);
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  color: var(--color-ink);
 }
 
 .header {
@@ -23,7 +21,7 @@
 
 .title {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-18);
   line-height: 1.2;
   letter-spacing: -.02em;
 }
@@ -31,21 +29,21 @@
 .count {
   display: inline-grid;
   place-items: center;
-  min-width: 26px;
-  height: 26px;
+  min-width: 28px;
+  height: 28px;
   padding: 0 8px;
   border-radius: 999px;
-  background: #ec7954;
-  color: #1e332c;
-  font-size: 13px;
+  background: var(--color-stamp);
+  color: #1E332C;
+  font-size: var(--text-14);
   font-weight: 800;
 }
 
 /* The empty state stays on the same line as the heading so the panel is one row high. */
 .emptyInline {
   margin: 0;
-  color: #5d7266;
-  font-size: 13px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-14);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -54,17 +52,18 @@
   margin: 10px 0 0;
   padding: 8px 10px;
   border-radius: 9px;
-  background: #fff4dc;
-  color: #7a5a1f;
-  font-size: 13px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--color-warning);
+  color: var(--color-ink);
+  font-size: var(--text-14);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .intro {
   margin: 8px 0 0;
-  color: #5d7266;
-  font-size: 13px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-14);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -82,9 +81,9 @@
   gap: 10px;
   min-width: 0;
   padding: 14px;
-  border: 1px solid #dce6da;
-  border-radius: 14px;
-  background: #fbfdfa;
+  border: 1.5px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 .identity {
@@ -95,11 +94,9 @@
 }
 
 .cardLabel {
-  color: #5d7266;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  font-size: var(--text-14);
+  font-weight: var(--weight-label);
 }
 
 .locator {
@@ -108,7 +105,7 @@
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: .06em;
-  color: #17372e;
+  color: var(--color-ink);
   overflow-wrap: anywhere;
 }
 
@@ -116,14 +113,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
-  color: #4f675a;
-  font-size: 13px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-14);
   line-height: 1.4;
   min-width: 0;
 }
 
 .meta strong {
-  color: #17372e;
+  color: var(--color-ink);
 }
 
 .actions {
@@ -133,12 +130,12 @@
   min-width: 0;
 }
 
-/* Selectors are two classes deep so they win over the global .button rules (white-space: nowrap). */
+/* Two classes deep so they win over the button primitive's nowrap. */
 .panel .primary,
 .panel .secondary {
   width: 100%;
   min-width: 0;
-  min-height: 52px;
+  min-height: var(--target-cashier);
   max-width: 100%;
   white-space: normal;
   text-align: center;
@@ -168,18 +165,18 @@
 }
 
 .outcomeSuccess {
-  background: #e1f2e4;
-  color: #286b43;
+  box-shadow: inset 0 0 0 1.5px var(--color-success);
+  color: var(--color-ink);
 }
 
 .outcomeNeutral {
-  background: #eef3ef;
-  color: #3c5746;
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
 
 .outcomeError {
-  background: #fff0e9;
-  color: #9c512f;
+  box-shadow: inset 0 0 0 1.5px var(--color-danger);
+  color: var(--color-ink);
 }
 
 .srOnly {
