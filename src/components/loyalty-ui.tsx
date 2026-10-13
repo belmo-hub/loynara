@@ -11,7 +11,6 @@ type IconName =
   | "check"
   | "chevron"
   | "clock"
-  | "close"
   | "download"
   | "mail"
   | "menu"
@@ -27,7 +26,6 @@ export function Icon({ name, size = 20, className = "" }: { name: IconName; size
     check: <path d="m4 11 5 5L20 5" />,
     chevron: <path d="m9 18 6-6-6-6" />,
     clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
-    close: <><path d="M5 5 19 19" /><path d="M19 5 5 19" /></>,
     download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 17v3h16v-3" /></>,
     mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></>,
     menu: <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>,

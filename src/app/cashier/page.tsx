@@ -4,8 +4,8 @@ import type { StaffRole } from "@/lib/award-limits";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
-import { BrandMark, type UiLocale } from "@/components/loyalty-ui";
-import { CashierView, type CashierAward, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
+import type { UiLocale } from "@/components/loyalty-ui";
+import { CashierAccessState, CashierView, type CashierAward, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
 import { QrScanner, SleepingCamera } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
@@ -387,7 +387,7 @@ export default function CashierPage() {
     } finally { setBusy(false); }
   }
 
-  if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <><a href="/login" className="button button--outline">Zur Anmeldung</a><LogoutButton className="button button--outline" /></>}</div></main>;
+  if (accessState !== "ready") return <CashierAccessState state={accessState} message={accessMessage} logoutControl={<LogoutButton className={buttonClassName({ variant: "secondary", size: "lg", block: true })} />} />;
   const cameraNode = camera === "on"
     ? <QrScanner locale={locale} paused={Boolean(card || preview)} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
     : camera === "sleeping"

@@ -1,9 +1,11 @@
 /* Counter screen inside CashierShell (always dark). Every target is at least 44 px; booking actions 56–64 px. */
 .headerActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-1); }
 .headerActions p[role="alert"] { max-width: 16rem; margin: var(--space-1) 0 0; color: var(--color-ink); font-size: var(--text-14); }
+/* appearance: none so Safari honours the 44 px height; the chevron is an inline SVG in the dark theme ink. */
 .locale {
-  min-width: 64px; min-height: var(--target); padding: 0 var(--space-2); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md);
-  background: var(--color-surface); color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1 var(--font-sans);
+  -webkit-appearance: none; appearance: none; min-width: 72px; height: var(--target); padding: 0 28px 0 var(--space-3);
+  border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1 var(--font-sans);
+  background: var(--color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23CFD8D2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
 }
 .locale:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 
@@ -72,3 +74,10 @@
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 .footnote svg { flex: none; margin-top: 3px; }
 @media (prefers-reduced-motion: reduce) { .booked { transition: none; } }
+
+/* Loading and blocked access (doubled class: outranks the global .app-state-card light card) */
+.access.access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }
+.access.access h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.25; }
+.access.access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
+.access.access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }
+.access.access > div a { color: var(--color-on-action); font-size: var(--text-18); }
