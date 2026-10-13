@@ -1,12 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
 import { createRefreshGate } from "@/lib/refresh-gate";
-import { BrandMark, CustomerCardView } from "./loyalty-ui";
+import { CustomerCard } from "./customer/customer-card";
+import { CustomerCardLoading, CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
 import { CardReferral } from "./card-referral";
+import { Button } from "./ui/button";
+import noticeStyles from "./customer/customer-notice.module.css";
 import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
 
 type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable" };
@@ -35,6 +37,7 @@ const REFRESH_INTERVAL_MS = 5_000;
  * the next return. Bounded on purpose: guests on one shop Wi-Fi share the card-read limit.
  */
 const FOLLOW_UP_MS = [20_000, 60_000];
+const noticeClass = noticeStyles.notice;
 const GONE_MESSAGE = "Dieser Kartenlink ist nicht mehr gültig. Wurde deine Karte neu ausgestellt, öffne bitte den neuen Link. Sonst wende dich mit deiner Kartennummer an das Geschäft.";
 
 function cardError(cause: unknown) {
@@ -186,15 +189,20 @@ export function CardClient({ token }: { token: string }) {
   }
 
   if (closed) return <CardState title="Karte geschlossen." message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
-  if (loading) return <CardState title="Deine Karte wird geladen." message="Kontostand und Prämien werden abgerufen." />;
-  if (!card) return <CardState title="Karte nicht erreichbar." message={error} />;
+  if (loading) return <CustomerCardLoading label="Deine Karte wird geladen." />;
+  if (!card) return <CardState title="Karte nicht erreichbar." message={error} tone="error" />;
   const firstReward = card.rewards[0];
   const french = card.locale === "fr";
   const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
-  return <>{authenticationRequired && <section role="alert"><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><button className="button button--outline" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</button></section>}{switchRequired && <section role="alert"><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><button className="button button--outline" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</button></section>}{bindingError && <p role="alert">{bindingError}</p>}
-      <CustomerCardView businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewardName={firstReward?.title} rewardCost={firstReward?.cost} rewards={card.rewards} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={card.locale} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} /></>;
+  const notices = <>
+    {authenticationRequired && <section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section>}
+    {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
+    {bindingError && <p role="alert" className={noticeClass}>{bindingError}</p>}
+  </>;
+  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
-function CardState({ title, message }: { title: string; message: string }) {
-  return <main className="card-state-page"><div><BrandMark /><h1>{title}</h1><p>{message}</p><Link href="/">Zur Startseite</Link></div></main>;
+function CardState({ title, message, tone = "info" }: { title: string; message: string; tone?: "info" | "error" }) {
+  // The page turns into this state after the card was shown, so focus the title to announce it.
+  return <CustomerState title={title} message={message} tone={tone} focusTitle />;
 }
