@@ -1,0 +1,16 @@
+.field { display: grid; gap: var(--space-2); min-width: 0; }
+.label { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); }
+.input {
+  width: 100%; min-width: 0; min-height: 48px; padding: 0 var(--space-4);
+  border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink);
+  font: var(--weight-body) var(--text-16)/1.4 var(--font-sans);
+  transition: border-color var(--dur-press) ease, box-shadow var(--dur-press) ease;
+}
+.input::placeholder { color: var(--color-ink-muted); opacity: .85; }
+.input:focus-visible { outline: none; border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-focus), transparent 70%); }
+.input[aria-invalid="true"] { border-color: var(--color-danger); }
+.input:disabled { background: var(--color-surface); color: var(--color-ink-muted); }
+.area { min-height: 120px; padding-block: var(--space-3); resize: vertical; }
+.hint { font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
+.error { font-size: var(--text-14); line-height: 1.45; font-weight: var(--weight-label); color: var(--color-danger); }
+.hint, .error { margin: 0; }
