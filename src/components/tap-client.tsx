@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse } from "./client-api";
 import { CardContact } from "./card-contact";
-import { BrandMark } from "./loyalty-ui";
+import { CheckCircle2, Clock3, Nfc, TriangleAlert } from "lucide-react";
+import { LegalLinks } from "./customer/customer-state";
+import { buttonClassName } from "./ui/button";
+import { CustomerShell } from "./ui/customer-shell";
+import styles from "./customer/tap.module.css";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
@@ -112,21 +116,31 @@ export function TapClient({ refId }: { refId: string }) {
   const nextReward = card && typeof result?.balance === "number" ? [...card.rewards].sort((a, b) => a.cost - b.cost).find(reward => reward.cost > result.balance!) : undefined;
   const waiting = state === "pending_staff";
   const recoveryCard = preview?.cardPath?.match(/^\/card\/(card_[A-Za-z0-9_-]{32,80})$/)?.[1];
-  return <main className="card-state-page" style={{ minHeight: "100vh", background: "#f7f4ec", padding: "24px" }}><div style={{ maxWidth: 480, margin: "auto", padding: "28px", borderRadius: 20, background: "white", color: "#17372c" }}><BrandMark />
-    {preview && <p style={{ borderLeft: `4px solid ${preview.brandColor || "#214739"}`, paddingLeft: 12 }}><strong>{preview.merchantName}</strong><br />{preview.locationName} · {preview.programName}</p>}
-    <h1>{title}</h1><p role={state === "error" ? "alert" : "status"} aria-live="polite">{detail}</p>
-    {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p style={{ fontSize: "1rem", fontWeight: 700 }}>Deine Kartennummer (das Team sieht sie an der Kasse): <span translate="no" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", letterSpacing: ".06em", overflowWrap: "anywhere" }}>{result.cardLocator}</span></p>}
-    {waiting && <p className="ow-muted" style={{ fontSize: 14 }}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
-    {typeof result?.balance === "number" && state !== "needs_enrollment" && <p style={{ fontSize: "1.2rem", fontWeight: 700 }}>Aktueller Stand: {result.balance} Stempel</p>}
-    {nextReward && typeof result?.balance === "number" && (state === "confirmed" || state === "awarded" || state === "already_processed") && <p>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
-    {selectionRequired && preview?.cardPath && <><a className="button button--outline" href={preview.cardPath} onClick={() => sessionStorage.removeItem(TAP_RETURN_KEY)}>Gespeicherte Karte {preview.cardLocator} ansehen</a><button className="button button--accent" onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button></>}
-    {preview && state === "needs_enrollment" && <>
-      <Link prefetch={false} className="button button--accent" href={`/join/${encodeURIComponent(preview.programSlug)}`}>Karte erstellen</Link>
-      <p style={{ fontSize: 14, marginTop: 16 }}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p><p><Link href="/recover">Karte sicher wiederherstellen</Link></p>
-    </>}
-    {preview?.cardPath && state !== "needs_enrollment" && <p><Link className="button button--outline" href={preview.cardPath}>Karte und Prämien ansehen</Link></p>}
+  const done = state === "confirmed" || state === "awarded" || state === "already_processed";
+  const tone = state === "error" || state === "cancelled" || state === "expired" ? "error" : done ? "done" : waiting ? "waiting" : "info";
+  const Icon = tone === "error" ? TriangleAlert : done ? CheckCircle2 : waiting ? Clock3 : Nfc;
+  const header = preview ? <div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(preview.merchantName)[0]}</span><p><strong>{preview.merchantName}</strong><span>{preview.locationName} · {preview.programName}</span></p></div> : null;
+  return <CustomerShell brandColor={preview?.brandColor} header={header} footer={<LegalLinks locale="de" />}>
+    <section className={`card-state-page ${styles.state}`} data-tone={tone}>
+      <span className={styles.icon} aria-hidden="true"><Icon size={28} /></span>
+      <h1 className={styles.title}>{title}</h1>
+      <p className={styles.detail} role={state === "error" ? "alert" : "status"} aria-live="polite">{detail}</p>
+      {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p className={styles.number}><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{result.cardLocator}</strong></p>}
+      {waiting && <p className={styles.muted}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
+      {typeof result?.balance === "number" && state !== "needs_enrollment" && <p className={styles.balance}>Aktueller Stand: {result.balance} Stempel</p>}
+      {nextReward && typeof result?.balance === "number" && done && <p className={styles.muted}>Nächste Prämie: {nextReward.title} ab {nextReward.cost} Stempeln. {nextReward.cost - result.balance} fehlen noch.</p>}
+      {selectionRequired && preview?.cardPath && <div className={styles.actions}>
+        <button className={buttonClassName({ size: "lg", block: true })} onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button>
+        <a className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath} onClick={() => sessionStorage.removeItem(TAP_RETURN_KEY)}>Gespeicherte Karte {preview.cardLocator} ansehen</a>
+      </div>}
+      {preview && state === "needs_enrollment" && <div className={styles.actions}>
+        <Link prefetch={false} className={buttonClassName({ size: "lg", block: true })} href={`/join/${encodeURIComponent(preview.programSlug)}`}>Karte erstellen</Link>
+        <p className={styles.muted}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p>
+        <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
+      </div>}
+      {preview?.cardPath && state !== "needs_enrollment" && <Link className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath}>Karte und Prämien ansehen</Link>}
+      {state === "error" && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
+    </section>
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
-    {state === "error" && <p style={{ fontSize: 14 }}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
-  </div></main>;
+  </CustomerShell>;
 }
-
