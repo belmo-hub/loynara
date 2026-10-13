@@ -30,7 +30,10 @@
 .xl { min-height: 64px; font-size: var(--text-18); font-weight: var(--weight-heavy); }
 .block { display: flex; width: 100%; }
 
-.button[aria-busy="true"] .label { opacity: .55; }
+.primary[aria-busy="true"] { background: var(--color-action); color: var(--color-on-action); }
+.go[aria-busy="true"] { background: var(--color-success); color: var(--color-raised); }
+.button[aria-busy="true"] { cursor: progress; }
+.button[aria-busy="true"] .label { opacity: .8; }
 .progress { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .progress { animation-duration: 2s; } .button:active:not(:disabled) { transform: none; } }
