@@ -1,0 +1,10 @@
+.group { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: var(--space-3); margin: 0; }
+.stat { display: grid; align-content: start; gap: var(--space-1); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
+.label { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); }
+.value { margin: 0; font-size: 2.5rem; font-weight: var(--weight-heavy); line-height: 1.05; letter-spacing: -.03em; color: var(--color-ink); }
+.unit { margin-left: 2px; font-size: .5em; letter-spacing: 0; }
+.note { margin: 0; font-size: var(--text-14); line-height: 1.4; color: var(--color-ink-muted); }
+.trendCell { margin: var(--space-1) 0; }
+.trend { display: block; width: 100%; max-width: 160px; height: 28px; }
+.past { fill: var(--color-line-strong); }
+.current { fill: var(--color-action); }

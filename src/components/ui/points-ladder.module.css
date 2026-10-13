@@ -1,0 +1,9 @@
+.ladder { position: relative; height: 56px; margin: 0 14px; }
+.track { position: absolute; left: -14px; right: -14px; top: 11px; height: 6px; overflow: hidden; border-radius: 6px; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 75%); }
+.fill { position: absolute; inset: 0; transform-origin: left; background: var(--stamp-fill, var(--color-stamp)); transition: transform var(--dur-reward) var(--ease-in-out); }
+.mark { position: absolute; top: 0; left: calc(var(--at) * 100%); display: grid; justify-items: center; gap: 6px; transform: translateX(-50%); }
+.dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
+.mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-ink)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
+.cost { font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.mark[data-label-hidden] .cost { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
