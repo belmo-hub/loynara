@@ -79,7 +79,10 @@ large numerals. Both self-hosted through `next/font/local` from OFL files; no ex
 | `--text-22` | 22 / 28 | panel titles, cashier state |
 | `--text-28` | 28 / 34 | page titles on phones, customer goal line (Fraunces) |
 | `--display-36` | 36 / 40 | page titles ≥ 1024 px (Fraunces) |
-| `--display-num` | clamp(40, 11vw, 56) / 1 | balances and KPI values (Fraunces, tabular) |
+| `--display-num` | clamp(40, 11vw, 56) / 1 | customer balance and goal numerals (Fraunces) |
+
+Dashboard data (Stat values, tables, charts) stays in Manrope: values 800 with proportional figures, columns with
+tabular figures. Fraunces is a brand voice for titles and the customer card, never for data.
 
 Weights: 400 body, 650 labels, 720 buttons and emphasis, 800 card codes and cashier numerals. Headings use
 `text-wrap: balance`, paragraphs `pretty`. Long German compounds: `hyphens: auto` on headings with `lang="de"`,

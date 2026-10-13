@@ -1,0 +1,6 @@
+.ring { position: relative; display: grid; place-items: center; flex: none; }
+.svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.track { fill: none; stroke: var(--color-action-soft); stroke-width: 9; }
+.fill { fill: none; stroke: var(--merchant-text, var(--color-action)); stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray var(--dur-reward) var(--ease-in-out); }
+.center { position: relative; display: grid; justify-items: center; text-align: center; line-height: 1.1; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }

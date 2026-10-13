@@ -1,0 +1,5 @@
+.empty { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); text-align: center; }
+.icon { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: var(--space-2); border-radius: 50%; background: var(--color-action-soft); color: var(--color-action); }
+.title { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); text-wrap: balance; }
+.body { margin: 0; max-width: 42ch; color: var(--color-ink-muted); text-wrap: pretty; }
+.action { margin-top: var(--space-3); }

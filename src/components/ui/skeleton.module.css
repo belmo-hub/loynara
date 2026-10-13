@@ -1,0 +1,3 @@
+.skeleton { display: block; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--color-line) 0%, color-mix(in oklab, var(--color-line), var(--color-surface) 60%) 50%, var(--color-line) 100%) 0 0 / 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
