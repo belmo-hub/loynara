@@ -1,0 +1,16 @@
+.region { position: fixed; left: 0; right: 0; bottom: calc(var(--toast-offset, 0px) + var(--space-4) + env(safe-area-inset-bottom)); z-index: var(--z-toast); display: grid; justify-items: center; gap: var(--space-2); padding: 0 var(--space-4); pointer-events: none; }
+.toast {
+  display: flex; align-items: center; gap: var(--space-3); width: min(100%, 420px); min-height: 52px; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg); background: var(--color-ink); color: var(--color-bg); box-shadow: var(--shadow-raised); pointer-events: auto;
+  opacity: 1; transform: translateY(0); transition: opacity var(--dur-ui) var(--ease-out), transform var(--dur-ui) var(--ease-out);
+}
+@starting-style { .toast { opacity: 0; transform: translateY(12px); } }
+.leaving { opacity: 0; transform: translateY(6px); transition-duration: 160ms; }
+.icon { flex: none; }
+.success .icon { color: color-mix(in oklab, var(--color-success), var(--color-bg) 55%); }
+.error { background: var(--color-danger); color: var(--color-raised); }
+.message { flex: 1; font-size: var(--text-16); font-weight: var(--weight-label); line-height: 1.35; }
+.close { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); border: 0; border-radius: var(--radius-pill); background: transparent; color: inherit; opacity: .8; cursor: pointer; }
+.close:focus-visible { outline: 3px solid currentColor; outline-offset: -4px; }
+@media (prefers-reduced-motion: reduce) { .toast, .leaving { transform: none; } }
+.live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
