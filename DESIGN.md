@@ -63,7 +63,7 @@ bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong
 | `--merchant-ink` | `#FFFFFF` or `--color-ink`, whichever contrasts more with `--merchant` |
 | `--merchant-deep` | gradient end for the card object: 30 % toward black for dark colours, 14 % for light ones (no mud) |
 | `--merchant-text` | the shop colour as text on `--color-surface`, darkened (light theme) or lightened (dark theme) until ≥ 4.5:1 |
-| `--stamp-fill` / `--stamp-ink` | coral with ink when coral vs `--merchant` ≥ 3:1; otherwise `--merchant-ink` with `--merchant` |
+| `--stamp-fill` / `--stamp-ink` | coral with ink when coral vs `--merchant` ≥ 2:1 (the ink check mark, ≥ 4.5:1 on its fill, carries the state; empty slots are dashed rings); otherwise `--merchant-ink` with `--merchant` |
 
 ## Typography
 

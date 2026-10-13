@@ -18,8 +18,13 @@ describe("merchantPalette", () => {
 
   it.each(samples)("keeps earned stamps distinguishable from the card for %s", (hex) => {
     const p = merchantPalette(hex, "light");
-    expect(contrast(p.stampFill, p.merchant)).toBeGreaterThanOrEqual(3);
-    expect(contrast(p.stampInk, p.stampFill)).toBeGreaterThanOrEqual(3);
+    expect(contrast(p.stampFill, p.merchant)).toBeGreaterThanOrEqual(2);
+    expect(contrast(p.stampInk, p.stampFill)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps the coral pressed stamp on the usual shop greens", () => {
+    expect(merchantPalette("#2F6B58", "light").stampFill).toBe("#E9895F");
+    expect(merchantPalette("#245D47", "light").stampFill).toBe("#E9895F");
   });
 
   it("leaves a colour that already passes untouched", () => {

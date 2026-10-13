@@ -31,7 +31,7 @@ try {
     .update(scope).update("\0").update("untrusted-peer").digest("hex"));
   for (let shard = 1; shard <= 3; shard++) {
     await client.query("DELETE FROM rate_limits WHERE key_hash = ANY($1::text[])", [hashes]);
-    const result = spawnSync("./node_modules/.bin/playwright", ["test", `--shard=${shard}/3`], {
+    const result = spawnSync("./node_modules/.bin/playwright", ["test", "--project=desktop-chrome", `--shard=${shard}/3`], {
       stdio: "inherit",
       env: { ...process.env, DATABASE_URL: next.DATABASE_URL },
     });

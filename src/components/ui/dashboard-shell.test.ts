@@ -10,7 +10,7 @@ const groups: NavGroup[] = [
   { id: "ops", label: "Betrieb", items: [{ id: "staff", href: "/merchant/staff", label: "Team", icon, current: true }] },
 ];
 const Guarded = ({ href, children, ...rest }: { href: string; children?: ReactNode }) => h("a", { href, "data-guarded": "true", ...rest }, children);
-const render = () => renderToStaticMarkup(h(DashboardShell, { groups, tabIds: ["home", "cards"], brandHref: "/merchant", location: h("span", null, "Kassel Mitte"), user: h("span", null, "Demo Inhaber"), primaryAction: h("a", { href: "/cashier" }, "Kasse öffnen"), compactAction: h("a", { href: "/cashier" }, "Kasse"), LinkComponent: Guarded }, h("h1", null, "Team")));
+const render = () => renderToStaticMarkup(h(DashboardShell, { groups, tabIds: ["home", "cards"], brandHref: "/merchant", location: h("select", { id: "loc" }), compactLocation: h("span", null, "Kassel Mitte"), user: h("span", { id: "who" }, "Demo Inhaber"), moreFooter: h("span", null, "Abmelden"), primaryAction: h("a", { href: "/cashier" }, "Kasse öffnen"), compactAction: h("a", { href: "/cashier" }, "Kasse"), LinkComponent: Guarded }, h("h1", null, "Team")));
 
 describe("DashboardShell", () => {
   const out = render();
@@ -20,6 +20,10 @@ describe("DashboardShell", () => {
   });
   it("routes every link through the supplied link component (unsaved-edit guard)", () => {
     expect(out).not.toMatch(/<a href="\/merchant[^"]*"(?![^>]*data-guarded)/);
+  });
+  it("renders every slot once so ids stay unique", () => {
+    expect(out.match(/id="loc"/g)).toHaveLength(1);
+    expect(out.match(/id="who"/g)).toHaveLength(1);
   });
   it("marks the current page in the sidebar", () => {
     expect(out).toMatch(/aria-current="page"[^>]*>[\s\S]*?Team/);
