@@ -1,0 +1,37 @@
+{
+  "assignment": "LOY-ENG-20261012-136",
+  "issue": "LOY-331",
+  "parent": "LOY-28",
+  "base": "4adc66276e4239794fa26dddefabb34f855ff46d",
+  "reviewedApplication": "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9",
+  "previousApplication": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "operatorTooling": "0707663c32ddca4b272890e8bae5478abcda41d6",
+  "red": [
+    "Olddefaultpin519 vs newlyselected43 fails",
+    "Complete newlyselected43receipt rejectedby old519schema"
+  ],
+  "focused": {
+    "files": 3,
+    "pass": 92,
+    "fail": 0,
+    "seconds": 62.54
+  },
+  "default": {
+    "source": "PASS",
+    "overall": "BLOCKED",
+    "exit": 2,
+    "executionEnabled": false,
+    "fingerprints": 23
+  },
+  "retainedAppEvidence": {
+    "files": 184,
+    "pass": 1706,
+    "fail": 0,
+    "existingMailpitSkip": 1,
+    "source": "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9",
+    "fullRerun": false
+  },
+  "review": "Existing independent read-onlyreviewer: no materialfindings; immutableapp/operator separation and history/gates preserved",
+  "deployment": "Not performed",
+  "native": "OriginalGoal identity/accounting preserved; fresh completion snapshot follows; input/cachedsubset/output unmeasured"
+}

@@ -1,0 +1,31 @@
+# Example configuration for scripts/ticket-cycle.py.
+# Copy to ~/.config/loynara-loop/config.env, chmod 600, and fill in. Keep the real file out of the repository.
+# Lines are KEY=VALUE; values may be wrapped in single or double quotes.
+
+# --- tracker (the token itself lives in a separate private file, never in this one)
+YOUTRACK_URL=https://loynara.youtrack.cloud
+YOUTRACK_TOKEN_FILE=~/.config/loynara-loop/youtrack.token
+YOUTRACK_PROJECT=LOY
+
+# --- git: the development branch pull requests target
+BASE_BRANCH=<development branch name>
+# REPO_DIR=~/Developer/Loynara-loop      # a dedicated clean checkout the loop runs from
+
+# --- the commands that do the work. Both run through `bash -c`.
+# IMPLEMENT_CMD runs inside the ticket worktree and reads $AGENT_PROMPT, $AGENT_MAX_BUDGET, $TICKET_ID.
+# REVIEW_CMD runs read-only in a throwaway checkout of the branch and reads $AGENT_PROMPT and $REVIEW_DIFF_FILE;
+# whatever it prints is posted on the pull request as a comment. Leave it empty to skip reviews.
+IMPLEMENT_CMD='<command that implements the ticket>'
+REVIEW_CMD='<command that reviews the change without modifying anything>'
+
+# --- limits
+MAX_PER_DAY=3
+MAX_PER_CYCLE=1
+WINDOW_START=22
+WINDOW_END=7
+IMPLEMENT_TIMEOUT_SEC=3600
+IMPLEMENT_MAX_BUDGET=8
+MAX_DIFF_LINES=1200
+
+# --- tickets with any of these tags are never picked
+SKIP_TAGS=needs-founder,needs-hardware,needs-legal,needs-decision

@@ -97,3 +97,7 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 - 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.
 
 - 2026-10-12: [LOY-327 / Assignment129 — reviewed release alignment](2026-10-12-release-alignment-129.md). Application519e156 / separate operator tooling4069af6; default sourcePASS, executionBLOCKED, no production acceptance.
+
+
+- 2026-10-12 /130,132: Application519 unchanged. Reviewed operator818430f utility provenance and4609ebc explicitops plan reached verified GitHub67d30c4 and338230b respectively; no deployment. [130](2026-10-12-utility-source-attestation-130.md), [132](2026-10-12-ops-release-guard-132.md).
+- 2026-10-12 /135: New application43b54d2edbf5059d662ffa4aeb50ae6cced72ee9 implemented/tested/reviewed and normal development push4adc66276e4239794fa26dddefabb34f855ff46d verified. Full1706PASS, no new deployment observed. Review135 selects43 for136alignment; previous519pin is preserved until verified tooling alignment. [135](2026-10-12-push-recipient-authorization-135.md).

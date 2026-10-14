@@ -240,3 +240,6 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 - 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.
 
 - 2026-10-12: [LOY-327 / Assignment129 — reviewed release alignment](2026-10-12-release-alignment-129.md). Application519e156 / separate operator tooling4069af6; default sourcePASS, executionBLOCKED, no production acceptance.
+
+
+- 2026-10-12 /135 /LOY-330: source43b54d2; actualPGrevocation-before-sendRED1→36focusedPASS, installedChrome375/1280:2PASS, full184files1706PASS0FAIL1existingoptionalMailpitSKIP238.14s, build/type/lint/read-onlyreviewPASS. WrongNODE_ENVbillingfailures matchedunchangedbase; correcttestmode10basePASS/full1706PASS. No actualproviders/hardware/productionacceptance. [Evidence](2026-10-12-push-recipient-authorization-135.md).

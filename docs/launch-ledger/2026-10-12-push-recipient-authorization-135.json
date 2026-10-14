@@ -1,0 +1,48 @@
+{
+  "assignment": "LOY-ENG-20261012-135",
+  "issue": "LOY-330",
+  "parent": "LOY-85",
+  "base": "338230bca3eeb06f49e8dea8e54379b99997b03f",
+  "newProposedApplication": "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9",
+  "frozenApplicationPin": "519e1569195c20a01c8b55c3877dfc0ab0ca3463",
+  "status": [
+    "IMPLEMENTED",
+    "TESTED",
+    "INDEPENDENT_TECHNICAL_REVIEW"
+  ],
+  "red": "ActualPG supportedstaffrevocation commits afterrecipientselection andbeforetransport; oldsourcesends1fakepush",
+  "focused": {
+    "files": 4,
+    "pass": 36,
+    "fail": 0,
+    "seconds": 7.69
+  },
+  "browser": {
+    "widths": [
+      375,
+      1280
+    ],
+    "pass": 2,
+    "fail": 0,
+    "seconds": 6.1,
+    "transport": "fakeonly"
+  },
+  "full": {
+    "files": 184,
+    "pass": 1706,
+    "fail": 0,
+    "existingMailpitSkip": 1,
+    "seconds": 238.14
+  },
+  "buildTypecheckLint": "PASS",
+  "review": "Existing independent readonlyreviewer: no materialfindings insource/test and narrowbrowserextension; no services/sensitiveaccess",
+  "failures": [
+    "Expandedtest SQL quotingerror corrected without weakening RED/assertions",
+    "Initialglobal7billingfail1699PASS withNODE_ENVdevelopment; same7fail on unchangedbase; requiredNODE_ENVtest base10PASS then full1706PASS",
+    "Browserprecreation quotedpsqlprobe failed; createdb succeeded andwouldrefuseanyexistingtarget, no DBoverwritten"
+  ],
+  "cleanup": "Ownedbrowserappsession stopped; only newlooplocal_browser_push_135 database removed after0activeconnections; nativecluster/Docker/otherDB/worktrees preserved",
+  "boundary": "Suppressesrevocation/expiry committedbeforefinalauthorizationread; no promise ofcancelling providerI/Oalreadyinflight or revocationafterread",
+  "authorization": "Founder unattended localengineering and completed134review/135contract; no production or actualprovider/hardware action",
+  "accounting": "OriginalGoal preserved; input/cachedsubset/output andsincepreviousread unmeasured; fresh completion snapshot native receipt"
+}
