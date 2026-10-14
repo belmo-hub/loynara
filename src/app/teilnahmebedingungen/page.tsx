@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { AuthShell } from "@/components/ui/auth-shell";
+import styles from "@/components/ui/legal-text.module.css";
 
 export default function TeilnahmebedingungenPage() {
-  return <main className="legal-page">
-    <Link href="/">← Loynara</Link>
+  return <AuthShell width="reading" brandHref="/">
+    <article className={styles.legal}>
     <h1>Teilnahmebedingungen</h1>
     <p>Stand: 13. Oktober 2026. Diese Bedingungen gelten für die digitale Kundenkarte, die du bei einem Geschäft über Loynara anlegst.</p>
     <h2>Wer bietet das Programm an?</h2>
@@ -16,5 +18,6 @@ export default function TeilnahmebedingungenPage() {
     <p>Wenn das Geschäft Empfehlungen anbietet, kannst du deinen persönlichen Link teilen. Ein Bonus wird erst gebucht, wenn das Team den ersten Besuch der geworbenen Person bestätigt hat, und nur einmal. Auffällige Fälle, etwa dieselbe verifizierte E-Mail-Adresse, werden zur Prüfung zurückgestellt. Ändert das Geschäft seine Regeln, bleibt für eine Empfehlung die Regel gültig, die bei der Anmeldung der geworbenen Person galt.</p>
     <h2>Karte verloren, exportieren und schließen</h2>
     <p>Wenn du den Link verlierst, kann das Geschäft deine Karte neu ausstellen. Der alte Link und der alte QR-Code funktionieren danach nicht mehr. Du kannst deine Kartendaten exportieren und die Karte jederzeit selbst schließen. Näheres steht in den <Link href="/datenschutz">Datenschutzhinweisen</Link>.</p>
-  </main>;
+    </article>
+  </AuthShell>;
 }

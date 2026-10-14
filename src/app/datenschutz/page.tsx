@@ -1,8 +1,9 @@
-import Link from "next/link";
+import { AuthShell } from "@/components/ui/auth-shell";
+import styles from "@/components/ui/legal-text.module.css";
 
 export default function DatenschutzPage() {
-  return <main className="legal-page">
-    <Link href="/">← Loynara</Link>
+  return <AuthShell width="reading" brandHref="/">
+    <article className={styles.legal}>
     <h1>Datenschutzhinweise</h1>
     <p>Stand: 13. Oktober 2026. Diese Hinweise gelten für deine digitale Kundenkarte, die du über einen QR-Code oder ein NFC-Schild eines Geschäfts anlegst.</p>
     <h2>Wer ist verantwortlich?</h2>
@@ -27,5 +28,6 @@ export default function DatenschutzPage() {
     <p>Der private Kartenlink muss selbst sicher gespeichert werden. Ist er verloren, stellt dir das Geschäft die Karte neu aus: gleicher Stand, gleicher Verlauf. Der alte Link und der alte QR-Code funktionieren danach nicht mehr. Auf deiner Karte kannst du deine Daten exportieren und die Karte selbst schließen. Beim Schließen werden Link und QR-Code ungültig, hinterlegte Kontakt- und Wiederherstellungsdaten werden entfernt. Buchungen, Einlösungen und der Verlauf deiner Einwilligungen bleiben unter einer pseudonymen Karten-ID erhalten, damit Buchungen nachvollziehbar bleiben und Einwilligungen nachgewiesen werden können. Sie werden nicht für andere Zwecke genutzt. Eine feste Löschfrist dafür ist noch nicht festgelegt.</p>
     <h2>Deine Rechte</h2>
     <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit, das Recht auf Widerspruch gegen Verarbeitungen aufgrund berechtigter Interessen sowie das Recht, erteilte Einwilligungen zu widerrufen. Wende dich dafür an das Geschäft oder an support@getloynara.com. Du kannst dich außerdem bei einer Datenschutzaufsichtsbehörde beschweren. Für Loynara ist der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Wilhelmstraße 7, 65185 Wiesbaden, zuständig.</p>
-  </main>;
+    </article>
+  </AuthShell>;
 }
