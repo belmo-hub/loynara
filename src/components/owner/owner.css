@@ -153,7 +153,7 @@
 .ow-btn--ghost { background: transparent; color: var(--ow-ink-2); }
 .ow-btn--ghost:hover:not(:disabled) { background: var(--ow-surface-2); }
 .ow-btn--danger { background: var(--ow-danger-bg); color: var(--ow-danger-ink); border-color: var(--ow-danger-line); }
-.ow-btn--sm { min-height: 44px; padding: 0 var(--ow-s3); font-size: 14px; border-radius: var(--ow-r1); }
+.ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--ow-s3); font-size: 14px; border-radius: var(--ow-r1); }
 .ow-link { color: var(--ow-accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--ow-surface-2); color: var(--ow-ink-2); }
 .ow-chip--ok { background: var(--ow-ok-bg); color: var(--ow-ok-ink); }
@@ -192,7 +192,7 @@
 .ow-radio-card:has(input:focus-visible) { box-shadow: var(--ow-focus); }
 .ow-radio-card input { margin-top: 3px; accent-color: var(--ow-accent); width: 18px; height: 18px; flex: none; }
 .ow-radio-card strong { display: block; }
-.ow-radio-card span { color: var(--ow-muted); font-size: 13.5px; }
+.ow-radio-card span { color: var(--ow-muted); font-size: 14px; }
 
 /* Metrics */
 .ow-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ow-s4); }
@@ -268,7 +268,7 @@
 .ow-cardprev-mark { width: 30px; height: 30px; }
 .ow-cardprev-biz { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ow-cardprev-biz strong { font-size: 24px; line-height: 1.1; letter-spacing: -.03em; overflow-wrap: anywhere; }
-.ow-cardprev-biz span { font-size: 13px; opacity: .9; overflow-wrap: anywhere; }
+.ow-cardprev-biz span { font-size: 14px; opacity: .9; overflow-wrap: anywhere; }
 .ow-cardprev-bottom { font-size: 10.5px; letter-spacing: .14em; font-weight: 700; opacity: .85; }
 .ow-cardprev-balance { background: var(--ow-surface); border: 1px solid var(--ow-line); border-radius: var(--ow-r2); padding: var(--ow-s4); display: flex; flex-direction: column; gap: var(--ow-s2); }
 .ow-cardprev-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--ow-muted); }
@@ -352,7 +352,7 @@
 .ow-stepper li { display: inline-flex; align-items: center; gap: var(--ow-s2); min-height: 36px; padding: 0 var(--ow-s3) 0 6px; border-radius: 999px; border: 1px solid var(--ow-line); background: var(--ow-surface); font-weight: 600; font-size: 14px; color: var(--ow-muted); }
 .ow-stepper li[aria-current="step"] { color: var(--ow-ink); border-color: var(--ow-accent); background: var(--ow-accent-soft); }
 .ow-stepper li[data-done="true"] { color: var(--ow-ink-2); }
-.ow-stepper-n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ow-surface-2); font-size: 12px; font-weight: 700; }
+.ow-stepper-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--ow-surface-2); font-size: 14px; font-weight: 700; }
 .ow-stepper li[aria-current="step"] .ow-stepper-n, .ow-stepper li[data-done="true"] .ow-stepper-n { background: var(--ow-accent); color: var(--ow-accent-ink); }
 .owner-app h1[tabindex="-1"]:focus, .owner-app main[tabindex="-1"]:focus { outline: none; box-shadow: none; }
 .ow-bare .ow-topbar { padding-inline: var(--ow-s5); }

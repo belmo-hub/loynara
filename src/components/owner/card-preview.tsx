@@ -31,7 +31,7 @@ export function BrowserCardPreview({ businessName, locationName, brandColor, pro
         <div className="ow-cardprev-line"><span>Dein Kontostand</span><strong className="ow-num">{balance} <em>{unit}</em></strong></div>
         <div className="ow-cardprev-reward"><strong>{rewardTitle || "Deine Prämie"}</strong><span className="ow-num">{shown} / {cost} {unit}</span></div>
         <div className="ow-cardprev-track" role="progressbar" aria-label={`Fortschritt zu ${rewardTitle}`} aria-valuenow={shown} aria-valuemin={0} aria-valuemax={cost}><span style={{ width: `${Math.round((shown / cost) * 100)}%`, backgroundColor: brandColor }} /></div>
-        <p className="ow-muted" style={{ fontSize: 13 }}>{remaining === 0 ? "Prämie verfügbar. An der Kasse einlösen." : `Noch ${remaining} ${unit} bis zur Prämie.`}</p>
+        <p className="ow-muted" style={{ fontSize: 14 }}>{remaining === 0 ? "Prämie verfügbar. An der Kasse einlösen." : `Noch ${remaining} ${unit} bis zur Prämie.`}</p>
       </div>
     </div>
   );
