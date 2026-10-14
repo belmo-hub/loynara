@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BrandMark } from "@/components/loyalty-ui";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 import { useOwner } from "./owner-context";
@@ -20,6 +20,9 @@ function GuardedLink({ href, children, ...rest }: { href: string; children: Reac
   }}>{children}</Link>;
 }
 export { GuardedLink };
+
+/** One word per area for the phone bottom bar. */
+const TAB_LABELS: Record<string, string> = { program: "Programm" };
 
 export function OwnerShell({ children }: { children: ReactNode }) {
   const owner = useOwner();
@@ -60,6 +63,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const group = activeGroup(pathname, role, hidden);
   const subItems = group ? visibleItems(group, role, hidden) : [];
   const many = owner.locations.length > 1;
+  const openCashier = (event: React.MouseEvent) => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => router.push("/cashier")); } };
 
   return (
     <div className="ow-shell">
@@ -73,7 +77,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="ow-side-foot">
-          <Link href="/cashier" className="ow-utility" onClick={event => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => router.push("/cashier")); } }}><OwnerIcon name="till" size={18} />Kasse öffnen</Link>
+          <Link href="/cashier" className="ow-utility" onClick={openCashier}><OwnerIcon name="till" size={18} />Kasse öffnen</Link>
           {me && <p className="ow-who">{me.businessName}<br />{me.role === "owner" ? "Inhaber:in" : "Manager:in"}</p>}
           <LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} />
         </div>
@@ -81,8 +85,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
       {open && <div className="ow-scrim" onClick={() => { restoreMenuFocus.current = true; setOpen(false); }} aria-hidden="true" />}
       <div className="ow-main" {...(open ? { inert: true } : {})}>
         <div className="ow-topbar">
-          <button ref={menuButton} type="button" className="ow-icon-btn" aria-label="Navigation öffnen" aria-expanded={open} onClick={() => setOpen(true)}><OwnerIcon name="menu" /></button>
+          <GuardedLink href="/merchant" className="ow-topbar-brand" aria-label="Loynara – Übersicht"><BrandMark word={false} /></GuardedLink>
           <div className="ow-topbar-loc">{me ? <><strong>{me.locationName}</strong><span>{many ? "Aktiver Standort" : me.businessName}</span></> : <Skeleton height={14} width={140} />}</div>
+          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={18} />Kasse</Link>
         </div>
         {subItems.length > 1 && (
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>
@@ -99,6 +104,13 @@ export function OwnerShell({ children }: { children: ReactNode }) {
             ? <div className="ow-page" aria-label="Standort wird gewechselt"><Skeleton height={32} width={240} /><Skeleton height={120} /><Skeleton height={220} /></div>
             : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{children}</div>}
         </main>
+        {/* Phones and tablets: the first areas in thumb reach; "Mehr" opens the full navigation panel. */}
+        <nav className="ow-tabs" aria-label="Bereiche">
+          {visibleGroups(role, hidden).slice(0, 4).map(item => (
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{TAB_LABELS[item.id] ?? groupLabel(item, hidden)}</GuardedLink>
+          ))}
+          <button ref={menuButton} type="button" className="ow-tab" aria-label="Mehr: Navigation öffnen" aria-expanded={open} onClick={() => setOpen(true)}><OwnerIcon name="menu" />Mehr</button>
+        </nav>
       </div>
     </div>
   );
