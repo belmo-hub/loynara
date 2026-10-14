@@ -155,6 +155,7 @@
 .ow-btn--danger { background: var(--ow-danger-bg); color: var(--ow-danger-ink); border-color: var(--ow-danger-line); }
 .ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--ow-s3); font-size: 14px; border-radius: var(--ow-r1); }
 .ow-link { color: var(--ow-accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-link--block { display: inline-flex; align-items: center; min-height: 44px; }
 .ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--ow-surface-2); color: var(--ow-ink-2); }
 .ow-chip--ok { background: var(--ow-ok-bg); color: var(--ow-ok-ink); }
 .ow-chip--warn { background: var(--ow-warn-bg); color: var(--ow-warn-ink); }
@@ -366,7 +367,7 @@
 .ow-member[aria-current="true"] { border-color: var(--ow-accent); background: var(--ow-accent-soft); }
 .ow-member-id, .ow-member-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ow-member-stat { text-align: right; flex: none; }
-.ow-member small { color: var(--ow-muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.ow-member small { color: var(--ow-muted); font-size: 14px; overflow-wrap: anywhere; }
 .ow-member-id strong { white-space: nowrap; overflow-wrap: anywhere; }
 .ow-cust-back { display: none; align-self: flex-start; margin-bottom: var(--ow-s2); }
 .ow-cust-detail { position: sticky; top: 72px; }
@@ -415,8 +416,8 @@
 
 /* Trend bars */
 .ow-trend { display: flex; flex-direction: column; gap: var(--ow-s3); }
-.ow-trend-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr); gap: var(--ow-s4); align-items: center; font-size: 13.5px; }
-.ow-trend-row small { color: var(--ow-muted); }
+.ow-trend-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr); gap: var(--ow-s4); align-items: center; font-size: 14px; }
+.ow-trend-row small { color: var(--ow-muted); font-size: 14px; }
 .ow-bar { height: 8px; border-radius: 99px; background: var(--ow-surface-2); overflow: hidden; margin-bottom: 2px; }
 .ow-bar span { display: block; height: 100%; background: var(--ow-accent); border-radius: 99px; transition: width var(--ow-preview) var(--ow-ease); }
 .ow-bar--alt span { background: var(--ow-spark); }
@@ -438,7 +439,7 @@
 .ow-swatches + .ow-colorrow { margin-top: var(--ow-s2); }
 @media (max-width: 560px) { .ow-step .ow-btn--ghost { padding-inline: 0; justify-self: start; } }
 .ow-feed-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
-.ow-feed-reason { display: block; margin-top: 2px; color: var(--ow-muted); font-size: 12px; }
+.ow-feed-reason { display: block; margin-top: 2px; color: var(--ow-muted); font-size: 14px; }
 .ow-readiness-group + .ow-readiness-group { margin-top: var(--ow-s4); }
 .ow-readiness-group h3 { font-size: 15px; margin: 0; }
 .ow-step-mark--external { border-style: dashed; font-style: italic; font-family: Georgia, serif; }
