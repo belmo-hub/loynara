@@ -5,13 +5,14 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repo = path.resolve(__dirname, "..");
-const release = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
+const release = "a436b77dff8b46628d0694f277e5d8474ce802fc";
+const failedBuildCandidate = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
 const supersededOnboardingRelease = "153928b10db55cbd0b40351116ee54515a6b107c";
 const previousRelease = "ee4af7b79e9e4a667d383b0b9f815f31daa53956";
 const current = "792e218a17287009067ce0993c33eda3bfc3f4b7";
 const previousPinnedRelease = "519e1569195c20a01c8b55c3877dfc0ab0ca3463";
 const utilitySource = "90ad26a0f3553c89f17ce5d07e8246591240b852";
-const utilityDeployments: Record<string, string> = { backup: "dac712d4-3061-486f-9a0f-9677f87fcfe1", ops: "56bb5199-79e9-4b6b-8005-696c72769937" };
+const utilityDeployments: Record<string, string> = { backup: "be445944-e1e5-4f3b-beb6-5b66cfb4db87", ops: "56bb5199-79e9-4b6b-8005-696c72769937" };
 const ids = {
   web: "5c1303ad-42c2-4094-a996-3ac6140d088d", worker: "3bfad7e8-c638-41bd-8f50-743e68c0633f",
   migrate: "ba6a41c5-b9ee-463a-bc25-f7745c549f59", backup: "78ee0c58-c306-4f3a-95c0-1c94e72e793c",
@@ -26,18 +27,18 @@ function fixture() {
     projectId: "b07a3919-b3fc-4637-8b91-d0b4418d2856", environmentId: "a3ba3a4a-3d4c-4149-91c4-735e8bae3447",
     operator: { id: "OPERATOR-A", reference: "OPERATOR-ATTESTATION-123", observedAt: at(-300_000), validUntil: at(1_800_000) },
     services: Object.entries(ids).map(([role, id]) => ({ role, id, currentGeneration: ["backup", "ops"].includes(role) ? utilitySource : current,
-      plannedGeneration: ["web", "worker", "migrate", "ops"].includes(role) ? release : ["backup", "ops"].includes(role) ? utilitySource : current,
+      plannedGeneration: ["web", "worker", "migrate", "ops", "backup"].includes(role) ? release : ["backup", "ops"].includes(role) ? utilitySource : current,
       repository: ["postgres", "cloudflared"].includes(role) ? "platform-image" : "belmo-hub/loynara",
       branch: ["web", "worker", "migrate"].includes(role) ? "railway-rc" : null,
       cronSchedule: role === "backup" ? "0 3 * * *" : role === "ops" ? "*/5 * * * *" : null,
       ...(["backup", "ops"].includes(role) ? { deploymentProvenance: { reference: "SYNTHETIC-DEPLOYMENT-RECEIPT-" + role, deploymentId: utilityDeployments[role], commitSha: utilitySource, branch: "railway-rc", independentlyVerified: true } } : {}),
       dockerfile: ["postgres", "cloudflared"].includes(role) ? null : role === "backup" ? "/Dockerfile.backup" : "/Dockerfile",
-      startCommand: ({ web: null, worker: "npm run worker", migrate: "npm run production:migrate", backup: null, ops: "npm run production:ops-check", postgres: null, cloudflared: null } as Record<string, string | null>)[role],
+      startCommand: ({ web: null, worker: "npm run worker", migrate: "npm run production:migrate", backup: null, ops: "npm run production:ops-check", postgres: null, cloudflared: "cloudflared tunnel --no-autoupdate --loglevel warn --metrics 127.0.0.1:20241 run" } as Record<string, string | null>)[role],
       preDeployCommand: null,
     })),
     configuration: { reference: "CONFIG-123", stagedChanges: false, safeFlagsConfirmed: true, flags: {
-      web: { APPLE_WALLET_ENABLED: false, GOOGLE_WALLET_ENABLED: false, PASSFAST_ENABLED: false, EXTERNAL_EMAIL_ENABLED: false, PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: false, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: false, LIVE_BILLING_ENABLED: false, WALLET_PRODUCTION_APPROVED: false, PUBLIC_REGISTRATION_ENABLED: false },
-      worker: { APPLE_WALLET_ENABLED: false, GOOGLE_WALLET_ENABLED: false, PASSFAST_ENABLED: false, EXTERNAL_EMAIL_ENABLED: false, PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: false, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: false, LIVE_BILLING_ENABLED: false, WALLET_PRODUCTION_APPROVED: false, PUBLIC_REGISTRATION_ENABLED: false },
+      web: { NFC_ENABLED: false, APPLE_WALLET_ENABLED: false, GOOGLE_WALLET_ENABLED: false, PASSFAST_ENABLED: false, EXTERNAL_EMAIL_ENABLED: false, PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: false, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: false, LIVE_BILLING_ENABLED: false, WALLET_PRODUCTION_APPROVED: false, PUBLIC_REGISTRATION_ENABLED: false },
+      worker: { NFC_ENABLED: false, APPLE_WALLET_ENABLED: false, GOOGLE_WALLET_ENABLED: false, PASSFAST_ENABLED: false, EXTERNAL_EMAIL_ENABLED: false, PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: false, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: false, LIVE_BILLING_ENABLED: false, WALLET_PRODUCTION_APPROVED: false, PUBLIC_REGISTRATION_ENABLED: false },
     } },
     writers: { complete: true, reference: "WRITERS-123", sources: ["web-http", "web-immediate-nfc", "worker-outbox", "worker-housekeeping", "migration-schema"], unaccounted: [] as string[] },
     exactCommit: { confirmed: true, reference: "EXACT-SHA-123", branchUnchanged: true },
@@ -54,8 +55,13 @@ function fixture() {
     operationsUpgrade: { serviceId: ids.ops, sourceSha: release,
       configuration: { reference: "SYNTHETIC-OPS-CONFIG", accepted: true }, runtime: { reference: "SYNTHETIC-OPS-RUNTIME", accepted: true },
       monitor: { reference: "SYNTHETIC-OPS-MONITOR", accepted: true }, exactCommit: { reference: "SYNTHETIC-OPS-EXACT-COMMIT", accepted: true },
-      deploymentAuthorization: "SYNTHETIC-FOUNDER-OPS-DEPLOYMENT" },
-    authorizations: { backupRestore: "FOUNDER-BACKUP-RESTORE-123", deployment: "FOUNDER-DEPLOYMENT-123", releaseSha: release },
+      deploymentAuthorization: "FOUNDER-DEPLOYMENT-123" },
+    backupUpgrade: { serviceId: ids.backup, sourceSha: release,
+      configuration: { reference: "SYNTHETIC-BACKUP-CONFIG", accepted: true }, runtime: { reference: "SYNTHETIC-BACKUP-RUNTIME", accepted: true },
+      monitor: { reference: "SYNTHETIC-BACKUP-MONITOR", accepted: true }, exactCommit: { reference: "SYNTHETIC-BACKUP-EXACT-COMMIT", accepted: true },
+      deploymentAuthorization: "FOUNDER-DEPLOYMENT-123" },
+    founderRestoreAcceptance: { reference: "FOUNDER-RESTORE-ACCEPTANCE-123", founderId: "WITNESS-B", at: at(-30_000), objectSha256: "a".repeat(64), releaseSha: release },
+    authorizations: { scope: { backupRestore: true, cutover: true, utilityUpgrades: true, exactShaOnly: true }, backupRestore: "FOUNDER-BACKUP-RESTORE-123", deployment: "FOUNDER-DEPLOYMENT-123", releaseSha: release },
     currentJournal: { reference: "JOURNAL-123", rows: [["7274fc079d768a164d604dfe6fd4b0dee984b4901e8453aab35728990aa4418b",1790341790664],["1fa5daad714bf2251b8d25303f8aabc57f6a582f32ebe54c984204f44ea1570f",1790342756050],["b5c06f3836ebac94a19a01aff5ec2012480e8713f1e3bbd753baef4b23d4d957",1790342925349],["905c850059f6b951202af1746366244ac0512bb133d8343caff5f4771f73b5e9",1790343596440],["e6763bae245ddeba53620c6d01da0fcbaf899b9f3db3cb297e754a1d0761e5bc",1790345071657],["4cc008b7009677b83f1c8382d1b82e0d87f8b113941fda9e0d1541c483086b1a",1790345900549],["55ebba4eb685be271b35c0e1f24f96a0884886a9cc90aa3487a05d03e65d9e04",1790347449816],["e035e41c01021f2d26a828be3c3b5a893b182dfa0842a0f926cce36fa444cdfd",1790363870739],["20f0dce395bcb6dc19ef66b7009e679051c6cc17eb787589d17f960965c1fd9b",1790365412649],["0ee1bcce7b97bbd1d1d39cb50d0e250899d650d94100c56172b757e65f4487da",1790366483044],["4e7f1f0fe5be753665aac9033b7840fb37b104a8c3097e7be5cc032d1fec390f",1790367246298],["71c290984548b3da95fd8047dd2f942d01b6d9823f680af814a9924700d73084",1790368587151],["75f4e2ba01ab3a9b5c5ec26e7fdc143077bf0102cd5b76b028358a2c140e3140",1790373099963],["fff65e5c30f92fe82e4faaabf7079f7e38f2f97e30a4fe7caeaf0e602d21e3f6",1790374827104],["c8b7d0f723f2cd65db882f9cc9c0e798b255708ffea94431527a455145fc7ed5",1790477381106],["da4f40b74b3e63ae8a5c8eeb6093b7b3ce1aefb7db6140b87d4a64454d24b0be",1790477578300],["62c59eea31a550a4e53cb443a04846b9ffe85d4fb546ad6955e3dce6de208090",1790545967721],["19a8a0624a32bf269606e977234072ab31f6e9f2b727c0b79917a28d3bb59ff9",1790546708472],["abd0e28e8b223a5273ef884033ec99a16124876009b61bb5c1ebdd716884c7c8",1790956320487],["f7d1d53946c9cf309896b6368d5241c97974ce009c7e8471358515e3ff496c69",1791127119079],["943a8fe9066159fd75840cfb073e7b41be91da0e6646ce33c6dd9ab5508debbf",1791296519073]] },
   };
 }
@@ -98,14 +104,122 @@ describe("offline release preflight through the existing migration CLI", () => {
     ]);
     expect(r.output.writerInventory.map((v: { id: string }) => v.id)).toContain("web-immediate-nfc");
   });
-  it("validates complete synthetic declarations for the newly reviewed staff-revocation release", () => {
-    const e = fixture(), selected = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
-    e.releaseSha = selected; e.authorizations.releaseSha = selected; e.operationsUpgrade.sourceSha = selected;
-    for (const service of e.services) if (["web", "worker", "migrate", "ops"].includes(service.role)) service.plannedGeneration = selected;
+  it("validates complete synthetic declarations for the pinned clean-build release", () => {
+    const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0); expect(r.output.executionEnabled).toBe(false);
+  });
+  it("refuses to plan a deployment of the release-tooling commit instead of the pinned application release", () => {
+    const head = spawnSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+    const ancestor = spawnSync("git", ["-C", repo, "merge-base", "--is-ancestor", release, "HEAD"]).status;
+    expect(ancestor, "the pinned application release must be an ancestor of the tooling checkout").toBe(0);
+    if (head === release) return;
+    const e = fixture(); e.releaseSha = head; e.authorizations.releaseSha = head; e.operationsUpgrade.sourceSha = head;
+    for (const service of e.services) if (["web", "worker", "migrate", "ops"].includes(service.role)) service.plannedGeneration = head;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED"); expect(r.output.releaseSha).toBe(release);
+  });
+  it("rejects declarations that still target the candidate whose clean Docker build failed", () => {
+    const e = fixture(); e.releaseSha = failedBuildCandidate; e.authorizations.releaseSha = failedBuildCandidate; e.operationsUpgrade.sourceSha = failedBuildCandidate;
+    for (const service of e.services) if (["web", "worker", "migrate", "ops"].includes(service.role)) service.plannedGeneration = failedBuildCandidate;
+    const r = run(e); expect(r.exit).toBe(2); expect(r.output.status).toBe("BLOCKED"); expect(r.output.executionEnabled).toBe(false); expect(r.output.releaseSha).toBe(release);
+  });
+  it("accepts one scoped founder cutover receipt while requiring a distinct restore acceptance", () => {
+    const e = fixture(); e.authorizations.backupRestore = e.authorizations.deployment;
     const r = run(e); expect(r.exit, JSON.stringify(r.output)).toBe(0); expect(r.output.executionEnabled).toBe(false);
   });
-  it("pins the newly reviewed staff-revocation application rather than the previous candidate", () => {
-    expect(run().output.releaseSha).toBe("43b54d2edbf5059d662ffa4aeb50ae6cced72ee9");
+  it.each(["missing", "wrong object", "early", "future", "wrong founder", "wrong release", "reused receipt", "missing scope"])("blocks single-approval cutover with %s restore acceptance or scope", mode => {
+    const e = fixture(); e.authorizations.backupRestore = e.authorizations.deployment;
+    if (mode === "missing") delete (e as Record<string, unknown>).founderRestoreAcceptance;
+    if (mode === "wrong object") e.founderRestoreAcceptance.objectSha256 = "b".repeat(64);
+    if (mode === "early") e.founderRestoreAcceptance.at = e.backup.capturedAt;
+    if (mode === "future") e.founderRestoreAcceptance.at = new Date(Date.now() + 60_000).toISOString();
+    if (mode === "wrong founder") e.founderRestoreAcceptance.founderId = e.operator.id;
+    if (mode === "wrong release") e.founderRestoreAcceptance.releaseSha = current;
+    if (mode === "reused receipt") e.founderRestoreAcceptance.reference = e.authorizations.deployment;
+    if (mode === "missing scope") delete (e.authorizations as Record<string, unknown>).scope;
+    expect(run(e).output.status).toBe("BLOCKED");
+  });
+  it.each(["valid", "wrong baseline", "wrong source", "wrong deployment", "wrong object", "not restored", "early", "future"])("checks %s post-snapshot backup deployment transition", mode => {
+    const e = fixture(); const deploymentId = "00000000-0000-4000-8000-000000000123";
+    e.services.find(s => s.role === "backup")!.deploymentProvenance!.deploymentId = deploymentId;
+    const transition = { reference: "SYNTHETIC-SNAPSHOT-TRANSITION", baselineDeploymentId: utilityDeployments.backup,
+      deploymentId, sourceSha: utilitySource, objectSha256: e.backup.sha256,
+      at: e.restore.at, configurationRestored: true };
+    if (mode === "wrong baseline") transition.baselineDeploymentId = utilityDeployments.ops;
+    if (mode === "wrong source") transition.sourceSha = release;
+    if (mode === "wrong deployment") transition.deploymentId = utilityDeployments.backup;
+    if (mode === "wrong object") transition.objectSha256 = "b".repeat(64);
+    if (mode === "not restored") transition.configurationRestored = false;
+    if (mode === "early") transition.at = e.drain.at;
+    if (mode === "future") transition.at = new Date(Date.now()+60_000).toISOString();
+    const r = run({ ...e, backupSnapshotTransition: transition });
+    expect(r.exit, JSON.stringify(r.output)).toBe(mode === "valid" ? 0 : 2);
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- synthetic fault injection intentionally deletes and changes nested receipt types
+  function disposableFixture(): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mutable synthetic malformed-evidence fixture
+    const e: Record<string, any> = fixture();
+    delete e.backup; delete e.restore; delete e.founderRestoreAcceptance; delete e.backupUpgrade;
+    delete e.authorizations.backupRestore; e.authorizations.scope.backupRestore = false;
+    e.services.find((s: { role: string }) => s.role === "backup").plannedGeneration = utilitySource;
+    e.currentPhysicalSchema = { reference: "SYNTHETIC-SOURCE-SCHEMA", criticalTablesPresent: true, tenantConstraintsAccepted: true, appendOnlyTriggerAccepted: true, structuresThrough0020Accepted: true };
+    e.backupPreservation = { reference: "SYNTHETIC-BACKUP-COMPATIBILITY", compatible: true, sourceSha: utilitySource, configurationUnchanged: true };
+    e.disposableDataException = { reference: "SYNTHETIC-FOUNDER-WAIVER", founderId: "FOUNDER-A", releaseSha: release,
+      acceptedAt: e.operator.observedAt, scope: "customer-memberships-and-loyalty-transactions", databaseResetAuthorized: false,
+      otherDataAssessment: { reference: "SYNTHETIC-NONDISPOSABLE-DATA-ASSESSMENT", observedAt: e.drain.at, noIrreplaceableDataAtRisk: true, sourceGeneration: current },
+      existingEncryptedBackup: { reference: "SYNTHETIC-EXISTING-BACKUP", objectId: "loynara/2026/10/11/20261011T030225Z-19970f3c172a.dump.age", retained: true } };
+    return e;
+  }
+  it("accepts a release-specific disposable-data exception without fabricated fresh backup evidence", () => {
+    const r = run(disposableFixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
+    expect(r.output.recoveryCheckpoint).toBe("WAIVED_FOR_THIS_RELEASE_NOT_PERFORMED");
+    expect(r.output.orderedOperations).not.toContain("fresh-encrypted-backup");
+    expect(r.output.orderedOperations).not.toContain("deploy-pinned-backup");
+    expect(r.output.executionEnabled).toBe(false);
+  });
+  it.each(["wrong release", "unknown other data", "future decision", "stale assessment", "before drain", "missing schema", "missing backup compatibility", "missing retained backup", "reset authorized", "invented backup", "unknown writer", "inflight", "wrong migration", "wrong web source", "provider on", "missing deployment authority"])("blocks disposable-data exception with %s", mode => {
+    const e = disposableFixture();
+    if (mode === "wrong release") e.disposableDataException.releaseSha = current;
+    if (mode === "unknown other data") e.disposableDataException.otherDataAssessment.noIrreplaceableDataAtRisk = false;
+    if (mode === "future decision") e.disposableDataException.acceptedAt = new Date(Date.now()+60_000).toISOString();
+    if (mode === "before drain") e.disposableDataException.otherDataAssessment.observedAt = e.operator.observedAt;
+    if (mode === "stale assessment") e.disposableDataException.otherDataAssessment.observedAt = new Date(Date.now()-7_200_000).toISOString();
+    if (mode === "missing schema") delete e.currentPhysicalSchema;
+    if (mode === "missing backup compatibility") delete e.backupPreservation;
+    if (mode === "missing retained backup") delete e.disposableDataException.existingEncryptedBackup;
+    if (mode === "reset authorized") e.disposableDataException.databaseResetAuthorized = true;
+    if (mode === "invented backup") e.backup = fixture().backup;
+    if (mode === "unknown writer") e.writers.unaccounted.push("UNKNOWN-WRITER");
+    if (mode === "inflight") e.drain.inFlight = 1;
+    if (mode === "wrong migration") e.currentJournal.rows[0][0] = "b".repeat(64);
+    if (mode === "wrong web source") e.services.find((s: { role: string }) => s.role === "web").plannedGeneration = current;
+    if (mode === "provider on") e.configuration.flags.worker.EXTERNAL_EMAIL_ENABLED = true;
+    if (mode === "missing deployment authority") delete e.authorizations.deployment;
+    expect(run(e).output.status).toBe("BLOCKED");
+  });
+  it.each(["valid", "wrong authority", "new preservation data", "pre-drain assessment", "unverified restore", "reset", "wrong object"])("checks %s existing recovery under authorized change-loss risk", mode => {
+    const e = disposableFixture(); delete e.disposableDataException;
+    e.acceptedExistingRecovery = { reference: "SYNTHETIC-EXISTING-RECOVERY", founderAuthorization: e.authorizations.deployment,
+      releaseSha: release, changesSinceUsableBackupLossAccepted: true, databaseResetAuthorized: false,
+      objectId: "loynara/2026/10/11/20261011T030225Z-19970f3c172a.dump.age",
+      objectSha256: "2907f22ed330d59be55a13a4615f56b2e1dd1d1093ce97b355cffeb91dd58b0a", retained: true,
+      authenticatedDecryptionVerified: true, isolatedEmptyPostgres18RestoreVerified: true, canonicalJournalVerified: true,
+      physicalSchemaVerified: true, businessInvariantsVerified: true, technicalReview: "SYNTHETIC-READ-ONLY-TECHNICAL-REVIEW",
+      previousRestoreEvidence: "SYNTHETIC-OCT11-RECOVERY", preservationAssessment: { reference: "SYNTHETIC-POST-DRAIN-PRESERVATION",
+        observedAt: e.drain.at, allRequiredRecordsCovered: true, latestPreservedRecordChange: "2026-10-09T12:20:06Z" } };
+    if (mode === "wrong authority") e.acceptedExistingRecovery.founderAuthorization = "UNRELATED-DECISION";
+    if (mode === "new preservation data") e.acceptedExistingRecovery.preservationAssessment.latestPreservedRecordChange = "2026-10-14T01:00:00Z";
+    if (mode === "pre-drain assessment") e.acceptedExistingRecovery.preservationAssessment.observedAt = e.operator.observedAt;
+    if (mode === "unverified restore") e.acceptedExistingRecovery.isolatedEmptyPostgres18RestoreVerified = false;
+    if (mode === "reset") e.acceptedExistingRecovery.databaseResetAuthorized = true;
+    if (mode === "wrong object") e.acceptedExistingRecovery.objectSha256 = "a".repeat(64);
+    const r = run(e); expect(r.exit).toBe(mode === "valid" ? 0 : 2);
+    if (mode === "valid") { expect(r.output.recoveryCheckpoint).toBe("EXISTING_VERIFIED_RECOVERY_WITH_AUTHORIZED_LATER_CHANGE_LOSS"); expect(r.output.executionEnabled).toBe(false); }
+  });
+  it("refuses drift from the verified cloudflared containment command", () => {
+    const e = fixture(); e.services.find(s => s.role === "cloudflared")!.startCommand = null;
+    expect(run(e).output.status).toBe("BLOCKED");
+  });
+  it("pins the clean-build corrected application rather than the failed-build candidate", () => {
+    expect(run().output.releaseSha).toBe(release);
   });
   it("binds the reviewed application snapshot independently of later local tooling commits", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
@@ -183,9 +297,9 @@ describe("offline release preflight through the existing migration CLI", () => {
   });
   it("orders explicit pinned operations deployment and verification before final health and reopening", () => {
     const operations = run().output.orderedOperations as string[];
-    expect(operations).toContain("deploy-pinned-ops-under-separate-authorization");
+    expect(operations).toContain("deploy-pinned-ops-under-scoped-cutover-authorization");
     expect(operations).toContain("verify-ops-source-safe-config-and-acknowledged-heartbeat");
-    expect(operations.indexOf("deploy-pinned-ops-under-separate-authorization")).toBeGreaterThan(operations.indexOf("deploy-identical-pinned-worker"));
+    expect(operations.indexOf("deploy-pinned-ops-under-scoped-cutover-authorization")).toBeGreaterThan(operations.indexOf("deploy-identical-pinned-worker"));
     expect(operations.indexOf("verify-ops-source-safe-config-and-acknowledged-heartbeat")).toBeLessThan(operations.indexOf("verify-no-old-writers-and-health"));
   });
   it("accepts accurate known branchless utility metadata only with exact independently attested deployed provenance", () => {
@@ -194,6 +308,21 @@ describe("offline release preflight through the existing migration CLI", () => {
     expect(e.services.find(v => v.role === "ops")!.branch).toBeNull();
     const r = run(e); expect(r.exit).toBe(0); expect(r.output.status).toBe("PASS"); expect(r.output.executionEnabled).toBe(false);
   });
+  it("refuses a missing backup rollout receipt", () => {
+    const e = fixture(); delete (e as Record<string, unknown>).backupUpgrade;
+    expect(run(e).output.status).toBe("BLOCKED");
+  });
+  it("refuses old backup generation and pre-rerun provenance", () => {
+    const e = fixture(); const b = e.services.find(s => s.role === "backup")!;
+    b.plannedGeneration = utilitySource;
+    expect(run(e).output.status).toBe("BLOCKED");
+    b.plannedGeneration = release; b.deploymentProvenance!.deploymentId = "dac712d4-3061-486f-9a0f-9677f87fcfe1";
+    expect(run(e).output.status).toBe("BLOCKED");
+  });
+  it("refuses backup restore authority reused as deployment authority", () => {
+    const e = fixture(); e.backupUpgrade.deploymentAuthorization = e.authorizations.backupRestore;
+    expect(run(e).output.status).toBe("BLOCKED");
+  });
   it.each(["backup", "ops"])("keeps %s utility provenance and configuration fail-closed", role => {
     const mutations: Array<[string, (service: ReturnType<typeof fixture>["services"][number]) => void]> = [
       ["wrong repository", service => { service.repository = "unreviewed/repository"; }],
@@ -201,7 +330,7 @@ describe("offline release preflight through the existing migration CLI", () => {
       ["missing provenance", service => { delete service.deploymentProvenance; }],
       ["missing generation", service => { delete (service as Record<string, unknown>).currentGeneration; }],
       ["unknown generation", service => { service.currentGeneration = "b".repeat(40); }],
-      ["unreviewed planned generation", service => { service.plannedGeneration = role === "ops" ? utilitySource : release; }],
+      ["unreviewed planned generation", service => { service.plannedGeneration = previousPinnedRelease; }],
       ["unverified provenance", service => { service.deploymentProvenance!.independentlyVerified = false; }],
       ["wrong provenance generation", service => { service.deploymentProvenance!.commitSha = release; }],
       ["wrong deployment identity", service => { service.deploymentProvenance!.deploymentId = "00000000-0000-4000-8000-000000000009"; }],
@@ -230,6 +359,8 @@ describe("offline release preflight through the existing migration CLI", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0);
     expect(r.output.status).toBe("PASS"); expect(r.output.executionEnabled).toBe(false);
     expect(r.output.evidenceBasis).toBe("DECLARED_OPERATOR_EVIDENCE_REQUIRES_AUTHENTICATION");
+    expect(r.output.realCustomerIngressReopenEnabled).toBe(false);
+    expect(r.output.customerCards).toBe("FOUNDER_HOLD_UNTIL_APPROVED_LEGAL_RELEASE_LIVE");
   });
   it("refuses journal-only evidence without source and restored physical schema/history acceptance", () => {
     const e = fixture();
@@ -272,7 +403,7 @@ describe("offline release preflight through the existing migration CLI", () => {
     ["unknown restored tenant isolation", (e: ReturnType<typeof fixture>) => { (e.restore.history as Record<string, unknown>).tenantIsolationAccepted = "UNKNOWN"; }],
     ["unreconciled restored counts", (e: ReturnType<typeof fixture>) => { e.restore.history.countsReconciled = false; }],
     ["restored history from another database", (e: ReturnType<typeof fixture>) => { e.restore.history.sourceDatabase = "OTHER-DB-123"; }],
-    ["same authorization receipt", (e: ReturnType<typeof fixture>) => { e.authorizations.deployment = e.authorizations.backupRestore; }],
+    ["acceptance reused as authorization", (e: ReturnType<typeof fixture>) => { e.founderRestoreAcceptance.reference = e.authorizations.deployment; }],
     ["unknown flags", (e: ReturnType<typeof fixture>) => { e.configuration.safeFlagsConfirmed = false; }],
     ["unverified exact-SHA eligibility", (e: ReturnType<typeof fixture>) => { e.exactCommit.confirmed = false; }],
     ["wrong release approval", (e: ReturnType<typeof fixture>) => { e.authorizations.releaseSha = current; }],

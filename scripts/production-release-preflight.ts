@@ -5,9 +5,10 @@ import path from "node:path";
 import { z } from "zod";
 
 // This is an offline evidence validator. It has no execution or transport adapter.
-// Immutable reviewed application source; later local tooling/ledger commits do not move this pin.
+// Immutable reviewed application source (43b54d2 plus the motion dependency build correction); later release-tooling/ledger commits do not move this pin.
+// 43b54d2edbf5059d662ffa4aeb50ae6cced72ee9 failed its clean Docker build (TS2307, motion) and is not a releasable generation.
 // No CLI or environment override may select a different release generation.
-export const RELEASE_SHA = "43b54d2edbf5059d662ffa4aeb50ae6cced72ee9";
+export const RELEASE_SHA = "a436b77dff8b46628d0694f277e5d8474ce802fc";
 const PROJECT = "b07a3919-b3fc-4637-8b91-d0b4418d2856";
 const ENVIRONMENT = "a3ba3a4a-3d4c-4149-91c4-735e8bae3447";
 const reference = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9./:_-]{2,199}$/).refine(v => !/^(unknown|tbd|pending|placeholder)$/i.test(v));
@@ -15,14 +16,14 @@ const sha = z.string().regex(/^[0-9a-f]{40}$/);
 const digest = z.string().regex(/^[0-9a-f]{64}$/);
 const instant = z.string().datetime({ offset: true });
 const generation = z.union([sha, z.string().regex(/^sha256:[0-9a-f]{64}$/)]);
-const flags = z.object({ APPLE_WALLET_ENABLED: z.literal(false), GOOGLE_WALLET_ENABLED: z.literal(false), PASSFAST_ENABLED: z.literal(false),
+const flags = z.object({ NFC_ENABLED: z.literal(false), APPLE_WALLET_ENABLED: z.literal(false), GOOGLE_WALLET_ENABLED: z.literal(false), PASSFAST_ENABLED: z.literal(false),
   EXTERNAL_EMAIL_ENABLED: z.literal(false), PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: z.literal(false), TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: z.literal(false),
   LIVE_BILLING_ENABLED: z.literal(false), WALLET_PRODUCTION_APPROVED: z.literal(false), PUBLIC_REGISTRATION_ENABLED: z.literal(false) }).strict();
 // Configured branch and deployed build provenance are separate facts. These
 // utility snapshots were independently observed via Railway read-only metadata.
 // They are current-baseline identities, not permission to deploy another source.
 const utilityDeployments = {
-  backup: { deploymentId: "dac712d4-3061-486f-9a0f-9677f87fcfe1", commitSha: "90ad26a0f3553c89f17ce5d07e8246591240b852" },
+  backup: { deploymentId: "be445944-e1e5-4f3b-beb6-5b66cfb4db87", commitSha: "90ad26a0f3553c89f17ce5d07e8246591240b852" },
   ops: { deploymentId: "56bb5199-79e9-4b6b-8005-696c72769937", commitSha: "90ad26a0f3553c89f17ce5d07e8246591240b852" },
 } as const;
 const utilityProvenance = z.object({ reference, deploymentId: z.string().uuid(), commitSha: sha,
@@ -46,11 +47,11 @@ const evidenceSchema = z.object({
   drain: z.object({ accepted: z.literal(true), at: instant, reference, allOldWritersStopped: z.literal(true), inFlight: z.literal(0) }).strict(),
   backup: z.object({ reference, objectId: reference, capturedAt: instant, bytes: z.number().int().positive(), schemaFingerprint: digest, sha256: digest,
     encrypted: z.literal(true), independentlyRetrieved: z.literal(true), headVerified: z.literal(true),
-    sourceDatabase: reference, sourceGeneration: sha, keyCustodian: reference, destination: reference, physicalSchema }).strict(),
+    sourceDatabase: reference, sourceGeneration: sha, keyCustodian: reference, destination: reference, physicalSchema }).strict().optional(),
   restore: z.object({ accepted: z.literal(true), reference, at: instant, objectSha256: digest, target: reference,
     isolated: z.literal(true), initiallyEmpty: z.literal(true), approved: z.literal(true), independentOperator: reference, integrityAccepted: z.literal(true), schemaFingerprint: digest, physicalSchema,
     history: z.object({ reference, sourceDatabase: reference, membershipHistoryAccepted: z.literal(true), ledgerHistoryAccepted: z.literal(true),
-      tenantIsolationAccepted: z.literal(true), countsReconciled: z.literal(true) }).strict() }).strict(),
+      tenantIsolationAccepted: z.literal(true), countsReconciled: z.literal(true) }).strict() }).strict().optional(),
   // A utility rollout is not implied by a web/worker deployment or a missing connected branch.
   // This declaration must be authenticated separately; unknown runtime/configuration stays blocking.
   operationsUpgrade: z.object({ serviceId: z.literal("c3189719-e305-4c4c-b8ca-4d0b0335c25f"), sourceSha: z.literal(RELEASE_SHA),
@@ -59,9 +60,48 @@ const evidenceSchema = z.object({
     monitor: z.object({ reference, accepted: z.literal(true) }).strict(),
     exactCommit: z.object({ reference, accepted: z.literal(true) }).strict(),
     deploymentAuthorization: reference }).strict(),
-  authorizations: z.object({ backupRestore: reference, deployment: reference, releaseSha: z.literal(RELEASE_SHA) }).strict(),
+  backupUpgrade: z.object({ serviceId: z.literal("78ee0c58-c306-4f3a-95c0-1c94e72e793c"), sourceSha: z.literal(RELEASE_SHA),
+    configuration: z.object({ reference, accepted: z.literal(true) }).strict(),
+    runtime: z.object({ reference, accepted: z.literal(true) }).strict(),
+    monitor: z.object({ reference, accepted: z.literal(true) }).strict(),
+    exactCommit: z.object({ reference, accepted: z.literal(true) }).strict(),
+    deploymentAuthorization: reference }).strict().optional(),
+  backupSnapshotTransition: z.object({ reference,
+    baselineDeploymentId: z.literal(utilityDeployments.backup.deploymentId), deploymentId: z.string().uuid(),
+    sourceSha: z.literal(utilityDeployments.backup.commitSha), objectSha256: digest, at: instant,
+    configurationRestored: z.literal(true) }).strict().optional(),
+  founderRestoreAcceptance: z.object({ reference, founderId: reference, at: instant, objectSha256: digest,
+    releaseSha: z.literal(RELEASE_SHA) }).strict().optional(),
+  authorizations: z.object({ scope: z.object({ backupRestore: z.boolean(), cutover: z.literal(true),
+    utilityUpgrades: z.literal(true), exactShaOnly: z.literal(true) }).strict(), backupRestore: reference.optional(), deployment: reference, releaseSha: z.literal(RELEASE_SHA) }).strict(),
+  currentPhysicalSchema: physicalSchema.optional(),
+  backupPreservation: z.object({ reference, compatible: z.literal(true), sourceSha: z.literal(utilityDeployments.backup.commitSha),
+    configurationUnchanged: z.literal(true) }).strict().optional(),
+  disposableDataException: z.object({ reference, founderId: reference, releaseSha: z.literal(RELEASE_SHA), acceptedAt: instant,
+    scope: z.literal("customer-memberships-and-loyalty-transactions"), databaseResetAuthorized: z.literal(false),
+    otherDataAssessment: z.object({ reference, observedAt: instant, noIrreplaceableDataAtRisk: z.literal(true),
+      sourceGeneration: z.literal("792e218a17287009067ce0993c33eda3bfc3f4b7") }).strict(),
+    existingEncryptedBackup: z.object({ reference, objectId: reference, retained: z.literal(true) }).strict() }).strict().optional(),
+  acceptedExistingRecovery: z.object({ reference, founderAuthorization: reference, releaseSha: z.literal(RELEASE_SHA),
+    changesSinceUsableBackupLossAccepted: z.literal(true), databaseResetAuthorized: z.literal(false),
+    objectId: z.literal("loynara/2026/10/11/20261011T030225Z-19970f3c172a.dump.age"),
+    objectSha256: z.literal("2907f22ed330d59be55a13a4615f56b2e1dd1d1093ce97b355cffeb91dd58b0a"), retained: z.literal(true),
+    authenticatedDecryptionVerified: z.literal(true), isolatedEmptyPostgres18RestoreVerified: z.literal(true),
+    canonicalJournalVerified: z.literal(true), physicalSchemaVerified: z.literal(true), businessInvariantsVerified: z.literal(true),
+    technicalReview: reference, previousRestoreEvidence: reference,
+    preservationAssessment: z.object({ reference, observedAt: instant, allRequiredRecordsCovered: z.literal(true),
+      latestPreservedRecordChange: instant }).strict() }).strict().optional(),
   currentJournal: z.object({ reference, rows: z.array(z.tuple([digest, z.number().int().positive()])).length(21) }).strict(),
-}).strict();
+}).strict().superRefine((e, context) => {
+  const reject = () => context.addIssue({ code: "custom", message: "Recovery policy evidence is incomplete or inconsistent" });
+  if (e.disposableDataException || e.acceptedExistingRecovery) {
+    if ((e.disposableDataException && e.acceptedExistingRecovery) || !e.currentPhysicalSchema || !e.backupPreservation || e.backup || e.restore || e.founderRestoreAcceptance
+      || e.backupUpgrade || e.backupSnapshotTransition || e.authorizations.backupRestore
+      || e.authorizations.scope.backupRestore) reject();
+  } else if (!e.backup || !e.restore || !e.founderRestoreAcceptance || !e.backupUpgrade
+    || !e.authorizations.backupRestore || !e.authorizations.scope.backupRestore
+    || e.backupPreservation || e.currentPhysicalSchema) reject();
+});
 
 const definitions = [
   { role: "web", id: "5c1303ad-42c2-4094-a996-3ac6140d088d", dockerfile: "/Dockerfile", command: null, cronSchedule: null },
@@ -70,7 +110,7 @@ const definitions = [
   { role: "backup", id: "78ee0c58-c306-4f3a-95c0-1c94e72e793c", dockerfile: "/Dockerfile.backup", command: null, cronSchedule: "0 3 * * *" },
   { role: "ops", id: "c3189719-e305-4c4c-b8ca-4d0b0335c25f", dockerfile: "/Dockerfile", command: "npm run production:ops-check", cronSchedule: "*/5 * * * *" },
   { role: "postgres", id: "7eb7c68b-c890-4f79-844f-f439f9fe0234", dockerfile: null, command: null, cronSchedule: null },
-  { role: "cloudflared", id: "131ff3f7-3eb8-4837-a9f9-694db14f623b", dockerfile: null, command: null, cronSchedule: null },
+  { role: "cloudflared", id: "131ff3f7-3eb8-4837-a9f9-694db14f623b", dockerfile: null, command: "cloudflared tunnel --no-autoupdate --loglevel warn --metrics 127.0.0.1:20241 run", cronSchedule: null },
 ] as const;
 const writers = [
   { id: "web-http", service: "web", components: ["src/app/api"], effect: "HTTP/API routes: loyalty, consent, staff, campaign and other application writes" },
@@ -80,16 +120,17 @@ const writers = [
   { id: "migration-schema", service: "migrate", components: ["scripts/production-migrate.ts", "drizzle/meta/_journal.json"], effect: "Auth/schema/ledger-trigger migration; scheduled/one-off invocations must remain stopped until approved" },
 ];
 const requiredEvidence = [
+  "Pinned backup rollout on the normal recovery path, or independently verified unchanged regular-backup compatibility for the release-specific disposable-data exception",
   "Explicit pinned operations-service rollout: independently authenticated configuration/runtime/monitor compatibility, exact-commit eligibility and scoped deployment authorization; old baseline provenance alone cannot satisfy the upgraded operational safeguards",
   "Authenticated operator receipt for exact project/environment/service identities, current generations, unchanged branch and resolved safe flags",
   "Complete live writer inventory including immediate NFC, scheduled jobs, manual replay/migrations and any outside clients; no unaccounted writers",
   "Known branchless backup/ops utilities need exact configured repository/cron/command plus independently verified deployed commit/deployment identity; absence of a connected branch is not code provenance",
-  "Authenticated exact-commit deployment eligibility and separately bounded founder deployment authorization for the pinned release",
+  "Authenticated exact-commit deployment eligibility and explicitly scoped founder cutover authorization for the pinned release",
   "Authorized all-old-writer shutdown/drain receipt with zero in-flight work before the recovery point",
-  "Fresh encrypted approved EU R2 object after drain: source database/generation/schema, date/size/SHA256, independent retrieval and key custodian (never the key)",
+  "Normal recovery path requires fresh encrypted approved EU R2 object after drain: source database/generation/schema, date/size/SHA256, independent retrieval and key custodian (never the key)",
   "Explicit source and restored physical schema receipts: critical tables, tenant constraints, append-only trigger and structures through 0020; journal hashes alone are insufficient",
   "Approved initially-empty isolated restore target distinct from production; independent operator accepted the same retrieved object, exact canonical journal and source-bound membership/ledger history, tenant isolation and reconciled counts",
-  "Separate founder backup/restore authorization; current exact canonical 0000..0020 journal/hash/timestamp and schema evidence before ordered 0021..0024",
+  "Normal recovery authorization plus distinct founder acceptance, OR authenticated release-specific disposable-data exception with current no-irreplaceable-data assessment and retained existing encrypted backup; current exact canonical 0000..0020 journal/hash/timestamp and schema evidence before ordered 0021..0024",
 ];
 
 function git(repository: string, args: string[]): string {
@@ -136,17 +177,21 @@ function inspectCandidate(repository: string) {
 
 export function releasePreflight(repository: string, evidence?: unknown, now = Date.now(), argumentIssue?: string) {
   const blockers: string[] = [];
+  let waived = false;
+  let reused = false;
   let source: ReturnType<typeof inspectCandidate> | { status: string } = { status: "BLOCKED" };
   if (argumentIssue) blockers.push(argumentIssue);
   else {
     try { source = inspectCandidate(repository); } catch { blockers.push("Pinned candidate, Assignment104 identity, roles or canonical ordered migration source could not be verified"); }
   }
-  if (evidence === undefined) blockers.push("Operator, writer, configuration, backup, custody, independent restore and separate authorization evidence is missing");
+  if (evidence === undefined) blockers.push("Operator, writer, configuration, scoped cutover authority and complete recovery-or-disposable-data-exception evidence is missing");
   else {
     const parsed = evidenceSchema.safeParse(evidence);
     if (!parsed.success) blockers.push("Evidence manifest is incomplete, unknown, unsafe or malformed; consult requiredEvidence (input values withheld)");
     else {
       const e = parsed.data;
+      waived = !!e.disposableDataException;
+      reused = !!e.acceptedExistingRecovery;
       const block = (condition: boolean, text: string) => { if (condition) blockers.push(text); };
       block(Date.parse(e.operator.observedAt) > now || Date.parse(e.operator.validUntil) <= now
         || Date.parse(e.operator.validUntil) <= Date.parse(e.operator.observedAt)
@@ -166,42 +211,80 @@ export function releasePreflight(repository: string, evidence?: unknown, now = D
           const baseline = utilityDeployments[s.role]; const provenance = s.deploymentProvenance;
           block(s.repository !== "belmo-hub/loynara" || s.branch !== null,
             "Known utility source configuration must preserve its repository and absent connected branch");
-          block(!provenance || provenance.deploymentId !== baseline.deploymentId || provenance.commitSha !== baseline.commitSha
-            || s.currentGeneration !== baseline.commitSha || s.plannedGeneration !== (s.role === "ops" ? RELEASE_SHA : baseline.commitSha),
-            "Utility current provenance must match its exact known deployment/source; only the separately attested pinned ops upgrade may change the planned generation");
+          const transition = s.role === "backup" ? e.backupSnapshotTransition : undefined;
+          const expectedDeployment = transition?.deploymentId ?? baseline.deploymentId;
+          if (transition) block(transition.objectSha256 !== e.backup?.sha256
+            || Date.parse(transition.at) < Date.parse(e.backup?.capturedAt ?? "") || Date.parse(transition.at) > now,
+            "Backup transition must attest restored configuration after this exact fresh backup, never a future or unrelated run");
+          block(!provenance || provenance.deploymentId !== expectedDeployment || provenance.commitSha !== baseline.commitSha
+            || s.currentGeneration !== baseline.commitSha || s.plannedGeneration !== (s.role === "backup" && (e.disposableDataException || e.acceptedExistingRecovery) ? baseline.commitSha : RELEASE_SHA),
+            "Utility current provenance must match its exact known deployment/source; planned utility upgrades or preserved compatible backup must be independently attested");
         } else if (s) block(s.deploymentProvenance !== undefined, "Utility provenance cannot stand in for another service role");
         if (s && ["web", "worker", "migrate"].includes(s.role)) block(s.plannedGeneration !== RELEASE_SHA, "Web, worker and migration must target the same pinned source generation");
       }
-      block(e.authorizations.backupRestore === e.authorizations.deployment, "Backup/restore and production cutover need separate authenticated founder receipts");
-      block(e.operationsUpgrade.deploymentAuthorization === e.authorizations.backupRestore, "Operations deployment requires explicitly scoped deployment authority, not backup/restore authority");
-      if ("canonicalJournal" in source) {
-        block(JSON.stringify(e.currentJournal.rows) !== JSON.stringify(source.canonicalJournal) || e.backup.schemaFingerprint !== source.schemaFingerprint || e.restore.schemaFingerprint !== source.schemaFingerprint,
-          "Observed production journal, backup and restored journal fingerprints must match the exact canonical pre-migration journal");
+      // One authenticated, explicitly scoped cutover receipt may authorize all ordered operations.
+      // Permission to restore is never evidence that the actual fresh restore has been accepted.
+      block(e.operationsUpgrade.deploymentAuthorization !== e.authorizations.deployment
+        || (!!e.backupUpgrade && e.backupUpgrade.deploymentAuthorization !== e.authorizations.deployment),
+        "Utility upgrades must bind to the explicitly scoped founder cutover authorization");
+      if ("canonicalJournal" in source) block(JSON.stringify(e.currentJournal.rows) !== JSON.stringify(source.canonicalJournal),
+        "Observed production journal must match the exact canonical pre-migration journal");
+      if (e.acceptedExistingRecovery) {
+        const recovery = e.acceptedExistingRecovery;
+        block(recovery.founderAuthorization !== e.authorizations.deployment,
+          "Existing recovery risk acceptance must bind to actual founder cutover authorization");
+        block(Date.parse(recovery.preservationAssessment.observedAt) < Date.parse(e.drain.at)
+          || Date.parse(recovery.preservationAssessment.observedAt) > now
+          || Date.parse(recovery.preservationAssessment.latestPreservedRecordChange) > Date.parse("2026-10-11T03:02:25Z")
+          || Date.parse(e.drain.at) < Date.parse(e.operator.observedAt) || Date.parse(e.drain.at) > now,
+          "Existing recovery requires a final drained-state preservation assessment; newer preservation-required data needs fresh recovery");
+      } else if (e.disposableDataException) {
+        const exception = e.disposableDataException;
+        block(Date.parse(exception.acceptedAt) > now || Date.parse(exception.otherDataAssessment.observedAt) > now
+          || Date.parse(exception.otherDataAssessment.observedAt) < Date.parse(e.drain.at)
+          || Date.parse(e.drain.at) < Date.parse(e.operator.observedAt) || Date.parse(e.drain.at) > now,
+          "Disposable-data decision and other-data assessment must be genuine, current, and followed by verified writer drain");
+        block(!exception.existingEncryptedBackup.objectId.endsWith(".dump.age"), "The existing encrypted backup must remain identified and retained");
+      } else if (e.backup && e.restore && e.founderRestoreAcceptance) {
+        const acceptance = e.founderRestoreAcceptance;
+        block([e.authorizations.backupRestore, e.authorizations.deployment].includes(acceptance.reference),
+          "Actual founder restore acceptance must be distinct from advance operation authorization");
+        block(acceptance.objectSha256 !== e.backup.sha256 || acceptance.founderId !== e.restore.independentOperator,
+          "Founder acceptance must bind to the exact restored encrypted object and independent founder custodian");
+        block(Date.parse(acceptance.at) < Date.parse(e.restore.at) || Date.parse(acceptance.at) > now,
+          "Explicit founder acceptance must follow the completed independent restore and precede migration");
+        if ("canonicalJournal" in source) {
+          block(e.backup.schemaFingerprint !== source.schemaFingerprint || e.restore.schemaFingerprint !== source.schemaFingerprint,
+            "Observed production journal, backup and restored journal fingerprints must match the exact canonical pre-migration journal");
+        }
+        block(e.backup.sourceGeneration !== "792e218a17287009067ce0993c33eda3bfc3f4b7", "Backup provenance must match the current writer generation");
+        block(!e.backup.objectId.endsWith(".dump.age"), "Backup must identify the encrypted archive object");
+        block(e.restore.target === e.backup.sourceDatabase || e.restore.independentOperator === e.operator.id,
+          "Restoration requires a distinct isolated target and independent verifier");
+        block(e.restore.history.sourceDatabase !== e.backup.sourceDatabase, "Restored membership/ledger history and counts must be accepted against the backed-up source database");
+        block(e.restore.objectSha256 !== e.backup.sha256, "Restore acceptance must identify the exact independently retrieved encrypted object");
+        block(Date.parse(e.drain.at) < Date.parse(e.operator.observedAt) || Date.parse(e.drain.at) > Date.parse(e.backup.capturedAt) || Date.parse(e.backup.capturedAt) > Date.parse(e.restore.at)
+          || Date.parse(e.restore.at) > now, "Required ordering is old-writer drain, fresh encrypted backup, accepted independent restore, then migration");
       }
       const web = e.services.find(v => v.role === "web"); const worker = e.services.find(v => v.role === "worker");
-      block(!web || !worker || web.currentGeneration !== "792e218a17287009067ce0993c33eda3bfc3f4b7" || web.currentGeneration !== worker.currentGeneration || e.backup.sourceGeneration !== web.currentGeneration,
+      block(!web || !worker || web.currentGeneration !== "792e218a17287009067ce0993c33eda3bfc3f4b7" || web.currentGeneration !== worker.currentGeneration,
         "Current writer generations or backup provenance are incompatible");
       block(writers.some(v => !e.writers.sources.includes(v.id)) || new Set(e.writers.sources).size !== writers.length
         || e.writers.sources.length !== writers.length, "Complete known writer coverage and no extra/unknown writer are required");
-      block(!e.backup.objectId.endsWith(".dump.age"), "Backup must identify the encrypted archive object");
-      block(e.restore.target === e.backup.sourceDatabase || e.restore.independentOperator === e.operator.id,
-        "Restoration requires a distinct isolated target and independent verifier");
-      block(e.restore.history.sourceDatabase !== e.backup.sourceDatabase, "Restored membership/ledger history and counts must be accepted against the backed-up source database");
-      block(e.restore.objectSha256 !== e.backup.sha256, "Restore acceptance must identify the exact independently retrieved encrypted object");
-      block(Date.parse(e.drain.at) < Date.parse(e.operator.observedAt) || Date.parse(e.drain.at) > Date.parse(e.backup.capturedAt) || Date.parse(e.backup.capturedAt) > Date.parse(e.restore.at)
-        || Date.parse(e.restore.at) > now, "Required ordering is old-writer drain, fresh encrypted backup, accepted independent restore, then migration");
+
     }
   }
   return {
     status: blockers.length ? "BLOCKED" : "PASS", releaseSha: RELEASE_SHA, projectId: PROJECT, environmentId: ENVIRONMENT,
-    executionEnabled: false, evidenceBasis: "DECLARED_OPERATOR_EVIDENCE_REQUIRES_AUTHENTICATION",
+    recoveryCheckpoint: reused ? "EXISTING_VERIFIED_RECOVERY_WITH_AUTHORIZED_LATER_CHANGE_LOSS" : waived ? "WAIVED_FOR_THIS_RELEASE_NOT_PERFORMED" : "FRESH_BACKUP_AND_EXPLICIT_RESTORE_ACCEPTANCE_REQUIRED",
+    executionEnabled: false, realCustomerIngressReopenEnabled: false, customerCards: "FOUNDER_HOLD_UNTIL_APPROVED_LEGAL_RELEASE_LIVE", evidenceBasis: "DECLARED_OPERATOR_EVIDENCE_REQUIRES_AUTHENTICATION",
     meaning: "Offline prerequisite validation only. No permission is granted and no production operation can be executed by this command.",
     source, serviceDefinitions: definitions, writerInventory: writers, liveWriterInventory: evidence === undefined ? "UNKNOWN" : "OPERATOR_ATTESTATION_REQUIRES_AUTHENTICATION",
     requiredEvidence, blockers: [...new Set(blockers)],
-    orderedOperations: ["attest-all-writers-and-separate-approvals", "stop-and-drain-all-old-writers", "fresh-encrypted-backup", "accept-independent-isolated-restore",
+    orderedOperations: ["attest-all-writers-and-scoped-cutover-authorization", "stop-and-drain-all-old-writers", ...(reused ? ["verify-existing-restored-backup-and-final-drained-state-preservation-under-founder-change-loss-acceptance"] : waived ? ["authenticate-release-specific-disposable-data-risk-exception-and-preserve-existing-backup"] : ["fresh-encrypted-backup", "accept-independent-isolated-restore", "require-explicit-founder-acceptance-of-exact-fresh-restore"]),
       "migrate-0021-through-0024-and-verify-exact-25-entry-journal", "deploy-pinned-web-with-ingress-closed", "verify-web-source-and-safe-config",
-      "deploy-identical-pinned-worker", "deploy-pinned-ops-under-separate-authorization", "verify-ops-source-safe-config-and-acknowledged-heartbeat",
-      "verify-no-old-writers-and-health", "authorized-two-tenant-smoke-and-reopen"],
+      "deploy-identical-pinned-worker", ...((waived || reused) ? ["preserve-compatible-regular-backup-source-config-schedule-and-monitor"] : ["deploy-pinned-backup", "verify-backup-source-config-schedule-and-monitor"]), "deploy-pinned-ops-under-scoped-cutover-authorization", "verify-ops-source-safe-config-and-acknowledged-heartbeat",
+      "verify-no-old-writers-and-health", "authorized-synthetic-two-tenant-smoke-keep-customer-ingress-contained", "reopen-real-customer-ingress-only-after-separate-approved-live-legal-release"],
   };
 }
 
