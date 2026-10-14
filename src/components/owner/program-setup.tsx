@@ -173,7 +173,7 @@ export function ProgramSetup() {
             </div>
             {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB."><input id="su-logo" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => set({ logo: event.target.files?.[0] ?? null })} /></Field>}
             <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} aria-invalid={Boolean(err("programName"))} onChange={event => set({ programName: event.target.value })} /></Field>
-            <details><summary style={{ cursor: "pointer", minHeight: 32, fontWeight: 700 }}>Weitere Einstellungen</summary>
+            <details><summary style={{ fontWeight: 700 }}>Weitere Einstellungen</summary>
               <div className="ow-stack" style={{ marginTop: 12 }}>
                 <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input" type="date" required aria-invalid={Boolean(err("date"))} value={f.date} onChange={event => set({ date: event.target.value })} style={{ maxWidth: 220 }} /></Field>
                 {!walletsHidden && <>

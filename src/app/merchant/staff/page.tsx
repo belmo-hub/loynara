@@ -118,7 +118,7 @@ export default function StaffPage() {
             <div className="ow-readonly ow-stack" role="status"><strong>Einladung für {invite.email}</strong>
               <p>Dieser Link gilt bis {new Date(invite.expiresAt).toLocaleDateString("de-DE")}. Teile ihn nur mit der eingeladenen Person.</p>
               {staff.state === "ok" && <p className="ow-hint">{staff.data.accountCreation === "operator" ? "Konten werden derzeit vom Loynara-Betreiber angelegt. Die Person nimmt die Einladung an, sobald ihr Konto für genau diese Adresse besteht." : staff.data.accountCreation === "invite" ? "Die Person legt über den Link ihr eigenes Konto für genau diese Adresse an und ist danach sofort an der Kasse." : "Die Person kann über den Link ein Konto erstellen und die Einladung annehmen."}</p>}
-              <code style={{ overflowWrap: "anywhere", fontSize: 13 }}>{inviteUrl}</code>
+              <code style={{ overflowWrap: "anywhere", fontSize: 14 }}>{inviteUrl}</code>
               <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void copy()}>Link kopieren</button></div></div>
           )}
         </section>
@@ -126,7 +126,7 @@ export default function StaffPage() {
           <div><h2 id="st-list">Aktuelle Zugänge</h2><p className="ow-muted" style={{ fontSize: 14 }}>Gesperrte Teammitglieder können nicht mehr buchen.</p></div>
           {staff.state === "loading" ? <LoadingBlock rows={2} height={48} /> : (
             <ul className="ow-feed">{people.map(item => (
-              <li key={item.userId} style={item.active ? undefined : { opacity: .7 }}><span><strong>{item.email || "E-Mail nicht verfügbar"}</strong>{item.userId === me.userId && <span className="ow-muted"> (du)</span>}<br /><span className="ow-row" style={{ gap: 6, marginTop: 4 }}><span className={`ow-chip ${item.role === "owner" ? "ow-chip--ok" : item.role === "manager" ? "ow-chip--info" : ""}`}>{ROLE_LABEL[item.role]}</span><span className="ow-muted" style={{ fontSize: 13 }}>{item.role === "owner" ? "Alle Standorte" : locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {item.active ? "Aktiv" : "Gesperrt"}</span></span></span>
+              <li key={item.userId} style={item.active ? undefined : { opacity: .7 }}><span><strong>{item.email || "E-Mail nicht verfügbar"}</strong>{item.userId === me.userId && <span className="ow-muted"> (du)</span>}<br /><span className="ow-row" style={{ gap: 6, marginTop: 4 }}><span className={`ow-chip ${item.role === "owner" ? "ow-chip--ok" : item.role === "manager" ? "ow-chip--info" : ""}`}>{ROLE_LABEL[item.role]}</span><span className="ow-muted">{item.role === "owner" ? "Alle Standorte" : locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {item.active ? "Aktiv" : "Gesperrt"}</span></span></span>
                 {item.role !== "owner" && item.active && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setRevokeTarget({ ...item })}>Sperren</button>}</li>))}</ul>
           )}
         </section>
@@ -152,7 +152,7 @@ export default function StaffPage() {
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length
-          ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted" style={{ fontSize: 13 }}>{event.role === "manager" ? "Leitung" : "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
+          ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted">{event.role === "manager" ? "Leitung" : "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
           : <p className="ow-muted">Noch keine Teamereignisse erfasst. Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</p>)}
       </section>
       {cancelTarget && <OwnerDialog title="Einladung widerrufen?" tone="danger" onClose={() => setCancelTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setCancelTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelInvitation()}>{cancellingTarget === cancelTarget ? "Wird widerrufen …" : "Einladung widerrufen"}</button></>}>

@@ -38,7 +38,7 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={18} />Tresenschild laden</button>
       </div>
       {exportUrl && <p className="ow-hint">Deine Daten gehören dir: <a className="ow-link" href={exportUrl} download>vollständigen Export herunterladen</a> (JSON).</p>}
-      <div role="status" aria-live="polite">{copied && <p className="ow-muted" style={{ fontSize: 13 }}>{copied}</p>}</div>
+      <div role="status" aria-live="polite">{copied && <p className="ow-muted">{copied}</p>}</div>
       {error && <p className="ow-error" role="alert">{error}</p>}
     </section>
   );

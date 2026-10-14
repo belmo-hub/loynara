@@ -51,15 +51,9 @@
 .owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: none; box-shadow: var(--ow-focus); border-radius: var(--ow-r1); }
 .owner-app h1, .owner-app h2, .owner-app h3 { font-family: inherit; letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--ow-ink); }
 .owner-app p { margin: 0; }
+.owner-app small { font-size: 14px; } /* browsers shrink <small> to 12.8 px */
 /* Disclosure rows are tap targets too (marker kept: display stays list-item). */
 .owner-app summary { min-height: 44px; padding-block: 10px; line-height: 24px; cursor: pointer; }
-
-/* Legacy per-page headers are superseded by the shell; their pages stay untouched. */
-.owner-app .app-header { display: none; }
-.owner-app .app-page { min-height: 0; background: transparent; }
-.owner-app .app-container { width: 100%; max-width: 1120px; margin-inline: auto; padding-inline: var(--ow-s5); }
-.owner-app .app-state-page { min-height: 60vh; }
-@media (max-width: 640px) { .owner-app .app-container { padding-inline: var(--ow-s4); } }
 
 /* Shell */
 .ow-shell { display: grid; grid-template-columns: var(--ow-sidebar) minmax(0, 1fr); min-height: 100vh; }
@@ -78,7 +72,7 @@
 
 .ow-loc { display: flex; flex-direction: column; gap: 6px; padding: var(--ow-s3); border: 1px solid var(--ow-line); border-radius: var(--ow-r2); background: var(--ow-bg); }
 .ow-loc-label { font-size: 14px; font-weight: 700; color: var(--ow-muted); letter-spacing: .02em; }
-.ow-loc select { width: 100%; min-height: 44px; padding: 0 var(--ow-s3); border: 1px solid var(--ow-line-strong); border-radius: var(--ow-r1); background: var(--ow-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%231a2b25' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='m1 1 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 12px center; appearance: none; font-weight: 700; color: var(--ow-ink); }
+.ow-loc select { width: 100%; min-height: 44px; padding: 0 var(--ow-s3); border: 1px solid var(--ow-line-strong); border-radius: var(--ow-r1); background-color: var(--ow-surface); appearance: none; font-weight: 700; color: var(--ow-ink); }
 .ow-loc-name { font-weight: 700; color: var(--ow-ink); min-height: 24px; overflow-wrap: anywhere; }
 .ow-loc-sub { font-size: 14px; color: var(--ow-muted); }
 
@@ -126,8 +120,6 @@
   .ow-topbar .ow-btn--sm { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ow-tab, .ow-btn { transition: none; } .ow-tab:active, .ow-btn:active:not(:disabled) { transform: none; } }
-.ow-icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 1px solid transparent; border-radius: var(--ow-r2); background: transparent; color: var(--ow-ink); }
-.ow-icon-btn:hover { background: var(--ow-surface-2); }
 
 /* Page scaffolding */
 .ow-page { max-width: 1120px; margin-inline: auto; padding: var(--ow-s6) var(--ow-s5) 0; display: flex; flex-direction: column; gap: var(--ow-s5); }
@@ -181,6 +173,12 @@
 .ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--ow-s3); border: 1px solid var(--ow-line-strong); border-radius: var(--ow-r1); background: var(--ow-surface); color: var(--ow-ink); font: inherit; transition: border-color var(--ow-fast); }
 .ow-textarea { padding: var(--ow-s3); min-height: 96px; resize: vertical; line-height: 1.5; }
 .ow-input:hover, .ow-select:hover, .ow-textarea:hover { border-color: var(--ow-ink-2); }
+/* Native selects: appearance none so Safari honours the 44 px height; the chevron is drawn in the theme ink. */
+.ow-select, .ow-loc select {
+  -webkit-appearance: none; appearance: none; height: 44px; padding-right: 40px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ow-ink-2) 50%), linear-gradient(135deg, var(--ow-ink-2) 50%, transparent 50%);
+  background-position: right 20px center, right 14px center; background-size: 6px 6px; background-repeat: no-repeat;
+}
 .ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--ow-danger-ink); background: color-mix(in srgb, var(--ow-danger-bg) 40%, var(--ow-surface)); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ow-s4); }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
@@ -391,7 +389,7 @@
 .ow-mail small { color: var(--ow-muted); font-weight: 700; }
 .ow-mail h3 { font-size: 16px; margin: 4px 0 8px; }
 .ow-mail p { white-space: pre-wrap; overflow-wrap: anywhere; }
-.owner-app .app-container > .app-intro:first-child, .owner-app main.app-container { padding-top: var(--ow-s5); }
+
 .ow-seg { max-width: 100%; flex-wrap: wrap; }
 .ow-studio-preview > * { max-width: 100%; }
 
@@ -466,8 +464,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-table-wrap { overflow-x: auto; }
 .ow-perm { width: 100%; border-collapse: collapse; font-size: 14px; }
 .ow-perm th, .ow-perm td { padding: 10px 8px; border-bottom: 1px solid var(--ow-line); text-align: center; }
-.ow-perm thead th { font-size: 12.5px; color: var(--ow-ink-2); font-weight: 700; }
+.ow-perm thead th { font-size: 14px; color: var(--ow-ink-2); font-weight: 700; }
 .ow-perm th[scope="row"], .ow-perm thead th:first-child { text-align: left; font-weight: 600; }
 .ow-perm-yes { color: var(--ow-ok-ink); font-weight: 800; }
 .ow-perm-no { color: var(--ow-muted); }
-@media (max-width: 520px) { .ow-perm th, .ow-perm td { padding: 8px 4px; font-size: 13px; } }
+@media (max-width: 520px) { .ow-perm th, .ow-perm td { padding: 8px 4px; font-size: 14px; } }

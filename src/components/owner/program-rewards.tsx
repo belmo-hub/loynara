@@ -125,7 +125,7 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
         </form>
       )}
       {error && !form && <p className="ow-error" role="alert">{error}</p>}
-      {archived.length > 0 && <details className="ow-muted"><summary style={{ cursor: "pointer", minHeight: 32 }}>Archivierte Prämien ({archived.length})</summary><ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{archived.map(reward => <li key={reward.rewardId}>{reward.title} · Version {reward.version}</li>)}</ul></details>}
+      {archived.length > 0 && <details className="ow-muted"><summary>Archivierte Prämien ({archived.length})</summary><ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{archived.map(reward => <li key={reward.rewardId}>{reward.title} · Version {reward.version}</li>)}</ul></details>}
       {archiving && (
         <OwnerDialog title={`„${archiving.title}“ archivieren?`} tone="danger" onClose={() => setArchiving(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setArchiving(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => { const target = archiving; setArchiving(null); void run({ action: "archive", rewardId: target.rewardId }, `„${target.title}“ archiviert.`); }}>Archivieren</button></>}>
           <p>Kunden sehen die Prämie danach nicht mehr und können sie nicht mehr einlösen. Bereits eingelöste Prämien bleiben in der Historie.</p>
