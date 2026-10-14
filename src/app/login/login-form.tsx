@@ -3,9 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
-import { AuthFrame } from "@/components/auth-frame";
-import { Icon } from "@/components/loyalty-ui";
+import { CircleAlert } from "lucide-react";
+import { AuthShell } from "@/components/ui/auth-shell";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextField } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
+import styles from "@/components/auth/auth.module.css";
+
+// Owners have no self-service reset yet: the link opens a prepared mail to support, nothing is sent from the page.
+const RESET_MAIL = "mailto:support@getloynara.com?subject=" + encodeURIComponent("Passwort für Loynara zurücksetzen");
 
 export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
   const router = useRouter();
@@ -16,9 +23,12 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // The button only shows "loading" (it keeps focus), so Enter in a field would submit again: ignore it while a request runs.
+    if (busy) return;
+    const formElement = event.currentTarget;
     // The fields are uncontrolled: text typed or autofilled before hydration finished is kept, where a controlled field
     // would be reset to its empty initial state and the browser's "required" check would then swallow the submit silently.
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
     setBusy(true); setError("");
@@ -26,7 +36,12 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
       const result = await authClient.signIn.email({ email, password });
       if (result.error) {
         // HTTP rejection and lost transport have different certainty. Never display library diagnostics.
-        if (result.error.code === "INVALID_EMAIL_OR_PASSWORD") setError("E-Mail-Adresse oder Passwort stimmen nicht. Prüfe deine Angaben.");
+        if (result.error.code === "INVALID_EMAIL_OR_PASSWORD") {
+          setError("E-Mail-Adresse oder Passwort stimmen nicht. Prüfe deine Angaben.");
+          // The address is usually right: put the caret back into the password, ready to retype.
+          const field = formElement.elements.namedItem("password");
+          if (field instanceof HTMLInputElement) { field.focus(); field.select(); }
+        }
         else if (result.error.status === 429) setError("Zu viele Anmeldeversuche. Warte bitte etwas und versuche es erneut.");
         else if (result.error.status >= 500 || result.error.code === "FAILED_TO_CREATE_SESSION") setError("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.");
         else setError("Die Anmeldung wurde nicht bestätigt. Prüfe deine Angaben oder wende dich an Loynara.");
@@ -43,5 +58,21 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
     } finally { setBusy(false); }
   }
 
-  return <AuthFrame eyebrow="WILLKOMMEN ZURÜCK" title="Gut, dass du da bist." description="Melde dich an und arbeite an deinem Programm weiter." footer={registrationOpen ? <>Noch kein Konto? <Link href="/register">Konto erstellen</Link></> : <>Noch keinen Zugang? Dein Zugang wird von Loynara für dich eingerichtet.</>}><form className="auth-form" onSubmit={submit}><label>E-Mail-Adresse<input type="email" name="email" autoComplete="email" required placeholder="du@geschaeft.de" /></label><label>Passwort<input type="password" name="password" autoComplete="current-password" required placeholder="Dein Passwort" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button type="submit" className="button button--ink button--full" disabled={busy || !ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}<Icon name="arrow" size={18} /></button></form></AuthFrame>;
+  return <AuthShell>
+    <div className={styles.page}>
+      <PageHeader title="Gut, dass du da bist." description="Melde dich an, um dein Treueprogramm und die Kasse zu öffnen." />
+      <div className={styles.sheet}>
+        <form className={`auth-form ${styles.form}`} onSubmit={submit}>
+          <TextField label="E-Mail-Adresse" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" required placeholder="du@geschaeft.de" />
+          <TextField label="Passwort" type="password" name="password" autoComplete="current-password" enterKeyHint="go" required />
+          <a className={styles.forgot} href={RESET_MAIL}>Passwort vergessen?</a>
+          {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
+          <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
+        </form>
+        <p className={styles.note}>{registrationOpen
+          ? <>Noch kein Konto? <Link className={styles.link} href="/register">Konto erstellen</Link></>
+          : <>Noch keinen Zugang? Loynara richtet ihn gemeinsam mit dir ein.</>}</p>
+      </div>
+    </div>
+  </AuthShell>;
 }
