@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { BrandMark } from "@/components/loyalty-ui";
+import { KeyRound } from "lucide-react";
+import { CustomerState } from "@/components/customer/customer-state";
+import styles from "@/components/customer/states.module.css";
+import { Button } from "@/components/ui/button";
 import { postJson } from "@/components/client-api";
 import { recoveryConfirmationFeedback } from "@/components/recovery-confirm-feedback";
 
@@ -50,10 +53,10 @@ export default function RecoverConfirmPage() {
       window.location.replace(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) { if (generation.current === submitted) { setError(recoveryConfirmationFeedback(cause, "rotate")); setBusy(false); } }
   }
-  return <main className="card-state-page"><div><BrandMark /><h1>Karte wiederherstellen</h1>
-    <p>Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.</p>
-    {cards === null ? <button className="button" disabled={busy} onClick={() => void showCards()}>Meine Karten anzeigen</button>
-      : <div className="recovery-options">{cards.map(card => <div key={card.membershipId}><strong>{card.merchantName}</strong><span>{card.programmeName}</span><button className="button" disabled={busy} onClick={() => void recover(card.membershipId)}>Diese Karte wiederherstellen</button></div>)}</div>}
-    {error && <p role="alert">{error}</p>}<Link href="/recover">Neuen Link anfordern</Link>
-  </div></main>;
+  return <CustomerState icon={<KeyRound size={22} />} title="Karte wiederherstellen" message="Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.">
+    {cards === null ? <Button block loading={busy} onClick={() => void showCards()}>Meine Karten anzeigen</Button>
+      : <div className={`recovery-options ${styles.options}`}>{cards.map(card => <div key={card.membershipId}><div className={styles.optionText}><strong>{card.merchantName}</strong><span>{card.programmeName}</span></div><Button size="sm" disabled={busy} onClick={() => void recover(card.membershipId)}>Diese Karte wiederherstellen</Button></div>)}</div>}
+    {error && <p className={styles.error} role="alert">{error}</p>}
+    <p className={styles.link}><Link href="/recover">Neuen Link anfordern</Link></p>
+  </CustomerState>;
 }

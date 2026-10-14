@@ -1,0 +1,11 @@
+/* Shared bits of the small guest pages that use CustomerState. */
+.form { display: grid; gap: var(--space-3); }
+.status { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-success); }
+.error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.link { margin: 0; }
+.link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
+.options { display: grid; gap: var(--space-2); }
+.options > div { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-raised); }
+.optionText { display: grid; }
+.optionText strong { overflow-wrap: anywhere; }
+.optionText span { font-size: var(--text-14); color: var(--color-ink-muted); }

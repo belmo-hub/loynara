@@ -1,0 +1,144 @@
+/* Loynara design tokens. The only place that defines colour, type, space, shape, depth, motion and layering.
+   Light values sit on :root. Dark values apply inside .ly-theme-dark (forced) or .ly-theme-auto (follows the system);
+   both dark blocks must stay identical (asserted by tokens.test.ts). See DESIGN.md for roles and rules. */
+:root {
+  --color-bg: #F6F3EC;
+  --color-surface: #FCFBF7;
+  --color-raised: #FFFFFF;
+  --color-ink: #17291F;
+  --color-ink-muted: #58645C;
+  --color-line: #DCE0D6;
+  --color-line-strong: #7A867D;
+  --color-action: #245D47;
+  --color-action-hover: #143D2E;
+  --color-on-action: #FFFFFF;
+  --color-action-soft: #E6EEDF;
+  --color-accent-text: #9E4B2D;
+  --color-stamp: #E9895F;
+  --color-success: #1F6B45;
+  --color-danger: #A3321E;
+  --color-warning: #8A5A00;
+  --color-focus: #2E7D5B;
+  --color-scrim: rgba(15, 23, 19, .48);
+  --color-qr-ground: #FFFFFF;
+
+  --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-12: .75rem;
+  --text-14: .875rem;
+  --text-16: 1rem;
+  --text-18: 1.125rem;
+  --text-22: 1.375rem;
+  --text-28: 1.75rem;
+  --display-36: 2.25rem;
+  --display-num: clamp(2.5rem, 11vw, 3.5rem);
+  --leading-tight: 1.2;
+  --leading-body: 1.5;
+  --weight-body: 400;
+  --weight-label: 650;
+  --weight-strong: 720;
+  --weight-heavy: 800;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --gutter: 16px;
+  --target: 44px;
+  --target-cashier: 56px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  --shadow-hairline: 0 1px 0 var(--color-line);
+  --shadow-raised: 0 10px 28px -14px rgba(20, 40, 30, .32), 0 0 0 1px var(--color-line);
+  --shadow-object: 0 24px 40px -28px rgba(15, 45, 33, .6);
+  --shadow-overlay: 0 28px 60px -24px rgba(10, 20, 15, .45);
+
+  --dur-press: 120ms;
+  --dur-ui: 220ms;
+  --dur-reward: 480ms;
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-sheet: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+}
+
+@media (min-width: 1024px) {
+  :root { --gutter: 40px; }
+}
+
+.ly-theme-dark {
+  --color-bg: #0F1713;
+  --color-surface: #16201B;
+  --color-raised: #1D2923;
+  --color-ink: #E9EFEA;
+  --color-ink-muted: #A6B3AA;
+  --color-line: #2B3A32;
+  --color-line-strong: #6B7B71;
+  --color-action: #9FD3B5;
+  --color-action-hover: #B9E2CA;
+  --color-on-action: #0F1713;
+  --color-action-soft: #22352B;
+  --color-accent-text: #E8A58A;
+  --color-success: #8FD1A8;
+  --color-danger: #F08F7A;
+  --color-warning: #F2C14E;
+  --color-focus: #9FD3B5;
+  --color-scrim: rgba(0, 0, 0, .6);
+  --shadow-raised: 0 10px 28px -14px rgba(0, 0, 0, .7), 0 0 0 1px var(--color-line);
+  --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8);
+  --shadow-overlay: 0 28px 60px -24px rgba(0, 0, 0, .8);
+}
+
+@media (prefers-color-scheme: dark) {
+  .ly-theme-auto {
+    --color-bg: #0F1713;
+    --color-surface: #16201B;
+    --color-raised: #1D2923;
+    --color-ink: #E9EFEA;
+    --color-ink-muted: #A6B3AA;
+    --color-line: #2B3A32;
+    --color-line-strong: #6B7B71;
+    --color-action: #9FD3B5;
+    --color-action-hover: #B9E2CA;
+    --color-on-action: #0F1713;
+    --color-action-soft: #22352B;
+    --color-accent-text: #E8A58A;
+    --color-success: #8FD1A8;
+    --color-danger: #F08F7A;
+    --color-warning: #F2C14E;
+    --color-focus: #9FD3B5;
+    --color-scrim: rgba(0, 0, 0, .6);
+    --shadow-raised: 0 10px 28px -14px rgba(0, 0, 0, .7), 0 0 0 1px var(--color-line);
+    --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8);
+    --shadow-overlay: 0 28px 60px -24px rgba(0, 0, 0, .8);
+  }
+}
+
+.ly-theme-auto, .ly-theme-dark {
+  color-scheme: light;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+.ly-theme-dark { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { .ly-theme-auto { color-scheme: dark; } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-press: 0ms; --dur-reward: 0ms; }
+}

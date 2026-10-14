@@ -1,0 +1,42 @@
+import { describe, expect, it } from "vitest";
+import { contrast } from "./color";
+import { merchantPalette } from "./merchant-color";
+
+const SURFACE = { light: "#FCFBF7", dark: "#16201B" };
+const samples = ["#2F6B58", "#245D47", "#FFFFFF", "#000000", "#E9C46A", "#FF0000", "#7A3E9D", "#3B82F6", "#F4DDD0", "#808080"];
+
+describe("merchantPalette", () => {
+  it.each(samples)("keeps text on the card object readable for %s", (hex) => {
+    const p = merchantPalette(hex, "light");
+    expect(contrast(p.merchantInk, p.merchant)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(p.merchantInk, p.merchantDeep)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(samples.flatMap((hex) => (["light", "dark"] as const).map((theme) => [hex, theme] as const)))("gives %s a text colour that passes on the %s surface", (hex, theme) => {
+    expect(contrast(merchantPalette(hex, theme).merchantText, SURFACE[theme])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(samples)("keeps earned stamps distinguishable from the card for %s", (hex) => {
+    const p = merchantPalette(hex, "light");
+    expect(contrast(p.stampFill, p.merchant)).toBeGreaterThanOrEqual(2);
+    expect(contrast(p.stampInk, p.stampFill)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps the coral pressed stamp on the usual shop greens", () => {
+    expect(merchantPalette("#2F6B58", "light").stampFill).toBe("#E9895F");
+    expect(merchantPalette("#245D47", "light").stampFill).toBe("#E9895F");
+  });
+
+  it("leaves a colour that already passes untouched", () => {
+    expect(merchantPalette("#245D47", "light").merchant).toBe("#245D47");
+  });
+
+  it("falls back to the brand green for anything that is not #RRGGBB", () => {
+    expect(merchantPalette("red", "light").merchant).toBe("#245D47");
+    expect(merchantPalette("", "light").merchant).toBe("#245D47");
+  });
+
+  it("exposes the values as CSS custom properties", () => {
+    expect(Object.keys(merchantPalette("#2F6B58", "light").cssVars).sort()).toEqual(["--merchant", "--merchant-deep", "--merchant-ink", "--merchant-text", "--stamp-fill", "--stamp-ink"]);
+  });
+});

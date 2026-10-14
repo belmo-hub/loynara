@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
+import { buttonClassName } from "./ui/button";
 
 export type TapPanelLocale = "de" | "fr";
 
@@ -342,8 +343,8 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
                 <span>{t.expires(formatCountdown(secondsLeft(item.expiresAt, now)))}</span>
               </div>
               <div className={styles.actions}>
-                <button type="button" className={`button button--accent ${styles.primary}`} disabled={busy} onClick={() => void act(item, "confirm")}>{t.confirm}</button>
-                <button type="button" className={`button button--outline ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>
+                <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} disabled={busy} onClick={() => void act(item, "confirm")}>{t.confirm}</button>
+                <button type="button" className={`${buttonClassName({ variant: "secondary" })} ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>
               </div>
             </li>;
           })}

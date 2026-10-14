@@ -93,7 +93,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
       {periodMode ? <PeriodMetrics analytics={analytics} days={windowDays} reload={reloadAnalytics} /> : <LifetimeMetrics me={me} />}
       {periodMode && analytics.state === "ok" && (
-        <details className="ow-muted" style={{ fontSize: 13 }}><summary style={{ cursor: "pointer", minHeight: 24 }}>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{analytics.data.countingRule}</p></details>
+        <details className="ow-muted"><summary style={{ cursor: "pointer", minHeight: 44 }}>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{analytics.data.countingRule}</p></details>
       )}
 
       <div className="ow-two">
@@ -116,7 +116,7 @@ function Metric({ label, note, children }: { label: string; note?: string; child
 }
 function value(state: Loadable<number>, reload?: () => void) {
   if (state.state === "loading" || state.state === "idle") return <Skeleton height={32} width={72} />;
-  if (state.state === "error") return <><span className="ow-metric-value ow-metric-value--muted">Nicht verfügbar</span>{reload && <div><button type="button" className="ow-link" style={{ background: "none", border: 0, padding: 0, font: "inherit", cursor: "pointer", minHeight: 24 }} onClick={reload}>Erneut laden</button></div>}</>;
+  if (state.state === "error") return <><span className="ow-metric-value ow-metric-value--muted">Nicht verfügbar</span>{reload && <div><button type="button" className="ow-link" style={{ background: "none", border: 0, padding: 0, font: "inherit", cursor: "pointer", minHeight: 44 }} onClick={reload}>Erneut laden</button></div>}</>;
   return <span className="ow-metric-value">{nf.format(state.data)}</span>;
 }
 const pick = (state: Loadable<Analytics>, read: (data: Analytics) => number): Loadable<number> => state.state === "ok" ? { state: "ok", data: read(state.data), at: state.at } : state.state === "error" ? state : { state: "loading" };

@@ -1,0 +1,25 @@
+.shell { --toast-offset: 0px; flex: 1 0 auto; display: flex; flex-direction: column; min-height: 100dvh; background: var(--color-bg); color: var(--color-ink); font: var(--weight-body) var(--text-16)/var(--leading-body) var(--font-sans); -webkit-font-smoothing: antialiased; }
+.shell[data-has-dock] { --toast-offset: 168px; }
+.bar, .status, .main, .dock { width: 100%; max-width: 560px; margin-inline: auto; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 60px; padding: env(safe-area-inset-top) var(--gutter) 0; }
+.location { flex: 1 1 8rem; min-width: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); overflow-wrap: anywhere; }
+.actions { display: flex; align-items: center; gap: var(--space-1); }
+.status {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); margin-inline: var(--gutter); width: auto; max-width: calc(560px - 2 * var(--gutter));
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink);
+  transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+}
+@media (min-width: 592px) { .status { margin-inline: auto; } }
+.dot { width: 12px; height: 12px; align-self: center; border-radius: 50%; background: var(--color-action); }
+.stateLabel { font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.2; }
+.detail { font-size: var(--text-16); font-weight: var(--weight-label); color: inherit; opacity: .85; overflow-wrap: anywhere; }
+.status[data-state="open"] { background: var(--merchant); color: var(--merchant-ink); }
+.status[data-state="open"] .dot { background: var(--color-warning); }
+.status[data-state="busy"] .dot { background: var(--color-warning); }
+.status[data-state="done"] { background: var(--color-success); color: var(--color-bg); }
+.status[data-state="done"] .dot, .status[data-state="error"] .dot { background: currentColor; }
+.status[data-state="error"] { background: var(--color-danger); color: var(--color-bg); }
+.main { flex: 1; display: grid; align-content: start; gap: var(--space-4); padding: var(--space-4) var(--gutter) var(--space-6); }
+.shell[data-has-dock] .main { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
+.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky); display: grid; gap: var(--space-2); padding: var(--space-4) var(--gutter) calc(var(--space-4) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--color-bg) 80%, transparent); }
+@media (prefers-reduced-motion: reduce) { .status { transition: none; } }

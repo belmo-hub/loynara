@@ -1,0 +1,15 @@
+.section { display: grid; gap: var(--space-4); padding-top: var(--space-6); border-top: 1px solid var(--color-line); }
+.sectionTitle { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.stack { display: grid; gap: var(--space-3); }
+.grid2 { display: grid; gap: var(--space-4); }
+@media (min-width: 640px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.swatches li { display: grid; gap: var(--space-1); font-size: var(--text-14); }
+.swatch { height: 48px; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--color-line); }
+.token { margin-right: var(--space-2); font-family: var(--font-mono); font-size: var(--text-12); color: var(--color-ink-muted); }
+.muted { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); }
+.loyalty { display: grid; gap: var(--space-4); align-items: center; }
+@media (min-width: 640px) { .loyalty { grid-template-columns: 1fr 1fr auto; } }
+.object { display: grid; gap: var(--space-4); padding: var(--space-5); border-radius: var(--radius-xl); color: #FFFFFF; --merchant-ink: #FFFFFF; --merchant-deep: #1F4B3E; background: linear-gradient(155deg, #2F6B58, #1F4B3E 80%); box-shadow: var(--shadow-object); }
+.ringValue { font-family: var(--font-display); font-size: var(--display-num); font-weight: 560; line-height: 1; }

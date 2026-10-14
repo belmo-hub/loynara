@@ -8,5 +8,5 @@ import "@/components/owner/owner.css";
 export const dynamic = "force-dynamic";
 
 export default function MerchantLayout({ children }: { children: ReactNode }) {
-  return <div className="owner-app"><OwnerProvider hiddenSurfaces={hiddenSurfaces()}><OwnerShell>{children}</OwnerShell></OwnerProvider></div>;
+  return <div className="owner-app ly-theme-auto"><OwnerProvider hiddenSurfaces={hiddenSurfaces()}><OwnerShell>{children}</OwnerShell></OwnerProvider></div>;
 }

@@ -92,16 +92,16 @@ export default function MerchantAnalyticsPage() {
           <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
           <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
         )}
-        <details className="ow-muted" style={{ fontSize: 13 }}><summary style={{ cursor: "pointer", minHeight: 24 }}>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} Die Zahlen zeigen bestätigte Kassenvorgänge, nicht alle Besuche, und sagen nichts über Umsatz.</p></details>
+        <details className="ow-muted"><summary>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} Die Zahlen zeigen bestätigte Kassenvorgänge, nicht alle Besuche, und sagen nichts über Umsatz.</p></details>
       </>}
     </div>
   );
 }
 
 function RetentionMetric({ label, value, note, href }: { label: string; value: number; note: string; href: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 13, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link" style={{ fontSize: 13, marginTop: 4 }} href={href}>Karten ansehen</Link>}</div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
 }
 
 function Metric({ label, value, note }: { label: string; value: number; note: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 13, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
 }

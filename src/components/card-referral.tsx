@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { apiJson, ClientApiError } from "./client-api";
-import styles from "./card-referral.module.css";
+import { Gift, Share2 } from "lucide-react";
+import { Button } from "./ui/button";
+import { TextField } from "./ui/field";
+import styles from "./customer/panels.module.css";
 
 type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points"; progress?: { signedUp: number; qualified: number } };
 
@@ -39,7 +42,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
   }
 
   return <section className={styles.panel} aria-label={french ? "Parrainage" : "Empfehlung"}>
-    <h3>{french ? "Partager cette carte" : "Karte empfehlen"}</h3>
+    <h3 className={styles.title}><Gift size={18} aria-hidden="true" /> {french ? "Partager cette carte" : "Karte empfehlen"}</h3>
     {share ? <>
       <ol className={styles.steps}>
         <li>{french ? "Vous partagez votre lien." : "Du teilst deinen Link."}</li>
@@ -48,17 +51,17 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
           ? `Au premier passage confirmé en caisse : ${share.referrerBonus} ${unit} pour vous, ${share.referredBonus} ${unit} pour la nouvelle carte.`
           : `Beim ersten bestätigten Einkauf: ${share.referrerBonus} ${unit} für dich, ${share.referredBonus} ${unit} für die neue Karte.`}</li>
       </ol>
-      {share.progress && share.progress.signedUp > 0 && <p className={styles.progress} role="status">{french
+      {share.progress && share.progress.signedUp > 0 && <p className={styles.state} role="status">{french
         ? `${share.progress.signedUp} carte(s) créée(s) avec votre lien, dont ${share.progress.qualified} avec un bonus crédité.`
         : `${share.progress.signedUp} ${share.progress.signedUp === 1 ? "Anmeldung" : "Anmeldungen"} über deinen Link, davon ${share.progress.qualified} mit gutgeschriebenem Bonus.`}</p>}
       <div className={styles.actions}>
-        {canShare && <button type="button" className="button" onClick={() => void nativeShare()}>{french ? "Partager" : "Teilen"}</button>}
-        <button type="button" className="button button--outline" onClick={() => void copy()}>{french ? "Copier le lien" : "Link kopieren"}</button>
+        {canShare && <Button size="sm" icon={<Share2 size={16} />} onClick={() => void nativeShare()}>{french ? "Partager" : "Teilen"}</Button>}
+        <Button variant="secondary" size="sm" onClick={() => void copy()}>{french ? "Copier le lien" : "Link kopieren"}</Button>
       </div>
-      <label className={styles.linkLabel}>{french ? "Lien à partager" : "Link zum Teilen"}<input readOnly value={share.shareUrl} onFocus={event => event.target.select()} /></label>
-      {copied && <p role="status" className={styles.status}>{french ? "Lien copié." : "Link kopiert."}</p>}
-      {local && <p className={styles.note}>{french ? "Aperçu local : ce lien fonctionne uniquement sur cet ordinateur." : "Lokale Vorschau: Dieser Link funktioniert nur auf diesem Rechner."}</p>}
-      <p className={styles.note}>{french ? "Ouvrir le lien ou s'inscrire seul ne donne aucun bonus." : "Öffnen oder Anmelden allein bringt noch keinen Bonus."}</p>
+      <TextField label={french ? "Lien à partager" : "Link zum Teilen"} readOnly value={share.shareUrl} onFocus={event => event.target.select()} />
+      {copied && <p role="status" className={styles.state}>{french ? "Lien copié." : "Link kopiert."}</p>}
+      {local && <p className={styles.muted}>{french ? "Aperçu local : ce lien fonctionne uniquement sur cet ordinateur." : "Lokale Vorschau: Dieser Link funktioniert nur auf diesem Rechner."}</p>}
+      <p className={styles.muted}>{french ? "Ouvrir le lien ou s'inscrire seul ne donne aucun bonus." : "Öffnen oder Anmelden allein bringt noch keinen Bonus."}</p>
     </> : null}
     {error && <p role="alert" className={styles.error}>{error}</p>}
   </section>;

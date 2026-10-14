@@ -4,10 +4,12 @@ import type { StaffRole } from "@/lib/award-limits";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
-import { BrandMark, CashierView, type CashierAward, type CashierCard, type CashierReward, type UiLocale } from "@/components/loyalty-ui";
-import { QrScanner } from "@/components/qr-scanner";
+import type { UiLocale } from "@/components/loyalty-ui";
+import { CashierAccessState, CashierView, type CashierAward, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
+import { QrScanner, SleepingCamera } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
+import { buttonClassName } from "@/components/ui/button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
@@ -385,15 +387,15 @@ export default function CashierPage() {
     } finally { setBusy(false); }
   }
 
-  if (accessState !== "ready") return <main className="app-state-page"><div className="app-state-card"><BrandMark /><h1>{accessState === "loading" ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1><p>{accessState === "loading" ? "Dein Standort und deine Berechtigung werden geladen." : accessMessage}</p>{accessState === "blocked" && <><a href="/login" className="button button--outline">Zur Anmeldung</a><LogoutButton className="button button--outline" /></>}</div></main>;
+  if (accessState !== "ready") return <CashierAccessState state={accessState} message={accessMessage} logoutControl={<LogoutButton className={buttonClassName({ variant: "secondary", size: "lg", block: true })} />} />;
   const cameraNode = camera === "on"
     ? <QrScanner locale={locale} paused={Boolean(card || preview)} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
     : camera === "sleeping"
-      ? <section className="counter-camera counter-camera--sleeping" hidden={Boolean(card || preview)}><button type="button" className="button button--accent button--full cashier-camera-action" onClick={startCamera}>{locale === "fr" ? "Rallumer la caméra" : "Kamera fortsetzen"}</button><button type="button" className="text-button" onClick={stopCamera}>{locale === "fr" ? "Éteindre la caméra" : "Kamera ausschalten"}</button></section>
+      ? <SleepingCamera locale={locale} hidden={Boolean(card || preview)} onWake={startCamera} onClose={stopCamera} />
       : undefined;
   const showOfflineFallback = networkTrouble && Boolean(offlineLease && card && offlineLease.membershipId === card.id);
   const showOfflinePanel = networkTrouble || offlineStorageProblem || offlineEvents.length > 0;
-  return <><CashierView resetToken={completedTransaction} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code); }} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className="text-button" />} /></>;
+  return <><CashierView resetToken={completedTransaction} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code); }} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {

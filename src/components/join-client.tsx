@@ -4,19 +4,32 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
-import { BrandIcon, BrandMark, Icon } from "./loyalty-ui";
-import { readableInk } from "./owner/color";
+import { Gift } from "lucide-react";
+import { CustomerState } from "./customer/customer-state";
+import { Button, buttonClassName } from "./ui/button";
+import { Checkbox } from "./ui/checkbox";
+import { CustomerShell } from "./ui/customer-shell";
+import { PointsLadder } from "./ui/points-ladder";
+import { StampGrid } from "./ui/stamp-grid";
+import styles from "./customer/join.module.css";
 
 const copy = {
   de: {
-    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "WILLKOMMEN BEI", headline: "Mach deinen Besuch zählbar.", intro: "Hol dir deine Karte direkt im Browser. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", for: "Für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", consentStart: "Ich habe die oben stehenden Programmregeln gelesen und akzeptiere sie.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutzhinweise", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit Loynara · Ohne zusätzliche App", acceptError: "Bitte akzeptiere zuerst die Programmregeln.", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.", and: "und",
+    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "Willkommen bei", headline: "Mach deinen Besuch zählbar.", intro: "Hol dir deine Karte direkt im Browser. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", rewardLabel: "Deine Prämie", cardPreview: "So sieht deine Karte aus", noEmail: "Für die Karte brauchst du keine E-Mail-Adresse und kein Konto.", for: "für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", consentStart: "Ich habe die oben stehenden Programmregeln gelesen und akzeptiere sie.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutzhinweise", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit Loynara, ohne zusätzliche App", acceptError: "Bitte akzeptiere zuerst die Programmregeln.", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.", and: "und",
     welcomeBack: "Willkommen zurück.", savedHere: "Auf diesem Gerät ist deine Karte gespeichert.", cardNumber: "Kartennummer", openCard: "Meine Karte öffnen", anotherLink: "Ich brauche eine weitere Karte", anotherTitle: "Weitere Karte erstellen?", anotherConfirm: "Ich möchte trotzdem eine zusätzliche Karte erstellen.", anotherSubmit: "Weitere Karte erstellen", backToCard: "Zurück zu meiner Karte", anotherConfirmError: "Bitte bestätige, dass du eine zusätzliche Karte möchtest.", staleNote: "Auf diesem Gerät war eine Karte gespeichert, die nicht mehr gilt, zum Beispiel weil sie geschlossen oder neu ausgestellt wurde. Hast du einen neuen Kartenlink bekommen, öffne bitte diesen.", existsError: "Auf diesem Gerät gibt es schon eine Karte für dieses Programm.", checking: "Prüfe, ob du hier schon eine Karte hast …", referralUnavailable: "Dieser Empfehlungslink ist nicht verfügbar. Du kannst ohne Empfehlungsbonus eine normale Karte erstellen.", withoutReferral: "Ohne Empfehlungslink fortfahren", unconfirmed: "Die Kartenerstellung wurde nicht bestätigt. Deine Karte kann bereits erstellt sein. Lade die Seite neu, um eine auf diesem Gerät gespeicherte Karte zu prüfen. Erstelle nicht vorschnell eine weitere Karte.",
   },
   fr: {
-    header: "CARTE DE FIDÉLITÉ NUMÉRIQUE", loadingLabel: "UN INSTANT", loadingTitle: "Chargement du programme.", loadingText: "Nous récupérons les règles et la récompense.", missingLabel: "INDISPONIBLE", missingTitle: "Ce programme est inaccessible.", home: "Retour à l’accueil", welcome: "BIENVENUE CHEZ", headline: "Chaque visite compte.", intro: "Obtenez votre carte directement dans le navigateur. En caisse, cumulez des", introEnd: "pour votre prochaine récompense.", stamp: "tampons", points: "points", reward: "VOTRE RÉCOMPENSE", for: "Pour", rules: "Règles du programme", inactive: "Ce programme commencera plus tard. L’inscription n’est pas encore ouverte.", email: "Adresse e-mail", optional: "facultative", emailHint: "Aucune adresse e-mail n’est nécessaire pour obtenir la carte.", consentStart: "J’ai lu et j’accepte les règles du programme ci-dessus.", terms: "Autres conditions de participation", privacy: "Politique de confidentialité", marketing: "Je souhaite recevoir à l’avenir des e-mails promotionnels de ce commerce. Ce choix est facultatif et indépendant de ma carte.", submit: "Créer ma carte", submitting: "Création de la carte …", footer: "Avec Loynara · Sans application supplémentaire", acceptError: "Veuillez d’abord accepter les règles du programme.", emailError: "Une adresse e-mail est nécessaire pour recevoir des messages.", inactiveError: "Ce programme n’est pas encore actif.", submitError: "La carte n’a pas pu être créée.", loadError: "Programme introuvable.", and: "et",
+    header: "CARTE DE FIDÉLITÉ NUMÉRIQUE", loadingLabel: "UN INSTANT", loadingTitle: "Chargement du programme.", loadingText: "Nous récupérons les règles et la récompense.", missingLabel: "INDISPONIBLE", missingTitle: "Ce programme est inaccessible.", home: "Retour à l’accueil", welcome: "Bienvenue chez", headline: "Chaque visite compte.", intro: "Obtenez votre carte directement dans le navigateur. En caisse, cumulez des", introEnd: "pour votre prochaine récompense.", stamp: "tampons", points: "points", reward: "VOTRE RÉCOMPENSE", rewardLabel: "Votre récompense", cardPreview: "Aperçu de votre carte", noEmail: "Aucune adresse e-mail ni compte n’est nécessaire pour la carte.", for: "pour", rules: "Règles du programme", inactive: "Ce programme commencera plus tard. L’inscription n’est pas encore ouverte.", email: "Adresse e-mail", optional: "facultative", emailHint: "Aucune adresse e-mail n’est nécessaire pour obtenir la carte.", consentStart: "J’ai lu et j’accepte les règles du programme ci-dessus.", terms: "Autres conditions de participation", privacy: "Politique de confidentialité", marketing: "Je souhaite recevoir à l’avenir des e-mails promotionnels de ce commerce. Ce choix est facultatif et indépendant de ma carte.", submit: "Créer ma carte", submitting: "Création de la carte …", footer: "Avec Loynara, sans application supplémentaire", acceptError: "Veuillez d’abord accepter les règles du programme.", emailError: "Une adresse e-mail est nécessaire pour recevoir des messages.", inactiveError: "Ce programme n’est pas encore actif.", submitError: "La carte n’a pas pu être créée.", loadError: "Programme introuvable.", and: "et",
     welcomeBack: "Bon retour.", savedHere: "Votre carte est enregistrée sur cet appareil.", cardNumber: "Numéro de carte", openCard: "Ouvrir ma carte", anotherLink: "J’ai besoin d’une autre carte", anotherTitle: "Créer une autre carte ?", anotherConfirm: "Je veux quand même créer une carte supplémentaire.", anotherSubmit: "Créer une autre carte", backToCard: "Retour à ma carte", anotherConfirmError: "Veuillez confirmer que vous voulez une carte supplémentaire.", staleNote: "Une carte enregistrée sur cet appareil n’est plus valable, par exemple parce qu’elle a été fermée ou réémise. Si vous avez reçu un nouveau lien de carte, ouvrez-le.", existsError: "Une carte pour ce programme existe déjà sur cet appareil.", checking: "Vérification d’une carte existante sur cet appareil …", referralUnavailable: "Ce lien de parrainage est indisponible. Vous pouvez créer une carte ordinaire sans bonus de parrainage.", withoutReferral: "Continuer sans lien de parrainage", unconfirmed: "La création de la carte n’est pas confirmée. Votre carte peut déjà avoir été créée. Rechargez la page pour vérifier si une carte est enregistrée sur cet appareil. Ne créez pas une autre carte dans la précipitation.",
   },
 } as const;
+
+/** "1 Punkt pro ausgegebenem Euro" / "3 Punkte pro ausgegebenem Euro"; fractions are rounded down by the server. */
+function earnRule(perUnit: number, currency: string, locale: "de" | "fr") {
+  const euro = currency === "EUR";
+  if (locale === "fr") return `${perUnit} point${perUnit === 1 ? "" : "s"} par ${euro ? "euro" : currency} dépensé. Les fractions de point sont arrondies à l’entier inférieur.`;
+  return `${perUnit} ${perUnit === 1 ? "Punkt" : "Punkte"} pro ausgegebenem ${euro ? "Euro" : currency}. Bruchteile von Punkten werden abgerundet.`;
+}
 
 function subscribeToLocation(notify: () => void) {
   window.addEventListener("popstate", notify);
@@ -107,42 +120,63 @@ export function JoinClient({ slug }: { slug: string }) {
     finally { setBusy(false); }
   }
 
-  const reward = program && <div className="join-reward"><span><Icon name="spark" size={22} /></span><div><small>{t.reward}</small><strong>{program.rewardTitle}</strong><span>{t.for} {program.rewardCost} {unit}</span></div></div>;
-  const cardNumber = existing && <p className="join-card-number"><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
+  const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {program.rewardCost} {unit}</span></p>;
+  const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
-  return <div className="join-page" lang={locale}>
-    <header className="join-header"><Link href="/" aria-label="Loynara"><BrandMark /></Link><span>{t.header}</span></header>
-    <main className="join-main">
-      {loading ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.loadingLabel}</span><h1>{t.loadingTitle}</h1><p>{t.loadingText}</p></div> : !program ? <div className="join-panel join-state"><span className="eyebrow"><span className="eyebrow-dot" /> {t.missingLabel}</span><h1>{t.missingTitle}</h1><p role="alert">{error}</p><Link href="/" className="button button--outline">{t.home}</Link></div> : <>
-        <div className="join-hero" style={{ backgroundColor: program.brandColor || "#214739", color: readableInk(program.brandColor || "#214739") }}><span>{t.welcome}</span><h1>{program.businessName}</h1><p>{program.locationName}</p><BrandIcon className="join-hero-symbol" /></div>
-        {returning.state === "stale" && !wantsAnother ? <div className="join-panel"><h2>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2><p>{t.staleNote}</p><p>{locale === "fr" ? "Ouvrez votre lien privé actuel. Le numéro de carte seul ne prouve pas que la carte vous appartient." : "Öffne deinen aktuellen privaten Kartenlink. Die Kartennummer allein ist kein Eigentumsnachweis."}</p><Link className="button button--accent" href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte sicher wiederherstellen"}</Link><button className="text-button" onClick={() => setWantsAnother(true)}>{t.anotherLink}</button></div> : existing && !wantsAnother ? <div className="join-panel join-returning"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span><h2>{t.welcomeBack}</h2><p>{t.savedHere}</p>
-          {cardNumber}
-          <a className="button button--accent button--full" href={openHref}>{t.openCard}<Icon name="arrow" size={18} /></a>
-          {reward}
-          <button type="button" className="text-button join-another-link" onClick={() => { setWantsAnother(true); setError(""); }}>{t.anotherLink}</button>
-        </div> : <div className="join-panel"><span className="eyebrow"><span className="eyebrow-dot" /> {program.programName.toUpperCase()}</span>
-          {existing ? <><h2>{t.anotherTitle}</h2><p className="join-another-warning" role="note">{locale === "fr" ? `Une nouvelle carte commence à 0 ${unit}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei 0 ${unit}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p><a className="button button--outline button--full" href={openHref}>{t.backToCard}</a></> : <><h2>{t.headline}</h2><p>{t.intro} {unit} {t.introEnd}</p></>}
-          {returning.state === "stale" && <p className="join-contact-note" role="status">{t.staleNote}</p>}
-          {reward}
-          {program.rewards?.length > 1 && <div className="join-reward-list" aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <div key={item.id}><strong>{item.title}</strong><span>{item.cost} {unit}</span></div>)}</div>}
-          {program.programType === "points" && program.earningMode === "purchase" && <p className="join-earn-rule">{locale === "fr" ? `${program.pointsPerCurrencyUnit} points par 1 ${program.currency} dépensé. Les fractions de point sont arrondies à l’entier inférieur.` : `${program.pointsPerCurrencyUnit} Punkte pro ausgegebener 1 ${program.currency}. Bruchteile von Punkten werden abgerundet.`}</p>}
-          {referralCode && <p className="join-contact-note">{program.referral?.enabled && !referralUnavailable
-            ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${program.referral.referrerBonus} ${unit} et vous ${program.referral.referredBonus} ${unit}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${program.referral.referrerBonus} ${unit} und deine Karte ${program.referral.referredBonus} ${unit} erhalten. Das Öffnen des Links bringt keinen Bonus.`
-            : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
-          {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
-          <div className="join-rules"><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
-          {program.active === false && <p className="join-inactive" role="status">{t.inactive}</p>}
-          <p><Link href="/recover">{locale === "fr" ? "Vous avez déjà une carte ? Récupération sécurisée" : "Du hast schon eine Karte? Sicher wiederherstellen"}</Link></p>
-          <form className="join-form" onSubmit={submit}>
-            <p className="join-contact-note">{locale === "fr" ? "Votre carte est créée sans adresse e-mail. Après l’inscription, vous pouvez configurer une adresse de récupération vérifiée si cette option est disponible. C’est facultatif et ne donne aucun accord marketing." : "Deine Karte wird ohne E-Mail-Adresse erstellt. Nach dem Erstellen kannst du eine bestätigte Wiederherstellungsadresse einrichten, sofern verfügbar. Das ist freiwillig und kein Marketing-Abonnement."}</p>
-            <label className="join-checkbox"><input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required /><span>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</span></label>
-            {(existing || returning.state === "stale") && <label className="join-checkbox"><input type="checkbox" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} /><span>{t.anotherConfirm}</span></label>}
-            {error && <p className="auth-error" role="alert">{error}</p>}
-            {returning.state === "checking" && <p className="join-checking" role="status">{t.checking}</p>}
-            <button type="submit" className={`button ${existing ? "button--outline" : "button--accent"} button--full`} disabled={busy || program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}<Icon name="arrow" size={18} /></button>
-          </form>
-        </div>}
+  if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
+  if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle />;
+
+  const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview}>
+    <p className={styles.welcome}>{t.welcome}</p>
+    <h1 className={styles.business}>{program.businessName}</h1>
+    <p className={styles.location}>{program.locationName}</p>
+    {program.programType === "points"
+      ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} />
+      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" className={styles.stamps} />}
+    {rewardLine}
+  </section>;
+
+  return <CustomerShell brandColor={program.brandColor} locale={locale} footer={<p className={styles.footer}>{t.footer}</p>}>
+    {preview}
+    {returning.state === "stale" && !wantsAnother ? <section className={styles.panel}>
+      <h2 className={styles.title}>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2>
+      <p className={styles.muted}>{t.staleNote}</p>
+      <p className={styles.muted}>{locale === "fr" ? "Ouvrez votre lien privé actuel. Le numéro de carte seul ne prouve pas que la carte vous appartient." : "Öffne deinen aktuellen privaten Kartenlink. Die Kartennummer allein ist kein Eigentumsnachweis."}</p>
+      <Link className={buttonClassName({ block: true })} href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte sicher wiederherstellen"}</Link>
+      <Button variant="quiet" onClick={() => setWantsAnother(true)}>{t.anotherLink}</Button>
+    </section> : existing && !wantsAnother ? <section className={`join-returning ${styles.panel}`}>
+      <h2 className={styles.title}>{t.welcomeBack}</h2>
+      <p className={styles.muted}>{t.savedHere}</p>
+      {cardNumber}
+      <a className={buttonClassName({ size: "lg", block: true })} href={openHref}>{t.openCard}</a>
+      <Button variant="quiet" className="join-another-link" onClick={() => { setWantsAnother(true); setError(""); }}>{t.anotherLink}</Button>
+    </section> : <section className={styles.panel}>
+      {existing ? <>
+        <h2 className={styles.title}>{t.anotherTitle}</h2>
+        <p className={`join-another-warning ${styles.warning}`} role="note">{locale === "fr" ? `Une nouvelle carte commence à 0 ${unit}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei 0 ${unit}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p>
+        <a className={buttonClassName({ variant: "secondary", block: true })} href={openHref}>{t.backToCard}</a>
+      </> : <>
+        <h2 className={styles.headline}>{t.headline}</h2>
+        <p className={styles.lead}>{t.intro} {unit} {t.introEnd}</p>
       </>}
-    </main><footer className="join-footer">{t.footer}</footer>
-  </div>;
+      {returning.state === "stale" && <p className={styles.muted} role="status">{t.staleNote}</p>}
+      {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{item.cost} {unit}</span></li>)}</ul>}
+      {program.programType === "points" && program.earningMode === "purchase" && <p className={styles.muted}>{earnRule(program.pointsPerCurrencyUnit, program.currency, locale)}</p>}
+      {referralCode && <p className={styles.note}>{program.referral?.enabled && !referralUnavailable
+        ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${program.referral.referrerBonus} ${unit} et vous ${program.referral.referredBonus} ${unit}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${program.referral.referrerBonus} ${unit} und deine Karte ${program.referral.referredBonus} ${unit} erhalten. Das Öffnen des Links bringt keinen Bonus.`
+        : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
+      {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
+      <div className={styles.rules}><h3>{t.rules}</h3><p>{program.rulesText}</p></div>
+      {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
+      <form className={styles.form} onSubmit={submit}>
+        <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
+        {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
+        {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
+        <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
+        <p className={styles.muted}>{t.noEmail}</p>
+      </form>
+      <p className={styles.link}><Link href="/recover">{locale === "fr" ? "Vous avez déjà une carte ? Récupération sécurisée" : "Du hast schon eine Karte? Sicher wiederherstellen"}</Link></p>
+    </section>}
+  </CustomerShell>;
 }
