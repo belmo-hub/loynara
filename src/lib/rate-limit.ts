@@ -91,6 +91,14 @@ export async function enforceRateLimit({ scope, identity, max, windowSeconds }: 
   if (row.hits > max) throw new RateLimitError(Math.max(1, Math.ceil((row.reset_at.getTime() - Date.now()) / 1000)));
 }
 
+/** Seconds until the bucket resets when it already holds `max` hits; null when a request may proceed. Never counts a hit. */
+export async function rateLimitBlockedFor({ scope, identity, max }: Omit<Limit, "windowSeconds">, queries: Pick<Pool, "query"> = pool): Promise<number | null> {
+  const result = await queries.query<{ hits: number; reset_at: Date }>(
+    "SELECT hits, reset_at FROM rate_limits WHERE key_hash = $1 AND reset_at > now()", [rateKey(scope, identity)]);
+  const row = result.rows[0];
+  return row && row.hits >= max ? Math.max(1, Math.ceil((row.reset_at.getTime() - Date.now()) / 1000)) : null;
+}
+
 export function enforcePeerLimit(request: Request, scope: string, max: number, windowSeconds: number, queries: Pick<Pool, "query"> = pool) {
   return enforceRateLimit({ scope, identity: peerIdentity(request), max, windowSeconds }, queries);
 }
