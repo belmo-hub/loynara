@@ -43,6 +43,7 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-action-hover` | #143D2E | #B9E2CA | hover |
 | `--color-on-action` | #FFFFFF | #0F1713 | text on action |
 | `--color-action-soft` | #E6EEDF | #22352B | quiet fills, selected rows |
+| `--color-fill` | 7 % ink | 7 % ink | neutral badge, hover fills, segmented track, skeleton |
 | `--color-accent-text` | #9E4B2D | #E8A58A | kickers ("Als Nächstes"), warm emphasis |
 | `--color-stamp` | #E9895F | #E9895F | earned stamps, reward markers (decorative) |
 | `--color-success` | #1F6B45 | #8FD1A8 | confirmed booking, "+1" |
@@ -50,8 +51,12 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-warning` | #8A5A00 | #F2C14E | offline queue, pending |
 | `--color-focus` | #2E7D5B | #9FD3B5 | focus ring (3 px, 2 px offset) |
 
+Status chips and notices set the status colour as text on a 10 % fill of itself
+(`color-mix(in oklab, var(--color-success), transparent 90%)`), in the shared Badge and in the dashboard alike.
+
 Contrast pairs asserted by `src/styles/tokens.test.ts`: ink, ink-muted, accent-text, success, danger and warning on
-bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1).
+bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1);
+each status colour on its 10 % fill and ink-muted on `--color-fill`, over every ground (≥ 4.5:1).
 
 ### Merchant colour
 
