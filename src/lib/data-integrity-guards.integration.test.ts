@@ -2,11 +2,12 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { db, pool } from "@/db";
 import { locations, memberships, programs, rewards, rewardVersions, staffRoles, tenants } from "@/db/schema";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
 // The application already writes only valid rows. These checks are about the database itself refusing invalid ones,
 // whatever writes them: an import, a maintenance query or a future bug.
-if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
+assertLocalTestDatabaseUrl();
+beforeEach(async () => { await assertDisposableDatabase(pool); await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
 
 async function fixture() {
