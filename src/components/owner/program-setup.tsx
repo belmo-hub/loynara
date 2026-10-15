@@ -141,7 +141,7 @@ export function ProgramSetup() {
             </div>
             <Field id="su-contactEmail" label="Kontakt-E-Mail (optional)" error={err("contactEmail")}><input id="su-contactEmail" className="ow-input" type="email" value={f.contactEmail} onChange={event => set({ contactEmail: event.target.value })} aria-invalid={Boolean(err("contactEmail"))} /></Field>
             <fieldset className="ow-group"><legend>Branche (optional)</legend>
-              <div className="ow-swatches" role="group" aria-label="Branche">{PRESETS.map(preset => <button key={preset.id} type="button" className="ow-btn ow-btn--secondary ow-btn--sm" aria-pressed={f.preset === preset.id} onClick={() => applyPreset(preset)} style={f.preset === preset.id ? { borderColor: "var(--ow-accent)", background: "var(--ow-accent-soft)" } : undefined}>{preset.label}</button>)}</div>
+              <div className="ow-swatches" role="group" aria-label="Branche">{PRESETS.map(preset => <button key={preset.id} type="button" className="ow-btn ow-btn--secondary ow-btn--sm" aria-pressed={f.preset === preset.id} onClick={() => applyPreset(preset)} style={f.preset === preset.id ? { borderColor: "var(--color-action)", background: "var(--color-action-soft)" } : undefined}>{preset.label}</button>)}</div>
               <span className="ow-hint">Füllt die nächsten Schritte mit einem Beispiel vor. Alles bleibt änderbar. Das ist ein Vorschlag, kein geprüftes oder empfohlenes Angebot.</span>
             </fieldset>
           </>}
@@ -182,7 +182,7 @@ export function ProgramSetup() {
                 </>}
               </div>
             </details>
-            <div className="ow-card ow-card--flat" style={{ background: "var(--ow-surface-2)" }}>
+            <div className="ow-card ow-card--flat" style={{ background: "var(--color-fill)" }}>
               <h3 style={{ fontSize: "var(--text-16)", marginBottom: 8 }}>Zusammenfassung</h3>
               <dl className="ow-dl">{summary.map(([k, v]) => [<dt key={`${k}-t`}>{k}</dt>, <dd key={`${k}-d`}>{v}</dd>])}</dl>
               <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: "var(--text-14)" }} className="ow-muted">
