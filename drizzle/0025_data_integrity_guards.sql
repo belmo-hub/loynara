@@ -1,5 +1,7 @@
--- Checks are added NOT VALID: they apply to every new or changed row from now on, without scanning or locking the
--- existing tables during the deploy. Existing rows were written by code that already follows the same rules.
+-- Checks are added NOT VALID: they apply to every new or changed row from now on, and the deploy does not scan the
+-- existing rows to validate them (those were written by code that already follows the same rules). Each ALTER still
+-- takes a short ACCESS EXCLUSIVE lock on its table, held until the migration commits. The migrate service's
+-- lock_timeout (15 s) applies to each lock it waits for; locks already taken stay until commit or rollback.
 ALTER TABLE "automation_rules" DROP CONSTRAINT "automation_rule_inactivity_valid";--> statement-breakpoint
 ALTER TABLE "locations" DROP CONSTRAINT "location_coordinates_valid";--> statement-breakpoint
 ALTER TABLE "consent_events" ALTER COLUMN "created_at" SET DEFAULT clock_timestamp();--> statement-breakpoint
