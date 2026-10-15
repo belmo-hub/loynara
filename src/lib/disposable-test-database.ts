@@ -5,7 +5,7 @@
  */
 export const DISPOSABLE_DATABASE_MARKER = "loynara-disposable-test-database";
 
-const refused = () => new Error("Disposable local test database required: see scripts/test-local.sh");
+const refused = () => new Error("Disposable local test database required: scripts/test-local.sh marks the database it creates; MARK_TEST_DATABASE_DISPOSABLE=yes marks an existing one");
 
 /** Checked before connecting. Query parameters are refused outright: node-postgres lets them override the host. */
 export function assertLocalTestDatabaseUrl(raw: string | undefined = process.env.DATABASE_URL): void {
