@@ -29,6 +29,22 @@ test.describe("guest pages on phones", () => {
     });
   }
 
+  test("a full-width button with a long label wraps instead of widening the page", async ({ page }) => {
+    // The saved-card choice on /tap ("Mit meiner gespeicherten Karte fortfahren") needs an NFC tap to appear, so the
+    // shared block-button style is checked here on a clone of the join button, at the narrowest supported width.
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
+    const submit = page.getByRole("button", { name: "Meine Karte erstellen", exact: true });
+    await submit.evaluate(button => {
+      const long = document.createElement("button");
+      long.className = button.className; long.type = "button"; long.id = "long-label";
+      long.textContent = "Mit meiner gespeicherten Karte fortfahren und weitere Schritte prüfen";
+      button.after(long);
+    });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    expect(await page.locator("#long-label").evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThan(56);
+  });
+
   test("the recovery page shows no status message until something happened", async ({ page }) => {
     await page.goto("/recover");
     await expect(page.getByRole("heading", { name: "Karte wiederfinden" })).toBeVisible();
