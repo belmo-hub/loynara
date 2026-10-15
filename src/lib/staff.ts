@@ -48,6 +48,14 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
     if (assigned.some((role) => role.tenantId !== invite.tenantId)) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     if (assigned.some((role) => role.active)) throw new DomainError("ALREADY_ASSIGNED", "Account already has an active merchant role");
     const [prior] = assigned;
+    if (prior) {
+      // Only an invitation issued after this person's latest revocation may restore access. This also covers
+      // invitations that revocations from before invitation clean-up left open. Compared in SQL at full precision.
+      const [revokedSince] = await tx.select({ id: staffAuditEvents.id }).from(staffAuditEvents).where(and(
+        eq(staffAuditEvents.tenantId, invite.tenantId), eq(staffAuditEvents.subjectUserId, input.userId), eq(staffAuditEvents.action, "access_revoked"),
+        sql`${staffAuditEvents.createdAt} >= (SELECT created_at FROM staff_invites WHERE id = ${invite.id})`)).limit(1);
+      if (revokedSince) throw new DomainError("INVALID_INVITE", "Invitation is invalid or expired");
+    }
     if (prior) await tx.update(staffRoles).set({ role: invite.role, locationId: invite.locationId, active: true }).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, invite.tenantId)));
     else {
       const inserted = await tx.insert(staffRoles).values({ tenantId: invite.tenantId, userId: input.userId, role: invite.role, locationId: invite.locationId })

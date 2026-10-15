@@ -87,26 +87,33 @@ it("makes staff revocation wait for a cancellation that already passed its acces
   const cashier = await addStaff(f.tenant.id, f.location.id, "cashier");
   const pending = await processSecureTap(c.tap(2, { cardToken: f.member.cardToken }));
   const gate = await pool.connect();
+  const finished: string[] = [];
   let cancellation: Promise<unknown> | undefined;
   let revocation: Promise<unknown> | undefined;
+  const pause = () => new Promise(resolve => setTimeout(resolve, 20));
   try {
     // The cancellation can lock its request row and read the role, but its UPDATE waits behind this table lock.
     await gate.query("BEGIN");
     await gate.query("LOCK TABLE tap_requests IN SHARE MODE");
-    cancellation = cancelTapRequest({ userId: cashier, locationId: f.location.id, requestId: pending.requestId! });
-    let waiting = false;
-    for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
-      waiting = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE 'update \"tap_requests\"%'")).rowCount! > 0;
-      if (!waiting) await new Promise(resolve => setTimeout(resolve, 10));
+    cancellation = cancelTapRequest({ userId: cashier, locationId: f.location.id, requestId: pending.requestId! }).finally(() => finished.push("cancellation"));
+    let cancellationPid: number | undefined;
+    for (let attempt = 0; attempt < 500 && !cancellationPid; attempt++) {
+      cancellationPid = (await pool.query<{ pid: number }>("SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE 'update \"tap_requests\"%'")).rows[0]?.pid;
+      if (!cancellationPid) await pause();
     }
-    expect(waiting).toBe(true);
-    let revoked = false;
-    revocation = revokeStaff({ actorUserId: f.userId, userId: cashier }).then(() => { revoked = true; });
-    await new Promise(resolve => setTimeout(resolve, 300));
-    expect(revoked, "revocation must wait until the authorised cancellation commits").toBe(false);
+    expect(cancellationPid, "the cancellation must be waiting at its update").toBeDefined();
+    // The revocation must now be seen blocked by the cancellation itself, not merely slow.
+    revocation = revokeStaff({ actorUserId: f.userId, userId: cashier }).finally(() => finished.push("revocation"));
+    let blocked = false;
+    for (let attempt = 0; attempt < 500 && !blocked && !finished.includes("revocation"); attempt++) {
+      blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [cancellationPid])).rowCount! > 0;
+      if (!blocked) await pause();
+    }
+    expect(blocked, "revocation must wait for the cancellation that already passed its access check").toBe(true);
   } finally { await gate.query("COMMIT"); gate.release(); }
   await expect(cancellation).resolves.toMatchObject({ state: "cancelled" });
   await revocation;
+  expect(finished).toEqual(["cancellation", "revocation"]);
   expect((await db.select().from(staffRoles).where(eq(staffRoles.userId, cashier)))[0].active).toBe(false);
 });
 

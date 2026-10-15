@@ -59,6 +59,12 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
   const authorized = Boolean(staff?.active && (staff.role === "owner" || staff.locationId === lease.locationId));
   const currentBalance = async () => {
     if (!authorized) return undefined;
+    // Decided again under the role lock, held until commit and taken in checkout's order (account, then role): a
+    // revocation either waits for this answer or is seen by it, never commits between the check and the read.
+    await tx.execute(sql`SELECT id FROM "user" WHERE id = ${input.userId} FOR KEY SHARE`);
+    const [current] = await tx.select().from(staffRoles)
+      .where(and(eq(staffRoles.tenantId, lease.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true))).for("share");
+    if (!current || (current.role !== "owner" && current.locationId !== lease.locationId)) return undefined;
     const [member] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, lease.membershipId));
     return member?.balance;
   };

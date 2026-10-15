@@ -71,6 +71,35 @@ describe("offline earning reconciliation", () => {
     expect(replay.balance).toBeUndefined();
   });
 
+  it.each(["stored outcome", "ledger recovery"])("withholds the balance when a revocation commits while a replay (%s) is answering", async (path) => {
+    const f = await fixture();
+    const deviceId = randomUUID();
+    const lease = await prepareOfflineAward({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, deviceId, now: new Date("2026-09-25T10:00:00Z") });
+    const event = { userId: f.userId, leaseId: lease.leaseId, deviceId, eventId: randomUUID(), eventAt: new Date("2026-09-25T10:01:00Z"), award: { quantity: 1 }, now: new Date("2026-09-25T10:02:00Z") };
+    expect(await syncOfflineAward(event)).toMatchObject({ status: "accepted", balance: 1 });
+    // Without its stored outcome, the replay is recognised from the ledger entry instead.
+    if (path === "ledger recovery") await pool.query("DELETE FROM offline_award_events WHERE id = $1", [event.eventId]);
+    await db.update(memberships).set({ balance: 7 }).where(eq(memberships.id, f.member.id));
+    const gate = await pool.connect();
+    let replay: Promise<Awaited<ReturnType<typeof syncOfflineAward>>> | undefined;
+    try {
+      await gate.query("BEGIN");
+      const gatePid = (await gate.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await gate.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [f.userId]);
+      let settled = false;
+      replay = syncOfflineAward(event).finally(() => { settled = true; });
+      let blocked = false;
+      for (let attempt = 0; attempt < 500 && !blocked && !settled; attempt++) {
+        blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [gatePid])).rowCount! > 0;
+        if (!blocked) await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      expect(blocked, "the replay must wait for the pending revocation before it reads the balance").toBe(true);
+    } finally { await gate.query("COMMIT"); gate.release(); }
+    const result = await replay!;
+    expect(result).toMatchObject({ status: "accepted", duplicate: true });
+    expect(result.balance).toBeUndefined();
+  });
+
   it("rejects a different device and an event timestamp outside its lease", async () => {
     const f = await fixture();
     const now = new Date("2026-09-25T10:00:00Z");
