@@ -2,11 +2,12 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, memberships, tapRequests } from "@/db/schema";
+import { ledgerEntries, memberships, staffRoles, tapRequests } from "@/db/schema";
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster, type TapKeyProvider } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
 import { addStaff, nfcFixture } from "./nfc-test-db";
-import { activateSecureTag, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag } from "./secure-tap";
+import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag } from "./secure-tap";
+import { revokeStaff } from "./staff";
 
 // Cases not already covered by nfc-lifecycle.integration.test.ts and secure-tap.integration.test.ts:
 // two different staff confirming at once, and a revoked cashier losing the list (not just confirmation) until reactivated.
@@ -79,6 +80,42 @@ describe("cashier confirmation of one NFC request", () => {
   });
 });
 
+
+it("makes staff revocation wait for a cancellation that already passed its access check", async () => {
+  const f = await nfcFixture();
+  const c = await register(f);
+  const cashier = await addStaff(f.tenant.id, f.location.id, "cashier");
+  const pending = await processSecureTap(c.tap(2, { cardToken: f.member.cardToken }));
+  const gate = await pool.connect();
+  const finished: string[] = [];
+  let cancellation: Promise<unknown> | undefined;
+  let revocation: Promise<unknown> | undefined;
+  const pause = () => new Promise(resolve => setTimeout(resolve, 20));
+  try {
+    // The cancellation can lock its request row and read the role, but its UPDATE waits behind this table lock.
+    await gate.query("BEGIN");
+    await gate.query("LOCK TABLE tap_requests IN SHARE MODE");
+    cancellation = cancelTapRequest({ userId: cashier, locationId: f.location.id, requestId: pending.requestId! }).finally(() => finished.push("cancellation"));
+    let cancellationPid: number | undefined;
+    for (let attempt = 0; attempt < 500 && !cancellationPid; attempt++) {
+      cancellationPid = (await pool.query<{ pid: number }>("SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE 'update \"tap_requests\"%'")).rows[0]?.pid;
+      if (!cancellationPid) await pause();
+    }
+    expect(cancellationPid, "the cancellation must be waiting at its update").toBeDefined();
+    // The revocation must now be seen blocked by the cancellation itself, not merely slow.
+    revocation = revokeStaff({ actorUserId: f.userId, userId: cashier }).finally(() => finished.push("revocation"));
+    let blocked = false;
+    for (let attempt = 0; attempt < 500 && !blocked && !finished.includes("revocation"); attempt++) {
+      blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [cancellationPid])).rowCount! > 0;
+      if (!blocked) await pause();
+    }
+    expect(blocked, "revocation must wait for the cancellation that already passed its access check").toBe(true);
+  } finally { await gate.query("COMMIT"); gate.release(); }
+  await expect(cancellation).resolves.toMatchObject({ state: "cancelled" });
+  await revocation;
+  expect(finished).toEqual(["cancellation", "revocation"]);
+  expect((await db.select().from(staffRoles).where(eq(staffRoles.userId, cashier)))[0].active).toBe(false);
+});
 
 it("refuses a request that expires while confirmation waits for the membership lock", async () => {
   const f = await nfcFixture();

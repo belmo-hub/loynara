@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "@/db";
 import { locations, staffAuditEvents, staffInvites, staffRoles } from "@/db/schema";
@@ -48,6 +48,14 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
     if (assigned.some((role) => role.tenantId !== invite.tenantId)) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     if (assigned.some((role) => role.active)) throw new DomainError("ALREADY_ASSIGNED", "Account already has an active merchant role");
     const [prior] = assigned;
+    if (prior) {
+      // Only an invitation issued after this person's latest revocation may restore access. This also covers
+      // invitations that revocations from before invitation clean-up left open. Compared in SQL at full precision.
+      const [revokedSince] = await tx.select({ id: staffAuditEvents.id }).from(staffAuditEvents).where(and(
+        eq(staffAuditEvents.tenantId, invite.tenantId), eq(staffAuditEvents.subjectUserId, input.userId), eq(staffAuditEvents.action, "access_revoked"),
+        sql`${staffAuditEvents.createdAt} >= (SELECT created_at FROM staff_invites WHERE id = ${invite.id})`)).limit(1);
+      if (revokedSince) throw new DomainError("INVALID_INVITE", "Invitation is invalid or expired");
+    }
     if (prior) await tx.update(staffRoles).set({ role: invite.role, locationId: invite.locationId, active: true }).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, invite.tenantId)));
     else {
       const inserted = await tx.insert(staffRoles).values({ tenantId: invite.tenantId, userId: input.userId, role: invite.role, locationId: invite.locationId })
@@ -82,6 +90,12 @@ export async function revokeStaff(input: { actorUserId: string; userId: string }
     if (target.role === "owner") throw new DomainError("CANNOT_REVOKE_OWNER", "Owner role cannot be revoked here");
     if (!target.active) return { userId: input.userId, active: false };
     await tx.update(staffRoles).set({ active: false }).where(and(eq(staffRoles.tenantId, owner.tenantId), eq(staffRoles.userId, input.userId)));
+    // An invitation this person has not used yet was issued for the access that ends here; it must not bring it back.
+    // Only an invitation created after this revocation can. Acceptance re-reads the invitation under its row lock.
+    const account = await tx.execute<{ email: string }>(sql`SELECT email FROM "user" WHERE id = ${input.userId}`);
+    const email = account.rows[0]?.email.toLowerCase();
+    if (email) await tx.update(staffInvites).set({ revokedAt: new Date() })
+      .where(and(eq(staffInvites.tenantId, owner.tenantId), eq(staffInvites.invitedEmail, email), isNull(staffInvites.acceptedAt), isNull(staffInvites.revokedAt)));
     await tx.insert(staffAuditEvents).values({ tenantId: owner.tenantId, action: "access_revoked", actorUserId: input.actorUserId, subjectUserId: input.userId, locationId: target.locationId, role: target.role });
     return { userId: input.userId, active: false };
   });
