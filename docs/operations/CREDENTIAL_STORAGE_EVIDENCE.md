@@ -10,6 +10,7 @@
 - Prepared **15 resident files** from the inventory in [the rotation packet](CREDENTIAL_ROTATION.md). The helper privately compared every copy with its source; a separate verification command succeeded for all 15. Owner-only directories are mode 0700; files are mode 0600. The helper also verified ownership, no symlinks/hard links and no extended ACLs on copied files/private destination directories.
 - Original files remain present. No credentials were revoked, no original source was rewritten, no production service configuration was changed and no secret values or fingerprints were written into this evidence.
 - The copied historical backup identity successfully decrypted a newly encrypted synthetic message using the copied recipient. Byte comparison passed; temporary synthetic files were removed. No production backup was downloaded or decrypted, and no customer database was queried.
+- A separate future backup identity/recipient pair was generated directly in the private recovery directory and passed its own synthetic round trip. Both new files are mode 0600 with no extended ACLs. The new recipient is **not activated** in Railway; the historical identity remains intact.
 - `.env`, `var/preview.env` and `var/preview-access.json` were cloud-only placeholders. They remain unclassified and uncopied. The helper refuses placeholders before opening them. One earlier bounded inventory attempt stalled on `.env`; only that inventory process was stopped, with no source deletion.
 - Backup identity custody, Google Wallet demo credentials and NFC custody remain distinct. Existing operator handoff files outside sync were preserved.
 
@@ -28,6 +29,8 @@ Read-only Railway inspection around 13:25 UTC reported seven services, zero repo
 | migrate | Successful one-shot job, exited | No migration run in this task |
 
 The inspected web, connector and backup services had no public Railway domains or TCP proxies. Backup cron remained `0 3 * * *`. The exact connector image and service IDs are in the packet. Re-read these observations before executing any change; this is a dated checkpoint, not a standing health guarantee.
+
+A later unauthenticated request to the public `/api/health` endpoint returned HTTP 200. No customer data or response body was recorded.
 
 ## Tool verification
 
