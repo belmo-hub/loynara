@@ -145,7 +145,7 @@ function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOn
 }
 
 function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
-  const { text: status, announce: setStatus } = useCardStatus("return");
+  const { text: status, live, announce: setStatus } = useCardStatus("return");
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(new URL(window.location.pathname, window.location.origin).href);
@@ -161,7 +161,7 @@ function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
     </ol>
     <p className={styles.muted}>{t.linkWarning}</p>
     <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>
-    <CardStatusLine text={status} className={styles.muted} />
+    <CardStatusLine text={status} live={live} className={styles.muted} />
   </section>;
 }
 

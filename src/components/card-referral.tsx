@@ -13,7 +13,7 @@ type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; 
 export function CardReferral({ token, locale }: { token: string; locale: "de" | "fr" }) {
   const [share, setShare] = useState<ReferralShare | null>(null);
   const [error, setError] = useState("");
-  const { text: copiedText, announce } = useCardStatus("referral");
+  const { text: copiedText, live, announce } = useCardStatus("referral");
   useEffect(() => {
     let active = true;
     void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(result => { if (active && (result as { enabled?: boolean }).enabled !== false) setShare(result); }).catch(cause => {
@@ -60,7 +60,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
         <Button variant="secondary" size="sm" onClick={() => void copy()}>{french ? "Copier le lien" : "Link kopieren"}</Button>
       </div>
       <TextField label={french ? "Lien à partager" : "Link zum Teilen"} readOnly value={share.shareUrl} onFocus={event => event.target.select()} />
-      <CardStatusLine text={copiedText} className={styles.state} />
+      <CardStatusLine text={copiedText} live={live} className={styles.state} />
       {local && <p className={styles.muted}>{french ? "Aperçu local : ce lien fonctionne uniquement sur cet ordinateur." : "Lokale Vorschau: Dieser Link funktioniert nur auf diesem Rechner."}</p>}
       <p className={styles.muted}>{french ? "Ouvrir le lien ou s'inscrire seul ne donne aucun bonus." : "Öffnen oder Anmelden allein bringt noch keinen Bonus."}</p>
     </> : null}
