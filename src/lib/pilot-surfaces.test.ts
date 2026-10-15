@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 
@@ -68,11 +67,12 @@ describe("app root and registration page in the pilot", () => {
     expect(digest).toContain("NEXT_REDIRECT");
     expect(digest).toContain("/login");
   });
-  it("outside production the root still renders the marketing page", async () => {
+  it("outside production the root redirects to the login page too (the draft landing is gone)", async () => {
     const { default: Home } = await import("@/app/page");
     vi.stubEnv("PRODUCTION_ENVIRONMENT", ""); vi.stubEnv("NODE_ENV", "development");
-    expect(createElement(() => Home()).type).toBeTruthy();
-    expect(digestOf(() => Home())).toBe("NONE");
+    const digest = digestOf(() => Home());
+    expect(digest).toContain("NEXT_REDIRECT");
+    expect(digest).toContain("/login");
   });
   it("the sign-up page is offered only while registration is enabled", async () => {
     const { default: Layout } = await import("@/app/register/layout");

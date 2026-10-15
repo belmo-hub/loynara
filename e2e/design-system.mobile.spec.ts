@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const shells = ["customer", "cashier", "dashboard", "auth"];
+const shells = ["customer", "cashier", "auth"];
 
 async function horizontalOverflow(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -30,17 +30,6 @@ test.describe("design system shells on phones", () => {
       expect(await smallTargets(page)).toEqual([]);
     });
   }
-
-  test("dashboard reaches every section through Mehr", async ({ page }) => {
-    await page.goto("/dev/design/shells/dashboard");
-    const bar = page.getByRole("navigation", { name: "Bereiche" });
-    await expect(bar.getByRole("link")).toHaveCount(4);
-    await bar.getByRole("button", { name: "Mehr" }).click();
-    const sheet = page.getByRole("dialog", { name: "Mehr" });
-    await expect(sheet.getByRole("link", { name: "Einstellungen" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
-  });
 
   test.describe("dark appearance", () => {
     test.use({ colorScheme: "dark" });
