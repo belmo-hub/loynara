@@ -18,6 +18,7 @@ const cases: Array<[string, string, string[]]> = [
   ["a ::after that ignores the pointer adds no hit area", `<style>.t::after { content: ""; position: absolute; inset: -12px; pointer-events: none; }</style><a class="t" href="/a" style="width:20px;height:20px">n</a>`, ["n"]],
   ["a 1 px ::after adds no hit area", `<style>.t::after { content: ""; position: absolute; inset: -12px; width: 1px; height: 1px; }</style><a class="t" href="/a" style="width:20px;height:20px">o</a>`, ["o"]],
   ["a real ::after overlay counts", `<style>.t::after { content: ""; position: absolute; inset: -12px; }</style><a class="t" href="/a" style="width:20px;height:20px">p</a>`, []],
+  ["a real ::after overlay counts below the fold too", `<div style="height:2000px"></div><style>.t::after { content: ""; position: absolute; inset: -12px; }</style><a class="t" href="/a" style="width:20px;height:20px">q</a>`, []],
   ["a checkbox counts as its label", `<label style="display:flex;align-items:center;min-height:48px"><input type="checkbox"> Ja</label>`, []],
   ["a visually hidden file input counts as its label", `<label for="f" style="display:inline-flex;min-height:48px;min-width:120px">Logo wählen</label><input id="f" type="file" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">`, []],
 ];
@@ -28,6 +29,8 @@ test.describe("shared tap-target check", () => {
       await tab.setContent(page(body));
       const found = (await smallTargets(tab)).map(line => line.replace(/ [\d.]+x[\d.]+$/, ""));
       expect(found).toEqual(expected);
+      // The check scrolls targets into view to hit-test them and must leave the page where it was.
+      expect(await tab.evaluate(() => window.scrollY)).toBe(0);
     });
   }
 });

@@ -52,14 +52,20 @@ export async function smallTargets(page: Page, options: { scope?: string; exempt
       const after = getComputedStyle(target, "::after");
       if (after.content === "none" || after.position !== "absolute" || after.pointerEvents === "none" || getComputedStyle(target).position === "static") return { width, height };
       const claimedWidth = parseFloat(after.width), claimedHeight = parseFloat(after.height);
+      if (!(claimedWidth > width) && !(claimedHeight > height)) return { width, height };
+      // Hit testing only sees the viewport: bring the control into view first, and put the scroll back afterwards.
+      const scrollX = window.scrollX, scrollY = window.scrollY;
+      target.scrollIntoView({ block: "center", inline: "center" });
+      const view = target.getBoundingClientRect();
       const hits = (x: number, y: number) => {
         if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
         const hit = document.elementFromPoint(x, y);
         return Boolean(hit && (hit === target || target.contains(hit)));
       };
-      const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
+      const cx = view.left + view.width / 2, cy = view.top + view.height / 2;
       if (claimedWidth > width && hits(cx - claimedWidth / 2 + 1, cy) && hits(cx + claimedWidth / 2 - 1, cy)) width = claimedWidth;
       if (claimedHeight > height && hits(cx, cy - claimedHeight / 2 + 1) && hits(cx, cy + claimedHeight / 2 - 1)) height = claimedHeight;
+      window.scrollTo(scrollX, scrollY);
       return { width, height };
     };
 
