@@ -31,6 +31,18 @@ The temporary service was updated first and redeployed from its existing build. 
 
 The temporary service was deleted only from the production environment and independently verified absent from the project's service inventory at approximately 15:21 UTC, before its deadline. The private success marker was written for the cleanup guard. Three more public health checks returned HTTP 200 after removal; Cloudflare showed exactly one healthy connector belonging to the original service. No route, DNS, application deployment or source image changed. An isolated live old-token registration test was omitted because no route-free validation environment was established; provider rotation confirmation and the actual fresh authenticated connections are the recorded evidence, rather than a claimed live negative test. The original synced token file remains preserved pending separate cleanup approval.
 
+## R2 — replacement created and synthetic checks passed
+
+The owner created `loynara-production-backup-2026-10-15`. The provider's result and subsequent token inventory confirmed Object Read & Write access only to `loynara-rc-backups` in the EU jurisdiction, matching the predecessor's scope. Its S3 credentials and corresponding provider API token were saved directly to `backup/r2-active.env` and `backup/r2-active-api.token` in the protected folder. Readback and private-file checks passed; both S3 credential values differ from their historical counterparts. No values were printed or committed.
+
+Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. Production backup variables and the old R2 key remain unchanged. Independent recovery custody and the next natural backup acceptance gate are still outstanding; this is not a completed R2 rotation. Before activation, verify how a same-build cron deployment applies variables without causing an immediate extra dump. The documented schedule alone does not establish deployment-time behavior; do not assume a generic redeploy is a schedule-only change. See [Railway cron semantics](https://docs.railway.com/cron-jobs).
+
+## Monitoring — baseline verified, replacement forms prepared
+
+The signed-in project has five checks on the free Hobbyist plan, whose current limit is twenty. The three privately saved old ping URLs match the expected live worker heartbeat, outbox and encrypted-backup checks. Their Simple schedules are respectively 1 minute / 5 minutes grace, 5 minutes / 10 minutes grace, and 1 day / 3 hours grace. The existing email integration is assigned to all five checks and reports Ready to deliver; its last notification is recorded as delivered. No test notification or manufactured success ping was sent.
+
+Three matching replacement forms are prepared, awaiting the owner's required browser credential-creation submission. No replacement ping URLs have yet been created or injected. No monitoring API key was created: project API access is currently unset, and this operation does not need broader management credentials. Old checks and production service artifacts are unchanged.
+
 ## Still pending
 
 - Classification/resolution of the separate saved Railway API credential.
