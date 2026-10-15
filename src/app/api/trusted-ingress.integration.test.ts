@@ -88,7 +88,8 @@ describe("trusted ingress through application handlers (isolated PostgreSQL)", (
   it("sign-in, card and recovery retain peer and card/destination limits", async () => {
     const token = `synthetic-${randomUUID()}`, email = `${randomUUID()}@example.test`;
     for (const ip of ips()) {
-      const sign = req("/api/auth/sign-in/email", ip, {});
+      // The route refuses a sign-in it cannot attribute to an account, so send a well-formed one.
+      const sign = req("/api/auth/sign-in/email", ip, { email, password: "synthetic-ingress-password" });
       const read = req(`/api/card/${token}`, ip);
       const recovery = req("/api/recover", ip, { email });
       for (const [scope, request] of [["auth_signin_peer", sign], ["card_read_peer", read], ["recovery_request_peer", recovery]] as const) key(scope, peerIdentity(request));

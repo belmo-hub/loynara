@@ -70,4 +70,10 @@ describe("production security headers", () => {
       expect(headers["X-Robots-Tag"]).toBe("noindex, nofollow");
     }
   });
+
+  it("does not advertise the framework and version in an X-Powered-By header", async () => {
+    vi.resetModules();
+    const config = (await import("../next.config")).default;
+    expect(config.poweredByHeader).toBe(false);
+  });
 });

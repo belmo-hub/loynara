@@ -91,6 +91,17 @@ export async function enforceRateLimit({ scope, identity, max, windowSeconds }: 
   if (row.hits > max) throw new RateLimitError(Math.max(1, Math.ceil((row.reset_at.getTime() - Date.now()) / 1000)));
 }
 
+/** Gives back one hit counted by enforceRateLimit in the current window, for an attempt that turned out not to count. */
+export async function refundRateLimit({ scope, identity }: Pick<Limit, "scope" | "identity">, queries: Pick<Pool, "query"> = pool): Promise<void> {
+  // Rows require hits > 0, so the last hit is given back by removing the row. One statement, so a concurrent hit
+  // either lands before (and the row is decremented) or after (and starts a fresh row).
+  await queries.query(`
+    WITH emptied AS (DELETE FROM rate_limits WHERE key_hash = $1 AND reset_at > now() AND hits = 1 RETURNING 1)
+    UPDATE rate_limits SET hits = hits - 1, updated_at = now()
+    WHERE key_hash = $1 AND reset_at > now() AND hits > 1 AND NOT EXISTS (SELECT 1 FROM emptied)
+  `, [rateKey(scope, identity)]);
+}
+
 export function enforcePeerLimit(request: Request, scope: string, max: number, windowSeconds: number, queries: Pick<Pool, "query"> = pool) {
   return enforceRateLimit({ scope, identity: peerIdentity(request), max, windowSeconds }, queries);
 }

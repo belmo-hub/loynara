@@ -17,7 +17,9 @@ export async function POST(request: Request) {
     let input = data;
     let shared = false;
     if (data && typeof data === "object" && "slug" in data && typeof data.slug === "string") {
-      await enforceRateLimit({ scope: "enroll_program", identity: data.slug, max: 300, windowSeconds: 60 * 60 });
+      // Shared by every guest of this programme: 20 addresses' worth of the per-address limit (20 x 25), so a busy shop
+      // has headroom and blocking its joins takes at least 20 addresses.
+      await enforceRateLimit({ scope: "enroll_program", identity: data.slug, max: 500, windowSeconds: 60 * 60 });
       // A browser that already holds a valid card for this programme gets it offered again instead of a silent second,
       // empty card. Another card is created only when the guest deliberately asked for one (additionalCard: true).
       // Stale credentials require recovery or a deliberate request for a separate new card.

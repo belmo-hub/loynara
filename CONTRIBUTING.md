@@ -68,3 +68,5 @@ Tickets tagged `agent-ready` can be picked up by a scheduled loop (`scripts/tick
 - `scripts/ticket-cycle.py pause` and `resume` stop and restart all cycles; `status` shows what is going on.
 - `scripts/ticket-loop-install.sh install` schedules it on macOS; see `scripts/ticket-loop.config.example` for the settings.
 - Tag a ticket `needs-founder`, `needs-hardware`, `needs-legal` or `needs-decision` and the loop will never pick it.
+- The ticket text becomes instructions for a command that runs on your machine. The loop only picks a ticket whose reporter and every author of its summary and description are listed in `ALLOWED_AUTHORS`; with the list empty it picks nothing.
+- The command's output stays in the local run log and is never posted to the tracker. A branch that changes CI, the loop itself, package manifests, `.npmrc` or Docker files is kept locally for a person to push.

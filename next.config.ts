@@ -32,6 +32,8 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   ...(deviceTestDistDir ? { distDir: deviceTestDistDir } : {}),
+  // Production answered with "X-Powered-By: Next.js"; naming the framework only helps someone matching known advisories.
+  poweredByHeader: false,
   // In development Next logs full request paths by default, including bearer
   // card URLs and scan-code query strings. Keep application diagnostics in
   // respondError/worker logs, which never print request URLs or credentials.

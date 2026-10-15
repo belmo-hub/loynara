@@ -15,10 +15,15 @@ and can be overridden by environment variables. See scripts/ticket-loop.config.e
 are configuration (IMPLEMENT_CMD, REVIEW_CMD); this file names no tool.
 
 Safety rules that are enforced here, not left to the commands:
+  * the ticket text is instructions to a command that can run code on this machine, so a ticket is only picked up when
+    its reporter and every author of its summary and description are in ALLOWED_AUTHORS (empty: nothing runs)
   * only branches named ticket/LOY-<number> are ever pushed, with an explicit refspec; never main, never a force push
   * the loop has no merge, release or delete code at all
-  * a diff that is too large, or that adds something that looks like a secret, is not pushed
-  * a ticket the command could not change is returned to the founder with the command's last output
+  * a diff that is too large, adds something that looks like a secret, or touches CI, this loop, package manifests,
+    install configuration or Docker files is not pushed
+  * the command's output stays in the local log; nothing it prints is posted to the tracker, and the review is posted
+    to the pull request only when POST_REVIEW=1
+  * the command runs with a small allowlisted environment, not the caller's full environment
 """
 import json
 import os
@@ -66,8 +71,16 @@ DEFAULTS = {
     "TAG_FAILED": "agent-failed",
     "SKIP_TAGS": "needs-founder,needs-hardware,needs-legal,needs-decision",
     "STATE_COMMAND": "Stage {In Review}",
+    "ALLOWED_AUTHORS": "",              # required: tracker logins whose ticket text the command may act on
+    "POST_REVIEW": "0",                 # 1 posts the review command's output on the pull request
     "DRY_RUN": "0",
 }
+
+# A change to any of these runs code outside the reviewed diff (CI and other top-level tool folders, this loop, install
+# scripts, images); never pushed.
+PROTECTED_PATHS = re.compile(r"^(\.[^/]+/|scripts/ticket-|(.*/)?package(-lock)?\.json$|(.*/)?\.npmrc$|(.*/)?Dockerfile|\.dockerignore$)")
+# The only parts of the caller's environment the command inherits; tokens exported in a shell stay out of its reach.
+AGENT_ENV_KEYS = ("PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR", "TERM")
 
 SECRET_PATTERNS = [
     r"sk_live_[A-Za-z0-9_-]{16,}", r"-----BEGIN [A-Z ]*PRIVATE KEY-----", r"AKIA[0-9A-Z]{16}",
@@ -107,6 +120,31 @@ def redact(text):
     for pattern in SECRET_PATTERNS:
         text = re.sub(pattern, "***", text)
     return text
+
+
+def allowed_authors(cfg):
+    return {login.strip() for login in cfg["ALLOWED_AUTHORS"].split(",") if login.strip()}
+
+
+def untrusted_authors(reporter, editors, allowed):
+    """Logins outside the allowlist that wrote this ticket's text. An empty allowlist trusts nobody."""
+    return sorted({login or "(unknown)" for login in [reporter, *editors] if login not in allowed})
+
+
+def protected_paths(paths):
+    return [p for p in paths if PROTECTED_PATHS.match(p)]
+
+
+def agent_env(base, extra):
+    env = {k: base[k] for k in AGENT_ENV_KEYS if k in base}
+    env.update(extra)
+    return env
+
+
+def implement_cmd_warnings(cmd):
+    """Grants that let the command run arbitrary code. The author allowlist is then the only barrier."""
+    patterns = [r"Bash\(\s*npx", r"Bash\(\s*npm run", r"Bash\(\s*\*?\s*\)", r"bypassPermissions", r"dangerously", r"--yolo", r"danger-full-access"]
+    return [p for p in patterns if re.search(p, cmd)]
 
 
 def run(cmd, cwd=None, check=False, env=None, timeout=None):
@@ -153,6 +191,12 @@ class Tracker:
         except RuntimeError as e:
             log(f"warning: could not read {issue}: {e}")
             return f"# {issue}: {fallback}\n\n(the description could not be read)\n"
+
+    def text_authors(self, issue):
+        """The reporter and everyone who ever wrote the summary or description. Raises when it cannot tell."""
+        data = self.request("GET", f"/api/issues/{issue}?fields=reporter(login)") or {}
+        activities = self.request("GET", f"/api/issues/{issue}/activities?categories=SummaryCategory,DescriptionCategory&fields=author(login)&$top=1000") or []
+        return (data.get("reporter") or {}).get("login"), [(a.get("author") or {}).get("login") for a in activities]
 
     def tag_id(self, name):
         if name in self._tags:
@@ -270,6 +314,13 @@ class Loop:
         branch = f"ticket/{issue}"
         if not re.fullmatch(r"ticket/LOY-\d+", branch):
             raise RuntimeError(f"refusing odd ticket id {issue!r}")
+        reporter, editors = t.text_authors(issue)
+        outsiders = untrusted_authors(reporter, editors, allowed_authors(cfg))
+        if outsiders:
+            t.comment(issue, "Not started: this ticket's text was written or changed by someone outside the loop's allowed authors. A person has to check it and run it by hand.")
+            t.add_tag(issue, cfg["TAG_NEEDS"])
+            t.remove_tag(issue, cfg["TAG_READY"])
+            return log(f"{issue}: not started; text authors outside ALLOWED_AUTHORS: {', '.join(outsiders)}")
         log(f"{issue}: starting ({summary[:70]})")
         t.add_tag(issue, cfg["TAG_WORKING"])
         t.remove_tag(issue, cfg["TAG_READY"])
@@ -278,22 +329,23 @@ class Loop:
         ticket_file = self.runs / "tickets" / f"{issue}.md"
         ticket_file.parent.mkdir(parents=True, exist_ok=True)
         ticket_file.write_text(redact(t.issue_text(issue, summary)))
-        env = dict(os.environ, TICKET_FILE=str(ticket_file), AGENT_CMD=cfg["IMPLEMENT_CMD"], AGENT_TIMEOUT_SEC=cfg["IMPLEMENT_TIMEOUT_SEC"],
-                   AGENT_MAX_TURNS=cfg["IMPLEMENT_MAX_TURNS"], AGENT_MAX_BUDGET=cfg["IMPLEMENT_MAX_BUDGET"],
-                   BASE_REF=cfg["BASE_REF"], RUNS_DIR=str(self.runs))
+        env = agent_env(os.environ, dict(TICKET_FILE=str(ticket_file), AGENT_CMD=cfg["IMPLEMENT_CMD"], AGENT_TIMEOUT_SEC=cfg["IMPLEMENT_TIMEOUT_SEC"],
+                        AGENT_MAX_TURNS=cfg["IMPLEMENT_MAX_TURNS"], AGENT_MAX_BUDGET=cfg["IMPLEMENT_MAX_BUDGET"],
+                        BASE_REF=cfg["BASE_REF"], RUNS_DIR=str(self.runs)))
         if self.dry:
             log(f"[dry-run] would run ticket-run.sh {issue}")
             return
         self.git("fetch", "origin", "--quiet")
         rc = subprocess.run([str(SCRIPT_DIR / "ticket-run.sh"), issue], env=env, cwd=self.repo).returncode
-        log_tail = self.log_tail(issue)
+        # The command's output may echo anything it read, so it stays in the local log and is never posted.
+        local_log = self.runs / "logs" / f"{issue}.log"
 
         have_branch = self.git("show-ref", "--verify", "--quiet", f"refs/heads/{branch}").returncode == 0
         commits = int(self.git("rev-list", "--count", f"{cfg['BASE_REF']}..{branch}").stdout.strip() or 0) if have_branch else 0
 
         if commits == 0:
             reason = "The run did not change anything." if rc == 0 else f"The run ended with exit code {rc} and no change."
-            t.comment(issue, f"{reason} Last output:\n\n```\n{log_tail}\n```\n\nA decision, a real device or more detail is probably needed. Tagged for the founder.")
+            t.comment(issue, f"{reason} The output is in the local run log ({local_log.name}). A decision, a real device or more detail is probably needed. Tagged for the founder.")
             t.add_tag(issue, cfg["TAG_NEEDS"])
             t.remove_tag(issue, cfg["TAG_WORKING"])
             return log(f"{issue}: no change; returned to founder")
@@ -303,9 +355,12 @@ class Loop:
         lines = sum(int(a) + int(b) for a, b, _ in (l.split("\t") for l in numstat) if a.isdigit() and b.isdigit())
         added = self.git("diff", "-U0", f"{cfg['BASE_REF']}...{branch}").stdout
         secret = next((p for p in SECRET_PATTERNS if re.search(p, "\n".join(l for l in added.splitlines() if l.startswith("+")))), None)
+        protected = protected_paths(self.git("diff", "--name-only", f"{cfg['BASE_REF']}...{branch}").stdout.splitlines())
         problem = None
         if secret:
             problem = "the diff adds something that looks like a secret"
+        elif protected:
+            problem = "the diff changes files that run outside the reviewed code (" + ", ".join(protected[:5]) + "); a person has to push it"
         elif lines > int(cfg["MAX_DIFF_LINES"]):
             problem = f"the change is too large ({lines} lines changed); split the ticket"
         elif rc != 0:
@@ -330,13 +385,6 @@ class Loop:
         t.remove_tag(issue, cfg["TAG_WORKING"])
         t.command(issue, cfg["STATE_COMMAND"])
         log(f"{issue}: pull request {pr_url}")
-
-    def log_tail(self, issue, n=25):
-        p = self.runs / "logs" / f"{issue}.log"
-        if not p.exists():
-            return "(no log)"
-        lines = [l for l in p.read_text(errors="replace").splitlines() if l.strip()]
-        return redact("\n".join(lines[-n:]))[-3000:]
 
     def open_pr(self, issue, summary, branch, commits, stat, lines):
         cfg = self.cfg
@@ -371,9 +419,12 @@ class Loop:
                       "checked-out tree is the current directory. Do not modify any file. Report only real problems: correctness bugs, "
                       "missing or weak tests, security or tenant-isolation issues, migration risks, and anything that breaks CONTRIBUTING.md. "
                       "Give file and line for each. If you find nothing material, say so in one sentence.")
-            env = dict(os.environ, AGENT_PROMPT=prompt, REVIEW_DIFF_FILE=str(tmp / "change.diff"), TICKET_ID=issue)
+            env = agent_env(os.environ, dict(AGENT_PROMPT=prompt, REVIEW_DIFF_FILE=str(tmp / "change.diff"), TICKET_ID=issue))
             res = run(["bash", "-c", cfg["REVIEW_CMD"]], cwd=wt, env=env, timeout=int(cfg["REVIEW_TIMEOUT_SEC"]))
             text = redact(res.stdout.strip())[:20000] or "(the review produced no output)"
+            (self.runs / "logs" / f"{issue}.review.md").write_text(text)
+            if cfg["POST_REVIEW"] != "1":
+                return log(f"{issue}: review saved to {issue}.review.md (POST_REVIEW is off)")
             body = "Automated review (read-only, advisory):\n\n" + text
             with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
                 f.write(body)
@@ -427,6 +478,10 @@ class Loop:
             ok = ok and good
             print(f"{'PASS' if good else 'FAIL'}  {label}{'  ' + detail if detail else ''}")
         line("IMPLEMENT_CMD configured", bool(cfg["IMPLEMENT_CMD"]))
+        line("ALLOWED_AUTHORS configured", bool(allowed_authors(cfg)), ", ".join(sorted(allowed_authors(cfg))) or "nothing will run")
+        broad = implement_cmd_warnings(cfg["IMPLEMENT_CMD"])
+        if broad:
+            print("WARN  IMPLEMENT_CMD lets the command run arbitrary code (" + ", ".join(broad) + "); only ALLOWED_AUTHORS stands between ticket text and this machine")
         line("REVIEW_CMD configured (optional)", True, "yes" if cfg["REVIEW_CMD"] else "no review step")
         line("BASE_BRANCH configured", bool(cfg["BASE_BRANCH"]), cfg["BASE_BRANCH"])
         tok = Path(cfg["YOUTRACK_TOKEN_FILE"]).expanduser()
