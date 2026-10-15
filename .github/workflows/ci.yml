@@ -11,9 +11,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # A newer PR push replaces the older run; on railway-rc every commit keeps its own result.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A newer push to a PR replaces its older run. Every other run (railway-rc pushes, manual runs) gets a group of its
+  # own: a shared group would let GitHub drop a waiting run when a third one arrives, losing that commit's result.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   static:
