@@ -1,7 +1,7 @@
 .badge { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-strong); line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.neutral { background: color-mix(in oklab, var(--color-ink), transparent 93%); color: var(--color-ink-muted); }
+.neutral { background: var(--color-fill); color: var(--color-ink-muted); }
 .action { background: var(--color-action-soft); color: var(--color-ink); }
-.success { background: color-mix(in oklab, var(--color-success), transparent 86%); color: var(--color-success); }
-.warning { background: color-mix(in oklab, var(--color-warning), transparent 86%); color: var(--color-warning); }
-.danger { background: color-mix(in oklab, var(--color-danger), transparent 88%); color: var(--color-danger); }
+.success { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
+.warning { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
+.danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
 .stamp { background: color-mix(in oklab, var(--color-stamp), transparent 78%); color: var(--color-ink); }

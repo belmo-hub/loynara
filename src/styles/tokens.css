@@ -13,6 +13,7 @@
   --color-action-hover: #143D2E;
   --color-on-action: #FFFFFF;
   --color-action-soft: #E6EEDF;
+  --color-fill: color-mix(in oklab, var(--color-ink), transparent 93%);
   --color-accent-text: #9E4B2D;
   --color-stamp: #E9895F;
   --color-success: #1F6B45;
@@ -94,6 +95,7 @@
   --color-action-hover: #B9E2CA;
   --color-on-action: #0F1713;
   --color-action-soft: #22352B;
+  --color-fill: color-mix(in oklab, var(--color-ink), transparent 93%);
   --color-accent-text: #E8A58A;
   --color-success: #8FD1A8;
   --color-danger: #F08F7A;
@@ -118,6 +120,7 @@
     --color-action-hover: #B9E2CA;
     --color-on-action: #0F1713;
     --color-action-soft: #22352B;
+  --color-fill: color-mix(in oklab, var(--color-ink), transparent 93%);
     --color-accent-text: #E8A58A;
     --color-success: #8FD1A8;
     --color-danger: #F08F7A;

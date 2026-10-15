@@ -43,6 +43,7 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-action-hover` | #143D2E | #B9E2CA | hover |
 | `--color-on-action` | #FFFFFF | #0F1713 | text on action |
 | `--color-action-soft` | #E6EEDF | #22352B | quiet fills, selected rows |
+| `--color-fill` | 7 % ink | 7 % ink | neutral badge, hover fills, segmented track, skeleton |
 | `--color-accent-text` | #9E4B2D | #E8A58A | kickers ("Als Nächstes"), warm emphasis |
 | `--color-stamp` | #E9895F | #E9895F | earned stamps, reward markers (decorative) |
 | `--color-success` | #1F6B45 | #8FD1A8 | confirmed booking, "+1" |
@@ -50,8 +51,13 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-warning` | #8A5A00 | #F2C14E | offline queue, pending |
 | `--color-focus` | #2E7D5B | #9FD3B5 | focus ring (3 px, 2 px offset) |
 
+Status chips and notices set the status colour as text on a 10 % fill of itself
+(`color-mix(in oklab, var(--color-success), transparent 90%)`), in the shared Badge and in the dashboard alike.
+
 Contrast pairs asserted by `src/styles/tokens.test.ts`: ink, ink-muted, accent-text, success, danger and warning on
-bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1).
+bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1);
+each status colour on its fill and ink-muted on `--color-fill`, with the shares read from badge.module.css,
+owner.css and tokens.css themselves, over every ground (≥ 4.5:1).
 
 ### Merchant colour
 
@@ -135,7 +141,8 @@ No hover lift on cards, no stagger on page load, no animation on keyboard-trigge
 - **Stamps.** Grid of 4 columns (up to 12 stamps; 5 columns for 10, 15). Earned stamps are pressed coral marks with a small resting rotation; empty slots are dashed rings.
 - **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track; the rewards list below always carries the names.
 - **Cashier.** Status bar (Scannen / Karte offen / Wird gebucht / Erledigt / Fehler) → camera or opened card → stepper (stamps) or amount field (points) → bottom dock with the primary booking button (thumb zone). Destructive actions only get a confirm dialog.
-- **Dashboard.** Sidebar groups: Überblick · Programm · Kunden · Marketing · Auswertung · Betrieb, location switcher on top, "Kasse öffnen" and user menu at the bottom. Phones: top bar with location switcher, bottom bar (Übersicht, Kunden, Programm, Auswertung, Mehr) and a "Mehr" sheet with the remaining groups. Page header = Fraunces title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Forms: titled sections, inline validation, sticky save bar when dirty.
+- **Dashboard.** Sidebar groups: Überblick · Programm · Kunden · Marketing · Auswertung · Betrieb, location switcher on top, "Kasse öffnen" and user menu at the bottom. Phones: top bar with location switcher, bottom bar (Übersicht, Kunden, Programm, Auswertung, Mehr) and a "Mehr" sheet with the remaining groups. Page header = Fraunces title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
+  high instead of 48) but keep the shared shapes: pill buttons and segmented controls, `--radius-md` inputs. Forms: titled sections, inline validation, sticky save bar when dirty.
 
 ## Copy rules
 

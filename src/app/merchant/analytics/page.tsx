@@ -100,9 +100,9 @@ export default function MerchantAnalyticsPage() {
 }
 
 function RetentionMetric({ label, value, note, href }: { label: string; value: number; note: string; href: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
 }
 
 function Metric({ label, value, note }: { label: string; value: number; note: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
 }
