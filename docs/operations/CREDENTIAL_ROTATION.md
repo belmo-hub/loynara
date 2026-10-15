@@ -1,6 +1,6 @@
 # Credential storage and replacement — LOY-334
 
-Prepared 15 October 2026. **Production replacement and cleanup are not approved or complete.** This is the execution packet for that approval, not evidence of rotation. See [preparation evidence](CREDENTIAL_STORAGE_EVIDENCE.md), [implementation plan](CREDENTIAL_STORAGE_PLAN.md) and [the ticket](https://loynara.youtrack.cloud/issue/LOY-334).
+Prepared 15 October 2026. **The owner approved phases 1–4. Execution is in progress; cleanup is not approved or complete.** The main Railway project token has been replaced and its predecessor rejected after revocation. Other credentials remain pending. See [execution evidence](CREDENTIAL_ROTATION_EXECUTION.md), [preparation evidence](CREDENTIAL_STORAGE_EVIDENCE.md), [implementation plan](CREDENTIAL_STORAGE_PLAN.md) and [the ticket](https://loynara.youtrack.cloud/issue/LOY-334).
 
 ## What was checked again
 
@@ -131,7 +131,9 @@ After replacement checks and explicit cleanup approval:
 5. Keep the old backup identity in private recovery custody until every backup needing it has expired under the existing retention policy and there is no preservation obligation. Do not delete it with API-token cleanup.
 6. Record replacement times, service/deployment IDs, successful positive/negative checks and remaining exceptions. Close LOY-334 only when actual replacement and all required cleanup are verified. If cloud-copy cleanup cannot be proven, keep the issue open with the owner action listed.
 
-## Approval requested after preparation
+## Approved production package
+
+The owner explicitly approved the following package on 15 October 2026. Approval persists across the required provider/browser handoffs; it does not authorize the separately gated provider/preview changes or original-file cleanup.
 
 The concrete initial production package is phases 1–4: scoped Railway operator access replacement; tunnel-token replacement with a temporary connector capped at 30 minutes and no limit increase; bucket-scoped R2 access replacement; a new public backup recipient while retaining the old private identity; and three replacement heartbeat checks. Use existing service artifacts, schedules and routes. Revoke old Railway, R2 and heartbeat credentials only after their phase's checks pass. Tunnel rotation invalidates the old token for reconnection immediately; approval includes this limited handover risk despite the temporary connector. The backup phase may take until the next 03:00 UTC run.
 

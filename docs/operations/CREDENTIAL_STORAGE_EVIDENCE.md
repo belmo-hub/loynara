@@ -1,6 +1,6 @@
 # LOY-334 preparation evidence
 
-15 October 2026, preparation verified at 13:49 UTC. **The ticket remains open: production credentials have not been replaced and original copies have not been deleted.**
+15 October 2026, preparation verified at 13:49 UTC. **The ticket remains open.** Subsequent approved execution replaced the main Railway project token; original copies remain preserved. See the dated [execution evidence](CREDENTIAL_ROTATION_EXECUTION.md) for the later state.
 
 ## Local preparation
 
@@ -8,7 +8,7 @@
 - Disk check: 49 GiB available. No worktree creation or dependency installation was needed.
 - Verified that the Desktop checkout remains under iCloud sync. The chosen store, `~/Developer/Loynara-secrets`, is outside the observed synced roots and any Git repository. Its private manifest contains filenames and destinations only.
 - Prepared **15 resident files** from the inventory in [the rotation packet](CREDENTIAL_ROTATION.md). The helper privately compared every copy with its source; a separate verification command succeeded for all 15. Owner-only directories are mode 0700; files are mode 0600. The helper also verified ownership, no symlinks/hard links and no extended ACLs on copied files/private destination directories.
-- Original files remain present. No credentials were revoked, no original source was rewritten, no production service configuration was changed and no secret values or fingerprints were written into this evidence.
+- At the preparation checkpoint, original files remained present, no credentials had been revoked, no source had been rewritten and no production service configuration had been changed. Later execution is recorded separately. No secret values or fingerprints are written into this evidence.
 - The copied historical backup identity successfully decrypted a newly encrypted synthetic message using the copied recipient. Byte comparison passed; temporary synthetic files were removed. No production backup was downloaded or decrypted, and no customer database was queried.
 - A separate future backup identity/recipient pair was generated directly in the private recovery directory and passed its own synthetic round trip. Both new files are mode 0600 with no extended ACLs. The new recipient is **not activated** in Railway; the historical identity remains intact.
 - `.env`, `var/preview.env` and `var/preview-access.json` were cloud-only placeholders. They remain unclassified and uncopied. The helper refuses placeholders before opening them. One earlier bounded inventory attempt stalled on `.env`; only that inventory process was stopped, with no source deletion.
@@ -40,7 +40,7 @@ Independent review found unsafe ACL handling, a destination-parent race, nested 
 
 ## Remaining acceptance work
 
-- Obtain approval for the concrete phases 1–4 production packet, including the tunnel handover risk, temporary connector and future backup recipient change.
+- The owner approved the phases 1–4 production packet, including the tunnel handover risk, temporary connector and future backup recipient change. Complete its remaining phases and acceptance checks.
 - Establish actual token/provider scopes, Cloudflare connector ownership and monitor account access; preserve independent administrator access.
 - Execute and verify replacements, including next natural backup/heartbeat activity and rejection of replaced credentials.
 - Resolve preview/provider scope before broader rotations. Reconcile cloud-only files and check archived files for embedded copies without exposing matches.
