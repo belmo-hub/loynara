@@ -8,7 +8,7 @@
 @starting-style { .sheet[open] { transform: translateY(100%); } }
 .sheet::backdrop { background: rgba(15, 23, 19, .48); }
 .handle { display: grid; place-items: center; min-height: 28px; cursor: grab; touch-action: none; }
-.handle span { width: 40px; height: 5px; border-radius: 3px; background: var(--color-line-strong); opacity: .6; }
+.handle span { width: 40px; height: 5px; border-radius: var(--radius-pill); background: var(--color-line-strong); opacity: .6; }
 .header { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-3) var(--space-2) var(--space-5); }
 .title { flex: 1; margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
 .close { display: grid; place-items: center; width: var(--target); height: var(--target); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-ink-muted); cursor: pointer; }

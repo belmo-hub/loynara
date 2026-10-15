@@ -148,7 +148,7 @@
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
 .ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
-.ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1px var(--color-line-strong); }
+.ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
 .ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
 .ow-radio-card:has(input:checked) { border-color: var(--color-action); background: var(--color-action-soft); }
