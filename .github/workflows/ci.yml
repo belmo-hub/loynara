@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  # Production deploys from railway-rc, so every commit that lands there is checked too, including direct pushes.
+  push:
+    branches: [railway-rc]
   workflow_dispatch:
 
 permissions:
@@ -9,7 +12,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # A newer PR push replaces the older run; on railway-rc every commit keeps its own result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   static:
@@ -33,6 +37,38 @@ jobs:
       - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The same build stage the deployed image runs (npm ci + next build), with only the root dependencies.
+      # Typecheck and lint pass without a build, so a build-only break would otherwise merge unnoticed.
+      - name: Build the application image's build stage
+        run: docker build --target build --tag loynara-ci-build .
+
+  backup-safety:
+    name: Backup and restore safety checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LANG: C.UTF-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Vitest does not find these Python tests. The restore check starts its own throwaway cluster, so it needs
+      # initdb and pg_ctl on PATH; the runner's PostgreSQL keeps them outside it. The encrypted backup drill is not
+      # included: it still expects one developer's cluster on port 55433.
+      - name: Run the backup and restore-target tests
+        run: |
+          export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1):$PATH"
+          python3 -I scripts/production-backup.test.py
+          python3 -I scripts/production-restore-target.test.py
 
   test:
     name: Tests
