@@ -29,6 +29,12 @@ test.describe("guest pages on phones", () => {
     });
   }
 
+  test("the recovery page shows no status message until something happened", async ({ page }) => {
+    await page.goto("/recover");
+    await expect(page.getByRole("heading", { name: "Karte wiederfinden" })).toBeVisible();
+    await expect(page.getByRole("status")).toHaveCount(0);
+  });
+
   test("a full-width button with a long label wraps instead of widening the page", async ({ page }) => {
     // The saved-card choice on /tap ("Mit meiner gespeicherten Karte fortfahren") needs an NFC tap to appear, so the
     // shared block-button style is checked here on a clone of the join button, at the narrowest supported width.
@@ -43,11 +49,5 @@ test.describe("guest pages on phones", () => {
     });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
     expect(await page.locator("#long-label").evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThan(56);
-  });
-
-  test("the recovery page shows no status message until something happened", async ({ page }) => {
-    await page.goto("/recover");
-    await expect(page.getByRole("heading", { name: "Karte wiederfinden" })).toBeVisible();
-    await expect(page.getByRole("status")).toHaveCount(0);
   });
 });
