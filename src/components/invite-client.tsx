@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { postJson } from "./client-api";
@@ -10,6 +10,7 @@ import { Button, buttonClassName } from "./ui/button";
 import { PageHeader } from "./ui/page-header";
 import { TextField } from "./ui/field";
 import styles from "./auth/auth.module.css";
+import { CONNECTION_LOST, inviteAcceptMessage, signUpMessage } from "./auth/auth-errors";
 
 type InvitePreview = { email: string; role: "cashier" | "manager"; businessName: string; locationName: string };
 
@@ -22,15 +23,16 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
   const [mismatch, setMismatch] = useState(false);
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmation, setConfirmation] = useState("");
+  // Until the page is interactive, a tap would submit the bare form natively and reload it, wiping the fields.
+  const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
+  // Set once the account exists, so a retry after a failed acceptance does not try to create it again.
+  const accountCreated = useRef(false);
 
   async function accept() {
     if (busy) return;
     setBusy(true); setError("");
     try { await postJson("/api/staff/accept", { token }); setDone(true); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Einladung konnte nicht angenommen werden."); }
+    catch (cause) { setError(inviteAcceptMessage(cause)); }
     finally { setBusy(false); }
   }
 
@@ -38,16 +40,23 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   async function createAndAccept(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!invite || busy) return;
+    // Uncontrolled fields: values typed or autofilled before hydration finished are read here, not lost.
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") ?? "").trim(), password = String(form.get("password") ?? ""), confirmation = String(form.get("confirmation") ?? "");
     setError("");
     if (password !== confirmation) { setMismatch(true); return; }
     setBusy(true);
     try {
-      const result = await authClient.signUp.email({ name: name.trim(), email: invite.email, password, fetchOptions: { headers: { "x-loynara-invite": token } } });
-      if (result.error) throw new Error(/already exists/i.test(result.error.message ?? "") ? "Für diese Adresse gibt es schon ein Konto. Melde dich an und nimm die Einladung dann an." : result.error.message || "Konto konnte nicht erstellt werden.");
-      await postJson("/api/staff/accept", { token });
-      setDone(true);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Konto konnte nicht erstellt werden."); }
-    finally { setBusy(false); }
+      if (!accountCreated.current) {
+        let result: Awaited<ReturnType<typeof authClient.signUp.email>>;
+        try { result = await authClient.signUp.email({ name, email: invite.email, password, fetchOptions: { headers: { "x-loynara-invite": token } } }); }
+        catch { setError(CONNECTION_LOST); return; }
+        if (result.error) { setError(signUpMessage(result.error, "invite")); return; }
+        accountCreated.current = true;
+      }
+      try { await postJson("/api/staff/accept", { token }); setDone(true); }
+      catch (cause) { setError(inviteAcceptMessage(cause)); }
+    } finally { setBusy(false); }
   }
 
   if (done) return <AuthShell>
@@ -71,12 +80,12 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
           <form className={`auth-form ${styles.form}`} onSubmit={createAndAccept}>
             {/* Read-only, but marked "username" so the password manager files the new password under the invited address. */}
             <TextField label="E-Mail-Adresse" type="email" value={invite.email} readOnly aria-readonly="true" autoComplete="username" hint="Die Einladung gilt nur für diese Adresse." />
-            <TextField label="Dein Name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" value={name} onChange={e => setName(e.target.value)} required maxLength={120} placeholder="Vor- und Nachname" />
-            <TextField label="Passwort" type="password" autoComplete="new-password" enterKeyHint="next" value={password} onChange={e => { setPassword(e.target.value); setMismatch(false); }} required minLength={12} hint="Mindestens 12 Zeichen." />
-            <TextField label="Passwort wiederholen" type="password" autoComplete="new-password" enterKeyHint="go" value={confirmation} onChange={e => { setConfirmation(e.target.value); setMismatch(false); }} required minLength={12}
+            <TextField label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
+            <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={12} hint="Mindestens 12 Zeichen." />
+            <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={12}
               error={mismatch ? "Die Passwörter stimmen nicht überein." : undefined} />
             {error ? <Alert>{error}</Alert> : null}
-            <Button type="submit" size="lg" block loading={busy}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>
+            <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>
           </form>
         </div>
         <div className={styles.alternative}>
