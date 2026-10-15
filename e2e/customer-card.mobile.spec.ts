@@ -32,7 +32,7 @@ test.describe("guest card on phones", () => {
     test("follows the system setting and keeps the code on white", async ({ page }) => {
       await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
       await expect(page.locator(".customer-qr img")).toBeVisible();
-      expect(await page.locator(".ly-theme-auto").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(15, 23, 19)");
+      expect(await page.locator(".ly-theme-auto", { has: page.locator("main") }).evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(15, 23, 19)");
       expect(await page.locator(".customer-qr-panel").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 255)");
     });
   });

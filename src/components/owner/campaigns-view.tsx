@@ -8,6 +8,7 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { germanDate, Notice, OwnerDialog, OwnerIcon, Skeleton } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { campaignSaveId } from "./campaign-save-response";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Kind = AudienceDefinition["kind"];
 type Editor = { title: string; subject: string; body: string; kind: Kind; withinDays: number; daysSinceLast: number; minCheckouts: number; maxRemaining: number; rewardId: string };
@@ -206,7 +207,7 @@ export function CampaignsView() {
           <div className="ow-card-head"><div><h2 id="camp-h">Deine Kampagnen</h2><p>Für {me.locationName}</p></div></div>
           {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
           {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadList}>Erneut laden</button>}>{list.message}</Notice>}
-          {list.state === "ok" && list.data.campaigns.length === 0 && <div className="ow-empty"><strong>Noch keine Kampagne.</strong>Starte oben mit einem Ziel.</div>}
+          {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähl oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
           {list.state === "ok" && list.data.campaigns.length > 0 && (
             <ul className="ow-rewards">{list.data.campaigns.map(campaign => (
               <li key={campaign.id} className="ow-reward" style={{ alignItems: "flex-start" }}>
@@ -322,7 +323,7 @@ function DetailPanel({ detail, onClose }: { detail: Detail; onClose: () => void 
       <p className="ow-hint">„Angenommen“ heißt nicht „zugestellt“. Erst die Rückmeldung des Anbieters zählt als Zustellung.</p>
       {detail.outcome && detail.outcome.sent > 0 && <div className="ow-readonly"><strong>Danach wieder an der Kasse:</strong> <span className="ow-num">{detail.outcome.returnedAfterSend} von {detail.outcome.sent}</span> angeschriebenen Karten hatten nach dem Versand einen bestätigten Kassenvorgang.<p className="ow-hint" style={{ marginTop: 4 }}>Das ist eine Beobachtung, kein Beweis, dass die Nachricht der Grund war.</p></div>}
       <h3 style={{ fontSize: 15 }}>Letzte Zustellversuche</h3>
-      {detail.attempts.length === 0 ? <p className="ow-muted">Noch keine Zustellversuche.</p> : <ol className="ow-feed">{detail.attempts.map((item, index) => <li key={`${item.recipientId}-${item.createdAt}-${index}`}><span><strong>{attempt(item.status)}</strong>{item.providerStatus && <span className="ow-muted"> · Anbieter: {provider(item.providerStatus)}</span>}{item.reason && <span className="ow-muted"> · {item.reason}</span>}</span><time dateTime={item.createdAt}>{germanDate(item.createdAt, true)}</time></li>)}</ol>}
+      {detail.attempts.length === 0 ? <EmptyState level={4} size="compact" title="Noch keine Zustellversuche." /> : <ol className="ow-feed">{detail.attempts.map((item, index) => <li key={`${item.recipientId}-${item.createdAt}-${index}`}><span><strong>{attempt(item.status)}</strong>{item.providerStatus && <span className="ow-muted"> · Anbieter: {provider(item.providerStatus)}</span>}{item.reason && <span className="ow-muted"> · {item.reason}</span>}</span><time dateTime={item.createdAt}>{germanDate(item.createdAt, true)}</time></li>)}</ol>}
     </section>
   );
 }

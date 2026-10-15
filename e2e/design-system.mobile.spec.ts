@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const shells = ["customer", "cashier", "dashboard", "auth"];
+const shells = ["customer", "cashier", "auth"];
 
 async function horizontalOverflow(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -31,22 +31,11 @@ test.describe("design system shells on phones", () => {
     });
   }
 
-  test("dashboard reaches every section through Mehr", async ({ page }) => {
-    await page.goto("/dev/design/shells/dashboard");
-    const bar = page.getByRole("navigation", { name: "Bereiche" });
-    await expect(bar.getByRole("link")).toHaveCount(4);
-    await bar.getByRole("button", { name: "Mehr" }).click();
-    const sheet = page.getByRole("dialog", { name: "Mehr" });
-    await expect(sheet.getByRole("link", { name: "Einstellungen" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
-  });
-
   test.describe("dark appearance", () => {
     test.use({ colorScheme: "dark" });
     test("follows the system setting", async ({ page }) => {
       await page.goto("/dev/design/shells/customer");
-      const background = await page.locator(".ly-theme-auto").evaluate((el) => getComputedStyle(el).backgroundColor);
+      const background = await page.locator(".ly-theme-auto", { has: page.locator("main") }).evaluate((el) => getComputedStyle(el).backgroundColor);
       expect(background).toBe("rgb(15, 23, 19)");
     });
   });

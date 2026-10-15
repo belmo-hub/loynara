@@ -5,6 +5,7 @@ import { ClientApiError, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type StaffMember = { userId: string; email?: string; role: "owner" | "manager" | "cashier"; locationId: string | null; active: boolean };
 type InviteResult = { id: string; token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
@@ -138,7 +139,7 @@ export default function StaffPage() {
           ? <ul className="ow-feed" aria-label="Einladungen">{staff.data.invitations!.map(item => <li key={item.id}>
               <span><strong>{item.email}</strong><br /><span className="ow-muted">{ROLE_LABEL[item.role]} · {locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {INVITATION_LABEL[item.status]} · Gültig bis {germanDate(item.expiresAt)}</span></span>
               {item.status === "pending" && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCancelTarget({ ...item })}>Widerrufen</button>}
-            </li>)}</ul> : <p className="ow-muted">Noch keine Einladungen.</p>)}
+            </li>)}</ul> : <EmptyState level={3} size="compact" title="Noch keine Einladungen.">Lade Mitarbeitende mit ihrer E-Mail-Adresse ein. Jede Person bekommt ein eigenes Konto für die Kasse.</EmptyState>)}
       </section>
       <section className="ow-card ow-stack" aria-labelledby="st-perm">
         <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Kasse und Leitung arbeiten nur an ihrem Standort. Die Rechte prüft Loynara bei jeder Buchung auf dem Server.</p></div>
@@ -153,7 +154,7 @@ export default function StaffPage() {
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length
           ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted">{event.role === "manager" ? "Leitung" : "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
-          : <p className="ow-muted">Noch keine Teamereignisse erfasst. Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</p>)}
+          : <EmptyState level={3} size="compact" title="Noch keine Teamereignisse.">Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</EmptyState>)}
       </section>
       {cancelTarget && <OwnerDialog title="Einladung widerrufen?" tone="danger" onClose={() => setCancelTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setCancelTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelInvitation()}>{cancellingTarget === cancelTarget ? "Wird widerrufen …" : "Einladung widerrufen"}</button></>}>
         <p>Der Einladungslink für {cancelTarget.email} kann danach keinen neuen Teamzugang mehr erteilen. Bereits angenommene Zugänge bleiben bestehen.</p>

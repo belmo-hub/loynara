@@ -241,7 +241,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
 
 /**
  * Loading and blocked states of /cashier, on the same dark shell so the counter never flashes a light page first.
- * `app-state-card` stays as a hook for the session specs; the doubled class below outranks its global light styles.
+ * `app-state-card` stays as a hook for the session specs (it has no styles of its own).
  */
 export function CashierAccessState({ state, message, logoutControl }: { state: "loading" | "blocked"; message: string; logoutControl?: ReactNode }) {
   const loading = state === "loading";
