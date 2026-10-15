@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import { smallTargets } from "./support/targets";
 
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { cardToken: string };
 
@@ -17,14 +18,10 @@ test.describe("guest card on phones", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   });
 
-  test("keeps every control at least 44 px tall", async ({ page }) => {
+  test("keeps every control at least 44 × 44 px", async ({ page }) => {
     await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
     await expect(page.locator(".customer-card")).toBeVisible();
-    const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("main a[href], main button, main input:not([type=hidden])")]
-      .filter((el) => el.offsetParent !== null)
-      .map((el) => ({ name: (el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 40), h: el.getBoundingClientRect().height }))
-      .filter(({ h }) => h < 44));
-    expect(small).toEqual([]);
+    expect(await smallTargets(page, { scope: "main" })).toEqual([]);
   });
 
   test.describe("dark appearance", () => {

@@ -1,16 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { smallTargets } from "./support/targets";
 
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string };
-
-/** Controls below 44 px; links inside running text are exempt (WCAG 2.5.8 inline exception). */
-async function smallControls(page: Page) {
-  return page.evaluate(() => [...document.querySelectorAll<HTMLElement>("main a[href], main button, main input:not([type=hidden])")]
-    .filter((el) => el.offsetParent !== null && !(el.tagName === "A" && el.closest("p")))
-    .map((el) => ({ name: (el.getAttribute("aria-label") ?? el.textContent ?? el.getAttribute("name") ?? "").trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) }))
-    .filter(({ h }) => h < 44));
-}
 
 const sideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
@@ -28,7 +21,7 @@ test.describe("sign-in on phones", () => {
     for (const field of [email, password]) expect(await field.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
     await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toBeEnabled();
     expect(await sideways(page)).toBe(0);
-    expect(await smallControls(page)).toEqual([]);
+    expect(await smallTargets(page, { scope: "main" })).toEqual([]);
   });
 
   test("a wrong password keeps the address, explains the problem inside the form and returns to the password", async ({ page }) => {
@@ -54,6 +47,17 @@ test.describe("sign-in on phones", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByRole("button", { name: "Einladung annehmen", exact: true })).toBeVisible();
     expect(await sideways(page)).toBe(0);
-    expect(await smallControls(page)).toEqual([]);
+    expect(await smallTargets(page, { scope: "main" })).toEqual([]);
   });
+});
+
+test.describe("legal and system pages on phones", () => {
+  for (const [path, heading] of [["/datenschutz", /Datenschutz/], ["/teilnahmebedingungen", /Teilnahmebedingungen/], ["/gibt-es-nicht", "Diese Seite gibt es nicht."]] as const) {
+    test(`${path} fits, and every link outside a sentence is a 44 px target`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      expect(await sideways(page)).toBe(0);
+      expect(await smallTargets(page)).toEqual([]);
+    });
+  }
 });
