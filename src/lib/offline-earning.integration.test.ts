@@ -57,6 +57,20 @@ describe("offline earning reconciliation", () => {
     expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(0);
   });
 
+  it("answers a replay after revocation with the stored outcome only, never the card's current balance", async () => {
+    const f = await fixture();
+    const deviceId = randomUUID();
+    const lease = await prepareOfflineAward({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, deviceId, now: new Date("2026-09-25T10:00:00Z") });
+    const event = { userId: f.userId, leaseId: lease.leaseId, deviceId, eventId: randomUUID(), eventAt: new Date("2026-09-25T10:01:00Z"), award: { quantity: 1 }, now: new Date("2026-09-25T10:02:00Z") };
+    const first = await syncOfflineAward(event);
+    expect(first).toMatchObject({ status: "accepted", balance: 1 });
+    await db.update(memberships).set({ balance: 7 }).where(eq(memberships.id, f.member.id));
+    await db.update(staffRoles).set({ active: false }).where(eq(staffRoles.userId, f.userId));
+    const replay = await syncOfflineAward(event);
+    expect(replay).toMatchObject({ status: "accepted", duplicate: true, entryId: first.entryId });
+    expect(replay.balance).toBeUndefined();
+  });
+
   it("rejects a different device and an event timestamp outside its lease", async () => {
     const f = await fixture();
     const now = new Date("2026-09-25T10:00:00Z");

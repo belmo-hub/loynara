@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "@/db";
 import { locations, staffAuditEvents, staffInvites, staffRoles } from "@/db/schema";
@@ -82,6 +82,12 @@ export async function revokeStaff(input: { actorUserId: string; userId: string }
     if (target.role === "owner") throw new DomainError("CANNOT_REVOKE_OWNER", "Owner role cannot be revoked here");
     if (!target.active) return { userId: input.userId, active: false };
     await tx.update(staffRoles).set({ active: false }).where(and(eq(staffRoles.tenantId, owner.tenantId), eq(staffRoles.userId, input.userId)));
+    // An invitation this person has not used yet was issued for the access that ends here; it must not bring it back.
+    // Only an invitation created after this revocation can. Acceptance re-reads the invitation under its row lock.
+    const account = await tx.execute<{ email: string }>(sql`SELECT email FROM "user" WHERE id = ${input.userId}`);
+    const email = account.rows[0]?.email.toLowerCase();
+    if (email) await tx.update(staffInvites).set({ revokedAt: new Date() })
+      .where(and(eq(staffInvites.tenantId, owner.tenantId), eq(staffInvites.invitedEmail, email), isNull(staffInvites.acceptedAt), isNull(staffInvites.revokedAt)));
     await tx.insert(staffAuditEvents).values({ tenantId: owner.tenantId, action: "access_revoked", actorUserId: input.actorUserId, subjectUserId: input.userId, locationId: target.locationId, role: target.role });
     return { userId: input.userId, active: false };
   });

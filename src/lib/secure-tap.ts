@@ -301,7 +301,8 @@ export async function cancelTapRequest(input: { userId: string; locationId: stri
   return db.transaction(async tx => {
     const [request] = await tx.select().from(tapRequests).where(eq(tapRequests.id, input.requestId)).for("update");
     if (!request || request.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Pending tap not found");
-    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, request.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
+    // Held until commit, like checkout's role lock: a revocation waits for this cancellation, or this one sees it.
+    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, request.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true))).for("share");
     if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
     if (request.status === "cancelled") return { state: "cancelled" as const };
     if (request.status === "confirmed" || request.status === "awarded") throw new DomainError("TAP_ALREADY_CONFIRMED", "This tap was already confirmed");

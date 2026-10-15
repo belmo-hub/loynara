@@ -53,11 +53,20 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
   if (lease.deviceHash !== deviceHash(input.deviceId)) return { status: "rejected", reason: "WRONG_DEVICE" };
   const now = input.now ?? new Date((await tx.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
 
+  // A replay still reports its stored outcome, so the device can clear its queue. Only staff who still have access
+  // to this counter also learn the card's current balance.
+  const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, lease.tenantId), eq(staffRoles.userId, input.userId)));
+  const authorized = Boolean(staff?.active && (staff.role === "owner" || staff.locationId === lease.locationId));
+  const currentBalance = async () => {
+    if (!authorized) return undefined;
+    const [member] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, lease.membershipId));
+    return member?.balance;
+  };
+
   const [prior] = await tx.select().from(offlineAwardEvents).where(eq(offlineAwardEvents.id, input.eventId));
   if (prior) {
     if (prior.leaseId !== lease.id || prior.actorUserId !== input.userId || prior.eventAt.getTime() !== input.eventAt.getTime() || !sameAward(prior.awardPayload, input.award)) throw new DomainError("KEY_REUSED", "Offline event ID was used for another award");
-    const [member] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, lease.membershipId));
-    return { status: prior.status as SyncResult["status"], reason: prior.reason ?? undefined, entryId: prior.ledgerEntryId ?? undefined, balance: prior.status === "accepted" ? member?.balance : undefined, duplicate: true };
+    return { status: prior.status as SyncResult["status"], reason: prior.reason ?? undefined, entryId: prior.ledgerEntryId ?? undefined, balance: prior.status === "accepted" ? await currentBalance() : undefined, duplicate: true };
   }
 
   const idempotencyKey = `offline:${input.eventId}`;
@@ -67,15 +76,13 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
     const [purchase] = await tx.select().from(purchaseAwards).where(eq(purchaseAwards.ledgerEntryId, alreadyAwarded.id));
     if ("quantity" in input.award ? Boolean(purchase) || alreadyAwarded.delta !== input.award.quantity : !purchase || purchase.amountMinor !== input.award.purchaseAmountMinor || purchase.ruleVersionId !== input.award.ruleVersionId) throw new DomainError("KEY_REUSED", "Offline event ID was used for another award");
     await saveEvent(tx, lease, input, "accepted", null, alreadyAwarded.id, now);
-    const [member] = await tx.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, lease.membershipId));
-    return { status: "accepted", balance: member?.balance, entryId: alreadyAwarded.id, duplicate: true };
+    return { status: "accepted", balance: await currentBalance(), entryId: alreadyAwarded.id, duplicate: true };
   }
 
   let reason: string | null = null;
   if (now > lease.expiresAt) reason = "LEASE_EXPIRED";
   else if (input.eventAt.getTime() < lease.createdAt.getTime() - CLOCK_SKEW_MS || input.eventAt > lease.expiresAt || input.eventAt.getTime() > now.getTime() + 120_000) reason = "EVENT_OUTSIDE_LEASE";
-  const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, lease.tenantId), eq(staffRoles.userId, input.userId)));
-  if (!reason && (!staff || !staff.active || (staff.role !== "owner" && staff.locationId !== lease.locationId))) reason = "STAFF_REVOKED";
+  if (!reason && !authorized) reason = "STAFF_REVOKED";
   const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, lease.membershipId), eq(memberships.tenantId, lease.tenantId)));
   if (!reason && (!member || member.closedAt)) reason = "CARD_CLOSED";
   const [count] = await tx.select({ total: sql<number>`count(*)::int` }).from(offlineAwardEvents).where(eq(offlineAwardEvents.leaseId, lease.id));
