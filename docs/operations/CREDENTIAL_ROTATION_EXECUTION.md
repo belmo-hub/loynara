@@ -23,7 +23,7 @@ Temporary service `loynara-tunnel-handover-20261015` (`c620ba60-d608-42fb-b5cb-d
 
 The source patch was inspected before committing: it contained only this temporary service's pinned image. Its deployment `e9a4841a-d892-4233-8b83-8f23fe6fcc15` succeeded. Cloudflare then showed two healthy connectors. The second hostname was independently matched to the temporary Railway container using the same read-only procedure. Four curl health requests and one request using the established monitor client returned HTTP 200.
 
-A private cleanup guard is running, targeting only this exact temporary service ID/name and production environment. Its scheduled cleanup is **15:29:02 UTC / 17:29:02 Berlin on 15 October 2026**, within 30 minutes of connector startup. The guard's identity checks passed four synthetic cases, including refusal to target the original service. It checks for earlier successful cleanup and exits when the normal handover has already removed the temporary service. It records cleanup success or failure privately. This is a scheduled safeguard, not evidence that cleanup has already occurred; verify the result.
+A private cleanup guard was started, targeting only this exact temporary service ID/name and production environment. Its scheduled cleanup is **15:29:02 UTC / 17:29:02 Berlin on 15 October 2026**, within 30 minutes of connector startup. The guard's identity checks passed four synthetic cases, including refusal to target the original service. It checks for earlier successful cleanup and exits when the normal handover has already removed the temporary service. It records cleanup success or failure privately. The subsequent verified removal marker caused the guard to exit; its process was confirmed no longer running.
 
 The owner completed the provider rotation and saved the current installation token through a hidden-input local helper. The replacement is at `~/Developer/Loynara-secrets/production/cloudflared-active.token`; owner-only storage, expected account/tunnel identity and a difference from the historical token were verified without printing the value.
 
@@ -35,7 +35,23 @@ The temporary service was deleted only from the production environment and indep
 
 The owner created `loynara-production-backup-2026-10-15`. The provider's result and subsequent token inventory confirmed Object Read & Write access only to `loynara-rc-backups` in the EU jurisdiction, matching the predecessor's scope. Its S3 credentials and corresponding provider API token were saved directly to `backup/r2-active.env` and `backup/r2-active-api.token` in the protected folder. Readback and private-file checks passed; both S3 credential values differ from their historical counterparts. No values were printed or committed.
 
-Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. Production backup variables and the old R2 key remain unchanged. Independent recovery custody and the next natural backup acceptance gate are still outstanding; this is not a completed R2 rotation. Before activation, verify how a same-build cron deployment applies variables without causing an immediate extra dump. The documented schedule alone does not establish deployment-time behavior; do not assume a generic redeploy is a schedule-only change. See [Railway cron semantics](https://docs.railway.com/cron-jobs).
+Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. The old R2 key remains valid until the natural-backup acceptance gate below passes. This is not a completed R2 rotation.
+
+### Recovery custody and backup activation
+
+The owner reports that both historical and future private identities were saved and checked in secure storage on their phone. This is owner-confirmed custody, not an independently observed retrieval drill. Both Mac copies remain preserved, and both corresponding key pairs passed fresh synthetic age encryption/decryption round trips before activation.
+
+Read-only API schema inspection identified `deploymentRedeploy(id: ..., usePreviousImageTag: true)` for explicit previous-image reuse. The generic redeploy connector did not supply that option in the earlier worker/ops handover. The ops service's execution history confirmed its replacement's first run was the natural 15:40 UTC run, with no intervening deployment-triggered execution. The backup's latest execution was still the natural 15 October 03:02 UTC run.
+
+Exactly four backup variables were updated privately with `skipDeploys: true`: the R2 pair, public future age recipient and backup heartbeat URL. The exact previous backup deployment was then submitted through the API with `usePreviousImageTag: true`. Resulting deployment `493cec2e-dde9-4d24-826b-2861c33f99da` reached SUCCESS. Final metadata matched **both the original commit and original image digest**. The `0 3 * * *` schedule, start command, restart policy and region remained unchanged. All four variable values matched the prepared replacements on private readback. No private recovery identity was placed in Railway. Execution history still showed no extra backup run.
+
+The independent signed-in Railway browser session remains available. The separate saved CLI administrator credential was refused during this phase; the replacement environment-scoped project credential authenticated and performed the approved reads/mutations. The CLI credential must be reconciled before relying on it as emergency operator access. No broad replacement token was created to work around that refusal.
+
+### Next natural-run acceptance — pending
+
+After **16 October 2026 03:00 UTC / 05:00 Berlin**, verify the backup's real execution completed successfully on deployment `493cec2e-dde9-4d24-826b-2861c33f99da`, the newly configured backup check received real start/success activity, and the new backup object has the expected key/size/timestamp metadata. Do not force a dump, download production customer data or run a production-data restore. Preserve both recovery identities regardless of the result.
+
+Only after acceptance: revoke the identified old bucket-scoped R2 token, confirm a bounded read-only metadata request using its old S3 pair is denied, recheck new access with a synthetic object, and remove/verify absence of the old backup heartbeat check. Provider/browser final credential actions still require the owner's handoff. If the scheduled run fails before revocation, the original private files retain the four prior values; restore only those variables and redeploy original deployment `be445944-e1e5-4f3b-beb6-5b66cfb4db87` with explicit previous-image reuse, then verify the schedule and execution history. Do not restore the invalidated production tunnel token or revoked Railway project token.
 
 ## Monitoring — worker and outbox replaced and predecessors removed
 
@@ -43,11 +59,11 @@ The signed-in project has five checks on the free Hobbyist plan, whose current l
 
 The owner saved all three matching replacements. Their ping URLs are stored at `monitoring/heartbeats-active.env` in the protected folder; private-file checks passed, and each differs from its predecessor. The existing email integration reports Ready to deliver and is assigned to all eight checks. No monitoring API key was created.
 
-Worker deployment `1e63e0bd-85b9-41c2-ba1c-9a34e3b749e2` reached SUCCESS, and its replacement check received a real heartbeat. Outbox deployment `4b6e6aa8-3e56-4c02-8a7d-11c9ecd2fb8e` reached SUCCESS and completed the natural 15:40 UTC run at 15:40:15.867 UTC; its replacement check is up with real pings. Two public health checks returned HTTP 200. Only the corresponding worker and ops variables changed; the backup URL is prepared but not activated.
+Worker deployment `1e63e0bd-85b9-41c2-ba1c-9a34e3b749e2` reached SUCCESS, and its replacement check received a real heartbeat. Outbox deployment `4b6e6aa8-3e56-4c02-8a7d-11c9ecd2fb8e` reached SUCCESS and completed the natural 15:40 UTC run at 15:40:15.867 UTC; its replacement check is up with real pings. Two public health checks returned HTTP 200. Only the corresponding worker and ops variables changed at that checkpoint; the backup URL was subsequently activated with the backup phase above.
 
-**Deployment limitation:** the connector described redeploy as reusing the existing build, and initial metadata carried the previous digest. Final metadata showed that Railway rebuilt the original source commit and produced a different image digest for both services. Commit hashes remained identical, and service commands/configuration were preserved; do not describe these as exact image reuse. Backup activation remains held until a method meeting its no-extra-dump requirement is established, alongside independent recovery custody.
+**Deployment limitation:** the connector described redeploy as reusing the existing build, and initial metadata carried the previous digest. Final metadata showed that Railway rebuilt the original source commit and produced a different image digest for both services. Commit hashes remained identical, and service commands/configuration were preserved; do not describe these as exact image reuse. The later backup phase above used the explicit API image-reuse option and verified the unchanged digest and absence of extra execution.
 
-After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. The owner subsequently removed both old checks. A fresh inventory verified both exact predecessor check IDs absent, all three replacements still present, and continuing real worker/outbox pings within their periods. Six expected checks remain. This verifies removal through the provider inventory; no synthetic success ping was sent to either old endpoint. The old backup check and unrelated checks are unchanged.
+After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. The owner subsequently removed both old checks. A fresh inventory verified both exact predecessor check IDs absent, all three replacements still present, and continuing real worker/outbox pings within their periods. Six expected checks remain. This verifies removal through the provider inventory; no synthetic success ping was sent to either old endpoint. The old backup check is retained pending the next natural run; unrelated checks are unchanged.
 
 ## Additional confirmed exposure
 
@@ -55,9 +71,9 @@ Private comparison confirmed that the synced device-test file's `MAILGUN_EU_API_
 
 ## Still pending
 
-- Classification/resolution of the separate saved Railway API credential.
-- R2 key replacement, independent recovery custody for the new backup identity, future recipient activation, and the next natural backup's acceptance checks.
-- Activation and real scheduled activity for the prepared backup check.
+- Classification/resolution of the separate saved Railway API credential and reconciliation of the refused CLI administrator credential.
+- Next natural backup acceptance, followed by old R2 key revocation and negative/positive checks. New credentials and recipient are configured; custody is owner-confirmed.
+- Real scheduled activity for the newly configured backup check and retirement of its predecessor.
 - Provider/preview scope checks, the three cloud-only files, operator handoff and the separately approved cleanup of old copies.
 
 No application source release, migration, production-data restore, branch merge or original-file deletion has occurred in this execution checkpoint.
