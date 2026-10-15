@@ -37,17 +37,27 @@ The owner created `loynara-production-backup-2026-10-15`. The provider's result 
 
 Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. Production backup variables and the old R2 key remain unchanged. Independent recovery custody and the next natural backup acceptance gate are still outstanding; this is not a completed R2 rotation. Before activation, verify how a same-build cron deployment applies variables without causing an immediate extra dump. The documented schedule alone does not establish deployment-time behavior; do not assume a generic redeploy is a schedule-only change. See [Railway cron semantics](https://docs.railway.com/cron-jobs).
 
-## Monitoring — baseline verified, replacement forms prepared
+## Monitoring — worker and outbox replaced; old check removal pending
 
 The signed-in project has five checks on the free Hobbyist plan, whose current limit is twenty. The three privately saved old ping URLs match the expected live worker heartbeat, outbox and encrypted-backup checks. Their Simple schedules are respectively 1 minute / 5 minutes grace, 5 minutes / 10 minutes grace, and 1 day / 3 hours grace. The existing email integration is assigned to all five checks and reports Ready to deliver; its last notification is recorded as delivered. No test notification or manufactured success ping was sent.
 
-Three matching replacement forms are prepared, awaiting the owner's required browser credential-creation submission. No replacement ping URLs have yet been created or injected. No monitoring API key was created: project API access is currently unset, and this operation does not need broader management credentials. Old checks and production service artifacts are unchanged.
+The owner saved all three matching replacements. Their ping URLs are stored at `monitoring/heartbeats-active.env` in the protected folder; private-file checks passed, and each differs from its predecessor. The existing email integration reports Ready to deliver and is assigned to all eight checks. No monitoring API key was created.
+
+Worker deployment `1e63e0bd-85b9-41c2-ba1c-9a34e3b749e2` reached SUCCESS, and its replacement check received a real heartbeat. Outbox deployment `4b6e6aa8-3e56-4c02-8a7d-11c9ecd2fb8e` reached SUCCESS and completed the natural 15:40 UTC run at 15:40:15.867 UTC; its replacement check is up with real pings. Two public health checks returned HTTP 200. Only the corresponding worker and ops variables changed; the backup URL is prepared but not activated.
+
+**Deployment limitation:** the connector described redeploy as reusing the existing build, and initial metadata carried the previous digest. Final metadata showed that Railway rebuilt the original source commit and produced a different image digest for both services. Commit hashes remained identical, and service commands/configuration were preserved; do not describe these as exact image reuse. Backup activation remains held until a method meeting its no-extra-dump requirement is established, alongside independent recovery custody.
+
+After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. Their removal confirmation dialogs are prepared for the owner. Pausing does not invalidate ping URLs: credential retirement remains pending until removal and verification. The old backup check and unrelated checks are unchanged.
+
+## Additional confirmed exposure
+
+Private comparison confirmed that the synced device-test file's `MAILGUN_EU_API_KEY` and `MAILGUN_EU_WEBHOOK_SIGNING_KEY` exactly match production web and worker configuration. Both need the separately gated provider rotation plan. No provider credential changed. Other inspected local auth/database/PassFast values had no exact same-name match, which does not establish separate provider/account scope.
 
 ## Still pending
 
 - Classification/resolution of the separate saved Railway API credential.
 - R2 key replacement, independent recovery custody for the new backup identity, future recipient activation, and the next natural backup's acceptance checks.
-- Three replacement heartbeat credentials and real worker/ops/backup activity on them.
+- Removal and verification of the two superseded worker/outbox checks; activation and real scheduled activity for the prepared backup check.
 - Provider/preview scope checks, the three cloud-only files, operator handoff and the separately approved cleanup of old copies.
 
 No application source release, migration, production-data restore, branch merge or original-file deletion has occurred in this execution checkpoint.
