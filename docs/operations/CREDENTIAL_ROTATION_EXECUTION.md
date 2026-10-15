@@ -37,7 +37,7 @@ The owner created `loynara-production-backup-2026-10-15`. The provider's result 
 
 Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. Production backup variables and the old R2 key remain unchanged. Independent recovery custody and the next natural backup acceptance gate are still outstanding; this is not a completed R2 rotation. Before activation, verify how a same-build cron deployment applies variables without causing an immediate extra dump. The documented schedule alone does not establish deployment-time behavior; do not assume a generic redeploy is a schedule-only change. See [Railway cron semantics](https://docs.railway.com/cron-jobs).
 
-## Monitoring — worker and outbox replaced; old check removal pending
+## Monitoring — worker and outbox replaced and predecessors removed
 
 The signed-in project has five checks on the free Hobbyist plan, whose current limit is twenty. The three privately saved old ping URLs match the expected live worker heartbeat, outbox and encrypted-backup checks. Their Simple schedules are respectively 1 minute / 5 minutes grace, 5 minutes / 10 minutes grace, and 1 day / 3 hours grace. The existing email integration is assigned to all five checks and reports Ready to deliver; its last notification is recorded as delivered. No test notification or manufactured success ping was sent.
 
@@ -47,7 +47,7 @@ Worker deployment `1e63e0bd-85b9-41c2-ba1c-9a34e3b749e2` reached SUCCESS, and it
 
 **Deployment limitation:** the connector described redeploy as reusing the existing build, and initial metadata carried the previous digest. Final metadata showed that Railway rebuilt the original source commit and produced a different image digest for both services. Commit hashes remained identical, and service commands/configuration were preserved; do not describe these as exact image reuse. Backup activation remains held until a method meeting its no-extra-dump requirement is established, alongside independent recovery custody.
 
-After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. Their removal confirmation dialogs are prepared for the owner. Pausing does not invalidate ping URLs: credential retirement remains pending until removal and verification. The old backup check and unrelated checks are unchanged.
+After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. The owner subsequently removed both old checks. A fresh inventory verified both exact predecessor check IDs absent, all three replacements still present, and continuing real worker/outbox pings within their periods. Six expected checks remain. This verifies removal through the provider inventory; no synthetic success ping was sent to either old endpoint. The old backup check and unrelated checks are unchanged.
 
 ## Additional confirmed exposure
 
@@ -57,7 +57,7 @@ Private comparison confirmed that the synced device-test file's `MAILGUN_EU_API_
 
 - Classification/resolution of the separate saved Railway API credential.
 - R2 key replacement, independent recovery custody for the new backup identity, future recipient activation, and the next natural backup's acceptance checks.
-- Removal and verification of the two superseded worker/outbox checks; activation and real scheduled activity for the prepared backup check.
+- Activation and real scheduled activity for the prepared backup check.
 - Provider/preview scope checks, the three cloud-only files, operator handoff and the separately approved cleanup of old copies.
 
 No application source release, migration, production-data restore, branch merge or original-file deletion has occurred in this execution checkpoint.
