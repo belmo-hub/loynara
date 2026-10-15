@@ -7,7 +7,8 @@ else competes for attention. The cashier uses a dark, camera-first variant of th
 
 Tokens live in `src/styles/tokens.css`. Primitives live in `src/components/ui/`. Nothing outside those two places
 defines a colour, font size, radius, shadow, duration or z-index. `src/styles/raw-values.test.ts` enforces it for colours, font sizes, radii and
-layers in every stylesheet and inline style; each exception there names its reason.
+layers: it reads every declaration (shorthands, corner radii, custom-property indirection) in stylesheets, inline style
+objects and CSS inside strings. Each exception names the exact rule and its reason, and an exception nothing uses fails.
 
 ## Principles
 
