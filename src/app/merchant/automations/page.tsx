@@ -14,7 +14,7 @@ type Run = { id: string; ruleId: string; membershipId: string; cardLocator: stri
 type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[] };
 
 const defaults: Record<Kind, Editor> = {
-  reward_ready: { triggerKind: "reward_ready", enabled: false, subject: "Deine Belohnung wartet", body: "Auf deiner Karte ist eine Belohnung einlösbar. Schau dir deine Karte an.", cooldownDays: 7, dailyCap: 20 },
+  reward_ready: { triggerKind: "reward_ready", enabled: false, subject: "Deine Prämie wartet", body: "Auf deiner Karte ist eine Prämie einlösbar. Schau dir deine Karte an.", cooldownDays: 7, dailyCap: 20 },
   first_checkout: { triggerKind: "first_checkout", enabled: false, subject: "Willkommen", body: "Danke für deinen ersten bestätigten Einkauf.", cooldownDays: 7, dailyCap: 20 },
   inactive: { triggerKind: "inactive", enabled: false, subject: "Deine Karte wartet auf dich", body: "Deine digitale Karte ist weiterhin verfügbar.", inactivityDays: 30, cooldownDays: 7, dailyCap: 20 },
 };
@@ -26,7 +26,7 @@ export default function AutomationsPage() {
   const slug = me?.programSlug ?? "";
   const [data, reload] = useLoad<Data>(me?.role === "owner" && slug ? `/api/merchant/automations?programSlug=${encodeURIComponent(slug)}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach dem ersten bestätigten Kassenvorgang, nach einer einstellbaren Inaktivität oder wenn eine Belohnung einlösbar ist. Vor dem Versand werden Kontakt, Einwilligung und Versandgrenzen erneut geprüft." />;
+  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach dem ersten bestätigten Kassenvorgang, nach einer einstellbaren Inaktivität oder wenn eine Prämie einlösbar ist. Vor dem Versand werden Kontakt, Einwilligung und Versandgrenzen erneut geprüft." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;
@@ -41,7 +41,7 @@ export default function AutomationsPage() {
         <div className="ow-stack">
           <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
           <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
-          <RuleEditor title="An eine einlösbare Belohnung erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Belohnungen. Vor dem Versand wird erneut geprüft, ob eine Belohnung einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Belohnung." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} onSaved={reload} />
+          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
@@ -53,7 +53,7 @@ export default function AutomationsPage() {
         <h2 id="au-runs">Letzte Ausführungen</h2>
         {d.runs.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Ausführungen.">Neue Regeln sind zunächst deaktiviert. Schalte eine Regel ein, damit sie läuft.</EmptyState> : (
           <table className="ow-table"><thead><tr><th>Regel</th><th>Karte</th><th>Zeit (UTC)</th><th>Status</th><th>Grund</th></tr></thead>
-            <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "reward_ready" ? "Belohnung einlösbar" : "Erster Vorgang"}</td><td data-label="Karte">{run.cardLocator ?? "Karte entfernt"}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
+            <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "reward_ready" ? "Prämie einlösbar" : "Erster Vorgang"}</td><td data-label="Karte">{run.cardLocator ?? "Karte entfernt"}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
         )}
       </section>
     </div>
@@ -84,7 +84,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
   return (
     <section className="ow-card ow-stack">
       <h2>{title}</h2>
-      <p className="ow-muted" style={{ fontSize: 14 }}>{description}</p>
+      <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>{description}</p>
       <form onSubmit={submit} className="ow-stack">
         <div className="ow-field"><label htmlFor={`${editor.triggerKind}-subject`}>Betreff</label><input id={`${editor.triggerKind}-subject`} className="ow-input" value={editor.subject} minLength={2} maxLength={120} required onChange={event => edit({ subject: event.target.value })} /></div>
         <div className="ow-field"><label htmlFor={`${editor.triggerKind}-body`}>Nachricht</label><textarea id={`${editor.triggerKind}-body`} className="ow-textarea" value={editor.body} minLength={5} maxLength={3000} rows={4} required onChange={event => edit({ body: event.target.value })} /></div>
