@@ -7,6 +7,10 @@ YOUTRACK_URL=https://loynara.youtrack.cloud
 YOUTRACK_TOKEN_FILE=~/.config/loynara-loop/youtrack.token
 YOUTRACK_PROJECT=LOY
 
+# --- who may give the loop instructions. The ticket text is handed to a command that can run code on this machine,
+# so only tickets whose reporter and every summary/description author is listed here are picked up. Empty: none are.
+ALLOWED_AUTHORS=<your tracker login>
+
 # --- git: the development branch pull requests target
 BASE_BRANCH=<development branch name>
 # REPO_DIR=~/Developer/Loynara-loop      # a dedicated clean checkout the loop runs from
@@ -14,9 +18,11 @@ BASE_BRANCH=<development branch name>
 # --- the commands that do the work. Both run through `bash -c`.
 # IMPLEMENT_CMD runs inside the ticket worktree and reads $AGENT_PROMPT, $AGENT_MAX_BUDGET, $TICKET_ID.
 # REVIEW_CMD runs read-only in a throwaway checkout of the branch and reads $AGENT_PROMPT and $REVIEW_DIFF_FILE;
-# whatever it prints is posted on the pull request as a comment. Leave it empty to skip reviews.
+# what it prints is saved next to the run log, and posted on the pull request only with POST_REVIEW=1.
+# Leave it empty to skip reviews. Both commands get only PATH, HOME and a few locale variables from your environment.
 IMPLEMENT_CMD='<command that implements the ticket>'
 REVIEW_CMD='<command that reviews the change without modifying anything>'
+POST_REVIEW=0
 
 # --- limits
 MAX_PER_DAY=3
