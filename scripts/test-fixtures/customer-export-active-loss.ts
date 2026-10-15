@@ -1,11 +1,13 @@
 import { Client } from "pg";
 import { pool } from "../../src/db";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "../../src/lib/disposable-test-database";
 import { GET } from "../../src/app/api/card/[token]/export/route";
 
 void (async () => {
   const url = new URL(process.env.DATABASE_URL ?? "http://invalid");
   const token = process.env.TEST_EXPORT_CARD_TOKEN;
-  if (!["localhost", "127.0.0.1"].includes(url.hostname) || url.pathname !== "/looplocal_test" || url.username !== "looplocal" || process.env.PG_POOL_MAX !== "1" || !token) throw new Error("Synthetic export process required");
+  assertLocalTestDatabaseUrl();
+  if (url.username !== "looplocal" || process.env.PG_POOL_MAX !== "1" || !token) throw new Error("Synthetic export process required");
   const control = new Client({ connectionString: process.env.DATABASE_URL });
   await control.connect();
   const original = Client.prototype.query;
@@ -17,7 +19,8 @@ void (async () => {
   let rollbackRejected = false;
   const request = (bearer: string) => GET(new Request("http://localhost:3000/api/card/synthetic/export"), { params: Promise.resolve({ token: bearer }) });
   try {
-    if ((await control.query("SELECT current_database() AS name")).rows[0].name !== "looplocal_test") throw new Error("Refuse unowned database");
+    // This fixture ends a database connection: only on a database the test setup marked as disposable.
+    await assertDisposableDatabase(control);
     const before = await request(token);
     if (before.status !== 200) throw new Error("Baseline export failed");
     const first = await before.json();

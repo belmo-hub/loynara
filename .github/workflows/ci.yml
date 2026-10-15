@@ -121,6 +121,8 @@ jobs:
         run: |
           psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
           npx drizzle-kit migrate
+          # Suites that truncate tables or end connections only run on a database marked like this (disposable-test-database.ts).
+          psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -c "COMMENT ON DATABASE looplocal_test IS 'loynara-disposable-test-database'"
       # Same command `npm test` ends with. `npm test` itself starts a local Docker database, which CI already provides.
       #
       # The two backup publication tests are skipped: they run pg_dump/pg_restore inside a Docker Compose database

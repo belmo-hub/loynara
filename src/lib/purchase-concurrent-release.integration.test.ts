@@ -10,14 +10,16 @@ import { POST as redeemRoute } from "@/app/api/cashier/redeem/route";
 import { createMerchant, getCard, getMerchantRewards, lookupCard } from "./product";
 import { acceptStaffInvite, createStaffInvite, revokeStaff } from "./staff";
 import { getMerchantAnalytics } from "./merchant-analytics";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
 const url = process.env.DATABASE_URL;
-if (!url || !url.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(url).hostname)) throw new Error("Owned local synthetic database required");
+assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
 const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 beforeAll(async () => {
   Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true" });
+  await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
 });
 afterAll(async () => { for (const key of envKeys) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; } await pool.end(); });
