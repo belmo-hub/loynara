@@ -43,3 +43,12 @@ describe("system states", () => {
     expect(existsSync("src/app/loading.tsx")).toBe(false);
   });
 });
+
+describe("route state files", () => {
+  it("every loading, error and not-found file exports a default component", async () => {
+    for (const file of ["merchant/loading", "cashier/loading", "error", "merchant/error", "cashier/error", "global-error", "not-found", "merchant/not-found"]) {
+      const route = await import(`./${file}.tsx`);
+      expect(typeof route.default, file).toBe("function");
+    }
+  });
+});
