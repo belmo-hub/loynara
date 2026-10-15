@@ -7,6 +7,7 @@ import { CustomerExportLink } from "@/components/customer-export-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
+import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
 import { CardFace, type CardReward } from "./card-face";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
@@ -64,7 +65,7 @@ export function CustomerCard(props: CustomerCardProps) {
     <div className={styles.merchantText}><h1 className={`customer-header-merchant ${styles.merchantName}`}>{businessName}</h1><span>{t.yourCard}</span></div>
   </div>;
 
-  return <CustomerShell brandColor={brandColor} locale={locale} header={header} footer={<p className={styles.footer}>{t.footer}</p>}>
+  return <CardStatusProvider><CustomerShell brandColor={brandColor} locale={locale} header={header} footer={<p className={styles.footer}>{t.footer}</p>}>
     <Goal t={t} number={number} programType={programType} remaining={nextGoal ? nextGoal.cost - balance : 0} readyCount={readyCount} nextGoal={nextGoal} several={rewards.length > 1} />
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
@@ -113,7 +114,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {exportUrl ? <div className={styles.export}><CustomerExportLink url={exportUrl} locale={locale}>{t.export}</CustomerExportLink></div> : null}
     {props.onCloseCard ? <CloseCard {...props} t={t} /> : null}
-  </CustomerShell>;
+  </CustomerShell></CardStatusProvider>;
 }
 
 function Goal({ t, number, programType, remaining, readyCount, nextGoal, several }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; remaining: number; readyCount: number; nextGoal?: Reward; several: boolean }) {
@@ -144,7 +145,7 @@ function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOn
 }
 
 function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
-  const [status, setStatus] = useState("");
+  const { text: status, announce: setStatus } = useCardStatus("return");
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(new URL(window.location.pathname, window.location.origin).href);
@@ -160,7 +161,7 @@ function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
     </ol>
     <p className={styles.muted}>{t.linkWarning}</p>
     <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>
-    {status ? <p className={styles.muted} role="status">{status}</p> : null}
+    <CardStatusLine text={status} className={styles.muted} />
   </section>;
 }
 
