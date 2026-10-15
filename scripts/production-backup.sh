@@ -26,13 +26,16 @@ if [[ ! "${BACKUP_S3_ENDPOINT:-}" =~ ^https://[0-9a-f]{32}\.eu\.r2\.cloudflarest
   echo "Production backup refused: private EU R2 endpoint, scoped credentials and public age recipient required." >&2
   exit 1
 fi
-for tool in pg_dump age aws openssl; do command -v "$tool" >/dev/null || { echo "Missing backup tool: $tool" >&2; exit 1; }; done
+for tool in pg_dump psql age aws openssl; do command -v "$tool" >/dev/null || { echo "Missing backup tool: $tool" >&2; exit 1; }; done
 
 encrypted="$(mktemp)"
 key="loynara/$(date -u +%Y/%m/%d)/$(date -u +%Y%m%dT%H%M%SZ)-$(openssl rand -hex 6).dump.age"
 if [[ "$backup_heartbeat" == https://hc-ping.com/* ]]; then
   curl --fail --silent --max-time 5 --output /dev/null "$backup_heartbeat/start" >/dev/null 2>&1 || echo "Backup monitor start signal unavailable." >&2
 fi
+# Any database these credentials can open would dump and upload fine, so check it is Loynara's before reporting success.
+source_schema="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.ledger_entries') IS NOT NULL AND to_regclass('drizzle.__drizzle_migrations') IS NOT NULL" 2>/dev/null || true)"
+[[ "$source_schema" == "t" ]] || { echo "Production backup refused: the configured database does not hold the Loynara schema." >&2; exit 1; }
 pg_dump --format=custom --no-owner --no-acl | age -r "$BACKUP_AGE_RECIPIENT" > "$encrypted"
 [[ -s "$encrypted" ]] || { echo "Encrypted backup is empty." >&2; exit 1; }
 aws --endpoint-url "$BACKUP_S3_ENDPOINT" s3 cp "$encrypted" "s3://$BACKUP_S3_BUCKET/$key" --only-show-errors

@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { getIP } from "@better-auth/core/utils/ip";
 
 // Inspect the actual options passed by the app without opening an auth DB pool.
-vi.mock("pg", () => ({ Pool: class {} }));
+vi.mock("pg", () => ({ Pool: class { on() { return this; } } }));
 vi.mock("better-auth", () => ({ betterAuth: (options: object) => ({ options }) }));
 afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
 it("the auth library uses only the explicitly selected Cloudflare source", async () => {

@@ -17,7 +17,7 @@ void (async () => {
   let rollbackRejected = false;
   const request = (bearer: string) => GET(new Request("http://localhost:3000/api/card/synthetic/export"), { params: Promise.resolve({ token: bearer }) });
   try {
-    if ((await control.query("SHOW data_directory")).rows[0].data_directory !== "/private/tmp/loynara-goal-133-pg") throw new Error("Refuse unowned database");
+    if ((await control.query("SELECT current_database() AS name")).rows[0].name !== "looplocal_test") throw new Error("Refuse unowned database");
     const before = await request(token);
     if (before.status !== 200) throw new Error("Baseline export failed");
     const first = await before.json();

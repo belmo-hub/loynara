@@ -122,6 +122,25 @@ assert check.returncode == 0 and check.stdout.strip() == '/private/tmp/loynara-g
 os.execve(os.environ['BACKUP_TEST_PG_DUMP'], [os.environ['BACKUP_TEST_PG_DUMP'], *sys.argv[1:]], env)
 """)
         dump.chmod(0o700)
+        # The backup's schema probe gets the same treatment: only that exact read-only query, redirected to the same
+        # verified synthetic cluster. Every other psql call (the restore check shares this PATH) runs unchanged.
+        probe = cls.bin / "psql"
+        probe.write_text("#!/usr/bin/env python3\n" + r"""
+import os, subprocess, sys
+if os.environ.get('PGHOST') != 'synthetic.railway.internal':
+    os.execv(os.environ['BACKUP_TEST_PSQL'], [os.environ['BACKUP_TEST_PSQL'], *sys.argv[1:]])
+assert sys.argv[1:5] == ['-X', '-At', '-v', 'ON_ERROR_STOP=1'] and sys.argv[5] == '-c' and len(sys.argv) == 7
+assert sys.argv[6].startswith("SELECT to_regclass('public.ledger_entries') IS NOT NULL")
+assert os.environ['PGHOST'] == 'synthetic.railway.internal'
+assert os.environ['PGDATABASE'] == os.environ['BACKUP_TEST_SOURCE']
+env = os.environ.copy()
+env['PGHOST'] = '127.0.0.1'
+env['PGPORT'] = '55433'
+check = subprocess.run([os.environ['BACKUP_TEST_PSQL'], '-X', '-At', '-c', 'SHOW data_directory'], env=env, capture_output=True, text=True)
+assert check.returncode == 0 and check.stdout.strip() == '/private/tmp/loynara-goal-133-pg'
+os.execve(os.environ['BACKUP_TEST_PSQL'], [os.environ['BACKUP_TEST_PSQL'], *sys.argv[1:]], env)
+""")
+        probe.chmod(0o700)
         cls.env = {**BASE, "PATH": str(cls.bin) + os.pathsep + BASE["PATH"],
                    "PRODUCTION_ENVIRONMENT": "loynara-production", "PGHOST": "synthetic.railway.internal", "PGDATABASE": cls.source,
                    "BACKUP_S3_ENDPOINT": "https://" + "0" * 32 + ".eu.r2.cloudflarestorage.com", "BACKUP_S3_BUCKET": "synthetic-108",

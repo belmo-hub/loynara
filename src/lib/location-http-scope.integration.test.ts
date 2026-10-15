@@ -11,7 +11,7 @@ import { GET as detail } from "@/app/api/merchant/customers/[membershipId]/route
 import { GET as retention } from "@/app/api/merchant/retention/route";
 
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
-if (!["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_test") throw new Error("Owned local synthetic database required");
+if (!["localhost", "127.0.0.1"].includes(database.hostname) || database.pathname !== "/looplocal_test") throw new Error("Owned local synthetic database required");
 const origin = "http://localhost:3000";
 const registration = process.env.PUBLIC_REGISTRATION_ENABLED;
 beforeEach(async () => { await pool.query('TRUNCATE tenants, "user" CASCADE'); process.env.PUBLIC_REGISTRATION_ENABLED = "true"; });

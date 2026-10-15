@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Pool } from "pg";
 import { pool } from "../src/db";
+import { guardPoolErrors } from "../src/db/pool-errors";
 import { claimOutboxJob, completeWalletOutboxJob, deferOutboxJob, markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
@@ -26,8 +27,9 @@ process.on("SIGTERM", stop);
 const workerDatabase = boundedWorkerDatabase(pool);
 // Housekeeping can roll back on shutdown without aborting an active job outcome.
 const housekeepingDatabase = boundedWorkerDatabase(pool, { signal: shutdown.signal });
-// Monitoring never occupies the parent pool needed to renew an active job.
-const monitorPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 });
+// Monitoring never occupies the parent pool needed to renew an active job. Guarded like every pool: a dropped idle
+// connection here must not end the worker.
+const monitorPool = guardPoolErrors(new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 }));
 
 const claimJob = () => claimOutboxJob(workerDatabase, { maxAttempts, leaseMinutes });
 const mark = async (job: Job, status: OutboxStatus, reason?: string, delaySeconds = 0) => {
