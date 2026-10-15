@@ -281,10 +281,13 @@ export async function confirmTapRequest(input: { userId: string; locationId: str
     if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
     if (request.status === "confirmed") return { state: "already_processed" as const, entryId: request.ledgerEntryId };
     if (request.status !== "pending_staff" || request.expiresAt <= (input.now ?? new Date()) || !request.membershipId) throw new DomainError("TAP_EXPIRED", "Pending tap expired");
-    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, request.tagId));
-    if (!tag || tag.status !== "active") throw new DomainError("TAP_EXPIRED", "Tag is no longer active");
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, request.programId), eq(programs.tenantId, request.tenantId)));
+    // Both held until commit, and taken before the card: switching NFC off or revoking the tag waits for this
+    // confirmation, or this confirmation sees it. Programme, then tag, then card, so neither a tap (tag, then card) nor
+    // a checkout (card, then a shared programme lock) can form a cycle with it.
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, request.programId), eq(programs.tenantId, request.tenantId))).for("share");
     if (!program || program.tapMode !== "staff_confirmed" || program.type !== "stamp" || program.status !== "active") throw new DomainError("TAP_EXPIRED", "Tap programme changed");
+    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, request.tagId)).for("share");
+    if (!tag || tag.status !== "active") throw new DomainError("TAP_EXPIRED", "Tag is no longer active");
     await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.id, request.membershipId)).for("update");
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, request.tenantId), eq(tapRequests.programId, request.programId), eq(tapRequests.membershipId, request.membershipId), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     if (recent && (input.now ?? new Date()).getTime() - recent.createdAt.getTime() < (program.tapCooldownSeconds ?? 0) * 1000) throw new DomainError("TAP_COOLDOWN", "This card is still within its tap cooldown");

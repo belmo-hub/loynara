@@ -6,7 +6,7 @@ import { ledgerEntries, memberships, staffRoles, tapRequests } from "@/db/schema
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster, type TapKeyProvider } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
 import { addStaff, nfcFixture } from "./nfc-test-db";
-import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag } from "./secure-tap";
+import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag, revokeSecureTag, setTapPolicy } from "./secure-tap";
 import { revokeStaff } from "./staff";
 
 // Cases not already covered by nfc-lifecycle.integration.test.ts and secure-tap.integration.test.ts:
@@ -142,4 +142,42 @@ it("refuses a request that expires while confirmation waits for the membership l
   expect(result.error?.code).toBe("TAP_EXPIRED");
   expect(await ledgerCount(f.member.id)).toBe(0);
   expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(0);
+});
+
+it.each(["tag revocation", "NFC switched off"])("orders a confirmation that is waiting for the card against %s, so nothing is booked after the shutdown returned", async shutdown => {
+  const f = await nfcFixture();
+  const c = await register(f);
+  const pending = await processSecureTap(c.tap(2, { cardToken: f.member.cardToken }));
+  const [tag] = (await pool.query<{ id: string }>("SELECT id FROM secure_tags WHERE public_ref = $1", [c.publicRef])).rows;
+  const finished: string[] = [];
+  const pause = () => new Promise(resolve => setTimeout(resolve, 20));
+  const blocker = await pool.connect();
+  let confirmation: Promise<unknown> | undefined;
+  let stop: Promise<unknown> | undefined;
+  try {
+    // Another transaction holds the card, so the confirmation has passed its tag and policy checks and is waiting.
+    await blocker.query("BEGIN");
+    await blocker.query("SELECT id FROM memberships WHERE id = $1 FOR UPDATE", [f.member.id]);
+    confirmation = confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: pending.requestId! }).finally(() => finished.push("confirmation"));
+    let confirmationPid: number | undefined;
+    for (let attempt = 0; attempt < 500 && !confirmationPid; attempt++) {
+      confirmationPid = (await pool.query<{ pid: number }>("SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE '%from \"memberships\"%'")).rows[0]?.pid;
+      if (!confirmationPid) await pause();
+    }
+    expect(confirmationPid, "the confirmation must be waiting for the card").toBeDefined();
+    stop = (shutdown === "tag revocation"
+      ? revokeSecureTag({ actorUserId: f.userId, tagId: tag.id })
+      : setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "disabled", cooldownSeconds: null })).finally(() => finished.push("shutdown"));
+    let blocked = false;
+    for (let attempt = 0; attempt < 500 && !blocked && !finished.includes("shutdown"); attempt++) {
+      blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [confirmationPid])).rowCount! > 0;
+      if (!blocked) await pause();
+    }
+    expect(blocked, `${shutdown} must wait for the confirmation that already passed its checks`).toBe(true);
+  } finally { await blocker.query("ROLLBACK"); blocker.release(); }
+  await confirmation;
+  await stop;
+  // The stamp was booked before the shutdown completed; none can follow it.
+  expect(finished).toEqual(["confirmation", "shutdown"]);
+  expect(await ledgerCount(f.member.id)).toBe(1);
 });

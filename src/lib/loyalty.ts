@@ -73,7 +73,11 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
+    // Shared and held until commit: an owner's programme save (FOR UPDATE) and a booking wait for each other, so the
+    // save's "no activity yet" check before a type change cannot miss a first award committing at the same moment.
+    // Automatic tap awards keep the plain read: they hold their tag first, and never run in production.
+    const programRow = tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
+    const [program] = trustedTap ? await programRow : await programRow.for("share");
     if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
     const staff = trustedTap ? undefined : await checkoutStaff(tx, member.tenantId, input.userId);
     if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
