@@ -29,13 +29,13 @@
 .ow-nav a[aria-current="page"] { background: var(--color-action); color: var(--color-on-action); }
 .ow-nav svg { flex: none; }
 .ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-3); }
-.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
+.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
 .ow-utility:hover { background: var(--color-fill); border-color: var(--color-ink); }
 .ow-who { font-size: var(--text-14); color: var(--color-ink-muted); padding-inline: var(--space-2); overflow-wrap: anywhere; }
 
 .ow-loc { display: flex; flex-direction: column; gap: 6px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-bg); }
 .ow-loc-label { font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); letter-spacing: .02em; }
-.ow-loc select { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); background-color: var(--color-raised); appearance: none; font-weight: 700; color: var(--color-ink); }
+.ow-loc select { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background-color: var(--color-raised); appearance: none; font-weight: 700; color: var(--color-ink); }
 .ow-loc-name { font-weight: 700; color: var(--color-ink); min-height: 24px; overflow-wrap: anywhere; }
 .ow-loc-sub { font-size: var(--text-14); color: var(--color-ink-muted); }
 
@@ -99,7 +99,7 @@
 .ow-card h2 { font-size: var(--text-18); }
 .ow-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
 .ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: 2px; }
-.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-md); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 .ow-btn:disabled { opacity: .55; cursor: not-allowed; }
 .ow-btn--primary { background: var(--color-action); color: var(--color-on-action); }
@@ -109,7 +109,7 @@
 .ow-btn--ghost { background: transparent; color: var(--color-ink-muted); }
 .ow-btn--ghost:hover:not(:disabled) { background: var(--color-fill); }
 .ow-btn--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); border-color: color-mix(in oklab, var(--color-danger), transparent 60%); }
-.ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--space-3); font-size: var(--text-14); border-radius: var(--radius-sm); }
+.ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--space-3); font-size: var(--text-14); border-radius: var(--radius-pill); }
 .ow-link { color: var(--color-action); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-link--block { display: inline-flex; align-items: center; min-height: 44px; }
 .ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: 700; background: var(--color-fill); color: var(--color-ink-muted); }
@@ -134,7 +134,7 @@
 .ow-field > label, .ow-label { font-weight: 700; font-size: var(--text-14); }
 .ow-hint { font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
-.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
+.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
 .ow-input:hover, .ow-select:hover, .ow-textarea:hover { border-color: var(--color-ink); }
 /* Native selects: appearance none so Safari honours the 44 px height; the chevron is drawn in the theme ink. */
@@ -146,8 +146,8 @@
 .ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 6%, var(--color-raised)); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
-.ow-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: var(--radius-md); background: var(--color-fill); border: 1px solid var(--color-line); }
-.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
+.ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
+.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
 .ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1px var(--color-line-strong); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
 .ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
@@ -270,7 +270,7 @@
 .ow-swatch:hover { transform: scale(1.06); }
 .ow-swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--color-ink); }
 .ow-colorrow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); align-items: end; }
-.ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); background: var(--color-raised); cursor: pointer; }
+.ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; }
 .ow-logo-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .ow-logo-thumb { width: 56px; height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-line); object-fit: cover; background: var(--color-raised); }
 .ow-mobile-switch { display: none; }
