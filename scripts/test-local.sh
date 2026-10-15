@@ -15,6 +15,8 @@ fi
 if ! psql_exec psql -U looplocal -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname='looplocal_test'" | grep -q 1; then
   psql_exec createdb -U looplocal looplocal_test
 fi
+# This container's test database is throwaway: mark it so suites that truncate tables or end connections accept it.
+psql_exec psql -U looplocal -d looplocal_test -qc "COMMENT ON DATABASE looplocal_test IS 'loynara-disposable-test-database'"
 if ! psql_exec psql -U looplocal -d looplocal_test -Atc "SELECT to_regclass('public.user')" | grep -q user; then
   psql_exec psql -v ON_ERROR_STOP=1 -U looplocal -d looplocal_test < drizzle/auth.sql >/dev/null
 fi
