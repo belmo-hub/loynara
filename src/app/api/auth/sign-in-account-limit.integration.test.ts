@@ -60,6 +60,15 @@ it("counts only failed attempts, and one account's failures never lock another a
   expect((await signIn(email, password)).status).toBe(200);
 });
 
+it("cannot be bypassed by sending many guesses at once, before any failure is recorded", async () => {
+  const email = await account();
+  const statuses = (await Promise.all(Array.from({ length: 30 }, (_, i) => signIn(email, `parallel-guess-${i}-padding`)))).map(r => r.status);
+  // Each guess reserves its attempt atomically before the password is checked, so at most ten are ever checked.
+  expect(statuses.filter(status => status === 401).length).toBeLessThanOrEqual(10);
+  expect(statuses.filter(status => status === 429).length).toBeGreaterThanOrEqual(20);
+  expect((await signIn(email, password)).status).toBe(429);
+});
+
 it("refuses a sign-in body the account limit cannot read instead of letting it bypass the limit", async () => {
   const email = await account();
   expect((await signIn(email, password, { contentType: "application/x-www-form-urlencoded", body: `email=${encodeURIComponent(email)}&password=${password}` })).status).toBe(400);

@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 import { DomainError } from "@/lib/loyalty";
-import { enforcePeerLimit, enforceRateLimit, peerIdentity, rateLimitBlockedFor, RateLimitError } from "@/lib/rate-limit";
+import { enforcePeerLimit, enforceRateLimit, peerIdentity, refundRateLimit } from "@/lib/rate-limit";
 import { respondError } from "@/lib/http";
 
 const handlers = toNextJsHandler(auth);
 // Failed password attempts per account, from any address. The per-address limits cannot stop guessing that is spread
-// over many addresses. Successful sign-ins do not count.
+// over many addresses. Every attempt reserves a slot atomically before the password is checked, so parallel guesses
+// cannot all slip through; the slot is given back unless the password was wrong.
 const accountFailures = { scope: "auth_signin_account_failure", max: 10, windowSeconds: 15 * 60 };
 
 function validateIngress(request: Request) {
@@ -41,12 +42,14 @@ export async function POST(request: Request) {
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };
-    const retryAfter = await rateLimitBlockedFor(account);
-    if (retryAfter !== null) throw new RateLimitError(retryAfter);
-    const response = await handlers.POST(request);
-    if (response.status === 401) {
-      try { await enforceRateLimit(account); } catch (error) { if (!(error instanceof RateLimitError)) throw error; }
+    await enforceRateLimit(account);
+    let wrongPassword = false;
+    try {
+      const response = await handlers.POST(request);
+      wrongPassword = response.status === 401;
+      return response;
+    } finally {
+      if (!wrongPassword) await refundRateLimit(account);
     }
-    return response;
   } catch (error) { return respondError(error); }
 }
