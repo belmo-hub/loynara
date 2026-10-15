@@ -101,7 +101,11 @@ Weights: 400 body, 650 labels, 720 buttons and emphasis, 800 card codes and cash
 - Space (4 px base): `--space-1` 4 · `--space-2` 8 · `--space-3` 12 · `--space-4` 16 · `--space-5` 20 · `--space-6` 24 · `--space-8` 32 · `--space-10` 40 · `--space-12` 48. Page gutter 16 px on phones, 40 px ≥ 1024 px.
 - Radius: `--radius-sm` 8 (badges, chips) · `--radius-md` 14 (inputs, small controls) · `--radius-lg` 20 (panels, cards) · `--radius-xl` 28 (card object, camera, sheets) · `--radius-pill` 999 (buttons, segmented controls).
 - Elevation: `--shadow-hairline` (1 px line, lists) · `--shadow-raised` (menus, popovers) · `--shadow-object` (card object, tinted with the merchant colour) · `--shadow-overlay` (dialogs, sheets). Panels have borders, not shadows.
-- Touch targets: 44 × 44 px minimum; cashier actions 56 px, primary booking button 64 px.
+- Touch targets: 44 × 44 px minimum; cashier actions 56 px, primary booking button 64 px. A link that stands on its
+  own (a footer row, a line of its own, beside a button) is a target too: `min-height: var(--target)` or a positioned
+  `::after` that extends its hit area. A link inside a sentence is exempt (WCAG 2.5.8 inline exception) and is always
+  underlined, `--color-action`, at least 14 px, with the focus ring. `e2e/support/targets.ts` is the one check every
+  phone spec uses.
 - Z-index: `--z-sticky` 10 · `--z-nav` 20 · `--z-sheet` 40 · `--z-dialog` 50 · `--z-toast` 60.
 
 ## Motion
@@ -152,6 +156,6 @@ No hover lift on cards, no stagger on page load, no animation on keyboard-trigge
 
 ## Accessibility checklist (every PR)
 
-AA contrast in light and dark · visible focus ring · keyboard reachable in visual order · targets ≥ 44 px · inputs
+AA contrast in light and dark · visible focus ring · keyboard reachable in visual order · targets ≥ 44 × 44 px (inline links exempt) · inputs
 16 px · no horizontal scroll at 320 px · reduced motion respected · status changes announced with `role="status"` or
 `aria-live` · German compounds wrap without clipping · French (`locale=fr`) strings fit.

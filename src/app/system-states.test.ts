@@ -28,7 +28,10 @@ describe("system states", () => {
   it("not found keeps its heading and offers card recovery before the business sign-in", () => {
     const html = renderToStaticMarkup(h(NotFound));
     expect(html).toContain("Diese Seite gibt es nicht.");
-    expect(html.indexOf('href="/recover"')).toBeLessThan(html.indexOf('href="/login"'));
+    const recover = html.indexOf('href="/recover"'), login = html.indexOf('href="/login"');
+    expect(recover).toBeGreaterThan(-1);
+    expect(login).toBeGreaterThan(-1);
+    expect(recover).toBeLessThan(login);
   });
 
   it("the loading placeholder is a busy region with a spoken label", () => {

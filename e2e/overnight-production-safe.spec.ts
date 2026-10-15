@@ -37,7 +37,7 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   mkdirSync("var/qa/overnight-independent",{recursive:true});
   for(const [path,heading] of [["/merchant","Übersicht"],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Auswertung"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Das Team am Tresen."],["/merchant/campaigns","Kampagnen"],["/merchant/audiences","Segmente prüfen"]]){
    await page.goto(path);await expect(page.getByRole("heading",{name:heading,exact:true,level:1})).toBeVisible();
-   await expect(page.locator(".ow-skeleton")).toHaveCount(0);
+   await expect(page.locator(".ow-skel")).toHaveCount(0);
    if(path==="/merchant")await expect(page.getByRole("heading",{name:"Was jetzt zählt"})).toBeVisible();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1);
    await page.screenshot({path:`var/qa/overnight-independent/${width}-${path.split("/").pop()||"overview"}.png`,fullPage:true});

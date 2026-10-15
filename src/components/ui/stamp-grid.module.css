@@ -13,3 +13,7 @@
   100% { transform: scale(1) rotate(var(--r)); }
 }
 @media (prefers-reduced-motion: reduce) { .slot[data-new] { animation: none; } }
+/* Long programmes: one track. The fill is the card's ink and the rest 22 % of it, so the boundary keeps 3:1 or more on
+   every merchant colour (asserted in merchant-color.test.ts). */
+.track { height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
+.trackFill { display: block; height: 100%; background: var(--merchant-ink, var(--color-ink)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); }

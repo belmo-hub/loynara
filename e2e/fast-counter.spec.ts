@@ -145,10 +145,20 @@ test("the camera stays on between customers and one tap books a stamp", async ({
 
     // More than one stamp still asks for confirmation.
     await page.getByRole("button", { name: "Menge erhöhen" }).click();
-    await page.getByRole("button", { name: "2 Stempel prüfen" }).click();
+    // Cancelled from the keyboard, the confirmation gives focus back to the button that opened it.
+    const review = page.getByRole("button", { name: "2 Stempel prüfen" });
+    await review.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog", { name: "Vergabe bestätigen?" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(review).toBeFocused();
+    await review.click();
     await expect(page.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText(`2 Stempel für Karte ${first.cardLocator}.`);
-    await page.getByRole("button", { name: "Ja, vergeben" }).click();
+    await page.getByRole("button", { name: "Ja, vergeben" }).press("Enter");
     await expect(booked).toContainText("Neuer Stand: 3 Stempel.");
+    // Confirmed from the keyboard, focus stays in the page (the opener is busy or gone), never on <body>.
+    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
     expect(await balanceOf(url, first.cardToken)).toBe(3);
     expect(await balanceOf(url, second.cardToken)).toBe(1);
 
