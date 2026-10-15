@@ -103,7 +103,7 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
       )}
 
       {form && (
-        <form className="ow-card ow-card--flat ow-stack" style={{ background: "var(--ow-surface-2)" }} aria-labelledby="rew-form-title" onSubmit={event => { event.preventDefault(); void submit(); }}>
+        <form className="ow-card ow-card--flat ow-stack" style={{ background: "var(--color-fill)" }} aria-labelledby="rew-form-title" onSubmit={event => { event.preventDefault(); void submit(); }}>
           <h3 id="rew-form-title" style={{ fontSize: 16 }}>{form.id ? "Prämie bearbeiten" : "Neue Prämie"}</h3>
           <div className="ow-field"><label htmlFor="rew-title-input">Name der Prämie</label><input id="rew-title-input" className="ow-input" value={form.title} maxLength={180} onChange={event => setForm({ ...form, title: event.target.value })} aria-invalid={form.title.length > 0 && !titleValid} placeholder="z. B. Kaffee aufs Haus" /></div>
           <div className="ow-field"><label htmlFor="rew-cost">Preis in {unitDative(type)}</label><input id="rew-cost" className="ow-input" inputMode="numeric" value={form.cost} onChange={event => setForm({ ...form, cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={form.cost.length > 0 && cost === null} aria-describedby="rew-cost-hint" style={{ maxWidth: 200 }} /><span id="rew-cost-hint" className="ow-hint">{type === "stamp" ? "So viele Stempel muss eine Karte sammeln." : purchase ? `So viele Punkte werden benötigt. Bei ${rate} ${unitName("points", rate)} pro 1 € entspricht das einem Mindestumsatz.` : "So viele Punkte werden benötigt."}</span></div>

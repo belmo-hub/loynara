@@ -33,14 +33,30 @@ describe.each([["light", light], ["dark", dark]])("%s tokens", (_name, t) => {
   });
 });
 
-// Status chips and notices (Badge, owner dashboard): the status colour as text on a 10 % fill of itself; the quiet fill
-// (--color-fill, 7 % ink) behind secondary text. sRGB mixing here; the CSS mixes in oklab, within a few units.
+// Status chips and notices (Badge, owner dashboard) put the status colour as text on a fill of itself; the quiet fill
+// (--color-fill) sits behind secondary text. The shares are read from the stylesheets themselves, so changing a recipe
+// there is what these checks test. sRGB mixing here; the CSS mixes in oklab, within a few units.
+const STATUS_FILL = /background:\s*color-mix\(in oklab, var\((--color-(?:success|warning|danger))\), transparent (\d+(?:\.\d+)?)%\)/g;
+const statusFills = ["src/components/ui/badge.module.css", "src/components/owner/owner.css"].flatMap((file) =>
+  [...readFileSync(path.join(process.cwd(), file), "utf8").matchAll(STATUS_FILL)].map((m) => ({ file, token: m[1], share: 1 - Number(m[2]) / 100 })));
+const quietFill = /--color-fill:\s*color-mix\(in oklab, var\(--color-ink\), transparent (\d+(?:\.\d+)?)%\)/.exec(css);
+
+describe("tinted fill recipes", () => {
+  it("are found where the status chips and notices are drawn", () => {
+    for (const file of ["src/components/ui/badge.module.css", "src/components/owner/owner.css"]) {
+      expect(new Set(statusFills.filter((fill) => fill.file === file).map((fill) => fill.token))).toEqual(new Set(["--color-success", "--color-warning", "--color-danger"]));
+    }
+    expect(quietFill).not.toBeNull();
+  });
+});
+
 describe.each([["light", light], ["dark", dark]])("%s tinted fills", (_name, t) => {
-  it.each(["--color-success", "--color-warning", "--color-danger"].flatMap((fg) => grounds.map((bg) => [fg, bg])))("%s on its fill over %s is at least 4.5:1", (fg, bg) => {
-    expect(contrast(t[fg], mix(t[bg], t[fg], 0.1))).toBeGreaterThanOrEqual(4.5);
+  it.each(statusFills.flatMap((fill) => grounds.map((ground) => ({ file: fill.file.split("/").pop()!, token: fill.token, percent: Math.round(fill.share * 100), ground }))))("$file: $token on its $percent percent fill over $ground is at least 4.5:1", ({ token, percent, ground }) => {
+    expect(contrast(t[token], mix(t[ground], t[token], percent / 100))).toBeGreaterThanOrEqual(4.5);
   });
   it.each(grounds)("muted text on the quiet fill over %s is at least 4.5:1", (bg) => {
-    expect(contrast(t["--color-ink-muted"], mix(t[bg], t["--color-ink"], 0.07))).toBeGreaterThanOrEqual(4.5);
+    const share = 1 - Number(quietFill![1]) / 100;
+    expect(contrast(t["--color-ink-muted"], mix(t[bg], t["--color-ink"], share))).toBeGreaterThanOrEqual(4.5);
   });
 });
 

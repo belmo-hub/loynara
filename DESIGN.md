@@ -56,7 +56,8 @@ Status chips and notices set the status colour as text on a 10 % fill of itself
 
 Contrast pairs asserted by `src/styles/tokens.test.ts`: ink, ink-muted, accent-text, success, danger and warning on
 bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1);
-each status colour on its 10 % fill and ink-muted on `--color-fill`, over every ground (≥ 4.5:1).
+each status colour on its fill and ink-muted on `--color-fill`, with the shares read from badge.module.css,
+owner.css and tokens.css themselves, over every ground (≥ 4.5:1).
 
 ### Merchant colour
 
