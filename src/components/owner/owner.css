@@ -259,21 +259,6 @@
 .ow-bare .ow-topbar { position: static; padding-block: var(--ow-s3); }
 
 /* Card preview */
-.ow-cardprev { display: flex; flex-direction: column; gap: var(--ow-s3); max-width: 380px; width: 100%; }
-.ow-cardprev-face { aspect-ratio: 1.586; min-height: 176px; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--ow-shadow-2); transition: background-color var(--ow-preview) var(--ow-ease), color var(--ow-preview) var(--ow-ease); }
-.ow-cardprev-top { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: .14em; }
-.ow-cardprev-mark { width: 30px; height: 30px; }
-.ow-cardprev-biz { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ow-cardprev-biz strong { font-size: 24px; line-height: 1.1; letter-spacing: -.03em; overflow-wrap: anywhere; }
-.ow-cardprev-biz span { font-size: 14px; opacity: .9; overflow-wrap: anywhere; }
-.ow-cardprev-bottom { font-size: 10.5px; letter-spacing: .14em; font-weight: 700; opacity: .85; }
-.ow-cardprev-balance { background: var(--ow-surface); border: 1px solid var(--ow-line); border-radius: var(--ow-r2); padding: var(--ow-s4); display: flex; flex-direction: column; gap: var(--ow-s2); }
-.ow-cardprev-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--ow-muted); }
-.ow-cardprev-line strong { font-size: 24px; color: var(--ow-ink); letter-spacing: -.02em; }
-.ow-cardprev-line em { font-style: normal; font-size: 14px; font-weight: 600; color: var(--ow-muted); }
-.ow-cardprev-reward { display: flex; justify-content: space-between; gap: var(--ow-s3); font-size: 14px; }
-.ow-cardprev-track { height: 8px; border-radius: 99px; background: var(--ow-surface-2); overflow: hidden; }
-.ow-cardprev-track span { display: block; height: 100%; border-radius: 99px; transition: width var(--ow-preview) var(--ow-ease); }
 
 /* Wallet pass mocks */
 .ow-pass { width: 100%; max-width: 340px; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--ow-shadow-2); transition: background-color var(--ow-preview) var(--ow-ease), color var(--ow-preview) var(--ow-ease); }
@@ -287,6 +272,12 @@
 .ow-pass-primary b { font-size: 24px; line-height: 1.15; letter-spacing: -.02em; font-weight: 600; }
 .ow-pass-logo { border-radius: 6px; object-fit: contain; flex: none; }
 .ow-pass-row--sec { padding-top: 2px; }
+.ow-cardprev { width: 100%; max-width: 380px; }
+.ow-cardprev-ticket { display: grid; justify-items: center; gap: 6px; padding: 12px; border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
+.ow-cardprev-ticket .ow-pass-codewrap { margin: 0; padding: 0; }
+.ow-cardprev-number { display: grid; justify-items: center; margin: 0; }
+.ow-cardprev-number span { font-size: 14px; color: #58645C; }
+.ow-cardprev-number strong { font-size: 20px; font-weight: 800; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 .ow-pass-codewrap { align-self: center; margin-top: 4px; padding: 10px 10px 6px; border-radius: 10px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ow-pass-code { display: block; width: 96px; height: 96px; fill: #111; }
 .ow-pass-alt { color: #111; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
