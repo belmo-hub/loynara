@@ -21,6 +21,12 @@ describe("sign-up messages", () => {
     expect(signUpMessage({ status: 403, message: "Registration is not enabled" }, "register")).toContain("Registrierung ist noch nicht freigeschaltet");
   });
 
+  it("say which password limit was missed", () => {
+    expect(signUpMessage({ status: 400, code: "PASSWORD_TOO_SHORT" }, "register")).toContain("mindestens 12");
+    expect(signUpMessage({ status: 400, code: "PASSWORD_TOO_LONG" }, "register")).toContain("höchstens 128");
+    expect(signUpMessage({ status: 400, code: "PASSWORD_TOO_LONG" }, "register")).not.toContain("mindestens");
+  });
+
   it("send someone who already has an account to the sign-in", () => {
     expect(signUpMessage({ status: 422, code: "USER_ALREADY_EXISTS" }, "invite")).toContain("Melde dich an");
   });

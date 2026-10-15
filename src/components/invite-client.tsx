@@ -10,7 +10,7 @@ import { Button, buttonClassName } from "./ui/button";
 import { PageHeader } from "./ui/page-header";
 import { TextField } from "./ui/field";
 import styles from "./auth/auth.module.css";
-import { CONNECTION_LOST, inviteAcceptMessage, signUpMessage } from "./auth/auth-errors";
+import { CONNECTION_LOST, inviteAcceptMessage, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "./auth/auth-errors";
 
 type InvitePreview = { email: string; role: "cashier" | "manager"; businessName: string; locationName: string };
 
@@ -81,8 +81,8 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
             {/* Read-only, but marked "username" so the password manager files the new password under the invited address. */}
             <TextField label="E-Mail-Adresse" type="email" value={invite.email} readOnly aria-readonly="true" autoComplete="username" hint="Die Einladung gilt nur für diese Adresse." />
             <TextField label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
-            <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={12} hint="Mindestens 12 Zeichen." />
-            <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={12}
+            <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
+            <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
               error={mismatch ? "Die Passwörter stimmen nicht überein." : undefined} />
             {error ? <Alert>{error}</Alert> : null}
             <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>

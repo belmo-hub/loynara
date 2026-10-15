@@ -5,6 +5,9 @@ import { ClientApiError } from "@/components/client-api";
 
 type AuthLibraryError = { status?: number; code?: string; message?: string };
 
+/** The server's limits (src/lib/auth.ts sets the minimum; 128 is the library's maximum). The fields enforce both. */
+export const PASSWORD_MIN = 12, PASSWORD_MAX = 128;
+
 const TRY_LATER = "Das Konto kann gerade nicht erstellt werden. Deine Angaben bleiben erhalten. Versuche es später erneut.";
 export const CONNECTION_LOST = "Die Antwort ist nicht angekommen. Prüfe deine Verbindung und versuche es erneut. Deine Angaben bleiben erhalten.";
 
@@ -19,7 +22,9 @@ export function signUpMessage(error: AuthLibraryError, via: "register" | "invite
     ? "Diese Einladung gilt nicht mehr. Bitte die Person, die dich eingeladen hat, um eine neue Einladung."
     : "Die öffentliche Registrierung ist noch nicht freigeschaltet. Du kannst eine Demo anfragen.";
   if (error.status === 429) return "Zu viele Versuche. Warte bitte etwas und versuche es erneut.";
-  if (/password/i.test(error.code ?? "")) return "Das Passwort passt nicht zu den Regeln. Es braucht mindestens 12 Zeichen.";
+  if (error.code === "PASSWORD_TOO_SHORT") return `Das Passwort ist zu kurz. Es braucht mindestens ${PASSWORD_MIN} Zeichen.`;
+  if (error.code === "PASSWORD_TOO_LONG") return `Das Passwort ist zu lang. Es darf höchstens ${PASSWORD_MAX} Zeichen haben.`;
+  if (error.code === "PASSWORD_COMPROMISED") return "Dieses Passwort ist aus Datenlecks bekannt. Wähle bitte ein anderes.";
   if (error.status !== undefined && error.status >= 500) return TRY_LATER;
   return "Das Konto wurde nicht erstellt. Prüfe deine Angaben und versuche es erneut.";
 }

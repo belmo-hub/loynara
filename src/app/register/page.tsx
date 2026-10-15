@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
 import styles from "@/components/auth/auth.module.css";
-import { CONNECTION_LOST, signUpMessage } from "@/components/auth/auth-errors";
+import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "@/components/auth/auth-errors";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -47,8 +47,8 @@ export default function RegisterPage() {
         <form className={`auth-form ${styles.form}`} onSubmit={submit}>
           <TextField label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
           <TextField label="E-Mail-Adresse" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" name="email" required maxLength={254} placeholder="du@geschaeft.de" />
-          <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={12} hint="Mindestens 12 Zeichen." />
-          <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={12}
+          <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
+          <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
             error={mismatch ? "Die Passwörter stimmen nicht überein." : undefined} />
           {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
           <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Konto wird erstellt …" : "Konto erstellen"}</Button>
