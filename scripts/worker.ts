@@ -75,6 +75,17 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "email.signin_lock") {
+    try {
+      const { deliverSignInLockNotice } = await import("../src/lib/sign-in-lock-notice");
+      const result = await deliverSignInLockNotice(job);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      const marked = await mark(job, "blocked", "Sign-in lock notice outcome uncertain; operator review required");
+      console.error(`Sign-in lock notice job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind === "campaign.dispatch") {
     try {
       const { dispatchCampaign } = await import("../src/lib/campaigns");

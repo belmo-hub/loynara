@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 import { DomainError } from "@/lib/loyalty";
-import { enforcePeerLimit, enforceRateLimit, peerIdentity, refundRateLimit } from "@/lib/rate-limit";
+import { enforcePeerLimit, enforceRateLimit, peerIdentity, RateLimitError, refundRateLimit } from "@/lib/rate-limit";
 import { respondError } from "@/lib/http";
+import { queueSignInLockNotice } from "@/lib/sign-in-lock-notice";
 
 const handlers = toNextJsHandler(auth);
 // Failed password attempts per account, from any address. The per-address limits cannot stop guessing that is spread
@@ -42,7 +43,15 @@ export async function POST(request: Request) {
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };
-    await enforceRateLimit(account);
+    try { await enforceRateLimit(account); }
+    catch (error) {
+      // The account is locked: tell its owner (at most once a day). A failure here never changes the refusal.
+      if (error instanceof RateLimitError) {
+        await queueSignInLockNotice(account.identity)
+          .catch(notice => console.error(`Sign-in lock notice not queued (${notice instanceof Error ? notice.name : "error"})`));
+      }
+      throw error;
+    }
     let wrongPassword = false;
     try {
       const response = await handlers.POST(request);
