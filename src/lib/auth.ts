@@ -1,11 +1,14 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { Pool } from "pg";
+import { guardPoolErrors } from "@/db/pool-errors";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.PG_POOL_MAX ?? 10) });
+// Separate from the application pool. It needs the same listeners: without them a dropped idle connection ends the
+// web process.
+export const authPool = guardPoolErrors(new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.PG_POOL_MAX ?? 10) }));
 
 export const auth = betterAuth({
-  database: pool,
+  database: authPool,
   // Avoid Better Auth's default X-Forwarded-For trust. Its existing rate/session
   // controls use the same deployment-approved source as our outer peer limits.
   advanced: { ipAddress: { ipAddressHeaders: process.env.TRUSTED_INGRESS === "cloudflare_tunnel" ? ["cf-connecting-ip"] : [] } },
