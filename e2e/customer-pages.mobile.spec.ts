@@ -29,6 +29,17 @@ test.describe("guest pages on phones", () => {
     });
   }
 
+  test("a failed sign-up shows one alert inside the join form and keeps the consent", async ({ page }) => {
+    // The referral and release specs find this alert as `form` → role=alert; they need their own databases, so this pins the hook here.
+    await page.route("**/api/enroll", route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Synthetischer Fehler" }) }));
+    await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
+    await page.getByRole("checkbox").first().check();
+    await page.getByRole("button", { name: "Meine Karte erstellen", exact: true }).click();
+    await expect(page.locator("form").getByRole("alert")).toHaveCount(1);
+    await expect(page.locator("form").getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("checkbox").first()).toBeChecked();
+  });
+
   test("the recovery page shows no status message until something happened", async ({ page }) => {
     await page.goto("/recover");
     await expect(page.getByRole("heading", { name: "Karte wiederfinden" })).toBeVisible();

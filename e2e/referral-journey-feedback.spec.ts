@@ -63,7 +63,7 @@ for (const width of [375, 1280]) for (const kind of ["foreign", "unknown"]) test
     await page.goto(`/join/${own.programSlug}?ref=${kind === "foreign" ? foreignCode : "ref_" + "X".repeat(24)}`); await expect(page.getByText(/Empfehlungslink:/)).toBeVisible(); const before = await snapshot();
     const rejected = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/enroll"); await page.getByRole("checkbox").check(); await page.getByRole("button", { name: "Meine Karte erstellen", exact: true }).click(); const response = await rejected; expect(response.status()).toBe(400); expect(await response.json()).toMatchObject({ code: "INVALID_REFERRAL" });
     expect(await snapshot()).toEqual(before); expect(writes).toBe(1);
-    await expect(page.locator(".auth-error[role=alert]")).toContainText("Dieser Empfehlungslink ist nicht verfügbar");
+    await expect(page.locator("form").getByRole("alert")).toContainText("Dieser Empfehlungslink ist nicht verfügbar");
     if (width === 375 && kind === "foreign") await page.screenshot({ path: "/tmp/loy-070-referral-recovery-mobile.png", animations: "disabled", fullPage: true });
     const ordinary = page.getByRole("link", { name: "Ohne Empfehlungslink fortfahren", exact: true }); await expect(ordinary).toHaveAttribute("href", `/join/${own.programSlug}`); await ordinary.focus(); await expect(ordinary).toBeFocused(); await page.keyboard.press("Enter");
     await expect(page).toHaveURL(new RegExp(`/join/${own.programSlug}$`)); await expect(page.getByRole("button", { name: "Meine Karte erstellen", exact: true })).toBeEnabled(); expect(writes).toBe(1); expect(await snapshot()).toEqual(before);
