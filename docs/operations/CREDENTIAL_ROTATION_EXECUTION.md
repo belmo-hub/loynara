@@ -10,7 +10,7 @@ The replacement's authenticated `projectToken` query returned the expected proje
 
 Earlier urllib-based HTTP 403 responses did not establish token validity. Direct curl-based queries subsequently authenticated successfully. The separately saved `railway-api.secret` was not accepted for account/project access and remains unclassified; it is not counted as resolved. Original synced files are preserved pending cleanup approval.
 
-## Tunnel — continuity prepared, token rotation pending owner submission
+## Tunnel — replaced, verified and temporary connector removed
 
 The original connector's hostname was matched against `/etc/hostname` from its running Railway container through the read-only console file browser. The image has no shell, and startup INFO logs are suppressed by its existing WARN configuration; no SSH key was created or logging level changed to obtain this proof. Only the 13-byte system hostname file was downloaded, privately compared and removed locally. No customer data was read.
 
@@ -25,11 +25,14 @@ The source patch was inspected before committing: it contained only this tempora
 
 A private cleanup guard is running, targeting only this exact temporary service ID/name and production environment. Its scheduled cleanup is **15:29:02 UTC / 17:29:02 Berlin on 15 October 2026**, within 30 minutes of connector startup. The guard's identity checks passed four synthetic cases, including refusal to target the original service. It checks for earlier successful cleanup and exits when the normal handover has already removed the temporary service. It records cleanup success or failure privately. This is a scheduled safeguard, not evidence that cleanup has already occurred; verify the result.
 
-At this checkpoint, **the production tunnel token has not been rotated**. The production Cloudflare page is prepared for the owner's required credential submission. After that submission: save the new token outside sync, update/redeploy the temporary connector with its same image, verify it, update/redeploy the original connector with its same image, verify it, then remove the temporary service and check public health. If the owner does not proceed before the cleanup deadline, rebuild the two-connector readiness state before rotating.
+The owner completed the provider rotation and saved the current installation token through a hidden-input local helper. The replacement is at `~/Developer/Loynara-secrets/production/cloudflared-active.token`; owner-only storage, expected account/tunnel identity and a difference from the historical token were verified without printing the value.
+
+The temporary service was updated first and redeployed from its existing build. Deployment `5a2a6f99-137d-4e52-8260-75954216c3fb` reached SUCCESS with one running replica. Cloudflare showed a fresh connector replacing its old connection, and three public health checks returned HTTP 200. The original service was then updated and redeployed from its unchanged original build: deployment `cd3b71ad-bcf9-47ec-8f29-498be3f14beb` reached SUCCESS with one running replica. Cloudflare showed its fresh connector `6d0e9e32-c4fc-4730-a59f-c845aec9e5ff` and a healthy tunnel. Both identified old connector IDs disappeared. Four public health checks returned HTTP 200 before temporary removal.
+
+The temporary service was deleted only from the production environment and independently verified absent from the project's service inventory at approximately 15:21 UTC, before its deadline. The private success marker was written for the cleanup guard. Three more public health checks returned HTTP 200 after removal; Cloudflare showed exactly one healthy connector belonging to the original service. No route, DNS, application deployment or source image changed. An isolated live old-token registration test was omitted because no route-free validation environment was established; provider rotation confirmation and the actual fresh authenticated connections are the recorded evidence, rather than a claimed live negative test. The original synced token file remains preserved pending separate cleanup approval.
 
 ## Still pending
 
-- Production tunnel token replacement and verification of the resulting original connector.
 - Classification/resolution of the separate saved Railway API credential.
 - R2 key replacement, independent recovery custody for the new backup identity, future recipient activation, and the next natural backup's acceptance checks.
 - Three replacement heartbeat credentials and real worker/ops/backup activity on them.

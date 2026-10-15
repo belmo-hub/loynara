@@ -1,6 +1,6 @@
 # Credential storage and replacement — LOY-334
 
-Prepared 15 October 2026. **The owner approved phases 1–4. Execution is in progress; cleanup is not approved or complete.** The main Railway project token has been replaced and its predecessor rejected after revocation. Other credentials remain pending. See [execution evidence](CREDENTIAL_ROTATION_EXECUTION.md), [preparation evidence](CREDENTIAL_STORAGE_EVIDENCE.md), [implementation plan](CREDENTIAL_STORAGE_PLAN.md) and [the ticket](https://loynara.youtrack.cloud/issue/LOY-334).
+Prepared 15 October 2026. **The owner approved phases 1–4. Execution is in progress; cleanup is not approved or complete.** The main Railway project token has been replaced and its predecessor rejected after revocation. The production tunnel token has also been replaced, its original connector verified healthy, and the temporary handover service removed. R2, heartbeat, provider/scope reconciliation and cleanup work remain pending. See [execution evidence](CREDENTIAL_ROTATION_EXECUTION.md), [preparation evidence](CREDENTIAL_STORAGE_EVIDENCE.md), [implementation plan](CREDENTIAL_STORAGE_PLAN.md) and [the ticket](https://loynara.youtrack.cloud/issue/LOY-334).
 
 ## What was checked again
 
