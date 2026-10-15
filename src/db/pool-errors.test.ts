@@ -1,4 +1,6 @@
 import { EventEmitter } from "node:events";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { Pool } from "pg";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { guardPoolErrors } from "./pool-errors";
@@ -16,6 +18,15 @@ describe("database pool error handling", () => {
     pool.emit("connect", client);
     expect(() => client.emit("error", new Error("synthetic-secret"))).not.toThrow();
     expect(JSON.stringify(log.mock.calls)).not.toContain("synthetic-secret");
+  });
+
+  it("wraps every pool created by application or operator code, including ones added later", () => {
+    const root = path.resolve(__dirname, "../..");
+    const files = ["src", "scripts"].flatMap(dir => readdirSync(path.join(root, dir), { recursive: true, encoding: "utf8" }).map(file => path.join(dir, file)))
+      .filter(file => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file) && !file.includes("test-fixtures") && !/test-(db|support)\.ts$/.test(file));
+    const unguarded = files.flatMap(file => readFileSync(path.join(root, file), "utf8").split("\n")
+      .filter(line => /new (pg\.)?Pool\(/.test(line) && !line.includes("guardPoolErrors(")).map(line => `${file}: ${line.trim()}`));
+    expect(unguarded).toEqual([]);
   });
 
   it("protects the sign-in pool as well as the application pool", async () => {
