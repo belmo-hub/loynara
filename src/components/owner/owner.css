@@ -232,8 +232,6 @@
 /* Skeleton / states */
 .ow-skel { border-radius: var(--ow-r1); background: linear-gradient(90deg, var(--ow-surface-2), var(--ow-surface), var(--ow-surface-2)); background-size: 200% 100%; animation: ow-shimmer 1.4s linear infinite; }
 @keyframes ow-shimmer { to { background-position: -200% 0; } }
-.ow-empty { text-align: center; padding: var(--ow-s6) var(--ow-s4); color: var(--ow-ink-2); }
-.ow-empty strong { display: block; font-size: 16px; margin-bottom: 4px; color: var(--ow-ink); }
 
 /* Sticky save bar (safe-area aware) */
 .ow-savebar { position: sticky; bottom: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: var(--ow-s3); flex-wrap: wrap; padding: var(--ow-s3) var(--ow-s4); padding-bottom: max(var(--ow-s3), env(safe-area-inset-bottom)); margin-inline: calc(var(--ow-s5) * -1); background: var(--ow-surface); border-top: 1px solid var(--ow-line-strong); box-shadow: 0 -8px 24px rgba(26, 43, 37, .08); }

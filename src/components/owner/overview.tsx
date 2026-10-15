@@ -10,8 +10,10 @@ import { JoinCard } from "./join-card";
 import { ReadinessCard } from "./readiness-card";
 import { RetentionInsights, type ReferralRow } from "./retention-insights";
 import { useOwner } from "./owner-context";
-import { germanDate, nf, Skeleton } from "./owner-ui";
+import { germanDate, nf, Skeleton, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonClassName } from "@/components/ui/button";
 
 type Analytics = { currentActiveCards: number; newCards: number; qualifyingCheckouts: number; participatingCards: number; repeatCards: number; rewards: { redemptions: number }; asOf: string; countingRule: string };
 type Brand = { brandColor: string; logoData: string | null };
@@ -152,7 +154,7 @@ function RecentActivity({ me }: { me: MeResponse }) {
   return (
     <section className="ow-card" aria-labelledby="ow-act-title">
       <div className="ow-card-head"><div><h2 id="ow-act-title">Letzte Vorgänge</h2><p>Am Standort {me.locationName}</p></div></div>
-      {items.length === 0 ? <div className="ow-empty"><strong>Noch keine Vorgänge.</strong>Sobald deine Kasse etwas bestätigt, erscheint es hier.</div> : (
+      {items.length === 0 ? <EmptyState level={3} icon={<OwnerIcon name="till" size={24} />} title="Noch keine Vorgänge." action={<Link href="/cashier" className={buttonClassName({ variant: "secondary", size: "sm" })}>Kasse öffnen</Link>}>Sobald dein Team an der Kasse den ersten Besuch bucht, steht er hier.</EmptyState> : (
         <ul className="ow-feed">
           {items.map(item => {
             const when = item.createdAt;

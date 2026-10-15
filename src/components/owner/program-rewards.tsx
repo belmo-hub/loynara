@@ -6,6 +6,7 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerDialog, Skeleton } from "./owner-ui";
 import { euro, minimumSpendMinor, MIN_SPEND_LABEL, NO_MIN_SPEND_LABEL, parseGermanMoney, parseWholeNumber, unitDative, unitName } from "./program-helpers";
 import { useLoad } from "./use-load";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Reward = { rewardId: string; versionId: string; version: number; title: string; cost: number; termsText: string; sortOrder: number; active: boolean };
 type Form = { id: string | null; title: string; cost: string; terms: string; ownCost: string };
@@ -76,7 +77,7 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
       {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
       {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
       {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reload}>Erneut laden</button>}>{list.message}</Notice>}
-      {list.state === "ok" && active.length === 0 && !form && <div className="ow-empty"><strong>Noch keine aktive Prämie.</strong>Ohne Prämie können Kunden nichts einlösen.</div>}
+      {list.state === "ok" && active.length === 0 && !form && <EmptyState level={3} size="compact" title="Noch keine aktive Prämie.">Ohne Prämie können deine Gäste nichts einlösen. Leg mit „Prämie hinzufügen“ die erste an.</EmptyState>}
       {list.state === "ok" && active.length > 0 && (
         <ol className="ow-rewards" aria-label="Aktive Prämien">
           {active.map((reward, index) => {
