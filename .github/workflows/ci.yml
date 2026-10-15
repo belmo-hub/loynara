@@ -123,16 +123,10 @@ jobs:
           npx drizzle-kit migrate
       # Same command `npm test` ends with. `npm test` itself starts a local Docker database, which CI already provides.
       #
-      # These files are skipped because they are tied to one developer machine: they expect a Postgres in a specific
-      # local folder or on port 55433, or they drive Docker Compose. They should be made portable so they can run here.
+      # The two backup publication tests are skipped: they run pg_dump/pg_restore inside a Docker Compose database
+      # container, which this job does not have.
       - name: Run the test suite
         run: >-
           npx vitest run --hookTimeout 60000
           --exclude 'scripts/backup-publication.test.ts'
           --exclude 'scripts/preview-backup-publication.test.ts'
-          --exclude 'src/lib/award-key-race.integration.test.ts'
-          --exclude 'src/lib/redemption-key-race.integration.test.ts'
-          --exclude 'src/lib/location-http-scope.integration.test.ts'
-          --exclude 'src/lib/purchase-concurrent-release.integration.test.ts'
-          --exclude 'src/lib/ten-merchant-release.integration.test.ts'
-          --exclude 'src/lib/customer-export-active-loss.integration.test.ts'

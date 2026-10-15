@@ -8,7 +8,7 @@ import { POST as awardRoute } from "@/app/api/cashier/award/route";
 import { POST as reverseRoute } from "@/app/api/transactions/reverse/route";
 
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
-if (process.env.NODE_ENV === "production" || database.hostname !== "localhost" || database.port !== "55433" || database.pathname !== "/looplocal_test") throw new Error("Dedicated synthetic local PostgreSQL required");
+if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.pathname !== "/looplocal_test") throw new Error("Dedicated synthetic local PostgreSQL required");
 const origin = "http://localhost:3000";
 const registration = process.env.PUBLIC_REGISTRATION_ENABLED;
 beforeEach(async () => { await pool.query('TRUNCATE tenants,"user" CASCADE'); process.env.PUBLIC_REGISTRATION_ENABLED = "true"; });
