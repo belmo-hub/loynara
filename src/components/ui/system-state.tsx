@@ -16,17 +16,19 @@ export function SystemState({ icon, title, children, actions, reference }: { ico
   </section>;
 }
 
-/** Route-level loading placeholder shaped like the page it stands for. */
-export function PageLoading({ variant }: { variant: "column" | "dashboard" }) {
-  const placeholder = <div className={styles.loading} data-variant={variant} aria-busy="true">
+/**
+ * Route-level loading placeholder for the owner dashboard, shaped like a page header and two cards. There is no
+ * app-wide loading.tsx on purpose: a Suspense boundary above a page turns its server redirect (/ → /login, /register
+ * while registration is off) into a 200 with a client-side redirect.
+ */
+export function PageLoading() {
+  return <div className={styles.loading} aria-busy="true">
     <span className={styles.srOnly}>Seite wird geladen</span>
     <Skeleton width="62%" height={34} radius={10} />
-    <Skeleton width={variant === "column" ? "88%" : "40%"} height={18} />
+    <Skeleton width="40%" height={18} />
     <div className={styles.cards}>
-      <Skeleton height={variant === "column" ? 220 : 168} radius={20} />
-      {variant === "dashboard" ? <Skeleton height={168} radius={20} /> : <Skeleton height={56} radius={999} />}
+      <Skeleton height={168} radius={20} />
+      <Skeleton height={168} radius={20} />
     </div>
   </div>;
-  // The dashboard variant sits inside the owner shell; the column variant is a whole screen and brings its own theme.
-  return variant === "column" ? <div className={`ly-theme-auto ${styles.screen}`}>{placeholder}</div> : placeholder;
 }

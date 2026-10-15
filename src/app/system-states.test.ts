@@ -1,5 +1,6 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import GlobalError from "./global-error";
 import NotFound from "./not-found";
@@ -30,12 +31,15 @@ describe("system states", () => {
     expect(html.indexOf('href="/recover"')).toBeLessThan(html.indexOf('href="/login"'));
   });
 
-  it("loading placeholders are busy regions with a spoken label", () => {
-    for (const variant of ["column", "dashboard"] as const) {
-      const html = renderToStaticMarkup(h(PageLoading, { variant }));
-      expect(html).toContain('aria-busy="true"');
-      expect(html).toContain("Seite wird geladen");
-      expect(html).not.toContain('role="status"');
-    }
+  it("the loading placeholder is a busy region with a spoken label", () => {
+    const html = renderToStaticMarkup(h(PageLoading));
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain("Seite wird geladen");
+    expect(html).not.toContain('role="status"');
+  });
+
+  it("no loading boundary sits above the root page or the sign-up redirect", () => {
+    // A Suspense boundary there turns redirect("/login") into a 200 with a client-side redirect.
+    expect(existsSync("src/app/loading.tsx")).toBe(false);
   });
 });

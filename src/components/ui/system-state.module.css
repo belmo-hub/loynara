@@ -11,14 +11,10 @@
 @media (min-width: 1024px) { .state .title { font-size: var(--display-36); line-height: 1.1; } }
 
 /* Loading: nothing for the first 300 ms (most loads finish by then), then a 220 ms fade so the skeleton never flashes. */
-.loading { display: grid; gap: var(--space-4); width: 100%; animation: appear var(--dur-ui) var(--ease-out) 300ms both; }
-.loading[data-variant="column"] { max-width: 480px; margin-inline: auto; padding: calc(72px + var(--space-6)) var(--gutter) var(--space-10); }
-.loading[data-variant="dashboard"] { max-width: 1120px; margin-inline: auto; padding: var(--space-6) var(--space-5) 0; }
+.loading { display: grid; gap: var(--space-4); width: 100%; max-width: 1120px; margin-inline: auto; padding: var(--space-6) var(--space-5) 0; animation: appear var(--dur-ui) var(--ease-out) 300ms both; }
 .cards { display: grid; gap: var(--space-4); margin-top: var(--space-2); }
-@media (min-width: 900px) { .loading[data-variant="dashboard"] .cards { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .loading .cards { grid-template-columns: 1fr 1fr; } }
 @keyframes appear { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .loading { animation-duration: 1ms; } }
-
-.screen { flex: 1 0 auto; min-height: 100dvh; background: var(--color-bg); color: var(--color-ink); }
 
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
