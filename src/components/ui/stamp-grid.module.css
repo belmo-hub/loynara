@@ -13,3 +13,6 @@
   100% { transform: scale(1) rotate(var(--r)); }
 }
 @media (prefers-reduced-motion: reduce) { .slot[data-new] { animation: none; } }
+/* Long programmes: one track, drawn like the points ladder. */
+.track { height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 75%); }
+.trackFill { display: block; height: 100%; background: var(--stamp-fill, var(--color-stamp)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); }
