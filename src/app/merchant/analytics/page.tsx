@@ -10,6 +10,7 @@ import { CardBase } from "@/components/owner/retention-insights";
 import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-analytics";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import type { RetentionDays, RetentionSummary } from "@/lib/retention";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
@@ -42,14 +43,14 @@ export default function MerchantAnalyticsPage() {
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-locations">
           <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Gutschrift-Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
-          {r.locationActivity.length === 0 ? <p className="ow-muted">Keine Standorte vorhanden.</p> : <ul className="ow-feed">
+          {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
             {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
           <p className="ow-hint">Aktuelle Standortnamen. Mehrere Buchungen können zu einem Kassenvorgang gehören. Keine Umsatzkennzahl.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
           <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Gutschrift-Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
-          {r.staffActivity.length === 0 ? <p className="ow-muted">Keine Gutschrift-Buchungen in diesem Zeitraum.</p> : <ul className="ow-feed">
+          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Gutschriften in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
             {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
           <p className="ow-hint">Mehrere Buchungen können zu einem Kassenvorgang gehören. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>

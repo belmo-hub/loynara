@@ -22,7 +22,8 @@ test("owner configures bounded local automation rules through the merchant page"
       await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Aktionen", exact: true }).click();
       await page.getByRole("navigation", { name: "Aktionen – Unterseiten" }).getByRole("link", { name: "Automationen", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Automationen", exact: true })).toBeVisible();
-      await expect(page.getByText("Noch keine Ausführungen. Neue Regeln sind zunächst deaktiviert.")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Noch keine Ausführungen." })).toBeVisible();
+      await expect(page.getByText("Neue Regeln sind zunächst deaktiviert.")).toBeVisible();
       const first = page.getByRole("heading", { name: "Willkommen nach dem ersten Einkauf" }).locator("..");
       await first.getByLabel("Betreff").fill("Synthetischer Erstkontakt");
       await first.getByLabel("Tageslimit je Regel").fill("2");

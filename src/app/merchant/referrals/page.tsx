@@ -6,6 +6,7 @@ import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { ReferralSummary } from "@/components/owner/referral-summary";
 import { useLoad } from "@/components/owner/use-load";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Settings = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
 type Referral = { id: string; status: string; referrerCard: string; referredCard: string; referrerBonus: number; referredBonus: number; reviewReason: string | null; hasCreditedBonus: boolean; createdAt: string; qualifiedAt: string | null };
@@ -102,7 +103,7 @@ function Loaded({ slug, businessName, locationName, head, settings, list, reload
         <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="rf-hist">Vorgänge und Prüfung</h2><p>Letzte 100 Empfehlungen</p></div><span className="ow-muted">{referrals.length} angezeigt</span></div>
         {list.state === "loading" && <LoadingBlock rows={1} height={56} />}
         {list.state === "error" && <ErrorNotice message={list.message} onRetry={reloadList} />}
-        {list.state === "ok" && (referrals.length === 0 ? <p className="ow-muted">Noch keine Anmeldungen über Empfehlungslinks.</p> : (
+        {list.state === "ok" && (referrals.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Anmeldungen über Empfehlungslinks.">Gäste finden ihren Empfehlungslink auf ihrer Karte unter „Karte empfehlen“.</EmptyState> : (
           <ul className="ow-feed">{referrals.map(referral => (
             <li key={referral.id} style={{ display: "block" }}>
               <div className="ow-row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>

@@ -5,6 +5,7 @@ import { apiJson, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Kind = "first_checkout" | "inactive" | "reward_ready";
 type Editor = { triggerKind: Kind; enabled: boolean; subject: string; body: string; inactivityDays?: number; cooldownDays: number; dailyCap: number };
@@ -50,7 +51,7 @@ export default function AutomationsPage() {
       </div>
       <section className="ow-card ow-stack" aria-labelledby="au-runs">
         <h2 id="au-runs">Letzte Ausführungen</h2>
-        {d.runs.length === 0 ? <p className="ow-muted">Noch keine Ausführungen. Neue Regeln sind zunächst deaktiviert.</p> : (
+        {d.runs.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Ausführungen.">Neue Regeln sind zunächst deaktiviert. Schalte eine Regel ein, damit sie läuft.</EmptyState> : (
           <table className="ow-table"><thead><tr><th>Regel</th><th>Karte</th><th>Zeit (UTC)</th><th>Status</th><th>Grund</th></tr></thead>
             <tbody>{d.runs.map(run => <tr key={run.id}><td data-label="Regel">{d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "inactive" ? "Inaktiv" : d.rules.find(rule => rule.id === run.ruleId)?.triggerKind === "reward_ready" ? "Belohnung einlösbar" : "Erster Vorgang"}</td><td data-label="Karte">{run.cardLocator ?? "Karte entfernt"}</td><td data-label="Zeit (UTC)">{new Date(run.createdAt).toLocaleString("de-DE", { timeZone: "UTC" })}</td><td data-label="Status">{runStatus(run.status)}</td><td data-label="Grund">{run.reason ?? "–"}</td></tr>)}</tbody></table>
         )}
