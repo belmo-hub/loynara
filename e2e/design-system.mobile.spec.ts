@@ -46,7 +46,7 @@ test.describe("design system shells on phones", () => {
     test.use({ colorScheme: "dark" });
     test("follows the system setting", async ({ page }) => {
       await page.goto("/dev/design/shells/customer");
-      const background = await page.locator(".ly-theme-auto").evaluate((el) => getComputedStyle(el).backgroundColor);
+      const background = await page.locator(".ly-theme-auto", { has: page.locator("main") }).evaluate((el) => getComputedStyle(el).backgroundColor);
       expect(background).toBe("rgb(15, 23, 19)");
     });
   });
