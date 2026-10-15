@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contrast } from "./color";
+import { contrast, mix } from "./color";
 import { merchantPalette } from "./merchant-color";
 
 const SURFACE = { light: "#FCFBF7", dark: "#16201B" };
@@ -38,5 +38,15 @@ describe("merchantPalette", () => {
 
   it("exposes the values as CSS custom properties", () => {
     expect(Object.keys(merchantPalette("#2F6B58", "light").cssVars).sort()).toEqual(["--merchant", "--merchant-deep", "--merchant-ink", "--merchant-text", "--stamp-fill", "--stamp-ink"]);
+  });
+});
+
+// The long-programme track (stamp-grid.module.css): ink fill against 22 % ink over the card, at both gradient ends.
+describe("stamp track on the card", () => {
+  it.each(samples.flatMap((hex) => (["light", "dark"] as const).map((theme) => [hex, theme] as const)))("%s (%s) keeps 3:1 between filled and empty", (hex, theme) => {
+    const palette = merchantPalette(hex, theme);
+    for (const ground of [palette.merchant, palette.merchantDeep]) {
+      expect(contrast(palette.merchantInk, mix(ground, palette.merchantInk, 0.22))).toBeGreaterThanOrEqual(3);
+    }
   });
 });
