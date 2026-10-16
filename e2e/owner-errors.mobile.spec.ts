@@ -13,6 +13,8 @@ async function signIn(page: Page) {
   expect(res.ok()).toBe(true);
 }
 const fail = (status: number, body: object) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
+// Stubs that pass a request through can still be fetching when a test ends (the page reloads lists after a failure).
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 test("a failed invitation says what to do", async ({ page }) => {
   await signIn(page);
