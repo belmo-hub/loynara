@@ -102,12 +102,17 @@ export async function provisionSecureTag(input: { actorUserId: string; programId
 
 export async function activateSecureTag(input: { actorUserId: string; tagId: string; expectedPolicy?: PreparedTagPolicy; expectedTag?: { uid: string; keyRef: string; publicRef: string }; /** Highest counter already seen (verification reads made during provisioning), so those URLs can never be replayed. */ initialCounter?: number }) {
   return db.transaction(async tx => {
+    // Programme before tag, like taps, provisioning and replacement: locking the tag first deadlocked with a tap read of
+    // this tag (programme, then tag). A tag never moves to another programme, so the plain lookup is safe.
+    const [located] = await tx.select({ programId: secureTags.programId, tenantId: secureTags.tenantId }).from(secureTags).where(eq(secureTags.id, input.tagId));
+    if (!located) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    const query = tx.select().from(programs).where(and(eq(programs.id, located.programId), eq(programs.tenantId, located.tenantId)));
+    const [lockedProgram] = input.expectedPolicy ? await query.for("update") : [];
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
-    if (!tag || tag.status !== "provisioned") throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    if (!tag || tag.status !== "provisioned" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
     await owner(tx, input.actorUserId, tag.tenantId);
     if (input.expectedTag && (tag.uid !== input.expectedTag.uid || tag.keyRef !== input.expectedTag.keyRef || tag.publicRef !== input.expectedTag.publicRef)) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved tag binding changed");
-    const query = tx.select().from(programs).where(and(eq(programs.id, tag.programId), eq(programs.tenantId, tag.tenantId)));
-    const [program] = input.expectedPolicy ? await query.for("update") : await query;
+    const [program] = input.expectedPolicy ? [lockedProgram] : await query;
     if (!program || program.status !== "active" || program.tapMode === "disabled") throw new DomainError("TAP_DISABLED", "Tap is disabled");
     assertPreparedPolicy(program, input.expectedPolicy);
     if (input.expectedPolicy && tag.locationId !== input.expectedPolicy.locationId) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved location changed");
@@ -141,8 +146,14 @@ export type TapResult = { customerActivityAt?: number; state: "awarded" | "alrea
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  // Programme before tag, as in tag provisioning and replacement (programme, then the old tag). The request a tap
+  // inserts takes a key-share lock on the programme through its foreign key; taken after the tag, that deadlocked
+  // with a replacement of the same tag. A tag never moves to another programme, so the plain lookup is safe.
+  const [located] = await tx.select({ programId: secureTags.programId }).from(secureTags).where(eq(secureTags.publicRef, input.tagRef));
+  if (!located) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, located.programId)).for("key share");
   const [tag] = await tx.select().from(secureTags).where(eq(secureTags.publicRef, input.tagRef)).for("update");
-  if (!tag || tag.status !== "active") throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!tag || tag.status !== "active" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
   const keys = await (input.keyProvider ?? defaultTapKeyProvider()).getKeys(tag.keyRef, { uid: tag.uid } satisfies TapKeyContext);
   let decoded: { uid: string; counter: number };
   try { decoded = verifySdm(input.fields, keys); }
