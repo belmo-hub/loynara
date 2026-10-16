@@ -30,3 +30,9 @@ it("replays a write without a return value",async()=>{
  const call=()=>db.transaction(tx=>withAdminIdempotency(tx,{adminUserId:user,key,action:"admin.two_factor_reset"},async()=>{runs++;}));
  expect(await call()).toBeNull();expect(await call()).toBeNull();expect(runs).toBe(1);
 });
+it("paginates events with identical timestamps without losing rows",async()=>{
+ const user=randomUUID();await db.transaction(async tx=>{await recordAdminEvent(tx,event(user));await recordAdminEvent(tx,event(user));});
+ const first=await listAdminEvents({viewerUserId:user,viewAll:false,limit:1});
+ const second=await listAdminEvents({viewerUserId:user,viewAll:false,limit:1,beforeId:first[0].id});
+ expect(second).toHaveLength(1);expect(second[0].id).not.toBe(first[0].id);
+});

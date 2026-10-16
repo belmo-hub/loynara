@@ -7,6 +7,8 @@ import type { Transaction } from "./types";
 import { recordAdminEvent } from "./audit";
 import { withAdminIdempotency } from "./idempotency";
 import { resetSecondFactor } from "./second-factor";
+import { ADMIN_IDLE_SECONDS, ADMIN_MAX_SESSION_SECONDS, ADMIN_STEP_UP_SECONDS } from "./session";
+const roleNames: Record<AdminRole,string> = { founder: "Gründer", support: "Support", sales: "Vertrieb" };
 const rolesLock = (tx: Transaction) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended('platform_admin_roles', 0))`);
 function operatorLabel(operator: string) {
   if (!operator.startsWith("operator_cli:") || operator.length > 120) throw new DomainError("INVALID_REQUEST", "Invalid operator label");
@@ -23,7 +25,7 @@ export async function grantAdminRole(input: { email: string; role: AdminRole; op
     await rolesLock(tx); const userId = await userByEmail(tx, input.email);
     const result = await tx.execute(sql`INSERT INTO platform_admins(user_id,role,granted_by) VALUES(${userId},${input.role},${operator}) ON CONFLICT DO NOTHING RETURNING user_id`);
     if (!result.rows.length) return "already";
-    await recordAdminEvent(tx, { actor: "operator_cli", adminUserId: null, roles: [], action: "admin.role_granted", targetType: "admin", targetId: userId, summary: `Rolle ${input.role} vergeben (${operator})` });
+    await recordAdminEvent(tx, { actor: "operator_cli", adminUserId: null, roles: [], action: "admin.role_granted", targetType: "admin", targetId: userId, summary: `Rolle ${roleNames[input.role]} vergeben (${operator})` });
     return "granted";
   });
 }
@@ -38,17 +40,17 @@ export async function revokeAdminRole(input: { email: string; role: AdminRole; o
       if (founders.rows.length <= 1) throw new DomainError("INVALID_REQUEST", "The last founder must remain");
     }
     await tx.execute(sql`DELETE FROM platform_admins WHERE user_id=${userId} AND role=${input.role}`);
-    await recordAdminEvent(tx, { actor: "operator_cli", adminUserId: null, roles: [], action: "admin.role_revoked", targetType: "admin", targetId: userId, summary: `Rolle ${input.role} entzogen (${operator})` });
+    await recordAdminEvent(tx, { actor: "operator_cli", adminUserId: null, roles: [], action: "admin.role_revoked", targetType: "admin", targetId: userId, summary: `Rolle ${roleNames[input.role]} entzogen (${operator})` });
     return "revoked";
   });
 }
 export async function listAdmins(): Promise<Array<{ userId: string; email: string; roles: AdminRole[]; hasSecondFactor: boolean; lastSeenAt: Date | null }>> {
-  const result = await db.execute<{ userId: string; email: string; roles: AdminRole[]; hasSecondFactor: boolean; lastSeenAt: Date | null }>(sql`
+  const result = await db.execute<{ userId: string; email: string; roles: AdminRole[]; hasSecondFactor: boolean; lastSeenAt: Date | string | null }>(sql`
     SELECT u.id AS "userId",u.email,array_agg(p.role ORDER BY p.role) AS roles,
       coalesce(u."twoFactorEnabled",false) AND EXISTS(SELECT 1 FROM "twoFactor" f WHERE f."userId"=u.id AND f.verified=true) AS "hasSecondFactor",
       (SELECT max(last_seen_at) FROM admin_session_activity WHERE user_id=u.id) AS "lastSeenAt"
     FROM platform_admins p JOIN "user" u ON u.id=p.user_id GROUP BY u.id,u.email,u."twoFactorEnabled" ORDER BY u.email`);
-  return result.rows;
+  return result.rows.map(row => ({ ...row, lastSeenAt: row.lastSeenAt ? new Date(row.lastSeenAt) : null }));
 }
 export async function resetAdminSecondFactor(input: { targetUserId: string; by: { actor: "console"; ctx: AdminContext; idempotencyKey: string } | { actor: "operator_cli"; operator: string } }): Promise<void> {
   const by = input.by;
@@ -60,11 +62,12 @@ export async function resetAdminSecondFactor(input: { targetUserId: string; by: 
       const live = await tx.execute<{ role: AdminRole }>(sql`SELECT role FROM platform_admins WHERE user_id=${by.ctx.userId}`);
       roles = live.rows.map(row => row.role);
       if (!can(roles, "admins.reset_2fa")) throw new DomainError("NOT_FOUND", "Not found");
+      const now = new Date();
       const fresh = await tx.execute(sql`SELECT a.session_id FROM admin_session_activity a JOIN "session" s ON s.id=a.session_id
-        JOIN verification v ON v.id='admin-mfa:'||s.id AND v.value=s."userId" AND v."expiresAt">now()
-        WHERE s.id=${by.ctx.sessionId} AND s."userId"=${by.ctx.userId} AND s."expiresAt">now()
-          AND a.started_at>now()-interval '43200 seconds' AND a.last_seen_at>=now()-interval '1800 seconds'
-          AND a.step_up_at>now()-interval '300 seconds' AND a.step_up_at<=now() FOR UPDATE OF s,a`);
+        JOIN verification v ON v.id='admin-mfa:'||s.id AND v.value=s."userId" AND v."expiresAt">${now}
+        WHERE s.id=${by.ctx.sessionId} AND s."userId"=${by.ctx.userId} AND s."expiresAt">${now}
+          AND a.started_at>${new Date(now.getTime()-ADMIN_MAX_SESSION_SECONDS*1000)} AND a.last_seen_at>=${new Date(now.getTime()-ADMIN_IDLE_SECONDS*1000)}
+          AND a.step_up_at>${new Date(now.getTime()-ADMIN_STEP_UP_SECONDS*1000)} AND a.step_up_at<=${now} FOR UPDATE OF s,a`);
       if (!fresh.rows.length) throw new DomainError("STEP_UP_REQUIRED", "Anmeldung erneut bestätigen");
     } else operatorLabel(by.operator);
     const run = async () => {

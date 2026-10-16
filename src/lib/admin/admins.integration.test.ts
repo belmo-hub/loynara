@@ -63,3 +63,6 @@ it("refuses a reset from a context whose founder role was revoked",async()=>{
  const actor=await founder(),remaining=await identity(),target=await enrolled();await grantAdminRole({email:remaining.email,role:"founder",operator});await grantAdminRole({email:target.email,role:"support",operator});await revokeAdminRole({email:actor.email,role:"founder",operator});
  await expect(resetAdminSecondFactor({targetUserId:target.userId,by:{actor:"console",ctx:actor.ctx,idempotencyKey:randomUUID()}})).rejects.toMatchObject({code:"NOT_FOUND"});expect(await hasSecondFactor(target.userId)).toBe(true);
 });
+it("returns the last activity as a date for localized team display",async()=>{
+ const u=await founder();const admin=(await listAdmins()).find(a=>a.userId===u.userId);expect(admin?.lastSeenAt).toBeInstanceOf(Date);expect(admin?.lastSeenAt?.toISOString()).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+});
