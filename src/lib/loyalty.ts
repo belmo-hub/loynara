@@ -25,6 +25,26 @@ function rethrowLedgerKeyConflict(error: unknown): never {
   throw error;
 }
 
+// How long a booking waits for an owner's programme save before giving up. It holds the card meanwhile, so a slow save
+// must not stall the counter; nothing is booked and the cashier can simply try again.
+const PROGRAMME_LOCK_WAIT = "3s";
+
+async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Promise<T>): Promise<T> {
+  const [{ previous }] = (await tx.execute<{ previous: string }>(sql`SELECT current_setting('lock_timeout') AS previous`)).rows;
+  await tx.execute(sql`SELECT set_config('lock_timeout', ${PROGRAMME_LOCK_WAIT}, true)`);
+  let locked: T;
+  try { locked = await read(); }
+  catch (error) {
+    const databaseError = error instanceof Error && error.cause ? error.cause : error;
+    if (databaseError && typeof databaseError === "object" && "code" in databaseError && databaseError.code === "55P03") {
+      throw new DomainError("PROGRAMME_BUSY", "The programme is being changed right now; nothing was booked, try again in a moment");
+    }
+    throw error;
+  }
+  await tx.execute(sql`SELECT set_config('lock_timeout', ${previous}, true)`);
+  return locked;
+}
+
 export type AwardInput = {
   userId: string;
   locationId: string;
@@ -77,7 +97,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     // save's "no activity yet" check before a type change cannot miss a first award committing at the same moment.
     // Automatic tap awards keep the plain read: they hold their tag first, and never run in production.
     const programRow = tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
-    const [program] = trustedTap ? await programRow : await programRow.for("share");
+    const [program] = trustedTap ? await programRow : await lockProgrammeForBooking(tx, () => programRow.for("share"));
     if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
     const staff = trustedTap ? undefined : await checkoutStaff(tx, member.tenantId, input.userId);
     if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
