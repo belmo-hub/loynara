@@ -25,6 +25,9 @@ describe.each([["light", light], ["dark", dark]])("%s tokens", (_name, t) => {
   it.each(text.flatMap((fg) => grounds.map((bg) => [fg, bg])))("%s on %s is at least 4.5:1", (fg, bg) => {
     expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
   });
+  it("marks on a coral stamp are at least 4.5:1", () => {
+    expect(contrast(t["--color-on-stamp"], t["--color-stamp"])).toBeGreaterThanOrEqual(4.5);
+  });
   it("text on the action colour is at least 4.5:1", () => {
     expect(contrast(t["--color-on-action"], t["--color-action"])).toBeGreaterThanOrEqual(4.5);
   });

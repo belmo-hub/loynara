@@ -102,7 +102,7 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
         </div>
 
         <aside className="ow-card ow-card--flat ow-stack" aria-labelledby="ex-title" style={{ background: "var(--color-fill)", alignSelf: "start" }}>
-          <div><h3 id="ex-title" style={{ fontSize: 16 }}>Beispiel durchspielen</h3><p className="ow-hint">Rechnet mit derselben Formel wie der Server.</p></div>
+          <div><h3 id="ex-title" style={{ fontSize: "var(--text-16)" }}>Beispiel durchspielen</h3><p className="ow-hint">Rechnet mit derselben Formel wie der Server.</p></div>
           {example ? (
             <>
               <div className="ow-field"><label htmlFor="ex-amount">Einkaufswert in {currency === "EUR" ? "€" : currency}</label><input id="ex-amount" className="ow-input" inputMode="decimal" placeholder="z. B. 12,90" value={amount} onChange={event => setAmount(event.target.value)} aria-describedby="ex-result" /></div>

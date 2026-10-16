@@ -44,7 +44,7 @@ function NewBusiness({ me }: { me: MeResponse }) {
         </div>
         <aside className="ow-stack" aria-label="Vorschau und Einladung">
           <section className="ow-card ow-stack" aria-labelledby="ow-prev-title">
-            <div><h2 id="ow-prev-title">So sieht die Karte aus</h2><p className="ow-muted" style={{ fontSize: 14 }}>Browserkarte deiner Kunden, Beispielstand.</p></div>
+            <div><h2 id="ow-prev-title">So sieht die Karte aus</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Browserkarte deiner Kunden, Beispielstand.</p></div>
             {brand.state === "loading" ? <Skeleton height={176} /> : <BrowserCardPreview showCode={false} businessName={me.businessName} locationName={me.locationName} brandColor={brand.state === "ok" ? brand.data.brandColor : "#1f4a3a"} programType={me.programType} rewardTitle={me.rewardTitle} rewardCost={me.rewardCost} balance={Math.min(2, Math.max(0, me.rewardCost - 1))} />}
           </section>
           <JoinCard me={me} exportUrl={undefined} />

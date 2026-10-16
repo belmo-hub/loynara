@@ -6,7 +6,9 @@ one recurring motif. Direction "Stempelpapier": the card is a physical object, a
 else competes for attention. The cashier uses a dark, camera-first variant of the same tokens.
 
 Tokens live in `src/styles/tokens.css`. Primitives live in `src/components/ui/`. Nothing outside those two places
-defines a colour, font size, radius, shadow, duration or z-index.
+defines a colour, font size, radius, shadow, duration or z-index. `src/styles/raw-values.test.ts` enforces it for colours, font sizes, radii and
+layers: it reads every declaration (shorthands, corner radii, custom-property indirection) in stylesheets, inline style
+objects and CSS inside strings. Each exception names the exact rule and its reason, and an exception nothing uses fails.
 
 ## Principles
 
@@ -46,6 +48,7 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-fill` | 7 % ink | 7 % ink | neutral badge, hover fills, segmented track, skeleton |
 | `--color-accent-text` | #9E4B2D | #E8A58A | kickers ("Als Nächstes"), warm emphasis |
 | `--color-stamp` | #E9895F | #E9895F | earned stamps, reward markers (decorative) |
+| `--color-on-stamp` | #17291F | #17291F | check marks and counts on a coral stamp (≥ 4.5:1) |
 | `--color-success` | #1F6B45 | #8FD1A8 | confirmed booking, "+1" |
 | `--color-danger` | #A3321E | #F08F7A | errors, destructive |
 | `--color-warning` | #8A5A00 | #F2C14E | offline queue, pending |

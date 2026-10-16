@@ -129,7 +129,7 @@ export function ProgramSetup() {
       <div className="ow-two" style={{ gridTemplateColumns: step === 3 ? "minmax(0,1.3fr) minmax(0,1fr)" : "minmax(0,1.5fr) minmax(0,1fr)" }}>
         <form className="ow-card ow-stack" style={{ gap: 20 }} onSubmit={event => { event.preventDefault(); if (step < 3) next(); else void submit(); }} noValidate>
           {step === 0 && <>
-            <div><h2>Dein Geschäft</h2><p className="ow-muted" style={{ fontSize: 14 }}>Name und Standort stehen auf der Kundenkarte.</p></div>
+            <div><h2>Dein Geschäft</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Name und Standort stehen auf der Kundenkarte.</p></div>
             <Field id="su-businessName" label="Geschäftsname" error={err("businessName")}><input id="su-businessName" className="ow-input" value={f.businessName} maxLength={120} autoComplete="organization" onChange={event => set({ businessName: event.target.value })} aria-invalid={Boolean(err("businessName"))} placeholder="z. B. Café am Platz" /></Field>
             <div className="ow-grid-2">
               <Field id="su-locationName" label="Standort" error={err("locationName")}><input id="su-locationName" className="ow-input" value={f.locationName} maxLength={120} onChange={event => set({ locationName: event.target.value })} aria-invalid={Boolean(err("locationName"))} placeholder="z. B. Kassel Mitte" /></Field>
@@ -146,7 +146,7 @@ export function ProgramSetup() {
             </fieldset>
           </>}
           {step === 1 && <>
-            <div><h2>Wie sammeln Kunden?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Wähle, wie eine Gutschrift entsteht. Wer sie bestätigt, steht darunter.</p></div>
+            <div><h2>Wie sammeln Kunden?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Wähle, wie eine Gutschrift entsteht. Wer sie bestätigt, steht darunter.</p></div>
             <div className="ow-radio-cards" role="radiogroup" aria-label="Sammelart">
               {([["stamp", "manual", "Stempel", "Dein Team vergibt an der Kasse Stempel, meist einen pro Besuch."], ["points", "purchase", "Punkte nach Einkaufswert", "Das Team gibt den Betrag ein, das System rechnet und rundet ab."], ["points", "manual", "Punkte manuell", "Das Team gibt die Punktmenge direkt ein."]] as const).map(([type, mode, title, text]) => (
                 <label key={title} className="ow-radio-card"><input type="radio" name="su-earn" checked={f.type === type && effectiveMode === mode} onChange={() => set({ type, mode })} /><div><strong>{title}</strong><span>{text}</span></div></label>
@@ -159,13 +159,13 @@ export function ProgramSetup() {
             </Field>
           </>}
           {step === 2 && <>
-            <div><h2>Deine erste Prämie</h2><p className="ow-muted" style={{ fontSize: 14 }}>Name, dann Preis. Weitere Prämien und Bedingungen kannst du danach ergänzen.</p></div>
+            <div><h2>Deine erste Prämie</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Name, dann Preis. Weitere Prämien und Bedingungen kannst du danach ergänzen.</p></div>
             <Field id="su-rewardName" label="Name der Prämie" error={err("rewardName")}><input id="su-rewardName" className="ow-input" value={f.rewardName} maxLength={180} onChange={event => set({ rewardName: event.target.value })} aria-invalid={Boolean(err("rewardName"))} placeholder="z. B. Kaffee aufs Haus" /></Field>
             <Field id="su-cost" label={`Preis in ${unitDative(f.type)}`} error={err("cost")} hint={f.preset && f.preset !== "other" ? "Beispielwert aus der Branchenauswahl. Bitte prüfe ihn für dein Geschäft." : undefined}><input id="su-cost" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={f.cost} onChange={event => set({ cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={Boolean(err("cost"))} /></Field>
             <div className="ow-readonly" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${NO_MIN_SPEND_LABEL}.`}</div>
           </>}
           {step === 3 && <>
-            <div><h2>Karte gestalten und prüfen</h2><p className="ow-muted" style={{ fontSize: 14 }}>{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p></div>
+            <div><h2>Karte gestalten und prüfen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p></div>
             <div className="ow-field"><span className="ow-label" id="su-color-l">Markenfarbe</span>
               <div className="ow-swatches" role="group" aria-labelledby="su-color-l">{SWATCHES.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={`Farbe ${hex}`} aria-pressed={f.brandColor.toLowerCase() === hex.toLowerCase()} onClick={() => set({ brandColor: hex })} />)}</div>
               <input id="su-brandColor" className="ow-input" style={{ maxWidth: 200 }} value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} aria-invalid={Boolean(err("brandColor"))} aria-label="Farbwert (Hex)" />
@@ -183,9 +183,9 @@ export function ProgramSetup() {
               </div>
             </details>
             <div className="ow-card ow-card--flat" style={{ background: "var(--color-fill)" }}>
-              <h3 style={{ fontSize: 16, marginBottom: 8 }}>Zusammenfassung</h3>
+              <h3 style={{ fontSize: "var(--text-16)", marginBottom: 8 }}>Zusammenfassung</h3>
               <dl className="ow-dl">{summary.map(([k, v]) => [<dt key={`${k}-t`}>{k}</dt>, <dd key={`${k}-d`}>{v}</dd>])}</dl>
-              <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: 14 }} className="ow-muted">
+              <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: "var(--text-14)" }} className="ow-muted">
                 <li>Das Programm startet mit dem Speichern (gültig ab {f.date}). Kunden können sich dann anmelden.</li>
                 <li>Papierstempel werden nicht automatisch übernommen. Dein Team prüft und bestätigt jede Übertragung einzeln.</li>
               </ul>
@@ -198,12 +198,12 @@ export function ProgramSetup() {
           </div>
         </form>
         <aside className="ow-stack" aria-label="Vorschau und Beispiel">
-          <div className="ow-card ow-stack"><h2 style={{ fontSize: 16 }}>So sieht die Karte aus</h2>
+          <div className="ow-card ow-stack"><h2 style={{ fontSize: "var(--text-16)" }}>So sieht die Karte aus</h2>
             <BrowserCardPreview businessName={f.businessName.trim()} locationName={f.locationName.trim()} brandColor={HEX.test(f.brandColor) ? f.brandColor : "#1F4A3A"} programType={f.type} rewardTitle={f.rewardName.trim()} rewardCost={cost ?? 8} balance={cost ? Math.min(2, cost - 1) : 2} />
             <p className="ow-hint">Vorschau mit Beispielstand.</p>
           </div>
           {step === 1 && example && (
-            <div className="ow-card ow-stack"><h2 style={{ fontSize: 16 }}>Beispiel durchspielen</h2>
+            <div className="ow-card ow-stack"><h2 style={{ fontSize: "var(--text-16)" }}>Beispiel durchspielen</h2>
               <Field id="su-amount" label={`Einkaufswert in ${currency === "EUR" ? "€" : currency}`}><input id="su-amount" className="ow-input" inputMode="decimal" placeholder="z. B. 12,90" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
               <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{example.points} Punkte</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-muted">Rechnet mit der Formel des Servers.</p>}</div>
             </div>

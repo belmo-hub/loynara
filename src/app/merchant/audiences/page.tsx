@@ -55,7 +55,7 @@ export default function MerchantAudiencesPage() {
       {program.state === "ok" && (
         <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
           <form className="ow-card ow-stack" onSubmit={showPreview}>
-            <div><h2>Regel auswählen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die Vorschau verwendet den aktuellen Datenstand dieses Programms.</p></div>
+            <div><h2>Regel auswählen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Die Vorschau verwendet den aktuellen Datenstand dieses Programms.</p></div>
             <div className="ow-field"><label htmlFor="au-kind">Segment</label>
               <select id="au-kind" className="ow-select" value={kind} onChange={event => change(setKind)(event.target.value as Kind)}>
                 <option value="new">Neu angemeldet</option><option value="recently_active">Kürzlich aktiv</option><option value="inactive">Inaktiv</option><option value="frequent_visitors">Häufige Kassenvorgänge</option><option value="close_to_reward">Kurz vor einer Prämie</option>
@@ -72,7 +72,7 @@ export default function MerchantAudiencesPage() {
           <section className="ow-card ow-stack" aria-live="polite" aria-labelledby="au-result">
             <h2 id="au-result">Passende Karten</h2>
             {previewing ? <p className="ow-muted">Segment wird berechnet …</p>
-              : preview ? <div><strong className="ow-metric-value" style={{ fontSize: 56 }} data-testid="audience-total">{preview.total}</strong><p>pseudonyme {preview.total === 1 ? "Karte erfüllt" : "Karten erfüllen"} diese Regel.</p><p className="ow-hint">Datenstand: <time dateTime={preview.asOf}>{germanDate(preview.asOf, true)}</time></p>{campaignLink && <p style={{ marginTop: 12 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={campaignLink}>Kampagnenentwurf für diese Zielgruppe</Link></p>}</div>
+              : preview ? <div><strong className="ow-metric-value" style={{ fontSize: "var(--display-num)" }} data-testid="audience-total">{preview.total}</strong><p>pseudonyme {preview.total === 1 ? "Karte erfüllt" : "Karten erfüllen"} diese Regel.</p><p className="ow-hint">Datenstand: <time dateTime={preview.asOf}>{germanDate(preview.asOf, true)}</time></p>{campaignLink && <p style={{ marginTop: 12 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={campaignLink}>Kampagnenentwurf für diese Zielgruppe</Link></p>}</div>
               : <p className="ow-muted">Wähle eine Regel und berechne die Anzahl.</p>}
             {error && <ErrorNotice message={error} />}
             <Notice><div><strong>So wird gezählt</strong><p style={{ marginTop: 4 }}>Ein nicht stornierter, bestätigter Kassenvorgang zählt einmal, auch wenn mehrere Buchungen dazugehören. Ein Kassenvorgang beweist keinen physischen Besuch. Eine Kartenanmeldung oder ein Startguthaben zählt nicht als Kassenvorgang.</p><p style={{ marginTop: 4 }}>Für Nachrichten braucht jede Person zusätzlich eine verifizierte Kontaktadresse und eine passende Einwilligung.</p></div></Notice>

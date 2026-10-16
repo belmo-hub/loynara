@@ -10,7 +10,7 @@ export function PeriodBar({ id, value, onChange, meta }: { id: string; value: 30
       <select id={id} className="ow-select" style={{ width: "auto", minWidth: 180 }} value={value} onChange={event => onChange(Number(event.target.value) as 30 | 90)}>
         <option value={30}>Letzte 30 Tage</option><option value={90}>Letzte 90 Tage</option>
       </select>
-      {meta && <span className="ow-muted" style={{ fontSize: 14 }}>{meta}</span>}
+      {meta && <span className="ow-muted" style={{ fontSize: "var(--text-14)" }}>{meta}</span>}
     </div>
   );
 }

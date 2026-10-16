@@ -143,6 +143,7 @@
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
 .ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
+.ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
 .ow-input:hover, .ow-select:hover, .ow-textarea:hover { border-color: var(--color-ink); }
 /* Native selects: appearance none so Safari honours the 44 px height; the chevron is drawn in the theme ink. */
 .ow-select, .ow-loc select {
@@ -155,7 +156,7 @@
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
 .ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
-.ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1px var(--color-line-strong); }
+.ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
 .ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
 .ow-radio-card:has(input:checked) { border-color: var(--color-action); background: var(--color-action-soft); }

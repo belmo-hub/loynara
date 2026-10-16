@@ -33,7 +33,7 @@ export default function MerchantAnalyticsPage() {
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: 17 }}>Karten und Kassenvorgänge</h2>
+        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Kassenvorgänge</h2>
           <div className="ow-metrics">
             <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Aktuell nicht geschlossene Karten." />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
@@ -74,7 +74,7 @@ export default function MerchantAnalyticsPage() {
           <section className="ow-card ow-stack"><h2>Vergebene Einheiten</h2>
             <dl className="ow-dl">{(me.programType === "stamp" || r.issued.stampUnits > 0) && <><dt>Stempel</dt><dd className="ow-num">{r.issued.stampUnits}</dd></>}{(me.programType === "points" || r.issued.pointUnits > 0) && <><dt>Punkte</dt><dd className="ow-num">{r.issued.pointUnits}</dd></>}<dt>Buchungen</dt><dd className="ow-num">{r.issued.awardActions}</dd></dl></section>
           <section className="ow-card ow-stack"><h2>Einlösungen</h2><strong className="ow-metric-value">{r.rewards.redemptions}</strong>
-            {r.rewards.topTitles.length ? <><h3 style={{ fontSize: 15 }}>Häufigste eingelöste Prämien</h3><ol className="ow-feed">{r.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong className="ow-num">{item.count}</strong></li>)}</ol></> : <p className="ow-muted">Im Zeitraum wurde keine Prämie eingelöst.</p>}</section>
+            {r.rewards.topTitles.length ? <><h3 style={{ fontSize: "var(--text-16)" }}>Häufigste eingelöste Prämien</h3><ol className="ow-feed">{r.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong className="ow-num">{item.count}</strong></li>)}</ol></> : <p className="ow-muted">Im Zeitraum wurde keine Prämie eingelöst.</p>}</section>
         </div>
         {r.referrals.attributed + r.referrals.qualified + r.referrals.reversed > 0 && (
         <section className="ow-card ow-stack" aria-labelledby="an-ref"><h2 id="an-ref">Empfehlungen im Zeitraum</h2>
@@ -83,7 +83,7 @@ export default function MerchantAnalyticsPage() {
 </section>
         )}
         {r.series.some(bucket => bucket.newCards + bucket.checkouts > 0) && (
-        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: 14 }}>Neue Karten und bestätigte Kassenvorgänge je Woche.</p></div>
+        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Neue Karten und bestätigte Kassenvorgänge je Woche.</p></div>
           <div className="ow-trend">{r.series.map(bucket => <div className="ow-trend-row" key={bucket.from}><span className="ow-num">{date(bucket.from)}–{date(bucket.to)}</span>
             <div><div className="ow-bar"><span style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} {bucket.newCards === 1 ? "Karte" : "Karten"}</small></div>
             <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} {bucket.checkouts === 1 ? "Kassenvorgang" : "Kassenvorgänge"}</small></div></div>)}</div></section>
@@ -100,9 +100,9 @@ export default function MerchantAnalyticsPage() {
 }
 
 function RetentionMetric({ label, value, note, href }: { label: string; value: number; note: string; href: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
 }
 
 function Metric({ label, value, note }: { label: string; value: number; note: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
 }
