@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { smallTargets } from "./support/targets";
 
 // The owner dashboard on phones: nothing sideways, text at least 14 px (12 px only for bottom-bar labels; the
 // wallet-pass mock is a scaled illustration), controls at least 44 px, dark with the system, a bottom bar whose
@@ -16,20 +17,15 @@ async function signIn(page: Page) {
 }
 
 async function audit(page: Page) {
-  return page.evaluate(() => {
+  const measured = await page.evaluate(() => {
     const visible = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], [inert]"); };
     const exempt = (el: Element) => Boolean(el.closest(".ow-tab, .ow-pass, .ow-cardprev-face"));
     const smallText = [...document.querySelectorAll("body *")].filter(el => visible(el) && !exempt(el) && [...el.childNodes].some(n => n.nodeType === 3 && n.textContent!.trim()))
       .filter(el => parseFloat(getComputedStyle(el).fontSize) < 14).map(el => el.textContent!.trim().slice(0, 30));
-    const smallControls = [...document.querySelectorAll<HTMLElement>("a[href], button, input:not([type=hidden]), select, textarea")]
-      .filter(el => visible(el) && !exempt(el) && !el.closest("p, small, li > span, label > span"))
-      .map(el => {
-        const tick = el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio");
-        const r = (tick && el.closest("label") ? el.closest("label")! : el).getBoundingClientRect();
-        return { name: (el.getAttribute("aria-label") ?? el.textContent ?? el.id ?? "").trim().slice(0, 30), size: Math.round(tick ? r.height : Math.min(r.height, r.width)) };
-      }).filter(({ size }) => size < 44).map(({ name, size }) => `${name} (${size})`);
-    return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, smallText, smallControls };
+    return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, smallText };
   });
+  // The wallet-pass mock and the card preview are scaled illustrations, not controls.
+  return { ...measured, smallControls: await smallTargets(page, { exempt: ".ow-pass, .ow-cardprev-face" }) };
 }
 
 test.describe("owner dashboard on phones", () => {

@@ -19,7 +19,7 @@
 .error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
 .cardNumber { display: grid; justify-items: center; gap: 2px; margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); }
 .cardNumber span { font-size: var(--text-14); color: var(--color-ink-muted); }
-.cardNumber strong { font-size: 1.625rem; font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.cardNumber strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 
 .rewardList { display: grid; margin: 0; padding: 0; list-style: none; }
 .rewardList li { display: flex; justify-content: space-between; gap: var(--space-3); min-height: 44px; align-items: center; border-top: 1px solid var(--color-line); }

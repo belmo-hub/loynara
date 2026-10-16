@@ -7,12 +7,12 @@ import { CustomerExportLink } from "@/components/customer-export-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
-import { PointsLadder } from "@/components/ui/points-ladder";
-import { StampGrid } from "@/components/ui/stamp-grid";
+import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
+import { CardFace, type CardReward } from "./card-face";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
 
-type Reward = { id: string; title: string; cost: number };
+type Reward = CardReward;
 export type CardActivity = { id: string; label: string; date: string; change: number };
 
 export type CustomerCardProps = {
@@ -57,7 +57,6 @@ export function CustomerCard(props: CustomerCardProps) {
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
   const nearest = [...rewards].sort((a, b) => Math.max(0, a.cost - balance) - Math.max(0, b.cost - balance) || a.cost - b.cost)[0];
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
-  const remaining = selected ? Math.max(0, selected.cost - balance) : 0;
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   const nextGoal = [...rewards].filter((reward) => reward.cost > balance).sort((a, b) => a.cost - b.cost)[0];
 
@@ -66,28 +65,17 @@ export function CustomerCard(props: CustomerCardProps) {
     <div className={styles.merchantText}><h1 className={`customer-header-merchant ${styles.merchantName}`}>{businessName}</h1><span>{t.yourCard}</span></div>
   </div>;
 
-  return <CustomerShell brandColor={brandColor} locale={locale} header={header} footer={<p className={styles.footer}>{t.footer}</p>}>
+  return <CardStatusProvider><CustomerShell brandColor={brandColor} locale={locale} header={header} footer={<p className={styles.footer}>{t.footer}</p>}>
     <Goal t={t} number={number} programType={programType} remaining={nextGoal ? nextGoal.cost - balance : 0} readyCount={readyCount} nextGoal={nextGoal} several={rewards.length > 1} />
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
-    <section className={`customer-card ${styles.object}`} aria-label={t.cardLabel} data-ready={readyCount > 0 || undefined}>
-      <div className={styles.objectTop}>
-        <p className={`customer-card-business ${styles.business}`}><strong>{businessName}</strong><span>{locationName}</span></p>
-        {readyCount > 0 ? <span className={styles.readyTag}>{t.readyTag}</span> : null}
-      </div>
-      {programType === "stamps" && selected
-        ? <StampGrid earned={balance} total={selected.cost} locale={locale} className={styles.stamps} />
-        : <PointsLadder balance={balance} rewards={rewards} locale={locale} className={styles.ladder} />}
-      <div className={styles.balancePanel}>
-        <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong>{number.format(balance)} <em>{unit}</em></strong></p>
-        {selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), remaining === 1 && programType === "points" ? t.point : unit, selected.title)}</p> : null}
-      </div>
+    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} locale={locale}>
       <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
         {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
         {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong>{cardLocator}</strong><small>{t.cardNumberHint}</small></p> : null}
         <p className={styles.ticketNote}>{readyCount > 0 ? t.showToRedeem : t.scanNote}</p>
       </section>
-    </section>
+    </CardFace>
     {props.onRefresh ? <div className={styles.refresh}>
       <Button variant="quiet" size="sm" icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
       {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
@@ -126,7 +114,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {exportUrl ? <div className={styles.export}><CustomerExportLink url={exportUrl} locale={locale}>{t.export}</CustomerExportLink></div> : null}
     {props.onCloseCard ? <CloseCard {...props} t={t} /> : null}
-  </CustomerShell>;
+  </CustomerShell></CardStatusProvider>;
 }
 
 function Goal({ t, number, programType, remaining, readyCount, nextGoal, several }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; remaining: number; readyCount: number; nextGoal?: Reward; several: boolean }) {
@@ -157,7 +145,7 @@ function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOn
 }
 
 function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
-  const [status, setStatus] = useState("");
+  const { text: status, live, announce: setStatus } = useCardStatus("return");
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(new URL(window.location.pathname, window.location.origin).href);
@@ -173,7 +161,7 @@ function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
     </ol>
     <p className={styles.muted}>{t.linkWarning}</p>
     <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>
-    {status ? <p className={styles.muted} role="status">{status}</p> : null}
+    <CardStatusLine text={status} live={live} className={styles.muted} />
   </section>;
 }
 

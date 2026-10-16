@@ -7,7 +7,7 @@ const forbidden: Array<[string, RegExp[]]> = [
   ["src/lib/billing.ts", [/Fixture-Belege sind keine Steuerrechnungen\.",/]],
   ["src/app/merchant/billing/page.tsx", [/synthetischen Daten/, /Belege aus lokalen Tests/, /Test und nächste Schritte/, /Keine Testbelege/]],
   ["src/app/merchant/billing/fixture/[id]/page.tsx", [/Lokale Fixture/, /synthetische Monatsperiode/, /Teil dieser Fixture/]],
-  ["src/components/auth-frame.tsx", [/Produktvorschau/]],
+  ["src/app/login/login-form.tsx", [/Produktvorschau/, /synthet/i]],
   ["src/app/merchant/adviser/page.tsx", [/Modellanbindung/, /Aktionen · Beratung/, /· UTC/]],
   ["src/app/merchant/analytics/page.tsx", [/Zustellversuche/, /Mailpit/, /noch nicht/, /Verfügbare Zeiträume/]],
   ["src/components/owner/period-bar.tsx", [/noch nicht/]],

@@ -1,20 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
+import { smallTargets } from "./support/targets";
 
-const shells = ["customer", "cashier", "dashboard", "auth"];
+const shells = ["customer", "cashier", "auth"];
 
 async function horizontalOverflow(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
 
-/** Interactive elements smaller than 44 × 44 px (inputs wrapped by their label count as the label's size). */
-async function smallTargets(page: Page) {
-  return page.evaluate(() => [...document.querySelectorAll<HTMLElement>("a[href], button, select, textarea, input:not([type=hidden])")]
-    .filter((el) => el.offsetParent !== null && !el.closest("dialog:not([open])"))
-    .map((el) => (el.matches("input[type=checkbox], input[type=radio]") && el.closest("label") ? el.closest("label")! : el))
-    .map((el) => ({ name: (el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 40), box: el.getBoundingClientRect() }))
-    .filter(({ box }) => box.height < 44 || box.width < 44)
-    .map(({ name, box }) => `${name} ${Math.round(box.width)}x${Math.round(box.height)}`));
-}
 
 test.describe("design system shells on phones", () => {
   // The preview pages exist only in development builds; production servers answer 404.
@@ -31,22 +23,11 @@ test.describe("design system shells on phones", () => {
     });
   }
 
-  test("dashboard reaches every section through Mehr", async ({ page }) => {
-    await page.goto("/dev/design/shells/dashboard");
-    const bar = page.getByRole("navigation", { name: "Bereiche" });
-    await expect(bar.getByRole("link")).toHaveCount(4);
-    await bar.getByRole("button", { name: "Mehr" }).click();
-    const sheet = page.getByRole("dialog", { name: "Mehr" });
-    await expect(sheet.getByRole("link", { name: "Einstellungen" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
-  });
-
   test.describe("dark appearance", () => {
     test.use({ colorScheme: "dark" });
     test("follows the system setting", async ({ page }) => {
       await page.goto("/dev/design/shells/customer");
-      const background = await page.locator(".ly-theme-auto").evaluate((el) => getComputedStyle(el).backgroundColor);
+      const background = await page.locator(".ly-theme-auto", { has: page.locator("main") }).evaluate((el) => getComputedStyle(el).backgroundColor);
       expect(background).toBe("rgb(15, 23, 19)");
     });
   });

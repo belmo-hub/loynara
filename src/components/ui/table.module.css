@@ -4,7 +4,7 @@
 .table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--text-16); font-variant-numeric: tabular-nums; }
 .hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .caption { padding-bottom: var(--space-2); text-align: left; font-weight: var(--weight-strong); }
-.table th { position: sticky; top: var(--sticky-offset, 0px); z-index: 1; padding: var(--space-3); background: var(--color-surface); border-bottom: 1px solid var(--color-line); color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-align: left; white-space: nowrap; }
+.table th { position: sticky; top: var(--sticky-offset, 0px); z-index: var(--z-sticky); padding: var(--space-3); background: var(--color-surface); border-bottom: 1px solid var(--color-line); color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-align: left; white-space: nowrap; }
 .table td { padding: var(--space-3); height: 52px; border-bottom: 1px solid var(--color-line); vertical-align: middle; }
 .table tbody tr:last-child td { border-bottom: 0; }
 .table :is(th, td)[data-align="end"] { text-align: right; }

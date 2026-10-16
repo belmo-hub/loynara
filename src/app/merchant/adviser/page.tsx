@@ -30,10 +30,10 @@ export default function MerchantAdviserPage() {
         <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
           <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Kassenvorgänge" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
         </dl>
-        <section aria-labelledby="advice-heading" className="ow-stack"><h2 id="advice-heading" style={{ fontSize: 17 }}>Prüfpunkte</h2>
+        <section aria-labelledby="advice-heading" className="ow-stack"><h2 id="advice-heading" style={{ fontSize: "var(--text-18)" }}>Prüfpunkte</h2>
           {r.recommendations.map(item => (
             <article className="ow-card ow-stack" key={item.id}>
-              <h3 style={{ fontSize: 17 }}>{item.title}</h3>
+              <h3 style={{ fontSize: "var(--text-16)" }}>{item.title}</h3>
               <dl className="ow-dl">{item.observed.map(observation => [<dt key={`${observation.label}-t`}>{observation.label}</dt>, <dd key={`${observation.label}-d`}>{observation.value}</dd>])}</dl>
               <div><h4 className="ow-label">Warum dieser Hinweis?</h4><p>{item.reasoning}</p></div>
               <div><h4 className="ow-label">Was fehlt?</h4><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{item.missingInformation.map(value => <li key={value}>{value}</li>)}</ul></div>

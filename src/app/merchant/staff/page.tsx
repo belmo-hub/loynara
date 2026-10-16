@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { ClientApiError, postJson } from "@/components/client-api";
+import { postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { inviteCreateMessage, inviteRevokeMessage, staffRevokeMessage, unconfirmed } from "@/components/owner/owner-errors";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type StaffMember = { userId: string; email?: string; role: "owner" | "manager" | "cashier"; locationId: string | null; active: boolean };
 type InviteResult = { id: string; token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
@@ -63,11 +65,8 @@ export default function StaffPage() {
       if (inviteDraftRevision.current === submitted.revision) setEmail("");
       reloadStaff(); reloadAudit();
     } catch (cause) {
-      const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
-      if (unconfirmed) {
-        setError(`Die Erstellung für ${submitted.email} wurde nicht bestätigt. Die Einladung kann bereits erstellt sein. Prüfe den Team-Verlauf, bevor du einen weiteren Link erstellst. Es wurde nichts automatisch versendet.`);
-        reloadAudit();
-      } else setError(cause instanceof Error ? cause.message : "Einladung konnte nicht erstellt werden.");
+      setError(inviteCreateMessage(cause, submitted.email));
+      if (unconfirmed(cause)) reloadAudit();
     }
     finally { setBusy(false); }
   }
@@ -78,7 +77,10 @@ export default function StaffPage() {
     try {
       await postJson("/api/staff/revoke", { userId: target.userId });
       setMessage("Der Teamzugang wurde gesperrt."); setRevokeTarget(current => current === target ? null : current); reloadStaff(); reloadAudit();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Zugang konnte nicht gesperrt werden."); setRevokeTarget(current => current === target ? null : current); }
+    } catch (cause) {
+      setError(staffRevokeMessage(cause)); setRevokeTarget(current => current === target ? null : current);
+      if (unconfirmed(cause)) { reloadStaff(); reloadAudit(); }
+    }
     finally { setBusy(false); setRevokingTarget(null); }
   }
   async function cancelInvitation() {
@@ -87,12 +89,16 @@ export default function StaffPage() {
     setBusy(true); setCancellingTarget(target); setError(""); setMessage("");
     try {
       const result = await postJson<{ inviteId: string; status: string }>("/api/staff/invite/revoke", { inviteId: target.id });
-      if (result.inviteId !== target.id || result.status !== "revoked") throw new Error("Der Widerruf wurde nicht bestätigt. Prüfe den Einladungsstatus vor einem erneuten Versuch.");
+      if (result.inviteId !== target.id || result.status !== "revoked") {
+        setError("Der Widerruf wurde nicht bestätigt. Prüfe den Einladungsstatus vor einem erneuten Versuch.");
+        setCancelTarget(current => current === target ? null : current);
+        return;
+      }
       setMessage(`Die Einladung für ${target.email} wurde widerrufen.`);
       setInvite(current => current?.id === target.id ? null : current);
       setCancelTarget(current => current === target ? null : current);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Einladung konnte nicht widerrufen werden.");
+      setError(inviteRevokeMessage(cause));
       setCancelTarget(current => current === target ? null : current);
     } finally { reloadStaff(); reloadAudit(); setBusy(false); setCancellingTarget(null); }
   }
@@ -108,7 +114,7 @@ export default function StaffPage() {
       {message && <div role="status"><Notice tone="ok">{message}</Notice></div>}
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
         <section className="ow-card ow-stack" aria-labelledby="st-invite">
-          <div><h2 id="st-invite">Person einladen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Der Link wird einmalig angezeigt und nicht automatisch versendet. Zugriff gilt für {me.locationName}.</p></div>
+          <div><h2 id="st-invite">Person einladen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Der Link wird einmalig angezeigt und nicht automatisch versendet. Zugriff gilt für {me.locationName}.</p></div>
           <form className="ow-stack" onSubmit={createInvite}>
             <div className="ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" className="ow-input" type="email" value={email} onChange={event => { inviteDraftRevision.current++; setEmail(event.target.value); }} autoComplete="email" required placeholder="team@geschaeft.de" /></div>
             <div className="ow-field"><label htmlFor="st-role">Rolle</label><select id="st-role" className="ow-select" value={role} onChange={event => { inviteDraftRevision.current++; setRole(event.target.value as "manager" | "cashier"); }}><option value="cashier">Kasse</option><option value="manager">Leitung</option></select><span className="ow-hint">{ROLE_HINT[role]}</span></div>
@@ -118,12 +124,12 @@ export default function StaffPage() {
             <div className="ow-readonly ow-stack" role="status"><strong>Einladung für {invite.email}</strong>
               <p>Dieser Link gilt bis {new Date(invite.expiresAt).toLocaleDateString("de-DE")}. Teile ihn nur mit der eingeladenen Person.</p>
               {staff.state === "ok" && <p className="ow-hint">{staff.data.accountCreation === "operator" ? "Konten werden derzeit vom Loynara-Betreiber angelegt. Die Person nimmt die Einladung an, sobald ihr Konto für genau diese Adresse besteht." : staff.data.accountCreation === "invite" ? "Die Person legt über den Link ihr eigenes Konto für genau diese Adresse an und ist danach sofort an der Kasse." : "Die Person kann über den Link ein Konto erstellen und die Einladung annehmen."}</p>}
-              <code style={{ overflowWrap: "anywhere", fontSize: 14 }}>{inviteUrl}</code>
+              <code style={{ overflowWrap: "anywhere", fontSize: "var(--text-14)" }}>{inviteUrl}</code>
               <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void copy()}>Link kopieren</button></div></div>
           )}
         </section>
         <section className="ow-card ow-stack" aria-labelledby="st-list">
-          <div><h2 id="st-list">Aktuelle Zugänge</h2><p className="ow-muted" style={{ fontSize: 14 }}>Gesperrte Teammitglieder können nicht mehr buchen.</p></div>
+          <div><h2 id="st-list">Aktuelle Zugänge</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Gesperrte Teammitglieder können nicht mehr buchen.</p></div>
           {staff.state === "loading" ? <LoadingBlock rows={2} height={48} /> : (
             <ul className="ow-feed">{people.map(item => (
               <li key={item.userId} style={item.active ? undefined : { opacity: .7 }}><span><strong>{item.email || "E-Mail nicht verfügbar"}</strong>{item.userId === me.userId && <span className="ow-muted"> (du)</span>}<br /><span className="ow-row" style={{ gap: 6, marginTop: 4 }}><span className={`ow-chip ${item.role === "owner" ? "ow-chip--ok" : item.role === "manager" ? "ow-chip--info" : ""}`}>{ROLE_LABEL[item.role]}</span><span className="ow-muted">{item.role === "owner" ? "Alle Standorte" : locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {item.active ? "Aktiv" : "Gesperrt"}</span></span></span>
@@ -138,22 +144,22 @@ export default function StaffPage() {
           ? <ul className="ow-feed" aria-label="Einladungen">{staff.data.invitations!.map(item => <li key={item.id}>
               <span><strong>{item.email}</strong><br /><span className="ow-muted">{ROLE_LABEL[item.role]} · {locations.find(location => location.id === item.locationId)?.name ?? "Standort"} · {INVITATION_LABEL[item.status]} · Gültig bis {germanDate(item.expiresAt)}</span></span>
               {item.status === "pending" && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCancelTarget({ ...item })}>Widerrufen</button>}
-            </li>)}</ul> : <p className="ow-muted">Noch keine Einladungen.</p>)}
+            </li>)}</ul> : <EmptyState level={3} size="compact" title="Noch keine Einladungen.">Lade Mitarbeitende mit ihrer E-Mail-Adresse ein. Jede Person bekommt ein eigenes Konto für die Kasse.</EmptyState>)}
       </section>
       <section className="ow-card ow-stack" aria-labelledby="st-perm">
-        <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Kasse und Leitung arbeiten nur an ihrem Standort. Die Rechte prüft Loynara bei jeder Buchung auf dem Server.</p></div>
+        <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kasse und Leitung arbeiten nur an ihrem Standort. Die Rechte prüft Loynara bei jeder Buchung auf dem Server.</p></div>
         <div className="ow-table-wrap"><table className="ow-perm">
           <thead><tr><th scope="col">Aufgabe</th><th scope="col">Kasse</th><th scope="col">Leitung</th><th scope="col">Inhaber:in</th></tr></thead>
           <tbody>{PERMISSIONS.map(([task, cashier, manager]) => <tr key={task}><th scope="row">{task}</th>{[cashier, manager, true].map((allowed, index) => <td key={index}>{allowed ? <span className="ow-perm-yes" aria-label="erlaubt">✓</span> : <span className="ow-perm-no" aria-label="nicht erlaubt">–</span>}</td>)}</tr>)}</tbody>
         </table></div>
       </section>
       <section className="ow-card ow-stack" aria-labelledby="staff-audit-title">
-        <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die letzten 50 Teamereignisse dieses Betriebs. Ältere Einträge stehen im Inhaberexport.</p></div>
+        <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Die letzten 50 Teamereignisse dieses Betriebs. Ältere Einträge stehen im Inhaberexport.</p></div>
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length
           ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted">{event.role === "manager" ? "Leitung" : "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
-          : <p className="ow-muted">Noch keine Teamereignisse erfasst. Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</p>)}
+          : <EmptyState level={3} size="compact" title="Noch keine Teamereignisse.">Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</EmptyState>)}
       </section>
       {cancelTarget && <OwnerDialog title="Einladung widerrufen?" tone="danger" onClose={() => setCancelTarget(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setCancelTarget(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelInvitation()}>{cancellingTarget === cancelTarget ? "Wird widerrufen …" : "Einladung widerrufen"}</button></>}>
         <p>Der Einladungslink für {cancelTarget.email} kann danach keinen neuen Teamzugang mehr erteilen. Bereits angenommene Zugänge bleiben bestehen.</p>

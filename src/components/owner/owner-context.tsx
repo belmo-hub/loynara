@@ -4,6 +4,7 @@ import type { PilotSurface } from "@/lib/pilot-surfaces";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
+import { accountLoadMessage, SETUP_INCOMPLETE } from "./owner-errors";
 import { OwnerDialog } from "./owner-ui";
 
 export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
@@ -57,7 +58,7 @@ async function fetchAccount(): Promise<AccountResult> {
     const me = await apiJson<MeResponse | { userId: string; tenantId: null; publicBaseUrl: string }>("/api/me");
     if (me.tenantId === null) return { kind: "unprovisioned" }; // identity-only account, explicitly confirmed by the server
     if (!me.locationId || !me.programSlug || !["owner", "manager", "cashier"].includes(me.role)) {
-      return { kind: "error", message: "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung." };
+      return { kind: "error", message: SETUP_INCOMPLETE };
     }
     if (me.role === "cashier") return { kind: "cashier" };
     let locations: OwnerLocation[] = [];
@@ -67,7 +68,7 @@ async function fetchAccount(): Promise<AccountResult> {
     return { kind: "ok", me, locations };
   } catch (cause) {
     if (cause instanceof ClientApiError && cause.status === 401) return { kind: "login" };
-    return { kind: "error", message: cause instanceof Error ? cause.message : "Dein Konto konnte nicht geladen werden." };
+    return { kind: "error", message: accountLoadMessage(cause) };
   }
 }
 

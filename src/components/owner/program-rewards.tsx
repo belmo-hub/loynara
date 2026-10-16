@@ -6,6 +6,7 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerDialog, Skeleton } from "./owner-ui";
 import { euro, minimumSpendMinor, MIN_SPEND_LABEL, NO_MIN_SPEND_LABEL, parseGermanMoney, parseWholeNumber, unitDative, unitName } from "./program-helpers";
 import { useLoad } from "./use-load";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Reward = { rewardId: string; versionId: string; version: number; title: string; cost: number; termsText: string; sortOrder: number; active: boolean };
 type Form = { id: string | null; title: string; cost: string; terms: string; ownCost: string };
@@ -76,7 +77,7 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
       {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
       {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
       {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reload}>Erneut laden</button>}>{list.message}</Notice>}
-      {list.state === "ok" && active.length === 0 && !form && <div className="ow-empty"><strong>Noch keine aktive Prämie.</strong>Ohne Prämie können Kunden nichts einlösen.</div>}
+      {list.state === "ok" && active.length === 0 && !form && <EmptyState level={3} size="compact" title="Noch keine aktive Prämie.">Ohne Prämie können deine Gäste nichts einlösen. Leg mit „Prämie hinzufügen“ die erste an.</EmptyState>}
       {list.state === "ok" && active.length > 0 && (
         <ol className="ow-rewards" aria-label="Aktive Prämien">
           {active.map((reward, index) => {
@@ -102,8 +103,8 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
       )}
 
       {form && (
-        <form className="ow-card ow-card--flat ow-stack" style={{ background: "var(--ow-surface-2)" }} aria-labelledby="rew-form-title" onSubmit={event => { event.preventDefault(); void submit(); }}>
-          <h3 id="rew-form-title" style={{ fontSize: 16 }}>{form.id ? "Prämie bearbeiten" : "Neue Prämie"}</h3>
+        <form className="ow-card ow-card--flat ow-stack" style={{ background: "var(--color-fill)" }} aria-labelledby="rew-form-title" onSubmit={event => { event.preventDefault(); void submit(); }}>
+          <h3 id="rew-form-title" style={{ fontSize: "var(--text-16)" }}>{form.id ? "Prämie bearbeiten" : "Neue Prämie"}</h3>
           <div className="ow-field"><label htmlFor="rew-title-input">Name der Prämie</label><input id="rew-title-input" className="ow-input" value={form.title} maxLength={180} onChange={event => setForm({ ...form, title: event.target.value })} aria-invalid={form.title.length > 0 && !titleValid} placeholder="z. B. Kaffee aufs Haus" /></div>
           <div className="ow-field"><label htmlFor="rew-cost">Preis in {unitDative(type)}</label><input id="rew-cost" className="ow-input" inputMode="numeric" value={form.cost} onChange={event => setForm({ ...form, cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={form.cost.length > 0 && cost === null} aria-describedby="rew-cost-hint" style={{ maxWidth: 200 }} /><span id="rew-cost-hint" className="ow-hint">{type === "stamp" ? "So viele Stempel muss eine Karte sammeln." : purchase ? `So viele Punkte werden benötigt. Bei ${rate} ${unitName("points", rate)} pro 1 € entspricht das einem Mindestumsatz.` : "So viele Punkte werden benötigt."}</span></div>
           <div className="ow-field"><label htmlFor="rew-terms">Bedingungen (optional)</label><textarea id="rew-terms" className="ow-textarea" style={{ minHeight: 72 }} value={form.terms} maxLength={3000} onChange={event => setForm({ ...form, terms: event.target.value })} placeholder="z. B. Gültig Mo–Fr bis 11 Uhr." /></div>

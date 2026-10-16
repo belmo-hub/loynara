@@ -10,6 +10,7 @@ import { CardBase } from "@/components/owner/retention-insights";
 import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-analytics";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import type { RetentionDays, RetentionSummary } from "@/lib/retention";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
@@ -32,7 +33,7 @@ export default function MerchantAnalyticsPage() {
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: 17 }}>Karten und Kassenvorgänge</h2>
+        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Kassenvorgänge</h2>
           <div className="ow-metrics">
             <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Aktuell nicht geschlossene Karten." />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
@@ -42,14 +43,14 @@ export default function MerchantAnalyticsPage() {
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-locations">
           <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Gutschrift-Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
-          {r.locationActivity.length === 0 ? <p className="ow-muted">Keine Standorte vorhanden.</p> : <ul className="ow-feed">
+          {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
             {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
           <p className="ow-hint">Aktuelle Standortnamen. Mehrere Buchungen können zu einem Kassenvorgang gehören. Keine Umsatzkennzahl.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
           <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Gutschrift-Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
-          {r.staffActivity.length === 0 ? <p className="ow-muted">Keine Gutschrift-Buchungen in diesem Zeitraum.</p> : <ul className="ow-feed">
+          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Gutschriften in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
             {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
           <p className="ow-hint">Mehrere Buchungen können zu einem Kassenvorgang gehören. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
@@ -73,7 +74,7 @@ export default function MerchantAnalyticsPage() {
           <section className="ow-card ow-stack"><h2>Vergebene Einheiten</h2>
             <dl className="ow-dl">{(me.programType === "stamp" || r.issued.stampUnits > 0) && <><dt>Stempel</dt><dd className="ow-num">{r.issued.stampUnits}</dd></>}{(me.programType === "points" || r.issued.pointUnits > 0) && <><dt>Punkte</dt><dd className="ow-num">{r.issued.pointUnits}</dd></>}<dt>Buchungen</dt><dd className="ow-num">{r.issued.awardActions}</dd></dl></section>
           <section className="ow-card ow-stack"><h2>Einlösungen</h2><strong className="ow-metric-value">{r.rewards.redemptions}</strong>
-            {r.rewards.topTitles.length ? <><h3 style={{ fontSize: 15 }}>Häufigste eingelöste Prämien</h3><ol className="ow-feed">{r.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong className="ow-num">{item.count}</strong></li>)}</ol></> : <p className="ow-muted">Im Zeitraum wurde keine Prämie eingelöst.</p>}</section>
+            {r.rewards.topTitles.length ? <><h3 style={{ fontSize: "var(--text-16)" }}>Häufigste eingelöste Prämien</h3><ol className="ow-feed">{r.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong className="ow-num">{item.count}</strong></li>)}</ol></> : <p className="ow-muted">Im Zeitraum wurde keine Prämie eingelöst.</p>}</section>
         </div>
         {r.referrals.attributed + r.referrals.qualified + r.referrals.reversed > 0 && (
         <section className="ow-card ow-stack" aria-labelledby="an-ref"><h2 id="an-ref">Empfehlungen im Zeitraum</h2>
@@ -82,7 +83,7 @@ export default function MerchantAnalyticsPage() {
 </section>
         )}
         {r.series.some(bucket => bucket.newCards + bucket.checkouts > 0) && (
-        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: 14 }}>Neue Karten und bestätigte Kassenvorgänge je Woche.</p></div>
+        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Neue Karten und bestätigte Kassenvorgänge je Woche.</p></div>
           <div className="ow-trend">{r.series.map(bucket => <div className="ow-trend-row" key={bucket.from}><span className="ow-num">{date(bucket.from)}–{date(bucket.to)}</span>
             <div><div className="ow-bar"><span style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} {bucket.newCards === 1 ? "Karte" : "Karten"}</small></div>
             <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} {bucket.checkouts === 1 ? "Kassenvorgang" : "Kassenvorgänge"}</small></div></div>)}</div></section>
@@ -99,9 +100,9 @@ export default function MerchantAnalyticsPage() {
 }
 
 function RetentionMetric({ label, value, note, href }: { label: string; value: number; note: string; href: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
 }
 
 function Metric({ label, value, note }: { label: string; value: number; note: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: 14, color: "var(--ow-ink-2)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
 }

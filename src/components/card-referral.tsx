@@ -6,13 +6,14 @@ import { Gift, Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
 import styles from "./customer/panels.module.css";
+import { CardStatusLine, useCardStatus } from "./customer/card-status";
 
 type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points"; progress?: { signedUp: number; qualified: number } };
 
 export function CardReferral({ token, locale }: { token: string; locale: "de" | "fr" }) {
   const [share, setShare] = useState<ReferralShare | null>(null);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { text: copiedText, live, announce } = useCardStatus("referral");
   useEffect(() => {
     let active = true;
     void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(result => { if (active && (result as { enabled?: boolean }).enabled !== false) setShare(result); }).catch(cause => {
@@ -37,7 +38,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
 
   async function copy() {
     if (!share) return;
-    try { await navigator.clipboard.writeText(share.shareUrl); setCopied(true); setError(""); }
+    try { await navigator.clipboard.writeText(share.shareUrl); announce(french ? "Lien copié." : "Link kopiert."); setError(""); }
     catch { setError(french ? "Copie impossible. Sélectionnez et copiez le lien ci-dessous." : "Kopieren fehlgeschlagen. Wähle den Link unten aus und kopiere ihn manuell."); }
   }
 
@@ -51,7 +52,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
           ? `Au premier passage confirmé en caisse : ${share.referrerBonus} ${unit} pour vous, ${share.referredBonus} ${unit} pour la nouvelle carte.`
           : `Beim ersten bestätigten Einkauf: ${share.referrerBonus} ${unit} für dich, ${share.referredBonus} ${unit} für die neue Karte.`}</li>
       </ol>
-      {share.progress && share.progress.signedUp > 0 && <p className={styles.state} role="status">{french
+      {share.progress && share.progress.signedUp > 0 && <p className={styles.state}>{french
         ? `${share.progress.signedUp} carte(s) créée(s) avec votre lien, dont ${share.progress.qualified} avec un bonus crédité.`
         : `${share.progress.signedUp} ${share.progress.signedUp === 1 ? "Anmeldung" : "Anmeldungen"} über deinen Link, davon ${share.progress.qualified} mit gutgeschriebenem Bonus.`}</p>}
       <div className={styles.actions}>
@@ -59,7 +60,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
         <Button variant="secondary" size="sm" onClick={() => void copy()}>{french ? "Copier le lien" : "Link kopieren"}</Button>
       </div>
       <TextField label={french ? "Lien à partager" : "Link zum Teilen"} readOnly value={share.shareUrl} onFocus={event => event.target.select()} />
-      {copied && <p role="status" className={styles.state}>{french ? "Lien copié." : "Link kopiert."}</p>}
+      <CardStatusLine text={copiedText} live={live} className={styles.state} />
       {local && <p className={styles.muted}>{french ? "Aperçu local : ce lien fonctionne uniquement sur cet ordinateur." : "Lokale Vorschau: Dieser Link funktioniert nur auf diesem Rechner."}</p>}
       <p className={styles.muted}>{french ? "Ouvrir le lien ou s'inscrire seul ne donne aucun bonus." : "Öffnen oder Anmelden allein bringt noch keinen Bonus."}</p>
     </> : null}

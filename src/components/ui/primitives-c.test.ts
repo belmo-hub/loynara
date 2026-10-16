@@ -27,6 +27,13 @@ describe("StampGrid", () => {
   it("speaks French when asked", () => {
     expect(html(h(StampGrid, { earned: 1, total: 5, locale: "fr" }))).toContain('aria-label="1 tampon sur 5"');
   });
+  it("draws one track instead of a mark per stamp above 30 stamps", () => {
+    const long = html(h(StampGrid, { earned: 40, total: 1000 }));
+    expect(long).not.toContain("<li");
+    expect(long).toContain('role="img"');
+    expect(long).toContain('aria-label="40 von 1000 Stempeln"');
+    expect(html(h(StampGrid, { earned: 0, total: 30 })).match(/<li/g)).toHaveLength(30);
+  });
 });
 
 describe("PointsLadder", () => {

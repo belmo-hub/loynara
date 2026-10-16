@@ -1,6 +1,6 @@
 /* Guest card (DESIGN.md, "Customer card"). Budget: merchant, balance and the QR fit a 360 × 800 screen. */
 .merchant { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
-.mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 12px; background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
+.mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
 .merchantText { display: grid; min-width: 0; }
 .merchantName { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: 1.3; overflow-wrap: anywhere; }
 .merchantText span { font-size: var(--text-14); color: var(--color-ink-muted); }
@@ -10,7 +10,7 @@
 .goalNum { color: var(--merchant-text); font-size: 1.2em; font-variant-numeric: lining-nums; }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 
-.object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%); box-shadow: var(--shadow-object); }
+.object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
 .objectTop { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .business { display: grid; margin: 0; min-width: 0; }
 .business strong { font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; overflow-wrap: anywhere; }
@@ -33,7 +33,7 @@
 .missingQr { margin: 0; padding: var(--space-6) var(--space-2); text-align: center; font-size: var(--text-14); }
 .locator { display: grid; justify-items: center; margin: 0; text-align: center; }
 .locator span { font-size: var(--text-14); color: #58645C; }
-.locator strong { font-size: 1.625rem; font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.locator strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 .locator small { font-size: var(--text-14); color: #58645C; }
 .ticketNote { margin: 0; text-align: center; font-size: var(--text-14); color: #58645C; text-wrap: pretty; }
 
