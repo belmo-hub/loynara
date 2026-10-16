@@ -17,6 +17,7 @@
     "production:migrate": "tsx scripts/production-migrate.ts",
     "production:release-preflight": "tsx scripts/production-migrate.ts --release-preflight",
     "production:ops-check": "tsx scripts/production-ops-check.ts",
+    "admin:local-access": "tsx scripts/admin-local-access.ts",
     "admin:grant": "tsx scripts/admin-operator.ts grant",
     "admin:revoke": "tsx scripts/admin-operator.ts revoke",
     "admin:list": "tsx scripts/admin-operator.ts list",
