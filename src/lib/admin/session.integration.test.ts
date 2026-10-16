@@ -62,3 +62,9 @@ it("sixth failed step-up in 900 s is rate limited",async()=>{
  const u=await fixture();await touchAdminSession(u.input);for(let i=0;i<5;i++)await expect(performStepUp({...u.input,password,code:"wrong"})).rejects.toMatchObject({code:"FORBIDDEN"});
  await expect(performStepUp({...u.input,password,code:"wrong"})).rejects.toMatchObject({code:"RATE_LIMIT"});
 });
+it("does not consume another admin's account budget when the shared IP is blocked",async()=>{
+ const a=await fixture(),b=await fixture();await touchAdminSession(a.input);await touchAdminSession(b.input);
+ for(let i=0;i<5;i++)await expect(performStepUp({...a.input,password,code:"wrong"})).rejects.toMatchObject({code:"FORBIDDEN"});
+ for(let i=0;i<6;i++)await expect(performStepUp({...b.input,password,code:await b.otp.totp()})).rejects.toMatchObject({code:"RATE_LIMIT"});
+ await expect(performStepUp({...b.input,ip:"192.0.2.2",password,code:await b.otp.totp()})).resolves.toBeUndefined();
+});

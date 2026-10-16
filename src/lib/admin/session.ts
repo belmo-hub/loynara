@@ -30,7 +30,13 @@ export async function touchAdminSession(input: SessionInput & { sessionCreatedAt
 }
 export async function performStepUp(input: SessionInput & { password: string; code: string }): Promise<void> {
   const limits = [`user:${input.userId}`, `ip:${input.ip ?? "untrusted-peer"}`].map(identity => ({ scope: "admin_step_up", identity, max: 5, windowSeconds: 900 }));
-  for (const limit of limits) await enforceRateLimit(limit);
+  const reserved: typeof limits = [];
+  try {
+    for (const limit of limits) { await enforceRateLimit(limit); reserved.push(limit); }
+  } catch (error) {
+    for (const limit of reserved) await refundRateLimit(limit);
+    throw error;
+  }
   const [passwordValid, factorValid] = await Promise.all([verifyAdminPassword(input.userId, input.password), verifyAdminSecondFactor(input.userId, input.code)]);
   if (!passwordValid || !factorValid) throw new DomainError("FORBIDDEN", "Anmeldung nicht bestätigt");
   const now = input.now ?? new Date();

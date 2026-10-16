@@ -96,3 +96,28 @@ it("revokes other password-only sessions when initial enrollment completes",asyn
  expect(await auth.api.getSession({headers:new Headers({cookie:cookie(confirmed.headers)})})).not.toBeNull();
  expect(await auth.api.getSession({headers:staleHeaders})).toBeNull();
 });
+it("shares the admin password budget across app and console hosts",async()=>{
+ const u=await founder();vi.stubEnv("TRUSTED_INGRESS","cloudflare_tunnel");
+ for(let i=0;i<6;i++){
+  const origin=i<5?adminOrigin:"http://localhost:3000";
+  const r=await auth.handler(new Request(origin+"/api/auth/sign-in/email",{method:"POST",headers:{origin,host:new URL(origin).host,"content-type":"application/json","cf-connecting-ip":`192.0.2.${100+i}`},body:JSON.stringify({email:u.email,password:"wrong-password"})}));
+  expect(r.status).toBe(i<5?401:429);
+ }
+});
+it("shares the admin failure budget across fresh MFA challenges and factors",async()=>{
+ const u=await founder();vi.stubEnv("TRUSTED_INGRESS","cloudflare_tunnel");
+ for(let i=0;i<6;i++){
+  const login=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
+  const path=i%2?"verify-backup-code":"verify-totp";
+  const r=await auth.handler(new Request("http://localhost:3000/api/auth/two-factor/"+path,{method:"POST",headers:{origin:"http://localhost:3000",host:"localhost:3000","content-type":"application/json",cookie:cookie(login.headers),"cf-connecting-ip":`192.0.2.${120+i}`},body:JSON.stringify({code:i===5?u.backupCodes[0]:"wrong"})}));
+  expect(r.status).toBe(i<5?401:429);
+ }
+});
+it("shares the MFA IP budget across admin accounts",async()=>{
+ const users=[await founder(),await founder()];vi.stubEnv("TRUSTED_INGRESS","cloudflare_tunnel");
+ for(let i=0;i<6;i++){
+  const u=users[i%2],login=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
+  const r=await auth.handler(new Request(adminOrigin+"/api/auth/two-factor/verify-backup-code",{method:"POST",headers:{origin:adminOrigin,host:"admin.localhost:3000","content-type":"application/json",cookie:cookie(login.headers),"cf-connecting-ip":"192.0.2.140"},body:JSON.stringify({code:i===5?u.backupCodes[0]:"wrong"})}));
+  expect(r.status).toBe(i<5?401:429);
+ }
+});

@@ -68,3 +68,12 @@ it("reset endpoint resets once per idempotency key",async()=>{
 it("step-up next parameter only accepts relative admin paths",()=>{
  expect(sanitizeAdminNext("/admin/team")).toBe("/admin/team");for(const value of ["https://evil.example","//evil","/merchant","/admin/../../merchant","/admin\\..\\merchant"])expect(sanitizeAdminNext(value)).toBe("/admin");
 });
+it("renders audit actor and target identities, including unavailable account IDs",async()=>{
+ const {createElement}=await import("react"),{renderToStaticMarkup}=await import("react-dom/server");
+ const {AdminAuditEvent}=await import("@/components/admin/audit-event");
+ const event={id:randomUUID(),at:new Date(),actor:"console",adminUserId:"actor-id",action:"admin.two_factor_reset",tenantId:null,targetType:"admin",targetId:"target-id",summary:"Zweiter Faktor zurückgesetzt",reason:null};
+ const html=renderToStaticMarkup(createElement(AdminAuditEvent,{event,label:"Zweiter Faktor zurückgesetzt",identities:{"actor-id":"founder@example.test","target-id":"support@example.test"}}));
+ expect(html).toContain("Ausgeführt von:");expect(html).toContain("founder@example.test");expect(html).toContain("Betroffenes Konto:");expect(html).toContain("support@example.test");
+ const historical=renderToStaticMarkup(createElement(AdminAuditEvent,{event,label:"Zweiter Faktor zurückgesetzt",identities:{}}));
+ expect(historical).toContain("actor-id");expect(historical).toContain("target-id");
+});
