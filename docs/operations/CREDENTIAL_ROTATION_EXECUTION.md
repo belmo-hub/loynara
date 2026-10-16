@@ -1,6 +1,6 @@
 # LOY-334 approved execution checkpoint
 
-15 October 2026. **In progress; not a completion report.** The owner approved phases 1–4 of [the packet](CREDENTIAL_ROTATION.md). Provider/preview rotations and deletion of synced/operator copies remain separately gated. LOY-334 remains open.
+Updated 16 October 2026. **In progress; not a completion report.** The owner approved phases 1–4 of [the packet](CREDENTIAL_ROTATION.md). Provider/preview rotations and deletion of synced/operator copies remain separately gated. LOY-334 remains open.
 
 ## Railway project access — replaced and verified
 
@@ -47,9 +47,13 @@ Exactly four backup variables were updated privately with `skipDeploys: true`: t
 
 The independent signed-in Railway browser session remains available. The separate saved CLI administrator credential was refused during this phase; the replacement environment-scoped project credential authenticated and performed the approved reads/mutations. The CLI credential must be reconciled before relying on it as emergency operator access. No broad replacement token was created to work around that refusal.
 
-### Next natural-run acceptance — pending
+### Natural-run acceptance — passed; retirement pending
 
-After **16 October 2026 03:00 UTC / 05:00 Berlin**, verify the backup's real execution completed successfully on deployment `493cec2e-dde9-4d24-826b-2861c33f99da`, the newly configured backup check received real start/success activity, and the new backup object has the expected key/size/timestamp metadata. Do not force a dump, download production customer data or run a production-data restore. Preserve both recovery identities regardless of the result.
+The natural 16 October backup ran from **03:03:27.739 to 03:03:32.455 UTC / 05:03 Berlin** on deployment `493cec2e-dde9-4d24-826b-2861c33f99da`. Railway reports success, no service issues and no pending deployment work. Private readback confirms the four replacement variables remain configured.
+
+The replacement backup check is up, with real Started and OK events at 03:03 UTC and its existing email notification method ON. Using only the replacement S3 pair, a prefix-limited LIST found exactly one encrypted `.dump.age` object for 16 October. Its last-modified time is 03:03:29.200 UTC and size is **188,095 bytes**; HEAD returned the same size. No backup contents were downloaded or restored. This verifies scheduled execution and upload metadata, not a production-data restore drill.
+
+A bounded HEAD using the old S3 pair still authenticated before revocation, establishing its pre-retirement baseline. All acceptance gates have passed. Only the superseded backup check was paused after replacement health was verified, and its removal confirmation was prepared. The identified old R2 token's deletion confirmation was also prepared after the Cloudflare dashboard finished a slow load. **Neither final removal has occurred yet**; both await the owner's required browser submission, followed by old-key rejection/new-key canary and check-inventory verification.
 
 Only after acceptance: revoke the identified old bucket-scoped R2 token, confirm a bounded read-only metadata request using its old S3 pair is denied, recheck new access with a synthetic object, and remove/verify absence of the old backup heartbeat check. Provider/browser final credential actions still require the owner's handoff. If the scheduled run fails before revocation, the original private files retain the four prior values; restore only those variables and redeploy original deployment `be445944-e1e5-4f3b-beb6-5b66cfb4db87` with explicit previous-image reuse, then verify the schedule and execution history. Do not restore the invalidated production tunnel token or revoked Railway project token.
 
@@ -72,8 +76,8 @@ Private comparison confirmed that the synced device-test file's `MAILGUN_EU_API_
 ## Still pending
 
 - Classification/resolution of the separate saved Railway API credential and reconciliation of the refused CLI administrator credential.
-- Next natural backup acceptance, followed by old R2 key revocation and negative/positive checks. New credentials and recipient are configured; custody is owner-confirmed.
-- Real scheduled activity for the newly configured backup check and retirement of its predecessor.
+- Old R2 token deletion and negative/positive checks. Natural-run acceptance passed; new credentials/recipient are configured and custody is owner-confirmed.
+- Removal and verified absence of the superseded backup check. Real activity on the replacement is verified.
 - Provider/preview scope checks, the three cloud-only files, operator handoff and the separately approved cleanup of old copies.
 
 No application source release, migration, production-data restore, branch merge or original-file deletion has occurred in this execution checkpoint.
