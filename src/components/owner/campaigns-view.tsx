@@ -8,6 +8,7 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { germanDate, Notice, OwnerDialog, OwnerIcon, Skeleton } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { campaignSaveId } from "./campaign-save-response";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Kind = AudienceDefinition["kind"];
 type Editor = { title: string; subject: string; body: string; kind: Kind; withinDays: number; daysSinceLast: number; minCheckouts: number; maxRemaining: number; rewardId: string };
@@ -199,14 +200,14 @@ export function CampaignsView() {
       <div className="ow-page">
         {head}{notices}
         <Notice tone={mode === "disabled" ? "warn" : "info"}>{mode === "mailpit" ? "Lokaler Mailpit-Testkanal: nur synthetische .test-Adressen, keine externe Zustellung." : mode === "mailgun_eu" ? "Freigeschalteter EU-Versandkanal. Vor jeder Zustellung werden Einwilligung, Adresse, Zielgruppe und Versandgrenzen erneut geprüft." : <><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Zielgruppen prüfen und Entwürfe vollständig vorbereiten. Gesendet wird nichts, bis der Versand freigegeben ist und du selbst planst.</>}</Notice>
-        <section aria-labelledby="goal-h"><h2 id="goal-h" style={{ fontSize: 17, marginBottom: 12 }}>Womit möchtest du starten?</h2>
+        <section aria-labelledby="goal-h"><h2 id="goal-h" style={{ fontSize: "var(--text-18)", marginBottom: 12 }}>Womit möchtest du starten?</h2>
           <div className="ow-goals">{Object.entries(GOALS).map(([id, item]) => <button key={id} type="button" className="ow-goal" onClick={() => start(item.make(me.businessName, {}), 0, null, id)}><strong>{item.label}</strong><span>{item.text({})}</span><span className="ow-link" aria-hidden="true">Entwurf beginnen →</span></button>)}</div>
         </section>
         <section className="ow-card" aria-labelledby="camp-h">
           <div className="ow-card-head"><div><h2 id="camp-h">Deine Kampagnen</h2><p>Für {me.locationName}</p></div></div>
           {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
           {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadList}>Erneut laden</button>}>{list.message}</Notice>}
-          {list.state === "ok" && list.data.campaigns.length === 0 && <div className="ow-empty"><strong>Noch keine Kampagne.</strong>Starte oben mit einem Ziel.</div>}
+          {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähl oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
           {list.state === "ok" && list.data.campaigns.length > 0 && (
             <ul className="ow-rewards">{list.data.campaigns.map(campaign => (
               <li key={campaign.id} className="ow-reward" style={{ alignItems: "flex-start" }}>
@@ -237,12 +238,12 @@ export function CampaignsView() {
   return (
     <div className="ow-page">
       {head}{notices}
-      {builder.goal && GOALS[builder.goal] && <p className="ow-muted" style={{ fontSize: 14 }}>Ziel: <strong>{GOALS[builder.goal].label}</strong></p>}
+      {builder.goal && GOALS[builder.goal] && <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ziel: <strong>{GOALS[builder.goal].label}</strong></p>}
       <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}</li>)}</ol>
       <section className="ow-card ow-stack" style={{ gap: 20 }} aria-labelledby="bs-h">
         {!okStep0 && <Notice tone="danger" role="alert">Prüfe die Zielgruppe: Tage müssen ganze Zahlen von 1 bis 3650 sein, Kassenvorgänge von 1 bis 10000 und fehlende Stempel oder Punkte von 1 bis 100000.</Notice>}
         {builder.step === 0 && <>
-          <div><h2 id="bs-h">Wen möchtest du erreichen?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Die Zahl zeigt Karten, nicht Personen. Ob jemand per E-Mail erreichbar ist, prüfen wir im letzten Schritt.</p></div>
+          <div><h2 id="bs-h">Wen möchtest du erreichen?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Die Zahl zeigt Karten, nicht Personen. Ob jemand per E-Mail erreichbar ist, prüfen wir im letzten Schritt.</p></div>
           <div className="ow-field"><label htmlFor="c-kind">Zielgruppe</label><select id="c-kind" className="ow-select" value={e.kind} onChange={event => change({ kind: event.target.value as Kind })}>{KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
           {(e.kind === "new" || e.kind === "recently_active" || e.kind === "frequent_visitors") && <div className="ow-field"><label htmlFor="c-within">Zeitraum in Tagen</label><input id="c-within" className="ow-input" style={{ maxWidth: 160 }} type="number" min={1} max={3650} value={e.withinDays} onChange={event => change({ withinDays: Number(event.target.value) })} /></div>}
           {e.kind === "inactive" && <div className="ow-field"><label htmlFor="c-inactive">Inaktiv seit mindestens (Tage)</label><input id="c-inactive" className="ow-input" style={{ maxWidth: 160 }} type="number" min={1} max={3650} value={e.daysSinceLast} onChange={event => change({ daysSinceLast: Number(event.target.value) })} /><span className="ow-hint">Nur Karten mit einem früheren bestätigten Vorgang.</span></div>}
@@ -254,14 +255,14 @@ export function CampaignsView() {
           </div>
         </>}
         {builder.step === 1 && <>
-          <div><h2 id="bs-h">Was möchtest du schreiben?</h2><p className="ow-muted" style={{ fontSize: 14 }}>Ein Vorschlag aus deinem Ziel. Bitte lies und passe ihn an.</p></div>
+          <div><h2 id="bs-h">Was möchtest du schreiben?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ein Vorschlag aus deinem Ziel. Bitte lies und passe ihn an.</p></div>
           <div className="ow-field"><label htmlFor="c-title">Interner Titel</label><input id="c-title" className="ow-input" value={e.title} maxLength={180} onChange={event => change({ title: event.target.value })} /></div>
           <div className="ow-field"><label htmlFor="c-subject">Betreff</label><input id="c-subject" className="ow-input" value={e.subject} maxLength={SUBJECT_MAX} aria-describedby="c-subject-n" onChange={event => change({ subject: event.target.value.replace(/[\r\n]/g, " ") })} /><span id="c-subject-n" className="ow-hint ow-num">{e.subject.length}/{SUBJECT_MAX} Zeichen{e.subject.length > 60 ? " · Kurze Betreffzeilen werden auf dem Handy vollständig angezeigt." : ""}</span></div>
           <div className="ow-field"><label htmlFor="c-body">Nachricht</label><textarea id="c-body" className="ow-textarea" rows={6} value={e.body} maxLength={BODY_MAX} aria-describedby="c-body-n c-body-h" onChange={event => change({ body: event.target.value })} /><span id="c-body-n" className="ow-hint ow-num">{e.body.length}/{BODY_MAX} Zeichen</span><span id="c-body-h" className="ow-hint">Keine Zusagen machen, die dein Team nicht einhält. Loynara ergänzt bei Zustellung Geschäftsname und Abmeldelink.</span></div>
           <div className="ow-mail" aria-label="Vorschau der Nachricht"><small>Vorschau · von {me.businessName}</small><h3>{e.subject.trim() ? `${mode === "mailpit" ? "[LOCAL TEST] " : ""}${e.subject.trim()}` : "Betreff eingeben"}</h3><p style={{ whiteSpace: "pre-line" }}>{e.body.trim() || "Nachricht eingeben"}</p><p className="ow-hint" style={{ marginTop: 12 }}>{me.businessName}<br />Angebote abbestellen: Link wird automatisch eingefügt</p></div>
         </>}
         {builder.step === 2 && <>
-          <div><h2 id="bs-h">Prüfen &amp; speichern</h2><p className="ow-muted" style={{ fontSize: 14 }}>Kontrolliere Zielgruppe und Kanal. Speichern legt nur einen Entwurf an.</p></div>
+          <div><h2 id="bs-h">Prüfen &amp; speichern</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kontrolliere Zielgruppe und Kanal. Speichern legt nur einen Entwurf an.</p></div>
           <dl className="ow-dl">
             <dt>Standort</dt><dd>{me.locationName}</dd>
             <dt>Zeitzone</dt><dd>{timezone ?? "unbekannt"}</dd>
@@ -321,8 +322,8 @@ function DetailPanel({ detail, onClose }: { detail: Detail; onClose: () => void 
       <dl className="ow-dl"><dt>Wartend</dt><dd>{s.queued}</dd><dt>Vom Versand angenommen</dt><dd>{s.sent}</dd><dt>Zugestellt laut Anbieter</dt><dd>{s.delivered}</dd><dt>Anbieterfehler</dt><dd>{s.providerFailed}</dd><dt>Unterdrückt</dt><dd>{s.suppressed}</dd><dt>Fehlgeschlagen</dt><dd>{s.failed}</dd></dl>
       <p className="ow-hint">„Angenommen“ heißt nicht „zugestellt“. Erst die Rückmeldung des Anbieters zählt als Zustellung.</p>
       {detail.outcome && detail.outcome.sent > 0 && <div className="ow-readonly"><strong>Danach wieder an der Kasse:</strong> <span className="ow-num">{detail.outcome.returnedAfterSend} von {detail.outcome.sent}</span> angeschriebenen Karten hatten nach dem Versand einen bestätigten Kassenvorgang.<p className="ow-hint" style={{ marginTop: 4 }}>Das ist eine Beobachtung, kein Beweis, dass die Nachricht der Grund war.</p></div>}
-      <h3 style={{ fontSize: 15 }}>Letzte Zustellversuche</h3>
-      {detail.attempts.length === 0 ? <p className="ow-muted">Noch keine Zustellversuche.</p> : <ol className="ow-feed">{detail.attempts.map((item, index) => <li key={`${item.recipientId}-${item.createdAt}-${index}`}><span><strong>{attempt(item.status)}</strong>{item.providerStatus && <span className="ow-muted"> · Anbieter: {provider(item.providerStatus)}</span>}{item.reason && <span className="ow-muted"> · {item.reason}</span>}</span><time dateTime={item.createdAt}>{germanDate(item.createdAt, true)}</time></li>)}</ol>}
+      <h3 style={{ fontSize: "var(--text-16)" }}>Letzte Zustellversuche</h3>
+      {detail.attempts.length === 0 ? <EmptyState level={4} size="compact" title="Noch keine Zustellversuche." /> : <ol className="ow-feed">{detail.attempts.map((item, index) => <li key={`${item.recipientId}-${item.createdAt}-${index}`}><span><strong>{attempt(item.status)}</strong>{item.providerStatus && <span className="ow-muted"> · Anbieter: {provider(item.providerStatus)}</span>}{item.reason && <span className="ow-muted"> · {item.reason}</span>}</span><time dateTime={item.createdAt}>{germanDate(item.createdAt, true)}</time></li>)}</ol>}
     </section>
   );
 }

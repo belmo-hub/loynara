@@ -138,3 +138,42 @@ describe("merchant and customer journey", () => {
     expect((await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug })).map(row => row.active)).toEqual([false, true]);
   });
 });
+
+it("orders the first award against a programme-type change, so no booked value changes its unit", async () => {
+  const ownerId = await createUser();
+  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", rulesText: "Ein Punkt pro Euro.", rewardTitle: "Kaffee gratis", rewardCost: 30 });
+  const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+  const [program] = (await pool.query<{ id: string }>("SELECT id FROM programs WHERE slug = $1", [merchant.programSlug])).rows;
+  const finished: string[] = [];
+  const pause = () => new Promise(resolve => setTimeout(resolve, 20));
+  const gate = await pool.connect();
+  let change: Promise<unknown> | undefined;
+  let booking: Promise<unknown> | undefined;
+  try {
+    // The owner's save queues a Wallet refresh for every card with a pass. An uncommitted refresh for another card holds
+    // that save after its "no activity yet" check, with the programme row locked, without touching the stamped card.
+    const other = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id) VALUES ($1, $2, 'google', $3)", [merchant.tenantId, other.id, `synthetic.${randomUUID()}`]);
+    await gate.query("BEGIN");
+    await gate.query("INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES ($1, 'wallet.refresh', jsonb_build_object('membershipId', $2::text, 'coalescingVersion', '1'))", [merchant.tenantId, other.id]);
+    change = updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Punktekarte", rulesText: "Ein Stempel pro Besuch.", programType: "stamp" }).finally(() => finished.push("type change"));
+    let changePid: number | undefined;
+    for (let attempt = 0; attempt < 500 && !changePid; attempt++) {
+      changePid = (await pool.query<{ pid: number }>("SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE '%INSERT INTO outbox_jobs%'")).rows[0]?.pid;
+      if (!changePid) await pause();
+    }
+    expect(changePid, "the type change must be waiting after its activity check").toBeDefined();
+    booking = award({ userId: ownerId, locationId: merchant.locationId, membershipId: member.id, quantity: 10, idempotencyKey: randomUUID(), requestId: randomUUID() }).finally(() => finished.push("first award"));
+    let blocked = false;
+    for (let attempt = 0; attempt < 500 && !blocked && !finished.includes("first award"); attempt++) {
+      blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [changePid])).rowCount! > 0;
+      if (!blocked) await pause();
+    }
+    expect(blocked, "the first award must wait for the type change it would otherwise slip past").toBe(true);
+  } finally { await gate.query("ROLLBACK"); gate.release(); }
+  await change;
+  await booking;
+  // The change saw no activity and went first; the award was then booked in the new unit, never re-labelled afterwards.
+  expect(finished).toEqual(["type change", "first award"]);
+  expect((await pool.query("SELECT type FROM programs WHERE id = $1", [program.id])).rows[0].type).toBe("stamp");
+});

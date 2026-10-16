@@ -5,6 +5,9 @@ import styles from "./stamp-grid.module.css";
 
 type Props = { earned: number; total: number; landed?: number; locale?: "de" | "fr"; mark?: ReactNode; size?: "md" | "sm"; className?: string };
 
+/** Above this many stamps a card of marks stops being readable (and buries the code below it); a track replaces it. */
+export const STAMP_GRID_MAX = 30;
+
 /** Columns that keep rows even: 4 for 8 or 12, 5 for 10 or 15, 3 for 6 or 9. */
 export function stampColumns(total: number) {
   if (total <= 5) return total;
@@ -16,11 +19,17 @@ export function stampColumns(total: number) {
 
 /**
  * The stamp card. Earned stamps are pressed marks with a small resting rotation; the stamp at index `landed - 1`
- * plays the landing motion once (DESIGN.md, "Pop in").
+ * plays the landing motion once (DESIGN.md, "Pop in"). Programmes longer than STAMP_GRID_MAX stamps get one progress
+ * track instead, so the card keeps its height whatever the merchant sets.
  */
 export function StampGrid({ earned, total, landed, locale = "de", mark, size = "md", className }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
   const label = locale === "fr" ? `${filled} ${filled === 1 ? "tampon" : "tampons"} sur ${total}` : `${filled} von ${total} Stempeln`;
+  if (total > STAMP_GRID_MAX) {
+    return <div className={cx(styles.track, className)} role="img" aria-label={label}>
+      <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />
+    </div>;
+  }
   return <ol className={cx(styles.grid, styles[size], className)} aria-label={label} style={{ "--cols": stampColumns(total) } as CSSProperties}>
     {Array.from({ length: total }, (_, index) => {
       const isEarned = index < filled;

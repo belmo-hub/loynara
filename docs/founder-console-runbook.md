@@ -128,13 +128,13 @@ npm run lint
 npm test
 ```
 
-After a fresh checkout, run `npx next typegen` once if route types have not yet been generated. The forward migration is `0025_founder_console.sql`; its separately reviewed rollback is `docs/rollback/0025-founder-console-down.sql`. The rollback removes admin audit data and factor state, so preserve required evidence before any rollback; no rollback was performed against a shared environment.
+After a fresh checkout, run `npx next typegen` once if route types have not yet been generated. The forward migration is `0026_founder_console.sql`; its separately reviewed rollback is `docs/rollback/0026-founder-console-down.sql`. The rollback removes admin audit data and factor state, so preserve required evidence before any rollback; no rollback was performed against a shared environment.
 
 ## 6. Local recovery drill — 2026-10-16
 
-The rehearsal uses only synthetic identities and the owned disposable local stack. Results are recorded after the backup-code sign-in, operator reset, reenrollment and audit-page checks complete. No production, Access or tunnel changes are part of this drill.
+Repeated after integrating `railway-rc` and renumbering the founder migration to 0026. The rehearsal uses only synthetic identities and the owned disposable local stack. Results are recorded after the backup-code sign-in, operator reset, reenrollment and audit-page checks complete. No production, Access or tunnel changes are part of this drill.
 
-Completed at **2026-10-16 17:56 (Europe/Berlin)** on `admin.localhost:3095`, with synthetic `founder-console-local@example.test` in the separate local runtime database.
+Completed at **2026-10-16 18:31 (Europe/Berlin)** on `admin.localhost:3095`, with synthetic `founder-console-local@example.test` in the separate local runtime database.
 
 | Check | Observed result |
 |---|---|

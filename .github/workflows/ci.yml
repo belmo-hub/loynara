@@ -2,13 +2,18 @@ name: CI
 
 on:
   pull_request:
+  # Production deploys from railway-rc, so every commit that lands there is checked too, including direct pushes.
+  push:
+    branches: [railway-rc]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A newer push to a PR replaces its older run. Every other run (railway-rc pushes, manual runs) gets a group of its
+  # own: a shared group would let GitHub drop a waiting run when a third one arrives, losing that commit's result.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +38,38 @@ jobs:
       - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The same build stage the deployed image runs (npm ci + next build), with only the root dependencies.
+      # Typecheck and lint pass without a build, so a build-only break would otherwise merge unnoticed.
+      - name: Build the application image's build stage
+        run: docker build --target build --tag loynara-ci-build .
+
+  backup-safety:
+    name: Backup and restore safety checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LANG: C.UTF-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Vitest does not find these Python tests. The restore check starts its own throwaway cluster, so it needs
+      # initdb and pg_ctl on PATH; the runner's PostgreSQL keeps them outside it. The encrypted backup drill is not
+      # included: it still expects one developer's cluster on port 55433.
+      - name: Run the backup and restore-target tests
+        run: |
+          export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1):$PATH"
+          python3 -I scripts/production-backup.test.py
+          python3 -I scripts/production-restore-target.test.py
 
   test:
     name: Tests
@@ -84,18 +121,14 @@ jobs:
         run: |
           psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
           npx drizzle-kit migrate
+          # Suites that truncate tables or end connections only run on a database marked like this (disposable-test-database.ts).
+          psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -c "COMMENT ON DATABASE looplocal_test IS 'loynara-disposable-test-database'"
       # Same command `npm test` ends with. `npm test` itself starts a local Docker database, which CI already provides.
       #
-      # These files are skipped because they are tied to one developer machine: they expect a Postgres in a specific
-      # local folder or on port 55433, or they drive Docker Compose. They should be made portable so they can run here.
+      # The two backup publication tests are skipped: they run pg_dump/pg_restore inside a Docker Compose database
+      # container, which this job does not have.
       - name: Run the test suite
         run: >-
           npx vitest run --hookTimeout 60000
           --exclude 'scripts/backup-publication.test.ts'
           --exclude 'scripts/preview-backup-publication.test.ts'
-          --exclude 'src/lib/award-key-race.integration.test.ts'
-          --exclude 'src/lib/redemption-key-race.integration.test.ts'
-          --exclude 'src/lib/location-http-scope.integration.test.ts'
-          --exclude 'src/lib/purchase-concurrent-release.integration.test.ts'
-          --exclude 'src/lib/ten-merchant-release.integration.test.ts'
-          --exclude 'src/lib/customer-export-active-loss.integration.test.ts'

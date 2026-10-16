@@ -6,11 +6,13 @@ import { describe, expect, it } from "vitest";
 import { outboxHealth } from "./production-ops-check";
 
 describe("production outbox alert decision", () => {
-  it("requires no failed, blocked or overdue jobs", () => {
-    expect(outboxHealth({ failed: 0, blocked: 0, overdue: 0 })).toBe(true);
-    expect(outboxHealth({ failed: 1, blocked: 0, overdue: 0 })).toBe(false);
-    expect(outboxHealth({ failed: 0, blocked: 1, overdue: 0 })).toBe(false);
-    expect(outboxHealth({ failed: 0, blocked: 0, overdue: 1 })).toBe(false);
+  it("requires no failed, blocked, overdue or stalled jobs", () => {
+    expect(outboxHealth({ failed: 0, blocked: 0, overdue: 0, stalled: 0 })).toBe(true);
+    expect(outboxHealth({ failed: 1, blocked: 0, overdue: 0, stalled: 0 })).toBe(false);
+    expect(outboxHealth({ failed: 0, blocked: 1, overdue: 0, stalled: 0 })).toBe(false);
+    expect(outboxHealth({ failed: 0, blocked: 0, overdue: 1, stalled: 0 })).toBe(false);
+    // A job still marked processing long after its lease ran out means the worker stopped claiming work.
+    expect(outboxHealth({ failed: 0, blocked: 0, overdue: 0, stalled: 1 })).toBe(false);
   });
 });
 
@@ -40,7 +42,7 @@ describe("operations CLI heartbeat outcome", () => {
           if (!sql.includes('FROM outbox_jobs')) throw new Error('Unexpected query');
           record('queried');
           if (process.env.OPS_REHEARSAL_OUTCOME === 'query') fail();
-          return { rows: [{ failed: process.env.OPS_REHEARSAL_OUTCOME === 'unhealthy' ? '1' : '0', blocked: '0', overdue: '0' }] };
+          return { rows: [{ failed: process.env.OPS_REHEARSAL_OUTCOME === 'unhealthy' ? '1' : '0', blocked: '0', overdue: '0', stalled: '0' }] };
         };
         pg.Client.prototype.end = async function() { record('closed'); };
         globalThis.fetch = async function(input, options) {
@@ -116,7 +118,7 @@ describe("operations CLI heartbeat outcome", () => {
   it("retains nonsecret outbox counts and operator-review failure before monitor work", () => {
     const result = run("unhealthy");
     expect(result.status).toBe(1);
-    expect(result.output).toContain('Outbox requires operator review: {"failed":1,"blocked":0,"overdue":0}');
+    expect(result.output).toContain('Outbox requires operator review: {"failed":1,"blocked":0,"overdue":0,"stalled":0}');
     expect(result.output).not.toContain("check PASS");
   });
 

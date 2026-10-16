@@ -22,18 +22,18 @@ import { fakeGoogleApi, googleFixture, withEnv } from "./wallet/test-support";
 import { googleDirectConfig } from "./wallet/google-direct";
 import { GoogleWalletClient } from "./wallet/google";
 import { refreshWalletForMembership } from "./wallet/refresh";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
 // This suite catches missing tenant predicates, lost accounting/consent side effects,
 // auth bypass, duplicate credit and recovery that replaces rather than restores a member.
 // External delivery and physical NFC acceptance are outside this local contract.
-const url = process.env.DATABASE_URL;
-if (!url || !url.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(url).hostname)) throw new Error("Owned local synthetic database required");
+assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
 const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "MAILGUN_PROMOTIONAL_SEND_APPROVED"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 beforeAll(async () => {
   Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true", SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false", MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" });
-  expect((await pool.query("SHOW data_directory")).rows[0].data_directory).toBe("/private/tmp/loynara-goal-133-pg");
+  await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
 });
 afterAll(async () => { for (const key of envKeys) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; } await pool.end(); });

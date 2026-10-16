@@ -67,7 +67,7 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
       <details open={saved.mode !== "disabled" || changed || undefined}>
         <summary style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 700 }}><span id="tap-title">NFC-Tap (optional)</span><span className="ow-chip">{label}</span></summary>
         <div className="ow-stack" style={{ marginTop: 12 }}>
-          <p className="ow-muted" style={{ fontSize: 14 }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, das Team bestätigt jeden Stempel an der Kasse. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
+          <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, das Team bestätigt jeden Stempel an der Kasse. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
           {tagStatus.state === "ok" && <Readiness status={tagStatus.data} mode={saved.mode} />}
           <fieldset className="ow-group">
             <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>

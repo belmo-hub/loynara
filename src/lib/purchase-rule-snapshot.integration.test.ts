@@ -40,23 +40,25 @@ async function assertSnapshot(f: Awaited<ReturnType<typeof fixture>>) {
   expect((await db.select().from(memberships).where(eq(memberships.id, f.f.member.id)))[0].balance).toBe(14);
   expect(await db.select().from(outboxJobs)).toEqual(queued);
 }
-// Characterization only: these assertions establish internal snapshot consistency,
-// not founder acceptance of transaction-start versus commit-time effective rules.
+// A booking holds the programme row (shared) until it commits, and an owner's rule change locks it for update, so the
+// two never overlap: a change waits for a booking already under way, and a booking waits for a change in progress.
 describe("purchase rule concurrency evidence", () => {
-  it("retains a coherent validated snapshot if the owner changes rules before ledger insertion", async () => {
+  it("makes an owner's rule change wait for a booking that is about to insert, which keeps the rule it validated", async () => {
     const f = await fixture(); const gate = await pool.connect();
-    let booking: Promise<unknown> | undefined;
+    let booking: Promise<unknown> | undefined; let change: Promise<unknown> | undefined;
     try {
       await gate.query("BEGIN"); await gate.query("LOCK TABLE ledger_entries IN SHARE MODE");
       booking = award(f.request).then(value => ({ value }), error => ({ error }));
       expect(await waitForLock('insert into "ledger_entries"')).toBe(true);
-      await expect(f.change()).resolves.toMatchObject({ ruleVersion: 3 });
+      change = f.change().then(value => ({ value }), error => ({ error }));
+      expect(await waitForLock('from "programs"')).toBe(true);
       await gate.query("COMMIT");
       expect(await booking).toMatchObject({ value: { balance: 14, duplicate: false } });
+      expect(await change).toMatchObject({ value: { ruleVersion: 3 } });
       await assertSnapshot(f);
-    } finally { await gate.query("ROLLBACK"); await booking; gate.release(); }
+    } finally { await gate.query("ROLLBACK"); await Promise.all([booking, change]); gate.release(); }
   });
-  it("retains the committed snapshot while an owner rule change is still uncommitted", async () => {
+  it("makes a booking wait for an uncommitted rule change, then refuses the rule the cashier saw", async () => {
     const f = await fixture(); const gate = await pool.connect();
     let change: Promise<unknown> | undefined; let booking: Promise<unknown> | undefined;
     try {
@@ -64,20 +66,25 @@ describe("purchase rule concurrency evidence", () => {
       change = f.change().then(value => ({ value }), error => ({ error }));
       expect(await waitForLock("INSERT INTO outbox_jobs")).toBe(true);
       booking = award(f.request).then(value => ({ value }), error => ({ error }));
-      expect(await waitForLock("INSERT INTO outbox_jobs", 2)).toBe(true);
+      expect(await waitForLock('from "programs"')).toBe(true);
       await gate.query("COMMIT");
-      expect(await change).toHaveProperty("value"); expect(await booking).toMatchObject({ value: { balance: 14, duplicate: false } });
-      await assertSnapshot(f);
+      expect(await change).toMatchObject({ value: { ruleVersion: 3 } });
+      expect(await booking).toMatchObject({ error: { code: "STALE_RULE" } });
+      expect(await db.select().from(purchaseAwards)).toHaveLength(0);
+      expect(await db.select().from(ledgerEntries)).toHaveLength(0);
+      expect((await db.select().from(memberships).where(eq(memberships.id, f.f.member.id)))[0].balance).toBe(0);
     } finally { await gate.query("ROLLBACK"); await Promise.all([change, booking]); gate.release(); }
   });
-  it("rejects a mixed read when the rule changes after the programme read but before version validation", async () => {
+  it("cannot mix rules: a booking paused at its staff check takes the programme only afterwards and sees the change", async () => {
     const f = await fixture(); const gate = await pool.connect();
     let booking: Promise<unknown> | undefined;
     try {
+      // The staff check (and a replay check) now come before the programme lock, so this pause holds no programme lock.
       await gate.query("BEGIN"); await gate.query('SELECT id FROM "user" WHERE id = $1 FOR UPDATE', [f.f.userId]);
       booking = award(f.request).then(value => ({ value }), error => ({ error }));
       expect(await waitForLock('from "user"')).toBe(true);
-      await f.change(); await gate.query("COMMIT");
+      await expect(f.change()).resolves.toMatchObject({ ruleVersion: 3 });
+      await gate.query("COMMIT");
       expect(await booking).toMatchObject({ error: { code: "STALE_RULE" } });
       expect(await db.select().from(purchaseAwards)).toHaveLength(0);
       expect(await db.select().from(ledgerEntries)).toHaveLength(0);

@@ -59,7 +59,8 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     issues.push("Invite-gated staff sign-up requires PUBLIC_REGISTRATION_ENABLED to be exactly false (or unset)");
   }
   const poolMax = Number(env.PG_POOL_MAX);
-  if (!Number.isSafeInteger(poolMax) || poolMax < 1 || poolMax > 10) issues.push("Production PostgreSQL pool limit must be an integer from 1 to 10 per pool");
+  // At least 2: email delivery looks up suppressions on a second connection while its transaction holds the first.
+  if (!Number.isSafeInteger(poolMax) || poolMax < 2 || poolMax > 10) issues.push("Production PostgreSQL pool limit must be an integer from 2 to 10 per pool");
   if (env.SMTP_HOST !== "disabled") issues.push("Local Mailpit/SMTP transport must be disabled in production");
   if (env.TRUST_PROXY_CLIENT_IP !== undefined && env.TRUST_PROXY_CLIENT_IP !== "false") issues.push("Generic proxy client-IP trust is forbidden; use the reviewed ingress policy");
   if (env.TRUSTED_INGRESS !== "cloudflare_tunnel") issues.push("Production requires TRUSTED_INGRESS=cloudflare_tunnel and a private origin with no public bypass");

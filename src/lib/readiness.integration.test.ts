@@ -96,12 +96,14 @@ describe("launch readiness", () => {
     const owner = await user();
     const merchant = await shop(owner);
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
-    const insert = (source: string, kind: "award" | "reversal" = "award", delta = 1) => db.insert(ledgerEntries).values({
+    const insert = async (source: string, kind: "award" | "reversal" = "award", delta = 1, reversalOfId?: string) => (await db.insert(ledgerEntries).values({
       tenantId: merchant.tenantId, locationId: merchant.locationId, membershipId: card.id, delta, kind, source, requestId: randomUUID(), idempotencyKey: randomUUID(),
-      actorUserId: source === "nfc_tap" ? null : owner,
-    });
-    for (const source of ["synthetic_seed", "referral_bonus", "nfc_tap", "legacy_unclassified"]) await insert(source);
-    await insert("staff_correction", "reversal", -1);
+      actorUserId: source === "nfc_tap" ? null : owner, reversalOfId,
+    }).returning({ id: ledgerEntries.id }))[0].id;
+    const seeded = await insert("synthetic_seed");
+    for (const source of ["referral_bonus", "nfc_tap", "legacy_unclassified"]) await insert(source);
+    // A correction always points at the entry it undoes.
+    await insert("staff_correction", "reversal", -1, seeded);
     await db.insert(cardSecurityEvents).values({ tenantId: merchant.tenantId, membershipId: card.id, action: "card_credential_rotated" });
     await reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: card.id, reason: "Neues Handy, Kontakt stimmt", verificationMethod: "stored_contact", entitlementConfirmed: true, idempotencyKey: randomUUID() });
     const readiness = await getLaunchReadiness(owner, merchant.locationId, noNfc);

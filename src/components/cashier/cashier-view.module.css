@@ -28,7 +28,7 @@
 .note { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink); font-size: var(--text-14); line-height: var(--leading-body); }
 .balance { display: grid; gap: var(--space-1); }
 .balance > span { color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
-.balance strong { font-size: clamp(40px, 11vw, 52px); font-weight: var(--weight-heavy); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.balance strong { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .balance em { font-size: var(--text-22); font-style: normal; font-weight: var(--weight-strong); letter-spacing: 0; }
 .rewards { display: grid; gap: var(--space-2); }
 .rewards h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
@@ -75,9 +75,9 @@
 .footnote svg { flex: none; margin-top: 3px; }
 @media (prefers-reduced-motion: reduce) { .booked { transition: none; } }
 
-/* Loading and blocked access (doubled class: outranks the global .app-state-card light card) */
-.access.access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }
-.access.access h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.25; }
-.access.access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
-.access.access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }
-.access.access > div a { color: var(--color-on-action); font-size: var(--text-18); }
+/* Loading and blocked access */
+.access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }
+.access h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.25; }
+.access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
+.access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }
+.access > div a { color: var(--color-on-action); font-size: var(--text-18); }

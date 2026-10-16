@@ -5,12 +5,12 @@ import { auth } from "./auth";
 import { createMerchant, createReward, currentRewards, enroll } from "./product";
 import { POST as awardRoute } from "@/app/api/cashier/award/route";
 import { POST as redeemRoute } from "@/app/api/cashier/redeem/route";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
-const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
-if (process.env.NODE_ENV === "production" || database.hostname !== "localhost" || database.port !== "55433" || database.pathname !== "/looplocal_test") throw new Error("Dedicated synthetic local PostgreSQL required");
+assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
 const registration = process.env.PUBLIC_REGISTRATION_ENABLED;
-beforeEach(async () => { await pool.query('TRUNCATE tenants,"user" CASCADE'); process.env.PUBLIC_REGISTRATION_ENABLED = "true"; });
+beforeEach(async () => { await assertDisposableDatabase(pool); await pool.query('TRUNCATE tenants,"user" CASCADE'); process.env.PUBLIC_REGISTRATION_ENABLED = "true"; });
 afterAll(async () => { if (registration === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = registration; await pool.end(); });
 function request(path: string, body: unknown, cookie: string) {
   return new Request(origin + path, { method: "POST", headers: { origin, "content-type": "application/json", cookie }, body: JSON.stringify(body) });

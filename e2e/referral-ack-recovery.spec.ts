@@ -45,7 +45,7 @@ test("late attribution failure rolls back enrollment and preserves accepted term
   await pool.query(`CREATE FUNCTION synthetic_referral_087_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic late referral attribution failure'; END $$; CREATE TRIGGER synthetic_referral_087 BEFORE INSERT ON referrals FOR EACH ROW EXECUTE FUNCTION synthetic_referral_087_fail()`);
   try {
     await page.goto(f.share); await page.getByRole("checkbox").check(); const failed = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/enroll"); await page.getByRole("button", { name: "Meine Karte erstellen", exact: true }).click(); expect((await failed).status()).toBe(500);
-    await expect(page.locator(".auth-error[role=alert]")).toHaveText("Internal error"); await expect(page.getByRole("checkbox")).toBeChecked(); expect(page.url()).toBe(f.share); expect(await snapshot(f.tenant)).toEqual(before);
+    await expect(page.locator("form").getByRole("alert")).toHaveText("Internal error"); await expect(page.getByRole("checkbox")).toBeChecked(); expect(page.url()).toBe(f.share); expect(await snapshot(f.tenant)).toEqual(before);
   } finally { await pool.query("DROP TRIGGER synthetic_referral_087 ON referrals; DROP FUNCTION synthetic_referral_087_fail()"); }
   try {
     await page.getByRole("button", { name: "Meine Karte erstellen", exact: true }).click(); await expect(page).toHaveURL(/\/card\/card_[A-Za-z0-9_-]+$/); const pending = await assertPending(f.tenant, f.referrer); expect(pending.members).toHaveLength(2); expect(pending.referrals).toHaveLength(1);
@@ -62,7 +62,7 @@ for (const [locale, width, kind] of [["de", 375, "empty"], ["fr", 1280, "lost"]]
   });
   try {
     await page.goto(f.share); await page.getByRole("checkbox").check(); await page.getByRole("button", { name: locale === "fr" ? "Créer ma carte" : "Meine Karte erstellen", exact: true }).click();
-    await expect.soft(page.locator(".auth-error[role=alert]")).toContainText(locale === "fr" ? "La création de la carte n’est pas confirmée" : "Die Kartenerstellung wurde nicht bestätigt");
+    await expect.soft(page.locator("form").getByRole("alert")).toContainText(locale === "fr" ? "La création de la carte n’est pas confirmée" : "Die Kartenerstellung wurde nicht bestätigt");
     expect(writes).toBe(1); await expect(page.getByRole("checkbox")).toBeChecked(); expect(page.url()).toBe(f.share);
     const pending = await assertPending(f.tenant, f.referrer); expect(pending.members).toHaveLength(before.members.length + 1); expect(pending.referrals).toHaveLength(before.referrals.length + 1); const persisted = await snapshot(f.tenant);
     await page.unroute("**/api/enroll");

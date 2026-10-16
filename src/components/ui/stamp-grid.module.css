@@ -2,9 +2,9 @@
 .sm { gap: var(--space-2); }
 .slot { display: grid; place-items: center; aspect-ratio: 1; max-width: 72px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 58%); }
 .slot[data-earned] {
-  border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, #17291F);
+  border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp));
   border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; transform: rotate(var(--r));
-  box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--stamp-fill, var(--color-stamp)), #fff 22%);
+  box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--stamp-fill, var(--color-stamp)), var(--color-qr-ground) 22%);
 }
 .slot[data-new] { animation: land var(--dur-reward) var(--ease-out) both; }
 @keyframes land {
@@ -13,3 +13,7 @@
   100% { transform: scale(1) rotate(var(--r)); }
 }
 @media (prefers-reduced-motion: reduce) { .slot[data-new] { animation: none; } }
+/* Long programmes: one track. The fill is the card's ink and the rest 22 % of it, so the boundary keeps 3:1 or more on
+   every merchant colour (asserted in merchant-color.test.ts). */
+.track { height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
+.trackFill { display: block; height: 100%; background: var(--merchant-ink, var(--color-ink)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); }

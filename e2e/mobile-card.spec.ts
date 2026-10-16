@@ -120,7 +120,7 @@ test("invite-only signup stays inside narrow viewports and enters the invited ca
           const password = `Local!${randomUUID()}Aa`;
           await page.getByLabel("Passwort", { exact: true }).fill(password);
           await page.getByLabel("Passwort wiederholen").fill(password);
-          await page.getByRole("button", { name: "Konto erstellen und Einladung annehmen" }).click();
+          await page.getByRole("button", { name: "Zugang einrichten" }).click();
           await expect(page.getByText("Willkommen im Team.")).toBeVisible();
           await page.getByRole("link", { name: /Zur Kasse/ }).click();
           await expect(page.getByRole("heading", { name: /Karte scannen/ })).toBeVisible();

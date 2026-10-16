@@ -2,14 +2,17 @@ import { betterAuth } from "better-auth";
 import { twoFactor } from "better-auth/plugins";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { Pool } from "pg";
+import { guardPoolErrors } from "@/db/pool-errors";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.PG_POOL_MAX ?? 10) });
+// Separate from the application pool. It needs the same listeners: without them a dropped idle connection ends the
+// web process.
+export const authPool = guardPoolErrors(new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.PG_POOL_MAX ?? 10) }));
 
 type AdminSignInLimit = { scope: string; identity: string; max: number; windowSeconds: number };
 const adminSignInReservations = new WeakMap<Request, { limits: AdminSignInLimit[]; factor: boolean }>();
 
 export const auth = betterAuth({
-  database: pool,
+  database: authPool,
   plugins: [twoFactor({ issuer: "Loynara Admin", backupCodeOptions: { amount: 10 } })],
   // Avoid Better Auth's default X-Forwarded-For trust. Its existing rate/session
   // controls use the same deployment-approved source as our outer peer limits.
@@ -23,12 +26,12 @@ export const auth = betterAuth({
       if (["/two-factor/verify-totp", "/two-factor/verify-backup-code"].includes(context.path)) {
         const verified = response as { token?: unknown; user?: { id?: unknown } };
         if (!(response instanceof APIError) && typeof verified?.token === "string" && typeof verified.user?.id === "string") {
-          await pool.query(`INSERT INTO verification (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
+          await authPool.query(`INSERT INTO verification (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
             SELECT 'admin-mfa:' || id, 'admin-mfa:' || id, "userId", "expiresAt", now(), now()
             FROM "session" WHERE token=$1 AND "userId"=$2
             ON CONFLICT(id) DO UPDATE SET "expiresAt"=EXCLUDED."expiresAt", "updatedAt"=now()`, [context.context.newSession?.session.token ?? verified.token, verified.user.id]);
           if (context.path === "/two-factor/verify-totp" && context.context.newSession && context.context.session?.user.twoFactorEnabled === false) {
-            await pool.query('DELETE FROM "session" WHERE "userId"=$1 AND id<>$2', [verified.user.id, context.context.newSession.session.id]);
+            await authPool.query('DELETE FROM "session" WHERE "userId"=$1 AND id<>$2', [verified.user.id, context.context.newSession.session.id]);
           }
         }
       }
@@ -55,12 +58,12 @@ export const auth = betterAuth({
           const verification = challenge ? await context.context.internalAdapter.findVerificationValue(challenge) : null;
           const userId = session?.user.id ?? (verification && verification.expiresAt > new Date() ? verification.value : undefined);
           if (userId) {
-            const result = await pool.query('SELECT u.email FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE u.id=$1 LIMIT 1', [userId]);
+            const result = await authPool.query('SELECT u.email FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE u.id=$1 LIMIT 1', [userId]);
             email = result.rows[0]?.email;
             adminAccount = !!result.rowCount;
           }
         } else if (typeof email === "string") {
-          const result = await pool.query('SELECT 1 FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE lower(u.email)=$1 LIMIT 1', [email.trim().toLowerCase()]);
+          const result = await authPool.query('SELECT 1 FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE lower(u.email)=$1 LIMIT 1', [email.trim().toLowerCase()]);
           adminAccount = !!result.rowCount;
         }
         const configuredHost = process.env.ADMIN_ORIGIN ? new URL(process.env.ADMIN_ORIGIN).host : undefined;
@@ -83,7 +86,7 @@ export const auth = betterAuth({
       if (context.request && context.path.startsWith("/two-factor/") && !["/two-factor/verify-totp", "/two-factor/verify-backup-code"].includes(context.path)) {
         const session = await auth.api.getSession({ headers: context.headers ?? context.request.headers });
         if (session) {
-          const admins = await pool.query("SELECT role FROM platform_admins WHERE user_id=$1", [session.user.id]);
+          const admins = await authPool.query("SELECT role FROM platform_admins WHERE user_id=$1", [session.user.id]);
           if (admins.rowCount) {
             if (context.path === "/two-factor/disable") throw new APIError("NOT_FOUND", { message: "Not found" });
             const { requireAdmin, requireAdminEnrollment } = await import("./admin/guard");

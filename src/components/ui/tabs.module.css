@@ -1,6 +1,6 @@
-.segmented { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-ink), transparent 93%); }
+.segmented { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
 .segment { min-height: var(--target); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-ink-muted); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); white-space: nowrap; cursor: pointer; transition: background-color var(--dur-press) ease, color var(--dur-press) ease; }
-.segment[aria-pressed="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong), 0 1px 3px rgba(20, 40, 30, .14); }
+.segment[aria-pressed="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .segment:focus-visible, .tab:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .tabnav { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--color-line); }
 .tab { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--space-3); border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-decoration: none; white-space: nowrap; }

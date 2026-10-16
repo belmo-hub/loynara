@@ -55,6 +55,6 @@ test("missing account context is not mistaken for permission to start setup", as
 test("revoked staff see the access error without the setup wizard", async ({ page }) => {
   await page.route("**/api/me", route => route.fulfill({ status: 403, json: { code: "FORBIDDEN", error: "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber." } }));
   await page.goto("/merchant/program");
-  await expect(page.locator(".owner-app").getByRole("alert")).toContainText("Dein Zugang wurde entzogen.");
+  await expect(page.locator(".owner-app").getByRole("alert")).toContainText("Dein Zugang ist gesperrt");
   await expect(page.getByLabel("Geschäftsname")).toHaveCount(0);
 });

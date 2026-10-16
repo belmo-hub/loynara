@@ -1,243 +1,9 @@
 {
-  "id": "e6bf82fd-1bff-47fd-b820-d297f50d44c8",
+  "id": "d52dc352-7960-47ed-ad50-0bb94e25d789",
   "prevId": "cb49b10f-5cb0-4657-85ae-ae41985beb33",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.admin_audit_events": {
-      "name": "admin_audit_events",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "at": {
-          "name": "at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "actor": {
-          "name": "actor",
-          "type": "varchar(16)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "admin_user_id": {
-          "name": "admin_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "roles": {
-          "name": "roles",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "action": {
-          "name": "action",
-          "type": "varchar(48)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_type": {
-          "name": "target_type",
-          "type": "varchar(32)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "varchar(120)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "summary": {
-          "name": "summary",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ip": {
-          "name": "ip",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "varchar(300)",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "admin_audit_at_idx": {
-          "name": "admin_audit_at_idx",
-          "columns": [
-            {
-              "expression": "at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "admin_audit_user_at_idx": {
-          "name": "admin_audit_user_at_idx",
-          "columns": [
-            {
-              "expression": "admin_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "admin_audit_actor": {
-          "name": "admin_audit_actor",
-          "value": "\"admin_audit_events\".\"actor\" in ('console','operator_cli')"
-        },
-        "admin_audit_console_user": {
-          "name": "admin_audit_console_user",
-          "value": "\"admin_audit_events\".\"actor\" = 'operator_cli' or \"admin_audit_events\".\"admin_user_id\" is not null"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.admin_idempotency_keys": {
-      "name": "admin_idempotency_keys",
-      "schema": "",
-      "columns": {
-        "admin_user_id": {
-          "name": "admin_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "action": {
-          "name": "action",
-          "type": "varchar(48)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "result": {
-          "name": "result",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "admin_idempotency_keys_admin_user_id_key_pk": {
-          "name": "admin_idempotency_keys_admin_user_id_key_pk",
-          "columns": [
-            "admin_user_id",
-            "key"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.admin_session_activity": {
-      "name": "admin_session_activity",
-      "schema": "",
-      "columns": {
-        "session_id": {
-          "name": "session_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_seen_at": {
-          "name": "last_seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "step_up_at": {
-          "name": "step_up_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.apple_devices": {
       "name": "apple_devices",
       "schema": "",
@@ -540,7 +306,7 @@
         },
         "automation_rule_inactivity_valid": {
           "name": "automation_rule_inactivity_valid",
-          "value": "(\"automation_rules\".\"trigger_kind\" in ('first_checkout','reward_ready') and \"automation_rules\".\"inactivity_days\" is null) or (\"automation_rules\".\"trigger_kind\" = 'inactive' and \"automation_rules\".\"inactivity_days\" between 7 and 365)"
+          "value": "(\"automation_rules\".\"trigger_kind\" in ('first_checkout','reward_ready') and \"automation_rules\".\"inactivity_days\" is null) or (\"automation_rules\".\"trigger_kind\" = 'inactive' and \"automation_rules\".\"inactivity_days\" is not null and \"automation_rules\".\"inactivity_days\" between 7 and 365)"
         }
       },
       "isRLSEnabled": false
@@ -1876,7 +1642,7 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "default": "clock_timestamp()"
         }
       },
       "indexes": {
@@ -2488,6 +2254,14 @@
           "name": "ledger_kind_valid",
           "value": "\"ledger_entries\".\"kind\" in ('award','redeem','reversal')"
         },
+        "ledger_kind_sign_valid": {
+          "name": "ledger_kind_sign_valid",
+          "value": "(\"ledger_entries\".\"kind\" = 'award' and \"ledger_entries\".\"delta\" > 0) or (\"ledger_entries\".\"kind\" = 'redeem' and \"ledger_entries\".\"delta\" < 0) or \"ledger_entries\".\"kind\" = 'reversal'"
+        },
+        "ledger_reversal_link_valid": {
+          "name": "ledger_reversal_link_valid",
+          "value": "(\"ledger_entries\".\"kind\" = 'reversal') = (\"ledger_entries\".\"reversal_of_id\" is not null)"
+        },
         "ledger_source_valid": {
           "name": "ledger_source_valid",
           "value": "\"ledger_entries\".\"source\" in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap')"
@@ -2610,7 +2384,7 @@
       "checkConstraints": {
         "location_coordinates_valid": {
           "name": "location_coordinates_valid",
-          "value": "(\"locations\".\"latitude\" is null and \"locations\".\"longitude\" is null) or (\"locations\".\"latitude\" between -90 and 90 and \"locations\".\"longitude\" between -180 and 180)"
+          "value": "(\"locations\".\"latitude\" is null and \"locations\".\"longitude\" is null) or (\"locations\".\"latitude\" is not null and \"locations\".\"longitude\" is not null and \"locations\".\"latitude\" between -90 and 90 and \"locations\".\"longitude\" between -180 and 180)"
         }
       },
       "isRLSEnabled": false
@@ -3241,57 +3015,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.platform_admins": {
-      "name": "platform_admins",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "varchar(16)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "granted_by": {
-          "name": "granted_by",
-          "type": "varchar(120)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "granted_at": {
-          "name": "granted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "platform_admins_user_id_role_pk": {
-          "name": "platform_admins_user_id_role_pk",
-          "columns": [
-            "user_id",
-            "role"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "platform_admin_role": {
-          "name": "platform_admin_role",
-          "value": "\"platform_admins\".\"role\" in ('founder', 'support', 'sales')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.program_rule_versions": {
       "name": "program_rule_versions",
       "schema": "",
@@ -3913,7 +3636,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "redemption_cost_positive": {
+          "name": "redemption_cost_positive",
+          "value": "\"redemptions\".\"cost\" > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.referral_codes": {

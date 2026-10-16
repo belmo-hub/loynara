@@ -4,7 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { and, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
-import { DomainError, awardTapInTransaction, awardInTransaction } from "./loyalty";
+import { DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeForBooking } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
 import { formatCardLocator } from "./card-locator";
@@ -102,12 +102,17 @@ export async function provisionSecureTag(input: { actorUserId: string; programId
 
 export async function activateSecureTag(input: { actorUserId: string; tagId: string; expectedPolicy?: PreparedTagPolicy; expectedTag?: { uid: string; keyRef: string; publicRef: string }; /** Highest counter already seen (verification reads made during provisioning), so those URLs can never be replayed. */ initialCounter?: number }) {
   return db.transaction(async tx => {
+    // Programme before tag, like taps, provisioning and replacement: locking the tag first deadlocked with a tap read of
+    // this tag (programme, then tag). A tag never moves to another programme, so the plain lookup is safe.
+    const [located] = await tx.select({ programId: secureTags.programId, tenantId: secureTags.tenantId }).from(secureTags).where(eq(secureTags.id, input.tagId));
+    if (!located) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    const query = tx.select().from(programs).where(and(eq(programs.id, located.programId), eq(programs.tenantId, located.tenantId)));
+    const [lockedProgram] = input.expectedPolicy ? await query.for("update") : [];
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
-    if (!tag || tag.status !== "provisioned") throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    if (!tag || tag.status !== "provisioned" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
     await owner(tx, input.actorUserId, tag.tenantId);
     if (input.expectedTag && (tag.uid !== input.expectedTag.uid || tag.keyRef !== input.expectedTag.keyRef || tag.publicRef !== input.expectedTag.publicRef)) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved tag binding changed");
-    const query = tx.select().from(programs).where(and(eq(programs.id, tag.programId), eq(programs.tenantId, tag.tenantId)));
-    const [program] = input.expectedPolicy ? await query.for("update") : await query;
+    const [program] = input.expectedPolicy ? [lockedProgram] : await query;
     if (!program || program.status !== "active" || program.tapMode === "disabled") throw new DomainError("TAP_DISABLED", "Tap is disabled");
     assertPreparedPolicy(program, input.expectedPolicy);
     if (input.expectedPolicy && tag.locationId !== input.expectedPolicy.locationId) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved location changed");
@@ -141,8 +146,14 @@ export type TapResult = { customerActivityAt?: number; state: "awarded" | "alrea
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  // Programme before tag, as in tag provisioning and replacement (programme, then the old tag). The request a tap
+  // inserts takes a key-share lock on the programme through its foreign key; taken after the tag, that deadlocked
+  // with a replacement of the same tag. A tag never moves to another programme, so the plain lookup is safe.
+  const [located] = await tx.select({ programId: secureTags.programId }).from(secureTags).where(eq(secureTags.publicRef, input.tagRef));
+  if (!located) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, located.programId)).for("key share");
   const [tag] = await tx.select().from(secureTags).where(eq(secureTags.publicRef, input.tagRef)).for("update");
-  if (!tag || tag.status !== "active") throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!tag || tag.status !== "active" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
   const keys = await (input.keyProvider ?? defaultTapKeyProvider()).getKeys(tag.keyRef, { uid: tag.uid } satisfies TapKeyContext);
   let decoded: { uid: string; counter: number };
   try { decoded = verifySdm(input.fields, keys); }
@@ -281,10 +292,14 @@ export async function confirmTapRequest(input: { userId: string; locationId: str
     if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
     if (request.status === "confirmed") return { state: "already_processed" as const, entryId: request.ledgerEntryId };
     if (request.status !== "pending_staff" || request.expiresAt <= (input.now ?? new Date()) || !request.membershipId) throw new DomainError("TAP_EXPIRED", "Pending tap expired");
-    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, request.tagId));
-    if (!tag || tag.status !== "active") throw new DomainError("TAP_EXPIRED", "Tag is no longer active");
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, request.programId), eq(programs.tenantId, request.tenantId)));
+    // Both held until commit, and taken before the card: switching NFC off or revoking the tag waits for this
+    // confirmation, or this confirmation sees it. Programme, then tag, then card, so neither a tap (tag, then card) nor
+    // a checkout (card, then a shared programme lock) can form a cycle with it.
+    // Bounded like a checkout's programme lock (an already confirmed request was answered above, before any lock).
+    const [program] = await lockProgrammeForBooking(tx, () => tx.select().from(programs).where(and(eq(programs.id, request.programId), eq(programs.tenantId, request.tenantId))).for("share"));
     if (!program || program.tapMode !== "staff_confirmed" || program.type !== "stamp" || program.status !== "active") throw new DomainError("TAP_EXPIRED", "Tap programme changed");
+    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, request.tagId)).for("share");
+    if (!tag || tag.status !== "active") throw new DomainError("TAP_EXPIRED", "Tag is no longer active");
     await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.id, request.membershipId)).for("update");
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, request.tenantId), eq(tapRequests.programId, request.programId), eq(tapRequests.membershipId, request.membershipId), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     if (recent && (input.now ?? new Date()).getTime() - recent.createdAt.getTime() < (program.tapCooldownSeconds ?? 0) * 1000) throw new DomainError("TAP_COOLDOWN", "This card is still within its tap cooldown");
@@ -301,7 +316,8 @@ export async function cancelTapRequest(input: { userId: string; locationId: stri
   return db.transaction(async tx => {
     const [request] = await tx.select().from(tapRequests).where(eq(tapRequests.id, input.requestId)).for("update");
     if (!request || request.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Pending tap not found");
-    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, request.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
+    // Held until commit, like checkout's role lock: a revocation waits for this cancellation, or this one sees it.
+    const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, request.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true))).for("share");
     if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
     if (request.status === "cancelled") return { state: "cancelled" as const };
     if (request.status === "confirmed" || request.status === "awarded") throw new DomainError("TAP_ALREADY_CONFIRMED", "This tap was already confirmed");

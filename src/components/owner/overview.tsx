@@ -10,8 +10,10 @@ import { JoinCard } from "./join-card";
 import { ReadinessCard } from "./readiness-card";
 import { RetentionInsights, type ReferralRow } from "./retention-insights";
 import { useOwner } from "./owner-context";
-import { germanDate, nf, Skeleton } from "./owner-ui";
+import { germanDate, nf, Skeleton, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonClassName } from "@/components/ui/button";
 
 type Analytics = { currentActiveCards: number; newCards: number; qualifyingCheckouts: number; participatingCards: number; repeatCards: number; rewards: { redemptions: number }; asOf: string; countingRule: string };
 type Brand = { brandColor: string; logoData: string | null };
@@ -42,8 +44,8 @@ function NewBusiness({ me }: { me: MeResponse }) {
         </div>
         <aside className="ow-stack" aria-label="Vorschau und Einladung">
           <section className="ow-card ow-stack" aria-labelledby="ow-prev-title">
-            <div><h2 id="ow-prev-title">So sieht die Karte aus</h2><p className="ow-muted" style={{ fontSize: 14 }}>Browserkarte deiner Kunden, Beispielstand.</p></div>
-            {brand.state === "loading" ? <Skeleton height={176} /> : <BrowserCardPreview businessName={me.businessName} locationName={me.locationName} brandColor={brand.state === "ok" ? brand.data.brandColor : "#1f4a3a"} programType={me.programType} rewardTitle={me.rewardTitle} rewardCost={me.rewardCost} balance={Math.min(2, Math.max(0, me.rewardCost - 1))} />}
+            <div><h2 id="ow-prev-title">So sieht die Karte aus</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Browserkarte deiner Kunden, Beispielstand.</p></div>
+            {brand.state === "loading" ? <Skeleton height={176} /> : <BrowserCardPreview showCode={false} businessName={me.businessName} locationName={me.locationName} brandColor={brand.state === "ok" ? brand.data.brandColor : "#1f4a3a"} programType={me.programType} rewardTitle={me.rewardTitle} rewardCost={me.rewardCost} balance={Math.min(2, Math.max(0, me.rewardCost - 1))} />}
           </section>
           <JoinCard me={me} exportUrl={undefined} />
         </aside>
@@ -152,7 +154,7 @@ function RecentActivity({ me }: { me: MeResponse }) {
   return (
     <section className="ow-card" aria-labelledby="ow-act-title">
       <div className="ow-card-head"><div><h2 id="ow-act-title">Letzte Vorgänge</h2><p>Am Standort {me.locationName}</p></div></div>
-      {items.length === 0 ? <div className="ow-empty"><strong>Noch keine Vorgänge.</strong>Sobald deine Kasse etwas bestätigt, erscheint es hier.</div> : (
+      {items.length === 0 ? <EmptyState level={3} icon={<OwnerIcon name="till" size={24} />} title="Noch keine Vorgänge." action={<Link href="/cashier" className={buttonClassName({ variant: "secondary", size: "sm" })}>Kasse öffnen</Link>}>Sobald dein Team an der Kasse den ersten Besuch bucht, steht er hier.</EmptyState> : (
         <ul className="ow-feed">
           {items.map(item => {
             const when = item.createdAt;

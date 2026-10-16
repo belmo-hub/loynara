@@ -12,7 +12,7 @@ import { cx } from "@/components/ui/cx";
 import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
 import { PointsLadder } from "@/components/ui/points-ladder";
-import { StampGrid } from "@/components/ui/stamp-grid";
+import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
 import styles from "./cashier-view.module.css";
 
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
@@ -133,9 +133,9 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
     {logoutControl}
   </div>;
 
-  // Progress towards the cheapest reward; long programmes (more than 30 stamps) show the number only.
+  // Progress towards the cheapest reward; long programmes (more than STAMP_GRID_MAX stamps) show the number only.
   const cheapest = card && card.programType !== "points" && card.rewards.length ? Math.min(...card.rewards.map(reward => reward.cost)) : 0;
-  const stampGoal = cheapest > 0 && cheapest <= 30 ? cheapest : 0;
+  const stampGoal = cheapest > 0 && cheapest <= STAMP_GRID_MAX ? cheapest : 0;
   const dock = card ? purchaseMode
     ? <Button variant="go" size="xl" block icon={<ArrowRight size={20} />} disabled={busy || !purchasePreview}
       onClick={() => { if (purchasePreview) setConfirm({ kind: "award", award: { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } }); }}>{t.reviewAward}</Button>
@@ -241,7 +241,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
 
 /**
  * Loading and blocked states of /cashier, on the same dark shell so the counter never flashes a light page first.
- * `app-state-card` stays as a hook for the session specs; the doubled class below outranks its global light styles.
+ * `app-state-card` stays as a hook for the session specs (it has no styles of its own).
  */
 export function CashierAccessState({ state, message, logoutControl }: { state: "loading" | "blocked"; message: string; logoutControl?: ReactNode }) {
   const loading = state === "loading";

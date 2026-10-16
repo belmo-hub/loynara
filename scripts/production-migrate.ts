@@ -34,7 +34,9 @@ async function main() {
     const child = spawn(path.resolve("node_modules/.bin/drizzle-kit"), ["migrate"], {
       // Database drivers may include connection details in failure output.
       stdio: "ignore",
-      env: { ...process.env, DATABASE_URL: process.env.MIGRATION_DATABASE_URL },
+      // Give up after 15 s waiting for a table lock instead of queueing every card read and checkout behind the
+      // migration while a long query finishes. A refused migration is rolled back and can simply be retried.
+      env: { ...process.env, DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PGOPTIONS: "-c lock_timeout=15s" },
     });
     const exitCode = await new Promise<number>((resolve, reject) => {
       child.once("error", reject);

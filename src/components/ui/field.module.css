@@ -6,7 +6,7 @@
   font: var(--weight-body) var(--text-16)/1.4 var(--font-sans);
   transition: border-color var(--dur-press) ease, box-shadow var(--dur-press) ease;
 }
-.input::placeholder { color: var(--color-ink-muted); opacity: .85; }
+.input::placeholder { color: var(--color-ink-muted); opacity: 1; }
 .input:focus-visible { outline: none; border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-focus), transparent 70%); }
 .input[aria-invalid="true"] { border-color: var(--color-danger); }
 .input:disabled { background: var(--color-surface); color: var(--color-ink-muted); }

@@ -84,6 +84,9 @@ describe("production configuration gate", () => {
   it("requires a bounded database pool per process", () => {
     expect(productionConfigIssues({ ...safe, PG_POOL_MAX: "50" })).toEqual(expect.arrayContaining([expect.stringMatching(/pool/i)]));
     expect(productionConfigIssues({ ...safe, PG_POOL_MAX: "" })).toEqual(expect.arrayContaining([expect.stringMatching(/pool/i)]));
+    // One connection deadlocks the worker: a delivery transaction holds it while its suppression lookup waits for another.
+    expect(productionConfigIssues({ ...safe, PG_POOL_MAX: "1" })).toEqual(expect.arrayContaining([expect.stringMatching(/pool/i)]));
+    expect(productionConfigIssues({ ...safe, PG_POOL_MAX: "2" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/pool/i)]));
   });
 
   it("refuses a remote database labelled preview or device-test", () => {

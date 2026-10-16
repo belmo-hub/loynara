@@ -44,7 +44,8 @@ export const locations = pgTable("locations", {
   createdAt: createdAt(),
 }, (t) => [
   unique("locations_tenant_id_id_uq").on(t.tenantId, t.id),
-  check("location_coordinates_valid", sql`(${t.latitude} is null and ${t.longitude} is null) or (${t.latitude} between -90 and 90 and ${t.longitude} between -180 and 180)`),
+  // "x between a and b" is NULL, not false, for a NULL x, and a CHECK only rejects false: both sides are spelled out.
+  check("location_coordinates_valid", sql`(${t.latitude} is null and ${t.longitude} is null) or (${t.latitude} is not null and ${t.longitude} is not null and ${t.latitude} between -90 and 90 and ${t.longitude} between -180 and 180)`),
 ]);
 
 export const staffRoles = pgTable("staff_roles", {
@@ -259,7 +260,9 @@ export const consentEvents = pgTable("consent_events", {
   granted: boolean("granted").notNull(),
   noticeVersion: varchar("notice_version", { length: 32 }).notNull(),
   source: varchar("source", { length: 32 }).notNull(),
-  createdAt: createdAt(),
+  // The newest event is the current choice. now() is the transaction's start, so a withdrawal that started first but
+  // got the card lock after a grant would sort before it; clock_timestamp() is taken when the row is written.
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
 }, (t) => [
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
   index("consent_membership_idx").on(t.tenantId, t.membershipId, t.createdAt),
@@ -290,6 +293,9 @@ export const ledgerEntries = pgTable("ledger_entries", {
   index("ledger_member_time_idx").on(t.membershipId, t.createdAt),
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
   check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
+  // Awards add, redemptions subtract, and only a reversal points at the entry it undoes.
+  check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} = 'redeem' and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
+  check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
   check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap')`),
   check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
 ]);
@@ -439,6 +445,7 @@ export const redemptions = pgTable("redemptions", {
   foreignKey({ columns: [t.tenantId, t.ledgerEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
   foreignKey({ columns: [t.tenantId, t.rewardVersionId], foreignColumns: [rewardVersions.tenantId, rewardVersions.id] }),
   uniqueIndex("redemptions_ledger_uq").on(t.ledgerEntryId),
+  check("redemption_cost_positive", sql`${t.cost} > 0`),
 ]);
 
 export const outboxJobs = pgTable("outbox_jobs", {
@@ -576,7 +583,7 @@ export const automationRules = pgTable("automation_rules", {
   check("automation_rule_channel_valid", sql`${t.channel} = 'email'`),
   check("automation_rule_cooldown_valid", sql`${t.cooldownDays} between 7 and 365`),
   check("automation_rule_daily_cap_valid", sql`${t.dailyCap} between 1 and 20`),
-  check("automation_rule_inactivity_valid", sql`(${t.triggerKind} in ('first_checkout','reward_ready') and ${t.inactivityDays} is null) or (${t.triggerKind} = 'inactive' and ${t.inactivityDays} between 7 and 365)`),
+  check("automation_rule_inactivity_valid", sql`(${t.triggerKind} in ('first_checkout','reward_ready') and ${t.inactivityDays} is null) or (${t.triggerKind} = 'inactive' and ${t.inactivityDays} is not null and ${t.inactivityDays} between 7 and 365)`),
 ]);
 
 export const automationRuns = pgTable("automation_runs", {

@@ -3,6 +3,6 @@
 .legal h1 { margin: 0 0 var(--space-2); font-family: var(--font-display); font-weight: 540; font-size: var(--text-28); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; hyphens: auto; }
 .legal h2 { margin: var(--space-5) 0 0; font-size: var(--text-18); font-weight: 700; line-height: 1.3; }
 .legal p { margin: 0; overflow-wrap: anywhere; }
-.legal a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: .18em; }
+.legal a { color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
 .legal strong { font-weight: 700; }
 @media (min-width: 1024px) { .legal h1 { font-size: var(--display-36); line-height: 1.1; } }

@@ -10,14 +10,15 @@ SCRIPT = Path(__file__).with_name("production-backup.sh")
 PING = "https://hc-ping.com/00000000-0000-4000-8000-000000000001"
 
 
-def run_case(fail_upload=False):
+def run_case(fail_upload=False, schema="t"):
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         bin_dir = root / "bin"
         bin_dir.mkdir()
         commands = root / "commands"
         for name, body in {
-            "pg_dump": "printf 'synthetic-dump'",
+            "pg_dump": "printf 'pg_dump\\n' >> \"$TEST_COMMANDS\"; printf 'synthetic-dump'",
+            "psql": "printf '%s\\n' \"$TEST_SCHEMA\"",
             "age": "cat",
             "aws": "printf 'aws %s\\n' \"$*\" >> \"$TEST_COMMANDS\"; case \"$*\" in *' s3 cp '*) if [ \"${FAIL_UPLOAD:-0}\" = 1 ]; then exit 5; fi;; esac",
             "curl": "for arg in \"$@\"; do case \"$arg\" in https://hc-ping.com/*) printf 'ping %s\\n' \"$arg\" >> \"$TEST_COMMANDS\";; esac; done",
@@ -30,6 +31,7 @@ def run_case(fail_upload=False):
             "PATH": str(bin_dir) + os.pathsep + env["PATH"],
             "TEST_COMMANDS": str(commands),
             "FAIL_UPLOAD": "1" if fail_upload else "0",
+            "TEST_SCHEMA": schema,
             "PRODUCTION_ENVIRONMENT": "loynara-production",
             "PGHOST": "postgres.railway.internal",
             "PGDATABASE": "loynara_test",
@@ -61,4 +63,12 @@ assert actions[0] == "ping " + PING + "/start", actions
 assert actions[-1] == "ping " + PING + "/fail", actions
 assert not any("s3api head-object" in action for action in actions), actions
 assert "synthetic-secret-not-for-logs" not in failure.stdout + failure.stderr
-print("production backup transport PASS: upload/HEAD then success; upload failure signals monitor without secret output")
+# A valid login to a database without Loynara's schema (PGDATABASE=postgres, say) must not dump, upload or report success.
+wrong, actions = run_case(schema="f")
+assert wrong.returncode != 0
+assert "pg_dump" not in actions, actions
+assert not any(" s3 cp " in action for action in actions), actions
+assert actions[-1] == "ping " + PING + "/fail", actions
+assert "synthetic-secret-not-for-logs" not in wrong.stdout + wrong.stderr
+
+print("production backup transport PASS: upload/HEAD then success; upload failure and a database without the Loynara schema signal the monitor without secret output")

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, pool } from "@/db";
 import { locations, staffAuditEvents, staffInvites, staffRoles, tenants } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { acceptStaffInvite, createStaffInvite, listStaff, listStaffAudit, revokeStaff } from "./staff";
+import { acceptStaffInvite, createStaffInvite, listStaff, listStaffAudit, listStaffInvites, revokeStaff } from "./staff";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
@@ -71,6 +71,35 @@ describe("staff invitations and revocation", () => {
       await pending;
       gate.release();
     }
+  });
+
+  it("does not let an invitation issued before revocation restore access, while a new invitation still can", async () => {
+    const f = await fixture();
+    const first = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "cashier" });
+    const resent = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail.toUpperCase(), role: "manager" });
+    await acceptStaffInvite({ userId: f.staffId, token: first.token });
+    await revokeStaff({ actorUserId: f.ownerId, userId: f.staffId });
+    await expect(acceptStaffInvite({ userId: f.staffId, token: resent.token })).rejects.toMatchObject({ code: "INVALID_INVITE" });
+    expect((await db.select().from(staffRoles).where(eq(staffRoles.userId, f.staffId)))[0]).toMatchObject({ active: false, role: "cashier" });
+    expect((await listStaffInvites(f.ownerId)).find(invite => invite.id === resent.id)).toMatchObject({ status: "revoked" });
+    const fresh = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "cashier" });
+    await acceptStaffInvite({ userId: f.staffId, token: fresh.token });
+    expect((await db.select().from(staffRoles).where(eq(staffRoles.userId, f.staffId)))[0]).toMatchObject({ active: true, role: "cashier" });
+  });
+
+  it("refuses an invitation created before an earlier revocation, even one that revocation left open", async () => {
+    const f = await fixture();
+    const first = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "cashier" });
+    const leftOpen = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "manager" });
+    await acceptStaffInvite({ userId: f.staffId, token: first.token });
+    // How a revocation from before invitation clean-up looks: role off, audit event written, the other invitation still open.
+    await db.update(staffRoles).set({ active: false }).where(eq(staffRoles.userId, f.staffId));
+    await db.insert(staffAuditEvents).values({ tenantId: f.tenant.id, action: "access_revoked", actorUserId: f.ownerId, subjectUserId: f.staffId, locationId: f.location.id, role: "cashier" });
+    await expect(acceptStaffInvite({ userId: f.staffId, token: leftOpen.token })).rejects.toMatchObject({ code: "INVALID_INVITE" });
+    expect((await db.select().from(staffRoles).where(eq(staffRoles.userId, f.staffId)))[0]).toMatchObject({ active: false, role: "cashier" });
+    const fresh = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "manager" });
+    await acceptStaffInvite({ userId: f.staffId, token: fresh.token });
+    expect((await db.select().from(staffRoles).where(eq(staffRoles.userId, f.staffId)))[0]).toMatchObject({ active: true, role: "manager" });
   });
 
   it("rejects expired, revoked and unauthenticated invitations without assigning a role", async () => {
