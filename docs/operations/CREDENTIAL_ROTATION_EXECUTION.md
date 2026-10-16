@@ -31,11 +31,11 @@ The temporary service was updated first and redeployed from its existing build. 
 
 The temporary service was deleted only from the production environment and independently verified absent from the project's service inventory at approximately 15:21 UTC, before its deadline. The private success marker was written for the cleanup guard. Three more public health checks returned HTTP 200 after removal; Cloudflare showed exactly one healthy connector belonging to the original service. No route, DNS, application deployment or source image changed. An isolated live old-token registration test was omitted because no route-free validation environment was established; provider rotation confirmation and the actual fresh authenticated connections are the recorded evidence, rather than a claimed live negative test. The original synced token file remains preserved pending separate cleanup approval.
 
-## R2 — replacement created and synthetic checks passed
+## R2 — replacement and retirement verified
 
 The owner created `loynara-production-backup-2026-10-15`. The provider's result and subsequent token inventory confirmed Object Read & Write access only to `loynara-rc-backups` in the EU jurisdiction, matching the predecessor's scope. Its S3 credentials and corresponding provider API token were saved directly to `backup/r2-active.env` and `backup/r2-active-api.token` in the protected folder. Readback and private-file checks passed; both S3 credential values differ from their historical counterparts. No values were printed or committed.
 
-Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. The old R2 key remains valid until the natural-backup acceptance gate below passes. This is not a completed R2 rotation.
+Using only the new S3 pair and the existing EU endpoint, a unique synthetic object under `credential-checks/` passed encrypted upload, HEAD size verification, GET ciphertext byte comparison, decryption with the prepared future identity, deletion and a subsequent missing-object HEAD check. The temporary local files were removed. Existing backup objects were not read or changed. The replacement passed the natural-run acceptance gate and the old R2 token was subsequently revoked and rejected, as recorded below.
 
 ### Recovery custody and backup activation
 
@@ -47,15 +47,19 @@ Exactly four backup variables were updated privately with `skipDeploys: true`: t
 
 The independent signed-in Railway browser session remains available. The separate saved CLI administrator credential was refused during this phase; the replacement environment-scoped project credential authenticated and performed the approved reads/mutations. The CLI credential must be reconciled before relying on it as emergency operator access. No broad replacement token was created to work around that refusal.
 
-### Natural-run acceptance — passed; retirement pending
+### Natural-run acceptance and retirement — passed
 
 The natural 16 October backup ran from **03:03:27.739 to 03:03:32.455 UTC / 05:03 Berlin** on deployment `493cec2e-dde9-4d24-826b-2861c33f99da`. Railway reports success, no service issues and no pending deployment work. Private readback confirms the four replacement variables remain configured.
 
 The replacement backup check is up, with real Started and OK events at 03:03 UTC and its existing email notification method ON. Using only the replacement S3 pair, a prefix-limited LIST found exactly one encrypted `.dump.age` object for 16 October. Its last-modified time is 03:03:29.200 UTC and size is **188,095 bytes**; HEAD returned the same size. No backup contents were downloaded or restored. This verifies scheduled execution and upload metadata, not a production-data restore drill.
 
-A bounded HEAD using the old S3 pair still authenticated before revocation, establishing its pre-retirement baseline. All acceptance gates have passed. Only the superseded backup check was paused after replacement health was verified, and its removal confirmation was prepared. The identified old R2 token's deletion confirmation was also prepared after the Cloudflare dashboard finished a slow load. **Neither final removal has occurred yet**; both await the owner's required browser submission, followed by old-key rejection/new-key canary and check-inventory verification.
+A bounded HEAD using the old S3 pair still authenticated before revocation, establishing its pre-retirement baseline. After all acceptance gates passed, the owner deleted the identified `loynara-stage-a-backup-writer` token and removed the superseded `Loynara RC encrypted backup` check through the prepared provider confirmations.
 
-Only after acceptance: revoke the identified old bucket-scoped R2 token, confirm a bounded read-only metadata request using its old S3 pair is denied, recheck new access with a synthetic object, and remove/verify absence of the old backup heartbeat check. Provider/browser final credential actions still require the owner's handoff. If the scheduled run fails before revocation, the original private files retain the four prior values; restore only those variables and redeploy original deployment `be445944-e1e5-4f3b-beb6-5b66cfb4db87` with explicit previous-image reuse, then verify the schedule and execution history. Do not restore the invalidated production tunnel token or revoked Railway project token.
+Fresh verification confirmed the old S3 pair is rejected with **HTTP 401**, while the replacement can still HEAD the expected encrypted backup object. A new unique synthetic encrypted object then passed upload, HEAD size verification, GET byte comparison, age decryption, deletion and missing-object verification with the replacement pair. Neither production backup contents nor customer rows were read. Local synthetic temporary files were removed.
+
+The provider token inventory contains only the new named backup token, active with the expected EU bucket Object Read & Write scope. The monitoring inventory has five expected checks: the exact old backup check is absent and the replacement remains healthy with email notifications assigned. All three operational heartbeat replacements and their predecessor removals are now verified. Two public health requests returned HTTP 200 afterward. Both recovery identities and original synced files remain preserved; this milestone does not authorize their deletion.
+
+Recovery after retirement requires a newly valid R2 credential if access fails; the revoked S3 pair cannot restore service. Preserve both private age identities for the backups that use them. An image rollback does not restore variable values. Do not restore the invalidated production tunnel token or revoked Railway project token.
 
 ## Monitoring — worker and outbox replaced and predecessors removed
 
@@ -67,7 +71,7 @@ Worker deployment `1e63e0bd-85b9-41c2-ba1c-9a34e3b749e2` reached SUCCESS, and it
 
 **Deployment limitation:** the connector described redeploy as reusing the existing build, and initial metadata carried the previous digest. Final metadata showed that Railway rebuilt the original source commit and produced a different image digest for both services. Commit hashes remained identical, and service commands/configuration were preserved; do not describe these as exact image reuse. The later backup phase above used the explicit API image-reuse option and verified the unchanged digest and absence of extra execution.
 
-After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. The owner subsequently removed both old checks. A fresh inventory verified both exact predecessor check IDs absent, all three replacements still present, and continuing real worker/outbox pings within their periods. Six expected checks remain. This verifies removal through the provider inventory; no synthetic success ping was sent to either old endpoint. The old backup check is retained pending the next natural run; unrelated checks are unchanged.
+After replacement activity was verified, only the superseded worker-heartbeat and outbox checks were paused to prevent stale alerts. The owner subsequently removed both old checks. A fresh inventory verified both exact predecessor check IDs absent, all three replacements still present, and continuing real worker/outbox pings within their periods. Six expected checks remain. This verifies removal through the provider inventory; no synthetic success ping was sent to either old endpoint. The old backup check was subsequently removed and verified absent after its natural-run acceptance; unrelated checks are unchanged.
 
 ## Additional confirmed exposure
 
@@ -76,8 +80,6 @@ Private comparison confirmed that the synced device-test file's `MAILGUN_EU_API_
 ## Still pending
 
 - Classification/resolution of the separate saved Railway API credential and reconciliation of the refused CLI administrator credential.
-- Old R2 token deletion and negative/positive checks. Natural-run acceptance passed; new credentials/recipient are configured and custody is owner-confirmed.
-- Removal and verified absence of the superseded backup check. Real activity on the replacement is verified.
 - Provider/preview scope checks, the three cloud-only files, operator handoff and the separately approved cleanup of old copies.
 
 No application source release, migration, production-data restore, branch merge or original-file deletion has occurred in this execution checkpoint.
