@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { postJson } from "@/components/client-api";
 import { clearFlash, peekFlash, setFlash } from "@/components/owner/flash";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
+import { locationCreateMessage, locationSwitchMessage } from "@/components/owner/owner-errors";
 import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 
@@ -41,13 +42,20 @@ export default function MerchantLocationsPage() {
     if (busy) return;
     setBusy(true); setError("");
     try {
-      const created = await postJson<{ locationId: string }>("/api/merchant/locations", { ...draft, country: l.currency === "EUR" ? "DE" : "MA", earningMode: draft.programType === "points" ? "purchase" : "manual" });
-      await postJson("/api/merchant/locations/select", { locationId: created.locationId });
+      let created: { locationId: string };
+      try { created = await postJson<{ locationId: string }>("/api/merchant/locations", { ...draft, country: l.currency === "EUR" ? "DE" : "MA", earningMode: draft.programType === "points" ? "purchase" : "manual" }); }
+      catch (cause) { setError(locationCreateMessage(cause)); return; }
+      try { await postJson("/api/merchant/locations/select", { locationId: created.locationId }); }
+      catch (cause) {
+        // The location exists now: empty the form (sending it again would hit LOCATION_EXISTS) and list the new location.
+        setDraft(emptyDraft); owner.setDirty("location-draft", false); reload(); void owner.refresh();
+        setError(`Der neue Standort wurde angelegt. ${locationSwitchMessage(cause)}`);
+        return;
+      }
       setFlash("Standort mit eigenem Programm und eigener Prämie angelegt und ausgewählt. Bestehende Karten und Guthaben blieben am bisherigen Standort.");
       owner.setDirty("location-draft", false);
       await owner.refresh(); // the shell remounts this page for the new location and shows the message
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Standort konnte nicht angelegt werden."); }
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   }
 
   return (

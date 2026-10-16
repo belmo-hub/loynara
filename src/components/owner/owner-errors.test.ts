@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ClientApiError } from "@/components/client-api";
-import { accountLoadMessage, inviteCreateMessage, inviteRevokeMessage, staffRevokeMessage } from "./owner-errors";
+import { accountLoadMessage, cashierAccessMessage, inviteCreateMessage, inviteRevokeMessage, locationCreateMessage, locationSwitchMessage, staffRevokeMessage } from "./owner-errors";
 
-// What each endpoint really answers (src/lib/staff.ts, src/lib/product.ts, src/lib/http.ts respondError, src/proxy.ts).
+// What each endpoint really answers (src/lib/staff.ts, src/lib/product.ts, src/lib/locations.ts, src/lib/http.ts respondError,
+// src/proxy.ts).
 type Answer = [status: number, code: string | undefined, text: string];
 const shared: Answer[] = [
   [401, "UNAUTHENTICATED", "Sign in required"], [403, "FORBIDDEN", "Owner access required"], [403, "INVALID_ORIGIN", "Request origin not allowed"],
@@ -14,7 +15,12 @@ const answers: Record<string, [(cause: unknown) => string, Answer[]]> = {
   "invite": [cause => inviteCreateMessage(cause, "team@example.test"), [...shared, [404, "NOT_FOUND", "Location not selected"], [404, "NOT_FOUND", "Location not found"], [400, "INVALID_LOCATION", "Invalid selected location"], [400, "SETUP_INCOMPLETE", "Setup incomplete"]]],
   "staff revoke": [staffRevokeMessage, [...shared, [404, "NOT_FOUND", "Staff member not found"], [400, "CANNOT_REVOKE_OWNER", "Owner role cannot be revoked here"]]],
   "invitation revoke": [inviteRevokeMessage, [...shared, [404, "NOT_FOUND", "Einladung nicht gefunden."], [400, "INVITE_USED", "Die Einladung wurde bereits angenommen. Verwende die Verwaltung der Teamzugänge."], [400, "INVALID_INVITE", "Die Einladung ist bereits abgelaufen."]]],
+  "location switch": [locationSwitchMessage, [...shared, [404, "NOT_FOUND", "Location not found"], [400, "INVALID_LOCATION", "Invalid location"]]],
   "account": [accountLoadMessage, [...shared, [400, "INVALID_LOCATION", "Invalid selected location"], [404, "NOT_FOUND", "Der gewählte Standort ist nicht verfügbar. Bitte wende dich an den Support."], [400, "SETUP_INCOMPLETE", "Setup incomplete"]]],
+  "cashier access": [cashierAccessMessage, [...shared, [400, "INVALID_LOCATION", "Invalid selected location"], [404, "NOT_FOUND", "Der gewählte Standort ist nicht verfügbar. Bitte wende dich an den Support."], [400, "SETUP_INCOMPLETE", "Setup incomplete"],
+    [403, "FORBIDDEN", "Deinem Teamzugang fehlt ein Standort. Bitte wende dich an die Inhaberin oder den Inhaber."]]],
+  "location create": [locationCreateMessage, [...shared, [400, "LOCATION_EXISTS", "A location with this name already exists"], [400, "INVALID_TIMEZONE", "Unknown timezone"], [400, "PLAN_UNAVAILABLE", "Merchant plan is unavailable"],
+    [404, "NOT_FOUND", "Merchant not found"], [400, "INVALID_COUNTRY", "Location country must match the merchant currency"], [400, "INVALID_EARNING_MODE", "Stamp programmes use manual earning"]]],
 };
 const english = /sign in|required|owner|origin|invalid|input|json|internal|error|service|unavailable|not found|location|staff|cannot|request|too many|anfrage fehlgeschlagen/i;
 
@@ -45,6 +51,15 @@ describe("what each message asks for", () => {
     [inviteRevokeMessage(new ClientApiError(400, "expired", "INVALID_INVITE")), "abgelaufen"],
     [staffRevokeMessage(new ClientApiError(401, "Sign in required", "UNAUTHENTICATED")), "Melde dich erneut an"],
     [accountLoadMessage(new ClientApiError(400, "Setup incomplete", "SETUP_INCOMPLETE")), "Starte keine neue Einrichtung"],
+    [locationSwitchMessage(new ClientApiError(404, "Location not found", "NOT_FOUND")), "aktuellen Liste"],
+    [locationSwitchMessage(new ClientApiError(403, "Owner access required", "FORBIDDEN")), "den Standort wechseln"],
+    [locationSwitchMessage(new ClientApiError(500, "Internal error")), "bisheriger Standort bleibt aktiv"],
+    [locationCreateMessage(new ClientApiError(400, "A location with this name already exists", "LOCATION_EXISTS")), "anderen Namen"],
+    [locationCreateMessage(new ClientApiError(400, "Unknown timezone", "INVALID_TIMEZONE")), "Europe/Berlin"],
+    [locationCreateMessage(new ClientApiError(429, "Too many requests", "RATE_LIMIT")), "bis zu einer Stunde"],
+    [locationCreateMessage(new ClientApiError(400, "Invalid input")), "Angaben im Formular"],
+    [locationCreateMessage(new ClientApiError(502, "Anfrage fehlgeschlagen (502).")), "prüfe die Liste deiner Standorte"],
+    [cashierAccessMessage(new ClientApiError(403, "Deinem Teamzugang fehlt ein Standort.", "FORBIDDEN")), "keinem Standort zugeordnet"],
   ])("%s", (shown, text) => expect(shown).toContain(text));
 
   it("keep the unconfirmed invitation warning for a lost or unreadable answer", () => {
@@ -57,6 +72,22 @@ describe("what each message asks for", () => {
     expect(staffRevokeMessage(empty)).not.toContain("wurde nicht gesperrt");
     expect(inviteRevokeMessage(empty)).toContain("nicht bestätigt");
     expect(inviteRevokeMessage(empty)).not.toContain("wurde nicht widerrufen");
+  });
+
+  it("ask to check the active location when a switch answer was lost or unreadable", () => {
+    for (const cause of [new ClientApiError(0, "Keine Verbindung."), new ClientApiError(200, "Die Antwort des Servers war leer."), new TypeError("Failed to fetch")]) {
+      expect(locationSwitchMessage(cause)).toContain("prüfe, welcher Standort aktiv ist");
+      expect(locationSwitchMessage(cause)).not.toContain("bleibt aktiv");
+    }
+  });
+
+  it("ask to check the location list before creating again when the answer was lost or unreadable", () => {
+    for (const status of [0, 201]) expect(locationCreateMessage(new ClientApiError(status, "x"))).toContain("bevor du ihn erneut anlegst");
+  });
+
+  it("ask the till to reload, since its access screen has no retry button", () => {
+    for (const cause of [new ClientApiError(0, "Keine Verbindung."), new ClientApiError(500, "Internal error"), new ClientApiError(404, "Anfrage fehlgeschlagen (404)."), new ClientApiError(200, "Die Antwort des Servers war leer.")])
+      expect(cashierAccessMessage(cause)).toMatch(/lade die Seite/i);
   });
 
   it("describe FORBIDDEN so it fits a revoked account and one without a location", () => {

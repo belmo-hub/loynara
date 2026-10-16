@@ -4,7 +4,7 @@ import type { PilotSurface } from "@/lib/pilot-surfaces";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components/client-api";
-import { accountLoadMessage, SETUP_INCOMPLETE } from "./owner-errors";
+import { accountLoadMessage, locationSwitchMessage, SETUP_INCOMPLETE } from "./owner-errors";
 import { OwnerDialog } from "./owner-ui";
 
 export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
@@ -163,7 +163,7 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
           setMessage("Standort gewechselt.");
         }
       }).catch(cause => {
-        setSwitchError(cause instanceof Error ? cause.message : "Der Standort konnte nicht gewechselt werden.");
+        setSwitchError(locationSwitchMessage(cause));
         void load("silent");
       }).finally(() => setSwitching(false));
     });
