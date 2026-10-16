@@ -141,8 +141,14 @@ export type TapResult = { customerActivityAt?: number; state: "awarded" | "alrea
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  // Programme before tag, as in tag provisioning and replacement (programme, then the old tag). The request a tap
+  // inserts takes a key-share lock on the programme through its foreign key; taken after the tag, that deadlocked
+  // with a replacement of the same tag. A tag never moves to another programme, so the plain lookup is safe.
+  const [located] = await tx.select({ programId: secureTags.programId }).from(secureTags).where(eq(secureTags.publicRef, input.tagRef));
+  if (!located) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, located.programId)).for("key share");
   const [tag] = await tx.select().from(secureTags).where(eq(secureTags.publicRef, input.tagRef)).for("update");
-  if (!tag || tag.status !== "active") throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!tag || tag.status !== "active" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
   const keys = await (input.keyProvider ?? defaultTapKeyProvider()).getKeys(tag.keyRef, { uid: tag.uid } satisfies TapKeyContext);
   let decoded: { uid: string; counter: number };
   try { decoded = verifySdm(input.fields, keys); }

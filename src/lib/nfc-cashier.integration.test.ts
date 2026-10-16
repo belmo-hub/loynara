@@ -181,3 +181,39 @@ it.each(["tag revocation", "NFC switched off"])("orders a confirmation that is w
   expect(finished).toEqual(["confirmation", "shutdown"]);
   expect(await ledgerCount(f.member.id)).toBe(1);
 });
+
+it("lets a tap and a replacement of its tag finish one after the other instead of deadlocking", async () => {
+  const f = await nfcFixture();
+  const c = await register(f);
+  const [tag] = (await pool.query<{ id: string }>("SELECT id FROM secure_tags WHERE public_ref = $1", [c.publicRef])).rows;
+  const finished: string[] = [];
+  const pause = () => new Promise(resolve => setTimeout(resolve, 20));
+  const outcome = <T>(work: Promise<T>, name: string) => work.then(value => ({ value }), (error: { code?: string }) => ({ error })).finally(() => finished.push(name));
+  const blocker = await pool.connect();
+  let tap: Promise<unknown> | undefined;
+  let replacement: Promise<unknown> | undefined;
+  try {
+    // Holding the card pauses the tap after it has taken its locks up to the card.
+    await blocker.query("BEGIN");
+    await blocker.query("SELECT id FROM memberships WHERE id = $1 FOR UPDATE", [f.member.id]);
+    tap = outcome(processSecureTap(c.tap(2, { cardToken: f.member.cardToken })), "tap");
+    let tapPid: number | undefined;
+    for (let attempt = 0; attempt < 500 && !tapPid; attempt++) {
+      tapPid = (await pool.query<{ pid: number }>("SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE '%from \"memberships\"%'")).rows[0]?.pid;
+      if (!tapPid) await pause();
+    }
+    expect(tapPid, "the tap must be waiting for the card").toBeDefined();
+    // The owner replaces this very tag meanwhile; it must queue behind the tap.
+    replacement = outcome(provisionSecureTag({ actorUserId: f.userId, programId: f.program.id, uid: `04${randomBytes(6).toString("hex")}`, keyRef: `dv1_${randomBytes(9).toString("base64url")}`, configVersion: 1, replacesTagId: tag.id }), "replacement");
+    let queued = false;
+    for (let attempt = 0; attempt < 500 && !queued && !finished.includes("replacement"); attempt++) {
+      queued = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [tapPid])).rowCount! > 0;
+      if (!queued) await pause();
+    }
+    expect(queued, "the replacement must wait for the tap").toBe(true);
+  } finally { await blocker.query("ROLLBACK"); blocker.release(); }
+  // Before the fix, the tap's request insert needed the programme the replacement held: PostgreSQL aborted one (40P01).
+  expect(await tap).toHaveProperty("value");
+  expect(await replacement).toHaveProperty("value");
+  expect(finished).toEqual(["tap", "replacement"]);
+});
