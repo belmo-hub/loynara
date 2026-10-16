@@ -1,13 +1,17 @@
 import { Client } from "pg";
 import { pool } from "../../src/db";
 import { getCustomerExport } from "../../src/lib/export";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "../../src/lib/disposable-test-database";
 
 void (async () => {
   const url = new URL(process.env.DATABASE_URL ?? "http://invalid");
-  if (!["localhost", "127.0.0.1"].includes(url.hostname) || url.pathname !== "/looplocal_test" || url.username !== "looplocal" || process.env.PG_POOL_MAX !== "1" || !process.env.TEST_EXPORT_CARD_TOKEN) throw new Error("Synthetic export process required");
+  assertLocalTestDatabaseUrl();
+  if (url.username !== "looplocal" || process.env.PG_POOL_MAX !== "1" || !process.env.TEST_EXPORT_CARD_TOKEN) throw new Error("Synthetic export process required");
   const control = new Client({ connectionString: process.env.DATABASE_URL });
   await control.connect();
   try {
+    // This fixture ends a database connection: only on a database the test setup marked as disposable.
+    await assertDisposableDatabase(control);
     const first = await getCustomerExport(process.env.TEST_EXPORT_CARD_TOKEN);
     const client = await pool.connect();
     const pid: number = (await client.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
