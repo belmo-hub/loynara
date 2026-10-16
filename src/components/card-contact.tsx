@@ -7,6 +7,7 @@ import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
 import styles from "./customer/panels.module.css";
+import { CardStatusLine, useCardStatus } from "./customer/card-status";
 
 type ContactStatus = { available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean };
 
@@ -16,7 +17,7 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
   const [busy, setBusy] = useState(false);
   // Which action is running, so only its own button shows progress.
   const [action, setAction] = useState<"request" | "preference" | null>(null);
-  const [message, setMessage] = useState("");
+  const { text: message, live, announce: setMessage } = useCardStatus("contact");
   const [error, setError] = useState("");
   const [deferred, setDeferred] = useState(false);
   const french = locale === "fr";
@@ -89,7 +90,7 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
     </div>}
     {!recoveryOnly && status.available && status.contactPresent && <Button variant="quiet" size="sm" disabled={busy} onClick={() => void remove()}>{french ? "Supprimer l’adresse de récupération" : "Wiederherstellungsadresse entfernen"}</Button>}
     {status.available && <p className={styles.link}><Link href="/recover">{french ? "Lien perdu ? Retrouver la carte" : "Kartenlink verloren? Karte wiederfinden"}</Link></p>}
-    {message && <p role="status" className={styles.state}>{message}</p>}
+    <CardStatusLine text={message} live={live} className={styles.state} />
     {error && <p role="alert" className={styles.error}>{error}</p>}
   </section>;
 }

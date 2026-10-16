@@ -28,7 +28,8 @@
 .md { min-height: 48px; }
 .lg { min-height: var(--target-cashier); font-size: var(--text-18); }
 .xl { min-height: 64px; font-size: var(--text-18); font-weight: var(--weight-heavy); }
-.block { display: flex; width: 100%; }
+/* A full-width button never widens the page: a long label wraps onto a second line instead. */
+.block { display: flex; width: 100%; white-space: normal; text-wrap: balance; padding-block: var(--space-2); }
 
 .primary[aria-busy="true"] { background: var(--color-action); color: var(--color-on-action); }
 .go[aria-busy="true"] { background: var(--color-success); color: var(--color-raised); }

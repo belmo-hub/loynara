@@ -45,7 +45,7 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
     };
     let signed = await submit();
     if (signed.status() === 429) {
-      await expect(page.locator(".auth-error[role=alert]")).toContainText("Zu viele Anmeldeversuche");
+      await expect(page.locator("form").getByRole("alert")).toContainText("Zu viele Anmeldeversuche");
       const delay = Number(signed.headers()["x-retry-after"]);
       expect(delay).toBeGreaterThanOrEqual(0); expect(delay).toBeLessThanOrEqual(30);
       console.log(`Expected production sign-in rate limit; honor Retry-After ${delay}s, resubmit once`);

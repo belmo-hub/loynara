@@ -8,12 +8,15 @@ import { parseCardLocator } from "@/lib/card-locator";
 import type { MerchantMember, MerchantMemberDetail, MerchantMemberList } from "@/lib/merchant-members";
 import { useOwner } from "./owner-context";
 import { CorrectionDialog, correctable, ReissueDialog, sourceLabel } from "./card-actions";
-import { germanDate, Notice, Skeleton } from "./owner-ui";
+import { germanDate, Notice, Skeleton, OwnerIcon } from "./owner-ui";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonClassName } from "@/components/ui/button";
 
 type Activity = "all" | "recent" | "drifting" | "never" | "near_reward" | "reward_ready";
 type Days = 14 | 30 | 60 | 90;
 type Filters = { q: string; status: "all" | "active" | "closed"; activity: Activity; days: Days; minAgeDays: 0 | 7 };
 const INITIAL: Filters = { q: "", status: "all", activity: "all", days: 30, minAgeDays: 0 };
+const unfiltered = (filters: Filters) => !filters.q && filters.status === "all" && filters.activity === "all" && filters.minAgeDays === 0;
 const STATUS: Array<[Filters["status"], string]> = [["all", "Alle"], ["active", "Aktiv"], ["closed", "Geschlossen"]];
 const ACTIVITY: Array<[Activity, string]> = [["all", "Alle Karten"], ["recent", "Kürzlich aktiv"], ["drifting", "Länger nicht da"], ["never", "Noch nie an der Kasse"], ["near_reward", "Kurz vor Prämie"], ["reward_ready", "Prämie verdient"]];
 const DAYS: Days[] = [14, 30, 60, 90];
@@ -215,7 +218,10 @@ export function CustomersView() {
         <section className="ow-card ow-cust-list" aria-labelledby="cu-h" aria-busy={loading}>
           <div className="ow-card-head" style={{ marginBottom: 12 }}><div><h2 id="cu-h">Karten</h2><p>{loading ? "Wird geladen …" : `${visible.length}${next ? "+" : ""} ${visible.length === 1 && !next ? "Karte" : "Karten"}${narrow ? ` am Standort ${scopeName}` : ""}`}</p></div></div>
           {loading ? <div className="ow-stack"><Skeleton height={56} /><Skeleton height={56} /><Skeleton height={56} /></div>
-            : visible.length === 0 ? <div className="ow-empty"><strong>{applied.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}</strong>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Kassenvorgängen und keinem in den letzten ${applied.days} Tagen.` : "Für diese Auswahl gibt es keine Karten."}</div>
+            : visible.length === 0 ? (unfiltered(applied) && !next
+              // No cards at all yet: the way to the first one is the sign-up code at the counter.
+              ? <EmptyState level={3} icon={<OwnerIcon name="users" size={24} />} title="Noch keine Karten." action={<Link href="/merchant" className={buttonClassName({ variant: "secondary", size: "sm" })}>Zur Übersicht</Link>}>Gäste melden sich über deinen Anmeldecode am Tresen an. Den Code findest du in der Übersicht.</EmptyState>
+              : <EmptyState level={3} title={applied.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Kassenvorgängen und keinem in den letzten ${applied.days} Tagen.` : "Ändere oben die Auswahl, um weitere Karten zu sehen."}</EmptyState>)
             : <ul className="ow-members">{visible.map(member => (
               <li key={member.id}><button type="button" className="ow-member" aria-current={selected === member.id ? "true" : undefined} onClick={() => void open(member.id)}>
                 <span className="ow-member-id"><strong>{member.pseudonym}</strong><small>{member.programName}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
@@ -232,9 +238,9 @@ export function CustomersView() {
             : detailError ? <div style={{ marginTop: 12 }}><Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => void open(selected)}>Erneut laden</button>}>{detailError}</Notice></div>
             : detail ? (
               <div className="ow-stack" style={{ marginTop: 12 }}>
-                <div className="ow-row" style={{ justifyContent: "space-between" }}><strong style={{ fontSize: 18 }}>{detail.member.pseudonym}</strong><span className={`ow-chip ${detail.member.closedAt ? "" : "ow-chip--ok"}`}>{detail.member.closedAt ? "Geschlossen" : "Aktiv"}</span></div>
+                <div className="ow-row" style={{ justifyContent: "space-between" }}><strong style={{ fontSize: "var(--text-18)" }}>{detail.member.pseudonym}</strong><span className={`ow-chip ${detail.member.closedAt ? "" : "ow-chip--ok"}`}>{detail.member.closedAt ? "Geschlossen" : "Aktiv"}</span></div>
                 <p className="ow-muted">{detail.member.programName} · {detail.member.locationName}</p>
-                <div className="ow-readonly"><span className="ow-muted">Aktueller Stand</span><div style={{ fontSize: 26, fontWeight: 700 }} className="ow-num">{detail.member.balance} {unitOf(detail.member)}</div></div>
+                <div className="ow-readonly"><span className="ow-muted">Aktueller Stand</span><div style={{ fontSize: "var(--text-28)", fontWeight: 700 }} className="ow-num">{detail.member.balance} {unitOf(detail.member)}</div></div>
                 <dl className="ow-dl">
                   <dt>Bestätigte Vorgänge</dt><dd>{detail.member.qualifyingCheckouts}</dd>
                   <dt>Erster Vorgang</dt><dd>{when(detail.member.firstQualifyingAt)}</dd>
@@ -250,9 +256,9 @@ export function CustomersView() {
                 {!detail.member.closedAt && (canAct
                   ? <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => setReissuing(true)}>Karte neu ausstellen</button><span className="ow-hint">Neuer Link bei verlorenem Kartenlink; Stand bleibt.</span></div>
                   : <p className="ow-hint">Korrigieren und neu ausstellen ist am Standort {detail.member.locationName} möglich. Wechsle dazu den aktiven Standort.</p>)}
-                {detail.eligibleRewards.length > 0 && <div><h3 style={{ fontSize: 15 }}>Jetzt einlösbar</h3><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{detail.eligibleRewards.map(reward => <li key={reward.id}>{reward.title} · {reward.cost} {unitOf(detail.member)}</li>)}</ul></div>}
-                <div><h3 style={{ fontSize: 15 }}>Vorgänge</h3><p className="ow-hint">Jeder bestätigte Kassenvorgang zählt einmal, unabhängig von der vergebenen Menge. Das ist kein Nachweis eines Besuchs.</p>
-                  {detail.timeline.length === 0 ? <p className="ow-muted">Noch keine Buchungen.</p> : <ol className="ow-feed">{detail.timeline.map(entry => <li key={entry.id}><span><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong><span className="ow-muted ow-num"> · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitOf(detail.member)}</span>{entry.kind !== "reversal" && <small className="ow-muted"> · {sourceLabel(entry.source)}</small>}{entry.reversed && <small className="ow-muted"> · später korrigiert</small>}{entry.kind === "reversal" && entry.reversalOfId && (() => { const original = detail.timeline.find(item => item.id === entry.reversalOfId); return <small className="ow-muted"> · {original ? `hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, true)} auf` : "hebt einen älteren Vorgang auf"}</small>; })()}{entry.reason && <small className="ow-feed-reason">Grund: {entry.reason}</small>}</span><span className="ow-feed-side"><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time>{canAct && correctable(entry) && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCorrecting(entry)}>Korrigieren</button>}</span></li>)}</ol>}
+                {detail.eligibleRewards.length > 0 && <div><h3 style={{ fontSize: "var(--text-16)" }}>Jetzt einlösbar</h3><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{detail.eligibleRewards.map(reward => <li key={reward.id}>{reward.title} · {reward.cost} {unitOf(detail.member)}</li>)}</ul></div>}
+                <div><h3 style={{ fontSize: "var(--text-16)" }}>Vorgänge</h3><p className="ow-hint">Jeder bestätigte Kassenvorgang zählt einmal, unabhängig von der vergebenen Menge. Das ist kein Nachweis eines Besuchs.</p>
+                  {detail.timeline.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Buchungen.">Gutschriften und Einlösungen dieser Karte erscheinen hier.</EmptyState> : <ol className="ow-feed">{detail.timeline.map(entry => <li key={entry.id}><span><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong><span className="ow-muted ow-num"> · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitOf(detail.member)}</span>{entry.kind !== "reversal" && <small className="ow-muted"> · {sourceLabel(entry.source)}</small>}{entry.reversed && <small className="ow-muted"> · später korrigiert</small>}{entry.kind === "reversal" && entry.reversalOfId && (() => { const original = detail.timeline.find(item => item.id === entry.reversalOfId); return <small className="ow-muted"> · {original ? `hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, true)} auf` : "hebt einen älteren Vorgang auf"}</small>; })()}{entry.reason && <small className="ow-feed-reason">Grund: {entry.reason}</small>}</span><span className="ow-feed-side"><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time>{canAct && correctable(entry) && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCorrecting(entry)}>Korrigieren</button>}</span></li>)}</ol>}
                   {detail.nextCursor && <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void older()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button>}
                 </div>
               </div>

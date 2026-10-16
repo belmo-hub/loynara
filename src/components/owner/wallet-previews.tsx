@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { BrowserCardPreview, type CardPreviewProps } from "./card-preview";
+import { BrowserCardPreview, CodeMock, type CardPreviewProps } from "./card-preview";
 import { readableInk } from "./color";
 
 export type Surface = "browser" | "apple" | "google";
@@ -10,11 +10,6 @@ export type PreviewData = CardPreviewProps & { programName: string; logoData: st
 const isPng = (logo: string | null) => Boolean(logo?.startsWith("data:image/png;base64,"));
 const SAMPLE_LOCATOR = "K-7QX2MA";
 
-// Decorative placeholder only: not a scannable code.
-function CodeMock({ caption }: { caption: string }) {
-  const cells = Array.from({ length: 49 }, (_, index) => ((index * 7 + Math.floor(index / 7) * 3) % 5) < 2);
-  return <div className="ow-pass-codewrap"><svg className="ow-pass-code" viewBox="0 0 7 7" aria-hidden="true" focusable="false">{cells.map((on, index) => on ? <rect key={index} x={index % 7} y={Math.floor(index / 7)} width="1" height="1" /> : null)}</svg><span className="ow-pass-alt">{caption}</span></div>;
-}
 
 /** Same derivation as lib/wallet/content: "7 / 10" for stamps, target reward, and a status line. */
 function progress(data: PreviewData) {

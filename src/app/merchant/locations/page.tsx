@@ -59,10 +59,10 @@ export default function MerchantLocationsPage() {
         <dl className="ow-metrics"><Stat label="Standorte" value={l.totals.locations} /><Stat label="Karten insgesamt" value={l.totals.cards} /><Stat label="Gutschrift-Einträge" value={l.totals.awards} /><Stat label="Einlösungen" value={l.totals.redemptions} /></dl>
         <p className="ow-hint">{l.countingRule}</p></section>
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
-        <section aria-labelledby="loc-list" className="ow-stack"><h2 id="loc-list" style={{ fontSize: 17 }}>Deine Standorte</h2>
+        <section aria-labelledby="loc-list" className="ow-stack"><h2 id="loc-list" style={{ fontSize: "var(--text-18)" }}>Deine Standorte</h2>
           {l.locations.map(location => (
             <article className="ow-card ow-stack" key={location.id}>
-              <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h3 style={{ fontSize: 17 }}>{location.name}</h3><p>{location.city} · {location.country}</p></div>{location.id === me.locationId && <span className="ow-chip ow-chip--ok">Aktiver Standort</span>}</div>
+              <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h3 style={{ fontSize: "var(--text-16)" }}>{location.name}</h3><p>{location.city} · {location.country}</p></div>{location.id === me.locationId && <span className="ow-chip ow-chip--ok">Aktiver Standort</span>}</div>
               <p>{location.programName || "Kein aktives Programm"}{location.programType ? ` · ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}</p>
               <dl className="ow-dl"><dt>Karten</dt><dd className="ow-num">{location.cards}</dd><dt>Gutschriften</dt><dd className="ow-num">{location.awards}</dd><dt>Einlösungen</dt><dd className="ow-num">{location.redemptions}</dd><dt>Aktive Teamzugänge</dt><dd className="ow-num">{location.activeStaff}</dd></dl>
               <div>{location.id !== me.locationId ? <button type="button" className="ow-btn ow-btn--secondary" disabled={busy || owner.switching} onClick={() => owner.switchLocation(location.id)}>Als aktiven Standort wählen</button> : <GuardedLink href="/merchant/program" className="ow-btn ow-btn--secondary">Programm ansehen</GuardedLink>}</div>
@@ -70,7 +70,7 @@ export default function MerchantLocationsPage() {
           ))}
         </section>
         <section className="ow-card ow-stack" aria-labelledby="loc-create" style={{ alignSelf: "start" }}>
-          <div><h2 id="loc-create">Standort hinzufügen</h2><p className="ow-muted" style={{ fontSize: 14 }}>Ein neues Standortprogramm beginnt mit null Karten und null Guthaben. Währung und Land bleiben beim bestehenden Betrieb: {l.currency} · {l.currency === "EUR" ? "Deutschland" : "Marokko"}.</p></div>
+          <div><h2 id="loc-create">Standort hinzufügen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ein neues Standortprogramm beginnt mit null Karten und null Guthaben. Währung und Land bleiben beim bestehenden Betrieb: {l.currency} · {l.currency === "EUR" ? "Deutschland" : "Marokko"}.</p></div>
           <form onSubmit={create} className="ow-stack">
             <Field id="lc-name" label="Standortname"><input id="lc-name" className="ow-input" value={draft.name} onChange={event => set({ name: event.target.value })} minLength={2} maxLength={180} required /></Field>
             <Field id="lc-city" label="Stadt"><input id="lc-city" className="ow-input" value={draft.city} onChange={event => set({ city: event.target.value })} minLength={2} maxLength={120} required /></Field>

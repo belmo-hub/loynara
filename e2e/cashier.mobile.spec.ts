@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { smallTargets } from "./support/targets";
 import { pool } from "../src/db";
 
 // The counter on phones: dark whatever the system setting, nothing sideways, text at least 14 px, every control at
@@ -21,17 +22,15 @@ async function signIn(page: Page) {
   expect(res.ok()).toBe(true);
 }
 
-/** Visible text under 14 px and controls under 44 px (inline links in running text are exempt). */
+/** Visible text under 14 px, and controls under 44 × 44 px by the shared rule (e2e/support/targets.ts). */
 async function audit(page: Page) {
-  return page.evaluate(() => {
+  const measured = await page.evaluate(() => {
     const visible = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !el.closest("[hidden]"); };
     const smallText = [...document.querySelectorAll("body *")].filter(el => visible(el) && [...el.childNodes].some(n => n.nodeType === 3 && n.textContent!.trim()))
       .filter(el => parseFloat(getComputedStyle(el).fontSize) < 14).map(el => el.textContent!.trim().slice(0, 30));
-    const smallControls = [...document.querySelectorAll<HTMLElement>("a[href], button, input, select")].filter(el => visible(el) && !el.closest("p, small"))
-      .filter(el => Math.min(el.getBoundingClientRect().height, el.getBoundingClientRect().width) < 44)
-      .map(el => (el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30));
-    return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, smallText, smallControls };
+    return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, smallText };
   });
+  return { ...measured, smallControls: await smallTargets(page) };
 }
 
 test.describe("cashier on phones", () => {
