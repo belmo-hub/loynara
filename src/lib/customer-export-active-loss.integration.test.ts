@@ -6,10 +6,12 @@ import { pool } from "@/db";
 import { nfcFixture } from "./nfc-test-db";
 import { award } from "./loyalty";
 import { getCustomerExport } from "./export";
+import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
-if (!["localhost", "127.0.0.1"].includes(database.hostname) || database.pathname !== "/looplocal_test" || database.username !== "looplocal") throw new Error("Synthetic export database required");
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
+assertLocalTestDatabaseUrl();
+if (database.username !== "looplocal") throw new Error("Synthetic export database required");
+beforeEach(async () => { await assertDisposableDatabase(pool); await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
 it("survives active export connection loss, rejects incomplete response and preserves healthy explicit retry", async () => {
   const own = await nfcFixture(), foreign = await nfcFixture();
