@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { ClientApiError, postJson } from "@/components/client-api";
+import { postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { inviteCreateMessage, inviteRevokeMessage, inviteUnconfirmed, staffRevokeMessage } from "@/components/owner/owner-errors";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type StaffMember = { userId: string; email?: string; role: "owner" | "manager" | "cashier"; locationId: string | null; active: boolean };
@@ -64,11 +65,8 @@ export default function StaffPage() {
       if (inviteDraftRevision.current === submitted.revision) setEmail("");
       reloadStaff(); reloadAudit();
     } catch (cause) {
-      const unconfirmed = cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300));
-      if (unconfirmed) {
-        setError(`Die Erstellung für ${submitted.email} wurde nicht bestätigt. Die Einladung kann bereits erstellt sein. Prüfe den Team-Verlauf, bevor du einen weiteren Link erstellst. Es wurde nichts automatisch versendet.`);
-        reloadAudit();
-      } else setError(cause instanceof Error ? cause.message : "Einladung konnte nicht erstellt werden.");
+      setError(inviteCreateMessage(cause, submitted.email));
+      if (inviteUnconfirmed(cause)) reloadAudit();
     }
     finally { setBusy(false); }
   }
@@ -79,7 +77,7 @@ export default function StaffPage() {
     try {
       await postJson("/api/staff/revoke", { userId: target.userId });
       setMessage("Der Teamzugang wurde gesperrt."); setRevokeTarget(current => current === target ? null : current); reloadStaff(); reloadAudit();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Zugang konnte nicht gesperrt werden."); setRevokeTarget(current => current === target ? null : current); }
+    } catch (cause) { setError(staffRevokeMessage(cause)); setRevokeTarget(current => current === target ? null : current); }
     finally { setBusy(false); setRevokingTarget(null); }
   }
   async function cancelInvitation() {
@@ -88,12 +86,16 @@ export default function StaffPage() {
     setBusy(true); setCancellingTarget(target); setError(""); setMessage("");
     try {
       const result = await postJson<{ inviteId: string; status: string }>("/api/staff/invite/revoke", { inviteId: target.id });
-      if (result.inviteId !== target.id || result.status !== "revoked") throw new Error("Der Widerruf wurde nicht bestätigt. Prüfe den Einladungsstatus vor einem erneuten Versuch.");
+      if (result.inviteId !== target.id || result.status !== "revoked") {
+        setError("Der Widerruf wurde nicht bestätigt. Prüfe den Einladungsstatus vor einem erneuten Versuch.");
+        setCancelTarget(current => current === target ? null : current);
+        return;
+      }
       setMessage(`Die Einladung für ${target.email} wurde widerrufen.`);
       setInvite(current => current?.id === target.id ? null : current);
       setCancelTarget(current => current === target ? null : current);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Einladung konnte nicht widerrufen werden.");
+      setError(inviteRevokeMessage(cause));
       setCancelTarget(current => current === target ? null : current);
     } finally { reloadStaff(); reloadAudit(); setBusy(false); setCancellingTarget(null); }
   }
