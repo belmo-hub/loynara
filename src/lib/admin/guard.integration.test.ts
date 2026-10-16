@@ -19,11 +19,13 @@ async function identity(){
 }
 async function enrolled(){
  const user=await identity();
+ await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[user.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:user.headers,body:{password}});
  if (enabled.method !== "totp") throw new Error("TOTP enrollment required");
  const encoded=new URL(enabled.totpURI).searchParams.get("secret")!;
  const otp=createOTP(new TextDecoder().decode(base32.decode(encoded)));
  const confirmed=await auth.api.verifyTOTP({headers:user.headers,body:{code:await otp.totp()},returnHeaders:true});
+ await pool.query("DELETE FROM platform_admins WHERE user_id=$1",[user.userId]);
  return {...user,headers:new Headers({cookie:cookie(confirmed.headers)}),otp,backupCodes:enabled.backupCodes};
 }
 const adminOrigin="http://admin.localhost:3000";
@@ -71,25 +73,30 @@ it("refuses a password-only session left open before enrollment in another brows
  const u=await identity();
  const stale=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
  const staleHeaders=new Headers({cookie:cookie(stale.headers)});
+ await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[u.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:u.headers,body:{password}});if(enabled.method!=="totp")throw new Error("TOTP required");
  const otp=createOTP(new TextDecoder().decode(base32.decode(new URL(enabled.totpURI).searchParams.get("secret")!)));
  await auth.api.verifyTOTP({headers:u.headers,body:{code:await otp.totp()}});
+ await pool.query("DELETE FROM platform_admins WHERE user_id=$1",[u.userId]);
  await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:test')",[u.userId]);
  await expect(requireAdmin(await request({...u,headers:staleHeaders}),"home.view")).rejects.toMatchObject({code:"UNAUTHENTICATED"});
 });
 it("refuses factor-secret management from a stale password-only session",async()=>{
  const u=await identity();const stale=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
+ await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[u.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:u.headers,body:{password}});if(enabled.method!=="totp")throw new Error("TOTP required");
  const otp=createOTP(new TextDecoder().decode(base32.decode(new URL(enabled.totpURI).searchParams.get("secret")!)));
  await auth.api.verifyTOTP({headers:u.headers,body:{code:await otp.totp()}});
+ await pool.query("DELETE FROM platform_admins WHERE user_id=$1",[u.userId]);
  await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:test')",[u.userId]);
  const signed=await access(u.email);
  const result=await auth.handler(new Request(adminOrigin+"/api/auth/two-factor/get-totp-uri",{method:"POST",headers:{origin:adminOrigin,host:"admin.localhost:3000","content-type":"application/json",cookie:cookie(stale.headers),"cf-access-jwt-assertion":signed},body:JSON.stringify({password})}));
- expect(result.status).toBe(401);
+ expect(result.status).toBe(404);
 });
 it("revokes other password-only sessions when initial enrollment completes",async()=>{
  const u=await identity();const stale=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
  const staleHeaders=new Headers({cookie:cookie(stale.headers)});expect(await auth.api.getSession({headers:staleHeaders})).not.toBeNull();
+ await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[u.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:u.headers,body:{password}});if(enabled.method!=="totp")throw new Error("TOTP required");
  const otp=createOTP(new TextDecoder().decode(base32.decode(new URL(enabled.totpURI).searchParams.get("secret")!)));
  const confirmed=await auth.api.verifyTOTP({headers:u.headers,body:{code:await otp.totp()},returnHeaders:true});

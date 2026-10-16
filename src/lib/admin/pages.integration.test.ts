@@ -22,11 +22,13 @@ async function identity(){
 }
 async function enrolled(){
  const user=await identity();
+ await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[user.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:user.headers,body:{password}});
  if (enabled.method !== "totp") throw new Error("TOTP enrollment required");
  const encoded=new URL(enabled.totpURI).searchParams.get("secret")!;
  const otp=createOTP(new TextDecoder().decode(base32.decode(encoded)));
  const confirmed=await auth.api.verifyTOTP({headers:user.headers,body:{code:await otp.totp()},returnHeaders:true});
+ await pool.query("DELETE FROM platform_admins WHERE user_id=$1",[user.userId]);
  return {...user,headers:new Headers({cookie:cookie(confirmed.headers)}),otp,backupCodes:enabled.backupCodes};
 }
 const adminOrigin="http://admin.localhost:3000";

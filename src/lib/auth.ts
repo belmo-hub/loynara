@@ -47,6 +47,14 @@ export const auth = betterAuth({
       }
     }),
     before: createAuthMiddleware(async (context) => {
+      if (context.path.startsWith("/two-factor/")) {
+        const session = await auth.api.getSession({ headers: context.headers ?? context.request?.headers ?? new Headers() });
+        const challenge = await context.getSignedCookie(context.context.createAuthCookie("two_factor").name, context.context.secret);
+        const verification = challenge ? await context.context.internalAdapter.findVerificationValue(challenge) : null;
+        const userId = session?.user.id ?? (verification && verification.expiresAt > new Date() ? verification.value : undefined);
+        const admins = userId ? await authPool.query("SELECT 1 FROM platform_admins WHERE user_id=$1 LIMIT 1", [userId]) : null;
+        if (!admins?.rowCount) throw new APIError("NOT_FOUND", { message: "Not found" });
+      }
       const factorAttempt = ["/two-factor/verify-totp", "/two-factor/verify-backup-code"].includes(context.path);
       if (context.request && (context.path === "/sign-in/email" || factorAttempt)) {
         let email = (context.body as { email?: unknown } | undefined)?.email;
