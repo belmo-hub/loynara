@@ -3,5 +3,5 @@ import path from "node:path";
 
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
-  test: { environment: "node", testTimeout: 20000, fileParallelism: false, include: ["src/**/*.test.ts", "scripts/**/*.test.ts"] },
+  test: { environment: "node", testTimeout: 20000, fileParallelism: false, include: ["src/**/*.test.ts", "scripts/**/*.test.ts"], setupFiles: ["./vitest.setup.ts"] },
 });
