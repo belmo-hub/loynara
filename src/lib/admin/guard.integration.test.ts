@@ -15,7 +15,7 @@ afterAll(async()=>{vi.unstubAllEnvs();await pool.end();});
 async function identity(){
  const email=`${randomUUID()}@example.test`;
  const result=await auth.api.signUpEmail({body:{email,password,name:"Synthetic admin"},returnHeaders:true});
- return {userId:result.response.user.id,email,headers:new Headers({cookie:cookie(result.headers)})};
+ return {userId:result.response.user.id,email,headers:new Headers({host:"admin.localhost:3000",cookie:cookie(result.headers)})};
 }
 async function enrolled(){
  const user=await identity();
@@ -26,7 +26,7 @@ async function enrolled(){
  const otp=createOTP(new TextDecoder().decode(base32.decode(encoded)));
  const confirmed=await auth.api.verifyTOTP({headers:user.headers,body:{code:await otp.totp()},returnHeaders:true});
  await pool.query("DELETE FROM platform_admins WHERE user_id=$1",[user.userId]);
- return {...user,headers:new Headers({cookie:cookie(confirmed.headers)}),otp,backupCodes:enabled.backupCodes};
+ return {...user,headers:new Headers({host:"admin.localhost:3000",cookie:cookie(confirmed.headers)}),otp,backupCodes:enabled.backupCodes};
 }
 const adminOrigin="http://admin.localhost:3000";
 async function access(email:string){
@@ -71,8 +71,8 @@ it("refunds successful console passwords and keeps merchant sign-in independent"
 });
 it("refuses a password-only session left open before enrollment in another browser",async()=>{
  const u=await identity();
- const stale=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
- const staleHeaders=new Headers({cookie:cookie(stale.headers)});
+ const stale=await auth.api.signInEmail({headers:{host:"admin.localhost:3000"},body:{email:u.email,password},returnHeaders:true});
+ const staleHeaders=new Headers({host:"admin.localhost:3000",cookie:cookie(stale.headers)});
  await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[u.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:u.headers,body:{password}});if(enabled.method!=="totp")throw new Error("TOTP required");
  const otp=createOTP(new TextDecoder().decode(base32.decode(new URL(enabled.totpURI).searchParams.get("secret")!)));
@@ -82,7 +82,7 @@ it("refuses a password-only session left open before enrollment in another brows
  await expect(requireAdmin(await request({...u,headers:staleHeaders}),"home.view")).rejects.toMatchObject({code:"UNAUTHENTICATED"});
 });
 it("refuses factor-secret management from a stale password-only session",async()=>{
- const u=await identity();const stale=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
+ const u=await identity();const stale=await auth.api.signInEmail({headers:{host:"admin.localhost:3000"},body:{email:u.email,password},returnHeaders:true});
  await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[u.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:u.headers,body:{password}});if(enabled.method!=="totp")throw new Error("TOTP required");
  const otp=createOTP(new TextDecoder().decode(base32.decode(new URL(enabled.totpURI).searchParams.get("secret")!)));
@@ -94,36 +94,36 @@ it("refuses factor-secret management from a stale password-only session",async()
  expect(result.status).toBe(404);
 });
 it("revokes other password-only sessions when initial enrollment completes",async()=>{
- const u=await identity();const stale=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
- const staleHeaders=new Headers({cookie:cookie(stale.headers)});expect(await auth.api.getSession({headers:staleHeaders})).not.toBeNull();
+ const u=await identity();const stale=await auth.api.signInEmail({headers:{host:"admin.localhost:3000"},body:{email:u.email,password},returnHeaders:true});
+ const staleHeaders=new Headers({host:"admin.localhost:3000",cookie:cookie(stale.headers)});expect(await auth.api.getSession({headers:staleHeaders})).not.toBeNull();
  await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:fixture')",[u.userId]);
  const enabled=await auth.api.enableTwoFactor({headers:u.headers,body:{password}});if(enabled.method!=="totp")throw new Error("TOTP required");
  const otp=createOTP(new TextDecoder().decode(base32.decode(new URL(enabled.totpURI).searchParams.get("secret")!)));
  const confirmed=await auth.api.verifyTOTP({headers:u.headers,body:{code:await otp.totp()},returnHeaders:true});
- expect(await auth.api.getSession({headers:new Headers({cookie:cookie(confirmed.headers)})})).not.toBeNull();
+ expect(await auth.api.getSession({headers:new Headers({host:"admin.localhost:3000",cookie:cookie(confirmed.headers)})})).not.toBeNull();
  expect(await auth.api.getSession({headers:staleHeaders})).toBeNull();
 });
-it("shares the admin password budget across app and console hosts",async()=>{
+it("refuses app-host password guesses even after the admin-host budget is exhausted",async()=>{
  const u=await founder();vi.stubEnv("TRUSTED_INGRESS","cloudflare_tunnel");
  for(let i=0;i<6;i++){
   const origin=i<5?adminOrigin:"http://localhost:3000";
   const r=await auth.handler(new Request(origin+"/api/auth/sign-in/email",{method:"POST",headers:{origin,host:new URL(origin).host,"content-type":"application/json","cf-connecting-ip":`192.0.2.${100+i}`},body:JSON.stringify({email:u.email,password:"wrong-password"})}));
-  expect(r.status).toBe(i<5?401:429);
+  expect(r.status).toBe(401);
  }
 });
 it("shares the admin failure budget across fresh MFA challenges and factors",async()=>{
  const u=await founder();vi.stubEnv("TRUSTED_INGRESS","cloudflare_tunnel");
  for(let i=0;i<6;i++){
-  const login=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
+  const login=await auth.api.signInEmail({headers:{host:"admin.localhost:3000"},body:{email:u.email,password},returnHeaders:true});
   const path=i%2?"verify-backup-code":"verify-totp";
-  const r=await auth.handler(new Request("http://localhost:3000/api/auth/two-factor/"+path,{method:"POST",headers:{origin:"http://localhost:3000",host:"localhost:3000","content-type":"application/json",cookie:cookie(login.headers),"cf-connecting-ip":`192.0.2.${120+i}`},body:JSON.stringify({code:i===5?u.backupCodes[0]:"wrong"})}));
+  const r=await auth.handler(new Request(adminOrigin+"/api/auth/two-factor/"+path,{method:"POST",headers:{origin:adminOrigin,host:"admin.localhost:3000","content-type":"application/json",cookie:cookie(login.headers),"cf-connecting-ip":`192.0.2.${120+i}`},body:JSON.stringify({code:i===5?u.backupCodes[0]:"wrong"})}));
   expect(r.status).toBe(i<5?401:429);
  }
 });
 it("shares the MFA IP budget across admin accounts",async()=>{
  const users=[await founder(),await founder()];vi.stubEnv("TRUSTED_INGRESS","cloudflare_tunnel");
  for(let i=0;i<6;i++){
-  const u=users[i%2],login=await auth.api.signInEmail({body:{email:u.email,password},returnHeaders:true});
+  const u=users[i%2],login=await auth.api.signInEmail({headers:{host:"admin.localhost:3000"},body:{email:u.email,password},returnHeaders:true});
   const r=await auth.handler(new Request(adminOrigin+"/api/auth/two-factor/verify-backup-code",{method:"POST",headers:{origin:adminOrigin,host:"admin.localhost:3000","content-type":"application/json",cookie:cookie(login.headers),"cf-connecting-ip":"192.0.2.140"},body:JSON.stringify({code:i===5?u.backupCodes[0]:"wrong"})}));
   expect(r.status).toBe(i<5?401:429);
  }

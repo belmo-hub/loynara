@@ -5,7 +5,7 @@ import { pool } from "@/db";
 vi.hoisted(() => { process.env.ADMIN_ORIGIN = "http://admin.localhost:3000"; });
 const appOrigin="http://localhost:3000", adminOrigin="http://admin.localhost:3000", password="Synthetic-console-password-2026!";
 const cookies=(headers: Headers)=>headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
-beforeEach(async()=>{await pool.query('TRUNCATE "user", rate_limits CASCADE');vi.stubEnv("PUBLIC_REGISTRATION_ENABLED","true");});
+beforeEach(async()=>{vi.stubEnv("ADMIN_ORIGIN",adminOrigin);await pool.query('TRUNCATE "user", rate_limits CASCADE');vi.stubEnv("PUBLIC_REGISTRATION_ENABLED","true");});
 afterAll(async()=>{vi.unstubAllEnvs();await authPool.end();await pool.end();});
 async function identity(){
  const email=`${randomUUID()}@example.test`;
@@ -42,4 +42,37 @@ it("refuses factor verification for a merchant resolved from a signed challenge"
  expect(challenge.status).toBe(200);expect(await challenge.json()).toMatchObject({twoFactorRedirect:true});
  const response=await post("/two-factor/verify-totp",{code:"123456"},cookies(challenge.headers));
  expect(response.status).toBe(404);
+});
+async function consoleAccount(){
+ const u=await identity();await pool.query("INSERT INTO platform_admins(user_id,role,granted_by) VALUES($1,'founder','operator_cli:test')",[u.userId]);return u;
+}
+it("refuses an admin password on the app host without creating sessions or spending the admin budget",async()=>{
+ const u=await consoleAccount(),m=await merchant();
+ const wrong=await post("/sign-in/email",{email:m.email,password:"wrong-password"},"");
+ const generic=await wrong.json();expect(wrong.status).toBe(401);
+ const before=(await pool.query('SELECT count(*)::int AS n FROM "session" WHERE "userId"=$1',[u.userId])).rows[0].n;
+ for(let i=0;i<6;i++){
+  const response=await post("/sign-in/email",{email:u.email,password},"");
+  expect(response.status).toBe(401);expect(await response.json()).toEqual(generic);
+ }
+ expect((await pool.query('SELECT count(*)::int AS n FROM "session" WHERE "userId"=$1',[u.userId])).rows[0].n).toBe(before);
+ expect((await pool.query("SELECT hits FROM rate_limits WHERE hits>0")).rowCount).toBe(0);
+ const accepted=await post("/sign-in/email",{email:u.email,password},"",adminOrigin);
+ expect(accepted.status).toBe(200);expect(await accepted.json()).toHaveProperty("token");
+ expect((await post("/sign-in/email",{email:m.email,password},"")).status).toBe(200);
+});
+it("refuses admin password sign-in when ADMIN_ORIGIN is unset",async()=>{
+ const u=await consoleAccount();vi.stubEnv("ADMIN_ORIGIN","");
+ const response=await post("/sign-in/email",{email:u.email,password},"",adminOrigin);
+ expect(response.status).toBe(401);expect(await response.json()).toMatchObject({message:"Invalid email or password"});
+ expect((await pool.query("SELECT hits FROM rate_limits WHERE hits>0")).rowCount).toBe(0);
+});
+it.each([["verify-totp",false],["verify-backup-code",false],["verify-totp",true],["verify-backup-code",true]] as const)("refuses admin /two-factor/%s off-host or without configuration (unset=%s)",async (path,unset)=>{
+ const u=await consoleAccount();await pool.query('UPDATE "user" SET "twoFactorEnabled"=true WHERE id=$1',[u.userId]);
+ const challenge=await post("/sign-in/email",{email:u.email,password},"",adminOrigin);
+ expect(challenge.status).toBe(200);
+ if(unset)vi.stubEnv("ADMIN_ORIGIN","");
+ const response=await post("/two-factor/"+path,{code:"123456"},cookies(challenge.headers));
+ expect(response.status).toBe(401);expect(await response.json()).toMatchObject({message:"Invalid email or password"});
+ expect((await pool.query("SELECT hits FROM rate_limits WHERE hits>0")).rowCount).toBe(0);
 });

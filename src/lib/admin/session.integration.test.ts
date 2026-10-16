@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { pool } from "@/db";
 import { touchAdminSession, performStepUp, hasFreshStepUp } from "./session";
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test") || !["localhost","127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname)) throw new Error("Dedicated local synthetic database required");
+vi.hoisted(() => { process.env.ADMIN_ORIGIN = "http://admin.localhost:3000"; });
 const password="Synthetic-console-password-2026!";
 const cookie=(headers: Headers)=>headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
 beforeEach(async()=>{ await pool.query('TRUNCATE "user", rate_limits CASCADE');vi.stubEnv("PUBLIC_REGISTRATION_ENABLED","true"); });
@@ -13,7 +14,7 @@ afterAll(async()=>{vi.unstubAllEnvs();await pool.end();});
 async function identity(){
  const email=`${randomUUID()}@example.test`;
  const result=await auth.api.signUpEmail({body:{email,password,name:"Synthetic admin"},returnHeaders:true});
- return {userId:result.response.user.id,email,headers:new Headers({cookie:cookie(result.headers)})};
+ return {userId:result.response.user.id,email,headers:new Headers({host:"admin.localhost:3000",cookie:cookie(result.headers)})};
 }
 async function enrolled(){
  const user=await identity();
@@ -24,7 +25,7 @@ async function enrolled(){
  const otp=createOTP(new TextDecoder().decode(base32.decode(encoded)));
  const confirmed=await auth.api.verifyTOTP({headers:user.headers,body:{code:await otp.totp()},returnHeaders:true});
  await pool.query("DELETE FROM platform_admins WHERE user_id=$1",[user.userId]);
- return {...user,headers:new Headers({cookie:cookie(confirmed.headers)}),otp,backupCodes:enabled.backupCodes};
+ return {...user,headers:new Headers({host:"admin.localhost:3000",cookie:cookie(confirmed.headers)}),otp,backupCodes:enabled.backupCodes};
 }
 async function fixture(){
  const user=await enrolled();const session=await auth.api.getSession({headers:user.headers});if(!session)throw new Error("Session required");

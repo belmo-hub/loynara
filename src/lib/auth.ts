@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { twoFactor } from "better-auth/plugins";
 import { APIError, createAuthMiddleware } from "better-auth/api";
+import { BASE_ERROR_CODES } from "@better-auth/core/error";
 import { Pool } from "pg";
 import { guardPoolErrors } from "@/db/pool-errors";
 
@@ -10,6 +11,15 @@ export const authPool = guardPoolErrors(new Pool({ connectionString: process.env
 
 type AdminSignInLimit = { scope: string; identity: string; max: number; windowSeconds: number };
 const adminSignInReservations = new WeakMap<Request, { limits: AdminSignInLimit[]; factor: boolean }>();
+
+function requireAdminSignInHost(headers: Headers | undefined, request: Request | undefined): void {
+  let configuredHost: string | undefined;
+  try { configuredHost = new URL(process.env.ADMIN_ORIGIN ?? "").host; } catch { /* Missing configuration refuses sign-in. */ }
+  const requestHost = headers?.get("host") ?? (request ? new URL(request.url).host : undefined);
+  if (!configuredHost || requestHost?.toLowerCase() !== configuredHost.toLowerCase()) {
+    throw APIError.from("UNAUTHORIZED", BASE_ERROR_CODES.INVALID_EMAIL_OR_PASSWORD);
+  }
+}
 
 export const auth = betterAuth({
   database: authPool,
@@ -47,36 +57,31 @@ export const auth = betterAuth({
       }
     }),
     before: createAuthMiddleware(async (context) => {
+      let factorEmail: string | undefined;
       if (context.path.startsWith("/two-factor/")) {
         const session = await auth.api.getSession({ headers: context.headers ?? context.request?.headers ?? new Headers() });
         const challenge = await context.getSignedCookie(context.context.createAuthCookie("two_factor").name, context.context.secret);
         const verification = challenge ? await context.context.internalAdapter.findVerificationValue(challenge) : null;
         const userId = session?.user.id ?? (verification && verification.expiresAt > new Date() ? verification.value : undefined);
-        const admins = userId ? await authPool.query("SELECT 1 FROM platform_admins WHERE user_id=$1 LIMIT 1", [userId]) : null;
+        const admins = userId ? await authPool.query('SELECT u.email FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE u.id=$1 LIMIT 1', [userId]) : null;
         if (!admins?.rowCount) throw new APIError("NOT_FOUND", { message: "Not found" });
+        factorEmail = admins.rows[0].email;
       }
       const factorAttempt = ["/two-factor/verify-totp", "/two-factor/verify-backup-code"].includes(context.path);
-      if (context.request && (context.path === "/sign-in/email" || factorAttempt)) {
+      if (context.path === "/sign-in/email" || factorAttempt) {
         let email = (context.body as { email?: unknown } | undefined)?.email;
         let adminAccount = false;
         if (factorAttempt) {
-          const session = await auth.api.getSession({ headers: context.headers ?? context.request.headers });
-          // Resolve the same signed challenge used by the installed two-factor plugin.
-          const challenge = await context.getSignedCookie(context.context.createAuthCookie("two_factor").name, context.context.secret);
-          const verification = challenge ? await context.context.internalAdapter.findVerificationValue(challenge) : null;
-          const userId = session?.user.id ?? (verification && verification.expiresAt > new Date() ? verification.value : undefined);
-          if (userId) {
-            const result = await authPool.query('SELECT u.email FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE u.id=$1 LIMIT 1', [userId]);
-            email = result.rows[0]?.email;
-            adminAccount = !!result.rowCount;
-          }
+          email = factorEmail;
+          adminAccount = !!factorEmail;
         } else if (typeof email === "string") {
           const result = await authPool.query('SELECT 1 FROM "user" u JOIN platform_admins a ON a.user_id=u.id WHERE lower(u.email)=$1 LIMIT 1', [email.trim().toLowerCase()]);
           adminAccount = !!result.rowCount;
         }
+        if (adminAccount) requireAdminSignInHost(context.headers, context.request);
         const configuredHost = process.env.ADMIN_ORIGIN ? new URL(process.env.ADMIN_ORIGIN).host : undefined;
-        const requestHost = context.headers?.get("host") ?? new URL(context.request.url).host;
-        if (adminAccount || (!factorAttempt && configuredHost && requestHost.toLowerCase() === configuredHost.toLowerCase())) {
+        const requestHost = context.headers?.get("host") ?? (context.request ? new URL(context.request.url).host : undefined);
+        if (context.request && (adminAccount || (!factorAttempt && configuredHost && requestHost?.toLowerCase() === configuredHost.toLowerCase()))) {
           const { enforceRateLimit, refundRateLimit, peerIdentity, RateLimitError } = await import("./rate-limit");
           if (typeof email !== "string" || !email.trim() || email.length > 320) throw new APIError("BAD_REQUEST", { message: "Invalid sign-in request" });
           const limits = [`account:${email.trim().toLowerCase()}`, `ip:${peerIdentity(context.request)}`].map(identity => ({ scope: "admin_signin_failure", identity, max: 5, windowSeconds: 900 }));
