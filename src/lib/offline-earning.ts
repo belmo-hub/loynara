@@ -105,7 +105,8 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
     await saveEvent(tx, lease, input, "accepted", null, booked.entryId, now);
     return { status: "accepted", balance: booked.balance, entryId: booked.entryId, duplicate: booked.duplicate };
   } catch (error) {
-    if (!(error instanceof DomainError) || error.code === "KEY_REUSED") throw error;
+    // A busy programme is not a verdict on the award: fail this sync so the event stays pending for the next one.
+    if (!(error instanceof DomainError) || error.code === "KEY_REUSED" || error.code === "PROGRAMME_BUSY") throw error;
     await saveEvent(tx, lease, input, "rejected", error.code, null, now);
     return { status: "rejected", reason: error.code };
   }

@@ -4,7 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { and, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
-import { DomainError, awardTapInTransaction, awardInTransaction } from "./loyalty";
+import { DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeForBooking } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
 import { formatCardLocator } from "./card-locator";
@@ -295,7 +295,8 @@ export async function confirmTapRequest(input: { userId: string; locationId: str
     // Both held until commit, and taken before the card: switching NFC off or revoking the tag waits for this
     // confirmation, or this confirmation sees it. Programme, then tag, then card, so neither a tap (tag, then card) nor
     // a checkout (card, then a shared programme lock) can form a cycle with it.
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, request.programId), eq(programs.tenantId, request.tenantId))).for("share");
+    // Bounded like a checkout's programme lock (an already confirmed request was answered above, before any lock).
+    const [program] = await lockProgrammeForBooking(tx, () => tx.select().from(programs).where(and(eq(programs.id, request.programId), eq(programs.tenantId, request.tenantId))).for("share"));
     if (!program || program.tapMode !== "staff_confirmed" || program.type !== "stamp" || program.status !== "active") throw new DomainError("TAP_EXPIRED", "Tap programme changed");
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, request.tagId)).for("share");
     if (!tag || tag.status !== "active") throw new DomainError("TAP_EXPIRED", "Tag is no longer active");

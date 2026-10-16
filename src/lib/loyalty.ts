@@ -25,6 +25,26 @@ function rethrowLedgerKeyConflict(error: unknown): never {
   throw error;
 }
 
+// How long a booking waits for an owner's programme save before giving up. It holds the card meanwhile, so a slow save
+// must not stall the counter; nothing is booked and the cashier can simply try again.
+const PROGRAMME_LOCK_WAIT = "3s";
+
+export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Promise<T>): Promise<T> {
+  const [{ previous }] = (await tx.execute<{ previous: string }>(sql`SELECT current_setting('lock_timeout') AS previous`)).rows;
+  await tx.execute(sql`SELECT set_config('lock_timeout', ${PROGRAMME_LOCK_WAIT}, true)`);
+  let locked: T;
+  try { locked = await read(); }
+  catch (error) {
+    const databaseError = error instanceof Error && error.cause ? error.cause : error;
+    if (databaseError && typeof databaseError === "object" && "code" in databaseError && databaseError.code === "55P03") {
+      throw new DomainError("PROGRAMME_BUSY", "The programme is being changed right now; nothing was booked, try again in a moment");
+    }
+    throw error;
+  }
+  await tx.execute(sql`SELECT set_config('lock_timeout', ${previous}, true)`);
+  return locked;
+}
+
 export type AwardInput = {
   userId: string;
   locationId: string;
@@ -73,16 +93,16 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
-    // Shared and held until commit: an owner's programme save (FOR UPDATE) and a booking wait for each other, so the
-    // save's "no activity yet" check before a type change cannot miss a first award committing at the same moment.
-    // Automatic tap awards keep the plain read: they hold their tag first, and never run in production.
-    const programRow = tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
-    const [program] = trustedTap ? await programRow : await programRow.for("share");
-    if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+    const programRow = () => tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
+    const atThisLocation = (row: typeof programs.$inferSelect | undefined) => {
+      if (!row || row.locationId !== input.locationId || row.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+      return row;
+    };
+    // Authorization and replay come before the programme lock below: a booking that already went through is reported
+    // as such even while an owner saves the programme, never as "nothing was booked", which would invite a second one.
+    atThisLocation((await programRow())[0]);
     const staff = trustedTap ? undefined : await checkoutStaff(tx, member.tenantId, input.userId);
     if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
-    if (trustedTap && (program.type !== "stamp" || program.earningMode !== "manual" || input.quantity !== 1)) throw new DomainError("INVALID_EARNING_MODE", "Tap supports one fixed stamp only");
-    const purchaseMode = program.type === "points" && program.earningMode === "purchase";
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
       if (existing.membershipId !== member.id || existing.kind !== "award") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
@@ -92,6 +112,13 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       } else if (purchase || existing.delta !== input.quantity || input.purchaseAmountMinor !== undefined || input.ruleVersionId !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
       return { balance: member.balance, duplicate: true, entryId: existing.id, creditedQuantity: existing.delta };
     }
+    // A new booking: shared and held until commit, so an owner's programme save (FOR UPDATE) and a booking wait for each
+    // other and the save's "no activity yet" check before a type change cannot miss a first award committing at the
+    // same moment. Read again under the lock. Automatic tap awards keep the plain read: they hold their tag first, and
+    // never run in production.
+    const program = atThisLocation((trustedTap ? await programRow() : await lockProgrammeForBooking(tx, () => programRow().for("share")))[0]);
+    if (trustedTap && (program.type !== "stamp" || program.earningMode !== "manual" || input.quantity !== 1)) throw new DomainError("INVALID_EARNING_MODE", "Tap supports one fixed stamp only");
+    const purchaseMode = program.type === "points" && program.earningMode === "purchase";
 
     let quantity: number;
     let ruleVersionId: string | undefined;
