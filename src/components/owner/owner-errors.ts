@@ -18,16 +18,18 @@ function common(cause: ClientApiError) {
   if (cause.status === 429) return RATE_LIMITED;
 }
 
-/** No answer, or an unreadable 2xx: the invitation may have been created. */
-export const inviteUnconfirmed = (cause: unknown) => !(cause instanceof ClientApiError) || cause.status === 0 || (cause.status >= 200 && cause.status < 300);
+/** No answer, or an unreadable 2xx: the change may have been saved. */
+export const unconfirmed = (cause: unknown) => !(cause instanceof ClientApiError) || cause.status === 0 || (cause.status >= 200 && cause.status < 300);
 
 /** A failed POST /api/staff/invite for `email`. */
 export function inviteCreateMessage(cause: unknown, email: string): string {
-  if (!(cause instanceof ClientApiError) || inviteUnconfirmed(cause))
+  if (!(cause instanceof ClientApiError) || unconfirmed(cause))
     return `Die Erstellung für ${email} wurde nicht bestätigt. Die Einladung kann bereits erstellt sein. Prüfe den Team-Verlauf, bevor du einen weiteren Link erstellst. Es wurde nichts automatisch versendet.`;
   const shared = common(cause);
   if (shared) return shared;
-  if (cause.code === "NOT_FOUND") return "Der Standort ist nicht mehr ausgewählt. Lade die Seite neu, prüfe den Standort und erstelle den Link dann erneut.";
+  // The invite route checks the selected location through getMerchantContext (src/lib/product.ts).
+  if (cause.code === "NOT_FOUND" || cause.code === "INVALID_LOCATION") return "Der Standort ist nicht mehr ausgewählt. Lade die Seite neu, prüfe den Standort und erstelle den Link dann erneut.";
+  if (cause.code === "SETUP_INCOMPLETE") return SETUP_INCOMPLETE;
   if (cause.status >= 500) return "Die Einladung kann gerade nicht erstellt werden. Prüfe den Team-Verlauf und versuche es später erneut.";
   if (cause.status === 400 && !cause.code) return "Die Einladung wurde nicht erstellt. Prüfe die E-Mail-Adresse und versuche es erneut.";
   return `Die Einladung wurde nicht erstellt. ${RELOAD}`;
@@ -35,7 +37,7 @@ export function inviteCreateMessage(cause: unknown, email: string): string {
 
 /** A failed POST /api/staff/revoke. Revoking is idempotent, so checking the list and trying again is safe. */
 export function staffRevokeMessage(cause: unknown): string {
-  if (!(cause instanceof ClientApiError) || cause.status === 0)
+  if (!(cause instanceof ClientApiError) || unconfirmed(cause))
     return "Ob der Zugang gesperrt wurde, ist nicht bestätigt. Prüfe deine Verbindung und die Liste der Zugänge, dann versuche es erneut.";
   const shared = common(cause);
   if (shared) return shared;
@@ -47,7 +49,7 @@ export function staffRevokeMessage(cause: unknown): string {
 
 /** A failed POST /api/staff/invite/revoke; the page reloads the invitation list afterwards either way. */
 export function inviteRevokeMessage(cause: unknown): string {
-  if (!(cause instanceof ClientApiError) || cause.status === 0)
+  if (!(cause instanceof ClientApiError) || unconfirmed(cause))
     return "Ob die Einladung widerrufen wurde, ist nicht bestätigt. Prüfe deine Verbindung und den Einladungsstatus, bevor du es erneut versuchst.";
   const shared = common(cause);
   if (shared) return shared;
@@ -61,7 +63,8 @@ export function inviteRevokeMessage(cause: unknown): string {
 /** A failed GET /api/me other than 401 (which sends the person to the sign-in). The error screen offers a retry. */
 export function accountLoadMessage(cause: unknown): string {
   if (!(cause instanceof ClientApiError) || cause.status === 0) return "Dein Konto konnte nicht geladen werden, weil die Verbindung fehlt. Prüfe deine Verbindung und versuche es erneut.";
-  if (cause.code === "FORBIDDEN") return "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
+  // FORBIDDEN means a revoked team account or one without a location; the wording fits both.
+  if (cause.code === "FORBIDDEN") return "Dein Zugang ist gesperrt oder keinem Standort zugeordnet. Bitte wende dich an die Inhaberin oder den Inhaber.";
   if (cause.code === "SETUP_INCOMPLETE") return SETUP_INCOMPLETE;
   if (cause.code === "NOT_FOUND" || cause.code === "INVALID_LOCATION") return "Der zuletzt gewählte Standort ist nicht mehr verfügbar. Bitte wende dich an den Support.";
   if (cause.status === 429) return RATE_LIMITED;

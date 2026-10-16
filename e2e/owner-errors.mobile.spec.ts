@@ -19,7 +19,8 @@ test("a failed invitation says what to do", async ({ page }) => {
   await page.goto("/merchant/staff");
   const form = page.locator('section[aria-labelledby="st-invite"]'), alert = page.locator('.ow-notice[role="alert"]');
   await form.getByLabel("E-Mail-Adresse", { exact: true }).fill("team@example.test");
-  for (const [answer, text] of [[fail(500, { error: "Internal error" }), "kann gerade nicht erstellt werden"], [fail(404, { error: "Location not selected", code: "NOT_FOUND" }), "Standort"]] as const) {
+  for (const [answer, text] of [[fail(500, { error: "Internal error" }), "kann gerade nicht erstellt werden"], [fail(404, { error: "Location not selected", code: "NOT_FOUND" }), "Standort"],
+    [fail(400, { error: "Die Einrichtung deines Geschäfts ist unvollständig.", code: "SETUP_INCOMPLETE" }), "wende dich an den Support"]] as const) {
     await page.route("**/api/staff/invite", route => route.fulfill(answer));
     await form.getByRole("button", { name: "Einladungslink erstellen" }).click();
     await expect(alert).toContainText(text);
@@ -34,13 +35,17 @@ test("a failed revocation says what to do", async ({ page }) => {
     const list = await (await route.fetch()).json() as { staff: object[] };
     await route.fulfill({ json: { ...list, staff: [...list.staff, { userId: "u-synthetic", email: "kasse@example.test", role: "cashier", locationId: null, active: true }] } });
   });
-  await page.route("**/api/staff/revoke", route => route.fulfill(fail(404, { error: "Staff member not found", code: "NOT_FOUND" })));
   await page.goto("/merchant/staff");
-  await page.getByRole("listitem").filter({ hasText: "kasse@example.test" }).getByRole("button", { name: "Sperren", exact: true }).click();
-  await page.getByRole("button", { name: "Zugang sperren", exact: true }).click();
   const alert = page.locator('.ow-notice[role="alert"]');
-  await expect(alert).toContainText("aktuelle Liste");
-  expect(await alert.innerText()).not.toMatch(english);
+  // A refusal, then a 200 whose body never arrived: the second may have revoked the access, so it is never called a failure.
+  for (const [answer, text] of [[fail(404, { error: "Staff member not found", code: "NOT_FOUND" }), "aktuelle Liste"], [{ status: 200, contentType: "application/json", body: "" }, "nicht bestätigt"]] as const) {
+    await page.route("**/api/staff/revoke", route => route.fulfill(answer));
+    await page.getByRole("listitem").filter({ hasText: "kasse@example.test" }).getByRole("button", { name: "Sperren", exact: true }).click();
+    await page.getByRole("button", { name: "Zugang sperren", exact: true }).click();
+    await expect(alert).toContainText(text);
+    expect(await alert.innerText()).not.toMatch(/Internal error|not found|wurde nicht gesperrt/i);
+    await page.unroute("**/api/staff/revoke");
+  }
 });
 
 test("a failed account load tells a lost connection from a server failure", async ({ page }) => {

@@ -5,7 +5,7 @@ import { postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
-import { inviteCreateMessage, inviteRevokeMessage, inviteUnconfirmed, staffRevokeMessage } from "@/components/owner/owner-errors";
+import { inviteCreateMessage, inviteRevokeMessage, staffRevokeMessage, unconfirmed } from "@/components/owner/owner-errors";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type StaffMember = { userId: string; email?: string; role: "owner" | "manager" | "cashier"; locationId: string | null; active: boolean };
@@ -66,7 +66,7 @@ export default function StaffPage() {
       reloadStaff(); reloadAudit();
     } catch (cause) {
       setError(inviteCreateMessage(cause, submitted.email));
-      if (inviteUnconfirmed(cause)) reloadAudit();
+      if (unconfirmed(cause)) reloadAudit();
     }
     finally { setBusy(false); }
   }
@@ -77,7 +77,10 @@ export default function StaffPage() {
     try {
       await postJson("/api/staff/revoke", { userId: target.userId });
       setMessage("Der Teamzugang wurde gesperrt."); setRevokeTarget(current => current === target ? null : current); reloadStaff(); reloadAudit();
-    } catch (cause) { setError(staffRevokeMessage(cause)); setRevokeTarget(current => current === target ? null : current); }
+    } catch (cause) {
+      setError(staffRevokeMessage(cause)); setRevokeTarget(current => current === target ? null : current);
+      if (unconfirmed(cause)) { reloadStaff(); reloadAudit(); }
+    }
     finally { setBusy(false); setRevokingTarget(null); }
   }
   async function cancelInvitation() {
