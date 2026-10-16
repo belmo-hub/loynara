@@ -31,7 +31,7 @@ export function syntheticAddress(email: string) {
 async function latestMarketingConsent(tenantId: string, membershipId: string, query: Pick<typeof db, "select"> = db) {
   const [event] = await query.select().from(consentEvents)
     .where(and(eq(consentEvents.tenantId, tenantId), eq(consentEvents.membershipId, membershipId), eq(consentEvents.channel, "email"), eq(consentEvents.purpose, "marketing")))
-    .orderBy(desc(consentEvents.createdAt)).limit(1);
+    .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id)).limit(1);
   return event?.granted === true;
 }
 

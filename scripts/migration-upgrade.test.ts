@@ -226,7 +226,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(25);
+      expect(applied).toBe(26);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -606,7 +606,7 @@ describe("0024 durable outbox claim identity", () => {
       const history = await fingerprint(target), schema23 = await structure(target);
       const rows23 = (await target.query("SELECT to_jsonb(t) AS row FROM outbox_jobs t ORDER BY id")).rows;
       const journal23 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
-      await run(target, migrationsDir);
+      await run(target, folderThrough(24));
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT to_jsonb(t)-'claim_token' AS row FROM outbox_jobs t ORDER BY id")).rows).toEqual(rows23);
       expect((await target.query("SELECT claim_token FROM outbox_jobs")).rows).toEqual(states.map(() => ({ claim_token: null })));
@@ -615,9 +615,9 @@ describe("0024 durable outbox claim identity", () => {
       const journal24 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
       expect(journal24).toHaveLength(25);
       expect(journal24.slice(0, 24)).toEqual(journal23);
-      await run(target, migrationsDir);
+      await run(target, folderThrough(24));
       expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal24);
-      await run(fresh, migrationsDir);
+      await run(fresh, folderThrough(24));
       expect(await structure(target)).toEqual(await structure(fresh));
       const recovered = [];
       for (let n = 0; n < 3; n++) {
@@ -635,6 +635,33 @@ describe("0024 durable outbox claim identity", () => {
       expect(inserted.tenantId).toBe(seeded.tenants[1]);
       expect(inserted.claimToken).toMatch(/^[0-9a-f-]{36}$/);
       expect(await markOutboxJob(target, inserted, "complete")).toBe(true);
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+});
+
+describe("0025 data integrity guards", () => {
+  it("upgrades a populated 0024 database without re-checking old rows, then refuses invalid new ones", async () => {
+    const target = await scratchDatabase("guards25"), fresh = await scratchDatabase("guards25_fresh");
+    try {
+      await run(target, folderThrough(24));
+      const seeded = await seedHistory(target);
+      // Rows the new checks would refuse, written while 0024 allowed them: the upgrade must keep them and still succeed.
+      await target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
+        SELECT tenant_id, location_id, membership_id, -1, 'reversal', 'staff_correction', actor_user_id, gen_random_uuid(), 'legacy-unlinked-correction'
+        FROM ledger_entries WHERE tenant_id = $1 AND kind = 'award' AND actor_user_id IS NOT NULL LIMIT 1`, [seeded.tenants[0]]);
+      await target.query("UPDATE locations SET latitude = 51, longitude = NULL WHERE tenant_id = $1", [seeded.tenants[0]]);
+      const history = await fingerprint(target);
+      await run(target, migrationsDir);
+      expect(await fingerprint(target)).toEqual(history);
+      expect((await target.query("SELECT count(*)::int AS n FROM ledger_entries WHERE idempotency_key = 'legacy-unlinked-correction'")).rows[0].n).toBe(1);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(26);
+      await expect(target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
+        SELECT tenant_id, location_id, membership_id, -1, 'award', 'staff_online', actor_user_id, gen_random_uuid(), 'negative-award'
+        FROM ledger_entries WHERE tenant_id = $1 AND actor_user_id IS NOT NULL LIMIT 1`, [seeded.tenants[0]])).rejects.toThrow(/ledger_kind_sign_valid/);
+      await expect(target.query("UPDATE reward_versions SET cost = 1")).rejects.toThrow(/append-only/);
+      await expect(target.query("DELETE FROM redemptions")).rejects.toThrow(/append-only/);
+      await run(fresh, migrationsDir);
+      expect(await structure(target)).toEqual(await structure(fresh));
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 });
