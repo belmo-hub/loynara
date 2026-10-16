@@ -97,6 +97,11 @@ describe("points ladder on the card", () => {
   const steps = Array.from({ length: 16 }, (_, i) => (i * 17).toString(16).padStart(2, "0"));
   const colours = [...steps.flatMap((r) => steps.flatMap((g) => steps.map((b) => `#${r}${g}${b}`))), ...samples, "#757778"];
 
+  it("has no rules beyond the ones checked here and in e2e/points-ladder.mobile.spec.ts", () => {
+    const selectors = [...css.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap(([, head]) => head.replace(/^[\s\S]*\{/, "").split(",").map((part) => part.trim()));
+    expect(selectors).toEqual([".ladder", ".track", ".fill", ".mark", ".dot", ".mark[data-reached] .dot", ".cost", ".mark[data-label-hidden] .cost", ".fill"]);
+  });
+
   it("reads a supported track and fill", () => {
     expect(track).toMatch(TINT);
     expect(fill).toMatch(OPAQUE);
