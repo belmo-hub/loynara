@@ -28,7 +28,9 @@ test("failed context refresh after location selection shows an error and retry r
         else await route.continue();
       });
       await page.locator(".ow-loc select").selectOption({ label: "Zweiter Standort" });
-      await expect(page.locator(".owner-app").getByRole("alert")).toContainText("Standort konnte vorübergehend nicht geladen werden.");
+      // The owner area never repeats the server's text (src/components/owner/owner-errors.ts accountLoadMessage).
+      await expect(page.locator(".owner-app").getByRole("alert")).toContainText("Dein Konto kann gerade nicht geladen werden.");
+      await expect(page.locator(".owner-app").getByRole("alert")).not.toContainText("Standort konnte vorübergehend nicht geladen werden.");
       await expect(page.getByLabel("Standortname")).toHaveCount(0);
       await expect(page.locator(".ow-sr[role=status]")).not.toContainText("Standort gewechselt.");
       await page.getByRole("button", { name: "Erneut versuchen", exact: true }).click();
