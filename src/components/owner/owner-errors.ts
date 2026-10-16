@@ -2,7 +2,8 @@ import { ClientApiError } from "@/components/client-api";
 
 // What the owner area says when loading the account or changing the team fails. Server diagnostics ("Owner access
 // required", "Staff member not found", "Internal error") are never shown: each case says what happened and what to do
-// next. Codes come from src/lib/staff.ts, src/lib/product.ts (getMerchantContext) and src/lib/http.ts (respondError).
+// next. Codes come from src/lib/staff.ts, src/lib/product.ts (getMerchantContext), src/lib/locations.ts and
+// src/lib/http.ts (respondError).
 
 const SIGNED_OUT = "Deine Anmeldung ist abgelaufen. Melde dich erneut an und versuche es dann noch einmal.";
 const NOT_OWNER = "Nur Inhaber:innen können Teamzugänge verwalten. Melde dich mit dem Konto der Inhaberin oder des Inhabers an.";
@@ -70,4 +71,19 @@ export function accountLoadMessage(cause: unknown): string {
   if (cause.status === 429) return RATE_LIMITED;
   if (cause.status >= 500) return "Dein Konto kann gerade nicht geladen werden. Versuche es in einem Moment erneut.";
   return "Dein Konto konnte nicht geladen werden. Versuche es erneut.";
+}
+
+/**
+ * A failed POST /api/merchant/locations/select. The selection lives only in the cookie of a 2xx answer, so any other
+ * answer leaves the previous location active; a lost or unreadable answer may already have switched it.
+ */
+export function locationSwitchMessage(cause: unknown): string {
+  if (!(cause instanceof ClientApiError) || unconfirmed(cause))
+    return "Ob der Standort gewechselt wurde, ist nicht bestätigt. Lade die Seite neu und prüfe, welcher Standort aktiv ist.";
+  if (cause.code === "FORBIDDEN") return "Nur Inhaber:innen können den Standort wechseln. Melde dich mit dem Konto der Inhaberin oder des Inhabers an.";
+  const shared = common(cause);
+  if (shared) return shared;
+  if (cause.code === "NOT_FOUND" || cause.code === "INVALID_LOCATION") return "Diesen Standort gibt es in deinem Betrieb nicht mehr. Wähle einen Standort aus der aktuellen Liste.";
+  if (cause.status >= 500) return "Der Standort kann gerade nicht gewechselt werden. Dein bisheriger Standort bleibt aktiv. Versuche es in einem Moment erneut.";
+  return `Der Standort wurde nicht gewechselt. ${RELOAD}`;
 }
