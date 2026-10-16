@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { contrast, mix } from "./color";
 import { merchantPalette } from "./merchant-color";
@@ -48,5 +50,34 @@ describe("stamp track on the card", () => {
     for (const ground of [palette.merchant, palette.merchantDeep]) {
       expect(contrast(palette.merchantInk, mix(ground, palette.merchantInk, 0.22))).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+// The points ladder (points-ladder.module.css), read from the stylesheet: the filled part against the empty part over
+// the card at both gradient ends, and the reached-reward marker against the card and its check mark.
+describe("points ladder on the card", () => {
+  const css = readFileSync(join(__dirname, "points-ladder.module.css"), "utf8");
+  const rule = (selector: string) => new RegExp(`^${selector.replace(/[.[\]]/g, "\\$&")} \\{([^}]*)\\}`, "m").exec(css)?.[1] ?? "";
+  const role = (declaration: string) => /var\((--[\w-]+)/.exec(declaration)?.[1];
+  const pick = (palette: ReturnType<typeof merchantPalette>, property?: string) => {
+    const colour = ({ "--merchant-ink": palette.merchantInk, "--stamp-fill": palette.stampFill, "--stamp-ink": palette.stampInk } as Record<string, string>)[property ?? ""];
+    if (!colour) throw new Error(`no palette colour for ${property}`);
+    return colour;
+  };
+  const background = (selector: string) => /background: ([^;]+);/.exec(rule(selector))?.[1] ?? "";
+  // color-mix(in oklab, var(--x, …) N%, transparent) or color-mix(in oklab, var(--x, …), transparent M%)
+  const tint = /color-mix\(in oklab, var\((--[\w-]+)[^%]*?(?:(\d+)%)?, transparent(?: (\d+)%)?\)/.exec(background(".track"));
+  const share = tint ? (tint[2] ? Number(tint[2]) : 100 - Number(tint[3] ?? 0)) / 100 : NaN;
+
+  it.each(samples.flatMap((hex) => (["light", "dark"] as const).map((theme) => [hex, theme] as const)))("%s (%s) keeps 3:1 between filled and empty", (hex, theme) => {
+    const palette = merchantPalette(hex, theme), filled = pick(palette, role(background(".fill"))), empty = pick(palette, tint?.[1]);
+    for (const ground of [palette.merchant, palette.merchantDeep]) expect(contrast(filled, mix(ground, empty, share))).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(samples.flatMap((hex) => (["light", "dark"] as const).map((theme) => [hex, theme] as const)))("%s (%s) keeps reached markers readable", (hex, theme) => {
+    const palette = merchantPalette(hex, theme), reached = rule(".mark[data-reached] .dot");
+    const dot = pick(palette, role(/background: ([^;]+);/.exec(reached)?.[1] ?? "")), check = pick(palette, role(/color: ([^;]+);/.exec(reached)?.[1] ?? ""));
+    expect(contrast(check, dot)).toBeGreaterThanOrEqual(4.5);
+    for (const ground of [palette.merchant, palette.merchantDeep]) expect(contrast(dot, ground)).toBeGreaterThanOrEqual(2);
   });
 });
