@@ -17,6 +17,10 @@ export function parseAdminArgs(args: string[], env: OperatorEnv) {
 export function assertAdminConfirmation(expected: string, actual: string | undefined): void {
   if (actual !== expected) throw new OperatorRefusal("CONFIRMATION_REQUIRED");
 }
+export function formatAdminOperatorError(error: unknown): string {
+  if (error instanceof Error && "code" in error && error.code === "INVALID_REQUEST") return error.message;
+  return `ADMIN_OPERATOR_REFUSED ${error instanceof OperatorRefusal ? error.code : "FAILED_DETAILS_WITHHELD"}`;
+}
 async function main() {
   const args = parseAdminArgs(process.argv.slice(2), process.env);
   if (args.command !== "list") {
@@ -39,7 +43,7 @@ async function main() {
 }
 if (["admin-operator.ts", "admin-operator.js"].includes(basename(process.argv[1] ?? ""))) {
   main().then(() => process.exit(0)).catch(error => {
-    console.error(`ADMIN_OPERATOR_REFUSED ${error instanceof OperatorRefusal ? error.code : "FAILED_DETAILS_WITHHELD"}`);
+    console.error(formatAdminOperatorError(error));
     process.exit(1);
   });
 }

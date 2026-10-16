@@ -23,6 +23,10 @@ export async function grantAdminRole(input: { email: string; role: AdminRole; op
   const operator = operatorLabel(input.operator);
   return db.transaction(async tx => {
     await rolesLock(tx); const userId = await userByEmail(tx, input.email);
+    const staff = await tx.execute(sql`SELECT 1 FROM staff_roles WHERE user_id=${userId}
+      UNION ALL SELECT 1 FROM staff_invites WHERE lower(invited_email)=${input.email.trim().toLowerCase()}
+        AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>now() LIMIT 1`);
+    if (staff.rows.length) throw new DomainError("INVALID_REQUEST", "Dieses Konto gehört zu einem Händlerteam oder hat eine offene Teameinladung. Verwende ein separates Konsolenkonto, das mit operator:provision-identity erstellt wurde.");
     const result = await tx.execute(sql`INSERT INTO platform_admins(user_id,role,granted_by) VALUES(${userId},${input.role},${operator}) ON CONFLICT DO NOTHING RETURNING user_id`);
     if (!result.rows.length) return "already";
     await recordAdminEvent(tx, { actor: "operator_cli", adminUserId: null, roles: [], action: "admin.role_granted", targetType: "admin", targetId: userId, summary: `Rolle ${roleNames[input.role]} vergeben (${operator})` });
