@@ -49,6 +49,16 @@ describe("a checkout during a slow programme save", () => {
     expect(response.status).toBe(409);
   });
 
+  it("still answers a replay of an award that already went through, so the cashier never books it twice", async () => {
+    const f = await fixture();
+    const request = { userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() };
+    const first = await award(request);
+    // The response was lost; the cashier confirms the same booking again while the owner is saving the programme.
+    const replay = await whileProgrammeLocked(f.program.id, () => award(request).then(value => ({ value }), error => ({ error })));
+    expect(replay).toMatchObject({ value: { duplicate: true, entryId: first.entryId, balance: 1 } });
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, f.member.id))).toHaveLength(1);
+  });
+
   it("leaves an offline award pending for the next sync instead of recording it as rejected", async () => {
     const f = await fixture();
     const deviceId = randomUUID();

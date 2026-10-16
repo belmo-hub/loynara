@@ -75,19 +75,20 @@ describe("purchase rule concurrency evidence", () => {
       expect((await db.select().from(memberships).where(eq(memberships.id, f.f.member.id)))[0].balance).toBe(0);
     } finally { await gate.query("ROLLBACK"); await Promise.all([change, booking]); gate.release(); }
   });
-  it("cannot mix rules: a change waits for a booking paused between its programme read and its rule validation", async () => {
+  it("cannot mix rules: a booking paused at its staff check takes the programme only afterwards and sees the change", async () => {
     const f = await fixture(); const gate = await pool.connect();
-    let booking: Promise<unknown> | undefined; let change: Promise<unknown> | undefined;
+    let booking: Promise<unknown> | undefined;
     try {
+      // The staff check (and a replay check) now come before the programme lock, so this pause holds no programme lock.
       await gate.query("BEGIN"); await gate.query('SELECT id FROM "user" WHERE id = $1 FOR UPDATE', [f.f.userId]);
       booking = award(f.request).then(value => ({ value }), error => ({ error }));
       expect(await waitForLock('from "user"')).toBe(true);
-      change = f.change().then(value => ({ value }), error => ({ error }));
-      expect(await waitForLock('from "programs"')).toBe(true);
+      await expect(f.change()).resolves.toMatchObject({ ruleVersion: 3 });
       await gate.query("COMMIT");
-      expect(await booking).toMatchObject({ value: { balance: 14, duplicate: false } });
-      expect(await change).toMatchObject({ value: { ruleVersion: 3 } });
-      await assertSnapshot(f);
-    } finally { await gate.query("ROLLBACK"); await Promise.all([booking, change]); gate.release(); }
+      expect(await booking).toMatchObject({ error: { code: "STALE_RULE" } });
+      expect(await db.select().from(purchaseAwards)).toHaveLength(0);
+      expect(await db.select().from(ledgerEntries)).toHaveLength(0);
+      expect((await db.select().from(memberships).where(eq(memberships.id, f.f.member.id)))[0].balance).toBe(0);
+    } finally { await gate.query("ROLLBACK"); await booking; gate.release(); }
   });
 });

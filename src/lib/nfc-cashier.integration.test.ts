@@ -181,3 +181,20 @@ it.each(["tag revocation", "NFC switched off"])("orders a confirmation that is w
   expect(finished).toEqual(["confirmation", "shutdown"]);
   expect(await ledgerCount(f.member.id)).toBe(1);
 });
+
+it("gives up confirming after a short wait while the owner saves the programme, and the request stays pending", async () => {
+  const f = await nfcFixture();
+  const c = await register(f);
+  const pending = await processSecureTap(c.tap(2, { cardToken: f.member.cardToken }));
+  const owner = await pool.connect();
+  let result: unknown;
+  try {
+    await owner.query("BEGIN");
+    await owner.query("SELECT id FROM programs WHERE id = $1 FOR UPDATE", [f.program.id]);
+    result = await confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: pending.requestId! }).then(value => ({ value }), error => ({ error }));
+  } finally { await owner.query("ROLLBACK"); owner.release(); }
+  expect(result).toMatchObject({ error: { code: "PROGRAMME_BUSY" } });
+  expect((await db.select().from(tapRequests).where(eq(tapRequests.id, pending.requestId!)))[0].status).toBe("pending_staff");
+  await expect(confirmTapRequest({ userId: f.userId, locationId: f.location.id, requestId: pending.requestId! })).resolves.toMatchObject({ state: "confirmed" });
+  expect(await ledgerCount(f.member.id)).toBe(1);
+});
