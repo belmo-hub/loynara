@@ -6,7 +6,7 @@ import { ledgerEntries, memberships, staffRoles, tapRequests } from "@/db/schema
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster, type TapKeyProvider } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
 import { addStaff, nfcFixture } from "./nfc-test-db";
-import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag, revokeSecureTag, setTapPolicy } from "./secure-tap";
+import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, previewSecureTap, processSecureTap, provisionSecureTag, revokeSecureTag, setTapPolicy } from "./secure-tap";
 import { revokeStaff } from "./staff";
 
 // Cases not already covered by nfc-lifecycle.integration.test.ts and secure-tap.integration.test.ts:
@@ -216,4 +216,38 @@ it("lets a tap and a replacement of its tag finish one after the other instead o
   expect(await tap).toHaveProperty("value");
   expect(await replacement).toHaveProperty("value");
   expect(finished).toEqual(["tap", "replacement"]);
+});
+
+it("lets a tap read of a tag being activated and the activation finish instead of deadlocking", async () => {
+  const f = await nfcFixture();
+  const uid = `04${randomBytes(6).toString("hex")}`, keyRef = `dv1_${randomBytes(9).toString("base64url")}`, publicRef = randomBytes(18).toString("base64url");
+  const tag = await provisionSecureTag({ actorUserId: f.userId, programId: f.program.id, uid, keyRef, configVersion: 1, publicRef });
+  const keys = deriveTagKeys({ verifyMaster: VERIFY, adminMaster: ADMIN, ref: keyRef, uid });
+  const policy = { tenantId: f.tenant.id, locationId: f.location.id, programId: f.program.id, mode: "staff_confirmed" as const, cooldownSeconds: 60 };
+  const pause = () => new Promise(resolve => setTimeout(resolve, 20));
+  const outcome = <T>(work: Promise<T>) => work.then(value => ({ value }), (error: { code?: string; cause?: { code?: string } }) => ({ error }));
+  const blocker = await pool.connect();
+  let activation: Promise<{ value?: unknown; error?: { code?: string; cause?: { code?: string } } }> | undefined;
+  let read: Promise<{ value?: unknown; error?: { code?: string; cause?: { code?: string } } }> | undefined;
+  try {
+    // Something holds the programme (as a tap does), so the activation has to wait for it.
+    await blocker.query("BEGIN");
+    const blockerPid = (await blocker.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await blocker.query("SELECT id FROM programs WHERE id = $1 FOR KEY SHARE", [f.program.id]);
+    activation = outcome(activateSecureTag({ actorUserId: f.userId, tagId: tag.id, expectedPolicy: policy }));
+    let waiting = false;
+    for (let attempt = 0; attempt < 500 && !waiting; attempt++) {
+      waiting = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", [blockerPid])).rowCount! > 0;
+      if (!waiting) await pause();
+    }
+    expect(waiting, "the activation must be waiting for the programme").toBe(true);
+    // A phone reads the new tag meanwhile (programme, then tag). Before the fix the activation already held the tag.
+    let settled = false;
+    read = outcome(previewSecureTap({ tagRef: publicRef, fields: sdmFor({ uid, counter: 1, keys }), keyProvider: provider })).finally(() => { settled = true; });
+    for (let attempt = 0; attempt < 25 && !settled; attempt++) await pause();
+  } finally { await blocker.query("ROLLBACK"); blocker.release(); }
+  const [activated, previewed] = await Promise.all([activation!, read!]);
+  expect(activated).toMatchObject({ value: { status: "active" } });
+  // The read may come before or after the activation; it must never be the deadlock victim.
+  expect(previewed.error?.cause?.code ?? previewed.error?.code).not.toBe("40P01");
 });
