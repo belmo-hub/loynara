@@ -794,3 +794,42 @@ export const rateLimits = pgTable("rate_limits", {
   index("rate_limits_reset_idx").on(t.resetAt),
   check("rate_limits_hits_positive", sql`${t.hits} > 0`),
 ]);
+
+export const platformAdmins = pgTable("platform_admins", {
+  userId: text("user_id").notNull(),
+  role: varchar("role", { length: 16 }).notNull(),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+  grantedBy: varchar("granted_by", { length: 120 }).notNull(),
+}, t => [primaryKey({ columns: [t.userId, t.role] }), check("platform_admin_role", sql`${t.role} in ('founder', 'support', 'sales')`)]);
+
+export const adminAuditEvents = pgTable("admin_audit_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  actor: varchar("actor", { length: 16 }).notNull(),
+  adminUserId: text("admin_user_id"),
+  roles: text("roles").array().notNull(),
+  action: varchar("action", { length: 48 }).notNull(),
+  tenantId: uuid("tenant_id"),
+  targetType: varchar("target_type", { length: 32 }),
+  targetId: varchar("target_id", { length: 120 }),
+  summary: varchar("summary", { length: 500 }).notNull(),
+  reason: varchar("reason", { length: 500 }),
+  ip: varchar("ip", { length: 64 }),
+  userAgent: varchar("user_agent", { length: 300 }),
+}, t => [check("admin_audit_actor", sql`${t.actor} in ('console','operator_cli')`), check("admin_audit_console_user", sql`${t.actor} = 'operator_cli' or ${t.adminUserId} is not null`), index("admin_audit_at_idx").on(t.at.desc()), index("admin_audit_user_at_idx").on(t.adminUserId, t.at.desc())]);
+
+export const adminSessionActivity = pgTable("admin_session_activity", {
+  sessionId: text("session_id").primaryKey(),
+  userId: text("user_id").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+  stepUpAt: timestamp("step_up_at", { withTimezone: true }),
+});
+
+export const adminIdempotencyKeys = pgTable("admin_idempotency_keys", {
+  adminUserId: text("admin_user_id").notNull(),
+  key: uuid("key").notNull(),
+  action: varchar("action", { length: 48 }).notNull(),
+  result: jsonb("result").notNull(),
+  createdAt: createdAt(),
+}, t => [primaryKey({ columns: [t.adminUserId, t.key] })]);

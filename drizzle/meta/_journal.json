@@ -176,6 +176,13 @@
       "when": 1791674938227,
       "tag": "0024_outbox_claim_token",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792159337662,
+      "tag": "0025_founder_console",
+      "breakpoints": true
     }
   ]
 }

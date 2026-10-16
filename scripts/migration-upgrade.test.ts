@@ -226,7 +226,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(25);
+      expect(applied).toBe(26);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -606,7 +606,7 @@ describe("0024 durable outbox claim identity", () => {
       const history = await fingerprint(target), schema23 = await structure(target);
       const rows23 = (await target.query("SELECT to_jsonb(t) AS row FROM outbox_jobs t ORDER BY id")).rows;
       const journal23 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
-      await run(target, migrationsDir);
+      await run(target, folderThrough(24));
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT to_jsonb(t)-'claim_token' AS row FROM outbox_jobs t ORDER BY id")).rows).toEqual(rows23);
       expect((await target.query("SELECT claim_token FROM outbox_jobs")).rows).toEqual(states.map(() => ({ claim_token: null })));
@@ -615,9 +615,9 @@ describe("0024 durable outbox claim identity", () => {
       const journal24 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
       expect(journal24).toHaveLength(25);
       expect(journal24.slice(0, 24)).toEqual(journal23);
-      await run(target, migrationsDir);
+      await run(target, folderThrough(24));
       expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal24);
-      await run(fresh, migrationsDir);
+      await run(fresh, folderThrough(24));
       expect(await structure(target)).toEqual(await structure(fresh));
       const recovered = [];
       for (let n = 0; n < 3; n++) {

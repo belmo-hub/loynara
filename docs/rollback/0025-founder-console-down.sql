@@ -1,0 +1,10 @@
+BEGIN;
+DROP TRIGGER IF EXISTS admin_audit_append_only ON admin_audit_events;
+DROP FUNCTION IF EXISTS enforce_admin_audit_append_only();
+DROP TABLE IF EXISTS admin_idempotency_keys;
+DROP TABLE IF EXISTS admin_session_activity;
+DROP TABLE IF EXISTS admin_audit_events;
+DROP TABLE IF EXISTS platform_admins;
+DROP TABLE IF EXISTS "twoFactor";
+ALTER TABLE "user" DROP COLUMN IF EXISTS "twoFactorEnabled";
+COMMIT;
