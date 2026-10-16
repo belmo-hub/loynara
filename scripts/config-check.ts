@@ -12,6 +12,14 @@ function parsedUrl(value?: string): URL | null {
 export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.NODE_ENV !== "production") return [];
   const issues: string[] = [];
+  if (env.ADMIN_ACCESS_MODE === "local_test") issues.push("ADMIN_ACCESS_MODE=local_test is forbidden in production");
+  if (env.ADMIN_ORIGIN) {
+    if (env.ADMIN_ACCESS_MODE !== "cloudflare") issues.push("ADMIN_ACCESS_MODE must be cloudflare when ADMIN_ORIGIN is set");
+    if (!/^[a-z0-9-]+\.cloudflareaccess\.com$/i.test(env.ADMIN_ACCESS_TEAM_DOMAIN ?? "")) issues.push("ADMIN_ACCESS_TEAM_DOMAIN must name the Access team domain");
+    if (!env.ADMIN_ACCESS_AUD?.trim()) issues.push("ADMIN_ACCESS_AUD is required");
+    if (!env.ADMIN_ALLOWED_EMAILS?.trim()) issues.push("ADMIN_ALLOWED_EMAILS is required");
+  }
+
   const database = parsedUrl(env.DATABASE_URL);
   const auth = parsedUrl(env.BETTER_AUTH_URL);
   const base = parsedUrl(env.PUBLIC_BASE_URL);

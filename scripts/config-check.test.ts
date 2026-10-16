@@ -308,3 +308,11 @@ describe("invite sign-up code invariants", () => {
     for (const required of ["accepted_at IS NULL", "revoked_at IS NULL", "expires_at > now()", "token_hash = $1", "invite.email === email.trim().toLowerCase()", "if (!token || typeof email !== \"string\") return false;"]) expect(invite, required).toContain(required);
   });
 });
+
+it("refuses the local Access mode in production",()=>{
+ expect(productionConfigIssues({NODE_ENV:"production",ADMIN_ACCESS_MODE:"local_test"}).some(issue=>issue.includes("ADMIN_ACCESS_MODE"))).toBe(true);
+});
+it("requires the Access settings when the admin origin is set",()=>{
+ const issues=productionConfigIssues({NODE_ENV:"production",ADMIN_ORIGIN:"https://admin.getloynara.com"});
+ for(const name of ["ADMIN_ACCESS_MODE","ADMIN_ACCESS_TEAM_DOMAIN","ADMIN_ACCESS_AUD","ADMIN_ALLOWED_EMAILS"])expect(issues.some(issue=>issue.includes(name)),name).toBe(true);
+});
