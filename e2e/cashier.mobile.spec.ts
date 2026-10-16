@@ -86,4 +86,17 @@ test.describe("cashier on phones", () => {
     await expect(booked).toBeVisible();
     expect(await booked.evaluate(el => getComputedStyle(el).transitionProperty)).toBe("none");
   });
+
+  test("a failed access check says what to do, never the server's text", async ({ page }) => {
+    await signIn(page);
+    const screen = page.locator("section").filter({ has: page.getByRole("heading", { name: "Zugang gesperrt oder nicht eingerichtet" }) });
+    await page.route("**/api/me", route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Internal error" }) }));
+    await page.goto("/cashier");
+    await expect(screen).toContainText("Die Kasse kann gerade nicht geladen werden. Lade die Seite in einem Moment neu.");
+    await page.unroute("**/api/me");
+    await page.route("**/api/me", route => route.abort("internetdisconnected"));
+    await page.reload();
+    await expect(screen).toContainText("weil die Verbindung fehlt");
+    expect(await screen.innerText()).not.toMatch(/Internal error|Keine Verbindung\. Bitte/);
+  });
 });

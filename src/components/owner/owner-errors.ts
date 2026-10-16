@@ -87,3 +87,32 @@ export function locationSwitchMessage(cause: unknown): string {
   if (cause.status >= 500) return "Der Standort kann gerade nicht gewechselt werden. Dein bisheriger Standort bleibt aktiv. Versuche es in einem Moment erneut.";
   return `Der Standort wurde nicht gewechselt. ${RELOAD}`;
 }
+
+/**
+ * A failed POST /api/merchant/locations (createAdditionalLocation). A lost, unreadable or 5xx answer may come after the
+ * commit, so those ask to check the list first; a second try with the same name is refused (LOCATION_EXISTS).
+ */
+export function locationCreateMessage(cause: unknown): string {
+  if (!(cause instanceof ClientApiError) || unconfirmed(cause))
+    return "Ob der Standort angelegt wurde, ist nicht bestätigt. Lade die Seite neu und prüfe die Liste deiner Standorte, bevor du ihn erneut anlegst.";
+  if (cause.code === "FORBIDDEN") return "Nur Inhaber:innen können Standorte anlegen. Melde dich mit dem Konto der Inhaberin oder des Inhabers an.";
+  // Five new locations per hour and person: "wait briefly" would be wrong here.
+  if (cause.status === 429) return "Zu viele neue Standorte in kurzer Zeit. Versuche es später erneut, das kann bis zu einer Stunde dauern.";
+  const shared = common(cause);
+  if (shared) return shared;
+  if (cause.code === "LOCATION_EXISTS") return "Einen Standort mit diesem Namen gibt es schon. Wähle einen anderen Namen.";
+  if (cause.code === "INVALID_TIMEZONE") return "Diese Zeitzone ist unbekannt. Gib sie zum Beispiel als Europe/Berlin an.";
+  if (cause.code === "PLAN_UNAVAILABLE") return "Für deinen Betrieb ist kein Tarif hinterlegt, deshalb kann kein Standort angelegt werden. Bitte wende dich an den Support.";
+  if (cause.code === "NOT_FOUND") return SETUP_INCOMPLETE;
+  if (cause.status >= 500) return "Der Standort kann gerade nicht angelegt werden. Lade die Seite neu, prüfe die Liste deiner Standorte und versuche es später erneut.";
+  if (cause.status === 400 && !cause.code) return "Der Standort wurde nicht angelegt. Prüfe die Angaben im Formular und versuche es erneut.";
+  return `Der Standort wurde nicht angelegt. ${RELOAD}`;
+}
+
+/** A failed GET /api/me on the till (401 goes to the sign-in). Its access screen has no retry button, so it asks for a reload. */
+export function cashierAccessMessage(cause: unknown): string {
+  if (!(cause instanceof ClientApiError) || cause.status === 0) return "Die Kasse konnte nicht geladen werden, weil die Verbindung fehlt. Prüfe deine Verbindung und lade die Seite neu.";
+  if (["FORBIDDEN", "SETUP_INCOMPLETE", "NOT_FOUND", "INVALID_LOCATION"].includes(cause.code ?? "")) return accountLoadMessage(cause);
+  if (cause.status >= 500) return "Die Kasse kann gerade nicht geladen werden. Lade die Seite in einem Moment neu.";
+  return "Die Kasse konnte nicht geladen werden. Lade die Seite neu.";
+}

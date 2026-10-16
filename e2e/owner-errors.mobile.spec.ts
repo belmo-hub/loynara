@@ -82,3 +82,27 @@ test("a failed location switch says what to do", async ({ page }) => {
     await page.unroute("**/api/merchant/locations/select");
   }
 });
+
+test("a failed new location says what to do and never leaves a created location in the form", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/merchant/locations");
+  const form = page.locator('section[aria-labelledby="loc-create"]'), alert = page.locator('.ow-notice[role="alert"]');
+  for (const [label, value] of [["Standortname", "Filiale Süd"], ["Stadt", "Köln"], ["Programmname", "Kaffeekarte Süd"], ["Teilnahmebedingungen", "Ein Stempel je Kaffee."], ["Erste Prämie", "Ein Kaffee"]])
+    await form.getByLabel(label, { exact: true }).fill(value);
+  const createWith = (answer: ReturnType<typeof fail>) => page.route("**/api/merchant/locations", route => route.request().method() === "POST" ? route.fulfill(answer) : route.fallback());
+
+  // Refused: nothing was created, so the form keeps the entries.
+  await createWith(fail(400, { error: "A location with this name already exists", code: "LOCATION_EXISTS" }));
+  await form.getByRole("button", { name: "Standort und Programm anlegen" }).click();
+  await expect(alert).toContainText("Wähle einen anderen Namen");
+  await expect(form.getByLabel("Standortname", { exact: true })).toHaveValue("Filiale Süd");
+  await page.unroute("**/api/merchant/locations");
+
+  // Created, but the selection failed: the location exists, so the form empties and nothing says it was not created.
+  await createWith({ status: 201, contentType: "application/json", body: JSON.stringify({ locationId: "00000000-0000-4000-8000-000000000002", programId: "p", programSlug: "s" }) });
+  await page.route("**/api/merchant/locations/select", route => route.fulfill(fail(500, { error: "Internal error" })));
+  await form.getByRole("button", { name: "Standort und Programm anlegen" }).click();
+  await expect(alert).toContainText("Der neue Standort wurde angelegt. Der Standort kann gerade nicht gewechselt werden. Dein bisheriger Standort bleibt aktiv.");
+  await expect(form.getByLabel("Standortname", { exact: true })).toHaveValue("");
+  expect(await alert.innerText()).not.toMatch(/Internal error|already exists|nicht angelegt/i);
+});

@@ -9,6 +9,7 @@ import { CashierAccessState, CashierView, type CashierAward, type CashierCard, t
 import { QrScanner, SleepingCamera } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
+import { cashierAccessMessage } from "@/components/owner/owner-errors";
 import { buttonClassName } from "@/components/ui/button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { CashierNotifications } from "@/components/cashier-notifications";
@@ -146,7 +147,7 @@ export default function CashierPage() {
       setAccessState("ready");
     }).catch(cause => {
       if (cause instanceof ClientApiError && cause.status === 401) router.replace("/login");
-      else { setAccessState("blocked"); setAccessMessage(cause instanceof Error ? cause.message : "Standort konnte nicht geladen werden."); }
+      else { setAccessState("blocked"); setAccessMessage(cashierAccessMessage(cause)); }
     });
   }, [router]);
 
