@@ -230,3 +230,5 @@ Integration push safety remains UNVERIFIABLE: GitHub Supabase App installed, aut
 - 2026-10-12: [LOY-326 / Assignment 128 — onboarding account-refresh recovery](2026-10-12-onboarding-account-recovery-128.md). New proposed application candidate; full launch and production acceptance remain open.
 
 - 2026-10-12: [LOY-327 / Assignment129 — reviewed release alignment](2026-10-12-release-alignment-129.md). Application519e156 / separate operator tooling4069af6; default sourcePASS, executionBLOCKED, no production acceptance.
+
+- 2026-10-17: [PR #22 B-1](2026-10-17-pr22-review-and-rollback-compatibility.md): closure wording and ops-check assume an active retention job; postpone, activate, or change code before release. Rollback record deployment ids open until U-4. Non-blocking N-1 to N-7 open.

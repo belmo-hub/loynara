@@ -243,3 +243,5 @@ LOY-289: actualsignup/signin/signout/401without mocks orlimitbypass;4browserPASS
 
 
 - 2026-10-12 /135 /LOY-330: source43b54d2; actualPGrevocation-before-sendRED1→36focusedPASS, installedChrome375/1280:2PASS, full184files1706PASS0FAIL1existingoptionalMailpitSKIP238.14s, build/type/lint/read-onlyreviewPASS. WrongNODE_ENVbillingfailures matchedunchangedbase; correcttestmode10basePASS/full1706PASS. No actualproviders/hardware/productionacceptance. [Evidence](2026-10-12-push-recipient-authorization-135.md).
+
+- 2026-10-17 X3/X4: PR #22 `ed8ffba`, CI run 39053068506 4/4 green. Disposable PostgreSQL 18.6: fresh and 0025-upgraded migrations to 0028 identical (29 rows, history fingerprint unchanged); PR runtime code 22/22 and Release 1 code 18/18 under `loynara_web_login`; Release 1 worker once OK. [Evidence](2026-10-17-pr22-review-and-rollback-compatibility.md)

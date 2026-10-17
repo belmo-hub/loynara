@@ -289,3 +289,5 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-12: [LOY-330 / Assignment135 — pre-send staff/session authorization](2026-10-12-push-recipient-authorization-135.md). ActualPGRED1→36focused/2Chrome/1706globalPASS; newAPP43b54d2proposed,519pinunchanged. Includes132push and133/134limitedoutcomes.
 
 - 2026-10-12: [LOY-331 / Assignment136 — reviewed APP43 alignment](2026-10-12-reviewed-release-alignment-136.md). Two contractREDs→92focusedPASS, APP43/operator0707663 distinct, plannedops aligned/current90ad preserved/defaultBLOCKED. No production action.
+
+- 2026-10-17: [PR #22 independent review (X3) and Release 1 rollback compatibility (X4)](2026-10-17-pr22-review-and-rollback-compatibility.md). PR head `ed8ffba` contains Release 1 `ddfed7f`; CI run 39053068506 green. Review blocking: yes (B-1, deletion promised without the retention job). X4: Release 1 eligible rollback target before any closure, with conditions. No production action.
