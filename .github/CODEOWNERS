@@ -1,0 +1,15 @@
+# Paths whose changes the founder reviews before merge: CI, session settings, release and operator tooling,
+# migrations, dependencies, container builds, request routing and auth. GitHub does not ask a PR's author to
+# review their own PR, so this file records ownership; it does not by itself block a merge.
+/.github/                 @belmo-hub
+/.claude/                 @belmo-hub
+/scripts/ticket-*         @belmo-hub
+/scripts/production-*     @belmo-hub
+/scripts/operator-*       @belmo-hub
+/drizzle/                 @belmo-hub
+/package.json             @belmo-hub
+/package-lock.json        @belmo-hub
+/Dockerfile*              @belmo-hub
+/next.config.ts           @belmo-hub
+/src/proxy.ts             @belmo-hub
+/src/lib/auth*.ts         @belmo-hub
