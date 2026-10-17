@@ -41,5 +41,5 @@ for (const b of blockers) console.log(`PUBLICATION BLOCKER: ${b}`);
 
 if (process.env.MARKETING_PUBLIC === 'true') {
   assert.equal(blockers.length, 0, 'Public verification requires legal content');
-  for (const page of pages) assert.doesNotMatch(readFileSync(page, 'utf8'), /data-legal-placeholder|Entwurf|Teilnahmebedingungen|teilnahmebedingungen|49\s*€|€\s*49/i, 'No draft legal or retired offer in public output');
+  for (const page of pages) assert.doesNotMatch(readFileSync(page, 'utf8'), /data-legal-placeholder|Entwurf|Teilnahmebedingungen|teilnahmebedingungen|39\s*€|€\s*39/i, 'No draft legal or retired offer in public output');
 }
