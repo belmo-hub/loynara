@@ -1,10 +1,20 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { generateKeyPairSync } from "node:crypto";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { productionConfigIssues } from "./config-check";
+import { GOOGLE_SERVICE_ACCOUNT_VALUE } from "./google-wallet-credential";
+
+// A freshly generated stand-in for a production Google service-account key file, never a Google-issued key.
+const googleKeyJson = (identity: Record<string, string> = {}) => JSON.stringify({
+  type: "service_account", project_id: "loynara-wallet", private_key_id: "0123456789abcdef0123456789abcdef01234567",
+  private_key: generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "pem" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } }).privateKey,
+  client_email: "wallet-issuer@loynara-wallet.iam.gserviceaccount.com", ...identity,
+});
+const deliveredGoogleKey = (identity?: Record<string, string>) => Buffer.from(googleKeyJson(identity)).toString("base64");
 
 describe("production configuration gate", () => {
   const safe: NodeJS.ProcessEnv = {
@@ -239,6 +249,35 @@ describe("production configuration gate", () => {
       ["local asset origin", { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://localhost" }, /ASSET_ORIGIN/],
     ])("refuses Google with %s", (_name, override, pattern) => refused({ ...google, ...override }, pattern));
 
+    describe("Google key delivered as a value", () => {
+      const key = deliveredGoogleKey();
+
+      it("accepts it with the complete approved Google group, and changes nothing when absent or empty", () => {
+        expect(productionConfigIssues({ ...google, [GOOGLE_SERVICE_ACCOUNT_VALUE]: key })).toEqual([]);
+        expect(productionConfigIssues({ ...google, [GOOGLE_SERVICE_ACCOUNT_VALUE]: "" })).toEqual(productionConfigIssues(google));
+        expect(productionConfigIssues({ ...safe, [GOOGLE_SERVICE_ACCOUNT_VALUE]: "" })).toEqual([]);
+      });
+
+      it.each([
+        ["Google Wallet off", { GOOGLE_WALLET_ENABLED: "false", WALLET_PRODUCTION_APPROVED: undefined }, /is set while Google Wallet is not enabled/],
+        ["Google Wallet unset", { GOOGLE_WALLET_ENABLED: undefined, WALLET_PRODUCTION_APPROVED: undefined }, /is set while Google Wallet is not enabled/],
+        ["no production approval", { WALLET_PRODUCTION_APPROVED: undefined }, /separate production approval/],
+        ["Demo Mode publishing", { GOOGLE_WALLET_PUBLISHING_STATUS: "demo" }, /Demo Mode is not production/],
+        ["no key file path", { GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: undefined }, /SERVICE_ACCOUNT_FILE must be an absolute path/],
+        ["the demo key", { [GOOGLE_SERVICE_ACCOUNT_VALUE]: deliveredGoogleKey({ project_id: "loynara-wallet-demo-20261009", client_email: "loynara-wallet-demo@loynara-wallet-demo-20261009.iam.gserviceaccount.com" }) }, /demo, test or preview service account/],
+        ["placeholder text", { [GOOGLE_SERVICE_ACCOUNT_VALUE]: "replace-with-base64-service-account-json" }, /contains placeholder text/],
+        ["a placeholder key", { [GOOGLE_SERVICE_ACCOUNT_VALUE]: deliveredGoogleKey({ client_email: "placeholder@loynara-wallet.iam.gserviceaccount.com" }) }, /contains placeholder text/],
+        ["raw JSON", { [GOOGLE_SERVICE_ACCOUNT_VALUE]: googleKeyJson() }, /must be a base64-encoded Google service-account JSON key/],
+      ])("refuses the half-set group with %s", (_name, override, pattern) => refused({ ...google, [GOOGLE_SERVICE_ACCOUNT_VALUE]: key, ...override }, pattern));
+
+      it("never echoes the delivered value or the key in its messages", () => {
+        const raw = googleKeyJson();
+        const issues = [...productionConfigIssues({ ...safe, [GOOGLE_SERVICE_ACCOUNT_VALUE]: key }), ...productionConfigIssues({ ...google, [GOOGLE_SERVICE_ACCOUNT_VALUE]: raw })].join(" ");
+        expect(issues).not.toContain(key.slice(0, 24));
+        expect(issues).not.toMatch(/PRIVATE KEY|gserviceaccount/);
+      });
+    });
+
     it("never echoes a secret value or credential path in its messages", () => {
       const issues = productionConfigIssues({ ...apple, APPLE_WALLET_AUTH_SECRET: "short-secret-value", APPLE_SIGNING_KEY_PATH: "/app/public/very-private.pem" });
       expect(issues.join(" ")).not.toContain("short-secret-value");
@@ -275,6 +314,36 @@ describe("production startup gate as a process", () => {
       expect(result.code).toBe(0);
     }
   }, 120_000);
+
+  it("writes a Google key delivered as a value owner-only before Next starts, and never when the gate refuses", async () => {
+    const custody = mkdtempSync(path.join(tmpdir(), "loynara-guard-google-"));
+    try {
+      const target = path.join(custody, "google", "service-account.json");
+      const json = googleKeyJson();
+      const value = Buffer.from(json).toString("base64");
+      const google = {
+        WALLET_PRODUCTION_APPROVED: "true", GOOGLE_WALLET_ENABLED: "true", GOOGLE_WALLET_PROVIDER: "GOOGLE_DIRECT", GOOGLE_WALLET_ISSUER_ID: "3388000000022123456",
+        GOOGLE_WALLET_PUBLISHING_STATUS: "published", GOOGLE_WALLET_PROGRAM_LOGO_URL: "https://cdn.getloynara.com/wallet/logo.png", GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: target,
+        GOOGLE_WALLET_LOCATION_CLASSES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", programId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", classId: "3388000000022123456.approved", issuanceEnabled: true, testAccountsApproved: false }]),
+        [GOOGLE_SERVICE_ACCOUNT_VALUE]: value,
+      };
+      const refused = await guard({ ...google, WALLET_PRODUCTION_APPROVED: undefined });
+      expect(refused.code).toBe(1);
+      expect(refused.output).toContain("Production startup rejected:");
+      expect(existsSync(path.dirname(target))).toBe(false);
+      for (const attempt of ["first start", "restart"]) {
+        const started = await guard(google);
+        expect(started.output, attempt).toContain("Production configuration gate passed.");
+        expect(started.code, attempt).toBe(0);
+        expect(readFileSync(target, "utf8")).toBe(json);
+        expect(statSync(target).mode & 0o777).toBe(0o600);
+        expect(started.output).not.toContain(value.slice(0, 24));
+        expect(started.output).not.toMatch(/PRIVATE KEY/);
+      }
+      expect(readdirSync(path.dirname(target))).toEqual(["service-account.json"]);
+      expect(refused.output).not.toContain(value.slice(0, 24));
+    } finally { rmSync(custody, { recursive: true, force: true }); }
+  }, 180_000);
 
   it("refuses to start with public registration on, even alongside invite sign-up", async () => {
     for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true" }, { STAFF_INVITE_SIGNUP_ENABLED: "TRUE" }]) {
