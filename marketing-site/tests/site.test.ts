@@ -29,7 +29,7 @@ test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to 
   assert.match(home, /<a class="login" href="https:\/\/app\.getloynara\.com\/login">Anmelden<\/a>/);
 });
 test('zero interaction: roles, flow, referral rule, owner value, branding, price and next step are visible by default', () => {
-  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Scannt den Code, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – Stand und Verlauf jeder Karte\./);
+  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Tippt an oder scannt, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – Stand und Verlauf jeder Karte\./);
   assert.match(section('ablauf', 'empfehlung'), /Karte öffnen[\s\S]*Team bestätigt[\s\S]*Stempel wächst[\s\S]*Prämie einlösen/);
   assert.match(section('empfehlung', 'gestaltung'), /Link geteilt[\s\S]*Karte erstellt[\s\S]*Erster Besuch bestätigt[\s\S]*Bonus verbucht/);
   assert.match(section('empfehlung', 'gestaltung'), /Teilen, Öffnen oder Anmelden allein bringt keinen Bonus/);
@@ -69,7 +69,8 @@ test('platform previews are marked as outlook and kept out of the offer, near th
   const card = visible(home.slice(home.indexOf('class="price-card"'), home.indexOf('class="faq"')));
   const included = card.slice(0, card.indexOf('Demo anfragen'));
   assert.doesNotMatch(included, /Kampagn|Nachricht|Wallet|Aufsteller|Logo-Darstellung/);
-  assert.match(card, /Aufsteller, NFC-Antippen, Wallet-Karte, Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
+  assert.match(card, /Aufsteller, Wallet-Karte, Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
+  assert.doesNotMatch(card.slice(card.indexOf('Demo anfragen')), /NFC/, 'NFC has left the outlook list');
   assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten|wurde gesendet|zugestellt/i);
   assert.match(section('gestaltung', 'inhaber'), /Gestaltungsbeispiel und Ausblick\. Nichts wird hochgeladen oder gespeichert\./);
 });
@@ -90,7 +91,7 @@ test('calculator copy: scope, disclaimer next to the result, honest zero case, r
 test('offer: what 49 € means, what is included, the pilot qualifier and what happens next', () => {
   const offer = section('angebot', 'anfrage');
   assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
-  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
+  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
   assert.match(offer, /Vorläufiger Einstiegspreis\. Konditionen besprechen wir vor dem Start persönlich\./);
   assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');
   assert.match(visible(home.slice(home.indexOf('id="anfrage"'))), /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/);
@@ -122,13 +123,17 @@ test('robustness CSS: solid header fallback, prefixed blur, print shows every ta
   assert.doesNotMatch(css, /color-mix\(/);
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
-test('NFC is shown only as outlook: QR is the way in today (physical NFC acceptance has not run)', () => {
+test('NFC is live: the tap comes first and the QR code always stays the fallback; Wallet stays outlook (set only after the physical NFC acceptance passed in production)', () => {
   const offerIncluded = visible(home.slice(home.indexOf('class="checks"'), home.indexOf('</ul>', home.indexOf('class="checks"'))));
-  assert.doesNotMatch(offerIncluded, /NFC/);
-  assert.doesNotMatch(home.slice(0, home.indexOf('</head>')), /NFC/, 'no NFC in title, description or social metadata');
-  assert.doesNotMatch(visible(home.slice(home.indexOf('id="hero"'), home.indexOf('id="ablauf"'))), /NFC|antippen|tippt/i);
-  const mentions = text.match(/NFC[^.]*\./g) ?? [];
-  assert.ok(mentions.length > 0 && mentions.every(m => /Ausblick|Antippen\?|NFC-Antippen/.test(m) || /NFC zum Antippen/.test(m)), mentions.join(' | '));
-  assert.match(text, /Das Antippen per NFC ist vorbereitet; wir zeigen es als Ausblick\. Gestartet wird mit dem QR-Code\./);
+  assert.match(offerIncluded, /NFC-Antippen und QR-Einstieg am Tresen/);
+  const head = home.slice(0, home.indexOf('</head>'));
+  assert.match(head, /property="og:description" content="[^"]*Antippen oder QR-Code, ohne App/, 'social metadata names the tap and the QR code');
+  assert.doesNotMatch(head, /Ausblick|vorbereitet/);
+  assert.match(visible(home.slice(home.indexOf('id="hero"'), home.indexOf('id="ablauf"'))), /Antippen oder QR-Code/);
+  const mentions = text.match(/[^.?]*NFC[^.?]*[.?]/g) ?? [];
+  assert.ok(mentions.length > 0 && mentions.every(m => /\?$/.test(m) || (/QR/.test(m) && !/Ausblick|vorbereitet/.test(m))), mentions.join(' | '));
+  assert.match(text, /Und wenn ein Handy kein NFC kann\? Dann scannt dein Kunde den QR-Code\. Er öffnet dieselbe Karte und bleibt immer als Alternative\./);
+  assert.doesNotMatch(text, /Das Antippen per NFC ist vorbereitet|NFC-Antippen, Wallet-Karte/);
+  for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|\?$/, m);
 });
 

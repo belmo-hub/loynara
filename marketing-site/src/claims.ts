@@ -8,7 +8,7 @@
  *              verification passed (card locator, owner/manager reissue keeping membership/balance/history/locator, corrections).
  */
 export interface Gates { nfcAccepted: boolean; rcDeployed: boolean }
-export const RELEASED_GATES: Gates = { nfcAccepted: false, rcDeployed: true };
+export const RELEASED_GATES: Gates = { nfcAccepted: true, rcDeployed: true };
 
 /** Test-only override ("nfcAccepted,rcDeployed"). build.mts refuses to run while it is set. */
 const testOverride: string | undefined = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.LOYNARA_TEST_GATES;

@@ -172,7 +172,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   // ---- offer + FAQ ----
   await jump(page, '#angebot'); await settle(page);
   const offer = await txt(page, '#angebot');
-  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /49 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /QR-Einstieg am Tresen/.test(offer) && !/NFC- und QR-Einstieg/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
+  check(`${label}: offer shows price, qualifier, inclusions, outlook note and CTA`, /49 €/.test(offer) && /pro Monat und Standort/.test(offer) && /Pilotangebot – Details im persönlichen Gespräch/.test(offer) && /NFC-Antippen und QR-Einstieg am Tresen/.test(offer) && /Empfehlungen/.test(offer) && /als Ausblick und vereinbaren sie gesondert/.test(offer) && /Vorläufiger Einstiegspreis/.test(offer) && (await page.locator('.price-card .btn-primary').getAttribute('href')) === '#anfrage');
   check(`${label}: no invented trial, setup fee, cancellation, hardware, discount or VAT claim`, !/Einrichtungsgebühr|kostenlos|Testphase|Rabatt|Kündigung|MwSt|zzgl\.|inkl\.|unbegrenzt/i.test(offer));
   const d = page.locator('.faq details').first(); await d.locator('summary').click(); check(`${label}: FAQ opens`, await d.evaluate(e => e.open)); await d.locator('summary').click();
   await page.screenshot({ path: `${out}/${label}-offer.png` });

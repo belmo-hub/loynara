@@ -1,7 +1,7 @@
 /**
  * Supporting pages (Concept D language: headline, one sentence, one product object, one action).
  * Each page has a distinct sales purpose: two first-wave industries and the referral explainer.
- * Claims follow the same boundary as the home page: QR today, NFC/Wallet/messages only as outlook,
+ * Claims follow the same boundary as the home page: the entry claim follows the NFC gate in claims.ts, Wallet/messages only as outlook,
  * example data labelled as such, no proof, results or availability that the product cannot show.
  */
 import { ENTRY_COPY as E, RECOVERY_COPY as R } from './claims.js';
