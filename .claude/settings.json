@@ -6,6 +6,15 @@
       "Bash(npm run lint)",
       "Bash(npm run build)",
       "Bash(npx vitest run *)"
+    ],
+    "ask": [
+      "Bash(npx vitest * --config*)",
+      "Bash(npx vitest * -c *)",
+      "Bash(npx vitest * --root*)",
+      "Bash(npx vitest * --dir*)",
+      "Bash(npx vitest * --outputFile*)",
+      "Bash(npx vitest * --globalSetup*)",
+      "Bash(npx vitest * --setupFiles*)"
     ]
   }
 }
