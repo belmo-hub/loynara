@@ -13,6 +13,8 @@ async function signIn(page: Page) {
   expect(res.ok()).toBe(true);
 }
 const fail = (status: number, body: object) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
+// Stubs that pass a request through can still be fetching when a test ends (the page reloads lists after a failure).
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 test("a failed invitation says what to do", async ({ page }) => {
   await signIn(page);
@@ -59,4 +61,48 @@ test("a failed account load tells a lost connection from a server failure", asyn
   await page.route("**/api/me", route => route.abort("internetdisconnected"));
   await screen.getByRole("button", { name: "Erneut versuchen" }).click();
   await expect(screen).toContainText("Verbindung fehlt");
+});
+
+test("a failed location switch says what to do", async ({ page }) => {
+  await signIn(page);
+  // A second location (synthetic, never selected for real) makes the switcher appear in the "Mehr" panel.
+  await page.route("**/api/merchant/locations", async route => {
+    const list = await (await route.fetch()).json() as { locations: object[] };
+    await route.fulfill({ json: { ...list, locations: [...list.locations, { id: "00000000-0000-4000-8000-000000000001", name: "Zweiter Standort", city: "Köln", programSlug: null, programName: null, programType: null, cards: 0 }] } });
+  });
+  await page.goto("/merchant");
+  await page.getByRole("button", { name: "Mehr: Navigation öffnen" }).click();
+  const switcher = page.getByRole("combobox", { name: "Aktiver Standort" }), alert = page.locator('.ow-loc [role="alert"]');
+  for (const [answer, text] of [[fail(404, { error: "Location not found", code: "NOT_FOUND" }), "aktuellen Liste"], [fail(500, { error: "Internal error" }), "bisheriger Standort bleibt aktiv"],
+    [{ status: 200, contentType: "application/json", body: "" }, "prüfe, welcher Standort aktiv ist"]] as const) {
+    await page.route("**/api/merchant/locations/select", route => route.fulfill(answer));
+    await switcher.selectOption({ label: "Zweiter Standort" });
+    await expect(alert).toContainText(text);
+    expect(await alert.innerText()).not.toMatch(/Internal error|not found|leer/i);
+    await page.unroute("**/api/merchant/locations/select");
+  }
+});
+
+test("a failed new location says what to do and never leaves a created location in the form", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/merchant/locations");
+  const form = page.locator('section[aria-labelledby="loc-create"]'), alert = page.locator('.ow-notice[role="alert"]');
+  for (const [label, value] of [["Standortname", "Filiale Süd"], ["Stadt", "Köln"], ["Programmname", "Kaffeekarte Süd"], ["Teilnahmebedingungen", "Ein Stempel je Kaffee."], ["Erste Prämie", "Ein Kaffee"]])
+    await form.getByLabel(label, { exact: true }).fill(value);
+  const createWith = (answer: ReturnType<typeof fail>) => page.route("**/api/merchant/locations", route => route.request().method() === "POST" ? route.fulfill(answer) : route.fallback());
+
+  // Refused: nothing was created, so the form keeps the entries.
+  await createWith(fail(400, { error: "A location with this name already exists", code: "LOCATION_EXISTS" }));
+  await form.getByRole("button", { name: "Standort und Programm anlegen" }).click();
+  await expect(alert).toContainText("Wähle einen anderen Namen");
+  await expect(form.getByLabel("Standortname", { exact: true })).toHaveValue("Filiale Süd");
+  await page.unroute("**/api/merchant/locations");
+
+  // Created, but the selection failed: the location exists, so the form empties and nothing says it was not created.
+  await createWith({ status: 201, contentType: "application/json", body: JSON.stringify({ locationId: "00000000-0000-4000-8000-000000000002", programId: "p", programSlug: "s" }) });
+  await page.route("**/api/merchant/locations/select", route => route.fulfill(fail(500, { error: "Internal error" })));
+  await form.getByRole("button", { name: "Standort und Programm anlegen" }).click();
+  await expect(alert).toContainText("Der neue Standort wurde angelegt. Der Standort kann gerade nicht gewechselt werden. Dein bisheriger Standort bleibt aktiv.");
+  await expect(form.getByLabel("Standortname", { exact: true })).toHaveValue("");
+  expect(await alert.innerText()).not.toMatch(/Internal error|already exists|nicht angelegt/i);
 });
