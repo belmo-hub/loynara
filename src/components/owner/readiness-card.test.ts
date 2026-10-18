@@ -13,7 +13,6 @@ const data: LaunchReadiness = {
     { id: "team", group: "setup", required: false, status: "todo", title: "Teamzugang für die Kasse", evidence: "Noch keiner", action: { label: "Person einladen", href: "/merchant/staff", ownerOnly: true } },
     { id: "enrolment", group: "verify", required: true, status: "todo", title: "Erste Karte angemeldet", evidence: "Noch keine Karte.", action: { label: "Anmeldelink öffnen", href: "/merchant/settings" } },
     { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Gutschrift an der Kasse bestätigt", evidence: "Noch keine.", action: { label: "Kasse öffnen", href: "/cashier" } },
-    { id: "legal", group: "external", required: false, status: "external", title: "Rechtstexte freigegeben", evidence: "Entwurf." },
     { id: "access", group: "external", required: false, status: "external", title: "Zugang wiederherstellen", evidence: "Betreiber." },
   ],
 };

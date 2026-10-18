@@ -28,7 +28,7 @@ describe("launch readiness", () => {
     const owner = await user();
     const merchant = await shop(owner);
     const readiness = await getLaunchReadiness(owner, merchant.locationId, noNfc);
-    expect(status(readiness)).toMatchObject({ programme: "done", card: "todo", team: "todo", enrolment: "todo", first_award: "todo", first_redemption: "todo", legal: "external", access: "external" });
+    expect(status(readiness)).toMatchObject({ programme: "done", card: "todo", team: "todo", enrolment: "todo", first_award: "todo", first_redemption: "todo", access: "external" });
     expect(readiness).toMatchObject({ requiredDone: 1, requiredTotal: 3, next: { stepId: "enrolment" } });
     expect(readiness.steps.find(step => step.id === "programme")?.evidence).toContain("2 Stempel → Kaffee gratis");
   });
@@ -124,7 +124,7 @@ describe("launch readiness", () => {
     const readiness = await getLaunchReadiness(owner, merchant.locationId, noNfc);
     expect(readiness).toMatchObject({ requiredDone: 3, requiredTotal: 3, next: null });
     const outside = readiness.steps.filter(step => step.group === "external");
-    expect(outside.map(step => step.id).sort()).toEqual(["access", "legal", "nfc"]);
+    expect(outside.map(step => step.id).sort()).toEqual(["access", "nfc"]);
     for (const step of outside) { expect(step.status, step.id).toBe("external"); expect(step.required, step.id).toBe(false); }
     // No application step claims legal or operator approval.
     expect(readiness.steps.filter(step => step.group !== "external").every(step => step.status === "done")).toBe(true);
