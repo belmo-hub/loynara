@@ -68,6 +68,9 @@ export function CardClient({ token }: { token: string }) {
   const walletOperation = useRef<AbortController | null>(null);
   const downloadReset = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
+  // A stamp booked while the card is open (the team scanned its code) lands on the card when the balance is re-read.
+  const [landed, setLanded] = useState<number>();
+  const balanceSeen = useRef<number | null>(null);
   const [closeError, setCloseError] = useState("");
   const [closed, setClosed] = useState(false);
   const gate = useRef(createRefreshGate(REFRESH_INTERVAL_MS));
@@ -77,7 +80,7 @@ export function CardClient({ token }: { token: string }) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { balanceSeen.current = result.balance; setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
   }, [token]);
   // The guest shows the phone, the cashier books, the guest looks again: re-read the balance when the page becomes
@@ -91,7 +94,12 @@ export function CardClient({ token }: { token: string }) {
       if (!live.current || document.visibilityState !== "visible" || !gate.current.tryStart()) return;
       if (manual) setRefreshing(true);
       void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`)
-        .then(result => { if (mounted && live.current) { setCard(result); setRefreshFailed(false); } })
+        .then(result => {
+          if (!mounted || !live.current) return;
+          if (balanceSeen.current !== null && result.balance > balanceSeen.current) setLanded(result.balance);
+          balanceSeen.current = result.balance;
+          setCard(result); setRefreshFailed(false);
+        })
         .catch(cause => {
           if (!mounted) return;
           if (cause instanceof ClientApiError && cause.status === 404) { live.current = false; setCard(null); setError(GONE_MESSAGE); }
@@ -199,7 +207,7 @@ export function CardClient({ token }: { token: string }) {
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
     {bindingError && <p role="alert" className={noticeClass}>{bindingError}</p>}
   </>;
-  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
+  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
 function CardState({ title, message, tone = "info" }: { title: string; message: string; tone?: "info" | "error" }) {
