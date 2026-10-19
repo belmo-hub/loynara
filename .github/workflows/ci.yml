@@ -132,3 +132,86 @@ jobs:
           npx vitest run --hookTimeout 60000
           --exclude 'scripts/backup-publication.test.ts'
           --exclude 'scripts/preview-backup-publication.test.ts'
+
+  nfc-e2e:
+    name: NFC browser specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: looplocal
+          POSTGRES_USER: looplocal
+          POSTGRES_PASSWORD: looplocal_local_only
+        # The NFC helpers refuse any database but looplocal on 54395, 54429 or 54459 (e2e/nfc-support.ts).
+        ports:
+          - 54459:5432
+        options: >-
+          --health-cmd "pg_isready -U looplocal -d looplocal"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.27
+        # nfc-recovery-contact accepts only a capture on 18149 or 18159.
+        ports:
+          - 18149:8025
+    env:
+      DATABASE_URL: postgresql://looplocal:looplocal_local_only@127.0.0.1:54459/looplocal
+      PGPASSWORD: looplocal_local_only
+      BETTER_AUTH_URL: http://localhost:3049
+      PUBLIC_BASE_URL: http://localhost:3049
+      PUBLIC_REGISTRATION_ENABLED: "true"
+      NFC_ENABLED: "true"
+      NFC_KEY_PROVIDER: derived_v1
+      # The app server itself must allow local Mailpit delivery (localMailAllowed in src/lib/email.ts); without it the
+      # recovery panel offers no email recovery and nfc-recovery-contact fails.
+      SMTP_HOST: localhost
+      EXTERNAL_EMAIL_ENABLED: "false"
+      TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "false"
+      MAILPIT_HTTP_ORIGIN: http://127.0.0.1:18149
+      E2E_RECOVERY_MAILPIT: http://127.0.0.1:18149
+      VAPID_SUBJECT: mailto:nfc-e2e@example.test
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      # The specs sign their tap URLs with the same master the server verifies with. Push is only offered, never sent.
+      - name: Create throwaway keys for this run
+        run: |
+          master="$(openssl rand -hex 32)"
+          auth="$(openssl rand -hex 32)"
+          vapid="$(node -p 'const k = require("web-push").generateVAPIDKeys(); k.publicKey + " " + k.privateKey')"
+          for value in "$master" "$auth" "${vapid#* }"; do echo "::add-mask::$value"; done
+          {
+            echo "NFC_VERIFY_MASTER_KEY=$master"
+            echo "E2E_NFC_VERIFY_MASTER=$master"
+            echo "BETTER_AUTH_SECRET=$auth"
+            echo "VAPID_PUBLIC_KEY=${vapid% *}"
+            echo "VAPID_PRIVATE_KEY=${vapid#* }"
+          } >> "$GITHUB_ENV"
+      - name: Prepare the database
+        run: |
+          psql -h 127.0.0.1 -p 54459 -U looplocal -d looplocal -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
+          npx drizzle-kit migrate
+      # next dev, not a production build: a compiled app keeps Better Auth's 3 sign-ups per 10 s, which the specs'
+      # 18 merchant setups would have to wait out. The production build job already checks the build.
+      - name: Start the app on :3049
+        run: |
+          nohup npx next dev -p 3049 > "$RUNNER_TEMP/next-dev.log" 2>&1 &
+          for _ in $(seq 120); do curl -fsS http://localhost:3049/api/health > /dev/null 2>&1 && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/next-dev.log"; exit 1
+      # Desktop project only: it uses the runner's installed Chrome. The *.mobile.spec.ts files need WebKit.
+      - name: Run the NFC specs
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy
+      - name: Show the app log
+        if: failure()
+        run: cat "$RUNNER_TEMP/next-dev.log"
