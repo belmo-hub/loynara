@@ -39,12 +39,13 @@ describe("readiness card", () => {
     expect(owner).toContain("/merchant/program/card");
   });
 
-  it("collapses only when required evidence is complete, and still says legal approval is outside", () => {
+  it("collapses only when required evidence is complete, with a summary that leaves nothing legal open", () => {
     const done = { ...data, requiredDone: 3, next: null, steps: data.steps.map(step => step.required ? { ...step, status: "done" as const } : step) };
     const html = render(true, done, true);
     expect(html).toContain("<details");
-    expect(html).toContain("Alle 3 Pflichtschritte sind belegt");
-    expect(html).toContain("Rechtliches bleibt außerhalb von Loynara zu klären.");
+    const summary = html.match(/<summary>.*?<span class="ow-muted">(.*?)<\/span><\/summary>/)?.[1];
+    expect(summary).toBe("Alle 3 Pflichtschritte sind belegt, 2 Empfehlungen offen.");
+    expect(summary).not.toMatch(/Rechtliches|Entwurf/);
     expect(render(true, data, true)).not.toContain("<details"); // incomplete: stays open on the overview
     expect(render(true, done, false)).not.toContain("<details"); // the first-run page never collapses
   });
