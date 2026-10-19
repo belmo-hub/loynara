@@ -53,7 +53,10 @@ try {
     programName: "Abendrot Stempel", programType: "stamp", rulesText: "Ein Stempel je bestätigtem Kassenbesuch.", rewardTitle: "Kaffee", rewardCost: 5,
   } });
   assert.equal(setup.status(), 201);
-  const { programSlug } = await setup.json();
+  const { programSlug, locationId } = await setup.json();
+  // Promotional mail needs the shop's sender details before a campaign can be scheduled.
+  const sender = await owner.post("/api/merchant/locations/address", { data: { locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" } });
+  assert.equal(sender.status(), 200);
   const enrollment = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } });
   assert.equal(enrollment.status(), 201);
   const { cardToken } = await enrollment.json();

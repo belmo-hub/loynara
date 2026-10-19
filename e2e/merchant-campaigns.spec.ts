@@ -12,7 +12,9 @@ test("owner previews an audience and saves a campaign draft without claiming del
       programName: "Synthetic campaign card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,
     } });
     expect(onboard.status()).toBe(201);
-    const { programSlug } = await onboard.json() as { programSlug: string };
+    const { programSlug, locationId } = await onboard.json() as { programSlug: string; locationId: string };
+    // Scheduling needs the shop's sender details (Einstellungen > Anschrift).
+    expect((await owner.post("/api/merchant/locations/address", { data: { locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" } })).status()).toBe(200);
     const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try { expect((await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } })).status()).toBe(201); }
     finally { await guest.dispose(); }

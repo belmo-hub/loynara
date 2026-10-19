@@ -70,6 +70,8 @@ try {
   } }), 201);
   await json(await owner.post("/api/merchant/locations", { data: { ...rule, name: "Kassel West (Demo)", programName: "Morgenlicht West" } }), 201);
   await json(await owner.post("/api/merchant/locations/select", { data: { locationId } }));
+  // Promotional mail needs the shop's sender details before a campaign can be scheduled.
+  await json(await owner.post("/api/merchant/locations/address", { data: { locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" } }));
   const { token: invitation } = await json(await owner.post("/api/staff/invite", { data: { locationId, email: `kasse-${stamp}@example.test`, role: "cashier" } }), 201);
   await json(await cashier.post("/api/staff/accept", { data: { token: invitation } }));
   await json(await owner.post("/api/merchant/referrals/settings", { data: { programSlug, enabled: true, referrerBonus: 1, referredBonus: 1 } }));

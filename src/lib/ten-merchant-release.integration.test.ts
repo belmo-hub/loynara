@@ -16,6 +16,7 @@ import { consumeContactVerification, requestContactVerification, setEmailMarketi
 import { recoveryTokenForChallenge, verificationTokenForChallenge } from "./contact-token";
 import { completeCardRecovery, recoveryOptions, requestCardRecovery } from "./card-recovery";
 import { createDraftCampaign, dispatchCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
+import { updateLocationAddress } from "./locations";
 import { createUnsubscribeToken, unsubscribeMarketing } from "./unsubscribe";
 import { getMerchantAnalytics } from "./merchant-analytics";
 import { POST as googleIssue } from "@/app/api/wallet/google/route";
@@ -58,6 +59,7 @@ async function fixture(index: number) {
   const response = await onboardRoute(request("/api/merchant/onboard", body, owner.cookie));
   expect(response.status).toBe(201);
   const merchant = await response.json() as Awaited<ReturnType<typeof createMerchant>>;
+  await updateLocationAddress(owner.userId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const cashier = await identity(`Cohort cashier ${index}`);
   const invitation = await createStaffInvite({ actorUserId: owner.userId, locationId: merchant.locationId, email: cashier.email, role: "cashier" });
   await acceptStaffInvite({ userId: cashier.userId, token: invitation.token });
