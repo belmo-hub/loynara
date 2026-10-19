@@ -14,5 +14,13 @@ export function proxy(request: NextRequest) {
       || (request.method === "POST" && path === "/api/unsubscribe");
     if (!allowed) return new NextResponse(null, { status: 404, headers: { "cache-control": "no-store" } });
   }
+  const path = request.nextUrl.pathname;
+  const adminPath = path === "/admin" || path.startsWith("/admin/") || path === "/api/admin" || path.startsWith("/api/admin/");
+  let adminHost: string | undefined;
+  try { adminHost = new URL(process.env.ADMIN_ORIGIN ?? "").host.toLowerCase().replace(/:443$/, ""); } catch { /* Console is hidden when its origin is not configured. */ }
+  if (adminHost && host === adminHost) {
+    const allowed = path === "/admin" || path.startsWith("/admin/") || path.startsWith("/api/admin/") || path.startsWith("/api/auth/") || path.startsWith("/_next/static/") || path === "/_next/image" || path === "/icon.svg" || path === "/favicon.ico";
+    if (!allowed) return new NextResponse(null, { status: 404, headers: { "cache-control": "no-store" } });
+  } else if (adminPath) return new NextResponse(null, { status: 404, headers: { "cache-control": "no-store" } });
   return NextResponse.next();
 }
