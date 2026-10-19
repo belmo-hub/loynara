@@ -50,7 +50,7 @@ export async function registerTag(input: {
   const { programs, secureTags, staffRoles } = schema;
   const [program] = await db.select().from(programs).where(eq(programs.id, bundle.programId));
   if (!program || program.tenantId !== bundle.tenantId || program.locationId !== bundle.locationId) refuse("BINDING_DOES_NOT_MATCH_THE_DATABASE");
-  if (program.status !== "active" || program.type !== "stamp" || program.earningMode !== "manual") refuse("PROGRAMME_NOT_AN_ACTIVE_FIXED_STAMP_PROGRAMME");
+  if (program.status !== "active") refuse("PROGRAMME_NOT_ACTIVE");
   if (program.tapMode !== "staff_confirmed" || !program.tapCooldownSeconds) refuse("OWNER_MUST_SET_STAFF_CONFIRMED_FIRST");
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
   if (!role) refuse("ACTOR_IS_NOT_AN_ACTIVE_OWNER_OF_THIS_MERCHANT");

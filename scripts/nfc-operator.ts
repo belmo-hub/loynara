@@ -53,7 +53,7 @@ async function databaseRepository(prepared?: PreparedPlan): Promise<{ repository
       const [program] = await db.select().from(programs).where(eq(programs.id, programId));
       if (!program) throw new Error("Programme not found");
       await owner(actorUserId, program.tenantId);
-      if (program.type !== "stamp" || program.earningMode !== "manual" || program.status !== "active" || program.tapMode === "disabled" || !program.tapCooldownSeconds) throw new Error("Approved active fixed-stamp tap policy and cooldown required");
+      if (program.status !== "active" || program.tapMode === "disabled" || !program.tapCooldownSeconds) throw new Error("Approved active tap policy and cooldown required");
       return { tenantId: program.tenantId, locationId: program.locationId, programId: program.id, mode: program.tapMode, cooldownSeconds: program.tapCooldownSeconds };
     },
     async reserve({ actorUserId, programId, uid, keyRef, publicRef }) {

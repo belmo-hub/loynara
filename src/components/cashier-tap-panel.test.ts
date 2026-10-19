@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ClientApiError } from "./client-api";
-import { formatCountdown, hasNewRequest, isOpenRequest, secondsLeft, secondsSince, tapErrorText } from "./cashier-tap-panel";
+import { formatCountdown, hasNewRequest, isOpenRequest, pointsEntry, secondsLeft, secondsSince, tapErrorText, type PendingTapRequest } from "./cashier-tap-panel";
 
 const NOW = Date.parse("2026-10-08T10:00:00.000Z");
 const inSeconds = (seconds: number) => new Date(NOW + seconds * 1000).toISOString();
@@ -109,5 +109,29 @@ describe("server timing re-anchored to the phone clock", () => {
     expect(skewedPhoneNow - Date.parse(anchored.createdAt)).toBe(180_000);
     const legacy = { id: "r2", createdAt: "a", expiresAt: "b", balance: 0, cardLocator: "K-AAAAAA" };
     expect(anchorToLocalClock(legacy, skewedPhoneNow)).toBe(legacy);
+  });
+});
+
+describe("points entry on an NFC request", () => {
+  const base: PendingTapRequest = { id: "r", createdAt: "", expiresAt: "", balance: 0, cardLocator: "K-7QX2MA", programType: "points", pointsPerCurrencyUnit: 2, currency: "EUR", ruleVersionId: "rule-1" };
+  it("reads a purchase amount the way the counter does and previews the points", () => {
+    const purchase = { ...base, earningMode: "purchase" as const };
+    expect(pointsEntry(purchase, "16,70")).toEqual({ award: { purchaseAmountMinor: 1670, ruleVersionId: "rule-1" }, points: 33 });
+    expect(pointsEntry(purchase, "5")).toEqual({ award: { purchaseAmountMinor: 500, ruleVersionId: "rule-1" }, points: 10 });
+    for (const raw of ["", "0", "-3", "1,234", "abc", "0,49"]) expect(pointsEntry(purchase, raw)).toBeNull();   // 0,49 € earns no point at 2/€
+  });
+  it("takes whole points for a manual programme", () => {
+    const manual = { ...base, earningMode: "manual" as const };
+    expect(pointsEntry(manual, " 7 ")).toEqual({ award: { quantity: 7 }, points: 7 });
+    for (const raw of ["", "0", "2,5", "-1", "07"]) expect(pointsEntry(manual, raw)).toBeNull();
+  });
+});
+
+describe("tapErrorText for points", () => {
+  it("explains limits, a changed rule and a second, different entry in German", () => {
+    expect(tapErrorText(new ClientApiError(422, "x", "LIMIT_EXCEEDED"))).toBe("Kaufbetrag oder Punkte überschreiten das Limit dieser Rolle. Bitte die Inhaberin oder den Inhaber zur Prüfung hinzuziehen.");
+    expect(tapErrorText(new ClientApiError(409, "x", "STALE_RULE"))).toBe("Die Punkteregel hat sich geändert. Bitte den Betrag erneut prüfen.");
+    expect(tapErrorText(new ClientApiError(409, "x", "KEY_REUSED"))).toBe("Schon mit einer anderen Eingabe bestätigt. Es wurde nichts doppelt gebucht.");
+    expect(tapErrorText(new ClientApiError(409, "x", "TAP_COOLDOWN"), "de", true)).toBe("Auf dieser Karte wurden gerade erst Punkte gebucht. Bitte noch nicht bestätigen.");
   });
 });
