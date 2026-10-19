@@ -7,7 +7,7 @@ import { parseRegistrationBundle, type RegistrationBundle } from "../src/lib/nfc
 const IDENTITY = ["version", "target", "origin", "uid", "publicRef", "keyRef", "tenantId", "locationId", "programId", "configVersion"] as const;
 const fail = (code: string): never => { throw new Error(code); };
 
-async function syncDirectory(directory: string): Promise<void> {
+export async function syncDirectory(directory: string): Promise<void> {
   const handle = await open(directory, constants.O_RDONLY | constants.O_NOFOLLOW);
   try { await handle.sync(); } finally { await handle.close(); }
 }

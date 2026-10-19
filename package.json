@@ -46,7 +46,8 @@
     "nfc:reader-check": "tsx scripts/nfc-operator.ts reader-check",
     "nfc:provision": "tsx scripts/nfc-operator.ts provision",
     "nfc:tag-status": "tsx scripts/nfc-operator.ts tag-status",
-    "nfc:tag-revoke": "tsx scripts/nfc-operator.ts tag-revoke"
+    "nfc:tag-revoke": "tsx scripts/nfc-operator.ts tag-revoke",
+    "nfc:tag-prepare": "tsx scripts/nfc-tag-prepare.ts"
   },
   "dependencies": {
     "better-auth": "^1.7.6",
