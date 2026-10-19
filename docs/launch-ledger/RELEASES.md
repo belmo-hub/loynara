@@ -101,3 +101,6 @@ Frozen codex/nfc-final-customer-policy-v1 must remain exactly32b27ec3fe478ce57d4
 
 - 2026-10-12 /130,132: Application519 unchanged. Reviewed operator818430f utility provenance and4609ebc explicitops plan reached verified GitHub67d30c4 and338230b respectively; no deployment. [130](2026-10-12-utility-source-attestation-130.md), [132](2026-10-12-ops-release-guard-132.md).
 - 2026-10-12 /135: New application43b54d2edbf5059d662ffa4aeb50ae6cced72ee9 implemented/tested/reviewed and normal development push4adc66276e4239794fa26dddefabb34f855ff46d verified. Full1706PASS, no new deployment observed. Review135 selects43 for136alignment; previous519pin is preserved until verified tooling alignment. [135](2026-10-12-push-recipient-authorization-135.md).
+
+- 2026-10-17: Release 1 `ddfed7f04bd1017801561c327628af9379188b27` DEPLOYED to production, schema 0025 (journal 26), 19:07–19:31 UTC, founder approval A-3; live since 19:20 UTC. Rollback targets web `c581e349` (680266d), then worker `1e63e0bd` (251453d); schema 0025 stays. [Deploy entry](2026-10-17-release-1-production-deploy.md).
+- 2026-10-18: Release 1 core acceptance C1–C10 and O1 on production: ACCEPTED (founder results, ledger verified); O2 and O3 open; no Android device in the run. [Acceptance entry](2026-10-18-release-1-core-acceptance.md).
