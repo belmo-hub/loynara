@@ -21,4 +21,12 @@ describe("customer legal pages", () => {
     expect(html).toContain("ausdrücklich und getrennt");
     expect(html).toContain("jederzeit");
   });
+
+  it("privacy notice names Google for Google Wallet cards and splits the pass deactivation", () => {
+    const html = renderToStaticMarkup(createElement(DatenschutzPage));
+    expect(html).toContain("Wenn du deine Karte zu Google Wallet hinzufügst, übermitteln wir an Google: deine Kartennummer, den QR-Kartencode für die Kasse, deinen Stempel- oder Punktestand, den Fortschritt zur nächsten Prämie sowie Name, Logo, Farbe und gegebenenfalls Standort des Geschäfts. Dein Name, deine E-Mail-Adresse, deine Telefonnummer und dein privater Kartenlink werden nicht übermittelt. Google erstellt und aktualisiert den Pass über die Google Wallet API; die weitere Verarbeitung in deinem Google-Konto richtet sich nach Googles eigenen Bedingungen.");
+    expect(html).toContain("Schließt du die Karte oder wird sie neu ausgestellt, werden gespeicherte Pässe nicht aus der Ferne gelöscht. Ein Apple-Wallet-Pass wird als ungültig markiert und sein QR-Code entfernt. Ein Google-Wallet-Pass wird deaktiviert; Kartennummer, QR-Code und Stand werden entfernt. Du kannst den Pass danach selbst aus deiner Wallet löschen.");
+    expect(html).toContain("bei Apple-Wallet-Karten PassFast, bei Google-Wallet-Karten Google");
+    expect(html).toContain("Stand: 19. Oktober 2026.");
+  });
 });
