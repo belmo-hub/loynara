@@ -7,15 +7,22 @@ import styles from "./customer-card.module.css";
 
 export type CardReward = { id: string; title: string; cost: number };
 
+/** The reward the progress line refers to by default: the one with the fewest stamps or points still missing. */
+export function nearestReward<T extends CardReward>(rewards: T[], balance: number): T | undefined {
+  return [...rewards].sort((a, b) => Math.max(0, a.cost - balance) - Math.max(0, b.cost - balance) || a.cost - b.cost)[0];
+}
+
 /**
  * The card object itself, in the shop's colours: business, progress (stamps or points), balance and the line to the
  * next reward, with the code ticket passed in as children. The guest's card page and the owner's previews both use
  * it, so the owner sees exactly what guests see. Colours come from the merchant palette variables on an ancestor.
  */
-export function CardFace({ businessName, locationName, programType, balance, rewards, selected, locale = "de", className, children }: {
+export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, locale = "de", className, children }: {
   businessName: string; locationName: string; programType: "stamps" | "points"; balance: number; rewards: CardReward[];
   /** The reward the progress line refers to. */
-  selected?: CardReward; locale?: "de" | "fr"; className?: string; children?: ReactNode;
+  selected?: CardReward;
+  /** The stamp count that was just reached; that stamp plays the landing motion once. */
+  landed?: number; locale?: "de" | "fr"; className?: string; children?: ReactNode;
 }) {
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
@@ -28,7 +35,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
       {readyCount > 0 ? <span className={styles.readyTag}>{t.readyTag}</span> : null}
     </div>
     {programType === "stamps" && selected
-      ? <StampGrid earned={balance} total={selected.cost} locale={locale} className={styles.stamps} />
+      ? <StampGrid earned={balance} total={selected.cost} landed={landed} locale={locale} className={styles.stamps} />
       : <PointsLadder balance={balance} rewards={rewards} locale={locale} className={styles.ladder} />}
     <div className={styles.balancePanel}>
       <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong>{number.format(balance)} <em>{unit}</em></strong></p>

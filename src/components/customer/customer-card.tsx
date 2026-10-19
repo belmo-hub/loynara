@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
-import { CardFace, type CardReward } from "./card-face";
+import { CardFace, nearestReward, type CardReward } from "./card-face";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
 
@@ -20,6 +20,8 @@ export type CustomerCardProps = {
   locationName: string;
   programType: "stamps" | "points";
   balance: number;
+  /** A stamp count reached while the card was open; that stamp lands once. */
+  landed?: number;
   rewards: Reward[];
   cardLocator?: string;
   qrSrc?: string;
@@ -49,13 +51,13 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, locale = "de", notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
-  const nearest = [...rewards].sort((a, b) => Math.max(0, a.cost - balance) - Math.max(0, b.cost - balance) || a.cost - b.cost)[0];
+  const nearest = nearestReward(rewards, balance);
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   const nextGoal = [...rewards].filter((reward) => reward.cost > balance).sort((a, b) => a.cost - b.cost)[0];
@@ -69,7 +71,7 @@ export function CustomerCard(props: CustomerCardProps) {
     <Goal t={t} number={number} programType={programType} remaining={nextGoal ? nextGoal.cost - balance : 0} readyCount={readyCount} nextGoal={nextGoal} several={rewards.length > 1} />
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
-    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} locale={locale}>
+    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale}>
       <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
         {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
         {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong>{cardLocator}</strong><small>{t.cardNumberHint}</small></p> : null}

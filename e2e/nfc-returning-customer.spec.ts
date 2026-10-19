@@ -26,7 +26,7 @@ test("first enrollment then restarted browser returns to the original membership
     expect(number).toBe(`K-${original.card_locator}`);
     const pending = await pendingOf(m.cashier);
     expect((await m.cashier.post(`/api/cashier/tap/${pending[0].id}/confirm`)).status()).toBe(200);
-    await expect(page.getByText("Aktueller Stand: 1 Stempel")).toBeVisible();
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
     const state = await context.storageState();
     expect(state.cookies.filter(c => c.name.startsWith("loynara_member_")).every(c => c.httpOnly && c.sameSite === "Lax" && c.path === "/api/tap" && c.expires > Date.now()/1000)).toBe(true);
     await context.close();
@@ -34,7 +34,7 @@ test("first enrollment then restarted browser returns to the original membership
     page = await context.newPage();
     // Reusing the old URL after restart never awards again.
     await page.goto(first);
-    await expect(page.getByText("Aktueller Stand: 1 Stempel")).toBeVisible();
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
     expect(await pendingOf(m.cashier)).toHaveLength(0);
     const second = pathOf(m.nextUrl());
     await page.goto(second);
@@ -51,7 +51,7 @@ test("first enrollment then restarted browser returns to the original membership
     expect(requests).toEqual([{ membership_id: original.id }]);
     const approvals = await Promise.all([m.cashier.post(`/api/cashier/tap/${returning[0].id}/confirm`), m.owner.post(`/api/cashier/tap/${returning[0].id}/confirm`)]);
     expect(approvals.some(r=>r.status()===200)).toBe(true);
-    await expect(page.getByText("Aktueller Stand: 2 Stempel")).toBeVisible();
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^2\s*Stempel$/);
     const rows = await sql("SELECT id, card_locator, balance FROM memberships WHERE program_id=$1", [m.me.programId]);
     expect(rows).toEqual([{ id: original.id, card_locator: original.card_locator, balance: 2 }]);
     expect(await sql("SELECT delta FROM ledger_entries WHERE membership_id=$1 AND kind='award' ORDER BY created_at", [original.id])).toEqual([{ delta: 1 }, { delta: 1 }]);
@@ -136,7 +136,7 @@ test("one browser isolates two merchants and explicitly selects identity after a
     const shared = await pendingOf(a.cashier);
     expect(shared).toHaveLength(1); expect(shared[0].cardLocator).toBe(secondA.cardLocator);
     expect((await a.cashier.post(`/api/cashier/tap/${shared[0].id}/confirm`)).status()).toBe(200);
-    await expect(page.getByText("Aktueller Stand: 1 Stempel")).toBeVisible();
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
     expect((await (await customer.request.get(`/api/card/${ca.cardToken}`)).json()).balance).toBe(0);
     expect((await (await customer.request.get(`/api/card/${cb.cardToken}`)).json()).balance).toBe(0);
     await page.reload();

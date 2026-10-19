@@ -55,7 +55,7 @@ test("a: a bound customer's tap is at the top of /cashier with the customer's ca
     expect((await (await m.owner.get("/api/me")).json() as { stats?: { awards: number } }).stats?.awards).toBe(1);
     await expect(panel(page).getByText(shown, { exact: true })).toHaveCount(0);
     await expect(customerPage.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
-    await expect(customerPage.getByText("Aktueller Stand: 1 Stempel")).toBeVisible();
+    await expect(customerPage.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
   } finally {
     await cashier.close(); await card.context.close(); await m.close();
   }

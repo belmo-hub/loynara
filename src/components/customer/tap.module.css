@@ -5,7 +5,7 @@
 .merchant span:not(.mono) { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
 .mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); }
 .state { display: grid; justify-items: start; align-content: start; gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-6) var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-xl); background: var(--color-surface); }
-.icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--color-action-soft); color: var(--color-action); }
+.icon { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--color-action-soft); color: var(--color-action); }
 .state[data-tone="done"] .icon { background: color-mix(in oklab, var(--color-success), transparent 84%); color: var(--color-success); }
 .state[data-tone="waiting"] .icon { background: color-mix(in oklab, var(--color-warning), transparent 84%); color: var(--color-warning); }
 .state[data-tone="error"] .icon { background: color-mix(in oklab, var(--color-danger), transparent 86%); color: var(--color-danger); }
@@ -18,3 +18,21 @@
 .actions { display: grid; gap: var(--space-3); width: 100%; }
 .link { margin: 0; }
 .link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
+.card { width: 100%; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.plus { position: absolute; top: -4px; right: -14px; padding: 0 var(--space-2); border-radius: var(--radius-pill); background: var(--color-success); color: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.6; font-variant-numeric: tabular-nums; }
+
+/* The stamp moment, once per booked stamp: the check settles and draws, "+1" rises, the card follows and its new
+   stamp lands (about 1.1 s). Only opacity and transform move, in space already taken, so nothing below shifts and
+   the card's link works throughout. Reduced motion shows the same end state at once. */
+.state[data-moment] .icon { animation: settle var(--dur-ui) var(--ease-out) both; }
+.state[data-moment] .icon path { stroke-dasharray: 12; animation: draw 320ms var(--ease-out) 140ms both; }
+.state[data-moment] .plus { animation: rise var(--dur-ui) var(--ease-out) 360ms both; }
+.state[data-moment] .card { --land-delay: 640ms; animation: rise var(--dur-ui) var(--ease-out) 420ms both; }
+@keyframes settle { from { opacity: 0; transform: scale(.6); } }
+@keyframes draw { from { stroke-dashoffset: 12; } to { stroke-dashoffset: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .state[data-moment] .icon, .state[data-moment] .icon path, .state[data-moment] .plus, .state[data-moment] .card { animation: none; }
+  .state[data-moment] .card { --land-delay: 0ms; }
+}
