@@ -26,11 +26,11 @@ export const AUTO_REFRESH_BUDGET = 30;
 
 /**
  * Delay before the next automatic re-read while the card is visible, or null to stop until the guest looks again:
- * every 5 s in the first minute after the card is shown, every 15 s up to three minutes, every minute up to ten
- * (27 reads). Each failed read in a row doubles the delay, up to a minute.
+ * every 5 s in the first 30 s after the card is shown (the stamp almost always lands then), every 20 s up to three
+ * minutes, none after (13 reads). Each failed read in a row doubles the delay, up to a minute.
  */
 export function nextAutoRefresh(shownForMs: number, failures: number, recentReads: number): number | null {
-  if (shownForMs >= 600_000 || recentReads >= AUTO_REFRESH_BUDGET) return null;
-  const base = shownForMs < 60_000 ? 5_000 : shownForMs < 180_000 ? 15_000 : 60_000;
-  return Math.min(base * 2 ** failures, 60_000);
+  if (recentReads >= AUTO_REFRESH_BUDGET) return null;
+  const delay = Math.min((shownForMs < 30_000 ? 5_000 : 20_000) * 2 ** failures, 60_000);
+  return shownForMs + delay > 180_000 ? null : delay;
 }
