@@ -52,6 +52,34 @@ test.describe("owner dashboard on phones", () => {
     await expect(page.getByRole("complementary", { name: "Bereichsnavigation" })).toHaveAttribute("data-open", "true");
   });
 
+  test("at 320 px Kunden rows break no word and every toggle group keeps one row", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await signIn(page);
+    const layout = () => page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".ow-seg")].filter(seg => seg.getBoundingClientRect().width > 2)
+        .map(seg => new Set([...seg.querySelectorAll("button")].map(button => Math.round(button.getBoundingClientRect().top))).size);
+      const broken: string[] = [];
+      for (const row of document.querySelectorAll(".ow-member")) {
+        const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          for (const word of node.textContent!.matchAll(/\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, word.index!);
+            range.setEnd(node, word.index! + word[0].length);
+            if (new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size > 1) broken.push(word[0]);
+          }
+        }
+      }
+      return { rows: [...new Set(rows)], broken };
+    });
+    await page.goto("/merchant/customers");
+    await expect(page.locator(".ow-member").first()).toBeVisible();
+    expect(await layout()).toEqual({ rows: [1], broken: [] });
+    await page.goto("/merchant/program/card");
+    await page.getByRole("button", { name: "Vorschau" }).click();
+    expect((await layout()).rows).toEqual([1]);
+  });
+
   test.describe("in dark mode", () => {
     test.use({ colorScheme: "dark" });
     test("the dashboard follows the system", async ({ page }) => {
