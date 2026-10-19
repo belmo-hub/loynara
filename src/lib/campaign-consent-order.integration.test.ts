@@ -4,6 +4,7 @@ import { afterAll, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { campaignAttempts, campaignDailyUsage, campaignRecipients, consentEvents, membershipContacts, outboxJobs } from "@/db/schema";
+import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 import { createDraftCampaign, deliverCampaignRecipient, dispatchCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
 import type { LocalMessage } from "./email";
@@ -28,6 +29,7 @@ it("rechecks committed withdrawal after stale materialization eligibility before
     const ownerId = randomUUID();
     await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [ownerId,label,`${ownerId}@example.test`]);
     const merchant = await createMerchant({ userId:ownerId,businessName:label,city:"Kassel",country:"DE",timezone:"Europe/Berlin",locale:"de",currency:"EUR",programName:label,programType:"stamp",rulesText:"One synthetic approved award",rewardTitle:"Coffee",rewardCost:5 });
+    await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel" });
     async function card(email: string) {
       const result = await enroll({slug:merchant.programSlug,acceptedTerms:true,email,marketingOptIn:true});
       await db.update(membershipContacts).set({emailVerified:true}).where(eq(membershipContacts.membershipId,result.id));

@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
+import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { rewardReadyMemberships, rewardReadyNow } from "./reward-readiness";
 import { formatCardLocator } from "./card-locator";
@@ -9,7 +9,7 @@ import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, senderAddressMissing } from "./promotion-policy";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
@@ -55,6 +55,9 @@ export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now?:
   if (input.enabled && promotionalEmailMode() === "disabled") throw new DomainError("EMAIL_DISABLED", "Promotional email delivery is disabled");
   return db.transaction(async tx => {
     const program = await ownerProgram(input.actorUserId, input.programSlug, tx);
+    if (input.enabled && senderAddressMissing(await programSender(tx, program.tenantId, program.id))) {
+      throw new DomainError("ADDRESS_REQUIRED", "Trag zuerst die Anschrift deines Ladens ein. Sie steht als Absender unter jeder E-Mail.");
+    }
     const [existing] = await tx.select().from(automationRules)
       .where(and(eq(automationRules.tenantId, program.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, input.triggerKind))).for("update").limit(1);
     const fields = { enabled: input.enabled, subject: input.subject, body: input.body, inactivityDays: input.triggerKind === "inactive" ? input.inactivityDays! : null, cooldownDays: input.cooldownDays, dailyCap: input.dailyCap, nextScanAt: input.triggerKind !== "first_checkout" && input.enabled ? now : null, updatedAt: now };
@@ -77,7 +80,8 @@ export async function listAutomations(raw: { actorUserId: string; programSlug: s
     .from(automationRuns).leftJoin(memberships, and(eq(memberships.tenantId, automationRuns.tenantId), eq(memberships.id, automationRuns.membershipId)))
     .where(and(eq(automationRuns.tenantId, program.tenantId), inArray(automationRuns.ruleId, ids))).orderBy(desc(automationRuns.createdAt)).limit(100)
     .then(rows => rows.map(row => ({ ...row, cardLocator: row.cardLocator ? formatCardLocator(row.cardLocator) : null }))) : [];
-  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode() };
+  const addressMissing = senderAddressMissing(await programSender(db, program.tenantId, program.id));
+  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode(), addressMissing };
 }
 
 async function latestConsent(tx: Transaction, tenantId: string, membershipId: string) {
@@ -242,14 +246,14 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
     } else if (rule.triggerKind === "reward_ready") {
       if (!await rewardReadyNow(tx, rule, run.membershipId, now)) return suppress("Reward no longer ready");
     } else if (!await inactiveNow(tx, rule, run.membershipId, now)) return suppress("Member no longer inactive");
-    const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, rule.tenantId)).limit(1);
-    if (!tenant) return suppress("Merchant unavailable");
-    const timezone = await programTimezone(tx, rule.tenantId, rule.programId);
-    if (!timezone) return suppress("Location unavailable");
-    const until = quietHoursDeferral(now, timezone);
-    if (until) return { status: "deferred", reason: "Quiet hours in the location's timezone", until };
+    const sender = await programSender(tx, rule.tenantId, rule.programId);
+    if (!sender) return suppress("Location unavailable");
     const link = unsubscribeUrl({ tenantId: rule.tenantId, membershipId: run.membershipId, email: contact.email });
-    const message = { to: contact.email, subject: rule.subject, body: `${rule.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
+    const signature = marketingSignature(sender, link);
+    if (!signature) return suppress("Shop address missing");
+    const until = quietHoursDeferral(now, sender.timezone);
+    if (until) return { status: "deferred", reason: "Quiet hours in the location's timezone", until };
+    const message = { to: contact.email, fromName: signature.fromName, subject: rule.subject, body: `${rule.body}\n\n${signature.footer}`, unsubscribeUrl: link, jobId: job.id };
     try {
       if (mode === "mailpit") await send(message);
       else {

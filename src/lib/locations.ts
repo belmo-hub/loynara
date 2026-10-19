@@ -20,8 +20,12 @@ const input = z.object({
   rewardCost: z.number().int().min(1).max(100000),
 }).strict();
 
+// One line each: the address is printed as the sender line under every marketing mail.
+const singleLine = (max: number) => z.string().trim().min(2).max(max).regex(/^[^\p{Cc}]+$/u);
+const addressInput = z.object({ locationId: z.uuid(), street: singleLine(180), postalCode: z.string().trim().regex(/^\d{5}$/), city: singleLine(120) }).strict();
+
 type LocationRow = {
-  id: string; name: string; city: string; country: string; timezone: string; createdAt: Date;
+  id: string; name: string; city: string; street: string | null; postalCode: string | null; country: string; timezone: string; createdAt: Date;
   programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null;
   cards: number; awards: number; redemptions: number; activeStaff: number;
 };
@@ -90,12 +94,21 @@ export async function validateOwnerLocation(actorUserId: string, locationId: str
   return location;
 }
 
+export async function updateLocationAddress(actorUserId: string, raw: z.input<typeof addressInput>) {
+  const owner = await ownerRole(actorUserId);
+  const data = addressInput.parse(raw);
+  const [location] = await db.update(locations).set({ street: data.street, postalCode: data.postalCode, city: data.city })
+    .where(and(eq(locations.tenantId, owner.tenantId), eq(locations.id, data.locationId))).returning({ id: locations.id });
+  if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+  return { locationId: location.id, street: data.street, postalCode: data.postalCode, city: data.city };
+}
+
 export async function listMerchantLocations(actorUserId: string) {
   const owner = await ownerRole(actorUserId);
   const [tenant] = await db.select({ currency: tenants.currency }).from(tenants).where(eq(tenants.id, owner.tenantId)).limit(1);
   if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
   const result = await pool.query<LocationRow>(`
-    SELECT l.id, l.name, l.city, l.country, l.timezone, l.created_at AS "createdAt",
+    SELECT l.id, l.name, l.city, l.street, l.postal_code AS "postalCode", l.country, l.timezone, l.created_at AS "createdAt",
       p.slug AS "programSlug", p.name AS "programName", p.type AS "programType",
       (SELECT count(*)::int FROM memberships m JOIN programs card_program ON card_program.tenant_id = m.tenant_id AND card_program.id = m.program_id WHERE m.tenant_id = l.tenant_id AND card_program.location_id = l.id) AS cards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')) AS awards,

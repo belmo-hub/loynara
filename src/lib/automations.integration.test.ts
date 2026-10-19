@@ -4,9 +4,10 @@ import { promisify } from "node:util";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { automationRules, automationRuns, consentEvents, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { automationRules, automationRuns, consentEvents, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { award } from "./loyalty";
 import type { LocalMessage } from "./email";
+import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 import { deliverAutomationRun, listAutomations, processAutomationEvent, processAutomationScan, upsertAutomationRule } from "./automations";
 
@@ -31,10 +32,11 @@ beforeEach(async () => {
 });
 afterAll(async () => { await pool.end(); });
 
-async function fixture() {
+async function fixture(withAddress = true) {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Automation Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  if (withAddress) await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel" });
   return { ownerId, merchant };
 }
 
@@ -65,8 +67,10 @@ describe("bounded local automations", () => {
     process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://unsubscribe.example.test";
     process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
-      expect(message.body).toContain("Synthetic Automation Café");
       expect(message.unsubscribeUrl).toContain("/unsubscribe#token=");
+      expect(message.fromName).toBe("Synthetic Automation Café via Loynara");
+      expect(message.body).toBe(`${firstRule.body}\n\nSynthetic Automation Café · Friedrich-Ebert-Straße 12, 34117 Kassel\nAngebote abbestellen: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
+      expect(message.body).not.toContain(card.cardToken);
       return { state: "accepted" as const, messageId: "<automation@example.test>" };
     }) };
     await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
@@ -78,6 +82,26 @@ describe("bounded local automations", () => {
     expect((await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 2 }, undefined, undefined, provider)).status).toBe("complete");
     expect(provider.send).toHaveBeenCalledTimes(1);
   });
+  it("without a shop address no rule can be switched on and nothing promotional is sent", async () => {
+    const f = await fixture(false);
+    const card = await member(f.merchant.programSlug);
+    await expect(upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule })).rejects.toMatchObject({ code: "ADDRESS_REQUIRED" });
+    expect(await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule, enabled: false })).toMatchObject({ enabled: false });
+    expect(await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).toMatchObject({ addressMissing: true });
+    await updateLocationAddress(f.ownerId, { locationId: f.merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel" });
+    expect(await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).toMatchObject({ addressMissing: false });
+    await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
+    await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload });
+    // An address lost after queueing (e.g. a rule enabled before this check existed) still blocks the send.
+    await db.update(locations).set({ street: null }).where(eq(locations.id, f.merchant.locationId));
+    const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send)).toEqual({ status: "suppressed", reason: "Shop address missing" });
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("allows only the active owner to configure rules and exposes aggregate run history", async () => {
     const f = await fixture();
     const cashier = randomUUID();

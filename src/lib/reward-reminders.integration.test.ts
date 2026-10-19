@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { automationRuns, consentEvents, emailSuppressions, membershipContacts, outboxJobs, rewards, rewardVersions, staffRoles } from "@/db/schema";
+import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { deliverAutomationRun, processAutomationScan, upsertAutomationRule } from "./automations";
@@ -28,6 +29,7 @@ async function fixture(quantity = 8, email = "reward@example.test") {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Reward Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp per purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email, marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   const entry = quantity ? await award({ userId: ownerId, locationId: merchant.locationId, membershipId: card.id, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() }) : null;

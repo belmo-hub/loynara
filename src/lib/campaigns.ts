@@ -1,13 +1,13 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 const DAILY_QUOTA = 100;
 const AUDIENCE_PAGE_SIZE = 500;
@@ -325,14 +325,14 @@ export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSend
     } catch { return suppress("Audience could not be rechecked"); }
     const classified = await classify(campaign.tenantId, campaign.programId, [member.id], tx);
     if (!classified.eligible.length) return suppress(classified.excluded.unsubscribed ? "Unsubscribed" : classified.excluded.suppressed ? "Address suppressed by provider" : classified.excluded.frequency ? "Customer frequency limit" : classified.excluded.noConsent ? "Marketing consent withdrawn" : classified.excluded.nonSynthetic ? "Recipient is not synthetic" : "Contact unavailable or unverified");
-    const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, campaign.tenantId)).limit(1);
-    if (!tenant) return suppress("Merchant unavailable");
-    const timezone = await programTimezone(tx, campaign.tenantId, campaign.programId);
-    if (!timezone) return suppress("Location unavailable");
-    const until = quietHoursDeferral(now, timezone);
-    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
+    const sender = await programSender(tx, campaign.tenantId, campaign.programId);
+    if (!sender) return suppress("Location unavailable");
     const link = unsubscribeUrl({ tenantId: campaign.tenantId, membershipId: member.id, email: classified.eligible[0].email });
-    const message = { to: classified.eligible[0].email, subject: campaign.subject, body: `${campaign.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
+    const signature = marketingSignature(sender, link);
+    if (!signature) return suppress("Shop address missing");
+    const until = quietHoursDeferral(now, sender.timezone);
+    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
+    const message = { to: classified.eligible[0].email, fromName: signature.fromName, subject: campaign.subject, body: `${campaign.body}\n\n${signature.footer}`, unsubscribeUrl: link, jobId: job.id };
     try {
       if (mode === "mailpit") await send(message);
       else {

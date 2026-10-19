@@ -52,6 +52,9 @@ export const locations = pgTable("locations", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
   name: varchar("name", { length: 180 }).notNull(),
   city: varchar("city", { length: 120 }).notNull(),
+  // Sender address under every marketing mail; null until the owner enters it, and nothing promotional is sent until then.
+  street: varchar("street", { length: 180 }),
+  postalCode: varchar("postal_code", { length: 5 }),
   country: varchar("country", { length: 2 }).notNull(),
   timezone: varchar("timezone", { length: 80 }).notNull(),
   contactEmail: varchar("contact_email", { length: 320 }),

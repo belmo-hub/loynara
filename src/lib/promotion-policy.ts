@@ -70,11 +70,30 @@ export function quietHoursDeferral(now: Date, timeZone: string, window: { startH
   return zonedTimeToUtc(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), window.endHour, timeZone);
 }
 
-/** Location timezone for a programme; promotional sends are always scheduled in the merchant's local time. */
-export async function programTimezone(query: Query, tenantId: string, programId: string) {
+type ProgramSender = { shopName: string; timezone: string; street: string | null; postalCode: string | null; city: string };
+
+/** Shop and location behind a programme: the timezone schedules every promotional send, the address signs it. */
+export async function programSender(query: Query, tenantId: string, programId: string) {
   const result = await query.execute(sql`
-    SELECT l.timezone FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id
+    SELECT t.name AS "shopName", l.timezone, l.street, l.postal_code AS "postalCode", l.city
+    FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = p.tenant_id
     WHERE p.tenant_id = ${tenantId}::uuid AND p.id = ${programId}::uuid
   `);
-  return (result.rows[0] as { timezone?: string } | undefined)?.timezone ?? null;
+  return (result.rows[0] as ProgramSender | undefined) ?? null;
+}
+
+export const senderAddressMissing = (sender: ProgramSender | null) => !sender?.street || !sender.postalCode;
+
+/**
+ * Sender name and footer of every campaign and automation mail (Legal, A-11): the shop is the sender, with its address,
+ * the unsubscribe link and the privacy notice. Null while the address is missing: such a shop sends nothing promotional.
+ * Never a card link: the card URL is a bearer credential.
+ */
+export function marketingSignature(sender: ProgramSender, unsubscribeLink: string) {
+  if (senderAddressMissing(sender)) return null;
+  const privacy = new URL("/datenschutz", process.env.PUBLIC_BASE_URL).toString();
+  return {
+    fromName: `${sender.shopName} via Loynara`,
+    footer: `${sender.shopName} · ${sender.street}, ${sender.postalCode} ${sender.city}\nAngebote abbestellen: ${unsubscribeLink} · Datenschutz: ${privacy}`,
+  };
 }

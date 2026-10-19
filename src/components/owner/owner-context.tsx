@@ -7,7 +7,7 @@ import { apiJson, ClientApiError, postJson, type MeResponse } from "@/components
 import { accountLoadMessage, locationSwitchMessage, SETUP_INCOMPLETE } from "./owner-errors";
 import { OwnerDialog } from "./owner-ui";
 
-export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
+export type OwnerLocation = { id: string; name: string; city: string; street: string | null; postalCode: string | null; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
 type NavigateEventLike = { navigationType: string; cancelable: boolean; destination: { key: string }; preventDefault: () => void };
 type NavigationLike = { addEventListener: (type: string, listener: EventListener) => void; removeEventListener?: (type: string, listener: EventListener) => void; traverseTo?: (key: string) => { committed?: Promise<unknown> } };
 type Status = "loading" | "ready" | "unprovisioned" | "error";

@@ -9,6 +9,7 @@ import { claimOutboxJob, deferOutboxJob, markOutboxJob } from "./outbox";
 import { hasRecentPromotion, quietHoursDeferral } from "./promotion-policy";
 import { recipientHash } from "./transactional-email";
 import { award } from "./loyalty";
+import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Quiet-hours tests require looplocal_test");
@@ -29,6 +30,7 @@ async function queuedRun(timezone: string) {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Quiet Café", city: "Kassel", country: timezone === "Africa/Casablanca" ? "MA" : "DE", timezone, locale: "de", currency: timezone === "Africa/Casablanca" ? "MAD" : "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: "quiet@example.test", marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   await upsertAutomationRule({ actorUserId: ownerId, programSlug: merchant.programSlug, triggerKind: "first_checkout", enabled: true, subject: "Willkommen", body: "Danke für deinen ersten bestätigten Einkauf.", cooldownDays: 7, dailyCap: 20 });
@@ -74,6 +76,7 @@ async function queuedCampaign(timezone = "Europe/Berlin") {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Quiet Campaign Café", city: "Kassel", country: timezone === "Africa/Casablanca" ? "MA" : "DE", timezone, locale: "de", currency: timezone === "Africa/Casablanca" ? "MAD" : "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: "campaign-quiet@example.test", marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   const draft = await createDraftCampaign({ actorUserId: ownerId, programSlug: merchant.programSlug, title: "Quiet hours note", subject: "Local test offer", body: "A short synthetic message for a local test.", audienceDefinition: { kind: "new", withinDays: 7 } });

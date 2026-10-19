@@ -88,6 +88,15 @@ export function locationSwitchMessage(cause: unknown): string {
   return `Der Standort wurde nicht gewechselt. ${RELOAD}`;
 }
 
+/** A failed POST /api/merchant/locations/address. Saving the same address twice is harmless, so a retry is always safe. */
+export function locationAddressMessage(cause: unknown): string {
+  const status = cause instanceof ClientApiError ? cause.status : 0;
+  if (status === 401) return SIGNED_OUT;
+  if (status === 429) return RATE_LIMITED;
+  if (status === 400) return "Die Anschrift wurde nicht gespeichert. Prüfe Straße und Hausnummer, die fünfstellige PLZ und die Stadt.";
+  return "Die Anschrift wurde nicht gespeichert. Prüfe deine Verbindung und versuche es erneut.";
+}
+
 /**
  * A failed POST /api/merchant/locations (createAdditionalLocation). A lost, unreadable or 5xx answer may come after the
  * commit, so those ask to check the list first; a second try with the same name is refused (LOCATION_EXISTS).

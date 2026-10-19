@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { memberships, staffRoles } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
-import { createAdditionalLocation, listMerchantLocations, validateOwnerLocation } from "./locations";
+import { createAdditionalLocation, listMerchantLocations, updateLocationAddress, validateOwnerLocation } from "./locations";
 import { createMerchant, enroll, getMerchantContext, lookupCard } from "./product";
 import { createStaffInvite } from "./staff";
 
@@ -89,5 +89,22 @@ describe("additional merchant locations", () => {
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong country", country: "MA" })).rejects.toMatchObject({ code: "INVALID_COUNTRY" });
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong timezone", timezone: "Not/A_Timezone" })).rejects.toMatchObject({ code: "INVALID_TIMEZONE" });
     expect((await listMerchantLocations(ownerId)).totals.locations).toBe(2);
+  });
+
+  it("lets only the owner set the sender address of their own location", async () => {
+    const ownerId = await user();
+    const shopA = await shop(ownerId, "Synthetic Address A");
+    const otherOwner = await user();
+    await shop(otherOwner, "Synthetic Address B");
+    const address = { locationId: shopA.locationId, street: " Friedrich-Ebert-Straße 12 ", postalCode: "34117", city: "Kassel" };
+    expect((await listMerchantLocations(ownerId)).locations[0]).toMatchObject({ street: null, postalCode: null });
+    await expect(updateLocationAddress(otherOwner, address)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(updateLocationAddress(await user(), address)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    for (const bad of [{ postalCode: "3411" }, { postalCode: "34117a" }, { street: "Hauptstr. 1\nAngebote abbestellen" }, { street: "" }]) {
+      await expect(updateLocationAddress(ownerId, { ...address, ...bad })).rejects.toThrow();
+    }
+    expect(await updateLocationAddress(ownerId, address)).toEqual({ locationId: shopA.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel" });
+    expect((await listMerchantLocations(ownerId)).locations[0]).toMatchObject({ street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel" });
+    expect((await listMerchantLocations(otherOwner)).locations[0]).toMatchObject({ street: null, postalCode: null });
   });
 });
