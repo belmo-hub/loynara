@@ -71,5 +71,8 @@ describe("automatic card re-reads while the card is visible", () => {
     expect(reads).toBeLessThanOrEqual(AUTO_REFRESH_BUDGET);
     // GET /api/card/[token] allows 90 reads per card in 15 minutes: two thirds stay free for page loads, the refresh button and a second tab.
     expect(AUTO_REFRESH_BUDGET * 3).toBeLessThanOrEqual(90);
+    // It also allows 240 per network in 15 minutes, shared by every guest on one shop Wi-Fi: 15 guests, each with a page
+    // load, one return and a full budget, still fit.
+    expect(15 * (1 + 1 + AUTO_REFRESH_BUDGET)).toBeLessThanOrEqual(240);
   });
 });

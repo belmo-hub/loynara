@@ -79,26 +79,28 @@ export function CardClient({ token }: { token: string }) {
     return () => { mounted = false; };
   }, [token]);
   // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in
-  // between. So while the card is visible it re-reads the balance by itself (cadence and budget: nextAutoRefresh),
-  // starting again when the page becomes visible or focused (also after a back navigation); plus "Aktualisieren".
+  // between. So while the card is visible it re-reads the balance by itself for a short window (cadence and budget:
+  // nextAutoRefresh), from the first load and again from each real return (visible after hidden, or a back navigation),
+  // and stops as soon as the balance has grown. Focus and "Aktualisieren" read once without restarting the window.
   // Coalesced and at most every REFRESH_INTERVAL_MS; a grown balance lands the new stamp. A card that stopped existing
   // (closed or reissued elsewhere) is replaced by a plain message; network trouble keeps the last known state; a read
-  // the server refuses (rate limit) stops the automatic reads until the guest looks again.
+  // the server refuses (rate limit) ends the window. The card read limit is shared by every guest on one network.
   useEffect(() => {
     let mounted = true;
     let poll: ReturnType<typeof setTimeout> | undefined;
-    let shownAt = Date.now(), failures = 0;
+    let open = false, shownAt = 0, failures = 0;
     const reads: number[] = [];
-    function refresh(manual = false): Promise<"ok" | "failed" | "stop" | "skipped"> {
+    function refresh(manual = false): Promise<"ok" | "grew" | "failed" | "stop" | "skipped"> {
       if (!live.current || document.visibilityState !== "visible" || !gate.current.tryStart()) return Promise.resolve("skipped");
       if (manual) setRefreshing(true);
       return apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`)
         .then(result => {
           if (!mounted || !live.current) return "stop" as const;
-          if (balanceSeen.current !== null && result.balance > balanceSeen.current) setLanded(result.balance);
+          const grew = balanceSeen.current !== null && result.balance > balanceSeen.current;
+          if (grew) setLanded(result.balance);
           balanceSeen.current = result.balance;
           setCard(result); setRefreshFailed(false);
-          return "ok" as const;
+          return grew ? "grew" as const : "ok" as const;
         })
         .catch(cause => {
           if (!mounted) return "stop" as const;
@@ -110,32 +112,36 @@ export function CardClient({ token }: { token: string }) {
     }
     function schedule() {
       clearTimeout(poll);
-      if (!mounted || document.visibilityState !== "visible") return;
+      if (!open || !mounted || document.visibilityState !== "visible") return;
       while (reads.length && Date.now() - reads[0] >= 15 * 60_000) reads.shift();
       const delay = nextAutoRefresh(Date.now() - shownAt, failures, reads.length);
-      if (delay !== null) poll = setTimeout(() => void autoRefresh(), delay);
+      if (delay === null) open = false;
+      else poll = setTimeout(() => void read(), delay);
     }
-    async function autoRefresh() {
-      const outcome = await refresh();
-      if (outcome === "stop") return;
-      if (outcome !== "skipped") reads.push(Date.now());
-      failures = outcome === "failed" ? failures + 1 : outcome === "ok" ? 0 : failures;
+    async function read(manual = false) {
+      const outcome = await refresh(manual);
+      if (outcome === "skipped" && manual) return;
+      if (outcome !== "skipped" && !manual) reads.push(Date.now());
+      if (outcome === "grew" || outcome === "stop") open = false;
+      failures = outcome === "failed" ? failures + 1 : outcome === "skipped" ? failures : 0;
       schedule();
     }
-    function onReturn() {
+    function startWindow() { shownAt = Date.now(); failures = 0; open = true; }
+    function onVisibility() {
       clearTimeout(poll);
       if (document.visibilityState !== "visible") return;
-      shownAt = Date.now(); failures = 0;
-      void autoRefresh();
+      startWindow();
+      void read();
     }
-    function onPageShow(event: PageTransitionEvent) { if (event.persisted) onReturn(); }
-    refreshNow.current = () => void refresh(true);
+    function onPageShow(event: PageTransitionEvent) { if (event.persisted) onVisibility(); }
+    function onFocus() { void read(); }
+    refreshNow.current = () => void read(true);
     // The first window starts once the card has loaded, so its first re-read is not refused by the gate.
-    startAutoRefresh.current = () => { shownAt = Date.now(); failures = 0; schedule(); };
-    document.addEventListener("visibilitychange", onReturn);
-    window.addEventListener("focus", onReturn);
+    startAutoRefresh.current = () => { startWindow(); schedule(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
     window.addEventListener("pageshow", onPageShow);
-    return () => { mounted = false; clearTimeout(poll); document.removeEventListener("visibilitychange", onReturn); window.removeEventListener("focus", onReturn); window.removeEventListener("pageshow", onPageShow); };
+    return () => { mounted = false; clearTimeout(poll); document.removeEventListener("visibilitychange", onVisibility); window.removeEventListener("focus", onFocus); window.removeEventListener("pageshow", onPageShow); };
   }, [token]);
   useEffect(() => {
     let mounted = true;

@@ -21,8 +21,11 @@ export function createRefreshGate(minIntervalMs: number, now: () => number = Dat
   };
 }
 
-/** Automatic card reads one open card page may make in any 15 minutes (the server allows 90 per card, 240 per network). */
-export const AUTO_REFRESH_BUDGET = 30;
+/**
+ * Automatic card reads one open card page may make in any 15 minutes. The server allows 90 per card and 240 per network
+ * (one shop Wi-Fi shares one address), and the same limit serves every guest's first card load.
+ */
+export const AUTO_REFRESH_BUDGET = 14;
 
 /**
  * Delay before the next automatic re-read while the card is visible, or null to stop until the guest looks again:
