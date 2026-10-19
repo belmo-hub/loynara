@@ -72,7 +72,7 @@ export function ReadinessCard({ readiness, reload, isOwner, compact = false }: {
   );
 
   const summary = complete
-    ? `Alle ${data.requiredTotal} Pflichtschritte sind belegt${openRecommendations ? `, ${openRecommendations} Empfehlung${openRecommendations === 1 ? "" : "en"} offen` : ""}. Rechtliches bleibt außerhalb von Loynara zu klären.`
+    ? `Alle ${data.requiredTotal} Pflichtschritte sind belegt${openRecommendations ? `, ${openRecommendations} Empfehlung${openRecommendations === 1 ? "" : "en"} offen` : ""}.`
     : `${data.requiredDone} von ${data.requiredTotal} Pflichtschritten belegt.`;
   if (compact && complete) {
     return (

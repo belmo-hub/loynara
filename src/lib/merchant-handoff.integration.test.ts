@@ -80,7 +80,7 @@ it("rehearses the documented authenticated onboarding, cashier and same-membersh
   expect((await pool.query("SELECT actor_user_id,verification_method FROM card_security_events WHERE membership_id=$1 AND action='card_reissued_by_staff'", [membershipId])).rows).toEqual([{ actor_user_id: owner.id, verification_method: "other_check" }]);
   const ready = await json(await readiness(request("/api/merchant/readiness", owner.cookie)));
   expect(ready).toMatchObject({ locationId: merchant.locationId, requiredDone: 3, requiredTotal: 3 });
-  expect(Object.fromEntries(ready.steps.map((step: { id: string; status: string }) => [step.id, step.status]))).toMatchObject({ first_award: "done", first_redemption: "done", team: "done", access: "external" });
+  expect(Object.fromEntries(ready.steps.map((step: { id: string; status: string }) => [step.id, step.status]))).toMatchObject({ first_award: "done", first_redemption: "done", team: "done" });
   expect(await json(await readiness(request("/api/merchant/readiness", foreign.cookie)))).toMatchObject({ locationId: other.locationId, requiredDone: 1 });
   expect((await readiness(request("/api/merchant/readiness", cashier.cookie))).status).toBe(403);
   expect((await pool.query("SELECT count(*)::int AS count FROM memberships WHERE tenant_id=$1", [merchant.tenantId])).rows[0].count).toBe(1);

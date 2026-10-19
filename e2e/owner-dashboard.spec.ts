@@ -122,8 +122,8 @@ test("a failed save keeps the edit and the next attempt succeeds", async ({ base
         else await route.continue();
       });
       await page.getByRole("button", { name: "Kundenkarte speichern" }).click();
-      await expect(page.locator(".ow-savestate")).toContainText("Speichern fehlgeschlagen");
-      await expect(page.locator(".ow-savestate")).toContainText("Simulierter Serverfehler.");
+      await expect(page.locator(".ow-savestate")).toContainText("Speicherstatus unklar"); // a 500 does not prove the write failed
+      await expect(page.locator(".ow-savestate")).toContainText("Deine Änderungen sind noch da.");
       await expect(page.getByLabel("Farbwert (Hex)")).toHaveValue("#2b4a66");
       await page.getByRole("button", { name: "Kundenkarte speichern" }).click();
       await expect(page.locator(".ow-savestate")).toContainText("Gespeichert");
@@ -146,7 +146,7 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       // Readiness is derived from saved state: only the programme exists, so the next step is the first card.
       await expect(page.getByText("1 von 3 Pflichtschritten belegt.")).toBeVisible();
       await expect(page.locator(".ow-action--lead")).toContainText("Erste Karte angemeldet");
-      await expect(page.getByText("Zugang wiederherstellen")).toBeVisible();
+      await expect(page.getByText("Zugang wiederherstellen")).toHaveCount(0); // operator password reset is not a start step
       await expect(page.getByText("Rechtstexte freigegeben")).toHaveCount(0); // the legal texts are final; no open step for them
       await expect(page.getByText("Karten", { exact: true })).toHaveCount(0); // no wall of zero metrics
 
