@@ -1,6 +1,7 @@
 import path from "node:path";
 import { passFastStatus } from "../src/lib/wallet/passfast";
 import { googleLocationClasses } from "../src/lib/wallet/google-direct";
+import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "./google-wallet-credential";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -148,6 +149,14 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
     if (env.GOOGLE_WALLET_PUBLISHING_STATUS !== "published") issues.push("Google Wallet publishing must be approved (GOOGLE_WALLET_PUBLISHING_STATUS=published); Demo Mode is not production");
     const logo = parsedUrl(env.GOOGLE_WALLET_PROGRAM_LOGO_URL);
     if (!logo || logo.protocol !== "https:" || localHosts.has(logo.hostname) || logo.username || logo.password || /preview|device[-_]?test|example|\.invalid$/i.test(logo.hostname)) issues.push("GOOGLE_WALLET_PROGRAM_LOGO_URL must be a public HTTPS image URL");
+  }
+  // The key delivered as a value (Railway mounts no files) belongs to the Google group above and is checked before startup
+  // writes it to GOOGLE_WALLET_SERVICE_ACCOUNT_FILE. Absent or empty: no rule applies.
+  const deliveredKey = env[GOOGLE_SERVICE_ACCOUNT_VALUE];
+  if (deliveredKey) {
+    if (!google) issues.push(`${GOOGLE_SERVICE_ACCOUNT_VALUE} is set while Google Wallet is not enabled`);
+    const { issue } = inspectGoogleServiceAccountValue(deliveredKey);
+    if (issue) issues.push(issue);
   }
   if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") {
     const origin = parsedUrl(env.GOOGLE_WALLET_ASSET_ORIGIN);
