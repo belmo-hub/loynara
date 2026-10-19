@@ -218,6 +218,13 @@
       "when": 1792700003000,
       "tag": "0032_sender_details",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792426287349,
+      "tag": "0030_challenge_marketing",
+      "breakpoints": true
     }
   ]
 }

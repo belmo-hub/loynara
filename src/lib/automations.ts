@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
-import { rewardReadyMemberships, rewardReadyNow } from "./reward-readiness";
+import { readyRewardTitle, rewardReadyMemberships, rewardReadyNow } from "./reward-readiness";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
@@ -18,6 +18,7 @@ type Outcome = { status: "complete" | "suppressed" | "blocked" | "retry" | "fail
 type DeliveryOutcome = Outcome | { status: "deferred"; reason: string; until: Date };
 type Rule = typeof automationRules.$inferSelect;
 const DAY = 86_400_000;
+const REWARD_PLACEHOLDER = "{prämie}";
 const MAX_ATTEMPTS = 5;
 const ruleInput = z.object({
   actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120),
@@ -26,7 +27,9 @@ const ruleInput = z.object({
   body: z.string().trim().min(5).max(3000),
   inactivityDays: z.number().int().min(7).max(365).optional(),
   cooldownDays: z.number().int().min(7).max(365), dailyCap: z.number().int().min(1).max(20),
-}).strict().refine(value => value.triggerKind === "inactive" ? value.inactivityDays !== undefined : value.inactivityDays === undefined, { path: ["inactivityDays"] });
+}).strict().refine(value => value.triggerKind === "inactive" ? value.inactivityDays !== undefined : value.inactivityDays === undefined, { path: ["inactivityDays"] })
+  // Only "Prämie bereit" knows a reward; anywhere else the placeholder would go out as typed.
+  .refine(value => value.triggerKind === "reward_ready" || !`${value.subject}${value.body}`.includes(REWARD_PLACEHOLDER), { path: ["body"], message: "{prämie} gibt es nur in „Prämie bereit“." });
 const eventPayload = z.object({ ruleId: z.uuid(), ruleRevision: z.string().regex(/^\d+$/), membershipId: z.uuid(), ledgerEntryId: z.uuid() }).strict();
 const scanPayload = z.object({ ruleId: z.uuid(), ruleRevision: z.string().regex(/^\d+$/), scanAt: z.iso.datetime() }).strict();
 const deliveryPayload = z.object({ ruleId: z.uuid(), runId: z.uuid(), membershipId: z.uuid() }).strict();
@@ -79,7 +82,23 @@ export async function listAutomations(raw: { actorUserId: string; programSlug: s
     .where(and(eq(automationRuns.tenantId, program.tenantId), inArray(automationRuns.ruleId, ids))).orderBy(desc(automationRuns.createdAt)).limit(100)
     .then(rows => rows.map(row => ({ ...row, cardLocator: row.cardLocator ? formatCardLocator(row.cardLocator) : null }))) : [];
   const addressMissing = senderAddressMissing(await programSender(db, program.tenantId, program.id));
-  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode(), addressMissing };
+  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode(), addressMissing, reach: await reachableCount(program.tenantId, program.id) };
+}
+
+/** "N Kundinnen und Kunden erhalten E-Mails": a count, never an address. Open card, confirmed address, current consent, not suppressed. */
+async function reachableCount(tenantId: string, programId: string) {
+  const result = await db.execute(sql`
+    SELECT c.email FROM memberships m
+    JOIN membership_contacts c ON c.tenant_id = m.tenant_id AND c.membership_id = m.id
+    WHERE m.tenant_id = ${tenantId}::uuid AND m.program_id = ${programId}::uuid AND m.closed_at IS NULL AND c.email IS NOT NULL AND c.email_verified
+      AND (SELECT e.granted FROM consent_events e WHERE e.tenant_id = m.tenant_id AND e.membership_id = m.id AND e.channel = 'email' AND e.purpose = 'marketing'
+        ORDER BY e.created_at DESC, e.id DESC LIMIT 1)
+  `);
+  const hashes = result.rows.map(row => recipientHash(String(row.email)));
+  if (!hashes.length) return 0;
+  // shortcut: one IN list; batch it like campaigns' classify once a programme has tens of thousands of consenting cards.
+  const suppressed = new Set((await db.select({ hash: emailSuppressions.recipientHash }).from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, hashes))).map(row => row.hash));
+  return hashes.filter(hash => !suppressed.has(hash)).length;
 }
 
 async function latestConsent(tx: Transaction, tenantId: string, membershipId: string) {
@@ -238,11 +257,13 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
     if (!await activeOwner(rule, tx)) return suppress("Owner or programme unavailable");
     if (!contact.email) return suppress(contact.reason ?? "Contact ineligible");
     if (await hasRecentPromotion(tx, rule.tenantId, run.membershipId, now)) return suppress("Customer frequency limit");
+    let reward: string | null = null;
     if (rule.triggerKind === "first_checkout") {
       const first = await firstCheckout(tx, rule, run.membershipId);
       if (!first || first.id !== run.sourceEntryId) return suppress("First checkout changed");
     } else if (rule.triggerKind === "reward_ready") {
-      if (!await rewardReadyNow(tx, rule, run.membershipId, now)) return suppress("Reward no longer ready");
+      reward = await rewardReadyNow(tx, rule, run.membershipId, now) ? await readyRewardTitle(tx, rule, run.membershipId, now) : null;
+      if (!reward) return suppress("Reward no longer ready");
     } else if (!await inactiveNow(tx, rule, run.membershipId, now)) return suppress("Member no longer inactive");
     const sender = await programSender(tx, rule.tenantId, rule.programId);
     if (!sender) return suppress("Location unavailable");
@@ -251,7 +272,9 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
     if (!signature) return suppress("Shop address missing");
     const until = quietHoursDeferral(now, sender.timezone);
     if (until) return { status: "deferred", reason: "Quiet hours in the location's timezone", until };
-    const message = { to: contact.email, fromName: signature.fromName, subject: rule.subject, body: `${rule.body}\n\n${signature.footer}`, unsubscribeUrl: link, jobId: job.id };
+    // {prämie} = the ready reward's title exactly as typed, at send time; the copy puts it after a colon, so no grammar.
+    const fill = (text: string) => reward === null ? text : text.replaceAll(REWARD_PLACEHOLDER, reward);
+    const message = { to: contact.email, fromName: signature.fromName, subject: fill(rule.subject).replace(/\p{Cc}/gu, " "), body: `${fill(rule.body)}\n\n${signature.footer}`, unsubscribeUrl: link, jobId: job.id };
     try {
       if (mode === "mailpit") await send(message);
       else {

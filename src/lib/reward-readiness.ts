@@ -33,3 +33,20 @@ export async function rewardReadyMemberships(query: Query, scope: Scope, now: Da
 export async function rewardReadyNow(query: Query, scope: Scope, membershipId: string, now: Date) {
   return (await rewardReadyMemberships(query, scope, now, membershipId)).includes(membershipId);
 }
+
+/** The ready reward the card itself names first (the cheapest one the balance covers), with its title as the owner typed it. */
+export async function readyRewardTitle(query: Query, scope: Scope, membershipId: string, now: Date) {
+  const result = await query.execute(sql`
+    SELECT latest.title FROM memberships m
+    JOIN rewards r ON r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+    JOIN LATERAL (
+      SELECT rv.cost, rv.title FROM reward_versions rv
+      WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${now}
+      ORDER BY rv.version DESC LIMIT 1
+    ) latest ON true
+    WHERE m.tenant_id = ${scope.tenantId}::uuid AND m.program_id = ${scope.programId}::uuid AND m.id = ${membershipId}::uuid
+      AND latest.cost <= m.balance
+    ORDER BY latest.cost, r.id LIMIT 1
+  `);
+  return (result.rows[0] as { title: string } | undefined)?.title ?? null;
+}

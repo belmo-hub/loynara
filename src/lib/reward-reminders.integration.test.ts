@@ -25,10 +25,10 @@ beforeEach(async () => {
 });
 afterAll(async () => { await pool.end(); });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
-async function fixture(quantity = 8, email = "reward@example.test") {
+async function fixture(quantity = 8, email = "reward@example.test", rewardTitle = "Coffee") {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
-  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Reward Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp per purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Reward Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp per purchase.", rewardTitle, rewardCost: 8 });
   await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email, marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
@@ -72,6 +72,25 @@ describe("LOY-133 catalogue reward reminders", () => {
     const nextScan = (await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.scan"))).find(x => x.id !== scan.id)!;
     expect(await processAutomationScan(nextScan, new Date(f.now.getTime() + DAY))).toMatchObject({ queuedCount: 0 });
     expect(await db.select().from(automationRuns)).toHaveLength(1);
+  });
+
+  it("inserts {prämie} as the ready reward's title exactly as the owner typed it, at send time, with no card link", async () => {
+    const f = await fixture(8, "reward@example.test", "Gratis-Haarschnitt (Herren) & Bart");
+    const subject = "Deine Prämie ist bereit: {prämie}";
+    const body = "Hallo,\n\nauf deiner Karte bei Synthetic Reward Café ist deine Prämie bereit: {prämie}. Hol sie bei deinem nächsten Besuch ab.";
+    await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...ruleInput, subject, body }, f.now);
+    const [scan] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.scan"));
+    expect(await processAutomationScan(scan, f.now)).toMatchObject({ queuedCount: 1 });
+    // The stored rule keeps the placeholder; only the sent copy carries the title.
+    const sent: LocalMessage[] = [];
+    expect(await deliverAutomationRun(await delivery(), async message => { sent.push(message); }, f.now)).toMatchObject({ status: "complete" });
+    expect(sent[0].subject).toBe("Deine Prämie ist bereit: Gratis-Haarschnitt (Herren) & Bart");
+    expect(sent[0].body.startsWith("Hallo,\n\nauf deiner Karte bei Synthetic Reward Café ist deine Prämie bereit: Gratis-Haarschnitt (Herren) & Bart. Hol sie")).toBe(true);
+    expect(sent[0].body).not.toContain("{prämie}");
+    expect(sent[0].body).not.toContain(f.card.cardToken);
+    expect(sent[0].body).not.toContain("/card/");
+    // Only "Prämie bereit" knows a reward: elsewhere the placeholder would go out as typed, so it is refused.
+    await expect(upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, triggerKind: "inactive", enabled: false, subject: "Wir vermissen dich", body: "Deine {prämie} wartet.", inactivityDays: 30, cooldownDays: 7, dailyCap: 20 }, f.now)).rejects.toThrow();
   });
 
   it("requires owner authorization and rejects a forged tenant scan", async () => {

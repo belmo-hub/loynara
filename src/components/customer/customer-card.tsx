@@ -40,6 +40,8 @@ export type CustomerCardProps = {
   walletPlatform?: "ios" | "android" | "other";
   walletError?: string;
   exportUrl?: string;
+  /** The e-mail offer after the first stamp: right under the card, so the code stays on top. */
+  offer?: ReactNode;
   contactPanel?: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -51,7 +53,7 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, locale = "de", notices, exportUrl, offer, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -86,6 +88,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
 
     {notices}
+    {offer}
 
     <Wallet {...props} t={t} />
 

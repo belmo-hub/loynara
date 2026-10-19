@@ -12,7 +12,7 @@ import { createMerchant, enroll, getCard, getMerchantRewards, lookupCard } from 
 import { acceptStaffInvite, createStaffInvite, revokeStaff } from "./staff";
 import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
 import { configureReferrals, getCardReferralShare, listReferrals } from "./referrals";
-import { consumeContactVerification, requestContactVerification, setEmailMarketingPreference } from "./contact-verification";
+import { consumeContactVerification, requestContactVerification } from "./contact-verification";
 import { recoveryTokenForChallenge, verificationTokenForChallenge } from "./contact-token";
 import { completeCardRecovery, recoveryOptions, requestCardRecovery } from "./card-recovery";
 import { createDraftCampaign, dispatchCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
@@ -123,10 +123,9 @@ it("keeps ten simultaneous merchants isolated through real sessions, checkout re
     for (let replay = 0; replay < 2; replay++) expect((await redeemRoute(request("/api/cashier/redeem", redemption, f.cashier.cookie))).status).toBe(200);
     expect((await getCard(f.cardToken)).balance).toBe(2);
     const email = `cohort-${index}@example.test`;
-    await requestContactVerification(f.cardToken, email);
+    await requestContactVerification(f.cardToken, email, true);
     const challenge = (await pool.query("SELECT id FROM contact_verification_challenges WHERE membership_id=$1", [f.member.id])).rows[0];
     await consumeContactVerification(verificationTokenForChallenge(challenge.id));
-    await setEmailMarketingPreference(f.cardToken, true);
     const audienceDefinition = { kind: "new" as const, withinDays: 7 };
     expect(await previewCampaign({ actorUserId: f.owner.userId, programSlug: f.merchant.programSlug, audienceDefinition })).toMatchObject({ total: 2, eligibleCount: 1 });
     await expect(previewCampaign({ actorUserId: foreign.owner.userId, programSlug: f.merchant.programSlug, audienceDefinition })).rejects.toMatchObject({ code: "NOT_FOUND" });

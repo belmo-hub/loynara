@@ -12,13 +12,14 @@ type Kind = "first_checkout" | "inactive" | "reward_ready";
 type Editor = { triggerKind: Kind; enabled: boolean; subject: string; body: string; inactivityDays?: number; cooldownDays: number; dailyCap: number };
 type Rule = Editor & { id: string; revision: number; nextScanAt: string | null };
 type Run = { id: string; ruleId: string; membershipId: string; cardLocator: string | null; triggerKey: string; status: string; reason: string | null; attempts: number; createdAt: string; sentAt: string | null };
-type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[]; addressMissing: boolean };
+type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[]; addressMissing: boolean; reach: number };
 
-const defaults: Record<Kind, Editor> = {
-  reward_ready: { triggerKind: "reward_ready", enabled: false, subject: "Deine Prämie wartet", body: "Auf deiner Karte ist eine Prämie einlösbar. Schau dir deine Karte an.", cooldownDays: 7, dailyCap: 20 },
+// Default texts from Marketing's copy v0.4; {prämie} becomes the ready reward's title at send time.
+const defaults = (shop: string): Record<Kind, Editor> => ({
+  reward_ready: { triggerKind: "reward_ready", enabled: false, subject: "Deine Prämie ist bereit: {prämie}", body: `Hallo,\n\nauf deiner Karte bei ${shop} ist deine Prämie bereit: {prämie}. Hol sie bei deinem nächsten Besuch ab und zeig dazu einfach deine Karte an der Kasse. Deine Karte öffnest du über dein gespeichertes Lesezeichen oder deine Wallet.`, cooldownDays: 7, dailyCap: 20 },
   first_checkout: { triggerKind: "first_checkout", enabled: false, subject: "Willkommen", body: "Danke für deinen ersten bestätigten Einkauf.", cooldownDays: 7, dailyCap: 20 },
-  inactive: { triggerKind: "inactive", enabled: false, subject: "Deine Karte wartet auf dich", body: "Deine digitale Karte ist weiterhin verfügbar.", inactivityDays: 30, cooldownDays: 7, dailyCap: 20 },
-};
+  inactive: { triggerKind: "inactive", enabled: false, subject: "Wir vermissen dich", body: `Hallo,\n\ndein letzter Besuch bei ${shop} ist schon eine Weile her. Deine Karte wartet auf dich: Zeig sie beim nächsten Besuch einfach an der Kasse. Wir freuen uns auf dich!\n\nBis bald!`, inactivityDays: 30, cooldownDays: 7, dailyCap: 20 },
+});
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "Die Anfrage konnte nicht abgeschlossen werden.";
 const runStatus = (value: string) => value === "complete" ? "Vom Versand angenommen" : value === "suppressed" ? "Unterdrückt" : value === "queued" ? "Wartet" : "Fehlgeschlagen";
 
@@ -32,6 +33,7 @@ export default function AutomationsPage() {
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;
   const d = data.data;
+  const fallback = defaults(me.businessName);
   return (
     <div className="ow-page">
       {head}
@@ -39,11 +41,15 @@ export default function AutomationsPage() {
       {d.deliveryMode === "disabled"
         ? <Notice tone="warn"><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Regeln vorbereiten und speichern. Solange der Versand nicht freigegeben ist, wird keine Nachricht verschickt, auch nicht bei aktiver Regel.</Notice>
         : d.deliveryMode === "mailpit" ? <Notice>Lokaler Testkanal: Nachrichten gehen nur an synthetische .test-Adressen in Mailpit.</Notice> : null}
+      <section className="ow-card ow-stack" aria-labelledby="au-reach">
+        <h2 id="au-reach"><span className="ow-metric-value">{d.reach}</span> Kundinnen und Kunden erhalten E-Mails</h2>
+        <p className="ow-muted">{d.reach === 0 ? "Noch niemand hat zugestimmt. Das Angebot erscheint auf jeder Karte nach dem ersten Stempel." : "Geht nur an Kundinnen und Kunden, die zugestimmt haben."} Du siehst nur die Zahl, keine Adressen.</p>
+      </section>
       <div className="ow-two">
         <div className="ow-stack">
-          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} locked={d.addressMissing} onSaved={reload} />
-          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} locked={d.addressMissing} onSaved={reload} />
-          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} locked={d.addressMissing} onSaved={reload} />
+          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? fallback.first_checkout} slug={slug} locked={d.addressMissing} onSaved={reload} />
+          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? fallback.inactive} slug={slug} locked={d.addressMissing} onSaved={reload} />
+          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? fallback.reward_ready} slug={slug} locked={d.addressMissing} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
