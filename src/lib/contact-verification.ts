@@ -13,6 +13,8 @@ const emailSchema = z.email().max(320);
 const noticeVersion = "2026-10-19";
 
 function syntheticEmail(email: string) { return email.toLowerCase().endsWith(".test"); }
+// The card link is a bearer link, so the card only ever sees the stored address masked: first character and domain.
+const maskEmail = (email: string) => `${email[0]}•••${email.slice(email.lastIndexOf("@"))}`;
 
 async function cardInTransaction(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], cardToken: string) {
   if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
@@ -32,6 +34,8 @@ async function latestMarketingConsent(tenantId: string, membershipId: string, qu
 
 export type ContactStatus = {
   available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean;
+  /** The stored address masked ("y•••@gmail.com"), never in full. */
+  maskedEmail: string | null;
   /** An unclicked confirmation link and whether it also confirms the marketing consent. */
   pending: "recovery" | "marketing" | null;
   /** Show the e-mail offer under the card: stamped at least once, no address and no e-mail choice ever made ("Nein, danke" is one). */
@@ -53,10 +57,20 @@ export async function contactStatus(cardToken: string): Promise<ContactStatus> {
       EXISTS (SELECT 1 FROM consent_events e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.channel = 'email' AND e.purpose = 'marketing') AS "chosen"`)).rows[0] as { pendingMarketing: boolean | null; stamped: boolean; chosen: boolean };
   return {
     available, marketingAvailable: marketingMode !== "disabled", marketingExternal: marketingMode === "mailgun_eu", contactPresent: Boolean(contact?.email), emailVerified: verified,
+    maskedEmail: contact?.email ? maskEmail(contact.email) : null,
     marketingEmail: verified && await latestMarketingConsent(member.tenantId, member.id),
     pending: facts.pendingMarketing === null ? null : facts.pendingMarketing ? "marketing" : "recovery",
     offer: available && marketingMode !== "disabled" && !contact?.email && facts.stamped && !facts.chosen,
   };
+}
+
+/** The address a resend goes to, so the route can hold it to the per-destination limit like a typed one. */
+export async function storedContactEmail(cardToken: string) {
+  if (!validCardToken(cardToken)) return null;
+  const [row] = await db.select({ email: membershipContacts.email }).from(memberships)
+    .innerJoin(membershipContacts, and(eq(membershipContacts.tenantId, memberships.tenantId), eq(membershipContacts.membershipId, memberships.id)))
+    .where(eq(memberships.cardToken, cardToken));
+  return row?.email ?? null;
 }
 
 /**

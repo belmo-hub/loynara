@@ -46,7 +46,7 @@ export async function deliverVerificationEmail(
       to: challenge.email,
       fromName: `${shop} via Loynara`,
       subject: `Bitte bestätige: E-Mails von ${shop}`,
-      body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.`,
+      body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.`,
       jobId: job.id,
     } : {
       to: challenge.email,

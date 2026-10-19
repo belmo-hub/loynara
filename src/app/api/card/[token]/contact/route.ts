@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { contactStatus, removeRecoveryEmail, requestContactVerification } from "@/lib/contact-verification";
+import { contactStatus, removeRecoveryEmail, requestContactVerification, storedContactEmail } from "@/lib/contact-verification";
 import { jsonBody, requireSameOrigin, respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 
@@ -25,7 +25,9 @@ export async function POST(request: Request, context: Context) {
     await enforceRateLimit({ scope: "card_contact_token", identity: token, max: 10, windowSeconds: 60 * 60 });
     const { email, marketing } = inputSchema.parse(await jsonBody(request, 1500));
     const normalized = email === undefined ? undefined : z.email().max(320).parse(email.trim().normalize("NFC").toLowerCase());
-    if (normalized) await enforceRateLimit({ scope: "card_contact_destination", identity: normalized, max: 4, windowSeconds: 60 * 60 });
+    // Every mail counts against its recipient: a resend goes to the stored address and is limited like a typed one.
+    const destination = normalized ?? await storedContactEmail(token);
+    if (destination) await enforceRateLimit({ scope: "card_contact_destination", identity: destination, max: 4, windowSeconds: 60 * 60 });
     return Response.json(await requestContactVerification(token, normalized, marketing), { headers });
   } catch (error) { return respondError(error); }
 }

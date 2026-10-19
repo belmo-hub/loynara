@@ -99,7 +99,7 @@ export function CardEmail({ token, businessName, locationName, status, setStatus
   const [email, setEmail] = useState("");
   const [invalid, setInvalid] = useState(false);
   const [marketing, setMarketing] = useState(false);
-  // The server never returns the stored address (the card link is a bearer link), so only a just-typed one is shown.
+  // Shown in full only right after typing; otherwise the server's masked form (the card link is a bearer link).
   const [sentTo, setSentTo] = useState("");
   const [declined, setDeclined] = useState(false);
   const [busy, setBusy] = useState<"send" | "withdraw" | "remove" | null>(null);
@@ -173,7 +173,7 @@ export function CardEmail({ token, businessName, locationName, status, setStatus
 
   if (!form && (status.pending !== null || (status.contactPresent && !status.emailVerified))) return <section className={styles.panel} aria-labelledby="card-email-title">
     <h2 id="card-email-title" className={styles.title}>Fast geschafft.</h2>
-    <p className={styles.muted}>Wir haben dir einen Link {sentTo ? <>an <strong>{sentTo}</strong> </> : null}geschickt.{status.pending === "marketing" ? " Erst wenn du ihn anklickst, bekommst du Nachrichten." : null}</p>
+    <p className={styles.muted}>Wir haben dir einen Link {sentTo || status.maskedEmail ? <>an <strong>{sentTo || status.maskedEmail}</strong> </> : null}geschickt.{status.pending === "marketing" ? " Erst wenn du ihn anklickst, bekommst du Nachrichten." : null}</p>
     <p className={styles.muted}>Nichts angekommen? Schau im Spam-Ordner nach oder schick den Link noch einmal.</p>
     <div className={styles.actions}>
       <Button variant="secondary" size="sm" loading={busy === "send"} onClick={() => void send({ marketing: status.pending === "marketing" }, "Wir haben den Link noch einmal geschickt.")}>Link noch einmal schicken</Button>
@@ -193,7 +193,7 @@ export function CardEmail({ token, businessName, locationName, status, setStatus
   return <section className={styles.panel} aria-labelledby="card-email-title">
     <h2 id="card-email-title" className={styles.title}>E-Mail</h2>
     <div className={styles.row}>
-      <p><strong>Adresse bestätigt</strong> · zum Wiederfinden der Karte</p>
+      <p><strong>{status.maskedEmail}</strong> bestätigt · zum Wiederfinden der Karte</p>
       <Button variant="quiet" size="sm" onClick={() => { setEmail(""); setForm("address"); }}>Ändern</Button>
     </div>
     {form === "consent" ? <form className={styles.form} onSubmit={event => { event.preventDefault(); void send({ marketing: true }, "Wir haben dir einen Link geschickt."); }}>

@@ -69,7 +69,11 @@ test("offer after the first stamp: address + unticked consent, sent, confirmed b
     await expect(sent).toContainText(`Wir haben dir einen Link an ${email} geschickt. Erst wenn du ihn anklickst, bekommst du Nachrichten.`);
     expect(await sql("SELECT granted FROM consent_events WHERE membership_id=$1", [guest.membershipId])).toEqual([]);
     await page.reload();
-    await expect(page.getByRole("region", { name: "Fast geschafft." })).toContainText("Wir haben dir einen Link geschickt.");
+    // After a reload the page only knows the server's masked form; the full address never reaches the card.
+    const masked = `${email[0]}•••@example.test`;
+    await expect(page.getByRole("region", { name: "Fast geschafft." })).toContainText(`Wir haben dir einen Link an ${masked} geschickt.`);
+    expect(await page.content()).not.toContain(email);
+    expect(JSON.stringify(await (await page.request.get(`/api/card/${guest.cardToken}/contact`)).json())).not.toContain(email);
 
     const [challenge] = await sql<{ id: string; marketing: boolean }>("SELECT id, marketing FROM contact_verification_challenges WHERE membership_id=$1", [guest.membershipId]);
     expect(challenge.marketing).toBe(true);
@@ -85,7 +89,8 @@ test("offer after the first stamp: address + unticked consent, sent, confirmed b
     await page.reload();
     await expect(page.getByRole("region", { name: "Erinnerungen per E-Mail?" })).toHaveCount(0);
     const later = page.getByRole("region", { name: "E-Mail", exact: true });
-    await expect(later).toContainText("Adresse bestätigt");
+    await expect(later).toContainText(`${masked} bestätigt · zum Wiederfinden der Karte`);
+    expect(await page.content()).not.toContain(email);
     await expect(later).toContainText("Angebote, Neuigkeiten, Erinnerungen · an");
     await later.getByRole("button", { name: "Abbestellen" }).click();
     await expect(later).toContainText("Angebote, Neuigkeiten, Erinnerungen · aus");
