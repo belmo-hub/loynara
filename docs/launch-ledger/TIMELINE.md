@@ -289,3 +289,6 @@ Current documentation task: [permanent-record requirement](2026-10-10-permanent-
 - 2026-10-12: [LOY-330 / Assignment135 — pre-send staff/session authorization](2026-10-12-push-recipient-authorization-135.md). ActualPGRED1→36focused/2Chrome/1706globalPASS; newAPP43b54d2proposed,519pinunchanged. Includes132push and133/134limitedoutcomes.
 
 - 2026-10-12: [LOY-331 / Assignment136 — reviewed APP43 alignment](2026-10-12-reviewed-release-alignment-136.md). Two contractREDs→92focusedPASS, APP43/operator0707663 distinct, plannedops aligned/current90ad preserved/defaultBLOCKED. No production action.
+
+- 2026-10-17: [Release 1 production deploy (S-5)](2026-10-17-release-1-production-deploy.md). DEPLOYED: `ddfed7f` on web, worker, migrate and ops-check (19:07–19:31 UTC); migration 0025 PASS, journal 26; health 200; ops-check PASS. Release 1 live since 19:20 UTC (web `e51eefe4`), so the X1 and X2 drafts written before it are superseded on deployment state.
+- 2026-10-18: [Release 1 core acceptance (S-6)](2026-10-18-release-1-core-acceptance.md). ACCEPTED on production for C1–C10 and O1 (founder ran the tests, ledger checked read-only); O2 live drill and O3 alert open; includes amendments to the X1 and X2 drafts.

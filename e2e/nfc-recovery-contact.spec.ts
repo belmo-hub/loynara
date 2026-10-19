@@ -44,11 +44,11 @@ test("real isolated email delivery verifies recovery contact and restores origin
     // Setup is offered after enrollment; the cashier request already exists and earning is not gated.
     const setup = page.getByRole("region", { name: "Karte sichern" });
     await expect(setup).toBeVisible();
-    await expect(setup.getByText(/Ohne bestätigte Wiederherstellungsadresse/)).toBeVisible();
+    await expect(setup.getByText(/Ohne bestätigte Adresse/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await setup.getByRole("button", { name: "Später", exact: true }).click();
     await expect(setup.getByRole("textbox", { name: "E-Mail-Adresse" })).toHaveCount(0);
-    await expect(setup.getByText(/Ohne bestätigte Wiederherstellungsadresse/)).toBeVisible();
+    await expect(setup.getByText(/Ohne bestätigte Adresse/)).toBeVisible();
     await setup.getByRole("button", { name: "Wiederherstellung einrichten", exact: true }).click();
     await setup.getByRole("textbox", { name: "E-Mail-Adresse" }).fill(email);
     await setup.getByRole("button", { name: "Bestätigungslink senden" }).click();
