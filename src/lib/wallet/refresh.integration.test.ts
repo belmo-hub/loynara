@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
 import { outboxJobs, walletPasses } from "@/db/schema";
 import { closeCard } from "@/lib/card-lifecycle";
@@ -35,12 +35,12 @@ const pendingRefreshes = (membershipId?: string) => db.select().from(outboxJobs)
   .then(rows => rows.filter(row => !membershipId || row.payload.membershipId === membershipId));
 
 /** Runs fn with Google configured against an in-process fake API. */
-async function withGoogle<T>(fn: (api: ReturnType<typeof fakeGoogleApi>, client: GoogleWalletClient) => Promise<T>, options: { failWith?: number } = {}) {
+async function withGoogle<T>(fn: (api: ReturnType<typeof fakeGoogleApi>, client: GoogleWalletClient) => Promise<T>, options: { failWith?: number; wrap?: (fetcher: typeof fetch) => typeof fetch } = {}) {
   const google = googleFixture("demo");
   try {
     return await withEnv({ ...google.env, PUBLIC_BASE_URL: "http://localhost:3000" }, async () => {
       const api = fakeGoogleApi(options);
-      return fn(api, new GoogleWalletClient({ clientEmail: "issuer@example.test", privateKey: google.privateKey }, api.fetcher));
+      return fn(api, new GoogleWalletClient({ clientEmail: "issuer@example.test", privateKey: google.privateKey }, options.wrap?.(api.fetcher) ?? api.fetcher));
     });
   } finally { google.cleanup(); }
 }
@@ -212,6 +212,109 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
       expect((await walletPassDataByMembershipId(member.id)).balance).toBe(2);
       expect(await db.select().from(walletPasses).where(eq(walletPasses.membershipId, member.id))).toMatchObject([{ status: "pending", revokedAt: null }]);
     }, { failWith: 503 });
+  });
+});
+
+describe("Google 'Prämie bereit' message (fake provider)", () => {
+  const addMessageCalls = (api: ReturnType<typeof fakeGoogleApi>) => api.calls.filter(call => call.url.endsWith("/addMessage"));
+  const messagesOf = (api: ReturnType<typeof fakeGoogleApi>, objectId: string) => (api.objects.get(objectId)?.messages ?? []) as Array<Record<string, unknown>>;
+  const redeemFirst = async (owner: string, locationId: string, member: { id: string; scanCode: string }) => {
+    const open = await lookupCard({ userId: owner, locationId, scanCode: member.scanCode });
+    await redeem({ userId: owner, locationId, membershipId: member.id, rewardVersionId: open.rewards[0].id, idempotencyKey: key(), requestId: randomUUID() });
+  };
+
+  it("crossing into reward-ready adds one TEXT_AND_NOTIFY message per reward cycle; retries, later stamps and redemptions add none", async () => {
+    await withGoogle(async (api, client) => {
+      const { owner, merchant, member, issuer } = await createMember();
+      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      const objectId = googleObjectId(pass.id, issuer!);
+      const refresh = () => refreshWalletForMembership(member.id, { google: client });
+      await stamp(owner, merchant.locationId, member.id, 2);
+      await refresh();
+      expect(addMessageCalls(api)).toHaveLength(0);
+
+      await stamp(owner, merchant.locationId, member.id, 1);
+      expect(await refresh()).toEqual({ status: "complete" });
+      const [message] = messagesOf(api, objectId);
+      expect(messagesOf(api, objectId)).toEqual([{ id: expect.stringMatching(/^reward_[0-9a-f]{64}$/), header: "Prämie bereit", body: "Deine Prämie ist bereit: Kaffee", messageType: "TEXT_AND_NOTIFY" }]);
+      expect(JSON.stringify(message)).not.toMatch(/https?:|\/c\/|card_|sc_|K-/);
+
+      await refresh(); // the same job retried
+      await stamp(owner, merchant.locationId, member.id, 3); // 6 / 3: still the same cycle
+      await refresh();
+      await redeemFirst(owner, merchant.locationId, member); // 3 / 3 left: still ready, never on redeem
+      await refresh();
+      await redeemFirst(owner, merchant.locationId, member); // 0 / 3
+      await refresh();
+      expect(addMessageCalls(api)).toHaveLength(1);
+
+      await stamp(owner, merchant.locationId, member.id, 3); // a new cycle
+      await refresh();
+      expect(addMessageCalls(api)).toHaveLength(2);
+      const ids = messagesOf(api, objectId).map(item => item.id);
+      expect(new Set(ids).size).toBe(2);
+    });
+  });
+
+  it("a retried job does not send twice when Google stored the message but the answer was lost", async () => {
+    let lose = true;
+    await withGoogle(async (api, client) => {
+      const { owner, merchant, member, issuer } = await createMember();
+      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      await stamp(owner, merchant.locationId, member.id, 3);
+      await expect(refreshWalletForMembership(member.id, { google: client })).rejects.toMatchObject({ name: "GoogleWalletError", status: 503 });
+      expect(await refreshWalletForMembership(member.id, { google: client })).toEqual({ status: "complete" });
+      expect(addMessageCalls(api)).toHaveLength(1);
+      expect(messagesOf(api, googleObjectId(pass.id, issuer!))).toHaveLength(1);
+    }, { wrap: fetcher => async (input, init) => {
+      const response = await fetcher(input, init);
+      if (lose && String(input).endsWith("/addMessage")) { lose = false; return new Response(null, { status: 503 }); }
+      return response;
+    } });
+  });
+
+  it.each([[429, ""], [400, '{"error":{"message":"QuotaExceededException"}}']])("Google's notification limit (%s) skips the message and never fails the refresh", async (status, body) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await withGoogle(async (api, client) => {
+        const { owner, merchant, member, issuer } = await createMember();
+        const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+        await stamp(owner, merchant.locationId, member.id, 3);
+        expect(await refreshWalletForMembership(member.id, { google: client })).toEqual({ status: "complete" });
+        expect(api.objects.get(googleObjectId(pass.id, issuer!))).toMatchObject({ loyaltyPoints: { balance: { string: "3 / 3" } } });
+        expect(api.objects.get(googleObjectId(pass.id, issuer!))?.messages).toBeUndefined();
+        expect((await db.select().from(walletPasses).where(eq(walletPasses.id, pass.id)))[0]).toMatchObject({ status: "created", syncedAt: expect.any(Date) });
+        expect(warn).toHaveBeenCalledWith("Google Wallet reward message skipped: notification limit reached");
+      }, { wrap: fetcher => async (input, init) => String(input).endsWith("/addMessage") ? new Response(body, { status }) : fetcher(input, init) });
+    } finally { warn.mockRestore(); }
+  });
+
+  it("sends nothing when an owner edit makes the card ready", async () => {
+    await withGoogle(async (api, client) => {
+      const { owner, merchant, member, issuer } = await createMember();
+      await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      await stamp(owner, merchant.locationId, member.id, 2);
+      await refreshWalletForMembership(member.id, { google: client });
+      const [reward] = await getMerchantRewards({ actorUserId: owner, programSlug: merchant.programSlug });
+      await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Kaffee", cost: 2, termsText: "" });
+      await refreshWalletForMembership(member.id, { google: client });
+      expect(addMessageCalls(api)).toHaveLength(0);
+    });
+  });
+
+  it("sends nothing to a pass added after the card was already ready, including the new pass after a reissue", async () => {
+    await withGoogle(async (api, client) => {
+      const { owner, merchant, member, issuer } = await createMember();
+      await stamp(owner, merchant.locationId, member.id, 3);
+      await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      await refreshWalletForMembership(member.id, { google: client });
+      const { cardToken } = await reissueCardByStaff({ actorUserId: owner, locationId: merchant.locationId, membershipId: member.id, reason: "Neues Handy, Kartennummer genannt", verificationMethod: "card_link", entitlementConfirmed: true, idempotencyKey: key() });
+      await refreshWalletForMembership(member.id, { google: client });
+      await issueWalletPass(cardToken, "google", id => googleObjectId(id, issuer!));
+      await refreshWalletForMembership(member.id, { google: client });
+      expect(api.objects.size).toBe(2);
+      expect(addMessageCalls(api)).toHaveLength(0);
+    });
   });
 });
 

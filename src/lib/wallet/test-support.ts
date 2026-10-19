@@ -97,6 +97,13 @@ export function fakeGoogleApi(options: { failWith?: number } = {}) {
     calls.push({ method, url, body });
     if (url === "https://oauth2.googleapis.com/token") return Response.json({ access_token: "fixture-access-token" });
     if (options.failWith) return new Response(null, { status: options.failWith });
+    const message = /\/loyaltyObject\/([^/?]+)\/addMessage$/.exec(url);
+    if (message) {
+      const id = decodeURIComponent(message[1]), object = objects.get(id);
+      if (method !== "POST" || !object) return new Response(null, { status: 404 });
+      objects.set(id, { ...object, messages: [...(object.messages as unknown[] | undefined ?? []), body?.message] });
+      return Response.json({ resource: objects.get(id) });
+    }
     const match = /\/(loyaltyClass|loyaltyObject)(?:\/([^/?]+))?$/.exec(url);
     if (!match) return new Response(null, { status: 404 });
     const store = match[1] === "loyaltyClass" ? classes : objects;

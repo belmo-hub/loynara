@@ -7,6 +7,8 @@ import type { RevokeReason, WalletLocale, WalletPassData } from "./types";
 const TEXT = {
   de: {
     stamps: "Stempel", points: "Punkte", nextReward: "Nächste Prämie", rewardReady: "Prämie bereit", status: "Status",
+    // Lock-screen line (copy v0.4): the reward title exactly as the owner typed it, only after the colon.
+    rewardReadyMessage: (reward: string) => `Deine Prämie ist bereit: ${reward}`,
     redeemAtCounter: "An der Kasse einlösen", remaining: (n: number, unit: string) => `Noch ${n} ${unit}`,
     card: "Karte", location: "Standort", programme: "Programm", updated: "Zuletzt aktualisiert", memberCard: "Mitgliedskarte",
     note: "Hinweis", noteBody: "Stempel, Punkte und Prämien werden nur an der Kasse gebucht. Diese Karte zeigt den aktuellen Stand deiner Treuekarte und aktualisiert sich automatisch.",
@@ -21,6 +23,7 @@ const TEXT = {
   },
   fr: {
     stamps: "tampons", points: "points", nextReward: "Prochaine récompense", rewardReady: "Récompense disponible", status: "Statut",
+    rewardReadyMessage: null, // no approved French copy yet: French cards get no lock-screen message
     redeemAtCounter: "À utiliser en caisse", remaining: (n: number, unit: string) => `Encore ${n} ${unit}`,
     card: "Carte", location: "Établissement", programme: "Programme", updated: "Dernière mise à jour", memberCard: "Carte de fidélité",
     note: "Remarque", noteBody: "Les tampons, points et récompenses sont enregistrés uniquement en caisse. Cette carte affiche l’état actuel de votre carte de fidélité et se met à jour automatiquement.",

@@ -4,6 +4,8 @@ globalThis.fetch=async(input,init)=>{
  if(url==='https://oauth2.googleapis.com/token')return Response.json({access_token:'synthetic-local-only',expires_in:3600});
  if(url.startsWith('https://walletobjects.googleapis.com/')){
   const method=init?.method??'GET',body=typeof init?.body==='string'?JSON.parse(init.body):undefined;
+  const msg=/\/loyaltyObject\/([^/?]+)\/addMessage$/.exec(url),target=msg&&objects.get(decodeURIComponent(msg[1]));
+  if(msg){if(method!=='POST'||!target)return new Response(null,{status:404});target.messages=[...(target.messages??[]),body.message];return Response.json({resource:target});}
   const m=/\/(loyaltyClass|loyaltyObject)(?:\/([^/?]+))?$/.exec(url);if(!m)return new Response(null,{status:404});
   const store=m[1]==='loyaltyClass'?classes:objects,id=m[2]?decodeURIComponent(m[2]):undefined;
   if(method==='GET')return id&&store.has(id)?Response.json(store.get(id)):new Response(null,{status:404});
