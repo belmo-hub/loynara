@@ -73,6 +73,13 @@ npx tsx scripts/nfc-operator.ts tag-inspect --reader "<reader name>"     # ident
 ```
 Expected: PC/SC available, reader listed, with a tag `GetVersion PASS` and the UID. `tag-inspect` prints `condition` (factory / configured / uncertain) and evidence verdict. Neither command authenticates or writes.
 
+New factory tag, current-key file and evidence form (no tag write, no key change, no database):
+
+```sh
+npm run nfc:tag-prepare -- --reader "<reader name>" --custody-dir ~/.loynara-custody/production-nfc --credential-source <reviewed TAG-01 transport-check folder>
+```
+It takes the transport credential only from the two hash-pinned TAG-01 files (same rules as the 15 October keys 1–4 controller) and proves it against this chip with one AuthenticateEV2First per slot 0–4; nothing is assumed. It refuses a chip that is not `factory` or already has journal evidence, a prep form or a key file, and a custody folder that is a symlink or has group/other bits. It writes `<custody>/<uid>.current-keys.json` (create-exclusive, no symlink, mode 600) for `--transport-keys-file`, and `var/nfc-evidence/<uid>.tag-prep.json`, whose `provenanceRef` is the `--provenance-ref` for provision. The form is claimed before the first authentication: after any failure the tool refuses that UID for good, so quarantine and review. Read_Sig, supplier statement and the write decision stay manual. No key material is printed.
+
 ## 6. Tag #1 procedure (all steps NOT RUN; each physical write needs explicit approval first)
 
 Before any write report to the owner: target environment and hostname, exact tag identity (UID from `tag-inspect`), the operations (NDEF write, key changes 0–4, SDM config), the recovery path and the key-custody decision (section 3), then wait for approval.
