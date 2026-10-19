@@ -5,6 +5,7 @@ import type { WalletBrand, WalletPassData, WalletRevokedData, WalletStatus } fro
 
 export type GoogleConfig = { issuerId: string; logoUrl: string; approvedDeviceTestLogoUrl?: string; binding?: { tenantId: string; locationId: string; programId: string; classId: string }; publishingStatus?: "demo" | "published" };
 export type GoogleCredentials = { clientEmail: string; privateKey: string };
+export type GoogleMessage = { id: string; header: string; body: string; messageType: "TEXT_AND_NOTIFY" };
 const API = "https://walletobjects.googleapis.com/walletobjects/v1";
 const SCOPE = "https://www.googleapis.com/auth/wallet_object.issuer";
 
@@ -310,5 +311,20 @@ export class GoogleWalletClient {
     const object = await response.json();
     if (object.id !== objectId || (config.binding && object.classId !== config.binding.classId)) throw new GoogleWalletError("object binding", 0);
     return object;
+  }
+
+  /**
+   * Adds a message unless the object already carries one with this id. Google accepts duplicate message ids, so a
+   * retried job must look first. "limited": Google refused it under its notification limit (3 per pass per 24 hours).
+   */
+  async addMessageOnce(objectId: string, message: GoogleMessage, config: GoogleConfig): Promise<"added" | "present" | "limited"> {
+    const current = await this.getObject(objectId, config);
+    if (!current) throw new GoogleWalletError("message", 404);
+    if (Array.isArray(current.messages) && current.messages.some(item => item?.id === message.id)) return "present";
+    const response = await this.request("POST", `/loyaltyObject/${encodeURIComponent(objectId)}/addMessage`, { message });
+    if (response.ok) return "added";
+    // Google documents a QuotaExceededException for this limit but not its HTTP status.
+    if (response.status === 429 || /quota/i.test(await response.text())) return "limited";
+    throw new GoogleWalletError("message", response.status);
   }
 }
