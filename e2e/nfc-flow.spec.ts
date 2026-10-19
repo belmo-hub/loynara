@@ -84,6 +84,7 @@ test("a returning customer whose browser lost the binding confirms access on the
     await page.goto(`/card/${encodeURIComponent(cardToken)}`);                 // same tab, saved link
     // A browser without an active binding never binds on its own: the guest confirms with the private card link.
     await expect(page.getByRole("alert").filter({ hasText: "Bestätige deinen Browserzugang mit diesem privaten Kartenlink." })).toBeVisible({ timeout: 20_000 });
+    expect((await (await m.cashier.get("/api/cashier/tap/pending")).json() as unknown[]).length).toBe(0);
     await page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" }).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => (await (await m.cashier.get("/api/cashier/tap/pending")).json() as unknown[]).length).toBe(1);
