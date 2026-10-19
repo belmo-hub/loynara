@@ -28,7 +28,7 @@ function Readiness({ status, mode }: { status: TagStatus; mode: Mode }) {
 
 const AUTOMATIC_NOTE = "Im Pilotbetrieb nicht verfügbar.";
 
-/** NFC policy for stamp programmes. A physical tag still needs separate, secure provisioning. */
+/** NFC policy for the programme. A physical tag still needs separate, secure provisioning. */
 export function TapPolicyCard({ me }: { me: MeResponse }) {
   const initial: Mode = me.tapMode ?? "disabled";
   const [saved, setSaved] = useState<{ mode: Mode; cooldown: string }>({ mode: initial, cooldown: me.tapCooldownSeconds ? String(me.tapCooldownSeconds) : "" });
@@ -38,9 +38,9 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
   const [error, setError] = useState("");
   const stamp = me.programType === "stamp";
   const [tagStatus, reloadTags] = useLoad<TagStatus>(me.programId ? `/api/merchant/tap?programId=${me.programId}` : null);
-  // Pilot policy: automatic awards are offered only where the server allows them (never on production).
-  // A missing flag counts as "not allowed". The server enforces this independently.
-  const automaticAllowed = me.tapAutomaticAllowed === true;
+  // Pilot policy: automatic awards are offered only where the server allows them (never on production), and only for
+  // fixed stamps: points are always entered by the team. A missing flag counts as "not allowed". The server enforces both.
+  const automaticAllowed = me.tapAutomaticAllowed === true && stamp;
   const MODES = tapModesFor(ALL_MODES, saved.mode, automaticAllowed);
   const needsCooldown = mode !== "disabled";
   const cooldownNumber = Number(cooldown);
@@ -58,16 +58,13 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die NFC-Regel konnte nicht gespeichert werden."); }
   }
 
-  if (!stamp) {
-    return <p className="ow-hint" style={{ paddingInline: 4 }}>NFC-Tap ist nur für Stempelprogramme verfügbar, denn ein Tag kennt keinen Einkaufswert.</p>;
-  }
   const label = MODES.find(item => item.id === saved.mode)?.label ?? "Aus";
   return (
     <section className="ow-card ow-card--flat" aria-labelledby="tap-title">
       <details open={saved.mode !== "disabled" || changed || undefined}>
         <summary style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 700 }}><span id="tap-title">NFC-Tap (optional)</span><span className="ow-chip">{label}</span></summary>
         <div className="ow-stack" style={{ marginTop: 12 }}>
-          <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, das Team bestätigt jeden Stempel an der Kasse. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
+          <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, {stamp ? "das Team bestätigt jeden Stempel an der Kasse" : "das Team trägt die Punkte an der Kasse ein und bestätigt sie"}. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
           {tagStatus.state === "ok" && <Readiness status={tagStatus.data} mode={saved.mode} />}
           <fieldset className="ow-group">
             <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>

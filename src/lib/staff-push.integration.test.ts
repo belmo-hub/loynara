@@ -204,7 +204,8 @@ describe("queueing with the tap", () => {
 
     const pending = await pendingTapRequests({ userId: f.userId, locationId: f.location.id });
     expect(pending).toHaveLength(1);
-    expect(pending[0]).toEqual({ id: first.requestId, createdAt: expect.any(Date), expiresAt: expect.any(Date), balance: 0, cardLocator: first.cardLocator, expiresInMs: expect.any(Number), ageMs: expect.any(Number) });
+    expect(pending[0]).toEqual({ id: first.requestId, createdAt: expect.any(Date), expiresAt: expect.any(Date), balance: 0, cardLocator: first.cardLocator, expiresInMs: expect.any(Number), ageMs: expect.any(Number),
+      programType: "stamp", earningMode: "manual", pointsPerCurrencyUnit: 1, currency: "EUR", ruleVersionId: expect.any(String) });
     // Timing is computed by the server, so a cashier phone with a wrong clock still counts down correctly.
     expect(pending[0].expiresInMs).toBeGreaterThan(290_000);
     expect(pending[0].expiresInMs).toBeLessThanOrEqual(300_000);

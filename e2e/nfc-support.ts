@@ -42,15 +42,15 @@ export async function resetPeerLimits() {
   await sql("DELETE FROM rate_limits WHERE key_hash = ANY($1::text[])", [hashes]);
 }
 
-/** A merchant with an owner, one invited cashier of its only location, and one registered counter tag (staff-confirmed taps). */
-export async function merchantWithTag(baseURL: string, businessName = "NFC Café") {
+/** A merchant with an owner, one invited cashier of its only location, and one registered counter tag (staff-confirmed taps). `program` overrides the stamp programme, e.g. purchase points. */
+export async function merchantWithTag(baseURL: string, businessName = "NFC Café", program: Record<string, unknown> = {}) {
   // Compiled apps retain Better Auth's rolling 3-signup/10s limit. Optional local harness pacing respects it,
   // including tests that construct two merchants; it never changes application limits or trusts an invented peer.
   if (process.env.E2E_AUTH_SETUP_GAP_MS === "11000") await new Promise(resolve => setTimeout(resolve, 11_000));
   const origin = { Origin: new URL(baseURL).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   expect((await owner.post("/api/auth/sign-up/email", { data: { name: "NFC owner", email: `nfc-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
-  const onboard = await owner.post("/api/merchant/onboard", { data: { businessName, locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "NFC card", programType: "stamp", rulesText: "Ein Stempel je Besuch.", rewardTitle: "Kaffee", rewardCost: 5 } });
+  const onboard = await owner.post("/api/merchant/onboard", { data: { businessName, locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "NFC card", programType: "stamp", rulesText: "Ein Stempel je Besuch.", rewardTitle: "Kaffee", rewardCost: 5, ...program } });
   expect(onboard.status()).toBe(201);
   const me = await (await owner.get("/api/me")).json() as { programId: string; tenantId: string; locationId: string; programSlug: string };
   expect((await owner.post("/api/merchant/tap", { data: { action: "policy", programId: me.programId, mode: "staff_confirmed", cooldownSeconds: 1 } })).status()).toBe(200);

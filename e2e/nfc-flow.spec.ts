@@ -1,5 +1,5 @@
 import { expect, request as apiRequest, test, type Browser, type BrowserContext } from "@playwright/test";
-import { MASTER, merchantWithTag, pathOf, resetPeerLimits } from "./nfc-support";
+import { balanceOf, customerWithCard, ledgerRowsFor, MASTER, merchantWithTag, pathOf, resetPeerLimits, staffContext } from "./nfc-support";
 
 // Customer taps the counter tag -> pending request -> cashier confirms -> exactly one stamp -> customer, cashier and owner agree.
 // Runs against a server started with NFC_KEY_PROVIDER=derived_v1 and NFC_VERIFY_MASTER_KEY=$E2E_NFC_VERIFY_MASTER (synthetic).
@@ -88,5 +88,37 @@ test("a returning customer whose browser lost the binding confirms access on the
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => (await (await m.cashier.get("/api/cashier/tap/pending")).json() as unknown[]).length).toBe(1);
     await guest.dispose(); await fresh.close();
+  } finally { await m.close(); }
+});
+
+test("points programme: the tap waits for the team, the cashier enters and reviews the amount, the guest sees the booked points", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const m = await merchantWithTag(url, "NFC Pizzeria", { programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je Euro Einkaufswert.", rewardCost: 100 });
+  try {
+    const guest = await customerWithCard(browser, url, m.me.programSlug);
+    const page = await guest.context.newPage();
+    await page.goto(pathOf(m.nextUrl()));
+    await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+    await expect(page.getByText("trägt deine Punkte ein")).toBeVisible();
+
+    const cashierCtx = await staffContext(browser, url, m.cashier);
+    const counter = await cashierCtx.newPage();
+    await counter.goto("/cashier");
+    const amount = counter.getByLabel("Kaufbetrag (EUR)");
+    await expect(amount).toBeVisible({ timeout: 15_000 });
+    await expect(counter.getByRole("button", { name: "Stempel bestätigen" })).toHaveCount(0);
+    await amount.fill("16,70");
+    await counter.getByRole("button", { name: "16 Punkte prüfen" }).click();
+    const dialog = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
+    await expect(dialog).toContainText(`16 Punkte für einen Kauf über 16,70 € für Karte ${guest.cardLocator}.`);
+    expect(await ledgerRowsFor(guest.cardToken)).toBe(0);   // the review step books nothing
+    await dialog.getByRole("button", { name: "Ja, vergeben" }).click();
+    await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${guest.cardLocator} gebucht. Neuer Stand: 16.` })).toBeVisible();
+
+    await expect(page.getByRole("heading", { name: "Punkte erhalten" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("+16", { exact: true })).toBeVisible();
+    expect(await ledgerRowsFor(guest.cardToken)).toBe(1);
+    expect(await balanceOf(url, guest.cardToken)).toBe(16);
+    await Promise.all([guest.context.close(), cashierCtx.close()]);
   } finally { await m.close(); }
 });

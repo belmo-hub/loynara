@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { CardResponse } from "./client-api";
-import { playsStampMoment, stampAnnouncement, TapCardFace } from "./tap-client";
+import { playsStampMoment, stampAnnouncement, tapCopy, TapCardFace } from "./tap-client";
 
 const card: CardResponse = {
   scanCode: "scan", cardLocator: "LY-0001", balance: 2, merchantName: "Barbier Nord", locationName: "Kassel", programName: "Stempelkarte",
@@ -37,5 +37,14 @@ describe("stamp moment after a tap", () => {
     const reloaded = render(3, false);
     expect(reloaded).toContain("3 von 8 Stempeln");
     expect(reloaded).not.toContain('data-new="true"');
+  });
+});
+
+describe("tap page for a points programme", () => {
+  it("waits for the team, then tells the guest the booked points", () => {
+    expect(tapCopy("pending_staff", undefined, true)).toEqual({ title: "Warte auf das Team", detail: "Das Team an der Kasse trägt deine Punkte ein und bestätigt sie. Du musst nichts weiter tun." });
+    expect(tapCopy("confirmed", undefined, true).title).toBe("Punkte erhalten");
+    expect(stampAnnouncement("confirmed", 40, true)).toBe("Punkte erhalten, neuer Stand 40.");
+    expect(tapCopy("pending_staff").detail).toContain("Stempel");   // stamp copy unchanged
   });
 });
