@@ -337,7 +337,8 @@ test("the guest's open card catches up after a booking when they look at it agai
   try {
     const page = await phone.newPage();
     const reads: number[] = [];
-    page.on("request", request => { if (request.method() === "GET" && new URL(request.url()).pathname === `/api/card/${card.cardToken}`) reads.push(Date.now()); });
+    // The page loads the card through /api/enroll/card/ and re-reads it through /api/card/.
+    page.on("request", request => { if (request.method() === "GET" && new RegExp(`^/api/(enroll/)?card/${card.cardToken}$`).test(new URL(request.url()).pathname)) reads.push(Date.now()); });
     await page.goto(`/card/${encodeURIComponent(card.cardToken)}`);
     await expect(page.locator(".customer-balance-line strong")).toHaveText("0 Stempel");
     await page.waitForTimeout(500);

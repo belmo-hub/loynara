@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
-import { createRefreshGate } from "@/lib/refresh-gate";
+import { createRefreshGate, nextAutoRefresh } from "@/lib/refresh-gate";
 import { CustomerCard } from "./customer/customer-card";
 import { CustomerCardLoading, CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
@@ -31,12 +31,6 @@ function walletMessage(cause: unknown, french: boolean): string {
 
 /** Never re-read the card more often than this when the guest comes back to the page. */
 const REFRESH_INTERVAL_MS = 5_000;
-/**
- * The guest often keeps the card open and visible while the cashier books on another device, so no focus or visibility
- * event follows. After the card is shown (opened, or looked at again) it is re-read a few times, then not again until
- * the next return. Bounded on purpose: guests on one shop Wi-Fi share the card-read limit.
- */
-const FOLLOW_UP_MS = [20_000, 60_000];
 const noticeClass = noticeStyles.notice;
 const GONE_MESSAGE = "Dieser Kartenlink ist nicht mehr gültig. Wurde deine Karte neu ausgestellt, öffne bitte den neuen Link. Sonst wende dich mit deiner Kartennummer an das Geschäft.";
 
@@ -76,53 +70,72 @@ export function CardClient({ token }: { token: string }) {
   const gate = useRef(createRefreshGate(REFRESH_INTERVAL_MS));
   const live = useRef(false);
   const refreshNow = useRef<() => void>(() => {});
+  const startAutoRefresh = useRef<() => void>(() => {});
   const [refreshing, setRefreshing] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { balanceSeen.current = result.balance; setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { balanceSeen.current = result.balance; setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
   }, [token]);
-  // The guest shows the phone, the cashier books, the guest looks again: re-read the balance when the page becomes
-  // visible or focused again (also after a back navigation), a few times shortly after that, and on "Aktualisieren";
-  // coalesced and at most every REFRESH_INTERVAL_MS. A card that stopped existing (closed or reissued elsewhere) is
-  // replaced by a plain message; network trouble keeps the last known state.
+  // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in
+  // between. So while the card is visible it re-reads the balance by itself (cadence and budget: nextAutoRefresh),
+  // starting again when the page becomes visible or focused (also after a back navigation); plus "Aktualisieren".
+  // Coalesced and at most every REFRESH_INTERVAL_MS; a grown balance lands the new stamp. A card that stopped existing
+  // (closed or reissued elsewhere) is replaced by a plain message; network trouble keeps the last known state; a read
+  // the server refuses (rate limit) stops the automatic reads until the guest looks again.
   useEffect(() => {
     let mounted = true;
-    let followUps: Array<ReturnType<typeof setTimeout>> = [];
-    function refresh(manual = false) {
-      if (!live.current || document.visibilityState !== "visible" || !gate.current.tryStart()) return;
+    let poll: ReturnType<typeof setTimeout> | undefined;
+    let shownAt = Date.now(), failures = 0;
+    const reads: number[] = [];
+    function refresh(manual = false): Promise<"ok" | "failed" | "stop" | "skipped"> {
+      if (!live.current || document.visibilityState !== "visible" || !gate.current.tryStart()) return Promise.resolve("skipped");
       if (manual) setRefreshing(true);
-      void apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`)
+      return apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`)
         .then(result => {
-          if (!mounted || !live.current) return;
+          if (!mounted || !live.current) return "stop" as const;
           if (balanceSeen.current !== null && result.balance > balanceSeen.current) setLanded(result.balance);
           balanceSeen.current = result.balance;
           setCard(result); setRefreshFailed(false);
+          return "ok" as const;
         })
         .catch(cause => {
-          if (!mounted) return;
-          if (cause instanceof ClientApiError && cause.status === 404) { live.current = false; setCard(null); setError(GONE_MESSAGE); }
-          else if (manual) setRefreshFailed(true);
+          if (!mounted) return "stop" as const;
+          if (cause instanceof ClientApiError && cause.status === 404) { live.current = false; setCard(null); setError(GONE_MESSAGE); return "stop" as const; }
+          if (manual) setRefreshFailed(true);
+          return cause instanceof ClientApiError && cause.code === "RATE_LIMIT" ? "stop" as const : "failed" as const;
         })
         .finally(() => { gate.current.finish(); if (mounted) setRefreshing(false); });
     }
-    function followUp() {
-      followUps.forEach(clearTimeout);
-      followUps = FOLLOW_UP_MS.map(delay => setTimeout(() => refresh(), delay));
+    function schedule() {
+      clearTimeout(poll);
+      if (!mounted || document.visibilityState !== "visible") return;
+      while (reads.length && Date.now() - reads[0] >= 15 * 60_000) reads.shift();
+      const delay = nextAutoRefresh(Date.now() - shownAt, failures, reads.length);
+      if (delay !== null) poll = setTimeout(() => void autoRefresh(), delay);
+    }
+    async function autoRefresh() {
+      const outcome = await refresh();
+      if (outcome === "stop") return;
+      if (outcome !== "skipped") reads.push(Date.now());
+      failures = outcome === "failed" ? failures + 1 : outcome === "ok" ? 0 : failures;
+      schedule();
     }
     function onReturn() {
+      clearTimeout(poll);
       if (document.visibilityState !== "visible") return;
-      refresh();
-      followUp();
+      shownAt = Date.now(); failures = 0;
+      void autoRefresh();
     }
     function onPageShow(event: PageTransitionEvent) { if (event.persisted) onReturn(); }
-    refreshNow.current = () => refresh(true);
-    followUp();
+    refreshNow.current = () => void refresh(true);
+    // The first window starts once the card has loaded, so its first re-read is not refused by the gate.
+    startAutoRefresh.current = () => { shownAt = Date.now(); failures = 0; schedule(); };
     document.addEventListener("visibilitychange", onReturn);
     window.addEventListener("focus", onReturn);
     window.addEventListener("pageshow", onPageShow);
-    return () => { mounted = false; followUps.forEach(clearTimeout); document.removeEventListener("visibilitychange", onReturn); window.removeEventListener("focus", onReturn); window.removeEventListener("pageshow", onPageShow); };
+    return () => { mounted = false; clearTimeout(poll); document.removeEventListener("visibilitychange", onReturn); window.removeEventListener("focus", onReturn); window.removeEventListener("pageshow", onPageShow); };
   }, [token]);
   useEffect(() => {
     let mounted = true;

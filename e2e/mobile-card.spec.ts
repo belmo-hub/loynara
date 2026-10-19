@@ -69,7 +69,8 @@ test("long merchant and location names remain readable without horizontal overfl
   const card = await response.json() as Record<string, unknown>;
   const merchantName = "Lange Geschäftsbezeichnung mit mehreren Wörtern für eine Filiale im Viertel am Hauptbahnhof";
   const locationName = "W".repeat(120);
-  await page.route(`**/api/card/${token}`, route => route.fulfill({ json: { ...card, merchantName, locationName } }));
+  // The page loads the card through /api/enroll/card/ and re-reads it through /api/card/: stub both.
+  await page.route(new RegExp(`/api/(enroll/)?card/${token}$`), route => route.fulfill({ json: { ...card, merchantName, locationName } }));
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto(`/card/${token}`);
   const heading = page.locator(".customer-header-merchant");
