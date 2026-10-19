@@ -7,7 +7,11 @@ import { clearLegacyReturningCardCookieHeader, returningCardCookieName, returnin
 
 export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   try {
-    await enforcePeerLimit(request, "card_read_peer", 240, 15 * 60);
+    // The open card marks its timed re-reads (card-client.tsx): they get their own, lower per-network limit (15 guests
+    // with a full automatic budget of 14), so polling never uses up the one page loads, returns, the button and the tap
+    // page share. A forged mark only adds this capped scope; the per-card limit below covers both.
+    if (request.headers.get("x-loynara-card-read") === "poll") await enforcePeerLimit(request, "card_poll_peer", 210, 15 * 60);
+    else await enforcePeerLimit(request, "card_read_peer", 240, 15 * 60);
     const { token } = await context.params;
     await enforceRateLimit({ scope: "card_read_token", identity: token, max: 90, windowSeconds: 15 * 60 });
     const { programId, ...card } = await getCard(token);

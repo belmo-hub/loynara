@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { AUTO_REFRESH_BUDGET, createRefreshGate, nextAutoRefresh } from "./refresh-gate";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AUTO_REFRESH_BUDGET, type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate, nextAutoRefresh } from "./refresh-gate";
 
 describe("card refresh gate", () => {
   it("lets one refresh through for a burst of focus, visibility and pageshow events", () => {
@@ -71,8 +71,55 @@ describe("automatic card re-reads while the card is visible", () => {
     expect(reads).toBeLessThanOrEqual(AUTO_REFRESH_BUDGET);
     // GET /api/card/[token] allows 90 reads per card in 15 minutes: two thirds stay free for page loads, the refresh button and a second tab.
     expect(AUTO_REFRESH_BUDGET * 3).toBeLessThanOrEqual(90);
-    // It also allows 240 per network in 15 minutes, shared by every guest on one shop Wi-Fi: 15 guests, each with a page
-    // load, one return and a full budget, still fit.
-    expect(15 * (1 + 1 + AUTO_REFRESH_BUDGET)).toBeLessThanOrEqual(240);
+    // Per network (one shop Wi-Fi shares one address) timed re-reads have their own 210 in 15 minutes: 15 guests with a
+    // full budget fit.
+    expect(15 * AUTO_REFRESH_BUDGET).toBeLessThanOrEqual(210);
+    // The other 240 per network are left to page loads, returns and focus reads, the button and the tap-page read: 15
+    // guests with a page load, a tap-page read and ten returns or button presses each use 180.
+    expect(15 * (1 + 1 + 10)).toBeLessThanOrEqual(240);
+  });
+});
+
+describe("the open card's automatic re-read window", () => {
+  afterEach(() => { vi.useRealTimers(); });
+  function openCard(outcomes: Record<number, CardReadOutcome> = {}) {
+    vi.useFakeTimers({ now: 0 });
+    let visible = true;
+    const reads: [seconds: number, read: CardRead][] = [];
+    const auto = createAutoRefresh(async read => { reads.push([Date.now() / 1000, read]); return outcomes[Date.now()] ?? "ok"; }, () => visible);
+    return { auto, reads, setVisible(value: boolean) { visible = value; auto.visibility(); } };
+  }
+
+  it("ends the window once a re-read shows the stamp", async () => {
+    const { auto, reads } = openCard({ 15_000: "grew" });
+    auto.loaded();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(reads).toEqual([[5, "timed"], [10, "timed"], [15, "timed"]]);
+  });
+
+  it("reads once on focus without restarting the 5 s tier", async () => {
+    const { auto, reads } = openCard();
+    auto.loaded();
+    await vi.advanceTimersByTimeAsync(40_000); // 5 s reads up to 30 s, the next one due at 50 s
+    auto.focus();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(reads.slice(5)).toEqual([[30, "timed"], [40, "return"], [60, "timed"]]);
+  });
+
+  it("keeps one budget across returns until the first reads are 15 minutes old", async () => {
+    const { auto, reads, setVisible } = openCard();
+    auto.loaded();
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
+    expect(reads).toHaveLength(13); // the whole first window, which ends after three minutes
+    setVisible(false);
+    await vi.advanceTimersByTimeAsync(60_000);
+    setVisible(true); // a real return reads at once and restarts the window, but the budget of 14 is now used
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
+    expect(reads.slice(13)).toEqual([[300, "return"]]);
+    setVisible(false);
+    await vi.advanceTimersByTimeAsync(7 * 60_000);
+    setVisible(true); // at 16 minutes the reads of the first minute have left the budget
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(reads.slice(14)).toEqual([[960, "return"], [965, "timed"], [970, "timed"]]);
   });
 });
