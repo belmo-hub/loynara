@@ -103,6 +103,32 @@ describe("trusted ingress through application handlers (isolated PostgreSQL)", (
     expect(await hits("card_read_token", token)).toBe(2);
     expect(await hits("recovery_request_destination", email)).toBe(2);
   });
+  const cardRead = (ip: string, token: string, mark?: string) => {
+    const request = req(`/api/card/${token}`, ip);
+    if (mark) request.headers.set("x-loynara-card-read", mark);
+    key("card_read_token", token); key("card_read_peer", peerIdentity(request)); key("card_poll_peer", peerIdentity(request));
+    return card(request, { params: Promise.resolve({ token }) }).then(response => response.status);
+  };
+  it("counts the open card's timed re-reads in their own capped per-network scope, apart from page loads", async () => {
+    const [ip] = ips(), peer = peerIdentity(req("/", ip)), fresh = () => `synthetic-${randomUUID()}`;
+    for (let i = 0; i < 210; i++) expect(await cardRead(ip, fresh(), "poll")).toBe(200);
+    expect(await cardRead(ip, fresh(), "poll")).toBe(429);
+    // Polling used up its own scope and none of the one that page loads, returns, the button and the tap page share.
+    expect(await hits("card_read_peer", peer)).toBeUndefined();
+    for (let i = 0; i < 240; i++) expect(await cardRead(ip, fresh())).toBe(200);
+    expect(await cardRead(ip, fresh())).toBe(429);
+    // Any other value is an ordinary read.
+    expect(await cardRead(ip, fresh(), "auto")).toBe(429);
+    expect(await hits("card_read_peer", peer)).toBe(242);
+    expect(await hits("card_poll_peer", peer)).toBe(211);
+  });
+  it("keeps one per-card limit for timed re-reads and ordinary reads together", async () => {
+    const [ip] = ips(), token = `synthetic-${randomUUID()}`;
+    for (let i = 0; i < 45; i++) { expect(await cardRead(ip, token, "poll")).toBe(200); expect(await cardRead(ip, token)).toBe(200); }
+    expect(await cardRead(ip, token, "poll")).toBe(429);
+    expect(await cardRead(ip, token)).toBe(429);
+    expect(await hits("card_read_token", token)).toBe(92);
+  });
   it("fails closed before business actions and keeps internal health independent", async () => {
     const responses = [await enroll(req("/api/enroll", undefined, {})), await signIn(req("/api/auth/sign-in/email", undefined, {})),
       await authGet(req("/api/auth/get-session")), await recover(req("/api/recover", undefined, {})),
