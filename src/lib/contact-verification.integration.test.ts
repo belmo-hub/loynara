@@ -1,8 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { consentEvents, contactVerificationChallenges, membershipContacts, outboxJobs } from "@/db/schema";
+import { consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
 import { createMerchant, enroll, getCard } from "./product";
 import { closeCard } from "./card-lifecycle";
 import { verificationTokenForChallenge } from "./contact-token";
@@ -207,6 +207,29 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(refused.status).toBe(429);
     expect(await refused.json()).toMatchObject({ code: "RATE_LIMIT" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).toHaveLength(4);
+  });
+
+  it("spends no recipient budget on a closed card's resend", async () => {
+    const { member } = await card();
+    const email = `closed-${randomUUID()}@example.test`;
+    const destination = createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update("card_contact_destination").update("\0").update(email).digest("hex");
+    const hits = async () => (await pool.query<{ hits: number }>("SELECT hits FROM rate_limits WHERE key_hash = $1", [destination])).rows.map(row => row.hits);
+    const post = () => contactRoute(new Request(`http://localhost:3000/api/card/${member.cardToken}/contact`, {
+      method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ marketing: true }),
+    }), { params: Promise.resolve({ token: member.cardToken }) });
+    await requestContactVerification(member.cardToken, email);
+    await pool.query("DELETE FROM rate_limits"); // disposable test database: start every limit at zero
+    expect((await post()).status).toBe(200);
+    expect(await hits()).toEqual([1]); // an open card's resend is counted against its stored address
+    // Closure removes the address; a closed card that still holds one (older data) must not spend its budget either.
+    await db.update(memberships).set({ closedAt: new Date() }).where(eq(memberships.id, member.id));
+    await pool.query("DELETE FROM rate_limits");
+    const jobs = (await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).length;
+    const refused = await post();
+    expect(refused.status).toBe(404);
+    expect(await refused.json()).toMatchObject({ code: "NOT_FOUND" });
+    expect(await hits()).toEqual([]);
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).toHaveLength(jobs);
   });
 
   it("keeps each shop's consent, mail and link to its own card", async () => {

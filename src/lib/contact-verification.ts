@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { cardSecurityEvents, consentEvents, contactVerificationChallenges, locations, membershipContacts, memberships, outboxJobs, programs, tenants } from "@/db/schema";
@@ -69,7 +69,7 @@ export async function storedContactEmail(cardToken: string) {
   if (!validCardToken(cardToken)) return null;
   const [row] = await db.select({ email: membershipContacts.email }).from(memberships)
     .innerJoin(membershipContacts, and(eq(membershipContacts.tenantId, memberships.tenantId), eq(membershipContacts.membershipId, memberships.id)))
-    .where(eq(memberships.cardToken, cardToken));
+    .where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
   return row?.email ?? null;
 }
 
