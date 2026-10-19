@@ -27,22 +27,26 @@ for (const width of [375, 1280]) {
           if (fail) await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic temporary service failure" }) });
           else await route.continue();
         });
-        // Honor the existing real 5-second gate; do not override browser clocks.
-        await page.waitForTimeout(5_100);
         const refresh = page.getByRole("button", { name: "Kontostand aktualisieren" });
         const feedback = page.locator(".customer-balance-panel").getByRole("alert");
+        // The visible card re-reads itself after about 5 s; a failed automatic read stays silent and keeps the card.
+        await expect.poll(() => reads, { timeout: 10_000 }).toBeGreaterThan(0);
+        await expect(feedback).toHaveCount(0);
+        await expect(page.locator(".customer-card")).toContainText("Synthetic refresh Café");
+        // Honor the existing real 5-second gate; do not override browser clocks. The failed read pushed the next automatic one to 10 s.
+        await page.waitForTimeout(5_100);
+        const beforeClick = reads;
         await refresh.focus(); await page.keyboard.press("Enter");
-        await expect.poll(() => reads).toBe(1);
+        await expect.poll(() => reads).toBe(beforeClick + 1);
         await expect(feedback).toContainText("zuletzt geladene Stand");
         await expect(refresh).toBeEnabled();
         await expect(page.locator(".customer-card")).toContainText("Synthetic refresh Café");
-        expect(reads).toBe(1);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+        // Once reads succeed again, the next one (automatic or the button) clears the note.
         fail = false; await page.waitForTimeout(5_100);
         await refresh.focus(); await page.keyboard.press("Enter");
         await expect(feedback).toHaveCount(0);
         await expect(refresh).toBeEnabled();
-        expect(reads).toBe(2);
         expect(mutationRequests).toBe(0);
         expect(await (await guest.get(`/api/card/${cardToken}`)).json()).toEqual(before);
       } finally { await context.close(); }

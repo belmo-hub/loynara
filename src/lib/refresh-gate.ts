@@ -20,3 +20,20 @@ export function createRefreshGate(minIntervalMs: number, now: () => number = Dat
     markLoaded() { last = now(); },
   };
 }
+
+/**
+ * Automatic card reads one open card page may make in any 15 minutes. The server allows 90 per card and 240 per network
+ * (one shop Wi-Fi shares one address), and the same limit serves every guest's first card load.
+ */
+export const AUTO_REFRESH_BUDGET = 14;
+
+/**
+ * Delay before the next automatic re-read while the card is visible, or null to stop until the guest looks again:
+ * every 5 s in the first 30 s after the card is shown (the stamp almost always lands then), every 20 s up to three
+ * minutes, none after (13 reads). Each failed read in a row doubles the delay, up to a minute.
+ */
+export function nextAutoRefresh(shownForMs: number, failures: number, recentReads: number): number | null {
+  if (recentReads >= AUTO_REFRESH_BUDGET) return null;
+  const delay = Math.min((shownForMs < 30_000 ? 5_000 : 20_000) * 2 ** failures, 60_000);
+  return shownForMs + delay > 180_000 ? null : delay;
+}
