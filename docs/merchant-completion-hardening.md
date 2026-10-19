@@ -128,15 +128,15 @@ One rule, `quietHoursDeferral(now, timeZone)`, 21:00–09:00 location time, used
 
 ## 7. Readiness
 
-Every step derives from saved or booked data (`readiness.integration.test.ts`, 7 tests; `readiness-card.test.ts`, 3).
+Every step derives from saved or booked data (`readiness.integration.test.ts`, 7 tests; `readiness-card.test.ts`, 4).
 
 * **Fix made:** an NFC-tap award used to satisfy "Erste Gutschrift an der Kasse bestätigt". NFC has its own step, so only cashier-confirmed
   awards (`staff_online`, `staff_offline`) count. Seed data, referral bonuses, NFC taps, legacy rows, reissue, recovery events and reversed
   awards are tested not to satisfy it, and a reversed first award reopens the step.
 * **Fix made:** the card's lead label "Als Nächstes" collided with the overview's separate "Als Nächstes" suggestions card and, worse, would have
   broken the pilot configuration's assertion that "Als Nächstes" is absent when campaigns are withheld. It is now "Nächster Schritt".
-* Groups kept: *Einrichtung*, *Im Betrieb geprüft*, *Außerhalb von Loynara*. Legal texts, operator credential reset and (without a key provider)
-  NFC are `external`, never green, never required, and stay `external` even when every application step has evidence.
+* Groups kept: *Einrichtung*, *Im Betrieb geprüft*, *Außerhalb von Loynara* (hidden when empty). NFC without a key provider is `external`,
+  never green, never required, and stays `external` even when every application step has evidence.
 * Visibility: owner and the location's manager only (manager sees no link to owner-only pages); cashiers get `403` and never request it
   (a cashier opening `/merchant` is redirected to `/cashier`; asserted in the browser).
 

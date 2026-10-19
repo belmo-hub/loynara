@@ -122,8 +122,8 @@ test("a failed save keeps the edit and the next attempt succeeds", async ({ base
         else await route.continue();
       });
       await page.getByRole("button", { name: "Kundenkarte speichern" }).click();
-      await expect(page.locator(".ow-savestate")).toContainText("Speichern fehlgeschlagen");
-      await expect(page.locator(".ow-savestate")).toContainText("Simulierter Serverfehler.");
+      await expect(page.locator(".ow-savestate")).toContainText("Speicherstatus unklar"); // a 500 does not prove the write failed
+      await expect(page.locator(".ow-savestate")).toContainText("Deine Änderungen sind noch da.");
       await expect(page.getByLabel("Farbwert (Hex)")).toHaveValue("#2b4a66");
       await page.getByRole("button", { name: "Kundenkarte speichern" }).click();
       await expect(page.locator(".ow-savestate")).toContainText("Gespeichert");
