@@ -11,11 +11,12 @@ import { nfcCapability } from "./nfc-keys";
  * - setup: configuration exists (programme, card design, team access);
  * - verify: the real flow has been exercised and left evidence (a card was enrolled, the counter confirmed an
  *   award, a reward was redeemed, NFC tags are live);
- * - external: conditions Loynara cannot check (access recovery through the operator, physical NFC acceptance). They are shown as open on purpose so that "all green" never implies legal or commercial approval.
+ * - external: conditions Loynara cannot check (physical NFC acceptance where no key provider is set up). They are
+ *   shown as open on purpose so that "all green" never implies legal or commercial approval.
  */
 export type ReadinessStatus = "done" | "todo" | "external" | "not_applicable";
 export type ReadinessStep = {
-  id: "programme" | "card" | "team" | "enrolment" | "first_award" | "first_redemption" | "nfc" | "access";
+  id: "programme" | "card" | "team" | "enrolment" | "first_award" | "first_redemption" | "nfc";
   group: "setup" | "verify" | "external";
   required: boolean;
   status: ReadinessStatus;
@@ -96,8 +97,6 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
     evidence: facts.live_tags === 0 ? "NFC ist eingeschaltet, aber an diesem Standort ist kein aktiver Tag registriert." : facts.confirmed_taps === 0 ? `${facts.live_tags} aktiver Tag, aber noch kein bestätigter Tap. Ein lesbarer Tag beweist noch keinen Kassenvorgang.` : `${facts.live_tags} aktiver Tag, ${facts.confirmed_taps} bestätigte Taps.`,
     action: { label: "NFC-Einstellungen", href: "/merchant/program", ownerOnly: true } });
   else steps.push({ id: "nfc", group: "verify", required: false, status: "not_applicable", title: "NFC am Tresen", evidence: "NFC ist für dieses Programm ausgeschaltet. QR-Code und Kartennummer reichen für den Start." });
-
-  steps.push({ id: "access", group: "external", required: false, status: "external", title: "Zugang wiederherstellen", evidence: "Ein vergessenes Passwort setzt derzeit der Loynara-Betreiber zurück. Halte den Kontaktweg dafür bereit." });
 
   const order: ReadinessStep["id"][] = ["programme", "enrolment", "first_award", "team", "card", "first_redemption", "nfc"];
   const reasons: Partial<Record<ReadinessStep["id"], string>> = {
