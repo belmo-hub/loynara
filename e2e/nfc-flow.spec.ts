@@ -68,7 +68,7 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
   } finally { await m.close(); }
 });
 
-test("a returning customer whose browser lost the binding opens the saved card and the tap continues", async ({ baseURL, browser }) => {
+test("a returning customer whose browser lost the binding confirms access on the saved card and the tap continues", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const m = await merchantWithTag(url);
   try {
@@ -82,6 +82,9 @@ test("a returning customer whose browser lost the binding opens the saved card a
     await page.goto(pathOf(m.nextUrl()));
     await expect(page.getByRole("heading", { name: "Deine Karte erstellen" })).toBeVisible();
     await page.goto(`/card/${encodeURIComponent(cardToken)}`);                 // same tab, saved link
+    // A browser without an active binding never binds on its own: the guest confirms with the private card link.
+    await expect(page.getByRole("alert").filter({ hasText: "Bestätige deinen Browserzugang mit diesem privaten Kartenlink." })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Mit meinem privaten Kartenlink anmelden" }).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => (await (await m.cashier.get("/api/cashier/tap/pending")).json() as unknown[]).length).toBe(1);
     await guest.dispose(); await fresh.close();
