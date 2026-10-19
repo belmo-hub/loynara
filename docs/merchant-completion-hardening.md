@@ -1,7 +1,7 @@
 # Merchant completion — independent hardening review
 
 Candidate branch `product/merchant-completion`. Reviewed 2026-10-04 (start 15:15Z, end ≈19:30Z, with a pause for a usage limit).
-Reviewer: Claude (Sonnet 5.5). No push, no deployment, no production access, no real e-mail, Wallet or NFC hardware.
+Reviewer: independent review. No push, no deployment, no production access, no real e-mail, Wallet or NFC hardware.
 Everything ran on the isolated stack (Postgres `loynara-product-pg` on 54391, Mailpit, dev/compiled Next on 3000/3020).
 
 ## 1. Starting and final state
