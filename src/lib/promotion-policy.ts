@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { DomainError } from "./loyalty";
 
 type Query = Pick<typeof db, "execute">;
 
@@ -70,30 +71,57 @@ export function quietHoursDeferral(now: Date, timeZone: string, window: { startH
   return zonedTimeToUtc(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), window.endHour, timeZone);
 }
 
-type ProgramSender = { shopName: string; timezone: string; street: string | null; postalCode: string | null; city: string };
+type ProgramSender = {
+  shopName: string; timezone: string; street: string | null; postalCode: string | null; city: string; representative: string | null;
+  contactEmail: string | null; contactPhone: string | null; legalForm: string | null; registerCourt: string | null; registerNumber: string | null; vatId: string | null;
+};
 
-/** Shop and location behind a programme: the timezone schedules every promotional send, the address signs it. */
+/** Shop and location behind a programme: the timezone schedules every promotional send, the sender details sign it. */
 export async function programSender(query: Query, tenantId: string, programId: string) {
   const result = await query.execute(sql`
-    SELECT t.name AS "shopName", l.timezone, l.street, l.postal_code AS "postalCode", l.city
+    SELECT t.name AS "shopName", l.timezone, l.street, l.postal_code AS "postalCode", l.city, l.representative,
+      l.contact_email AS "contactEmail", l.contact_phone AS "contactPhone", l.legal_form AS "legalForm",
+      l.register_court AS "registerCourt", l.register_number AS "registerNumber", l.vat_id AS "vatId"
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = p.tenant_id
     WHERE p.tenant_id = ${tenantId}::uuid AND p.id = ${programId}::uuid
   `);
   return (result.rows[0] as ProgramSender | undefined) ?? null;
 }
 
-export const senderAddressMissing = (sender: ProgramSender | null) => !sender?.street || !sender.postalCode;
+// Legal: a shop sends no marketing mail until each of these is filled. Labels are the owner's field names.
+const REQUIRED: Array<[string, (sender: ProgramSender) => unknown]> = [
+  ["Name des Geschäfts", sender => sender.shopName.trim()],
+  ["Straße und Hausnummer", sender => sender.street],
+  ["PLZ", sender => sender.postalCode],
+  ["Stadt", sender => sender.city.trim()],
+  ["Vertreten durch", sender => sender.representative],
+  ["Kontakt (E-Mail oder Telefon)", sender => sender.contactEmail || sender.contactPhone],
+];
+
+const missingSenderFields = (sender: ProgramSender | null) => sender ? REQUIRED.filter(([, value]) => !value(sender)).map(([label]) => label) : ["Standort"];
+export const senderAddressMissing = (sender: ProgramSender | null) => missingSenderFields(sender).length > 0;
+
+/** Refuses switching on or scheduling promotional mail while a required sender field is missing, naming each one. */
+export function requireSenderDetails(sender: ProgramSender | null) {
+  const missing = missingSenderFields(sender);
+  if (missing.length) throw new DomainError("ADDRESS_REQUIRED", `Es fehlen noch Angaben für den Absender: ${missing.join(", ")}. Trag sie unter Einstellungen > Anschrift ein; sie stehen unter jeder E-Mail an deine Kundschaft.`);
+}
 
 /**
- * Sender name and footer of every campaign and automation mail (Legal, A-11): the shop is the sender, with its address,
- * the unsubscribe link and the privacy notice. Null while the address is missing: such a shop sends nothing promotional.
+ * Sender name and footer of every campaign and automation mail: Legal's text verbatim, optional parts (legal form,
+ * register entry, VAT ID) only when filled. Null while a required field is missing: such a shop sends nothing promotional.
  * Never a card link: the card URL is a bearer credential.
  */
 export function marketingSignature(sender: ProgramSender, unsubscribeLink: string) {
   if (senderAddressMissing(sender)) return null;
   const privacy = new URL("/datenschutz", process.env.PUBLIC_BASE_URL).toString();
+  const legalForm = sender.legalForm ? `, ${sender.legalForm}` : "";
+  const contact = [sender.contactEmail, sender.contactPhone].filter(Boolean).join(", ");
+  const register = sender.registerCourt && sender.registerNumber ? ` ${sender.registerCourt}, ${sender.registerNumber}.` : "";
+  const vat = sender.vatId ? ` ${sender.vatId}` : "";
   return {
     fromName: `${sender.shopName} via Loynara`,
-    footer: `${sender.shopName} · ${sender.street}, ${sender.postalCode} ${sender.city}\nAngebote abbestellen: ${unsubscribeLink} · Datenschutz: ${privacy}`,
+    footer: `Diese E-Mail kommt von ${sender.shopName}${legalForm}, vertreten durch ${sender.representative}, ${sender.street}, ${sender.postalCode} ${sender.city}. Kontakt: ${contact}.${register}${vat}\n`
+      + `Du bekommst diese E-Mail, weil du auf deiner Karte E-Mails von ${sender.shopName} bestellt hast. Abmelden: ${unsubscribeLink} · Datenschutz: ${privacy}`,
   };
 }

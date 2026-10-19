@@ -43,7 +43,11 @@ export default function MerchantSettingsPage() {
 
 function AddressCard({ location }: { location: OwnerLocation }) {
   const owner = useOwner();
-  const initial = { street: location.street ?? "", postalCode: location.postalCode ?? "", city: location.city };
+  const initial = {
+    street: location.street ?? "", postalCode: location.postalCode ?? "", city: location.city, representative: location.representative ?? "",
+    contactEmail: location.contactEmail ?? "", contactPhone: location.contactPhone ?? "", legalForm: location.legalForm ?? "",
+    registerCourt: location.registerCourt ?? "", registerNumber: location.registerNumber ?? "", vatId: location.vatId ?? "",
+  };
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const [state, setState] = useState<SaveState>("clean");
@@ -65,13 +69,31 @@ function AddressCard({ location }: { location: OwnerLocation }) {
   }
   return (
     <section className="ow-card ow-stack" id="anschrift" aria-labelledby="ow-address-title">
-      <div><h2 id="ow-address-title">Anschrift</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Steht als Absender unter jeder E-Mail an deine Kundschaft. Ohne Anschrift verschickt Loynara keine Erinnerungen.</p></div>
+      <div><h2 id="ow-address-title">Anschrift</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Steht als Absender unter jeder E-Mail an deine Kundschaft. Solange eine Pflichtangabe fehlt, verschickt Loynara keine Erinnerungen und Kampagnen.</p></div>
       <form onSubmit={submit} className="ow-stack">
         <div className="ow-field"><label htmlFor="ad-street">Straße und Hausnummer</label><input id="ad-street" className="ow-input" autoComplete="street-address" value={draft.street} minLength={2} maxLength={180} required onChange={event => edit({ street: event.target.value })} /></div>
         <div className="ow-grid-2">
           <div className="ow-field"><label htmlFor="ad-postal">PLZ</label><input id="ad-postal" className="ow-input" inputMode="numeric" autoComplete="postal-code" pattern="[0-9]{5}" title="Fünf Ziffern" maxLength={5} value={draft.postalCode} required onChange={event => edit({ postalCode: event.target.value })} /></div>
           <div className="ow-field"><label htmlFor="ad-city">Stadt</label><input id="ad-city" className="ow-input" autoComplete="address-level2" value={draft.city} minLength={2} maxLength={120} required onChange={event => edit({ city: event.target.value })} /></div>
         </div>
+        <div className="ow-field"><label htmlFor="ad-representative">Vertreten durch (Inhaber:in oder Geschäftsführer:in)</label><input id="ad-representative" className="ow-input" autoComplete="name" value={draft.representative} minLength={2} maxLength={120} required onChange={event => edit({ representative: event.target.value })} /></div>
+        <fieldset className="ow-group">
+          <legend>Kontakt: E-Mail oder Telefon, mindestens eins</legend>
+          <div className="ow-grid-2">
+            <div className="ow-field"><label htmlFor="ad-email">Kontakt-E-Mail</label><input id="ad-email" className="ow-input" type="email" autoComplete="email" value={draft.contactEmail} maxLength={320} required={!draft.contactPhone.trim()} onChange={event => edit({ contactEmail: event.target.value })} /></div>
+            <div className="ow-field"><label htmlFor="ad-phone">Telefon</label><input id="ad-phone" className="ow-input" type="tel" autoComplete="tel" value={draft.contactPhone} maxLength={30} required={!draft.contactEmail.trim()} onChange={event => edit({ contactPhone: event.target.value })} /></div>
+          </div>
+        </fieldset>
+        <fieldset className="ow-group">
+          <legend>Nur wenn vorhanden</legend>
+          <div className="ow-field"><label htmlFor="ad-legal-form">Rechtsform</label><input id="ad-legal-form" className="ow-input" placeholder="z. B. GmbH, UG (haftungsbeschränkt), e.K." value={draft.legalForm} minLength={2} maxLength={40} onChange={event => edit({ legalForm: event.target.value })} /></div>
+          <div className="ow-grid-2">
+            <div className="ow-field"><label htmlFor="ad-register-court">Registergericht</label><input id="ad-register-court" className="ow-input" placeholder="z. B. Amtsgericht Kassel" value={draft.registerCourt} minLength={2} maxLength={120} required={Boolean(draft.registerNumber.trim())} onChange={event => edit({ registerCourt: event.target.value })} /></div>
+            <div className="ow-field"><label htmlFor="ad-register-number">Registernummer</label><input id="ad-register-number" className="ow-input" placeholder="z. B. HRB 12345" value={draft.registerNumber} minLength={2} maxLength={40} required={Boolean(draft.registerCourt.trim())} onChange={event => edit({ registerNumber: event.target.value })} /></div>
+          </div>
+          <div className="ow-field"><label htmlFor="ad-vat">USt-IdNr.</label><input id="ad-vat" className="ow-input" placeholder="z. B. DE123456789" autoCapitalize="characters" value={draft.vatId} maxLength={20} onChange={event => edit({ vatId: event.target.value })} /></div>
+          <p className="ow-hint">Leere Felder erscheinen nicht in der E-Mail.</p>
+        </fieldset>
         <SaveBar asSubmit state={shown} onDiscard={() => { setDraft(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Anschrift speichern" detail={shown === "error" ? `${error} Deine Eingaben sind noch da.` : undefined} />
       </form>
     </section>

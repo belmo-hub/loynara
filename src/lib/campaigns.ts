@@ -7,7 +7,7 @@ import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails } from "./promotion-policy";
 
 const DAILY_QUOTA = 100;
 const AUDIENCE_PAGE_SIZE = 500;
@@ -161,6 +161,7 @@ export async function scheduleCampaign(raw: { actorUserId: string; campaignId: s
   return db.transaction(async tx => {
     const campaign = await ownerCampaign(input.actorUserId, input.campaignId, tx, true);
     if (campaign.status !== "draft" && campaign.status !== "paused") throw new DomainError("CAMPAIGN_LOCKED", "Only draft or paused campaigns can be scheduled");
+    requireSenderDetails(await programSender(tx, campaign.tenantId, campaign.programId));
     const revision = campaign.scheduleRevision + 1;
     await tx.update(campaigns).set({ status: "scheduled", scheduledAt: input.scheduledAt, audienceAsOf: input.scheduledAt, scheduleRevision: revision, updatedAt: now }).where(eq(campaigns.id, campaign.id));
     await tx.insert(outboxJobs).values({ tenantId: campaign.tenantId, kind: "campaign.dispatch", payload: { campaignId: campaign.id, scheduleRevision: String(revision) }, nextAttemptAt: input.scheduledAt });

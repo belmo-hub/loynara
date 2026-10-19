@@ -52,9 +52,16 @@ export const locations = pgTable("locations", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
   name: varchar("name", { length: 180 }).notNull(),
   city: varchar("city", { length: 120 }).notNull(),
-  // Sender address under every marketing mail; null until the owner enters it, and nothing promotional is sent until then.
+  // Sender details under every marketing mail (Legal's footer): street, postal code, representative and a contact (contact
+  // email or phone) are required before anything promotional is sent; legal form, register entry and VAT ID are optional.
   street: varchar("street", { length: 180 }),
   postalCode: varchar("postal_code", { length: 5 }),
+  representative: varchar("representative", { length: 120 }),
+  contactPhone: varchar("contact_phone", { length: 30 }),
+  legalForm: varchar("legal_form", { length: 40 }),
+  registerCourt: varchar("register_court", { length: 120 }),
+  registerNumber: varchar("register_number", { length: 40 }),
+  vatId: varchar("vat_id", { length: 14 }),
   country: varchar("country", { length: 2 }).notNull(),
   timezone: varchar("timezone", { length: 80 }).notNull(),
   contactEmail: varchar("contact_email", { length: 320 }),

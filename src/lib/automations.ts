@@ -9,7 +9,7 @@ import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, senderAddressMissing } from "./promotion-policy";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails, senderAddressMissing } from "./promotion-policy";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
@@ -55,9 +55,7 @@ export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now?:
   if (input.enabled && promotionalEmailMode() === "disabled") throw new DomainError("EMAIL_DISABLED", "Promotional email delivery is disabled");
   return db.transaction(async tx => {
     const program = await ownerProgram(input.actorUserId, input.programSlug, tx);
-    if (input.enabled && senderAddressMissing(await programSender(tx, program.tenantId, program.id))) {
-      throw new DomainError("ADDRESS_REQUIRED", "Trag zuerst die Anschrift deines Ladens ein. Sie steht als Absender unter jeder E-Mail.");
-    }
+    if (input.enabled) requireSenderDetails(await programSender(tx, program.tenantId, program.id));
     const [existing] = await tx.select().from(automationRules)
       .where(and(eq(automationRules.tenantId, program.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, input.triggerKind))).for("update").limit(1);
     const fields = { enabled: input.enabled, subject: input.subject, body: input.body, inactivityDays: input.triggerKind === "inactive" ? input.inactivityDays! : null, cooldownDays: input.cooldownDays, dailyCap: input.dailyCap, nextScanAt: input.triggerKind !== "first_checkout" && input.enabled ? now : null, updatedAt: now };

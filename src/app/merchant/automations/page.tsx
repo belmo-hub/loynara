@@ -35,7 +35,7 @@ export default function AutomationsPage() {
   return (
     <div className="ow-page">
       {head}
-      {d.addressMissing && <Notice tone="warn" actions={<GuardedLink className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/settings#anschrift">Anschrift eintragen</GuardedLink>}><strong>Es fehlt noch die Anschrift deines Ladens.</strong> Sie steht als Absender unter jeder E-Mail. Danach kannst du Erinnerungen einschalten.</Notice>}
+      {d.addressMissing && <Notice tone="warn" actions={<GuardedLink className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/settings#anschrift">Anschrift eintragen</GuardedLink>}><strong>Es fehlen noch Angaben zu deinem Laden.</strong> Anschrift, wer ihn vertritt und ein Kontakt stehen als Absender unter jeder E-Mail. Danach kannst du Erinnerungen einschalten.</Notice>}
       {d.deliveryMode === "disabled"
         ? <Notice tone="warn"><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Regeln vorbereiten und speichern. Solange der Versand nicht freigegeben ist, wird keine Nachricht verschickt, auch nicht bei aktiver Regel.</Notice>
         : d.deliveryMode === "mailpit" ? <Notice>Lokaler Testkanal: Nachrichten gehen nur an synthetische .test-Adressen in Mailpit.</Notice> : null}

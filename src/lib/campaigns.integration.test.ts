@@ -5,7 +5,7 @@ import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
 import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
@@ -37,11 +37,11 @@ beforeEach(async () => {
 });
 afterAll(async () => { await pool.end(); });
 
-async function fixture(withAddress = true) {
+async function fixture() {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
-  if (withAddress) await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel" });
+  await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   return { ownerId, merchant };
 }
 
@@ -75,10 +75,12 @@ describe("local campaign core", () => {
       expect(message.to).toBe("owner-controlled@example.test");
       expect(message.unsubscribeUrl).toContain("https://unsubscribe.example.test/unsubscribe#token=");
       expect(message.fromName).toBe("Synthetic Café via Loynara");
-      expect(message.body).toBe(`${draftFields.body}\n\nSynthetic Café · Friedrich-Ebert-Straße 12, 34117 Kassel\nAngebote abbestellen: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
+      // Legal's footer, verbatim, with every optional part filled (the automations test has them empty).
+      expect(message.body).toBe(`${draftFields.body}\n\nDiese E-Mail kommt von Synthetic Café, GmbH, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: hallo@synthetic-cafe.example.test, 0561 123456. Amtsgericht Kassel, HRB 12345. DE123456789\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
       expect(message.body).not.toContain(card.cardToken);
       return { state: "accepted" as const, messageId: "<synthetic-promo@example.test>" };
     }) };
+    await updateLocationAddress(f.ownerId, { locationId: f.merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactEmail: " hallo@synthetic-cafe.example.test ", contactPhone: "0561 123456", legalForm: "GmbH", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB 12345", vatId: "de 123 456 789" });
     const first = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
     const when = new Date(Date.now() + 1_000);
     await scheduleCampaign({ actorUserId: f.ownerId, campaignId: first.id, scheduledAt: when });
@@ -214,7 +216,7 @@ describe("local campaign core", () => {
     }
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ to: "first@example.test" });
-    expect(send.mock.calls[0][0].body).toContain("Angebote abbestellen:");
+    expect(send.mock.calls[0][0].body).toContain("Abmelden:");
     expect((await db.select().from(campaignRecipients)).map(row => row.status).sort()).toEqual(["complete", "suppressed"]);
     expect(await db.select().from(campaignAttempts)).toHaveLength(2);
     expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).summary).toMatchObject({ sent: 1, suppressed: 1, queued: 0 });
@@ -222,18 +224,34 @@ describe("local campaign core", () => {
     expect([first.id, second.id].sort()).toEqual((await db.select().from(campaignRecipients)).map(row => row.membershipId).sort());
   });
 
-  it("sends nothing while the shop address is missing", async () => {
-    const f = await fixture(false);
-    await member(f.merchant.programSlug, "first@example.test", true, true);
-    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
-    const when = new Date(Date.now() + 1_000);
-    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
-    const [dispatchJob] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
-    await dispatchCampaign({ id: dispatchJob.id, tenantId: f.merchant.tenantId, payload: dispatchJob.payload }, new Date(when.getTime() + 1_000));
-    const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
-    const send = vi.fn(async (message: LocalMessage) => { void message; });
-    expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, send)).toEqual({ status: "suppressed", reason: "Shop address missing" });
-    expect(send).not.toHaveBeenCalled();
+  it("refuses to schedule while a required sender field is missing, naming it, and suppresses what was queued before", async () => {
+    const where = (f: Awaited<ReturnType<typeof fixture>>) => eq(locations.id, f.merchant.locationId);
+    const drops: Array<[string, (f: Awaited<ReturnType<typeof fixture>>) => Promise<unknown>]> = [
+      ["Name des Geschäfts", f => db.update(tenants).set({ name: " " }).where(eq(tenants.id, f.merchant.tenantId))],
+      ["Straße und Hausnummer", f => db.update(locations).set({ street: null }).where(where(f))],
+      ["PLZ", f => db.update(locations).set({ postalCode: null }).where(where(f))],
+      ["Stadt", f => db.update(locations).set({ city: "" }).where(where(f))],
+      ["Vertreten durch", f => db.update(locations).set({ representative: null }).where(where(f))],
+      ["Kontakt (E-Mail oder Telefon)", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
+    ];
+    for (const [label, drop] of drops) {
+      await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
+      const f = await fixture();
+      await member(f.merchant.programSlug, "first@example.test", true, true);
+      const queued = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+      const when = new Date(Date.now() + 1_000);
+      await scheduleCampaign({ actorUserId: f.ownerId, campaignId: queued.id, scheduledAt: when });
+      const [dispatchJob] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+      await dispatchCampaign({ id: dispatchJob.id, tenantId: f.merchant.tenantId, payload: dispatchJob.payload }, new Date(when.getTime() + 1_000));
+      await drop(f);
+      const draft = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+      await expect(scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: when }), label).rejects.toMatchObject({ code: "ADDRESS_REQUIRED", message: expect.stringContaining(label) });
+      expect((await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).find(row => row.id === draft.id)?.status, label).toBe("draft");
+      const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+      const send = vi.fn(async (message: LocalMessage) => { void message; });
+      expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, send), label).toEqual({ status: "suppressed", reason: "Shop address missing" });
+      expect(send, label).not.toHaveBeenCalled();
+    }
   });
 
   it("suppresses a queued message when the member leaves the selected audience before delivery", async () => {
