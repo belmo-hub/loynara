@@ -72,8 +72,10 @@ export async function setTapPolicy(input: { actorUserId: string; programId: stri
     const [program] = await tx.select().from(programs).where(eq(programs.id, input.programId)).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
     await owner(tx, input.actorUserId, program.tenantId);
-    // Points are always entered and confirmed by the team; only a fixed stamp can ever be booked by the tap itself.
-    if (input.mode === "automatic_fixed" && (program.type !== "stamp" || program.earningMode !== "manual")) throw new DomainError("INVALID_TAP_POLICY", "Automatic tap supports fixed stamps only");
+    // A stamp tap is always one fixed stamp. Points are always entered and confirmed by the team, so only a fixed stamp
+    // can ever be booked by the tap itself.
+    const fixedStamp = program.type === "stamp" && program.earningMode === "manual";
+    if (input.mode !== "disabled" && !fixedStamp && (program.type === "stamp" || input.mode === "automatic_fixed")) throw new DomainError("INVALID_TAP_POLICY", "Tap supports fixed stamps, or points confirmed by the team");
     await tx.update(programs).set({ tapMode: input.mode, tapCooldownSeconds: input.mode === "disabled" ? null : input.cooldownSeconds }).where(eq(programs.id, program.id));
     return { mode: input.mode, cooldownSeconds: input.mode === "disabled" ? null : input.cooldownSeconds };
   });

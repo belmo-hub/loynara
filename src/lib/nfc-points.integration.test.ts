@@ -59,6 +59,15 @@ describe("NFC tap for a points programme", () => {
     expect(await entries(f.member.id)).toHaveLength(0);
   });
 
+  it("refuses staff-confirmed tap for a stamp programme that is not on fixed stamps, as it refuses automatic tap", async () => {
+    const f = await nfcFixture({ tapMode: "disabled" });
+    await db.update(programs).set({ earningMode: "purchase" }).where(eq(programs.id, f.program.id));
+    for (const mode of ["staff_confirmed", "automatic_fixed"] as const) {
+      await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode, cooldownSeconds: 60 })).rejects.toMatchObject({ code: "INVALID_TAP_POLICY" });
+    }
+    expect((await db.select().from(programs).where(eq(programs.id, f.program.id)))[0].tapMode).toBe("disabled");
+  });
+
   it("books nothing until the cashier confirms the entered amount, then exactly the reviewed points through the staff ledger", async () => {
     const s = await pointsShop();
     const pending = await processSecureTap(s.tap(2));
