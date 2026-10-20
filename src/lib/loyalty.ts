@@ -45,11 +45,15 @@ export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Pr
   return locked;
 }
 
-// Keys the server books itself next to a client's booking. A client key with one of these prefixes could take that key
-// first and block the welcome bonus or its correction, so every award, redeem and reversal refuses them.
-const RESERVED_KEY_PREFIXES = ["welcome:", "welcome-reversal:"];
+// Every ledger idempotency-key namespace the server generates itself (staff tap confirmation and automatic tap, offline
+// sync, referral bonuses and their reversals, the welcome bonus and its reversal). A client key in one of them could take
+// a key first and block or replay a server booking. Add every new server-generated prefix here.
+export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:"] as const;
+const validKeyLength = (key: string) => key.length >= 8 && key.length <= 100;
+
+/** For keys that come from a client (the public award, redeem and reverse entry points). Internal callers never use it. */
 function assertClientKey(key: string) {
-  if (key.length < 8 || key.length > 100 || RESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
+  if (!validKeyLength(key) || RESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 }
 
 export type AwardInput = {
@@ -79,7 +83,9 @@ async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) 
   return staff;
 }
 
+/** Client entry point (cashier route, scripts). Tap confirmation and offline sync call awardInTransaction with server keys. */
 export async function award(input: AwardInput): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
+  assertClientKey(input.idempotencyKey);
   return db.transaction(tx => awardInTransaction(tx, input)).catch(rethrowLedgerKeyConflict);
 }
 
@@ -96,7 +102,7 @@ export async function awardTapInTransaction(tx: Transaction, input: { locationId
 }
 
 async function bookAwardInTransaction(tx: Transaction, input: AwardInput, trustedTap: boolean): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
-  assertClientKey(input.idempotencyKey);
+  if (!validKeyLength(input.idempotencyKey)) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
