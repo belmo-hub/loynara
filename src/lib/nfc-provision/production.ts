@@ -44,13 +44,30 @@ export function assertProductionOperatorEnvironment(env: Record<string, string |
   return { verifyMaster, adminMaster };
 }
 
-export type Binding = { tenantId: string; locationId: string; programId: string; cooldownSeconds: number };
-export const bindingSchema = z.object({ tenantId: z.uuid(), locationId: z.uuid(), programId: z.uuid(), cooldownSeconds: z.number().int().min(1).max(86400) }).strict();
+const plateLabel = z.string().regex(/^[A-Z]{1,4}-[0-9]{1,6}$/);
+/** A shop's programme, or (an unlinked plate) only the printed plate label: the operator links it to a shop later. */
+export const bindingSchema = z.union([
+  z.object({ tenantId: z.uuid(), locationId: z.uuid(), programId: z.uuid(), cooldownSeconds: z.number().int().min(1).max(86400) }).strict(),
+  z.object({ plateLabel }).strict(),
+]);
+export type Binding = z.infer<typeof bindingSchema>;
+/** The binding as evidence-journal note fields. */
+export function bindingNote(binding: Binding): Record<string, string> {
+  return "plateLabel" in binding ? { plateLabel: binding.plateLabel } : { tenantId: binding.tenantId, locationId: binding.locationId, programId: binding.programId, cooldownSeconds: String(binding.cooldownSeconds) };
+}
+/** The binding as registration-bundle fields. */
+export function bundleBinding(binding: Binding) {
+  return "plateLabel" in binding ? { plateLabel: binding.plateLabel } : { tenantId: binding.tenantId, locationId: binding.locationId, programId: binding.programId };
+}
+export function describeBinding(binding: Binding) {
+  return "plateLabel" in binding ? `unlinked plate ${binding.plateLabel}` : `binding tenant ${binding.tenantId} location ${binding.locationId} programme ${binding.programId}`;
+}
 
 /** No database: the intended binding is recorded in the bundle and verified later, server-side, at registration. */
 export function offlineRepository(binding: Binding): ProvisionRepository {
   return {
-    async checkTarget() { return { tenantId: binding.tenantId, locationId: binding.locationId, programId: binding.programId, mode: "staff_confirmed", cooldownSeconds: binding.cooldownSeconds }; },
+    // A plate has no shop yet; the operator confirms the plate label instead (describeBinding).
+    async checkTarget() { return "plateLabel" in binding ? { tenantId: "", locationId: "", programId: "", mode: "unlinked", cooldownSeconds: 0 } : { tenantId: binding.tenantId, locationId: binding.locationId, programId: binding.programId, mode: "staff_confirmed", cooldownSeconds: binding.cooldownSeconds }; },
     async reserve() { return { id: randomUUID(), publicRef: randomBytes(18).toString("base64url") }; },
     async verifyMapping() { /* verified by the registration step against the real database */ },
     async activate() { /* activation happens at registration */ },
@@ -62,7 +79,8 @@ export const bundleSchema = z.object({
   version: z.literal(1),
   target: z.literal("production"),
   origin: z.string().max(200),
-  tenantId: z.uuid(), locationId: z.uuid(), programId: z.uuid(),
+  tenantId: z.uuid().optional(), locationId: z.uuid().optional(), programId: z.uuid().optional(),
+  plateLabel: plateLabel.optional(),
   uid: z.string().regex(/^[a-f0-9]{14}$/),
   publicRef: z.string().regex(/^[A-Za-z0-9_-]{24}$/),
   keyRef: z.string().regex(/^[A-Za-z0-9_-]{1,80}$/),
@@ -70,7 +88,9 @@ export const bundleSchema = z.object({
   sampleUrl: z.string().max(300),
   firstCounter: z.number().int().min(1), secondCounter: z.number().int().min(2),
   createdAt: z.string().max(40),
-}).strict();
+}).strict().refine(bundle => bundle.plateLabel === undefined
+  ? bundle.tenantId !== undefined && bundle.locationId !== undefined && bundle.programId !== undefined
+  : bundle.tenantId === undefined && bundle.locationId === undefined && bundle.programId === undefined, "A bundle names a whole shop binding or only a plate label");
 export type RegistrationBundle = z.infer<typeof bundleSchema>;
 
 export function buildRegistrationBundle(input: Omit<RegistrationBundle, "version" | "target" | "createdAt" | "configVersion"> & { configVersion?: number }): RegistrationBundle {

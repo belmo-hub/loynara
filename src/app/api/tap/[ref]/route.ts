@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { DomainError } from "@/lib/loyalty";
 import { requireSameOrigin, respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
-import { previewSecureTap, processSecureTap, tapCardToken, tapMemberSession, tapCookieName, tapProgramId } from "@/lib/secure-tap";
+import { previewSecureTap, processSecureTap, settleUnlinkedTap, tapCardToken, tapMemberSession, tapCookieName, tapProgramId } from "@/lib/secure-tap";
 import { dispatchTapPushNow } from "@/lib/staff-push";
 
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -21,7 +21,10 @@ async function input(request: Request, ref: string) {
   await enforcePeerLimit(request, "tap_peer", 120, 15 * 60);
   await enforceRateLimit({ scope: "tap_ref", identity: ref, max: 600, windowSeconds: 15 * 60 });
   const dynamic = fields(request);
-  const programId = await tapProgramId(ref);
+  const programId = await tapProgramId(ref).catch(async error => {
+    if (await settleUnlinkedTap({ tagRef: ref, fields: dynamic })) throw new DomainError("PLATE_UNLINKED", "Dieses Schild ist gerade keinem Geschäft zugeordnet.");
+    throw error;
+  });
   return { tagRef: ref, fields: dynamic, cardToken: tapCardToken(request, programId) };
 }
 export async function GET(request: Request, context: { params: Promise<{ ref: string }> }) {

@@ -69,7 +69,7 @@ async function databaseRepository(prepared?: PreparedPlan): Promise<{ repository
   };
   async function status(actor: string, id: string) {
       const [tag] = await db.select({ id: secureTags.id, publicRef: secureTags.publicRef, uid: secureTags.uid, tenantId: secureTags.tenantId, locationId: secureTags.locationId, programId: secureTags.programId, status: secureTags.status, lastCounter: secureTags.lastCounter }).from(secureTags).where(eq(secureTags.id, id));
-      if (!tag) throw new Error("Tag not found");
+      if (!tag?.tenantId) throw new Error("Tag not found");
       await owner(actor, tag.tenantId);
       return tag;
   }
@@ -135,8 +135,11 @@ async function main() {
     const { EvidenceJournal } = await import("../src/lib/nfc-provision/evidence");
     const { resumeProductionProvisioning, runProductionProvisioning } = await import("../src/lib/nfc-provision/production-run");
     const origin = process.env.PRODUCTION_APPROVED_ORIGIN ?? "";
-    const cooldown = Number(required(opts, "cooldown-seconds"));
-    if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 86400) throw new Error("Invalid cooldown");
+    // --unlinked --plate P-007: a plate with no shop; the operator links it later with scripts/operator-plate.ts.
+    if (opts.unlinked && ["tenant-id", "location-id", "program-id", "cooldown-seconds"].some(name => opts[name])) throw new Error("--unlinked takes --plate and no shop binding");
+    if (!opts.unlinked && opts.plate) throw new Error("--plate requires --unlinked");
+    const cooldown = opts.unlinked ? 0 : Number(required(opts, "cooldown-seconds"));
+    if (!opts.unlinked && (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 86400)) throw new Error("Invalid cooldown");
     const bridge = new PcscBridge();
     try {
       await selectCard(bridge, required(opts, "reader"));
@@ -144,7 +147,7 @@ async function main() {
         transport: bridge, journal: new EvidenceJournal(), env: process.env, origin,
         provenanceRef: opts["provenance-ref"],
         ...custody,
-        binding: { tenantId: required(opts, "tenant-id"), locationId: required(opts, "location-id"), programId: required(opts, "program-id"), cooldownSeconds: cooldown },
+        binding: opts.unlinked ? { plateLabel: required(opts, "plate") } : { tenantId: required(opts, "tenant-id"), locationId: required(opts, "location-id"), programId: required(opts, "program-id"), cooldownSeconds: cooldown },
         async confirm(summary: { uid: string; text: string }) { console.log(summary.text); return confirm(`Type ${command === "resume" ? "RESUME" : "PROVISION"} ${summary.uid} to continue: `, `${command === "resume" ? "RESUME" : "PROVISION"} ${summary.uid}`); },
       };
       const outcome = command === "resume" ? await resumeProductionProvisioning({ ...common, execute: true }) : await runProductionProvisioning({ ...common, execute: true });

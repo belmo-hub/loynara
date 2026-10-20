@@ -8,7 +8,7 @@ import { ProvisionUncertain, type ProvisionTag } from "./flow";
 import { EvidenceJournal, analyseEvidence } from "./evidence";
 import { ndefTemplate } from "./ntag";
 import { classifyFileSettings } from "./inspect";
-import { NfcOperatorRefusal, assertProductionOperatorEnvironment, assertTagOrigin, bundleSchema, PREVIEW_ORIGIN } from "./production";
+import { NfcOperatorRefusal, assertProductionOperatorEnvironment, assertTagOrigin, buildRegistrationBundle, bundleSchema, PREVIEW_ORIGIN, type Binding } from "./production";
 import { inspectChip, registrationBundleFromEvidence, resumeProductionProvisioning, runProductionProvisioning } from "./production-run";
 
 const VERIFY_HEX = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
@@ -343,5 +343,40 @@ describe("read-only inspection", () => {
     const found = await inspectChip({ transport: { async transmit() { throw new Error("no"); } }, tagFactory: () => chip.adapter(), journal });
     expect(found).toMatchObject({ uid: UID, condition: "factory", evidence: "none" });
     expect(chip.writes).toEqual([]);
+  });
+});
+
+describe("unlinked plate (--unlinked --plate)", () => {
+  const plate = { plateLabel: "P-007" };
+  const runPlate = (chip: FakeChip, binding: Binding, confirm: (summary: { text: string }) => Promise<boolean> = async () => true) => runProductionProvisioning({
+    transport: { async transmit() { throw new Error("transport must not be used directly"); } }, tagFactory: () => chip.adapter(),
+    journal, env, origin: ORIGIN, binding, execute: true, confirm, provenanceRef: "cpu-fixture-custody", currentKeys, expectedUid: UID,
+  });
+  it("provisions without a shop and its bundle and evidence name only the plate", async () => {
+    const chip = new FakeChip();
+    let shown = "";
+    const outcome = await runPlate(chip, plate, async summary => { shown = summary.text; return true; });
+    if (outcome.mode !== "provisioned") throw new Error("expected provisioned");
+    expect(shown).toContain("unlinked plate P-007");
+    expect(outcome.bundle).toMatchObject({ plateLabel: "P-007" });
+    expect(outcome.bundle).not.toHaveProperty("tenantId");
+    const events = await journal.read(UID);
+    expect(analyseEvidence(events)).toEqual({ state: "complete" });
+    expect(registrationBundleFromEvidence(events, UID)).toMatchObject({ ...outcome.bundle, createdAt: expect.any(String) });
+  });
+  it("never resumes a plate attempt under a shop binding or another plate label", async () => {
+    const chip = new FakeChip(); chip.failReadAfterKey0 = true;
+    await expect(runPlate(chip, plate)).rejects.toThrow(); chip.failReadAfterKey0 = false;
+    for (const bad of [binding, { plateLabel: "P-008" }]) {
+      await expect(resumeProductionProvisioning({ transport: { async transmit() { throw Error("no hardware"); } }, tagFactory: () => chip.adapter(), journal, env, origin: ORIGIN, binding: bad, execute: true, expectedUid: UID, currentKeys, provenanceRef: "cpu-fixture-custody", confirm: async () => true })).rejects.toBeInstanceOf(ProvisionUncertain);
+    }
+  });
+  it("refuses a bundle with both a shop and a plate, or neither, and a malformed label", () => {
+    const chip = { uid: UID, publicRef: "abcdefghijklmnopqrstuvwx", keyRef: "dv1_x", sampleUrl: `${ORIGIN}/tap/abcdefghijklmnopqrstuvwx`, origin: ORIGIN, firstCounter: 2, secondCounter: 3 };
+    expect(() => buildRegistrationBundle({ ...chip, tenantId: binding.tenantId, locationId: binding.locationId, programId: binding.programId, plateLabel: "P-007" })).toThrow();
+    expect(() => buildRegistrationBundle({ ...chip, tenantId: binding.tenantId, plateLabel: "P-007" })).toThrow();
+    expect(() => buildRegistrationBundle(chip)).toThrow();
+    expect(() => buildRegistrationBundle({ ...chip, plateLabel: "p 7" })).toThrow();
+    expect(buildRegistrationBundle({ ...chip, plateLabel: "P-007" })).toMatchObject({ plateLabel: "P-007" });
   });
 });
