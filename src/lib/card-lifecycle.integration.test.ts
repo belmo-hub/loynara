@@ -1,3 +1,4 @@
+import { assertTestDatabaseUrl, assertOwnedTestDatabase } from "../../scripts/test-database-guard";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
@@ -12,13 +13,13 @@ import { authenticatedApplePass, listUpdatedApplePasses, registerAppleDevice } f
 import { issueWalletPass } from "./wallet/issue";
 import { pruneRevokedAppleRegistrations } from "./wallet/refresh";
 
-if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
+assertTestDatabaseUrl();
 
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices CASCADE'); });
+beforeEach(async () => { await assertOwnedTestDatabase(pool); await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices, card_recovery_challenges CASCADE'); });
 afterAll(async () => { await pool.query("TRUNCATE TABLE apple_devices CASCADE"); await pool.end(); });
 
 describe("bearer card closure", () => {
-  it("retire both identifiers, erase contact, suppress queued data and retain a marked pseudonymous ledger", async () => {
+  it("retire both identifiers, erase contact, suppress queued data and queue erasure under the approved retention policy", async () => {
     const userId = randomUUID();
     await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1,$2,$3,false)', [userId, "Synthetic owner", `${userId}@example.test`]);
     const merchant = await createMerchant({ userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic card", programType: "stamp", rulesText: "One synthetic stamp per confirmed visit.", rewardTitle: "Synthetic reward", rewardCost: 5 });
@@ -30,9 +31,10 @@ describe("bearer card closure", () => {
     await db.insert(walletPasses).values({ tenantId: merchant.tenantId, membershipId: card.id, provider: "apple", providerObjectId: card.id, status: "downloaded" });
 
     const result = await closeCard(card.cardToken);
-    expect(result).toEqual({ closed: true, retention: "pseudonymous-ledger-and-consent-pending-policy" });
+    expect(result).toMatchObject({ closed: true, retention: "erasure-queued", policyVersion: "2026-10-15", receiptId: expect.any(String), deleteBy: expect.any(String) });
     const [stored] = await db.select().from(memberships).where(eq(memberships.id, card.id));
     expect(stored.closedAt).toBeInstanceOf(Date);
+    expect(new Date(result.deleteBy).getTime() - stored.closedAt!.getTime()).toBe(7 * 86400_000);
     expect(stored.scanCode).toMatch(/^retired_sc_/);
     expect(stored.cardToken).toMatch(/^retired_card_/);
     expect(stored.scanCode).not.toBe(card.scanCode);
@@ -64,6 +66,16 @@ describe("bearer card closure", () => {
     expect(JSON.stringify(merchantExport)).not.toContain("holder@example.test");
     expect(JSON.stringify(merchantExport)).not.toContain(card.cardToken);
     expect(JSON.stringify(merchantExport)).not.toContain(card.scanCode);
+  });
+
+  it("reports the24hour deletion deadline when no remote Wallet work remains", async () => {
+    const userId=randomUUID();
+    await pool.query('INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,$2,$3,false)',[userId,'Synthetic owner',`${userId}@example.test`]);
+    const merchant=await createMerchant({userId,businessName:'Synthetic privacy',city:'Berlin',country:'DE',timezone:'Europe/Berlin',locale:'de',currency:'EUR',programName:'Synthetic',programType:'stamp',rulesText:'Synthetic terms',rewardTitle:'Reward',rewardCost:5});
+    const card=await enroll({slug:merchant.programSlug,acceptedTerms:true});
+    const result=await closeCard(card.cardToken);
+    const [stored]=await db.select().from(memberships).where(eq(memberships.id,card.id));
+    expect(new Date(result.deleteBy).getTime()-stored.closedAt!.getTime()).toBe(86400_000);
   });
 
   it("keeps closed-card Apple registrations only to deliver the voided pass, then prunes them without touching a shared device's live card", async () => {
@@ -106,4 +118,18 @@ describe("bearer card closure", () => {
     // The pass history row itself is kept.
     expect(await db.select().from(walletPasses).where(eq(walletPasses.id, closedPass.id))).toMatchObject([{ revokeReason: "closed" }]);
   });
+  it("removes the last contact's shared recovery challenge and scrubs its pending recovery send", async () => {
+    const userId = randomUUID();
+    await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [userId, "Synthetic owner", `${userId}@example.test`]);
+    const merchant = await createMerchant({ userId, businessName: "Synthetic privacy", city: "Berlin", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic", programType: "stamp", rulesText: "Synthetic terms", rewardTitle: "Reward", rewardCost: 5 });
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await db.insert(membershipContacts).values({ tenantId: merchant.tenantId, membershipId: card.id, email: "privacy@example.test", emailVerified: true });
+    const challenge = randomUUID();
+    await pool.query("INSERT INTO card_recovery_challenges(id,email,token_hash,expires_at) VALUES($1,'privacy@example.test',$2,now()+interval '10 minutes')", [challenge, 'a'.repeat(64)]);
+    const [job] = await db.insert(outboxJobs).values({ tenantId: merchant.tenantId, kind: "email.recover", payload: { challengeId: challenge } }).returning();
+    await closeCard(card.cardToken);
+    expect((await pool.query('SELECT id FROM card_recovery_challenges WHERE id=$1', [challenge])).rows).toEqual([]);
+    expect((await pool.query('SELECT status,payload FROM outbox_jobs WHERE id=$1', [job.id])).rows).toEqual([{ status: 'suppressed', payload: { membershipId: card.id } }]);
+  });
+
 });

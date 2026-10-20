@@ -7,6 +7,7 @@ import { CustomerCard } from "./customer/customer-card";
 import { CustomerCardLoading, CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
 import { CardReferral } from "./card-referral";
+import { CardDataExport } from "./card-data-export";
 import { Button } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
 import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
@@ -67,6 +68,7 @@ export function CardClient({ token }: { token: string }) {
   const balanceSeen = useRef<number | null>(null);
   const [closeError, setCloseError] = useState("");
   const [closed, setClosed] = useState(false);
+  const [closureReceipt, setClosureReceipt] = useState<string | null>(null);
   const gate = useRef(createRefreshGate(REFRESH_INTERVAL_MS));
   const live = useRef(false);
   const refreshNow = useRef<() => void>(() => {});
@@ -77,6 +79,10 @@ export function CardClient({ token }: { token: string }) {
     let mounted = true;
     void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { balanceSeen.current = result.balance; setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
+  }, [token]);
+  // A visible customer page visit is explicit card use; provider images and background polling never call this.
+  useEffect(() => {
+    if (document.visibilityState === "visible") void postJson(`/api/card/${encodeURIComponent(token)}/activity`, {}).catch(() => {});
   }, [token]);
   // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in
   // between. So while the card is visible it re-reads the balance by itself for a short window (createAutoRefresh),
@@ -89,7 +95,10 @@ export function CardClient({ token }: { token: string }) {
     function refresh(read: CardRead): Promise<CardReadOutcome> {
       const manual = read === "button";
       if (!live.current || document.visibilityState !== "visible" || !gate.current.tryStart()) return Promise.resolve("skipped");
-      if (manual) setRefreshing(true);
+      if (manual) {
+        setRefreshing(true);
+        void postJson(`/api/card/${encodeURIComponent(token)}/activity`, {}).catch(() => {});
+      }
       return apiJson<CardResponse>(`/api/card/${encodeURIComponent(token)}`, read === "timed" ? { headers: { "x-loynara-card-read": "poll" } } : undefined)
         .then(result => {
           if (!mounted || !live.current) return "stop" as const;
@@ -178,7 +187,8 @@ export function CardClient({ token }: { token: string }) {
   async function closeCurrentCard() {
     setCloseBusy(true); setCloseError("");
     try {
-      await postJson<{ closed: true }>(`/api/card/${encodeURIComponent(token)}/close`, { confirm: "CLOSE_CARD" });
+      const result = await postJson<{ closed: true; receiptId: string }>(`/api/card/${encodeURIComponent(token)}/close`, { confirm: "CLOSE_CARD" });
+      setClosureReceipt(result.receiptId);
       live.current = false;
       walletOperation.current?.abort();
       setClosed(true);
@@ -188,10 +198,9 @@ export function CardClient({ token }: { token: string }) {
     } finally { setCloseBusy(false); }
   }
 
-  if (closed) return <CardState title="Karte geschlossen." message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
+  if (closed) return <><CardState title="Karte geschlossen." message="Dein Kartenlink und QR-Code sind gesperrt. Ohne ausstehende Wallet-Sperrung werden deine Daten innerhalb von 24 Stunden gelöscht; andernfalls nach der Sperrung, spätestens innerhalb von sieben Tagen. Ausnahmen gelten nur für dokumentierte Aufbewahrungspflichten. Ein gespeicherter Wallet-Pass kann auf einem Offline-Gerät noch sichtbar sein. Geschützte Sicherungen laufen nach 14 Tagen aus und werden bei einer Wiederherstellung erneut bereinigt." />{closureReceipt && <p><a href={`/api/privacy/receipts/${closureReceipt}`} download="loynara-loeschbeleg.json">Löschbeleg speichern</a> · Belegnummer: {closureReceipt}</p>}</>;
   if (loading) return <CustomerCardLoading label="Deine Karte wird geladen." />;
   if (!card) return <CardState title="Karte nicht erreichbar." message={error} tone="error" />;
-  const firstReward = card.rewards[0];
   const french = card.locale === "fr";
   const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
   const notices = <>
@@ -199,7 +208,7 @@ export function CardClient({ token }: { token: string }) {
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
     {bindingError && <p role="alert" className={noticeClass}>{bindingError}</p>}
   </>;
-  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
+  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /><CardDataExport token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
 function CardState({ title, message, tone = "info" }: { title: string; message: string; tone?: "info" | "error" }) {

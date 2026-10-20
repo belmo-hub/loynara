@@ -6,19 +6,21 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import { claimOutboxJob, markOutboxJob } from "../src/lib/outbox";
+import { reserveServiceCall } from "../src/lib/service-budget";
+import { assertOwnedTestDatabase, assertTestDatabaseUrl } from "./test-database-guard";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
  * Migration rehearsal on throwaway databases on the isolated test server (never the shared test DB itself):
  *  - FRESH: every migration on an empty database;
- *  - UPGRADE: the schema as the current release has it (through 0017) filled with synthetic history, then all subsequent migrations.
+ *  - UPGRADE: the historical 0017 release schema filled with synthetic history, then all subsequent migrations.
  * The upgraded schema must equal the fresh one, and no historical value may change.
  */
-if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Migration rehearsal requires the isolated looplocal_test server");
+const checkedDatabase = assertTestDatabaseUrl();
 
 const root = path.resolve(__dirname, "..");
 const migrationsDir = path.join(root, "drizzle");
-const adminUrl = new URL(process.env.DATABASE_URL); adminUrl.pathname = "/postgres";
+const adminUrl = new URL(checkedDatabase); adminUrl.pathname = "/postgres";
 const nameOf = (label: string) => `looplocal_mig_${label}_${randomUUID().slice(0, 8)}`;
 const urlFor = (name: string) => { const url = new URL(adminUrl); url.pathname = `/${name}`; return url.toString(); };
 const created: string[] = [];
@@ -46,10 +48,14 @@ function folderThrough(lastIdx: number) {
   return target;
 }
 
-beforeAll(async () => { admin = new Pool({ connectionString: adminUrl.toString(), max: 2 }); });
+beforeAll(async () => {
+  const checked = new Pool({ connectionString: checkedDatabase.href, max: 1 });
+  try { await assertOwnedTestDatabase(checked); } finally { await checked.end(); }
+  admin = new Pool({ connectionString: adminUrl.toString(), max: 2 });
+});
 afterAll(async () => {
   for (const name of created) await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-  await admin.end();
+  await admin?.end();
   rmSync(workDir, { recursive: true, force: true });
 });
 
@@ -156,9 +162,13 @@ async function seedHistory(pool: Pool) {
 }
 
 describe("migration journal", () => {
-  it("is contiguous from 0000, timestamps strictly increase, and 0023 is the newest", () => {
+  it("is contiguous from 0000 apart from 0027–0028, timestamps strictly increase, and 0031 is the newest", () => {
     const journal = JSON.parse(readFileSync(path.join(migrationsDir, "meta", "_journal.json"), "utf8")) as { entries: Array<{ idx: number; tag: string; when: number }> };
-    journal.entries.forEach((entry, index) => { expect(entry.idx).toBe(index); expect(entry.tag.startsWith(String(index).padStart(4, "0"))).toBe(true); });
+    // Fixed order (CTO, 20 Oct): 0026 plates, 0027 ENG-024, 0028 ENG-025..027, then this branch's 0029–0031. 0027/0028 are
+    // not on this base yet; when they land before this branch, drop the gap. Never insert a journal entry before an
+    // applied one: drizzle skips any entry older than the newest applied `when` (production:migrate refuses that, ENG-018).
+    const number = (index: number) => index < 27 ? index : index + 2;
+    journal.entries.forEach((entry, index) => { expect(entry.idx).toBe(index); expect(entry.tag.startsWith(String(number(index)).padStart(4, "0"))).toBe(true); });
     for (let i = 1; i < journal.entries.length; i++) expect(journal.entries[i].when, journal.entries[i].tag).toBeGreaterThan(journal.entries[i - 1].when);
     expect(journal.entries[18]?.tag).toBe("0018_nfc_tag_lifecycle");
     expect(journal.entries[19]?.tag).toBe("0019_card_locators");
@@ -166,6 +176,13 @@ describe("migration journal", () => {
     expect(journal.entries[21]?.tag).toBe("0021_staff_push_subscriptions");
     expect(journal.entries[22]?.tag).toBe("0022_email_rate_limit_retry");
     expect(journal.entries[23]?.tag).toBe("0023_reward_ready_automation");
+    expect(journal.entries[24]?.tag).toBe("0024_outbox_claim_token");
+    expect(journal.entries[25]?.tag).toBe("0025_data_integrity_guards");
+    expect(journal.entries[26]?.tag).toBe("0026_plates");
+    expect(journal.entries[27]?.tag).toBe("0029_operational_resilience");
+    expect(journal.entries[28]?.tag).toBe("0030_customer_export");
+    expect(journal.entries[29]?.tag).toBe("0031_data_retention");
+    expect(journal.entries).toHaveLength(30);
     const sqlFiles = readdirSync(migrationsDir).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort();
     expect(sqlFiles).toEqual(journal.entries.map(entry => `${entry.tag}.sql`));
   });
@@ -187,7 +204,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       expect(before.memberships.rows).toBe(404);
       expect(before.ledger_entries.rows).toBe(7);
 
-      await run(upgrade, migrationsDir); // 0018 through 0022
+      await run(upgrade, migrationsDir); // 0018 through the current additive release
       const after = await fingerprint(upgrade);
       expect(after).toEqual(before); // no lost rows, no changed values, ledger untouched
       expect((await upgrade.query("SELECT id, balance FROM memberships ORDER BY id")).rows).toEqual(balancesBefore);
@@ -226,7 +243,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(27);
+      expect(applied).toBe(30);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -654,7 +671,7 @@ describe("0025 data integrity guards", () => {
       await run(target, migrationsDir);
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT count(*)::int AS n FROM ledger_entries WHERE idempotency_key = 'legacy-unlinked-correction'")).rows[0].n).toBe(1);
-      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(27);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(30);
       await expect(target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
         SELECT tenant_id, location_id, membership_id, -1, 'award', 'staff_online', actor_user_id, gen_random_uuid(), 'negative-award'
         FROM ledger_entries WHERE tenant_id = $1 AND actor_user_id IS NOT NULL LIMIT 1`, [seeded.tenants[0]])).rejects.toThrow(/ledger_kind_sign_valid/);
@@ -662,6 +679,129 @@ describe("0025 data integrity guards", () => {
       await expect(target.query("DELETE FROM redemptions")).rejects.toThrow(/append-only/);
       await run(fresh, migrationsDir);
       expect(await structure(target)).toEqual(await structure(fresh));
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+});
+
+describe("0029 additive operational accounting", () => {
+  it("preserves the populated 0026 schema and loyalty history while enforcing bounded counters and default service budgets", async () => {
+    const target = await scratchDatabase("operations26"), fresh = await scratchDatabase("operations26_fresh");
+    try {
+      await run(target, folderThrough(26));
+      const seeded = await seedHistory(target), jobId = randomUUID(), claimToken = randomUUID();
+      await target.query("INSERT INTO outbox_jobs (id,tenant_id,kind,payload,status,attempts,claim_token) VALUES ($1,$2,'email.campaign','{}','processing',2,$3)", [jobId, seeded.tenants[0], claimToken]);
+      const history = await fingerprint(target), schema25 = await structure(target);
+      const queue = (await target.query("SELECT * FROM outbox_jobs ORDER BY id")).rows;
+      const journal25 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      await run(target, folderThrough(27));
+      expect(await fingerprint(target)).toEqual(history);
+      expect((await target.query("SELECT * FROM outbox_jobs ORDER BY id")).rows).toEqual(queue);
+      const schema26 = await structure(target);
+      const legacySchema = Object.fromEntries(Object.entries(schema26).map(([key, values]) => [key, values.filter(value => !/\b(?:operational_counters|service_usage)\b/.test(value))]));
+      expect(legacySchema).toEqual(schema25);
+      const journal26 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      expect(journal26).toHaveLength(28);
+      expect(journal26.slice(0, 27)).toEqual(journal25);
+      await run(target, folderThrough(27));
+      expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal26);
+      await run(fresh, folderThrough(27));
+      expect(await structure(fresh)).toEqual(schema26);
+      expect((await target.query("SELECT * FROM operational_counters")).rows).toEqual([]);
+      expect((await target.query("SELECT * FROM service_usage")).rows).toEqual([]);
+
+      for (const event of ["request_error", "rate_limit", "push_failure", "wallet_failure"]) {
+        await target.query("INSERT INTO operational_counters (event,minute,count) VALUES ($1,'2000-01-01T00:00:00Z',1000000)", [event]);
+      }
+      await expect(target.query("INSERT INTO operational_counters (event,minute,count) VALUES ('request_error','2000-01-01T00:00:00Z',1)")).rejects.toThrow(/operational_counters_event_minute_pk/);
+      await expect(target.query("INSERT INTO operational_counters (event,minute,count) VALUES ('private_request_path',now(),1)")).rejects.toThrow(/operational_event_valid/);
+      for (const count of [0, -1, 1000001]) await expect(target.query("INSERT INTO operational_counters (event,minute,count) VALUES ('request_error',now(),$1)", [count])).rejects.toThrow(/operational_count_valid/);
+      await expect(target.query("INSERT INTO service_usage (service,month,attempts) VALUES ('unapproved','2000-01-01',1)")).rejects.toThrow(/service_usage_service_valid/);
+      for (const attempts of [0, -1, 10000001]) await expect(target.query("INSERT INTO service_usage (service,month,attempts) VALUES ('email','2000-01-01',$1)", [attempts])).rejects.toThrow(/service_usage_attempts_valid/);
+
+      // With no override, each service's real reservation stops at its documented default.
+      for (const [service, limit] of [["email", 1000], ["wallet", 5000], ["push", 10000]] as const) {
+        await target.query("INSERT INTO service_usage (service,month,attempts) VALUES ($1,date_trunc('month',now() at time zone 'UTC')::date,$2)", [service, limit - 1]);
+        await reserveServiceCall(service, {}, target);
+        await expect(reserveServiceCall(service, {}, target)).rejects.toThrow("Optional service temporarily unavailable");
+      }
+      expect((await target.query("SELECT service,attempts FROM service_usage ORDER BY service")).rows).toEqual([{ service: "email", attempts: 1000 }, { service: "push", attempts: 10000 }, { service: "wallet", attempts: 5000 }]);
+      await expect(target.query("INSERT INTO service_usage SELECT * FROM service_usage LIMIT 1")).rejects.toThrow(/service_usage_service_month_pk/);
+      await expect(target.query("UPDATE ledger_entries SET delta=99")).rejects.toThrow(/append-only/);
+      await expect(target.query("DELETE FROM ledger_entries")).rejects.toThrow(/append-only/);
+      expect(await fingerprint(target)).toEqual(history);
+    } finally { await target.end(); await fresh.end(); }
+  }, 180_000);
+
+  it("rolls a failed synthetic 0029 schema transaction back completely without changing history or the 0026 journal", async () => {
+    const target = await scratchDatabase("operations26_rollback");
+    try {
+      await run(target, folderThrough(26));
+      await seedHistory(target);
+      const history = await fingerprint(target), schema25 = await structure(target);
+      const journal25 = (await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows;
+      await target.query("BEGIN");
+      await target.query(readFileSync(path.join(migrationsDir, "0029_operational_resilience.sql"), "utf8"));
+      await expect(target.query("INSERT INTO service_usage (service,month,attempts) VALUES ('email','2000-01-01',0)")).rejects.toThrow(/service_usage_attempts_valid/);
+      await target.query("ROLLBACK");
+      expect(await structure(target)).toEqual(schema25);
+      expect(await fingerprint(target)).toEqual(history);
+      expect((await target.query("SELECT * FROM drizzle.__drizzle_migrations ORDER BY id")).rows).toEqual(journal25);
+      await run(target, folderThrough(27));
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(28);
+      expect(await fingerprint(target)).toEqual(history);
+      await expect(target.query("UPDATE ledger_entries SET delta=99")).rejects.toThrow(/append-only/);
+    } finally { await target.end(); }
+  }, 180_000);
+});
+
+describe("staged release upgrade 0024 → 0025 → 0031", () => {
+  it("keeps populated history through both releases, then erases a card and a merchant past 0025's append-only guards", async () => {
+    const target = await scratchDatabase("staged28"), fresh = await scratchDatabase("staged28_fresh");
+    try {
+      await run(target, folderThrough(24));
+      const seeded = await seedHistory(target);
+      // A correction 0024 allowed and 0025's checks would refuse: both upgrades must keep it.
+      await target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
+        SELECT tenant_id, location_id, membership_id, -1, 'reversal', 'staff_correction', actor_user_id, gen_random_uuid(), 'legacy-unlinked-correction'
+        FROM ledger_entries WHERE membership_id = $1 AND kind = 'award' LIMIT 1`, [seeded.cards.b]);
+      const history = await fingerprint(target);
+      const count = async () => (await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
+
+      // First release: the main launch brings 0025 alone.
+      await run(target, folderThrough(25));
+      expect(await count()).toBe(26);
+      expect(await fingerprint(target)).toEqual(history);
+      await expect(target.query("DELETE FROM redemptions")).rejects.toThrow(/append-only/);
+
+      // Later releases: 0026 plates, then this branch's 0029–0031.
+      await run(target, migrationsDir);
+      expect(await count()).toBe(30);
+      expect(await fingerprint(target)).toEqual(history);
+      await run(fresh, migrationsDir);
+      expect(await structure(target)).toEqual(await structure(fresh));
+      await expect(target.query("UPDATE redemptions SET cost = 1")).rejects.toThrow(/append-only/);
+      await expect(target.query("DELETE FROM redemptions")).rejects.toThrow(/append-only/);
+      await expect(target.query("UPDATE reward_versions SET cost = 1")).rejects.toThrow(/append-only/);
+      await expect(target.query("DELETE FROM reward_versions")).rejects.toThrow(/append-only/);
+
+      // Card erasure: the historic closed card took its redemption with it; everything else in its tenant stays.
+      const survivors = (await target.query("SELECT id FROM ledger_entries WHERE tenant_id = $1 AND membership_id <> $2 ORDER BY id", [seeded.tenants[0], seeded.cards.closed])).rows;
+      expect((await target.query("SELECT public.loynara_purge_member($1, clock_timestamp()) AS purged", [seeded.cards.closed])).rows).toEqual([{ purged: true }]);
+      expect((await target.query("SELECT count(*)::int AS n FROM redemptions WHERE membership_id = $1", [seeded.cards.closed])).rows[0].n).toBe(0);
+      expect((await target.query("SELECT count(*)::int AS n FROM memberships WHERE id = $1", [seeded.cards.closed])).rows[0].n).toBe(0);
+      expect((await target.query("SELECT id FROM ledger_entries WHERE tenant_id = $1 ORDER BY id", [seeded.tenants[0]])).rows).toEqual(survivors);
+      expect((await target.query("SELECT count(*)::int AS n FROM reward_versions WHERE tenant_id = $1", [seeded.tenants[0]])).rows[0].n).toBe(1);
+
+      // Merchant erasure: the second tenant (401 cards) is closed, classified and erased, reward versions included.
+      await target.query("UPDATE memberships SET closed_at = clock_timestamp() WHERE tenant_id = $1", [seeded.tenants[1]]);
+      await target.query("UPDATE tenants SET closed_at = clock_timestamp() WHERE id = $1", [seeded.tenants[1]]);
+      await target.query("SELECT public.loynara_classify_tenant_retention($1, 'no_statutory_records', 'Synthetic accountant')", [seeded.tenants[1]]);
+      expect((await target.query("SELECT public.loynara_purge_tenant($1, clock_timestamp()) AS erased", [seeded.tenants[1]])).rows).toEqual([{ erased: true }]);
+      for (const table of ["memberships", "ledger_entries", "reward_versions", "rewards", "programs"]) {
+        expect((await target.query(`SELECT count(*)::int AS n FROM ${table} WHERE tenant_id = $1`, [seeded.tenants[1]])).rows[0].n).toBe(0);
+      }
+      expect((await target.query("SELECT count(*)::int AS n FROM tenants WHERE id = $1", [seeded.tenants[0]])).rows[0].n).toBe(1);
+      expect((await target.query("SELECT count(*)::int AS n FROM ledger_entries WHERE idempotency_key = 'legacy-unlinked-correction'")).rows[0].n).toBe(1);
     } finally { await target.end(); await fresh.end(); }
   }, 180_000);
 });

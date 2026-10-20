@@ -3,12 +3,14 @@ import { isIP } from "node:net";
 import { pool } from "@/db";
 import type { Pool } from "pg";
 import { DomainError } from "./loyalty";
+import { recordOperationalEvent } from "./operational-signals";
 
 type Limit = { scope: string; identity: string; max: number; windowSeconds: number };
 
 export class RateLimitError extends DomainError {
   constructor(readonly retryAfterSeconds: number) {
     super("RATE_LIMIT", "Too many requests. Please try again later.");
+    recordOperationalEvent("rate_limit");
   }
 }
 

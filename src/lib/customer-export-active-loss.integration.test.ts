@@ -6,19 +6,19 @@ import { pool } from "@/db";
 import { nfcFixture } from "./nfc-test-db";
 import { award } from "./loyalty";
 import { getCustomerExport } from "./export";
+import { assertOwnedTestDatabase, assertTestDatabaseUrl } from "../../scripts/test-database-guard";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
-const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
+const database = assertTestDatabaseUrl();
 assertLocalTestDatabaseUrl();
-if (database.username !== "looplocal") throw new Error("Synthetic export database required");
-beforeEach(async () => { await assertDisposableDatabase(pool); await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
+beforeEach(async () => { await assertOwnedTestDatabase(pool); await assertDisposableDatabase(pool); await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
 it("survives active export connection loss, rejects incomplete response and preserves healthy explicit retry", async () => {
   const own = await nfcFixture(), foreign = await nfcFixture();
   for (const [fixture, quantity] of [[own, 2], [foreign, 5]] as const) await award({ userId: fixture.userId, locationId: fixture.location.id, membershipId: fixture.member.id, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() });
   const before = await getCustomerExport(own.member.cardToken), foreignBefore = await getCustomerExport(foreign.member.cardToken);
   const env: NodeJS.ProcessEnv = { NODE_ENV: "test" };
-  for (const key of ["PATH", "HOME", "TMPDIR", "LANG", "USER", "SHELL"]) if (process.env[key]) env[key] = process.env[key];
+  for (const key of ["PATH", "HOME", "TMPDIR", "LANG", "USER", "SHELL", "TEST_PG_PORT", "TEST_PG_DATA_DIRECTORY", "TEST_PG_CONTAINER_ID"]) if (process.env[key]) env[key] = process.env[key];
   Object.assign(env, { DATABASE_URL: process.env.DATABASE_URL, PG_POOL_MAX: "1", TEST_EXPORT_CARD_TOKEN: own.member.cardToken, NODE_ENV: "test", BETTER_AUTH_SECRET: "synthetic-export-disconnect-regression-only", PUBLIC_BASE_URL: "http://localhost:3000", BETTER_AUTH_URL: "http://localhost:3000", EXTERNAL_EMAIL_ENABLED: "false", SMTP_HOST: "localhost", APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false", PASSFAST_ENABLED: "false" });
   const result = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(path.resolve("node_modules/.bin/tsx"), ["scripts/test-fixtures/customer-export-active-loss.ts"], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] });

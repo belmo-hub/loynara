@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PassFastClient, passFastConfig, passFastStatus } from "./passfast";
+// This suite advances transport time with fake timers; durable reservations are
+// exercised with the real database in provider-budget.integration.test.ts.
+vi.mock("../service-budget", () => ({ reserveExternalServiceCall: async () => {} }));
 const tenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const location = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";

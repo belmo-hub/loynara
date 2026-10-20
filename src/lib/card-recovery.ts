@@ -22,17 +22,26 @@ function requireAvailable() {
 export async function requestCardRecovery(rawEmail: string): Promise<{ message: string }> {
   requireAvailable();
   const email = normalizeRecoveryEmail(rawEmail);
-  const matches = await db.select({ tenantId: memberships.tenantId, membershipId: memberships.id })
-    .from(membershipContacts).innerJoin(memberships, and(eq(memberships.tenantId, membershipContacts.tenantId), eq(memberships.id, membershipContacts.membershipId)))
-    .where(and(eq(membershipContacts.email, email), eq(membershipContacts.emailVerified, true), isNull(memberships.closedAt)))
-    .limit(1);
-  if (!matches[0]) return { message: recoveryGenericMessage };
   await db.transaction(async tx => {
+    await tx.execute(sql`set local lock_timeout = '5s'`);
+    await tx.execute(sql`set local statement_timeout = '15s'`);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${email}, 0))`);
+    // Lock the live card after acquiring the email lock. An earlier match can
+    // become closed while waiting, and must never authorize a new challenge.
+    const [member] = await tx.select({ tenantId: memberships.tenantId, membershipId: memberships.id })
+      .from(membershipContacts).innerJoin(memberships, and(eq(memberships.tenantId, membershipContacts.tenantId), eq(memberships.id, membershipContacts.membershipId)))
+      .where(and(eq(membershipContacts.email, email), eq(membershipContacts.emailVerified, true), isNull(memberships.closedAt)))
+      .orderBy(memberships.id).limit(1).for("update", { of: memberships });
+    if (!member) return;
+    const [contact] = await tx.select().from(membershipContacts).where(and(
+      eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.membershipId),
+      eq(membershipContacts.email, email), eq(membershipContacts.emailVerified, true),
+    ));
+    if (!contact) return;
     await tx.delete(cardRecoveryChallenges).where(eq(cardRecoveryChallenges.email, email));
     const id = randomUUID();
     await tx.insert(cardRecoveryChallenges).values({ id, email, tokenHash: recoveryTokenHash(recoveryTokenForChallenge(id)), expiresAt: new Date(Date.now() + 20 * 60_000) });
-    await tx.insert(outboxJobs).values({ tenantId: matches[0].tenantId, kind: "email.recover", payload: { challengeId: id } });
+    await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.recover", payload: { challengeId: id } });
   });
   return { message: recoveryGenericMessage };
 }
@@ -60,11 +69,14 @@ export async function recoveryOptions(token: string) {
 export async function completeCardRecovery(token: string, membershipId: string) {
   const challenge = await validChallenge(token);
   return db.transaction(async tx => {
+    await tx.execute(sql`set local lock_timeout = '5s'`);
+    await tx.execute(sql`set local statement_timeout = '15s'`);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${challenge.email}, 0))`);
-    const [current] = await tx.select().from(cardRecoveryChallenges).where(eq(cardRecoveryChallenges.id, challenge.id)).for("update");
-    if (!current || current.consumedAt || current.expiresAt <= new Date()) throw invalid();
+    // Closure and email delivery also lock the member before its challenge.
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, membershipId)).for("update");
     if (!member || member.closedAt) throw invalid();
+    const [current] = await tx.select().from(cardRecoveryChallenges).where(eq(cardRecoveryChallenges.id, challenge.id)).for("update");
+    if (!current || current.consumedAt || current.expiresAt <= new Date()) throw invalid();
     const [contact] = await tx.select().from(membershipContacts)
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).for("update");
     if (!contact || !contact.emailVerified || contact.email !== current.email) throw invalid();

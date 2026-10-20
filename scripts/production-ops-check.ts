@@ -3,6 +3,7 @@ import { Client } from "pg";
 import { databaseFailureDiagnostic } from "./operational-error";
 import { productionConfigIssues } from "./config-check";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
+import { operationsAlerts, readOperationsCounts } from "./operations-health";
 
 // Only our fixed validation/health diagnostics may cross the stderr boundary.
 // Database error message/name/detail/stack can contain connection or query data.
@@ -23,20 +24,12 @@ async function main() {
   if (process.env.NODE_ENV !== "production") issues.push("Operations check requires production mode");
   if (!validHeartbeatUrl(process.env.OPS_HEARTBEAT_URL)) issues.push("Operations heartbeat URL missing or invalid");
   if (issues.length) throw new OperationsCheckRefusal(`Production operations check refused: ${issues.join("; ")}`);
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000, statement_timeout: 5000, query_timeout: 6000 });
   await client.connect();
   try {
-    // For a processing job, next_attempt_at is the end of its claim lease. One still processing 15 minutes past that
-    // means the worker stopped claiming work, even while its separate heartbeat connection keeps reporting.
-    const result = await client.query<{ failed: string; blocked: string; overdue: string; stalled: string }>(`
-      SELECT count(*) FILTER (WHERE status = 'failed')::text AS failed,
-        count(*) FILTER (WHERE status = 'blocked')::text AS blocked,
-        count(*) FILTER (WHERE status IN ('pending','retry') AND next_attempt_at < now() - interval '15 minutes')::text AS overdue,
-        count(*) FILTER (WHERE status = 'processing' AND next_attempt_at < now() - interval '15 minutes')::text AS stalled
-      FROM outbox_jobs
-    `);
-    const counts = { failed: Number(result.rows[0]?.failed), blocked: Number(result.rows[0]?.blocked), overdue: Number(result.rows[0]?.overdue), stalled: Number(result.rows[0]?.stalled) };
-    if (!outboxHealth(counts)) throw new OperationsCheckRefusal(`Outbox requires operator review: ${JSON.stringify(counts)}`);
+    const counts = await readOperationsCounts(client);
+    const alerts = operationsAlerts(counts);
+    if (alerts.length) throw new OperationsCheckRefusal(`Operations require operator review: ${JSON.stringify({ alerts, counts })}`);
     if (!await sendWorkerHeartbeat(process.env.OPS_HEARTBEAT_URL)) throw new OperationsCheckRefusal("Operations heartbeat was not acknowledged; check monitor availability and reviewed configuration");
     console.log("Production operations check PASS: database and outbox healthy");
   } finally { await client.end(); }

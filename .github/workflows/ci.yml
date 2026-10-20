@@ -63,8 +63,9 @@ jobs:
         with:
           persist-credentials: false
       # Vitest does not find these Python tests. The restore check starts its own throwaway cluster, so it needs
-      # initdb and pg_ctl on PATH; the runner's PostgreSQL keeps them outside it. The encrypted backup drill is not
-      # included: it still expects one developer's cluster on port 55433.
+      # initdb and pg_ctl on PATH; the runner's PostgreSQL keeps them outside it. The encrypted backup drill
+      # (production-encrypted-backup.test.py) is not included: it runs application code, so it needs the full npm
+      # install, and takes about a minute. It owns its own throwaway cluster; run it locally before a release.
       - name: Run the backup and restore-target tests
         run: |
           export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1):$PATH"
@@ -84,7 +85,7 @@ jobs:
           POSTGRES_PASSWORD: looplocal_local_only
         # 54329 is the project's default test port; billing tests expect exactly this URL.
         ports:
-          - 54329:5432
+          - 127.0.0.1:54329:5432
         options: >-
           --health-cmd "pg_isready -U looplocal -d looplocal_test"
           --health-interval 2s
@@ -96,6 +97,7 @@ jobs:
       BETTER_AUTH_URL: http://localhost:3000
       PUBLIC_BASE_URL: http://localhost:3000
       BILLING_FIXTURE_MODE: "true"
+      TEST_PG_PORT: "54329"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -117,19 +119,19 @@ jobs:
             echo "::add-mask::$value"
             echo "$name=$value" >> "$GITHUB_ENV"
           done
-      - name: Prepare the test database
-        run: |
-          psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
-          npx drizzle-kit migrate
-          # Suites that truncate tables or end connections only run on a database marked like this (disposable-test-database.ts).
-          psql -h localhost -p 54329 -U looplocal -d looplocal_test -v ON_ERROR_STOP=1 -q -c "COMMENT ON DATABASE looplocal_test IS 'loynara-disposable-test-database'"
-      # Same command `npm test` ends with. `npm test` itself starts a local Docker database, which CI already provides.
+      # `npm test` (scripts/test-local.sh) inspects this job's loopback-only disposable service, prepares its database
+      # and supplies ownership attestations to every test. The service already created looplocal_test, so the runner is
+      # asked to mark it as disposable (disposable-test-database.ts); suites that truncate tables or end connections
+      # refuse an unmarked database.
       #
       # The two backup publication tests are skipped: they run pg_dump/pg_restore inside a Docker Compose database
       # container, which this job does not have.
       - name: Run the test suite
+        env:
+          TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
+          MARK_TEST_DATABASE_DISPOSABLE: "yes"
         run: >-
-          npx vitest run --hookTimeout 60000
+          npm test -- --hookTimeout 60000
           --exclude 'scripts/backup-publication.test.ts'
           --exclude 'scripts/preview-backup-publication.test.ts'
 

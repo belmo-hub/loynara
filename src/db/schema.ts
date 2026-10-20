@@ -20,7 +20,25 @@ import {
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
+// Global aggregate counts only: no tenant, recipient, request path or error content.
+export const serviceUsage = pgTable("service_usage", {
+  service: varchar("service", { length: 12 }).notNull(),
+  month: date("month").notNull(),
+  attempts: integer("attempts").notNull(),
+}, t => [primaryKey({ columns: [t.service, t.month] }),
+  check("service_usage_service_valid", sql`${t.service} in ('email','wallet','push')`),
+  check("service_usage_attempts_valid", sql`${t.attempts} between 1 and 10000000`)]);
+
+export const operationalCounters = pgTable("operational_counters", {
+  event: varchar("event", { length: 24 }).notNull(),
+  minute: timestamp("minute", { withTimezone: true }).notNull(),
+  count: integer("count").notNull(),
+}, t => [primaryKey({ columns: [t.event, t.minute] }),
+  check("operational_event_valid", sql`${t.event} in ('request_error','rate_limit','push_failure','wallet_failure')`),
+  check("operational_count_valid", sql`${t.count} between 1 and 1000000`)]);
+
 export const tenants = pgTable("tenants", {
+  closedAt: timestamp("closed_at", { withTimezone: true }),
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 180 }).notNull(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
@@ -187,6 +205,7 @@ export const memberships = pgTable("memberships", {
   // unique per tenant, immutable, not sequential. It finds a card for authenticated staff and is never a credential.
   cardLocator: varchar("card_locator", { length: 6 }).notNull().default(""),
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  lastCustomerActivityAt: timestamp("last_customer_activity_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [
   unique("memberships_tenant_id_id_uq").on(t.tenantId, t.id),

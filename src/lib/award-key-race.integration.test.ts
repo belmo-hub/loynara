@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { assertOwnedTestDatabase, assertTestDatabaseUrl } from "../../scripts/test-database-guard";
 import { pool } from "@/db";
 import { auth } from "./auth";
 import { createMerchant, enroll } from "./product";
@@ -8,6 +9,8 @@ import { POST as awardRoute } from "@/app/api/cashier/award/route";
 import { POST as reverseRoute } from "@/app/api/transactions/reverse/route";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
+assertTestDatabaseUrl();
+beforeAll(async () => { await assertOwnedTestDatabase(pool); });
 assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
 const registration = process.env.PUBLIC_REGISTRATION_ENABLED;

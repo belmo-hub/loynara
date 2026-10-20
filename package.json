@@ -26,6 +26,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "diagnose": "tsx scripts/diagnose.ts",
     "worker": "tsx scripts/worker.ts",
+    "retention:prune": "tsx scripts/retention-prune.ts",
+    "retention:schedule": "tsx scripts/retention-schedule.ts",
     "rate-limits:prune": "tsx scripts/prune-rate-limits.ts",
     "local": "sh scripts/local-start.sh",
     "preview": "sh scripts/preview-start.sh",

@@ -2,6 +2,7 @@ import { createHash, createPrivateKey, createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { walletProgress, walletText } from "./content";
 import type { WalletBrand, WalletPassData, WalletRevokedData, WalletStatus } from "./types";
+import { reserveExternalServiceCall } from "../service-budget";
 
 export type GoogleConfig = { issuerId: string; logoUrl: string; approvedDeviceTestLogoUrl?: string; binding?: { tenantId: string; locationId: string; programId: string; classId: string }; publishingStatus?: "demo" | "published" };
 export type GoogleCredentials = { clientEmail: string; privateKey: string };
@@ -202,6 +203,7 @@ export class GoogleWalletClient {
   private async token(): Promise<string> {
     if (this.tokenExpiresAt && Date.now() >= this.tokenExpiresAt) this.accessToken = undefined;
     this.accessToken ??= (async () => {
+      await reserveExternalServiceCall("wallet");
       const body = new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: accessAssertion(this.credentials) });
       const response = await this.fetcher("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, signal: this.signal(), redirect: "error" });
       if (!response.ok) throw new GoogleWalletError("authorization", response.status);
@@ -215,6 +217,7 @@ export class GoogleWalletClient {
 
   private async request(method: string, path: string, body?: object): Promise<Response> {
     const token = await this.token();
+    await reserveExternalServiceCall("wallet");
     const response = await this.fetcher(`${API}${path}`, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: this.signal(), redirect: "error" });
     if (response.status === 401) this.accessToken = undefined;
     return response;

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { assertOwnedTestDatabase, assertTestDatabaseUrl } from "../../scripts/test-database-guard";
 import { pool } from "@/db";
 import { auth } from "./auth";
 import { POST as onboardRoute } from "@/app/api/merchant/onboard/route";
@@ -12,12 +13,13 @@ import { acceptStaffInvite, createStaffInvite, revokeStaff } from "./staff";
 import { getMerchantAnalytics } from "./merchant-analytics";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
-const url = process.env.DATABASE_URL;
+const url = assertTestDatabaseUrl().href;
 assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
 const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 beforeAll(async () => {
+  await assertOwnedTestDatabase(pool);
   Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true" });
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');

@@ -47,3 +47,7 @@ next-env.d.ts
 
 # Local visual references and QA captures (never deployed)
 /marketing-site/evidence/
+
+# Python operational-script caches
+__pycache__/
+*.pyc

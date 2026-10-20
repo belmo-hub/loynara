@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PrivacySettings } from "@/components/owner/privacy-settings";
 import { JoinCard } from "@/components/owner/join-card";
 import { useOwner } from "@/components/owner/owner-context";
 import { Notice } from "@/components/owner/owner-ui";
@@ -28,6 +29,7 @@ export default function MerchantSettingsPage() {
         </section>
         <JoinCard me={me} exportUrl="/api/merchant/export" />
       </div>
+      <PrivacySettings tenantId={me.tenantId} businessName={me.businessName} />
     </div>
   );
 }
