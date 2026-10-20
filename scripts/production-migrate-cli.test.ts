@@ -36,6 +36,8 @@ describe("migration CLI safe failure boundary", () => {
             record('inspect'); if (['query','nested','cycle','getter'].includes(mode)) fail();
             return { rows: (mode === 'schema' ? ['user'] : ['user','session','account','verification']).map(table_name => ({ table_name })) };
           }
+          if (sql.includes("to_regclass('drizzle.__drizzle_migrations')")) { record('journal'); return { rows: [{ present: mode === 'skipped' }] }; }
+          if (sql.includes('FROM drizzle.__drizzle_migrations')) return { rows: [{ created_at: String(Date.UTC(2100, 0, 1)) }] };
           if (sql.includes('to_regclass')) { record('verify'); return { rows: [{auth:'user',tenants:'tenants',ledger:'ledger_entries',trigger_count:mode === 'verification' ? '0' : '1'}] }; }
           if (sql.includes('pg_advisory_unlock')) { record('unlock'); return { rows: [] }; }
           throw new Error('Unexpected query: no actual SQL allowed');
@@ -82,7 +84,7 @@ describe("migration CLI safe failure boundary", () => {
     const result = run("ok");
     expect(result.status, result.output).toBe(0);
     expect(result.output).toContain("Production migration PASS");
-    expect(result.trace).toEqual(["connect", "lock", "inspect", "child", "verify", "unlock", "close"]);
+    expect(result.trace).toEqual(["connect", "lock", "inspect", "journal", "child", "verify", "unlock", "close"]);
   });
   it.each([
     ["ECONNREFUSED", "Database connection failed"], ["42501", "Database permission denied"],
@@ -99,8 +101,9 @@ describe("migration CLI safe failure boundary", () => {
     ["approval", "Explicit production migration approval is required", []],
     ["locked", "Another Loynara production migration holds the database lock", ["connect", "lock", "close"]],
     ["schema", "Incomplete auth schema; inspect before migration", ["connect", "lock", "inspect", "unlock", "close"]],
-    ["child", "Application migration failed; inspect before retry", ["connect", "lock", "inspect", "child", "unlock", "close"]],
-    ["verification", "Migration verification failed: critical tables or append-only trigger missing", ["connect", "lock", "inspect", "child", "verify", "unlock", "close"]],
+    ["skipped", "would be skipped: 0000_", ["connect", "lock", "inspect", "journal", "unlock", "close"]],
+    ["child", "Application migration failed; inspect before retry", ["connect", "lock", "inspect", "journal", "child", "unlock", "close"]],
+    ["verification", "Migration verification failed: critical tables or append-only trigger missing", ["connect", "lock", "inspect", "journal", "child", "verify", "unlock", "close"]],
   ])("retains controlled %s refusal and unchanged cleanup ordering", (mode, diagnostic, trace) => {
     const result = run(mode as string);
     expect(result.status).toBe(1);
