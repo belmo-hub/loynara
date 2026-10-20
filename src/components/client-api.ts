@@ -58,6 +58,8 @@ export type MeResponse = {
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
   hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc">;
   tapCooldownSeconds?: number | null;
+  /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
+  welcomeBonus?: number;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
@@ -96,5 +98,5 @@ export type CardResponse = {
   brandColor?: string;
   rulesText?: string;
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
-  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean }>;
+  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean }>;
 };

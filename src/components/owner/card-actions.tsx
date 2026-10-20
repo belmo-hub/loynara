@@ -14,6 +14,7 @@ const CORRECTION_ERRORS: Record<string, string> = {
   ALREADY_REVERSED: "Dieser Vorgang wurde bereits korrigiert.",
   INSUFFICIENT_BALANCE: "Die Korrektur würde den Kontostand unter null bringen, weil ein Teil bereits eingelöst wurde. Korrigiere zuerst die spätere Einlösung oder lass den Vorgang stehen.",
   LIMIT_EXCEEDED: "Korrekturen über 100 Einheiten bucht nur die Inhaberin oder der Inhaber.",
+  WELCOME_BONUS_WITH_AWARD: "Der Startbonus wird zusammen mit dem ersten Besuch korrigiert.",
   REFERRAL_REVIEW_REQUIRED: "Empfehlungsboni werden unter Empfehlungen geprüft und dort zurückgenommen.",
   FORBIDDEN: "Korrekturen sind der Leitung und der Inhaberin oder dem Inhaber vorbehalten.",
   NOT_FOUND: "Der Vorgang gehört nicht zum aktiven Standort oder die Karte ist geschlossen.",
@@ -21,11 +22,11 @@ const CORRECTION_ERRORS: Record<string, string> = {
 
 /** Which ledger rows can be corrected here; the server enforces the same rules again. */
 export function correctable(entry: Entry) {
-  return (entry.kind === "award" || entry.kind === "redeem") && !entry.reversed && entry.source !== "referral_bonus";
+  return (entry.kind === "award" || entry.kind === "redeem") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus";
 }
 
 export function sourceLabel(source: string) {
-  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
+  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
 }
 
 /**
