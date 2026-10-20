@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { Writable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { spawn } from "node:child_process";
-import { assertRetentionDatabaseIdentity, runRetentionChild, runRetentionCycle, type RetentionWork } from "./retention-job";
+import { assertRetentionDatabaseIdentity, runRetentionChild, runRetentionCycle, startRetentionSchedule, type RetentionWork } from "./retention-job";
 const candidate={scope:'member' as const,tenant_id:'00000000-0000-4000-8000-000000000001',membership_id:'00000000-0000-4000-8000-000000000002',cutoff:new Date()};
 const identity={database:'synthetic',serverAddress:'127.0.0.1',serverPort:5432};
 function work(overrides:Partial<RetentionWork>={}):RetentionWork {
@@ -92,5 +92,19 @@ describe('retention purge subprocess deadline',()=>{
  it('withholds raw spawn diagnostics',async()=>{
   const fake=fakeChild(),result=runRetentionChild(candidate,fake.start);fake.child.emit('error',Error('synthetic private connection string'));
   await expect(result).rejects.toThrow('refused');
+ });
+});
+describe('retention schedule',()=>{
+ it('runs one cycle at a time every interval, kills an overrunning cycle and stops its child',async()=>{
+  vi.useFakeTimers();const children:ReturnType<typeof fakeChild>['child'][]=[];
+  const start=vi.fn(()=>{const {child}=fakeChild();children.push(child);return child;}) as unknown as typeof spawn;
+  const stop=startRetentionSchedule({start,entryPoint:'synthetic.ts',execArgv:[],intervalMs:300_000,lifetimeMs:270_000,killGraceMs:5_000});
+  expect(start).toHaveBeenCalledTimes(1);expect(vi.mocked(start).mock.calls[0][1]).toEqual(['synthetic.ts']);
+  await vi.advanceTimersByTimeAsync(299_000);expect(start).toHaveBeenCalledTimes(1);
+  expect(children[0].kill).toHaveBeenCalledWith('SIGTERM');children[0].emit('close',null);
+  await vi.advanceTimersByTimeAsync(1_000);expect(start).toHaveBeenCalledTimes(2);
+  children[1].emit('close',1);await vi.advanceTimersByTimeAsync(300_000);expect(start).toHaveBeenCalledTimes(3);
+  const stopped=stop();expect(children[2].kill).toHaveBeenCalledWith('SIGTERM');children[2].emit('close',null);await stopped;
+  await vi.advanceTimersByTimeAsync(600_000);expect(start).toHaveBeenCalledTimes(3);
  });
 });
