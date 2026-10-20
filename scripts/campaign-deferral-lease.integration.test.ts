@@ -9,6 +9,7 @@ import { db, pool } from "../src/db";
 import { membershipContacts, outboxJobs } from "../src/db/schema";
 import { createMerchant, enroll } from "../src/lib/product";
 import { createDraftCampaign, dispatchCampaign, scheduleCampaign } from "../src/lib/campaigns";
+import { updateLocationAddress } from "../src/lib/locations";
 import { claimOutboxJob, deferOutboxJob } from "../src/lib/outbox";
 
 const target = new URL(process.env.DATABASE_URL ?? "http://invalid");
@@ -39,6 +40,8 @@ async function fixture() {
   const timezone = offset === 0 ? "Etc/GMT" : `Etc/GMT${offset > 0 ? "+" : ""}${offset}`;
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Deferral Café", city: "Kassel", country: "DE",
     timezone, locale: "de", currency: "EUR", programName: "Synthetic Card", programType: "stamp", rulesText: "One stamp per checkout", rewardTitle: "Coffee", rewardCost: 8 });
+  // Promotional mail needs the shop's sender details, or the send is refused and suppressed before any deferral.
+  await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: "deferral-holder@example.test", marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   const campaign = await createDraftCampaign({ actorUserId: ownerId, programSlug: merchant.programSlug, title: "Synthetic offer",

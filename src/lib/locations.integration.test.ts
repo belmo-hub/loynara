@@ -4,8 +4,9 @@ import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { memberships, staffRoles } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
-import { createAdditionalLocation, listMerchantLocations, validateOwnerLocation } from "./locations";
+import { createAdditionalLocation, listMerchantLocations, updateLocationAddress, validateOwnerLocation } from "./locations";
 import { createMerchant, enroll, getMerchantContext, lookupCard } from "./product";
+import { marketingSignature, programSender } from "./promotion-policy";
 import { createStaffInvite } from "./staff";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Location tests require looplocal_test");
@@ -89,5 +90,60 @@ describe("additional merchant locations", () => {
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong country", country: "MA" })).rejects.toMatchObject({ code: "INVALID_COUNTRY" });
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong timezone", timezone: "Not/A_Timezone" })).rejects.toMatchObject({ code: "INVALID_TIMEZONE" });
     expect((await listMerchantLocations(ownerId)).totals.locations).toBe(2);
+  });
+
+  it("lets only the owner set the sender details of their own location, trimmed and validated", async () => {
+    const ownerId = await user();
+    const shopA = await shop(ownerId, "Synthetic Address A");
+    const otherOwner = await user();
+    await shop(otherOwner, "Synthetic Address B");
+    const details = { locationId: shopA.locationId, street: " Friedrich-Ebert-Straße 12 ", postalCode: "34117", city: "Kassel", representative: " Erika Muster ", contactEmail: "", contactPhone: " +49 561 123456 ", legalForm: "", registerCourt: " ", registerNumber: "", vatId: "" };
+    const unset = { street: null, postalCode: null, representative: null, contactPhone: null, legalForm: null, registerCourt: null, registerNumber: null, vatId: null };
+    expect((await listMerchantLocations(ownerId)).locations[0]).toMatchObject(unset);
+    await expect(updateLocationAddress(otherOwner, details)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(updateLocationAddress(await user(), details)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const bad = [
+      { postalCode: "3411" }, { postalCode: "34117a" }, { street: "Hauptstr. 1\nAngebote abbestellen" }, { street: "" },
+      { representative: "" }, { representative: "Erika\u0007Muster" }, { representative: "E".repeat(121) },
+      { contactPhone: "" }, { contactPhone: "ruf an" }, { contactPhone: "12345" }, { contactPhone: "0561 123456\r\nBcc: x" }, { contactEmail: "kein-at-zeichen" },
+      { legalForm: "Gmb\nH" }, { legalForm: "G".repeat(41) },
+      { registerCourt: "Amtsgericht Kassel" }, { registerNumber: "HRB 12345" }, { registerCourt: "Amtsgericht Kassel", registerNumber: "12345" },
+      { vatId: "123456789" }, { vatId: "DE12" }, { vatId: "DE1234567890123" }, { vatId: "DE-123456789" },
+    ];
+    for (const patch of bad) await expect(updateLocationAddress(ownerId, { ...details, ...patch }), JSON.stringify(patch)).rejects.toThrow();
+    const stored = { street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactEmail: null, contactPhone: "+49 561 123456", legalForm: null, registerCourt: null, registerNumber: null, vatId: null };
+    expect(await updateLocationAddress(ownerId, details)).toEqual({ locationId: shopA.locationId, ...stored });
+    expect((await listMerchantLocations(ownerId)).locations[0]).toMatchObject({ id: shopA.locationId, ...stored });
+    // Email alone is enough contact; the optional parts are stored normalised.
+    expect(await updateLocationAddress(ownerId, { ...details, contactEmail: " hallo@example.test ", contactPhone: "", legalForm: "UG (haftungsbeschränkt)", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB12345", vatId: " de 123 456 789 " }))
+      .toMatchObject({ contactEmail: "hallo@example.test", contactPhone: null, legalForm: "UG (haftungsbeschränkt)", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB 12345", vatId: "DE123456789" });
+    expect((await listMerchantLocations(otherOwner)).locations[0]).toMatchObject(unset);
+  });
+
+  it("prints only the optional footer parts that are filled", async () => {
+    const ownerId = await user();
+    const shopA = await shop(ownerId, "Synthetic Footer");
+    const required = { locationId: shopA.locationId, street: "Hauptstraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactEmail: "hallo@example.test" };
+    const footer = async () => marketingSignature((await programSender(db, shopA.tenantId, shopA.programId))!, "https://unsubscribe.example.test/u")?.footer;
+    process.env.PUBLIC_BASE_URL = "https://app.example.test";
+    const tail = "\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Footer bestellt hast. Abmelden: https://unsubscribe.example.test/u · Datenschutz: https://app.example.test/datenschutz";
+    await updateLocationAddress(ownerId, { ...required, legalForm: "e.K.", vatId: "DE123456789" });
+    expect(await footer()).toBe(`Diese E-Mail kommt von Synthetic Footer, e.K., vertreten durch Erika Muster, Hauptstraße 1, 34117 Kassel. Kontakt: hallo@example.test. USt-IdNr.: DE123456789${tail}`);
+    await updateLocationAddress(ownerId, { ...required, registerCourt: "Amtsgericht Kassel", registerNumber: "HRA 7" });
+    expect(await footer()).toBe(`Diese E-Mail kommt von Synthetic Footer, vertreten durch Erika Muster, Hauptstraße 1, 34117 Kassel. Kontakt: hallo@example.test. Registergericht: Amtsgericht Kassel, HRA 7.${tail}`);
+  });
+
+  it("keeps street, postcode and contact per location and the business details per tenant", async () => {
+    const ownerId = await user();
+    const shopA = await shop(ownerId, "Synthetic Two Shops");
+    const second = await createAdditionalLocation(ownerId, { name: "Second synthetic counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second synthetic card", programType: "stamp", rulesText: "Ein Stempel pro synthetischem Besuch.", rewardTitle: "Testkaffee", rewardCost: 5 });
+    const business = { representative: "Erika Muster", legalForm: "GmbH", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB 12345", vatId: "DE123456789" };
+    await updateLocationAddress(ownerId, { locationId: shopA.locationId, street: "Hauptstraße 1", postalCode: "34117", city: "Kassel", contactEmail: "kassel@example.test", ...business });
+    await updateLocationAddress(ownerId, { locationId: second.locationId, street: "Torstraße 2", postalCode: "10119", city: "Berlin", contactPhone: "+49 30 123456", ...business, representative: "Max Muster" });
+    const [a, b] = (await listMerchantLocations(ownerId)).locations;
+    expect(a).toMatchObject({ street: "Hauptstraße 1", postalCode: "34117", city: "Kassel", contactEmail: "kassel@example.test", ...business, representative: "Max Muster" });
+    expect(b).toMatchObject({ street: "Torstraße 2", postalCode: "10119", city: "Berlin", contactPhone: "+49 30 123456", ...business, representative: "Max Muster" });
+    expect((await pool.query("SELECT representative, legal_form, register_court, register_number, vat_id FROM tenants WHERE id = $1", [shopA.tenantId])).rows)
+      .toEqual([{ representative: "Max Muster", legal_form: "GmbH", register_court: "Amtsgericht Kassel", register_number: "HRB 12345", vat_id: "DE123456789" }]);
   });
 });

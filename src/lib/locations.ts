@@ -20,8 +20,32 @@ const input = z.object({
   rewardCost: z.number().int().min(1).max(100000),
 }).strict();
 
+// One line each: these are printed in the sender footer under every marketing mail (Legal's text).
+const singleLine = (max: number) => z.string().trim().min(2).max(max).regex(/^[^\p{Cc}]+$/u);
+// Blank or absent optional input is stored as null, so the footer leaves that part out.
+const optional = <T extends z.ZodType<unknown, string>>(schema: T) => z.string().trim().optional().transform(value => value || null).pipe(schema.nullable());
+const addressInput = z.object({
+  locationId: z.uuid(),
+  street: singleLine(180),
+  postalCode: z.string().trim().regex(/^\d{5}$/),
+  city: singleLine(120),
+  representative: singleLine(120),
+  contactEmail: optional(z.email().max(320)),
+  contactPhone: optional(z.string().regex(/^\+?\d[\d ()/-]{4,23}\d$/)),
+  legalForm: optional(singleLine(40)),
+  registerCourt: optional(singleLine(120)),
+  // Printed as "Registergericht: <court>, <number>" (Legal), so the number carries its register: "HRB 12345", "HRA 7".
+  registerNumber: optional(z.string().regex(/^(HRA|HRB|GnR|GsR|PR|VR) ?\d{1,6}( ?[A-Z]{1,2})?$/).transform(value => value.replace(/^([A-Za-z]+) ?/, "$1 "))),
+  // EU VAT ID: country code and 8 to 12 letters or digits; spaces are dropped and letters upper-cased.
+  vatId: z.string().max(20).optional().transform(value => value?.replace(/\s/g, "").toUpperCase() || null).pipe(z.string().regex(/^[A-Z]{2}[0-9A-Z]{8,12}$/).nullable()),
+}).strict()
+  .refine(data => data.contactEmail || data.contactPhone, { message: "Contact email or phone required", path: ["contactEmail"] })
+  .refine(data => !data.registerCourt === !data.registerNumber, { message: "Register court and number go together", path: ["registerNumber"] });
+
 type LocationRow = {
-  id: string; name: string; city: string; country: string; timezone: string; createdAt: Date;
+  id: string; name: string; city: string; street: string | null; postalCode: string | null; representative: string | null; contactEmail: string | null;
+  contactPhone: string | null; legalForm: string | null; registerCourt: string | null; registerNumber: string | null; vatId: string | null;
+  country: string; timezone: string; createdAt: Date;
   programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null;
   cards: number; awards: number; redemptions: number; activeStaff: number;
 };
@@ -90,18 +114,37 @@ export async function validateOwnerLocation(actorUserId: string, locationId: str
   return location;
 }
 
+/**
+ * Replaces the whole sender block (Einstellungen > Anschrift): address and contact of one location, including
+ * locations.city; representative, legal form, register entry and VAT ID of the business, the same for every location (Legal).
+ */
+export async function updateLocationAddress(actorUserId: string, raw: z.input<typeof addressInput>) {
+  const owner = await ownerRole(actorUserId);
+  const { locationId, ...details } = addressInput.parse(raw);
+  const { representative, legalForm, registerCourt, registerNumber, vatId, ...place } = details;
+  return db.transaction(async tx => {
+    const [location] = await tx.update(locations).set(place)
+      .where(and(eq(locations.tenantId, owner.tenantId), eq(locations.id, locationId))).returning({ id: locations.id });
+    if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+    await tx.update(tenants).set({ representative, legalForm, registerCourt, registerNumber, vatId }).where(eq(tenants.id, owner.tenantId));
+    return { locationId: location.id, ...details };
+  });
+}
+
 export async function listMerchantLocations(actorUserId: string) {
   const owner = await ownerRole(actorUserId);
   const [tenant] = await db.select({ currency: tenants.currency }).from(tenants).where(eq(tenants.id, owner.tenantId)).limit(1);
   if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
   const result = await pool.query<LocationRow>(`
-    SELECT l.id, l.name, l.city, l.country, l.timezone, l.created_at AS "createdAt",
+    SELECT l.id, l.name, l.city, l.street, l.postal_code AS "postalCode", t.representative, l.contact_email AS "contactEmail",
+      l.contact_phone AS "contactPhone", t.legal_form AS "legalForm", t.register_court AS "registerCourt", t.register_number AS "registerNumber",
+      t.vat_id AS "vatId", l.country, l.timezone, l.created_at AS "createdAt",
       p.slug AS "programSlug", p.name AS "programName", p.type AS "programType",
       (SELECT count(*)::int FROM memberships m JOIN programs card_program ON card_program.tenant_id = m.tenant_id AND card_program.id = m.program_id WHERE m.tenant_id = l.tenant_id AND card_program.location_id = l.id) AS cards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')) AS awards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'redeem') AS redemptions,
       (SELECT count(*)::int FROM staff_roles s WHERE s.tenant_id = l.tenant_id AND s.location_id = l.id AND s.active = true) AS "activeStaff"
-    FROM locations l
+    FROM locations l JOIN tenants t ON t.id = l.tenant_id
     LEFT JOIN programs p ON p.tenant_id = l.tenant_id AND p.location_id = l.id AND p.status = 'active'
     WHERE l.tenant_id = $1
     ORDER BY l.created_at, l.id

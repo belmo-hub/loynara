@@ -11,7 +11,8 @@ const messageInput = z.object({
   body: z.string().trim().min(5).max(3000),
 });
 const payloadInput = messageInput.pick({ membershipId: true, subject: true, body: true }).extend({ actorUserId: z.string().min(1) });
-export type LocalMessage = { to: string; subject: string; body: string; jobId: string; unsubscribeUrl?: string };
+/** fromName: display name in front of the unchanged sender address (marketing mail: "Shop via Loynara"). */
+export type LocalMessage = { to: string; subject: string; body: string; jobId: string; unsubscribeUrl?: string; fromName?: string };
 export type LocalSender = (message: LocalMessage) => Promise<void>;
 
 export function localMailAllowed() {
@@ -79,7 +80,7 @@ export async function sendLocalMailpit(message: LocalMessage) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      From: { Email: "loynara@local.test", Name: "Loynara Local Test" },
+      From: { Email: "loynara@local.test", Name: message.fromName ?? "Loynara Local Test" },
       To: [{ Email: message.to }],
       Subject: `[LOCAL TEST] ${message.subject}`,
       Text: `${message.body}\n\nLokale Testnachricht. Keine externe Zustellung.`,

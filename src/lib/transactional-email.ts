@@ -48,7 +48,9 @@ export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch,
   if (!config) return null;
   return { name: "mailgun_eu", async send(message) {
     const body = new FormData();
-    body.set("from", config.from);
+    // RFC 5322 quoted display name: control characters (header breaks) become spaces, quotes and backslashes are escaped.
+    const name = message.fromName?.replace(/\p{Cc}/gu, " ").replace(/["\\]/g, "\\$&");
+    body.set("from", name ? `"${name}" <${config.from}>` : config.from);
     body.set("to", message.to);
     body.set("subject", message.subject);
     body.set("text", message.body);

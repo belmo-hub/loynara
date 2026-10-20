@@ -30,6 +30,17 @@ describe("the NFC surface follows capability", () => {
   });
 });
 
+describe("the automations surface follows promotional email capability", () => {
+  const promotional = { ...PROD, PUBLIC_BASE_URL: "https://app.example.test", MAILGUN_SEND_APPROVED: "true", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true",
+    MAILGUN_EU_DOMAIN: "mail.example.test", MAILGUN_FROM_EMAIL: "service@mail.example.test", MAILGUN_EU_API_KEY: "synthetic-key", MAILGUN_EU_WEBHOOK_SIGNING_KEY: "synthetic-signing-key",
+    PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.example.test", PROMOTIONAL_UNSUBSCRIBE_SECRET: "s".repeat(32), PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "100", PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24" };
+  it("appears on real production exactly when promotional email is configured; billing stays withheld", () => {
+    expect(hiddenSurfaces(promotional).sort()).toEqual(["billing", "cardLogo", "nfc", "walletPreviews"]);
+    expect(hiddenSurfaces({ ...promotional, MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" })).toContain("automations");
+    expect(hiddenSurfaces({ ...promotional, PROMOTIONAL_UNSUBSCRIBE_SECRET: "short" })).toContain("automations");
+  });
+});
+
 describe("Wallet surfaces follow capability", () => {
   it("appear on real production only once a Wallet provider can issue a pass", async () => {
     const { appleFixture } = await import("./wallet/test-support");

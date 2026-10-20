@@ -1,3 +1,4 @@
+import { mailgunConfig } from "./email-configuration";
 import { isProductionDeployment } from "./pilot-policy";
 import { nfcCapability } from "./nfc-keys";
 import { anyWalletAvailable } from "./wallet/capability";
@@ -8,7 +9,8 @@ import { anyWalletAvailable } from "./wallet/capability";
  * in the code base and stay available on development, preview and device-test processes.
  *
  * - billing: no approved price, no checkout and no invoicing.
- * - automations: production e-mail delivery is disabled, so rules could only be configured, never run to a result.
+ * - automations: follows CAPABILITY on real production: withheld while promotional e-mail is not configured (rules could
+ *   only be saved, never run to a result), shown automatically once it is (lib/email-configuration, "promotional").
  * - campaigns / audiences: NOT withheld. With production e-mail delivery disabled they are draft-only: the audience
  *   preview and campaign composer work, drafts are saved, and the schedule control does not exist while
  *   promotionalEmailMode() is "disabled" (the server also refuses scheduling with EMAIL_DISABLED and the dispatcher
@@ -23,13 +25,14 @@ import { anyWalletAvailable } from "./wallet/capability";
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
 export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations"];
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 
 export function hiddenSurfaces(env: SurfaceEnv = process.env): PilotSurface[] {
   const production = isProductionDeployment(env);
   const hidden: PilotSurface[] = production ? [...PILOT_HIDDEN_SURFACES] : [];
+  if (production && !mailgunConfig(env, "promotional")) hidden.push("automations");
   if (production && !anyWalletAvailable(env)) hidden.push("walletPreviews", "cardLogo");
   if (!nfcCapability(env).available) hidden.push("nfc");
   return hidden;

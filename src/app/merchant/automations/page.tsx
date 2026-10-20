@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { apiJson, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
+import { GuardedLink } from "@/components/owner/owner-shell";
 import { ErrorNotice, LoadingBlock, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,7 +12,7 @@ type Kind = "first_checkout" | "inactive" | "reward_ready";
 type Editor = { triggerKind: Kind; enabled: boolean; subject: string; body: string; inactivityDays?: number; cooldownDays: number; dailyCap: number };
 type Rule = Editor & { id: string; revision: number; nextScanAt: string | null };
 type Run = { id: string; ruleId: string; membershipId: string; cardLocator: string | null; triggerKey: string; status: string; reason: string | null; attempts: number; createdAt: string; sentAt: string | null };
-type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[] };
+type Data = { localOnly: boolean; deliveryMode: "disabled" | "mailpit" | "mailgun_eu"; rules: Rule[]; runs: Run[]; addressMissing: boolean };
 
 const defaults: Record<Kind, Editor> = {
   reward_ready: { triggerKind: "reward_ready", enabled: false, subject: "Deine Prämie wartet", body: "Auf deiner Karte ist eine Prämie einlösbar. Schau dir deine Karte an.", cooldownDays: 7, dailyCap: 20 },
@@ -34,14 +35,15 @@ export default function AutomationsPage() {
   return (
     <div className="ow-page">
       {head}
+      {d.addressMissing && <Notice tone="warn" actions={<GuardedLink className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/settings#anschrift">Anschrift eintragen</GuardedLink>}><strong>Es fehlen noch Angaben zu deinem Laden.</strong> Anschrift, wer ihn vertritt und ein Kontakt stehen als Absender unter jeder E-Mail. Danach kannst du Erinnerungen einschalten.</Notice>}
       {d.deliveryMode === "disabled"
         ? <Notice tone="warn"><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Regeln vorbereiten und speichern. Solange der Versand nicht freigegeben ist, wird keine Nachricht verschickt, auch nicht bei aktiver Regel.</Notice>
         : d.deliveryMode === "mailpit" ? <Notice>Lokaler Testkanal: Nachrichten gehen nur an synthetische .test-Adressen in Mailpit.</Notice> : null}
       <div className="ow-two">
         <div className="ow-stack">
-          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
-          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
-          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} onSaved={reload} />
+          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} locked={d.addressMissing} onSaved={reload} />
+          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} locked={d.addressMissing} onSaved={reload} />
+          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} locked={d.addressMissing} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
@@ -60,7 +62,7 @@ export default function AutomationsPage() {
   );
 }
 
-function RuleEditor({ title, description, initial, slug, onSaved }: { title: string; description: string; initial: Editor; slug: string; onSaved: () => void }) {
+function RuleEditor({ title, description, initial, slug, locked, onSaved }: { title: string; description: string; initial: Editor; slug: string; locked: boolean; onSaved: () => void }) {
   const pick = (e: Editor): Editor => ({ triggerKind: e.triggerKind, enabled: e.enabled, subject: e.subject, body: e.body, inactivityDays: e.inactivityDays, cooldownDays: e.cooldownDays, dailyCap: e.dailyCap });
   const [saved, setSaved] = useState<Editor>(pick(initial));
   const [editor, setEditor] = useState<Editor>(pick(initial));
@@ -93,7 +95,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cool`}>Mindestabstand in Tagen</label><input id={`${editor.triggerKind}-cool`} className="ow-input" type="number" value={editor.cooldownDays} min={7} max={365} required onChange={event => edit({ cooldownDays: Number(event.target.value) })} /></div>
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cap`}>Tageslimit je Regel</label><input id={`${editor.triggerKind}-cap`} className="ow-input" type="number" value={editor.dailyCap} min={1} max={20} required onChange={event => edit({ dailyCap: Number(event.target.value) })} /></div>
         </div>
-        <label className="ow-check"><input type="checkbox" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
+        <label className="ow-check"><input type="checkbox" checked={editor.enabled} disabled={locked && !editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
         <SaveBar asSubmit state={shown} onDiscard={() => { setEditor(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Regel gespeichert. Änderungen gelten nur für neue Ausführungen." : undefined} />
       </form>
     </section>
