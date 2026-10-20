@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { billingInvoices, billingLocationPlans, cardSecurityEvents, consentEvents, ledgerEntries, locations, memberships, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
@@ -11,12 +11,17 @@ function checked<T>(rows: T[], label: string) {
   return rows;
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function ownerTenantId(tx: Tx, actorUserId: string) {
+  const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
+  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  return owner.tenantId;
+}
+
 export async function getMerchantExport(actorUserId: string) {
   // Owner authorization and every exported category share one committed snapshot.
   return db.transaction(async (tx) => {
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
-    const tenantId = owner.tenantId;
+    const tenantId = await ownerTenantId(tx, actorUserId);
     const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows] = await Promise.all([
       tx.select().from(tenants).where(eq(tenants.id, tenantId)),
       tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
@@ -56,6 +61,63 @@ export async function getMerchantExport(actorUserId: string) {
       billingInvoices: checked(invoiceRows, "Billing fixture invoices"),
       cardSecurityEvents: checked(securityRows, "Card security events"),
     };
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+}
+
+// ENG-004: Excel-ready CSV for German shop owners (UTF-8 with BOM, semicolons, German dates in Europe/Berlin).
+export type MerchantCsvKind = "karten" | "buchungen";
+const berlinDate = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+const berlinTime = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const berlinIsoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" });
+const day = (at: Date | null) => at ? berlinDate.format(at) : "";
+
+/** A text cell. A leading = + - @, tab or carriage return (OWASP) gets an apostrophe so Excel never runs it as a formula; quotes wrap separators. */
+export function csvText(value: string | null | undefined) {
+  const text = value ?? "";
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return /[";\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+}
+const csv = (header: string[], rows: string[][]) => "﻿" + [header, ...rows].map(row => row.join(";")).join("\r\n") + "\r\n";
+
+/** Vorgang wording from Product's ENG-004 note (18 Oct). */
+export function ledgerVorgang(kind: string, source: string, programType: string) {
+  const unit = programType === "points" ? "Punkte" : "Stempel";
+  if (source === "synthetic_seed" || source === "legacy_unclassified") return "Sonstige Buchung";
+  if (kind === "redeem") return "Prämie eingelöst";
+  if (kind === "reversal") return "Korrektur";
+  if (source === "staff_online") return unit;
+  if (source === "staff_offline") return `${unit} (offline)`;
+  if (source === "nfc_tap") return `${unit} (NFC automatisch)`;
+  if (source === "referral_bonus") return "Empfehlungsbonus";
+  return "Sonstige Buchung";
+}
+
+/** Owner-only CSV of the owner's own tenant: card numbers (locators) only, never card tokens, scan codes or contact data. */
+export async function getMerchantCsv(actorUserId: string, kind: MerchantCsvKind) {
+  return db.transaction(async (tx) => {
+    const tenantId = await ownerTenantId(tx, actorUserId);
+    const filename = `loynara-${kind}-${berlinIsoDate.format(new Date())}.csv`;
+    if (kind === "karten") {
+      const rows = checked(await tx.select({ cardLocator: memberships.cardLocator, program: programs.name, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt })
+        .from(memberships).innerJoin(programs, and(eq(programs.tenantId, memberships.tenantId), eq(programs.id, memberships.programId)))
+        .where(eq(memberships.tenantId, tenantId)).orderBy(asc(memberships.createdAt), asc(memberships.id)).limit(MAX_ROWS + 1), "Memberships");
+      return { filename, body: csv(["Kartennummer", "Programm", "Aktueller Stand", "Ausgestellt am", "Geschlossen am"], rows.map(row => [csvText(formatCardLocator(row.cardLocator)), csvText(row.program), String(row.balance), day(row.createdAt), day(row.closedAt)])) };
+    }
+    const [rows, staff] = await Promise.all([
+      tx.select({ createdAt: ledgerEntries.createdAt, cardLocator: memberships.cardLocator, location: locations.name, kind: ledgerEntries.kind, source: ledgerEntries.source, programType: programs.type, delta: ledgerEntries.delta, reason: ledgerEntries.reason, actorUserId: ledgerEntries.actorUserId })
+        .from(ledgerEntries)
+        .innerJoin(memberships, and(eq(memberships.tenantId, ledgerEntries.tenantId), eq(memberships.id, ledgerEntries.membershipId)))
+        .innerJoin(programs, and(eq(programs.tenantId, memberships.tenantId), eq(programs.id, memberships.programId)))
+        .innerJoin(locations, and(eq(locations.tenantId, ledgerEntries.tenantId), eq(locations.id, ledgerEntries.locationId)))
+        .where(eq(ledgerEntries.tenantId, tenantId)).orderBy(asc(ledgerEntries.createdAt), asc(ledgerEntries.id)).limit(MAX_ROWS + 1),
+      // Name only, never email, and only for people with a role in this tenant; anyone else reads "unbekannt".
+      tx.execute<{ id: string; name: string }>(sql`SELECT u.id, u.name FROM "user" u JOIN staff_roles r ON r.user_id = u.id WHERE r.tenant_id = ${tenantId}`),
+    ]);
+    const names = new Map(staff.rows.map(row => [row.id, row.name.trim()]));
+    return { filename, body: csv(["Datum", "Uhrzeit", "Kartennummer", "Standort", "Vorgang", "Menge", "Grund", "Bestätigt von"], checked(rows, "Ledger").map(row => [
+      day(row.createdAt), berlinTime.format(row.createdAt), csvText(formatCardLocator(row.cardLocator)), csvText(row.location), ledgerVorgang(row.kind, row.source, row.programType), String(row.delta), csvText(row.reason),
+      csvText(row.source === "nfc_tap" ? "NFC automatisch" : (row.actorUserId && names.get(row.actorUserId)) || "unbekannt"),
+    ])) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
