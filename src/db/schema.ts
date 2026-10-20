@@ -348,7 +348,7 @@ export const plateLinkEvents = pgTable("plate_link_events", {
   createdAt: createdAt(),
 }, (t) => [
   index("plate_link_events_tag_time_idx").on(t.tagId, t.createdAt),
-  check("plate_link_action_valid", sql`(${t.action} = 'link' and ${t.oldProgramId} is null and ${t.newProgramId} is not null) or (${t.action} = 'relink' and ${t.oldProgramId} is not null and ${t.newProgramId} is not null) or (${t.action} = 'unlink' and ${t.oldProgramId} is not null and ${t.newProgramId} is null)`),
+  check("plate_link_action_valid", sql`(${t.action} = 'link' and ${t.oldProgramId} is null and ${t.newProgramId} is not null) or (${t.action} = 'relink' and ${t.oldProgramId} is not null and ${t.newProgramId} is not null) or (${t.action} = 'unlink' and ${t.oldProgramId} is not null and ${t.newProgramId} is null) or (${t.action} = 'revoke' and ${t.oldProgramId} is null and ${t.newProgramId} is null)`),
 ]);
 
 export const tapRequests = pgTable("tap_requests", {

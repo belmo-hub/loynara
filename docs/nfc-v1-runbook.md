@@ -101,6 +101,7 @@ A plate is a tag provisioned without a shop and linked to one later, on the serv
   - `npx tsx scripts/operator-plate.ts status --plate P-007 --target loynara-production --actor-user-id <operator id>`
   - `... link --plate P-007 --program-id <programme id> ...`: the shop must have NFC „Mit Bestätigung“ on. Linking a linked plate is a relink.
   - `... unlink --plate P-007 ...`
+  - `... revoke --plate P-007 ...`: only an unlinked plate (unlink a linked one first). Final: taps keep showing the unlinked page and no link brings the plate back.
 - **History:** every change is a row in `plate_link_events`, which is append-only. Awards, requests and cards stay with the shop they were made in. A request waiting at the old shop can no longer be confirmed once the plate has moved.
 - **Plate QR sticker:** `/p/P-007` redirects to the linked shop's join page, or shows the same "not linked" page. It has no signature, so it opens no tap request, like the counter QR.
 

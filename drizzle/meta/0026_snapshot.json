@@ -3138,7 +3138,7 @@
       "checkConstraints": {
         "plate_link_action_valid": {
           "name": "plate_link_action_valid",
-          "value": "(\"plate_link_events\".\"action\" = 'link' and \"plate_link_events\".\"old_program_id\" is null and \"plate_link_events\".\"new_program_id\" is not null) or (\"plate_link_events\".\"action\" = 'relink' and \"plate_link_events\".\"old_program_id\" is not null and \"plate_link_events\".\"new_program_id\" is not null) or (\"plate_link_events\".\"action\" = 'unlink' and \"plate_link_events\".\"old_program_id\" is not null and \"plate_link_events\".\"new_program_id\" is null)"
+          "value": "(\"plate_link_events\".\"action\" = 'link' and \"plate_link_events\".\"old_program_id\" is null and \"plate_link_events\".\"new_program_id\" is not null) or (\"plate_link_events\".\"action\" = 'relink' and \"plate_link_events\".\"old_program_id\" is not null and \"plate_link_events\".\"new_program_id\" is not null) or (\"plate_link_events\".\"action\" = 'unlink' and \"plate_link_events\".\"old_program_id\" is not null and \"plate_link_events\".\"new_program_id\" is null) or (\"plate_link_events\".\"action\" = 'revoke' and \"plate_link_events\".\"old_program_id\" is null and \"plate_link_events\".\"new_program_id\" is null)"
         }
       },
       "isRLSEnabled": false

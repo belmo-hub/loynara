@@ -7,7 +7,7 @@ import { DerivedTapKeyProvider, deriveTagKeys, parseMaster } from "./nfc-keys";
 import { sdmFor, tapUrl } from "./nfc-test-support";
 import { nfcFixture } from "./nfc-test-db";
 import { buildRegistrationBundle } from "./nfc-provision/production";
-import { plateJoinPath, plateStatus, setPlateLink } from "./plates";
+import { plateJoinPath, plateStatus, revokeUnlinkedPlate, setPlateLink } from "./plates";
 import { confirmTapRequest, processSecureTap, settleUnlinkedTap } from "./secure-tap";
 import { registerTag } from "../../scripts/nfc-register";
 import { GET as tapGet, POST as tapPost } from "@/app/api/tap/[ref]/route";
@@ -146,6 +146,39 @@ describe("plates v1", () => {
     ]);
     await expect(pool.query("UPDATE plate_link_events SET actor_user_id = 'x'")).rejects.toThrow(/append-only/);
     await expect(pool.query("DELETE FROM plate_link_events")).rejects.toThrow(/append-only/);
+  });
+
+  it("revokes an unlinked plate only for the operator, dry run first, audited; a tap on it then books nothing", async () => {
+    const f = await nfcFixture();
+    const p = await plate();
+    await p.register(operator, true);
+    const revoke = (actorUserId: string, execute: boolean, plateEnv = env) => revokeUnlinkedPlate({ actorUserId, env: plateEnv, plateLabel: "p-007", execute });
+    expect(await code(() => revoke(f.userId, true))).toBe("FORBIDDEN");
+    expect(await code(() => revoke(operator, true, {}))).toBe("FORBIDDEN");
+    expect(await revoke(operator, false)).toEqual({ result: "would_revoke", plateLabel: "P-007" });
+    expect((await db.select().from(secureTags))[0].status).toBe("unlinked");
+    expect(await db.select().from(plateLinkEvents)).toHaveLength(0);
+
+    expect(await revoke(operator, true)).toEqual({ result: "revoke", plateLabel: "P-007" });
+    expect(await revoke(operator, true)).toEqual({ result: "unchanged", plateLabel: "P-007" });
+    expect((await db.select().from(secureTags))[0]).toMatchObject({ status: "revoked", tenantId: null, programId: null });
+    const events = await db.select().from(plateLinkEvents);
+    expect(events.map(e => [e.action, e.actorUserId, e.oldProgramId, e.newProgramId])).toEqual([["revoke", operator, null, null]]);
+
+    expect(await settleUnlinkedTap(p.tap(4))).toBe(true);
+    expect(await code(() => processSecureTap({ ...p.tap(5), cardToken: f.member.cardToken }))).toBe("NOT_FOUND");
+    expect(await code(() => link("P-007", f.program.id))).toBe("PLATE_RETIRED");
+    expect(await db.select().from(tapRequests)).toHaveLength(0);
+    expect(await db.select().from(ledgerEntries)).toHaveLength(0);
+    expect(await plateJoinPath("P-007")).toBeNull();
+  });
+
+  it("does not revoke a linked plate directly", async () => {
+    const f = await nfcFixture();
+    await (await plate()).register(operator, true);
+    await link("P-007", f.program.id);
+    expect(await code(() => revokeUnlinkedPlate({ actorUserId: operator, env, plateLabel: "P-007", execute: true }))).toBe("PLATE_LINKED");
+    expect((await db.select().from(secureTags))[0].status).toBe("active");
   });
 
   it("the plate QR leads to the linked shop's join page, and nowhere while unlinked", async () => {

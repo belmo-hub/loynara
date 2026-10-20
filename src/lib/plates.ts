@@ -88,6 +88,26 @@ export async function setPlateLink(input: { actorUserId: string; env: Env; plate
   });
 }
 
+/**
+ * Retires an unlinked plate for good (lost, broken, or never to be used): taps keep verifying the chip and book nothing,
+ * and no link can bring it back. A linked plate is unlinked first. Dry run unless `execute`.
+ */
+export async function revokeUnlinkedPlate(input: { actorUserId: string; env: Env; plateLabel: string; execute: boolean }) {
+  const plateLabel = normalizePlateLabel(input.plateLabel);
+  return db.transaction(async tx => {
+    await assertPlateOperator(tx, input.actorUserId, input.env);
+    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel)).for("update");
+    if (!tag) throw new DomainError("NOT_FOUND", "Plate not found");
+    if (tag.status === "revoked" && !tag.programId) return { result: "unchanged" as const, plateLabel };
+    if (tag.status === "active") throw new DomainError("PLATE_LINKED", "Unlink the plate first");
+    if (tag.status !== "unlinked") throw new DomainError("PLATE_RETIRED", "This plate was revoked or replaced");
+    if (!input.execute) return { result: "would_revoke" as const, plateLabel };
+    await tx.update(secureTags).set({ status: "revoked", revokedAt: new Date() }).where(eq(secureTags.id, tag.id));
+    await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel, action: "revoke", actorUserId: input.actorUserId });
+    return { result: "revoke" as const, plateLabel };
+  });
+}
+
 /** Where the plate's QR sticker leads: the linked shop's public join page, or null while it is not linked. */
 export async function plateJoinPath(rawLabel: string): Promise<string | null> {
   let label: string;
