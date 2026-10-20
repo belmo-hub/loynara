@@ -60,6 +60,8 @@ export type MeResponse = {
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
+  /** Short plain-text news on the customer card; empty = hidden. */
+  cardNews?: string;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
@@ -97,6 +99,8 @@ export type CardResponse = {
   locale?: "de" | "fr";
   brandColor?: string;
   rulesText?: string;
+  /** The shop's news line; absent when the owner left it empty. */
+  news?: string;
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean }>;
 };
