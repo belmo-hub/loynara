@@ -16,7 +16,7 @@ type Job = OutboxJob;
 
 const leaseMinutes = 5;
 const maxAttempts = 5;
-const pollMilliseconds = 5000;
+const pollMilliseconds = 1000; // idle cost: two indexed UPDATEs per second on outbox_jobs (outbox_due_idx)
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let stopping = false;
