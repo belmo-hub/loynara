@@ -104,3 +104,28 @@ setInterval(()=>{},10);
     } finally { processParent.kill("SIGKILL"); }
   }, 10000);
 });
+describe("Wallet job timing line", () => {
+  const serial = "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  it("carries queue wait, child start and each PassFast call, and nothing else", async () => {
+    const { walletTimingLine } = await api();
+    const line = walletTimingLine({ queueWaitMs: 812.4, totalMs: 9050, outcome: "complete", timing: { childStartMs: 1400, tenantId: serial,
+      calls: [{ method: "get", status: 404, ms: 310, url: `https://api.passfa.st/functions/v1/manage-passes/serial/${serial}` },
+        { method: "POST", status: 201, ms: 2200, apiKey: "synthetic-key" }, { method: serial, status: "500", ms: -1 }] } });
+    expect(line.startsWith("Wallet job timing ")).toBe(true);
+    expect(JSON.parse(line.slice("Wallet job timing ".length))).toEqual({ outcome: "complete", queueWaitMs: 812, childStartMs: 1400, totalMs: 9050,
+      passfast: [{ method: "GET", status: 404, ms: 310 }, { method: "POST", status: 201, ms: 2200 }, { method: "OTHER", status: 0, ms: null }] });
+    expect(line).not.toMatch(/passfa\.st|synthetic-key|3f2b1c4d/);
+  });
+  it("still logs a line when the child sent no timing", async () => {
+    const { walletTimingLine } = await api();
+    expect(walletTimingLine({ totalMs: 5, outcome: "lease_lost" })).toBe(
+      'Wallet job timing {"outcome":"lease_lost","queueWaitMs":null,"childStartMs":null,"totalMs":5,"passfast":[]}');
+  });
+  it("passes the child's timing through the supervisor outcome", async () => {
+    const { superviseWalletJob } = await api();
+    const timed = path.join(directory, "timed.cjs");
+    writeFileSync(timed, `process.on('message', () => process.send({status:'complete',timing:{childStartMs:7,calls:[{method:'PATCH',status:200,ms:90}]}}));`);
+    const result = await superviseWalletJob({ job, entryPoint: timed, execArgv: [], deadline: Date.now() + 1500, cleanupReserveMs: 50, killGraceMs: 20, renew: async () => true });
+    expect(result).toEqual({ status: "complete", timing: { childStartMs: 7, calls: [{ method: "PATCH", status: 200, ms: 90 }] } });
+  });
+});
