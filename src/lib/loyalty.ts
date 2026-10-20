@@ -1,5 +1,5 @@
 import { manualAwardLimit, type StaffRole } from "./award-limits";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { automationRules, ledgerEntries, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
@@ -105,7 +105,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
-      if (existing.membershipId !== member.id || existing.kind !== "award") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      if (existing.membershipId !== member.id || existing.kind !== "award" || existing.source === "welcome_bonus") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
       const [purchase] = await tx.select().from(purchaseAwards).where(eq(purchaseAwards.ledgerEntryId, existing.id));
       if (purchase) {
         if (purchase.amountMinor !== input.purchaseAmountMinor || purchase.ruleVersionId !== input.ruleVersionId || purchase.pointsAwarded !== existing.delta || input.quantity !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
@@ -158,19 +158,41 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       if (!tenant || (tenant.currency !== "EUR" && tenant.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Unsupported currency for purchase points");
       await tx.insert(purchaseAwards).values({ ledgerEntryId: entry.id, tenantId: member.tenantId, ruleVersionId, amountMinor: input.purchaseAmountMinor!, currency: tenant.currency, appliedRate: program.pointsPerCurrencyUnit, pointsAwarded: quantity, rounding: "floor" });
     }
-    const balance = member.balance + quantity;
+    const staffConfirmed = entry.source === "staff_online" || entry.source === "staff_offline";
+    const welcomeBonus = staffConfirmed ? await bookWelcomeBonus(tx, { program, entry }) : 0;
+    const balance = member.balance + quantity + welcomeBonus;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await enqueueWalletRefresh(tx, member.tenantId, member.id);
-    const referral = (entry.source === "staff_online" || entry.source === "staff_offline") ? await qualifyReferralOnAward(tx, {
+    const referral = staffConfirmed ? await qualifyReferralOnAward(tx, {
       tenantId: member.tenantId, programId: program.id, locationId: input.locationId,
       referredMembershipId: member.id, awardEntryId: entry.id, actorUserId: input.userId,
     }) : { referredBonus: 0 };
-    if (entry.source === "staff_online" || entry.source === "staff_offline") {
+    if (staffConfirmed) {
       const [rule] = await tx.select({ id: automationRules.id, revision: automationRules.revision }).from(automationRules)
         .where(and(eq(automationRules.tenantId, member.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, "first_checkout"), eq(automationRules.enabled, true))).limit(1);
       if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
     }
     return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity };
+}
+
+// The welcome bonus ("Startbonus") is its own ledger row next to the card's first staff-confirmed award, keyed by that
+// award's id: the key makes it once per award and lets a correction of the award find and reverse it. Referral, retention
+// and analytics count only staff sources, so the bonus never counts as a purchase or visit.
+const welcomeBonusKey = (awardEntryId: string) => `welcome:${awardEntryId}`;
+
+async function bookWelcomeBonus(tx: Transaction, input: { program: typeof programs.$inferSelect; entry: typeof ledgerEntries.$inferSelect }): Promise<number> {
+  const { program, entry } = input;
+  if (program.welcomeBonus <= 0) return 0;
+  // The membership row is locked by the caller, so this "first award" check cannot race another booking for this card.
+  const [earlier] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
+    eq(ledgerEntries.tenantId, entry.tenantId), eq(ledgerEntries.membershipId, entry.membershipId), ne(ledgerEntries.id, entry.id),
+    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus"]))).limit(1);
+  if (earlier) return 0;
+  await tx.insert(ledgerEntries).values({
+    tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: program.welcomeBonus, kind: "award",
+    source: "welcome_bonus", actorUserId: entry.actorUserId, requestId: entry.requestId, idempotencyKey: welcomeBonusKey(entry.id), reason: "Startbonus",
+  });
+  return program.welcomeBonus;
 }
 
 export type RedeemInput = {
@@ -249,6 +271,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     const [original] = await tx.select().from(ledgerEntries).where(eq(ledgerEntries.id, input.entryId));
     if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Transaction not found at this location");
     if (original.source === "referral_bonus") throw new DomainError("REFERRAL_REVIEW_REQUIRED", "Referral bonuses are corrected through referral review");
+    if (original.source === "welcome_bonus") throw new DomainError("WELCOME_BONUS_WITH_AWARD", "The welcome bonus is corrected together with the card's first award");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
     const staff = await checkoutStaff(tx, original.tenantId, input.userId);
@@ -261,9 +284,12 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     }
     const [reversal] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.reversalOfId, original.id)));
     if (reversal) throw new DomainError("ALREADY_REVERSED", "Transaction was already corrected");
-    const balance = member.balance - original.delta;
+    // Correcting the card's first award takes its welcome bonus back in the same transaction.
+    const [bonus] = original.kind === "award" ? await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, welcomeBonusKey(original.id)), eq(ledgerEntries.source, "welcome_bonus"))) : [];
+    const balance = member.balance - original.delta - (bonus?.delta ?? 0);
     if (balance < 0) throw new DomainError("INSUFFICIENT_BALANCE", "Correction would make the balance negative");
     const [entry] = await tx.insert(ledgerEntries).values({ tenantId: original.tenantId, locationId: original.locationId, membershipId: member.id, delta: -original.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: input.idempotencyKey, reason, reversalOfId: original.id }).returning();
+    if (bonus) await tx.insert(ledgerEntries).values({ tenantId: bonus.tenantId, locationId: bonus.locationId, membershipId: member.id, delta: -bonus.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: `welcome-reversal:${original.id}`, reason, reversalOfId: bonus.id });
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await enqueueWalletRefresh(tx, original.tenantId, member.id);
     if (original.kind === "award" && (original.source === "staff_online" || original.source === "staff_offline")) {

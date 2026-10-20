@@ -7,6 +7,7 @@ import { Notice, Skeleton } from "./owner-ui";
 import { confirmSentence, earningSentence, unitName } from "./program-helpers";
 import { RewardsCard } from "./program-rewards";
 import { RuleCard } from "./program-rules";
+import { ProgramExtrasCard } from "./program-extras";
 import { TapPolicyCard } from "./tap-policy";
 import { useLoad } from "./use-load";
 
@@ -25,6 +26,7 @@ export function ProgramView({ me }: { me: MeResponse }) {
         <>
           <RuleCard me={me} program={data} onSaved={reloadProgram} />
           <RewardsCard me={me} program={data} onChanged={() => { reloadProgram(); }} />
+          <ProgramExtrasCard me={owner.me ?? me} />
           {!owner.hiddenSurfaces.includes("nfc") && <TapPolicyCard me={owner.me ?? me} />}
         </>
       ) : (
