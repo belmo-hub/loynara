@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { pool } from "@/db";
+import { eq } from "drizzle-orm";
+import { db, pool } from "@/db";
+import { ledgerEntries } from "@/db/schema";
+import { award, reverseEntry } from "./loyalty";
 import { createMerchant, enroll, getCard, getMerchantContext, updateProgramExtras } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
@@ -52,5 +55,51 @@ describe("news on the card", () => {
     await expect(updateProgramExtras({ actorUserId: manager, programId: merchant.programId, cardNews: "Vom Team" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, cardNews: "Nur bei uns" });
     expect((await getCard(otherCard.cardToken)).news).toBeUndefined();
+  });
+});
+
+describe("review link on the card", () => {
+  const REVIEW = "https://g.page/r/Synthetic123/review";
+  const visit = (userId: string, locationId: string, membershipId: string) => award({ userId, locationId, membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+  const ledgerCount = async (membershipId: string) => (await db.select({ id: ledgerEntries.id }).from(ledgerEntries).where(eq(ledgerEntries.membershipId, membershipId))).length;
+
+  it("is stored only as an https Google link, and empty clears it", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    await expect(updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: "https://evil.test/review" })).rejects.toMatchObject({ code: "INVALID_REVIEW_URL" });
+    await expect(updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: "http://g.page/r/x/review" })).rejects.toMatchObject({ code: "INVALID_REVIEW_URL" });
+    expect(await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: ` ${REVIEW} ` })).toMatchObject({ reviewUrl: REVIEW });
+    expect((await getMerchantContext(owner))?.reviewUrl).toBe(REVIEW);
+    const otherOwner = await user();
+    await shop(otherOwner, "Synthetic Other Café");
+    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, reviewUrl: REVIEW })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: "" })).toMatchObject({ reviewUrl: null });
+  });
+
+  it("appears from the third staff-confirmed visit; corrected visits and the welcome bonus do not count", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: REVIEW, welcomeBonus: 3 });
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await visit(owner, merchant.locationId, card.id);
+    const second = await visit(owner, merchant.locationId, card.id);
+    expect((await getCard(card.cardToken)).reviewUrl).toBeUndefined();
+    await reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: second.entryId, reason: "Versehentlich gebucht", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    await visit(owner, merchant.locationId, card.id);
+    expect((await getCard(card.cardToken)).reviewUrl).toBeUndefined();
+    await visit(owner, merchant.locationId, card.id);
+    expect((await getCard(card.cardToken)).reviewUrl).toBe(REVIEW);
+  });
+
+  it("never books anything: showing the link leaves balance and ledger unchanged", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: REVIEW });
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    for (let i = 0; i < 3; i++) await visit(owner, merchant.locationId, card.id);
+    const before = await ledgerCount(card.id);
+    const view = await getCard(card.cardToken);
+    expect(view).toMatchObject({ reviewUrl: REVIEW, balance: 3 });
+    expect(await ledgerCount(card.id)).toBe(before);
   });
 });

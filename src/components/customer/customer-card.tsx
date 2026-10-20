@@ -30,6 +30,8 @@ export type CustomerCardProps = {
   rulesText?: string;
   /** The shop's short news line, plain text; absent = no panel. */
   news?: string;
+  /** The shop's review link; a plain link, never tied to a reward. */
+  reviewUrl?: string;
   locale?: "de" | "fr";
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
@@ -53,7 +55,7 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, locale = "de", notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -105,6 +107,8 @@ export function CustomerCard(props: CustomerCardProps) {
         </button>)}
       </div>
     </section> : null}
+
+    {reviewUrl ? <p className={styles.links}><a href={reviewUrl} target="_blank" rel="noopener noreferrer">{t.review}</a></p> : null}
 
     {contactPanel}
 
