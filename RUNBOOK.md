@@ -1,5 +1,7 @@
 # LoopLocal runbook
 
+> Lifecycle/resilience update (15 October 2026): the owner reports web/worker at `680266d7d627bd781a8633f419e49275e6c27294` and PostgreSQL through 0024; this has not been independently inspected here. Policy `2026-10-15`, all five decisions, is approved for implementation and synthetic tests. This branch implements guarded complete erasure, full customer export, merchant closure, inactivity review and operational resilience through additive migrations 0025–0027, but is **undeployed and not authorized for production activation**. Actual legal/controller roles, accounting classification, custodians and the separately approved release remain gates. See [lifecycle runbook](docs/operations/DATA_LIFECYCLE_RUNBOOK.md), [production steps](docs/operations/PRODUCTION_STEPS.md), [validation](docs/operations/VALIDATION.md), [backup/restore](docs/operations/BACKUP_RESTORE.md) and [approved policy](docs/operations/RETENTION_POLICY_PROPOSAL.md). Older deployment checkpoints and lifecycle descriptions below are historical; the linked current procedures supersede them.
+
 ## Local startup
 
 Prerequisites: Node.js 26, npm, Docker with Compose, and free local ports 3000, 54329, 1026, and 8026. From this repository:
@@ -44,7 +46,7 @@ The current award ledger records actor, count, and time but has **no migration-s
 
 French staff reminder for this same local workflow: choisir le bon établissement, scanner le QR ou saisir le code, vérifier la carte et le solde, confirmer **un** tampon ou le montant d'achat, attendre la confirmation, puis choisir et confirmer la récompense en ligne. Faire rouvrir la carte pour vérifier le solde. This short reminder does not make the German merchant UI fully translated.
 
-An owner can review the last 50 invite, acceptance and revocation events under **Team → Zugriffsverlauf** and download the full tenant-scoped history in the merchant JSON export. The database rejects updates and deletes of these new audit rows. No earlier staff events were backfilled, invitation links are never logged in the audit, and the operator still needs an approved retention schedule.
+An owner can review the last 50 invite, acceptance and revocation events under **Team → Zugriffsverlauf** and download the full tenant-scoped history in the merchant JSON export. The database rejects updates and deletes of these new audit rows. No earlier staff events were backfilled, invitation links are never logged in the audit, and policy 2026-10-15 now defines retention; use the current lifecycle runbook before separately approving production activation.
 
 ### Offline award simulation (local browser only)
 

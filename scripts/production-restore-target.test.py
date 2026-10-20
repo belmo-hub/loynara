@@ -5,6 +5,9 @@ Creates and removes its own loopback-only cluster. No existing database, key,
 R2 credentials, encrypted object or decrypted production records are accessed.
 """
 import os
+import hashlib
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import socket
@@ -54,6 +57,9 @@ class RestoreTarget(unittest.TestCase):
         cls.identity = cls.root / 'placeholder-identity'
         cls.identity.write_text('NOT AN AGE IDENTITY; synthetic guard fixture only\n')
         cls.identity.chmod(0o600)
+        cls.holds = cls.root / 'current-holds.json'
+        cls.holds.write_text(json.dumps({'schema_version':1,'generated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),'holds':[]}))
+        cls.holds.chmod(0o600)
         cls.trace = cls.root / 'effects'
         # Only the initial emptiness query uses real PostgreSQL. Downstream schema
         # responses model a successful restore; no restore writes actually occur.
@@ -62,19 +68,60 @@ class RestoreTarget(unittest.TestCase):
   error) exit 7;; missing) exit 0;; ambiguous) printf '0\n1\n'; exit 0;;
 esac
 case "$*" in
+  *provision-retention-roles.sql*) exit 0;;
+  *-qAt*)
+    while IFS= read -r line; do
+      case "$line" in
+        'SHOW data_directory;') printf '%s\n' "$TEST_DATA_DIRECTORY";;
+        *"THEN 'ok' ELSE 'unsafe' END;"*) printf 'ok\n';;
+        *"SELECT public.loynara_prune_expired("*) printf '%s\n' '{"session":0}';;
+        '\echo '*) printf '%s\n' "${line#* }";;
+        '\q') exit 0;;
+      esac
+    done
+    exit 0;;
   *to_regclass*) printf 'ok\n';;
+  *string_agg*) printf '%s\n' "$TEST_MIGRATIONS";;
+  *"m.balance"*|*"NOT convalidated"*) printf '0\n';;
   *"SELECT 'tenants='"*) printf 'tenants=0, locations=0, memberships=0, ledger_entries=0, migrations=0\n';;
   *) exec "$REAL_PSQL" "$@";;
 esac''',
-            'aws': 'printf "transport\\n" >> "$TEST_TRACE"; printf "synthetic ciphertext" > "$6"',
-            'age': 'printf "decrypt\\n" >> "$TEST_TRACE"; printf "synthetic dump"',
+            'aws': r'''case "$*" in
+  *'--bucket synthetic-erasure'*'head-object'*|*'head-object'*'--bucket synthetic-erasure'*) printf '%s' '{"Metadata":{"namespace":"33333333-3333-4333-8333-333333333333","policy":"2026-10-15","purpose":"purge"}}';;
+  *'head-object'*'--bucket synthetic-closure'*) printf '%s' '{"Metadata":{"namespace":"44444444-4444-4444-8444-444444444444","policy":"2026-10-15","purpose":"closure"}}';;
+  *'list-objects-v2'*'--bucket synthetic-closure'*|*'list-objects-v2'*'--bucket synthetic-erasure'*) printf '%s' '{"Contents":[],"KeyCount":0,"IsTruncated":false}';;
+  *'s3://synthetic-closure/'*) while [ "$1" != s3 ]; do shift; done; printf '%s' '{"schema_version":1,"policy_version":"2026-10-15","namespace_id":"44444444-4444-4444-8444-444444444444","created_at":"2026-10-15T09:00:00Z"}' > "$4";;
+  *'s3://synthetic-erasure/'*) while [ "$1" != s3 ]; do shift; done; printf '%s' '{"schema_version":1,"policy_version":"2026-10-15","namespace_id":"33333333-3333-4333-8333-333333333333","created_at":"2026-10-15T09:00:00Z"}' > "$4";;
+  *) printf "transport\n" >> "$TEST_TRACE"; while [ "$1" != s3 ]; do shift; done; printf "synthetic ciphertext" > "$4";;
+esac''',
+            'age': r'''case "$*" in
+  *manifest.age*) for last in "$@"; do :; done; cat "$last";;
+  *) printf "decrypt\n" >> "$TEST_TRACE"; printf "synthetic dump";;
+esac''',
             'pg_restore': 'printf "restore\\n" >> "$TEST_TRACE"',
         }
         for tool, body in bodies.items():
             path = cls.bin / tool
             path.write_text('#!/bin/sh\nset -eu\n' + body + '\n')
             path.chmod(0o700)
-        cls.env = {**BASE, 'PATH': str(cls.bin) + os.pathsep + BASE['PATH'],
+        migration_root = SCRIPT.parent.parent / 'drizzle'
+        entries = json.loads((migration_root / 'meta/_journal.json').read_text())['entries']
+        migrations = ','.join(hashlib.sha256((migration_root / (entry['tag'] + '.sql')).read_bytes()).hexdigest() + ':' + str(entry['when']) for entry in entries)
+        cls.env = {**BASE, 'TEST_MIGRATIONS': migrations, 'TEST_DATA_DIRECTORY': str(cls.data),
+                   'ERASURE_EXPECTED_DATA_DIRECTORY': str(cls.data), 'RESTORE_CURRENT_HOLDS_FILE': str(cls.holds), 'ERASURE_POLICY_APPROVED': '2026-10-15',
+                   'ERASURE_S3_ENDPOINT': 'https://'+'0'*32+'.eu.r2.cloudflarestorage.com',
+                   'ERASURE_CLOSURE_S3_ENDPOINT':'https://'+'0'*32+'.eu.r2.cloudflarestorage.com',
+                   'ERASURE_CLOSURE_S3_BUCKET':'synthetic-closure','ERASURE_CLOSURE_S3_PREFIX':'closure-v1',
+                   'ERASURE_CLOSURE_NAMESPACE_ID':'44444444-4444-4444-8444-444444444444',
+                   'ERASURE_CLOSURE_AWS_ACCESS_KEY_ID':'synthetic-closure-access','ERASURE_CLOSURE_AWS_SECRET_ACCESS_KEY':'synthetic-closure-secret',
+                   'ERASURE_CLOSURE_AGE_IDENTITY_FILE':str(cls.identity),
+                   'ERASURE_S3_BUCKET': 'synthetic-erasure', 'ERASURE_S3_PREFIX': 'erasure-v1',
+                   'ERASURE_NAMESPACE_ID': '33333333-3333-4333-8333-333333333333',
+                   'ERASURE_AWS_ACCESS_KEY_ID': 'synthetic-erasure-access', 'ERASURE_AWS_SECRET_ACCESS_KEY': 'synthetic-erasure-secret',
+                   'ERASURE_AGE_IDENTITY_FILE': str(cls.identity),
+                   'RESTORE_ERASURE_CHECKPOINT_CONFIRMED': 'current-writers-paused', 'RESTORE_TRANSPORTS_CONFIRMED': 'disabled', 'RESTORE_LEGAL_HOLDS_CONFIRMED': 'current',
+                   'EXTERNAL_EMAIL_ENABLED': 'false', 'PROMOTIONAL_EXTERNAL_EMAIL_ENABLED': 'false',
+                   'TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED': 'false', 'GOOGLE_WALLET_ENABLED': 'false', 'APPLE_WALLET_ENABLED': 'false', 'PASSFAST_ENABLED': 'false', 'PATH': str(cls.bin) + os.pathsep + BASE['PATH'],
                    'TMPDIR': str(cls.root), 'REAL_PSQL': REAL['psql'], 'TEST_TRACE': str(cls.trace),
                    'RESTORE_TARGET_CONFIRMED': 'isolated', 'RESTORE_PGHOST': '127.0.0.1',
                    'RESTORE_PGPORT': cls.port, 'RESTORE_ALLOW_LOCAL_ISOLATED': 'true',
@@ -87,7 +134,7 @@ esac''',
 
     @classmethod
     def stop_cluster(cls):
-        result = run([REAL['pg_ctl'], '-D', str(cls.data), '-m', 'immediate', '-w', 'stop'])
+        result = run([REAL['pg_ctl'], '-D', str(cls.data), '-m', 'fast', '-w', 'stop'])
         if result.returncode:
             raise RuntimeError('Owned synthetic cluster cleanup failed')
 
@@ -102,7 +149,7 @@ esac''',
     def setUp(self):
         self.database = 'loynara_restore_127_' + uuid.uuid4().hex
         self.sql('postgres', 'CREATE DATABASE "' + self.database + '" TEMPLATE template0')
-        self.addCleanup(self.sql, 'postgres', 'DROP DATABASE "' + self.database + '" WITH (FORCE)')
+        self.addCleanup(self.sql, 'postgres', 'DROP DATABASE "' + self.database + '"')
         self.trace.unlink(missing_ok=True)
 
     def invoke(self, **overrides):
@@ -158,7 +205,7 @@ esac''',
                     self.reject_fixture(ddl)
                 finally:
                     # Reset only this owned synthetic database, including on RED.
-                    self.sql('postgres', 'DROP DATABASE "' + self.database + '" WITH (FORCE)')
+                    self.sql('postgres', 'DROP DATABASE "' + self.database + '"')
                     self.sql('postgres', 'CREATE DATABASE "' + self.database + '" TEMPLATE template0')
                     self.trace.unlink(missing_ok=True)
 
@@ -175,6 +222,29 @@ esac''',
             with self.subTest(metadata=metadata):
                 result = self.invoke(TEST_METADATA=metadata)
                 self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(self.trace.exists())
+
+    def test_missing_independent_erasure_checkpoint_or_enabled_transports_refuses(self):
+        for overrides in (
+            {'RESTORE_ERASURE_CHECKPOINT_CONFIRMED': ''},
+            {'RESTORE_TRANSPORTS_CONFIRMED': ''},
+            {'RESTORE_LEGAL_HOLDS_CONFIRMED': ''},
+            {'EXTERNAL_EMAIL_ENABLED': 'true'},
+            {'VAPID_PRIVATE_KEY': 'synthetic-private-push-key'},
+        ):
+            with self.subTest(overrides=overrides):
+                self.trace.unlink(missing_ok=True)
+                result = self.invoke(**overrides)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Restore refused:', result.stderr)
+                self.assertFalse(self.trace.exists())
+
+    def test_invalid_timeout_refuses_before_database_query(self):
+        for seconds in ('0', '1801', '08', 'invalid', '9' * 40):
+            with self.subTest(seconds=seconds):
+                result = self.invoke(RESTORE_TOOL_TIMEOUT_SECONDS=seconds, TEST_METADATA='error')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Restore refused: tool timeout', result.stderr)
                 self.assertFalse(self.trace.exists())
 
     def test_unsafe_target_identity_refuses_before_query(self):

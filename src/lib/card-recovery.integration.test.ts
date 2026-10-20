@@ -213,10 +213,12 @@ it.each(["recovery", "reissue"] as const)("keeps committed closure authoritative
     await gate.query("BEGIN"); await gate.query("LOCK TABLE outbox_jobs IN SHARE MODE");
     closure = closeCard(f.card.cardToken); void closure.catch(() => undefined);
     // Closure owns the membership lock; its ordinary outbox cleanup waits at this database barrier.
-    await waitForLock('update "outbox_jobs"');
+    await waitForLock("update outbox_jobs");
     attempt = kind === "recovery" ? completeCardRecovery(token, f.card.id) : reissue();
     void attempt.catch(() => undefined);
-    await waitForLock("memberships");
+    // The closure's outbox statement itself mentions memberships in a subquery.
+    // Observe the competing membership SELECT, not that unrelated waiting query.
+    await waitForLock('from "memberships"');
     await gate.query("COMMIT");
     expect(await closure).toMatchObject({ closed: true });
     await expect(attempt).rejects.toMatchObject({ code: kind === "recovery" ? "INVALID_RECOVERY" : "NOT_FOUND" });

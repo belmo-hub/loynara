@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { ZodError } from "zod";
 import { respondError } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
+import { recordOperationalEvent } from "../operational-signals";
 import { enforcePeerLimit, enforceRateLimit, InvalidIngressError, RateLimitError } from "@/lib/rate-limit";
 
 export const noStore = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } as const;
@@ -13,11 +14,12 @@ export function walletUnavailable() {
 
 /**
  * Customer-facing issuance errors. Domain errors (unknown card, rate limit, bad input) keep their usual mapping; a
- * provider, signing or network failure becomes one generic 502 and only the error class name is logged.
+ * provider, signing or network failure becomes one generic 502 and only a fixed diagnostic is logged.
  */
 export function walletIssueError(error: unknown) {
   if (error instanceof DomainError || error instanceof ZodError) return respondError(error);
-  console.error("Wallet issuance failed", error instanceof Error ? error.name : "unknown");
+  recordOperationalEvent("wallet_failure");
+  console.error("Wallet issuance failed");
   return Response.json({ error: "Wallet ist gerade nicht erreichbar. Bitte versuche es später erneut.", code: "WALLET_PROVIDER_ERROR" }, { status: 502, headers: noStore });
 }
 
@@ -68,6 +70,7 @@ export function appleServiceError(error: unknown) {
     if (error.code === "NOT_FOUND") return new Response(null, { status: 404 });
     return new Response(null, { status: 400 });
   }
-  console.error("Apple Wallet web service failed", error instanceof Error ? error.name : "unknown");
+  recordOperationalEvent("wallet_failure");
+  console.error("Apple Wallet web service failed");
   return new Response(null, { status: 500 });
 }

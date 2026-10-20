@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { emailDeliveries, emailProviderEvents, emailSuppressions } from "@/db/schema";
 import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalMessage } from "./email";
 import { mailgunConfig } from "./email-configuration";
+import { reserveExternalServiceCall } from "./service-budget";
 
 export type EmailMode = "disabled" | "mailpit" | "mailgun_eu";
 export type DeliveryState = "accepted" | "delivered" | "temporary_failure" | "permanent_failure" | "ambiguous";
@@ -58,6 +59,7 @@ export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch,
       body.set("h:List-Unsubscribe", `<${message.unsubscribeUrl}>`);
     }
     let response: Response;
+    await reserveExternalServiceCall("email", env);
     try {
       response = await http(`https://api.eu.mailgun.net/v3/${config.domain}/messages`, {
         method: "POST", headers: { Authorization: `Basic ${Buffer.from(`api:${config.apiKey}`).toString("base64")}` },

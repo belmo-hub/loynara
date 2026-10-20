@@ -42,7 +42,7 @@ describe("operations CLI heartbeat outcome", () => {
           if (!sql.includes('FROM outbox_jobs')) throw new Error('Unexpected query');
           record('queried');
           if (process.env.OPS_REHEARSAL_OUTCOME === 'query') fail();
-          return { rows: [{ failed: process.env.OPS_REHEARSAL_OUTCOME === 'unhealthy' ? '1' : '0', blocked: '0', overdue: '0', stalled: '0' }] };
+          return { rows: [{ failed: process.env.OPS_REHEARSAL_OUTCOME === 'unhealthy' ? 1 : 0, blocked: 0, overdue: 0, expiredLeases: 0, emailFailures: 0, errors: 0, rateLimited: 0, pushFailures: 0, walletFailures: 0, budgetWarnings: 0, overdueCards: 0, overdueTenants: 0, holdReviews: 0, remoteIncomplete: 0, unclassifiedTenants: 0 }] };
         };
         pg.Client.prototype.end = async function() { record('closed'); };
         globalThis.fetch = async function(input, options) {
@@ -118,7 +118,8 @@ describe("operations CLI heartbeat outcome", () => {
   it("retains nonsecret outbox counts and operator-review failure before monitor work", () => {
     const result = run("unhealthy");
     expect(result.status).toBe(1);
-    expect(result.output).toContain('Outbox requires operator review: {"failed":1,"blocked":0,"overdue":0,"stalled":0}');
+    expect(result.output).toContain('Operations require operator review: {"alerts":["failed_jobs"]');
+    expect(result.output).toContain('"failed":1');
     expect(result.output).not.toContain("check PASS");
   });
 

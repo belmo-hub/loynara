@@ -3,9 +3,15 @@ import { toNextJsHandler } from "better-auth/next-js";
 import { DomainError } from "@/lib/loyalty";
 import { enforcePeerLimit, enforceRateLimit, peerIdentity, RateLimitError, refundRateLimit } from "@/lib/rate-limit";
 import { respondError } from "@/lib/http";
+import { recordOperationalEvent } from "@/lib/operational-signals";
 import { queueSignInLockNotice } from "@/lib/sign-in-lock-notice";
 
 const handlers = toNextJsHandler(auth);
+function observe(response: Response) {
+  if (response.status === 429) recordOperationalEvent("rate_limit");
+  if (response.status >= 500) recordOperationalEvent("request_error");
+  return response;
+}
 // Failed password attempts per account, from any address. The per-address limits cannot stop guessing that is spread
 // over many addresses. Every attempt reserves a slot atomically before the password is checked, so parallel guesses
 // cannot all slip through; the slot is given back unless the password was wrong.
@@ -31,7 +37,7 @@ async function signInAccount(request: Request) {
 }
 
 export async function GET(request: Request) {
-  try { validateIngress(request); return await handlers.GET(request); }
+  try { validateIngress(request); return observe(await handlers.GET(request)); }
   catch (error) { return respondError(error); }
 }
 
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
     validateIngress(request);
     const path = new URL(request.url).pathname;
     if (path.endsWith("/sign-up/email")) await enforcePeerLimit(request, "auth_signup_peer", 15, 15 * 60);
-    if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
+    if (!path.endsWith("/sign-in/email")) return observe(await handlers.POST(request));
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };
     try { await enforceRateLimit(account); }
@@ -54,7 +60,7 @@ export async function POST(request: Request) {
     }
     let wrongPassword = false;
     try {
-      const response = await handlers.POST(request);
+      const response = observe(await handlers.POST(request));
       wrongPassword = response.status === 401;
       return response;
     } finally {

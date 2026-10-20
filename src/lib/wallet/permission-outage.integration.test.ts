@@ -72,7 +72,7 @@ it("keeps cashier earning authoritative across Google permission rejection and e
         expect((await pool.query("SELECT id FROM wallet_passes WHERE membership_id=$1", [foreign.member.id])).rows).toEqual([]);
         expect(JSON.stringify(log.mock.calls)).not.toContain("synthetic-provider-private-098");
         expect(JSON.stringify(log.mock.calls)).not.toContain(own.member.cardToken);
-        expect(log.mock.calls).toEqual([["Wallet issuance failed", "GoogleWalletError"]]);
+        expect(log.mock.calls).toEqual([["Wallet issuance failed"]]);
       });
     });
   } finally { google.cleanup(); }

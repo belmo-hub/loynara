@@ -59,7 +59,7 @@ async function fixture() {
 }
 beforeEach(async () => {
   for(const [key,value] of Object.entries({PASSFAST_ENABLED:"true",PASSFAST_API_KEY:"sk_live_synthetic_0123456789abcdef0123456789",PASSFAST_APP_ID:"11111111-1111-4111-8111-111111111111",PASSFAST_TEMPLATE_ID:"22222222-2222-4222-8222-222222222222"})) vi.stubEnv(key,value);
-  await pool.query('TRUNCATE tenants, "user", rate_limits, apple_devices CASCADE'); writeFileSync(callLog, ""); });
+  await pool.query('TRUNCATE tenants, "user", rate_limits, apple_devices, operational_counters CASCADE'); writeFileSync(callLog, ""); });
 afterEach(()=>vi.unstubAllEnvs());
 afterAll(async () => { await pool.end(); rmSync(dir, { recursive: true, force: true }); });
 
@@ -148,6 +148,7 @@ describe("actual combined worker process with fake HTTP only", () => {
       expect(new Set(attemptCalls.map(call => call.platform))).toEqual(new Set(["apple", "google"]));
     }
     expect(calls()).toHaveLength(10);
+    expect((await pool.query("SELECT sum(count)::int AS n FROM operational_counters WHERE event='wallet_failure'")).rows[0].n).toBe(5);
     const next = await enroll({ slug: f.merchant.programSlug, acceptedTerms: true });
     const job = (await pool.query("INSERT INTO outbox_jobs (tenant_id,kind,payload) VALUES ($1,'wallet.refresh',jsonb_build_object('membershipId',$2::text)) RETURNING id", [f.merchant.tenantId, next.id])).rows[0].id;
     runWorker(true);

@@ -1,4 +1,5 @@
 FROM postgres:18-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends age awscli openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends python3 age awscli openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY scripts/production-backup.sh /opt/loynara/production-backup.sh
+COPY scripts/erasure_manifest.py /opt/loynara/erasure_manifest.py
 ENTRYPOINT ["bash", "/opt/loynara/production-backup.sh"]

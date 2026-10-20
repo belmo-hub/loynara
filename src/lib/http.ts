@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { DomainError } from "@/lib/loyalty";
 import { ZodError } from "zod";
 import { InvalidIngressError, RateLimitError } from "./rate-limit";
+import { recordOperationalEvent } from "./operational-signals";
 
 export async function sessionUser(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -46,14 +47,17 @@ export async function jsonBody(request: Request, maxBytes = 3_100_000) {
 
 export function respondError(error: unknown) {
   if (error instanceof InvalidIngressError) {
+    recordOperationalEvent("request_error");
     return Response.json({ error: "Service unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
   if (error instanceof ZodError) return Response.json({ error: "Invalid input", issues: error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
   if (error instanceof DomainError) {
-    const status = error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" || error.code === "PLATE_UNLINKED" ? 404 : ["INSUFFICIENT_BALANCE", "KEY_REUSED", "ALREADY_ONBOARDED", "PLAN_MEMBER_LIMIT", "BILLING_STATE", "TAP_ALREADY_CONFIRMED", "CARD_EXISTS", "ACCOUNT_SWITCH_REQUIRED", "AUTHENTICATION_REQUIRED", "PUSH_DEVICE_IN_USE", "PROGRAMME_BUSY"].includes(error.code) ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
+    if (error.code === "CLOSURE_ARCHIVE_UNAVAILABLE") recordOperationalEvent("request_error");
+    const status = error.code === "CLOSURE_ARCHIVE_UNAVAILABLE" ? 503 : error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN" ? 403 : error.code === "NOT_FOUND" || error.code === "PLATE_UNLINKED" ? 404 : ["INSUFFICIENT_BALANCE", "KEY_REUSED", "ALREADY_ONBOARDED", "PLAN_MEMBER_LIMIT", "BILLING_STATE", "TAP_ALREADY_CONFIRMED", "CARD_EXISTS", "ACCOUNT_SWITCH_REQUIRED", "AUTHENTICATION_REQUIRED", "PUSH_DEVICE_IN_USE", "PROGRAMME_BUSY"].includes(error.code) ? 409 : error.code === "RATE_LIMIT" ? 429 : 400;
     const headers: HeadersInit | undefined = error instanceof RateLimitError ? { "Retry-After": String(error.retryAfterSeconds), "Cache-Control": "no-store" } : undefined;
     return Response.json({ error: error.message, code: error.code }, { status, headers });
   }
-  console.error("Request failed", error instanceof Error ? error.name : "unknown");
-  return Response.json({ error: "Internal error" }, { status: 500 });
+  recordOperationalEvent("request_error");
+  console.error("Request failed");
+  return Response.json({ error: "Internal error" }, { status: 500, headers: { "Cache-Control": "no-store" } });
 }

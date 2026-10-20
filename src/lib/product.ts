@@ -152,6 +152,9 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
   return db.transaction(async (tx) => {
     const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.slug), eq(programs.status, "active")));
     if (!program) throw new DomainError("NOT_FOUND", "Program not found");
+    // Serialize admission with whole-tenant closure before locking a plan or inserting a card.
+    const [tenant] = await tx.select({ closedAt: tenants.closedAt }).from(tenants).where(eq(tenants.id, program.tenantId)).for("share");
+    if (!tenant || tenant.closedAt) throw new DomainError("NOT_FOUND", "Program not found");
     const [availability] = await tx.select({ active: sql<boolean>`${programs.effectiveAt} <= now()` }).from(programs).where(eq(programs.id, program.id));
     if (!availability.active) throw new DomainError("NOT_AVAILABLE", "Program is not active yet");
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");

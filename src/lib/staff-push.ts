@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db, pool } from "@/db";
 import { outboxJobs } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { reserveExternalServiceCall, ServiceBudgetError } from "./service-budget";
+import { recordOperationalEvent } from "./operational-signals";
 import { markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "./outbox";
 
 /**
@@ -173,11 +175,14 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
     if (!validPushEndpoint(recipient.endpoint)) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
     const payload = JSON.stringify({ v: 1, kind: "tap_pending", locale: recipient.locale === "fr" ? "fr" : "de" });
     try {
+      await reserveExternalServiceCall("push");
       await send({ endpoint: recipient.endpoint, keys: { p256dh: recipient.p256dh, auth: recipient.auth } }, payload,
         { vapidDetails: details, TTL: Math.max(1, Math.min(PUSH_TTL_SECONDS, Math.floor((request.expires_at.getTime() - Date.now()) / 1000))), urgency: "high", topic: "loynara-tap", timeout: 5_000 });
       sent += 1;
       await pool.query("UPDATE staff_push_subscriptions SET failure_count = 0, last_success_at = now() WHERE id = $1", [recipient.id]);
     } catch (error) {
+      recordOperationalEvent("push_failure");
+      if (error instanceof ServiceBudgetError) return { status: "blocked", reason: "Push service budget unavailable", sent };
       const status = error instanceof WebPushError ? error.statusCode : 0;
       if (status === 404 || status === 410) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
       // Only definitive refusals of this device count towards dropping it; an outage or rate limit at the push service
@@ -208,8 +213,9 @@ export async function dispatchTapPushNow(jobId: string, deps: { send?: Sender; e
     const ownedJob = job;
     const outcome = await deliverTapPush(job, { ...deps, renew: () => renewOutboxJob(pool, ownedJob, 0.5) });
     await markOutboxJob(pool, job, outcome.status, outcome.reason, outcome.delaySeconds ?? 0);
-  } catch (error) {
-    console.error(`Immediate NFC push failed (${error instanceof Error ? error.name : "error"}); the worker retries it`);
+  } catch {
+    recordOperationalEvent("push_failure");
+    console.error("Immediate NFC push failed; the worker retries it");
     // Give a still-owned claim back for a prompt retry; process death is covered by the short lease.
     if (job) await markOutboxJob(pool, job, "retry", "Immediate send failed", RETRY_DELAY_SECONDS).catch(() => undefined);
   }

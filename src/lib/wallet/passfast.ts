@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
 import { walletText } from "./content";
 import type { WalletPassData, WalletProvider, WalletStatus } from "./types";
+import { reserveExternalServiceCall } from "../service-budget";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BASE = "https://api.passfa.st/functions/v1";
@@ -169,6 +170,7 @@ export class PassFastClient {
     return `/manage-passes/serial/${serial}${suffix}?wallet_type=${platform}`;
   }
   private async request(path: string, method = "GET", body?: unknown): Promise<Response> {
+    await reserveExternalServiceCall("wallet");
     const remaining = Math.min(PASSFAST_REQUEST_MS, this.deadline - Date.now());
     if (remaining <= 0) throw new PassFastError();
     const controller = new AbortController();

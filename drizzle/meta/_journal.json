@@ -190,6 +190,27 @@
       "when": 1792504289173,
       "tag": "0026_plates",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792700000000,
+      "tag": "0029_operational_resilience",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792700001000,
+      "tag": "0030_customer_export",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792700002000,
+      "tag": "0031_data_retention",
+      "breakpoints": true
     }
   ]
 }

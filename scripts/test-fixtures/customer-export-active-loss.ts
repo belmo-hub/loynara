@@ -2,12 +2,13 @@ import { Client } from "pg";
 import { pool } from "../../src/db";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "../../src/lib/disposable-test-database";
 import { GET } from "../../src/app/api/card/[token]/export/route";
+import { assertOwnedTestDatabase, assertTestDatabaseUrl } from "../test-database-guard";
 
 void (async () => {
-  const url = new URL(process.env.DATABASE_URL ?? "http://invalid");
+  assertTestDatabaseUrl();
   const token = process.env.TEST_EXPORT_CARD_TOKEN;
   assertLocalTestDatabaseUrl();
-  if (url.username !== "looplocal" || process.env.PG_POOL_MAX !== "1" || !token) throw new Error("Synthetic export process required");
+  if (process.env.PG_POOL_MAX !== "1" || !token) throw new Error("Synthetic export process required");
   const control = new Client({ connectionString: process.env.DATABASE_URL });
   await control.connect();
   const original = Client.prototype.query;
@@ -19,6 +20,7 @@ void (async () => {
   let rollbackRejected = false;
   const request = (bearer: string) => GET(new Request("http://localhost:3000/api/card/synthetic/export"), { params: Promise.resolve({ token: bearer }) });
   try {
+    await assertOwnedTestDatabase(control);
     // This fixture ends a database connection: only on a database the test setup marked as disposable.
     await assertDisposableDatabase(control);
     const before = await request(token);

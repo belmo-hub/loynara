@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
+import { assertOwnedTestDatabase, assertTestDatabaseUrl } from "../../scripts/test-database-guard";
 import { pool } from "@/db";
 import { auth } from "./auth";
 import { POST as onboardRoute } from "@/app/api/merchant/onboard/route";
@@ -27,12 +28,14 @@ import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposab
 // This suite catches missing tenant predicates, lost accounting/consent side effects,
 // auth bypass, duplicate credit and recovery that replaces rather than restores a member.
 // External delivery and physical NFC acceptance are outside this local contract.
+assertTestDatabaseUrl();
 assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
 const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "MAILGUN_PROMOTIONAL_SEND_APPROVED"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 beforeAll(async () => {
   Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true", SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false", MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" });
+  await assertOwnedTestDatabase(pool);
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
 });
