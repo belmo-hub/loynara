@@ -71,10 +71,10 @@ const berlinTime = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin",
 const berlinIsoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" });
 const day = (at: Date | null) => at ? berlinDate.format(at) : "";
 
-/** A text cell. A leading = + - @ gets an apostrophe so Excel never runs it as a formula; quotes wrap separators. */
+/** A text cell. A leading = + - @, tab or carriage return (OWASP) gets an apostrophe so Excel never runs it as a formula; quotes wrap separators. */
 export function csvText(value: string | null | undefined) {
   const text = value ?? "";
-  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   return /[";\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 }
 const csv = (header: string[], rows: string[][]) => "﻿" + [header, ...rows].map(row => row.join(";")).join("\r\n") + "\r\n";

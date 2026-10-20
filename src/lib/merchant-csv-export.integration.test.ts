@@ -16,7 +16,8 @@ const lines = (body: string) => body.replace(/^﻿/, "").trimEnd().split("\r\n")
 const key = () => ({ idempotencyKey: randomUUID(), requestId: randomUUID() });
 
 it("neutralises formulas in text cells only and quotes separators", () => {
-  for (const evil of ["=HYPERLINK(\"x\")", "+1", "-2", "@SUM(A1)"]) expect(csvText(evil).replace(/^"/, "").startsWith("'")).toBe(true);
+  for (const evil of ["=HYPERLINK(\"x\")", "+1", "-2", "@SUM(A1)", "\t=1+1", "\r=1+1"]) expect(csvText(evil).replace(/^"/, "").startsWith("'")).toBe(true);
+  expect(csvText("\t=1+1")).toBe("'\t=1+1"); expect(csvText("\r=1+1")).toBe("\"'\r=1+1\"");
   expect(csvText("=1;2")).toBe("\"'=1;2\"");
   expect(csvText("Sagt \"Hallo\"")).toBe("\"Sagt \"\"Hallo\"\"\"");
   expect(csvText("a\nb")).toBe("\"a\nb\"");
