@@ -8,6 +8,8 @@ export type OutboxJob = {
   attempts: number;
   /** Present on durable claims; absent legacy/unclaimed jobs cannot authorize an outcome. */
   claimToken?: string;
+  /** Milliseconds between the job becoming due and this claim (timing log only). */
+  queueWaitMs?: number;
 };
 export type OutboxStatus = "complete" | "blocked" | "retry" | "failed" | "suppressed";
 
@@ -34,7 +36,7 @@ export async function claimOutboxJob(pool: Pick<Pool, "query">, { maxAttempts, l
   );
   const result = await pool.query<OutboxJob>(`
     WITH candidate AS (
-      SELECT id FROM outbox_jobs
+      SELECT id, next_attempt_at FROM outbox_jobs
       WHERE next_attempt_at <= now() AND attempts < ${Number(maxAttempts)}
         AND (status IN ('pending', 'retry') OR status = 'processing')
       ORDER BY created_at, id
@@ -46,7 +48,8 @@ export async function claimOutboxJob(pool: Pick<Pool, "query">, { maxAttempts, l
         next_attempt_at = now() + CASE WHEN job.kind = 'push.tap_pending' THEN interval '30 seconds' ELSE interval '${Number(leaseMinutes)} minutes' END, last_error = NULL
     FROM candidate
     WHERE job.id = candidate.id
-    RETURNING job.id, job.tenant_id AS "tenantId", job.kind, job.payload, job.attempts, job.claim_token AS "claimToken"
+    RETURNING job.id, job.tenant_id AS "tenantId", job.kind, job.payload, job.attempts, job.claim_token AS "claimToken",
+      floor(extract(epoch FROM now() - candidate.next_attempt_at) * 1000)::float8 AS "queueWaitMs"
   `);
   return result.rows[0] ?? null;
 }

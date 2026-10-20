@@ -4,7 +4,7 @@ import { walletText } from "./content";
 import type { WalletPassData, WalletProvider, WalletStatus } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const BASE = "https://api.passfa.st/functions/v1";
+export const PASSFAST_BASE = "https://api.passfa.st/functions/v1";
 const PREFIX = "passfast:";
 export type PassFastConfig = { apiKey: string; appId: string; templateId: string; platforms: WalletProvider[]; tenantId?: string; locationId?: string };
 export class PassFastError extends Error {
@@ -175,7 +175,7 @@ export class PassFastClient {
     const timer = setTimeout(() => controller.abort(), remaining);
     timer.unref();
     try {
-      const response = await abortable(this.fetcher(BASE + path, { method, redirect: "error", cache: "no-store", signal: controller.signal,
+      const response = await abortable(this.fetcher(PASSFAST_BASE + path, { method, redirect: "error", cache: "no-store", signal: controller.signal,
         headers: { Authorization: `Bearer ${this.config.apiKey}`, "X-App-Id": this.config.appId, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), controller.signal);
       // The same timeout covers headers AND the entire bounded body, including a stalled stream.

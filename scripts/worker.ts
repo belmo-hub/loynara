@@ -10,7 +10,7 @@ import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 import { boundedWorkerDatabase } from "./worker-database";
 import { startWorkerMonitor } from "./worker-monitor";
-import { superviseWalletJob, walletJobLifetimeMs } from "./worker-supervisor";
+import { superviseWalletJob, walletJobLifetimeMs, walletTimingLine } from "./worker-supervisor";
 
 type Job = OutboxJob;
 
@@ -178,6 +178,7 @@ async function processJob(job: Job, claimedAt: number) {
   const outcome = await superviseWalletJob({ job, deadline, signal: shutdown.signal,
     renew: () => renewOutboxJob(walletDatabase, job, leaseMinutes),
   });
+  console.log(walletTimingLine({ queueWaitMs: job.queueWaitMs, totalMs: Date.now() - claimedAt, outcome: outcome.status, timing: outcome.timing }));
   if (outcome.status === "lease_lost") {
     // An unknown renewal result also loses local ownership. Reconciliation belongs to a later durable claim.
     stop();

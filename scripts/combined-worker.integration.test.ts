@@ -41,6 +41,7 @@ const runWorker = (enabled: boolean) => {
   expect(result.status, result.stdout + result.stderr).toBe(0);
   expect(result.stdout).toContain("Worker examined");
   expect(result.stdout + result.stderr).not.toContain("sk_live_");
+  return result.stdout;
 };
 const calls = () => readFileSync(callLog, "utf8").trim().split("\n").filter(Boolean).map(line => JSON.parse(line));
 async function fixture() {
@@ -91,9 +92,14 @@ describe("actual combined worker process with fake HTTP only", () => {
       expect(job).toEqual({status:"retry",attempts:1});
       expect((await pool.query("SELECT status FROM wallet_passes WHERE membership_id=$1 AND provider='apple'", [f.member.id])).rows[0].status).toBe("creating");
       await pool.query("UPDATE outbox_jobs SET next_attempt_at=now() WHERE id=$1", [f.job]);
-      runWorker(true);
+      const stdout = runWorker(true);
       expect((await pool.query("SELECT status,attempts FROM outbox_jobs WHERE id=$1", [f.job])).rows[0]).toEqual({status:"retry",attempts:2});
       expect(new Set(calls().map(call=>call.path)).size).toBe(1);
+      // ENG-020: one timing line per Wallet job with the real child's PassFast calls, and no identifiers.
+      const timing = stdout.split("\n").filter(line => line.startsWith("Wallet job timing "));
+      expect(timing, stdout).toHaveLength(1);
+      expect(timing[0]).toMatch(/^Wallet job timing \{"outcome":"retry","queueWaitMs":\d+,"childStartMs":\d+,"totalMs":\d+,"passfast":\[\{"method":"[A-Z]+","status":503,"ms":\d+\}/);
+      expect(timing[0]).not.toMatch(new RegExp(`passfa\\.st|${f.member.id}|${f.merchant.tenantId}|${f.job}`));
     } finally { child.kill("SIGKILL"); }
   }, 15000);
 
