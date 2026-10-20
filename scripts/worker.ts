@@ -21,6 +21,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 let stopping = false;
 let recoveryPrunedAt = 0;
+let weeklyReportsCheckedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -86,6 +87,20 @@ async function processJob(job: Job, claimedAt: number) {
     } catch (error) {
       const marked = await mark(job, "blocked", "Sign-in lock notice outcome uncertain; operator review required");
       console.error(`Sign-in lock notice job ${job.id} blocked (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
+  if (job.kind === "email.weekly_report") {
+    try {
+      const { deliverWeeklyOwnerReport } = await import("../src/lib/weekly-owner-report");
+      const result = await deliverWeeklyOwnerReport(job);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
+      const marked = await mark(job, permanent ? "failed" : "retry", "Weekly report failed", permanent ? 0 : delay);
+      console.error(`Weekly report job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return marked;
     }
   }
@@ -235,6 +250,16 @@ async function main() {
           const { pruneRevokedAppleRegistrations } = await import("../src/lib/wallet/refresh");
           await pruneRevokedAppleRegistrations(housekeepingDatabase);
           recoveryPrunedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - weeklyReportsCheckedAt >= 5 * 60_000) {
+        try {
+          const { queueWeeklyOwnerReports } = await import("../src/lib/weekly-owner-report");
+          await queueWeeklyOwnerReports(housekeepingDatabase);
+          weeklyReportsCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;
