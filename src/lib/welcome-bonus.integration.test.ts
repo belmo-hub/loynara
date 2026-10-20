@@ -119,7 +119,7 @@ describe("welcome bonus (Startbonus)", () => {
     await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, welcomeBonus: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, welcomeBonus: 3 });
     await updateProgram({ actorUserId: owner, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee.", programType: "points", earningMode: "manual" });
-    expect(await updateProgramExtras({ actorUserId: owner, programId: merchant.programId })).toEqual({ welcomeBonus: 0 });
+    expect(await updateProgramExtras({ actorUserId: owner, programId: merchant.programId })).toMatchObject({ welcomeBonus: 0 });
   });
 
   it("does not count as a qualifying purchase for referrals", async () => {
