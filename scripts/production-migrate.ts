@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { Client } from "pg";
 import { databaseFailureDiagnostic } from "./operational-error";
-import { productionMigrationIssues } from "./production-migrate-config";
+import { productionMigrationIssues, skippedMigrations } from "./production-migrate-config";
 
 // Internally generated refusal text contains only static instructions and no connection values.
 class MigrationRefusal extends Error {}
@@ -31,6 +31,8 @@ async function main() {
       if (names.size !== 0) throw new MigrationRefusal("Nonempty database without auth schema; inspect before migration");
       await client.query(readFileSync(path.resolve("drizzle/auth.sql"), "utf8"));
     }
+    const skipped = await skippedMigrations(client);
+    if (skipped.length) throw new MigrationRefusal(`Production migration refused: unapplied journal entries older than the newest applied migration would be skipped: ${skipped.join(", ")}. Renumber them after the newest applied entry with a newer "when"; no operation performed`);
     const child = spawn(path.resolve("node_modules/.bin/drizzle-kit"), ["migrate"], {
       // Database drivers may include connection details in failure output.
       stdio: "ignore",
