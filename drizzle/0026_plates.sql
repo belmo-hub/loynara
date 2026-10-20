@@ -11,7 +11,7 @@ CREATE TABLE "plate_link_events" (
 	"new_location_id" uuid,
 	"new_program_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "plate_link_action_valid" CHECK (("plate_link_events"."action" = 'link' and "plate_link_events"."old_program_id" is null and "plate_link_events"."new_program_id" is not null) or ("plate_link_events"."action" = 'relink' and "plate_link_events"."old_program_id" is not null and "plate_link_events"."new_program_id" is not null) or ("plate_link_events"."action" = 'unlink' and "plate_link_events"."old_program_id" is not null and "plate_link_events"."new_program_id" is null))
+	CONSTRAINT "plate_link_action_valid" CHECK (("plate_link_events"."action" = 'link' and "plate_link_events"."old_program_id" is null and "plate_link_events"."new_program_id" is not null) or ("plate_link_events"."action" = 'relink' and "plate_link_events"."old_program_id" is not null and "plate_link_events"."new_program_id" is not null) or ("plate_link_events"."action" = 'unlink' and "plate_link_events"."old_program_id" is not null and "plate_link_events"."new_program_id" is null) or ("plate_link_events"."action" = 'revoke' and "plate_link_events"."old_program_id" is null and "plate_link_events"."new_program_id" is null))
 );
 --> statement-breakpoint
 ALTER TABLE "secure_tags" DROP CONSTRAINT "secure_tag_status_valid";--> statement-breakpoint
