@@ -4,10 +4,10 @@ import { useState } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
-import { CARD_NEWS_MAX, cardNewsProblem } from "@/lib/card-extras";
+import { CARD_NEWS_MAX, cardNewsProblem, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
 
-type Draft = { welcomeBonus: string; cardNews: string };
-const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "" });
+type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string };
+const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "", reviewUrl: me.reviewUrl ?? "" });
 const NEWS_PROBLEM = { TOO_LONG: `Höchstens ${CARD_NEWS_MAX} Zeichen.`, LINK: "Bitte ohne Links oder Webadressen.", CONTROL: "Bitte in einer Zeile, ohne Zeilenumbruch." };
 
 /** Programme extras the owner sets outside the versioned earning rule. The server checks every value again. */
@@ -22,7 +22,8 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
   const bonus = Number(draft.welcomeBonus);
   const bonusValid = /^\d+$/.test(draft.welcomeBonus) && bonus <= maxBonus;
   const newsProblem = cardNewsProblem(draft.cardNews.trim());
-  const changed = draft.welcomeBonus !== saved.welcomeBonus || draft.cardNews !== saved.cardNews;
+  const reviewValid = draft.reviewUrl.trim() === "" || reviewUrlValid(draft.reviewUrl.trim());
+  const changed = draft.welcomeBonus !== saved.welcomeBonus || draft.cardNews !== saved.cardNews || draft.reviewUrl !== saved.reviewUrl;
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("program-extras", changed);
 
@@ -32,8 +33,8 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
     if (!me.programId) return;
     setState("saving"); setError("");
     try {
-      await postJson("/api/merchant/program/extras", { programId: me.programId, welcomeBonus: bonus, cardNews: draft.cardNews.trim() });
-      const next = { ...draft, cardNews: draft.cardNews.trim() };
+      await postJson("/api/merchant/program/extras", { programId: me.programId, welcomeBonus: bonus, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim() });
+      const next = { ...draft, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim() };
       setSaved(next); setDraft(next); setState("saved"); void owner.refresh();
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
   }
@@ -51,7 +52,12 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         <input id="extras-news" className="ow-input" value={draft.cardNews} maxLength={CARD_NEWS_MAX} placeholder="z. B. Ab Montag neue Öffnungszeiten: 8 bis 18 Uhr." onChange={event => edit({ cardNews: event.target.value })} aria-invalid={Boolean(newsProblem)} aria-describedby="extras-news-hint" />
         <span id="extras-news-hint" className={newsProblem ? "ow-error" : "ow-hint"}>{newsProblem ? NEWS_PROBLEM[newsProblem] : `Nur Text, keine Links, bis ${CARD_NEWS_MAX} Zeichen (${Array.from(draft.cardNews).length}/${CARD_NEWS_MAX}). Leer = nicht angezeigt.`}</span>
       </div>
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <div className="ow-field">
+        <label htmlFor="extras-review">Google-Bewertungslink</label>
+        <input id="extras-review" className="ow-input" type="url" inputMode="url" value={draft.reviewUrl} maxLength={REVIEW_URL_MAX} placeholder="https://g.page/r/…/review" onChange={event => edit({ reviewUrl: event.target.value })} aria-invalid={!reviewValid} aria-describedby="extras-review-hint" />
+        <span id="extras-review-hint" className={reviewValid ? "ow-hint" : "ow-error"}>{reviewValid ? "Ab dem dritten bestätigten Besuch zeigt die Karte einen Link zur Bewertung, ohne Prämie. Leer = kein Link." : "Bitte einen https-Link von g.page, google.com/maps oder search.google.com/local/writereview."}</span>
+      </div>
+      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }

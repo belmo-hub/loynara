@@ -27,7 +27,7 @@ const de = {
   linkWarning: "Wer den Kartenlink hat, kann die Karte öffnen. Gib ihn nicht weiter.",
   copyLink: "Kartenlink kopieren", copied: "Kartenlink kopiert.", copyFailed: "Kopieren nicht möglich. Speichere diese Seite über deinen Browser.",
   activity: "Letzte Aktivität", activityEmpty: "Noch keine Buchungen. Deine Besuche erscheinen hier, sobald die Kasse sie bestätigt.",
-  rules: "Programmregeln", news: "Neuigkeiten", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
+  rules: "Programmregeln", news: "Neuigkeiten", review: "Hat es dir gefallen? Hinterlass uns eine Bewertung.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
   closeCard: "Karte schließen", confirmClose: "Schließung verbindlich bestätigen", closing: "Wird geschlossen …",
   closeMessage: (wallet: boolean): string => wallet
     ? "Exportiere deine Kartendaten zuerst. Danach funktionieren dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte nicht mehr; das Guthaben ist nicht mehr nutzbar. Kontakt- und Wiederherstellungsdaten werden entfernt. Buchungen und Einlösungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."
@@ -64,7 +64,7 @@ const fr: Copy = {
   linkWarning: "Toute personne qui possède le lien de la carte peut l’ouvrir. Ne le partagez pas.",
   copyLink: "Copier le lien de la carte", copied: "Lien privé copié.", copyFailed: "Copie impossible. Enregistrez cette page avec votre navigateur.",
   activity: "Activité récente", activityEmpty: "Aucune opération pour le moment. Vos visites apparaîtront ici après confirmation en caisse.",
-  rules: "Règles du programme", news: "Actualités", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",
+  rules: "Règles du programme", news: "Actualités", review: "Ça vous a plu ? Laissez-nous un avis.", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",
   closeCard: "Fermer ma carte", confirmClose: "Confirmer la fermeture définitive", closing: "Fermeture …",
   closeMessage: (wallet) => wallet
     ? "Exportez d’abord les données de votre carte. Après fermeture, ce lien, le QR code et une carte enregistrée dans Wallet ne fonctionneront plus ; le solde ne sera plus utilisable. Les données de contact et de récupération sont supprimées. Les opérations restent provisoirement enregistrées sous un identifiant de carte pseudonyme, jusqu’à la définition d’une règle de conservation vérifiée."

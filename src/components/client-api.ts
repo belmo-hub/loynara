@@ -62,6 +62,8 @@ export type MeResponse = {
   welcomeBonus?: number;
   /** Short plain-text news on the customer card; empty = hidden. */
   cardNews?: string;
+  /** The shop's Google review link, or null. */
+  reviewUrl?: string | null;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
@@ -101,6 +103,8 @@ export type CardResponse = {
   rulesText?: string;
   /** The shop's news line; absent when the owner left it empty. */
   news?: string;
+  /** Present only after the card's third staff-confirmed visit and when the shop stored a link. */
+  reviewUrl?: string;
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean }>;
 };

@@ -17,3 +17,13 @@ describe("card news", () => {
     expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("customer-news-title");
   });
 });
+
+describe("review link", () => {
+  it("is a plain link with the agreed text, opened without a referrer", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, reviewUrl: "https://g.page/r/Synthetic123/review" }));
+    expect(out).toContain('<a href="https://g.page/r/Synthetic123/review" target="_blank" rel="noopener noreferrer">Hat es dir gefallen? Hinterlass uns eine Bewertung.</a>');
+  });
+  it("is absent without a link", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("Bewertung");
+  });
+});
