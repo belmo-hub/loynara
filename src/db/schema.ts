@@ -26,6 +26,8 @@ export const tenants = pgTable("tenants", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   currency: varchar("currency", { length: 3 }).notNull().default("EUR"),
   locale: varchar("locale", { length: 5 }).notNull().default("de"),
+  /** Monday report email to the owners (lib/weekly-owner-report). On unless an owner switches it off. */
+  weeklyReportEnabled: boolean("weekly_report_enabled").notNull().default(true),
   createdAt: createdAt(),
 });
 
@@ -489,6 +491,16 @@ export const outboxJobs = pgTable("outbox_jobs", {
   // Coalescing lookup for lib/wallet/enqueue: at most one not-yet-claimed wallet refresh per card.
   uniqueIndex("outbox_wallet_pending_member_idx").on(t.tenantId, sql`(${t.payload} ->> 'membershipId')`).where(sql`${t.kind} = 'wallet.refresh' and ${t.status} = 'pending' and ${t.payload} ->> 'coalescingVersion' = '1'`),
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
+]);
+
+/** One row per shop and reported Berlin ISO week (its Monday), written in the same statement that queues the mails. */
+export const weeklyOwnerReports = pgTable("weekly_owner_reports", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  weekStart: date("week_start").notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.weekStart] }),
+  check("weekly_owner_report_monday", sql`extract(isodow from ${t.weekStart}) = 1`),
 ]);
 
 export const emailDeliveries = pgTable("email_deliveries", {

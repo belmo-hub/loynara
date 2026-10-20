@@ -3,8 +3,9 @@ import type { PoolClient } from "pg";
 import { DomainError } from "./loyalty";
 
 export type AnalyticsWindowDays = 30 | 90;
-export type MerchantAnalytics = {
-  windowDays: AnalyticsWindowDays;
+/** W is 7 only for the weekly owner report's exact calendar week. */
+export type MerchantAnalytics<W extends number = AnalyticsWindowDays> = {
+  windowDays: W;
   from: string;
   asOf: string;
   timezone: "UTC";
@@ -13,6 +14,8 @@ export type MerchantAnalytics = {
   qualifyingCheckouts: number;
   participatingCards: number;
   repeatCards: number;
+  /** Cards with a counted award whose previous counted award was at least 21 days earlier. */
+  wonBack: number;
   issued: { stampUnits: number; pointUnits: number; awardActions: number };
   rewards: { redemptions: number; topTitles: Array<{ title: string; count: number }> };
   referrals: { attributed: number; qualified: number; reversed: number };
@@ -58,16 +61,7 @@ export async function getMerchantAnalytics(
   if (options.windowDays !== 30 && options.windowDays !== 90) {
     throw new DomainError("INVALID_WINDOW", "Choose a 30 or 90 day window");
   }
-  const client = snapshot ?? await pool.connect();
-  let discardClient = false;
-  try {
-    // Related aggregates and their labels describe the same committed state.
-    // Read-only MVCC neither locks award writers nor calls providers.
-    if (!snapshot) {
-      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-      await client.query("SET LOCAL statement_timeout = '5s'");
-      await client.query("SET LOCAL idle_in_transaction_session_timeout = '5s'");
-    }
+  return inSnapshot(snapshot, async client => {
     // Ledger timestamps are assigned by PostgreSQL. Use its clock for live
     // reports so a freshly committed redemption cannot fall just after a host
     // clock that is slightly behind the database.
@@ -78,10 +72,39 @@ export async function getMerchantAnalytics(
       [actorUserId],
     )).rows;
     if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    return readAnalytics(client, owner.tenantId, new Date(asOf.getTime() - options.windowDays * 86_400_000), asOf, options.windowDays);
+  });
+}
 
-    const from = new Date(asOf.getTime() - options.windowDays * 86_400_000);
-    const params = [owner.tenantId, from, asOf];
-    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity] = await Promise.all([
+/** The same figures for an exact [from, to) window, e.g. a Berlin calendar week. Callers check access themselves. */
+export function getTenantWindowAnalytics(tenantId: string, from: Date, to: Date) {
+  return inSnapshot(undefined, client => readAnalytics(client, tenantId, from, to, 7));
+}
+
+async function inSnapshot<T>(snapshot: PoolClient | undefined, read: (client: PoolClient) => Promise<T>): Promise<T> {
+  if (snapshot) return read(snapshot);
+  const client = await pool.connect();
+  let discardClient = false;
+  try {
+    // Related aggregates and their labels describe the same committed state.
+    // Read-only MVCC neither locks award writers nor calls providers.
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    await client.query("SET LOCAL statement_timeout = '5s'");
+    await client.query("SET LOCAL idle_in_transaction_session_timeout = '5s'");
+    const result = await read(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { discardClient = true; }
+    throw error;
+  } finally {
+    client.release(discardClient);
+  }
+}
+
+async function readAnalytics<W extends number>(client: PoolClient, tenantId: string, from: Date, asOf: Date, windowDays: W): Promise<MerchantAnalytics<W>> {
+    const params = [tenantId, from, asOf];
+    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity, wonBack] = await Promise.all([
       client.query<MembershipCounts>(`
         SELECT
           count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
@@ -166,13 +189,27 @@ export async function getMerchantAnalytics(
         FROM locations l LEFT JOIN activity a ON a.location_id = l.id
         WHERE l.tenant_id = $1 ORDER BY l.name, l.id
       `, params),
+      // Won back: a counted award in the window whose card's previous counted award was 21 days (504 hours) or more
+      // earlier. Hours, not days, so the gap does not depend on the session time zone or a DST change.
+      client.query<{ wonBack: number }>(`${checkoutCte}
+        SELECT count(DISTINCT a.membership_id)::int AS "wonBack"
+        FROM accepted_awards a
+        CROSS JOIN LATERAL (
+          SELECT max(e.created_at) AS previous_at FROM ledger_entries e
+          WHERE e.tenant_id = $1 AND e.membership_id = a.membership_id AND e.created_at < a.created_at
+            AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+            AND NOT EXISTS (
+              SELECT 1 FROM ledger_entries undo
+              WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id AND undo.created_at < $3
+            )
+        ) previous
+        WHERE previous.previous_at <= a.created_at - interval '504 hours'
+      `, params),
     ]);
-
-    if (!snapshot) await client.query("COMMIT");
 
     const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
     const perBucketCheckouts = new Map(checkoutBuckets.rows.map(row => [row.bucket, row.count]));
-    const series = Array.from({ length: Math.ceil(options.windowDays / 7) }, (_, index) => ({
+    const series = Array.from({ length: Math.ceil(windowDays / 7) }, (_, index) => ({
       from: new Date(from.getTime() + index * 7 * 86_400_000).toISOString(),
       to: new Date(Math.min(asOf.getTime(), from.getTime() + (index + 1) * 7 * 86_400_000)).toISOString(),
       newCards: perBucketCards.get(index) ?? 0,
@@ -187,12 +224,13 @@ export async function getMerchantAnalytics(
     }
 
     return {
-      windowDays: options.windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: "UTC",
+      windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: "UTC",
       currentActiveCards: members.rows[0].currentActiveCards,
       newCards: members.rows[0].newCards,
       qualifyingCheckouts: checkout.rows[0].qualifyingCheckouts,
       participatingCards: checkout.rows[0].participatingCards,
       repeatCards: checkout.rows[0].repeatCards,
+      wonBack: wonBack.rows[0].wonBack,
       issued: {
         stampUnits: checkout.rows[0].stampUnits,
         pointUnits: checkout.rows[0].pointUnits,
@@ -204,13 +242,7 @@ export async function getMerchantAnalytics(
       series,
       staffActivity: staffActivity.rows,
       locationActivity: locationActivity.rows,
-      countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
+      countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Zurückgewonnen bedeutet ein solcher Kassenvorgang mindestens 21 Tage nach dem vorherigen derselben Karte. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
       limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
     };
-  } catch (error) {
-    if (!snapshot) { try { await client.query("ROLLBACK"); } catch { discardClient = true; } }
-    throw error;
-  } finally {
-    if (!snapshot) client.release(discardClient);
-  }
 }
