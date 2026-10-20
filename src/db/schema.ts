@@ -245,6 +245,8 @@ export const contactVerificationChallenges = pgTable("contact_verification_chall
   membershipId: uuid("membership_id").notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  // The link also confirms the marketing consent (double opt-in); the grant is written only when it is clicked.
+  marketing: boolean("marketing").notNull().default(false),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),
   createdAt: createdAt(),

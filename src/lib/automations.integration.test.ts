@@ -4,12 +4,13 @@ import { promisify } from "node:util";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { automationRules, automationRuns, consentEvents, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
+import { automationRules, automationRuns, consentEvents, emailSuppressions, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
 import { award } from "./loyalty";
 import type { LocalMessage } from "./email";
 import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 import { deliverAutomationRun, listAutomations, processAutomationEvent, processAutomationScan, upsertAutomationRule } from "./automations";
+import { recipientHash } from "./transactional-email";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Automation tests require looplocal_test");
 // Delivery here runs on the wall clock; quiet hours have their own deterministic tests (quiet-hours*.test.ts).
@@ -142,6 +143,25 @@ describe("bounded local automations", () => {
     const listed = await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug });
     expect(listed).toMatchObject({ localOnly: true, rules: [{ id: created.id }], runs: [] });
     expect(JSON.stringify(listed)).not.toContain("@example.test");
+  });
+
+  it("shows the owner how many of their own customers can be reached, as a count only", async () => {
+    const a = await fixture();
+    const b = await fixture();
+    await member(a.merchant.programSlug, "reach-a@example.test");
+    const withdrawn = await member(a.merchant.programSlug, "withdrawn-a@example.test");
+    await db.insert(consentEvents).values({ tenantId: a.merchant.tenantId, membershipId: withdrawn.id, channel: "email", purpose: "marketing", granted: false, noticeVersion: "test", source: "test" });
+    await member(a.merchant.programSlug, "bounced-a@example.test");
+    await db.insert(emailSuppressions).values({ recipientHash: recipientHash("bounced-a@example.test"), reason: "bounced" });
+    const unverified = await enroll({ slug: a.merchant.programSlug, acceptedTerms: true, email: "unverified-a@example.test", marketingOptIn: true });
+    expect(unverified.id).toBeTruthy();
+    for (const email of ["reach-b1@example.test", "reach-b2@example.test", "reach-a@example.test"]) await member(b.merchant.programSlug, email);
+    const listedA = await listAutomations({ actorUserId: a.ownerId, programSlug: a.merchant.programSlug });
+    expect(listedA.reach).toBe(1);
+    expect(JSON.stringify(listedA)).not.toContain("@example.test");
+    expect((await listAutomations({ actorUserId: b.ownerId, programSlug: b.merchant.programSlug })).reach).toBe(3);
+    // Shop A's owner can neither count nor list shop B's programme.
+    await expect(listAutomations({ actorUserId: a.ownerId, programSlug: b.merchant.programSlug })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("queues the first checkout once, rechecks consent at delivery, and rejects a stale rule revision", async () => {
