@@ -76,7 +76,7 @@ describe("local campaign core", () => {
       expect(message.unsubscribeUrl).toContain("https://unsubscribe.example.test/unsubscribe#token=");
       expect(message.fromName).toBe("Synthetic Café via Loynara");
       // Legal's footer, verbatim, with every optional part filled (the automations test has them empty).
-      expect(message.body).toBe(`${draftFields.body}\n\nDiese E-Mail kommt von Synthetic Café, GmbH, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: hallo@synthetic-cafe.example.test, 0561 123456. Amtsgericht Kassel, HRB 12345. DE123456789\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
+      expect(message.body).toBe(`${draftFields.body}\n\nDiese E-Mail kommt von Synthetic Café, GmbH, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: hallo@synthetic-cafe.example.test, 0561 123456. Registergericht: Amtsgericht Kassel, HRB 12345. USt-IdNr.: DE123456789\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
       expect(message.body).not.toContain(card.cardToken);
       return { state: "accepted" as const, messageId: "<synthetic-promo@example.test>" };
     }) };
@@ -231,7 +231,7 @@ describe("local campaign core", () => {
       ["Straße und Hausnummer", f => db.update(locations).set({ street: null }).where(where(f))],
       ["PLZ", f => db.update(locations).set({ postalCode: null }).where(where(f))],
       ["Stadt", f => db.update(locations).set({ city: "" }).where(where(f))],
-      ["Vertreten durch", f => db.update(locations).set({ representative: null }).where(where(f))],
+      ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
       ["Kontakt (E-Mail oder Telefon)", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
     ];
     for (const [label, drop] of drops) {

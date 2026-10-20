@@ -93,7 +93,7 @@ export function locationAddressMessage(cause: unknown): string {
   const status = cause instanceof ClientApiError ? cause.status : 0;
   if (status === 401) return SIGNED_OUT;
   if (status === 429) return RATE_LIMITED;
-  if (status === 400) return "Die Anschrift wurde nicht gespeichert. Prüfe die Pflichtfelder, die fünfstellige PLZ, die Telefonnummer und die USt-IdNr. (zum Beispiel DE123456789).";
+  if (status === 400) return "Die Anschrift wurde nicht gespeichert. Prüfe die Pflichtfelder, die fünfstellige PLZ, die Telefonnummer, die Registernummer (zum Beispiel HRB 12345) und die USt-IdNr. (zum Beispiel DE123456789).";
   return "Die Anschrift wurde nicht gespeichert. Prüfe deine Verbindung und versuche es erneut.";
 }
 

@@ -79,9 +79,9 @@ type ProgramSender = {
 /** Shop and location behind a programme: the timezone schedules every promotional send, the sender details sign it. */
 export async function programSender(query: Query, tenantId: string, programId: string) {
   const result = await query.execute(sql`
-    SELECT t.name AS "shopName", l.timezone, l.street, l.postal_code AS "postalCode", l.city, l.representative,
-      l.contact_email AS "contactEmail", l.contact_phone AS "contactPhone", l.legal_form AS "legalForm",
-      l.register_court AS "registerCourt", l.register_number AS "registerNumber", l.vat_id AS "vatId"
+    SELECT t.name AS "shopName", l.timezone, l.street, l.postal_code AS "postalCode", l.city, t.representative,
+      l.contact_email AS "contactEmail", l.contact_phone AS "contactPhone", t.legal_form AS "legalForm",
+      t.register_court AS "registerCourt", t.register_number AS "registerNumber", t.vat_id AS "vatId"
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = p.tenant_id
     WHERE p.tenant_id = ${tenantId}::uuid AND p.id = ${programId}::uuid
   `);
@@ -117,8 +117,8 @@ export function marketingSignature(sender: ProgramSender, unsubscribeLink: strin
   const privacy = new URL("/datenschutz", process.env.PUBLIC_BASE_URL).toString();
   const legalForm = sender.legalForm ? `, ${sender.legalForm}` : "";
   const contact = [sender.contactEmail, sender.contactPhone].filter(Boolean).join(", ");
-  const register = sender.registerCourt && sender.registerNumber ? ` ${sender.registerCourt}, ${sender.registerNumber}.` : "";
-  const vat = sender.vatId ? ` ${sender.vatId}` : "";
+  const register = sender.registerCourt && sender.registerNumber ? ` Registergericht: ${sender.registerCourt}, ${sender.registerNumber}.` : "";
+  const vat = sender.vatId ? ` USt-IdNr.: ${sender.vatId}` : "";
   return {
     fromName: `${sender.shopName} via Loynara`,
     footer: `Diese E-Mail kommt von ${sender.shopName}${legalForm}, vertreten durch ${sender.representative}, ${sender.street}, ${sender.postalCode} ${sender.city}. Kontakt: ${contact}.${register}${vat}\n`

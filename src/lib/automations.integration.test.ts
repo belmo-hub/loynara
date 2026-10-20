@@ -110,7 +110,7 @@ describe("bounded local automations", () => {
       ["Straße und Hausnummer", f => db.update(locations).set({ street: null }).where(where(f))],
       ["PLZ", f => db.update(locations).set({ postalCode: null }).where(where(f))],
       ["Stadt", f => db.update(locations).set({ city: "" }).where(where(f))],
-      ["Vertreten durch", f => db.update(locations).set({ representative: null }).where(where(f))],
+      ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
       ["Kontakt (E-Mail oder Telefon)", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
     ];
     for (const [label, drop] of drops) {

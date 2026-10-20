@@ -162,9 +162,9 @@ async function seedHistory(pool: Pool) {
 }
 
 describe("migration journal", () => {
-  it("is contiguous from 0000 apart from 0027–0028, timestamps strictly increase, and 0031 is the newest", () => {
+  it("is contiguous from 0000 apart from 0027–0028, timestamps strictly increase, and 0032 is the newest", () => {
     const journal = JSON.parse(readFileSync(path.join(migrationsDir, "meta", "_journal.json"), "utf8")) as { entries: Array<{ idx: number; tag: string; when: number }> };
-    // Fixed order (CTO, 20 Oct): 0026 plates, 0027 ENG-024, 0028 ENG-025..027, then this branch's 0029–0031. 0027/0028 are
+    // Fixed order (CTO, 20 Oct): 0026 plates, 0027 ENG-024, 0028 ENG-025..027, then #22's 0029–0031, #67's 0032 (#71's 0033 next). 0027/0028 are
     // not on this base yet; when they land before this branch, drop the gap. Never insert a journal entry before an
     // applied one: drizzle skips any entry older than the newest applied `when` (production:migrate refuses that, ENG-018).
     const number = (index: number) => index < 27 ? index : index + 2;
@@ -182,7 +182,8 @@ describe("migration journal", () => {
     expect(journal.entries[27]?.tag).toBe("0029_operational_resilience");
     expect(journal.entries[28]?.tag).toBe("0030_customer_export");
     expect(journal.entries[29]?.tag).toBe("0031_data_retention");
-    expect(journal.entries).toHaveLength(30);
+    expect(journal.entries[30]?.tag).toBe("0032_sender_details");
+    expect(journal.entries).toHaveLength(31);
     const sqlFiles = readdirSync(migrationsDir).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort();
     expect(sqlFiles).toEqual(journal.entries.map(entry => `${entry.tag}.sql`));
   });
@@ -243,7 +244,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(30);
+      expect(applied).toBe(31);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -671,7 +672,7 @@ describe("0025 data integrity guards", () => {
       await run(target, migrationsDir);
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT count(*)::int AS n FROM ledger_entries WHERE idempotency_key = 'legacy-unlinked-correction'")).rows[0].n).toBe(1);
-      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(30);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(31);
       await expect(target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
         SELECT tenant_id, location_id, membership_id, -1, 'award', 'staff_online', actor_user_id, gen_random_uuid(), 'negative-award'
         FROM ledger_entries WHERE tenant_id = $1 AND actor_user_id IS NOT NULL LIMIT 1`, [seeded.tenants[0]])).rejects.toThrow(/ledger_kind_sign_valid/);
@@ -773,9 +774,9 @@ describe("staged release upgrade 0024 → 0025 → 0031", () => {
       expect(await fingerprint(target)).toEqual(history);
       await expect(target.query("DELETE FROM redemptions")).rejects.toThrow(/append-only/);
 
-      // Later releases: 0026 plates, then this branch's 0029–0031.
+      // Later releases: 0026 plates, then #22's 0029–0031 and #67's 0032.
       await run(target, migrationsDir);
-      expect(await count()).toBe(30);
+      expect(await count()).toBe(31);
       expect(await fingerprint(target)).toEqual(history);
       await run(fresh, migrationsDir);
       expect(await structure(target)).toEqual(await structure(fresh));
