@@ -23,8 +23,9 @@ test('the page has the Concept D scene order with exactly one h1 and the approve
 test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to the contact section', () => {
   const hero = home.slice(home.indexOf('id="hero"'), home.indexOf('class="roles"'));
   assert.match(hero, /<a class="btn btn-primary" href="#anfrage">Demo anfragen<\/a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s<\/a>/);
-  assert.equal((hero.match(/class="phone/g) ?? []).length, 1, 'one phone'); assert.equal((hero.match(/class="stand-obj"/g) ?? []).length, 1, 'one stand');
-  assert.equal((hero.match(/class="cue"/g) ?? []).length, 1, 'one confirmation cue');
+  assert.equal((hero.match(/<video /g) ?? []).length, 1, 'one clip');
+  assert.match(hero, /<video muted loop playsinline preload="none" poster="\/assets\/motion\/hero\.jpg"[^>]*><source src="\/assets\/motion\/hero\.webm" type="video\/webm"><source src="\/assets\/motion\/hero\.mp4" type="video\/mp4">/, 'poster first, both formats');
+  assert.doesNotMatch(home, /autoplay/, 'clips never autoplay: d.ts plays them unless reduced motion is set');
   assert.doesNotMatch(hero, /wpass|owner|ref-pair/, 'no Wallet, owner or referral object in the hero');
   assert.match(home, /<a class="login" href="https:\/\/app\.getloynara\.com\/login">Anmelden<\/a>/);
 });

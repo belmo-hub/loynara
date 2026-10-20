@@ -265,3 +265,9 @@ if (heroScene && matchMedia('(pointer: fine)').matches && !calm()) {
 }
 for (const sec of $$('[data-reveal]')) seen(sec, { rootMargin: '0px 0px -22% 0px' }, () => { sec.dataset.seen = ''; setTimeout(() => { sec.dataset.done = ''; }, 2800); });
 addEventListener('resize', () => update());
+// Motion clips: play while visible, pause outside, never under reduced motion (the poster stays). In a demo section any button hands over to the live demo.
+for (const fig of $$('[data-clip]')) {
+  const v = $<HTMLVideoElement>('video', fig)!;
+  if (!calm() && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play().catch(() => {}); else v.pause(); }, { threshold: 0.25 }).observe(fig);
+  if (fig.dataset.clip !== 'hero') fig.closest('section')!.addEventListener('click', e => { if ((e.target as Element).closest('button')) { v.pause(); fig.hidden = true; } });
+}

@@ -40,9 +40,9 @@ for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 
   check(`${tag}: two tab modules with ARIA roles and roving tabindex`, (await page.locator('[role=tablist]').count()) === 2 && (await page.locator('[role=tab]').count()) === 5 && (await page.locator('[role=tabpanel]').count()) === 2 && (await page.locator('[role=tab][tabindex="0"]').count()) === 2);
   const clipped = await page.evaluate(() => [...document.querySelectorAll('[role=tab], .btn')].filter(t => t.offsetParent && (t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > innerWidth + 1 || t.getBoundingClientRect().height < 40)).map(t => t.textContent));
   check(`${tag}: no clipped tab or button labels, every control at least 40 px high`, clipped.length === 0, clipped.join(','));
-  const fv = await page.evaluate(() => { const vh = innerHeight, r = s => document.querySelector(s).getBoundingClientRect(); return { h1: r('h1').bottom <= vh, lead: r('.hero .lead').bottom <= vh, cta: r('.hero .btn-primary').bottom <= vh, product: r('.hero-scene').top < vh - 40 }; });
+  const fv = await page.evaluate(() => { const vh = innerHeight, r = s => document.querySelector(s).getBoundingClientRect(); return { h1: r('h1').bottom <= vh, lead: r('.hero .lead').bottom <= vh, cta: r('.hero .btn-primary').bottom <= vh, product: r('.hero-clip').top < vh - 40 }; });
   check(`${tag}: first viewport: headline, sentence, primary CTA and the start of the product scene`, fv.h1 && fv.lead && fv.cta && fv.product, JSON.stringify(fv));
-  const objects = await page.evaluate(() => { const r = document.querySelector('.hero-scene').getBoundingClientRect(); return [...document.querySelectorAll('.hero-scene .phone, .hero-scene .stand-obj')].map(e => e.getBoundingClientRect()).every(o => o.width > 90 && o.left >= r.left - 1 && o.right <= r.right + 1); });
+  const objects = await page.evaluate(() => { const r = document.querySelector('.hero-clip').getBoundingClientRect(), v = document.querySelector('.hero-clip video').getBoundingClientRect(); return r.width > 200 && v.width > 200 && v.left >= r.left - 1 && v.right <= r.right + 1; });
   check(`${tag}: hero product objects are large and inside their scene`, objects);
   const dv = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && !e.closest('[hidden]')).map(e => e.textContent).join(' ').replace(/\s+/g, ' '));
   for (const re of [/Kunde/, /Team/, /Inhaber/, /Karte öffnen/, /Team bestätigt/, /Prämie einlösen/, /Deine Stammkunden bringen den nächsten Kunden mit/, /Bonus verbucht/, /keinen Bonus/, /Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /49 €/, /pro Monat und Standort/, /Demo anfragen/]) check(`${tag}: visible by default: ${re}`, re.test(dv));
@@ -230,7 +230,11 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   const pdf = await page.pdf({ format: 'A4', printBackground: true }); check('print: a PDF can be produced', pdf.length > 20000);
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { scale: 2 });
-  await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click(); await settle(page);
+  await page.waitForTimeout(800);
+  check('motion: the hero clip plays while visible', await page.evaluate(() => !document.querySelector('.hero-clip video').paused));
+  await jump(page, '#ablauf'); check('motion: the ablauf clip shows until the visitor uses the demo', await page.locator('[data-clip="ablauf"]').isVisible() && !(await page.locator('.phone-stage').isVisible()));
+  await page.locator('[data-act="visit"]').click(); check('motion: a demo button hands over to the live phone', !(await page.locator('[data-clip="ablauf"]').isVisible()) && await page.locator('.phone-stage').isVisible());
+  await page.locator('[data-act="visit"]').click(); await settle(page);
   const state = await page.locator('.phone-stage .lcard').getAttribute('aria-label');
   await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(600);
   check('orientation: landscape keeps state, no overflow', (await page.locator('.phone-stage .lcard').getAttribute('aria-label')) === state && await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
@@ -241,6 +245,8 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   await jump(page, '#rechner'); await page.waitForTimeout(200); await page.screenshot({ path: `${out}/mobile-text125-calc.png` });
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { reduced: true });
+  await jump(page, '#hero'); await page.waitForTimeout(600);
+  check('reduced motion: clips stay on their poster', await page.evaluate(() => [...document.querySelectorAll('[data-clip] video')].every(v => v.paused && v.currentTime === 0)));
   check('reduced motion: smooth scrolling off, transitions off', await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior === 'auto' && getComputedStyle(document.querySelector('.btn')).transitionDuration === '0s'));
   await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click();
   check('reduced motion: the counter demo works with instant state changes', /1\sbestätigter\sBesuch/.test(await page.locator('[data-bind="visit-owner"]').textContent()));
@@ -251,7 +257,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
 { const { page, context } = await newPage({ width: 390, height: 844 }, { js: false });
   const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
   check('no JS: headline, roles, counter flow, referral rule, price, calculator example and contact are present', /Ein guter Besuch/.test(body) && /Bestätigt den Besuch mit einem Tipp/.test(body) && /Karte öffnen/.test(body) && /keinen Bonus/.test(body) && /49 €/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
-  check('no JS: the product objects and the first owner view are rendered', (await page.locator('.hero-scene .phone').count()) === 1 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
+  check('no JS: the product objects and the first owner view are rendered', (await page.locator('.hero-clip video[poster]').count()) === 1 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
   await page.screenshot({ path: `${out}/nojs-top.png`, fullPage: true });
   await context.close(); }
 

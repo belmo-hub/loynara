@@ -546,6 +546,14 @@ p.fine,.res-note{max-width:38em}
 .hero-scene .scene-stand{transform:translate3d(calc(var(--px,0) * -6px),calc(var(--py,0) * -4px),0)}
 .hero-scene .phone{transform:translate3d(calc(var(--px,0) * 12px),calc(var(--py,0) * 8px),0) rotate(calc(var(--px,0) * .6deg))}
 .hero-scene .cue{transform:translate3d(calc(var(--px,0) * 20px),calc(var(--py,0) * 14px),0)}
+/* motion clips: poster first, video plays only while visible and never under reduced motion (d.ts); a button in the section hands over to the live demo */
+[data-clip]{margin:0}
+[data-clip] video{display:block;width:100%;height:auto}
+.hero-clip{align-self:center;width:100%;max-width:520px;justify-self:center;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,var(--b-soft) 0%,#EDE9DF 100%)}
+.clip-box video{max-width:460px;margin:0 auto}
+.clip-wide video{max-width:600px}
+#inhaber .clip-box{background:var(--deep)}
+[data-clip]:not([hidden]) + .scene-visual{display:none}
 
 [data-brand="wald"]{--b-dark:#143D2E;--b-mid:#245D47;--b-accent:#F4DDD0;--b-soft:#E6EEDF}.sw-wald{--sw:#143D2E}
 [data-brand="terrakotta"]{--b-dark:#7A3320;--b-mid:#A8472B;--b-accent:#FBE6D6;--b-soft:#F6E4DA}.sw-terrakotta{--sw:#7A3320}
