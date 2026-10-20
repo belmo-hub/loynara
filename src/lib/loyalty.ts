@@ -45,6 +45,13 @@ export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Pr
   return locked;
 }
 
+// Keys the server books itself next to a client's booking. A client key with one of these prefixes could take that key
+// first and block the welcome bonus or its correction, so every award, redeem and reversal refuses them.
+const RESERVED_KEY_PREFIXES = ["welcome:", "welcome-reversal:"];
+function assertClientKey(key: string) {
+  if (key.length < 8 || key.length > 100 || RESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
+}
+
 export type AwardInput = {
   userId: string;
   locationId: string;
@@ -89,7 +96,7 @@ export async function awardTapInTransaction(tx: Transaction, input: { locationId
 }
 
 async function bookAwardInTransaction(tx: Transaction, input: AwardInput, trustedTap: boolean): Promise<{ balance: number; duplicate: boolean; entryId: string; creditedQuantity: number }> {
-  if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 100) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
+  assertClientKey(input.idempotencyKey);
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
@@ -105,7 +112,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
-      if (existing.membershipId !== member.id || existing.kind !== "award" || existing.source === "welcome_bonus") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      if (existing.membershipId !== member.id || existing.kind !== "award") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
       const [purchase] = await tx.select().from(purchaseAwards).where(eq(purchaseAwards.ledgerEntryId, existing.id));
       if (purchase) {
         if (purchase.amountMinor !== input.purchaseAmountMinor || purchase.ruleVersionId !== input.ruleVersionId || purchase.pointsAwarded !== existing.delta || input.quantity !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
@@ -206,7 +213,7 @@ export type RedeemInput = {
 };
 
 export async function redeem(input: RedeemInput): Promise<{ balance: number; duplicate: boolean; entryId: string }> {
-  if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 100) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
+  assertClientKey(input.idempotencyKey);
   return db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
@@ -266,7 +273,7 @@ export type ReversalInput = {
 export async function reverseEntry(input: ReversalInput): Promise<{ balance: number; duplicate: boolean; entryId: string }> {
   const reason = input.reason.trim();
   if (reason.length < 10 || reason.length > 240) throw new DomainError("INVALID_REASON", "A correction reason is required");
-  if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 100) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
+  assertClientKey(input.idempotencyKey);
   return db.transaction(async (tx) => {
     const [original] = await tx.select().from(ledgerEntries).where(eq(ledgerEntries.id, input.entryId));
     if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Transaction not found at this location");

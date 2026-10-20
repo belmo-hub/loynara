@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, referrals } from "@/db/schema";
-import { award, awardTapInTransaction, reverseEntry } from "./loyalty";
+import { award, awardTapInTransaction, redeem, reverseEntry } from "./loyalty";
 import { getMerchantMember } from "./merchant-members";
 import { createMerchant, enroll, getCard, updateProgram, updateProgramExtras } from "./product";
 import { configureReferrals, getCardReferralShare } from "./referrals";
@@ -78,6 +78,25 @@ describe("welcome bonus (Startbonus)", () => {
     // Once per card: a later award after the correction does not book a second bonus.
     expect(await give(owner, merchant.locationId, card.id)).toMatchObject({ balance: 1 });
     expect(await bonusRows(card.id)).toHaveLength(1);
+  });
+
+  it("refuses client keys with the reserved prefixes, so they cannot block the bonus or its correction", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, welcomeBonus: 2 });
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const first = await give(owner, merchant.locationId, card.id);
+    const [bonus] = await bonusRows(card.id);
+    const [reward] = (await getCard(card.cardToken)).rewards;
+    for (const key of [`welcome:${randomUUID()}`, `welcome-reversal:${first.entryId}`]) {
+      await expect(award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: key, requestId: randomUUID() })).rejects.toMatchObject({ code: "INVALID_KEY" });
+      await expect(redeem({ userId: owner, locationId: merchant.locationId, membershipId: card.id, rewardVersionId: reward.id, idempotencyKey: key, requestId: randomUUID() })).rejects.toMatchObject({ code: "INVALID_KEY" });
+      await expect(reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: first.entryId, reason: "Versehentlich gebucht", idempotencyKey: key, requestId: randomUUID() })).rejects.toMatchObject({ code: "INVALID_KEY" });
+    }
+    // The bonus and its correction still book under their own keys.
+    expect(await reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: first.entryId, reason: "Versehentlich gebucht", idempotencyKey: randomUUID(), requestId: randomUUID() })).toMatchObject({ balance: 0 });
+    const [bonusReversal] = await db.select().from(ledgerEntries).where(eq(ledgerEntries.reversalOfId, bonus.id));
+    expect(bonusReversal).toMatchObject({ delta: -2, idempotencyKey: `welcome-reversal:${first.entryId}` });
   });
 
   it("works for points and enforces the per-type limit on the server", async () => {
