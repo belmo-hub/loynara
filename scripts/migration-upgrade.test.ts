@@ -226,7 +226,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(26);
+      expect(applied).toBe(27);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -654,7 +654,7 @@ describe("0025 data integrity guards", () => {
       await run(target, migrationsDir);
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT count(*)::int AS n FROM ledger_entries WHERE idempotency_key = 'legacy-unlinked-correction'")).rows[0].n).toBe(1);
-      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(26);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(27);
       await expect(target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
         SELECT tenant_id, location_id, membership_id, -1, 'award', 'staff_online', actor_user_id, gen_random_uuid(), 'negative-award'
         FROM ledger_entries WHERE tenant_id = $1 AND actor_user_id IS NOT NULL LIMIT 1`, [seeded.tenants[0]])).rejects.toThrow(/ledger_kind_sign_valid/);

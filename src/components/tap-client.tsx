@@ -41,6 +41,7 @@ export function tapCopy(state: TapState | "loading" | "error", error?: ClientApi
     case "cancelled": return { title: "Nicht bestätigt", detail: "Das Team hat diese Anfrage nicht bestätigt. Frage bitte an der Kasse nach." };
     case "disabled": return { title: "NFC ist hier aus", detail: "Für dieses Programm ist die NFC-Berührung gerade ausgeschaltet. Zeige stattdessen deinen Kartencode an der Kasse." };
     case "error":
+      if (error instanceof ClientApiError && error.code === "PLATE_UNLINKED") return { title: "Dieses Schild ist gerade keinem Geschäft zugeordnet.", detail: "Hier wird nichts gutgeschrieben. Bitte frag das Team an der Kasse." };
       if (error instanceof ClientApiError && error.status === 404) return { title: "Dieses Schild ist gerade nicht aktiv", detail: "Bitte nutze den QR-Code an der Kasse oder frage das Team." };
       if (error instanceof ClientApiError && error.status === 429) return { title: "Zu viele Versuche", detail: "Bitte warte einen Moment und berühre das Schild erneut." };
       if (error instanceof ClientApiError && error.status === 0) return { title: "Keine Verbindung", detail: error.message };

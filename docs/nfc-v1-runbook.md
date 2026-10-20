@@ -92,6 +92,19 @@ Before any write report to the owner: target environment and hostname, exact tag
 4. Copy only the registration bundle to the private Railway console; run `operator-register-tag --target loynara-production --actor-user-id <id>` (dry run), then `--execute`.
 5. Physical tests: iPhone, Android, new-customer enrolment after tap, returning customer, cashier confirm/cancel, replay of a captured URL, revoked tag. Record per device.
 
+### Plates (a chip with no shop yet, linked by the operator)
+
+A plate is a tag provisioned without a shop and linked to one later, on the server only. The chip, its URL and its keys never change when it moves.
+- **Provision:** step 3, with `--unlinked --plate P-007` in place of `--tenant-id/--location-id/--program-id/--cooldown-seconds`. Then step 4 as usual. The actor must be on `PLATE_OPERATOR_USER_IDS` (comma-separated user IDs on the web service). The plate is registered as `unlinked`.
+- **Unlinked or revoked plate:** a tap verifies the chip and moves its counter on, then shows "Dieses Schild ist gerade keinem Geschäft zugeordnet." It books nothing and opens no request.
+- **Link, relink, unlink** (private Railway console). Each is a dry run until `--execute`:
+  - `npx tsx scripts/operator-plate.ts status --plate P-007 --target loynara-production --actor-user-id <operator id>`
+  - `... link --plate P-007 --program-id <programme id> ...`: the shop must have NFC „Mit Bestätigung“ on. Linking a linked plate is a relink.
+  - `... unlink --plate P-007 ...`
+  - `... revoke --plate P-007 ...`: only an unlinked plate (unlink a linked one first). Final: taps keep showing the unlinked page and no link brings the plate back.
+- **History:** every change is a row in `plate_link_events`, which is append-only. Awards, requests and cards stay with the shop they were made in. A request waiting at the old shop can no longer be confirmed once the plate has moved.
+- **Plate QR sticker:** `/p/P-007` redirects to the linked shop's join page, or shows the same "not linked" page. It has no signature, so it opens no tap request, like the counter QR.
+
 ## 7. Local test environments
 
 Everything above was exercised with synthetic masters on a disposable local Postgres: unit and integration tests (derivation, replay, confirm/cancel, lifecycle, registration, provisioning journal with a fake chip) and Playwright `e2e/nfc-flow.spec.ts`. Run with `E2E_NFC_VERIFY_MASTER=<64 hex>` on a dev server started with `NFC_KEY_PROVIDER=derived_v1 NFC_VERIFY_MASTER_KEY=<same value>`.

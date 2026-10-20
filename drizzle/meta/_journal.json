@@ -183,6 +183,13 @@
       "when": 1792092675299,
       "tag": "0025_data_integrity_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792504289173,
+      "tag": "0026_plates",
+      "breakpoints": true
     }
   ]
 }

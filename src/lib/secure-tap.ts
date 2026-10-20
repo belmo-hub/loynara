@@ -15,6 +15,9 @@ export type { TapKeyProvider, TapKeys };
 export type TapMode = "disabled" | "automatic_fixed" | "staff_confirmed";
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const uidPattern = /^[a-f0-9]{14}$/;
+type BoundTag = typeof secureTags.$inferSelect & { tenantId: string; locationId: string; programId: string };
+/** Linked to a shop. Only an unlinked plate (or one revoked while unlinked) has no binding. */
+const isBound = (tag: typeof secureTags.$inferSelect): tag is BoundTag => tag.tenantId !== null && tag.locationId !== null && tag.programId !== null;
 const publicRefPattern = /^[A-Za-z0-9_-]{24}$/;
 export function tapCookieName(programId: string) { return `loynara_member_${programId.replaceAll("-", "")}`; }
 export function tapCookieHeader(programId: string, cardToken: string, origin: string, shared = false) {
@@ -108,11 +111,11 @@ export async function activateSecureTag(input: { actorUserId: string; tagId: str
     // Programme before tag, like taps, provisioning and replacement: locking the tag first deadlocked with a tap read of
     // this tag (programme, then tag). A tag never moves to another programme, so the plain lookup is safe.
     const [located] = await tx.select({ programId: secureTags.programId, tenantId: secureTags.tenantId }).from(secureTags).where(eq(secureTags.id, input.tagId));
-    if (!located) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    if (!located?.programId || !located.tenantId) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
     const query = tx.select().from(programs).where(and(eq(programs.id, located.programId), eq(programs.tenantId, located.tenantId)));
     const [lockedProgram] = input.expectedPolicy ? await query.for("update") : [];
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
-    if (!tag || tag.status !== "provisioned" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    if (!tag || tag.status !== "provisioned" || tag.programId !== located.programId || !isBound(tag)) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
     await owner(tx, input.actorUserId, tag.tenantId);
     if (input.expectedTag && (tag.uid !== input.expectedTag.uid || tag.keyRef !== input.expectedTag.keyRef || tag.publicRef !== input.expectedTag.publicRef)) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved tag binding changed");
     const [program] = input.expectedPolicy ? [lockedProgram] : await query;
@@ -127,7 +130,7 @@ export async function activateSecureTag(input: { actorUserId: string; tagId: str
 export async function revokeSecureTag(input: { actorUserId: string; tagId: string }) {
   return db.transaction(async tx => {
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
-    if (!tag) throw new DomainError("NOT_FOUND", "Tag not found");
+    if (!tag || !isBound(tag)) throw new DomainError("NOT_FOUND", "Tag not found");
     await owner(tx, input.actorUserId, tag.tenantId);
     if (tag.status === "active" || tag.status === "provisioned") await tx.update(secureTags).set({ status: "revoked", revokedAt: new Date() }).where(eq(secureTags.id, tag.id));
     return { id: tag.id, status: "revoked" as const };
@@ -136,7 +139,7 @@ export async function revokeSecureTag(input: { actorUserId: string; tagId: strin
 
 export async function replaceSecureTag(input: { actorUserId: string; tagId: string; uid: string; keyRef: string; configVersion: number }) {
   const [old] = await db.select().from(secureTags).where(eq(secureTags.id, input.tagId));
-  if (!old) throw new DomainError("NOT_FOUND", "Tag not found");
+  if (!old || !isBound(old)) throw new DomainError("NOT_FOUND", "Tag not found");
   return provisionSecureTag({ actorUserId: input.actorUserId, programId: old.programId, uid: input.uid, keyRef: input.keyRef, configVersion: input.configVersion, replacesTagId: old.id });
 }
 
@@ -153,12 +156,13 @@ async function verifiedContext(tx: Transaction, input: TapInput) {
   if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
   // Programme before tag, as in tag provisioning and replacement (programme, then the old tag). The request a tap
   // inserts takes a key-share lock on the programme through its foreign key; taken after the tag, that deadlocked
-  // with a replacement of the same tag. A tag never moves to another programme, so the plain lookup is safe.
+  // with a replacement of the same tag. Only an operator relink moves a plate to another programme; see the re-check below.
   const [located] = await tx.select({ programId: secureTags.programId }).from(secureTags).where(eq(secureTags.publicRef, input.tagRef));
-  if (!located) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!located?.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
   await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, located.programId)).for("key share");
   const [tag] = await tx.select().from(secureTags).where(eq(secureTags.publicRef, input.tagRef)).for("update");
-  if (!tag || tag.status !== "active" || tag.programId !== located.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  // An operator relink can move a plate between the two reads; the re-check under the lock refuses that tap.
+  if (!tag || tag.status !== "active" || tag.programId !== located.programId || !isBound(tag)) throw new DomainError("NOT_FOUND", "Tap unavailable");
   const keys = await (input.keyProvider ?? defaultTapKeyProvider()).getKeys(tag.keyRef, { uid: tag.uid } satisfies TapKeyContext);
   let decoded: { uid: string; counter: number };
   try { decoded = verifySdm(input.fields, keys); }
@@ -251,10 +255,29 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
   });
 }
 
+/**
+ * A tap on a plate that is not linked, or was revoked: verifies the chip's signature and moves its counter on, so the
+ * chip state stays honest, and books nothing and opens no request. False when the tag is linked or unknown.
+ */
+export async function settleUnlinkedTap(input: Pick<TapInput, "tagRef" | "fields" | "keyProvider">): Promise<boolean> {
+  if (!publicRefPattern.test(input.tagRef)) return false;
+  return db.transaction(async tx => {
+    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.publicRef, input.tagRef)).for("update");
+    if (!tag || !(tag.status === "unlinked" || (tag.status === "revoked" && tag.plateLabel))) return false;
+    const keys = await (input.keyProvider ?? defaultTapKeyProvider()).getKeys(tag.keyRef, { uid: tag.uid } satisfies TapKeyContext);
+    let decoded: { uid: string; counter: number };
+    try { decoded = verifySdm(input.fields, keys); }
+    catch { throw new DomainError("INVALID_TAP", "Tap could not be verified"); }
+    if (decoded.uid !== tag.uid || decoded.counter < 1) throw new DomainError("INVALID_TAP", "Tap could not be verified");
+    if (decoded.counter > tag.lastCounter) await tx.update(secureTags).set({ lastCounter: decoded.counter }).where(eq(secureTags.id, tag.id));
+    return true;
+  });
+}
+
 export async function tapProgramId(ref: string): Promise<string> {
   if (!publicRefPattern.test(ref)) throw new DomainError("NOT_FOUND", "Tap unavailable");
   const [tag] = await db.select({ programId: secureTags.programId }).from(secureTags).where(and(eq(secureTags.publicRef, ref), eq(secureTags.status, "active")));
-  if (!tag) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!tag?.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
   return tag.programId;
 }
 
@@ -319,7 +342,8 @@ export async function confirmTapRequest(input: { userId: string; locationId: str
     // A stamp tap books its one fixed stamp; a points tap books the cashier's entry under the counter's rules and limits.
     if ((program.type === "points") !== Boolean(input.award)) throw new DomainError("INVALID_EARNING_MODE", program.type === "points" ? "Enter the purchase amount or points first" : "A stamp tap books one fixed stamp");
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, request.tagId)).for("share");
-    if (!tag || tag.status !== "active") throw new DomainError("TAP_EXPIRED", "Tag is no longer active");
+    // A plate unlinked or moved to another shop since the tap no longer confirms the old shop's request.
+    if (!tag || tag.status !== "active" || tag.tenantId !== request.tenantId || tag.programId !== request.programId) throw new DomainError("TAP_EXPIRED", "Tag is no longer active");
     await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.id, request.membershipId)).for("update");
     const [recent] = await tx.select({ createdAt: tapRequests.createdAt }).from(tapRequests).where(and(eq(tapRequests.tenantId, request.tenantId), eq(tapRequests.programId, request.programId), eq(tapRequests.membershipId, request.membershipId), inArray(tapRequests.status, ["awarded", "confirmed"]))).orderBy(desc(tapRequests.createdAt)).limit(1);
     if (recent && (input.now ?? new Date()).getTime() - recent.createdAt.getTime() < (program.tapCooldownSeconds ?? 0) * 1000) throw new DomainError("TAP_COOLDOWN", "This card is still within its tap cooldown");

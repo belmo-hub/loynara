@@ -37,7 +37,10 @@ export function analyseEvidence(events: EvidenceEvent[]): EvidenceVerdict {
   const uncertain = (reason: string): EvidenceVerdict => ({ state: "uncertain", lastStage: last, openIntent: open, reason });
   for (const event of events) {
     if (!event || typeof event.at !== "string" || !Number.isFinite(Date.parse(event.at)) || typeof event.name !== "string" || !event.note || event.note.journalVersion !== "2") return uncertain("malformed or legacy evidence requires manual review");
-    if (!["uid", "keyRef", "origin", "tenantId", "locationId", "programId", "cooldownSeconds", "provenanceRef"].every(key => typeof event.note![key] === "string" && event.note![key].length > 0) || !/^[a-f0-9]{14}$/.test(event.note.uid)) return uncertain("incomplete evidence identity or environment binding");
+    const present = (keys: string[]) => keys.every(key => typeof event.note![key] === "string" && event.note![key].length > 0);
+    // A shop binding, or only a plate label (an unlinked plate), never both.
+    const shop = present(["tenantId", "locationId", "programId", "cooldownSeconds"]);
+    if (!present(["uid", "keyRef", "origin", "provenanceRef"]) || shop === present(["plateLabel"]) || !/^[a-f0-9]{14}$/.test(event.note.uid)) return uncertain("incomplete evidence identity or environment binding");
     const hasPlan = event.note.planFingerprint !== undefined;
     if (prepared !== undefined && prepared !== hasPlan) return uncertain("mixed prepared and legacy evidence");
     prepared = hasPlan;
@@ -45,7 +48,7 @@ export function analyseEvidence(events: EvidenceEvent[]): EvidenceVerdict {
     if (event.name === "reserved_ref" && !/^[A-Za-z0-9_-]{24}$/.test(event.note.publicRef ?? "")) return uncertain("invalid reserved reference");
     for (const [key, value] of Object.entries(event.note)) {
       if (typeof value !== "string") return uncertain("malformed evidence binding");
-      if (["uid", "keyRef", "origin", "tenantId", "locationId", "programId", "cooldownSeconds", "publicRef", "provenanceRef", "planFingerprint", "custodyId", "tagLabel", "environment", "slotFingerprints", "settingsHex", "policy", "tagId"].includes(key)) {
+      if (["uid", "keyRef", "origin", "tenantId", "locationId", "programId", "cooldownSeconds", "plateLabel", "publicRef", "provenanceRef", "planFingerprint", "custodyId", "tagLabel", "environment", "slotFingerprints", "settingsHex", "policy", "tagId"].includes(key)) {
         if (binding[key] !== undefined && binding[key] !== value) return uncertain("mixed attempts or environment bindings");
         binding[key] = value;
       }

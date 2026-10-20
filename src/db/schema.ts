@@ -303,9 +303,12 @@ export const ledgerEntries = pgTable("ledger_entries", {
 export const secureTags = pgTable("secure_tags", {
   id: uuid("id").primaryKey().defaultRandom(),
   publicRef: varchar("public_ref", { length: 32 }).notNull().unique(),
-  tenantId: uuid("tenant_id").notNull(),
-  locationId: uuid("location_id").notNull(),
-  programId: uuid("program_id").notNull(),
+  // Null while the tag is an unlinked plate (status 'unlinked'); a plate's binding is changed only by the operator.
+  tenantId: uuid("tenant_id"),
+  locationId: uuid("location_id"),
+  programId: uuid("program_id"),
+  /** Printed plate name (e.g. P-007); only plates have one. */
+  plateLabel: varchar("plate_label", { length: 16 }).unique(),
   uid: varchar("uid", { length: 14 }).notNull(),
   keyRef: varchar("key_ref", { length: 160 }).notNull(),
   configVersion: integer("config_version").notNull(),
@@ -320,10 +323,32 @@ export const secureTags = pgTable("secure_tags", {
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   // One live tag per chip. A revoked or replaced row keeps its history, and the same chip can be registered again.
-  uniqueIndex("secure_tag_uid_live_uq").on(t.uid).where(sql`${t.status} in ('provisioned','active')`),
-  check("secure_tag_status_valid", sql`${t.status} in ('provisioned','active','revoked','replaced')`),
+  uniqueIndex("secure_tag_uid_live_uq").on(t.uid).where(sql`${t.status} in ('provisioned','active','unlinked')`),
+  check("secure_tag_status_valid", sql`${t.status} in ('provisioned','active','revoked','replaced','unlinked')`),
+  // Bound to a whole shop, or to none: an unlinked plate, or a plate revoked while unlinked.
+  check("secure_tag_binding_valid", sql`(${t.tenantId} is not null and ${t.locationId} is not null and ${t.programId} is not null and ${t.status} <> 'unlinked') or (${t.tenantId} is null and ${t.locationId} is null and ${t.programId} is null and ${t.plateLabel} is not null and ${t.status} in ('unlinked','revoked'))`),
+  check("secure_tag_plate_label_valid", sql`${t.plateLabel} ~ '^[A-Z]{1,4}-[0-9]{1,6}$'`),
   check("secure_tag_counter_valid", sql`${t.lastCounter} between 0 and 16777215`),
   check("secure_tag_version_valid", sql`${t.configVersion} > 0`),
+]);
+
+/** Append-only record of every operator link, unlink and relink of a plate (trigger in migration 0026). */
+export const plateLinkEvents = pgTable("plate_link_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tagId: uuid("tag_id").notNull().references(() => secureTags.id),
+  plateLabel: varchar("plate_label", { length: 16 }).notNull(),
+  action: varchar("action", { length: 8 }).notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  oldTenantId: uuid("old_tenant_id"),
+  oldLocationId: uuid("old_location_id"),
+  oldProgramId: uuid("old_program_id"),
+  newTenantId: uuid("new_tenant_id"),
+  newLocationId: uuid("new_location_id"),
+  newProgramId: uuid("new_program_id"),
+  createdAt: createdAt(),
+}, (t) => [
+  index("plate_link_events_tag_time_idx").on(t.tagId, t.createdAt),
+  check("plate_link_action_valid", sql`(${t.action} = 'link' and ${t.oldProgramId} is null and ${t.newProgramId} is not null) or (${t.action} = 'relink' and ${t.oldProgramId} is not null and ${t.newProgramId} is not null) or (${t.action} = 'unlink' and ${t.oldProgramId} is not null and ${t.newProgramId} is null) or (${t.action} = 'revoke' and ${t.oldProgramId} is null and ${t.newProgramId} is null)`),
 ]);
 
 export const tapRequests = pgTable("tap_requests", {

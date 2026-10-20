@@ -4,8 +4,8 @@ export type OperatorOptions = Record<string, string>;
 export type OperatorMode = "read_only" | "offline_dry_run" | "execute";
 
 const COMMANDS = new Set(["reader-check", "tag-inspect", "provision", "resume", "tag-status", "tag-revoke"]);
-const FLAGS = new Set(["execute", "dry-run"]);
-const OPTIONS = new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id", "target", "tenant-id", "location-id", "cooldown-seconds", "execute", "dry-run", "provenance-ref", "transport-keys-file", "prepared-custody-file", "age-identity-file", "approved-plan-fingerprint"]);
+const FLAGS = new Set(["execute", "dry-run", "unlinked"]);
+const OPTIONS = new Set(["reader", "env-file", "program-id", "actor-user-id", "tag-id", "target", "tenant-id", "location-id", "cooldown-seconds", "execute", "dry-run", "unlinked", "plate", "provenance-ref", "transport-keys-file", "prepared-custody-file", "age-identity-file", "approved-plan-fingerprint"]);
 
 export function parseOperatorOptions(args: string[]): OperatorOptions {
   const values: OperatorOptions = {};
