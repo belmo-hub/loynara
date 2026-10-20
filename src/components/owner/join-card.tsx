@@ -37,7 +37,12 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>Link kopieren</button>
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={18} />Tresenschild laden</button>
       </div>
-      {exportUrl && <p className="ow-hint">Deine Daten gehören dir: <a className="ow-link" href={exportUrl} download>vollständigen Export herunterladen</a> (JSON).</p>}
+      {exportUrl && <div className="ow-hint">
+        <p>Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten.</p>
+        <p><a className="ow-link" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>
+        <p><a className="ow-link" href={`${exportUrl}?format=buchungen`} download>Buchungen für Excel</a>: Jeder Stempel, jede Einlösung und jede Korrektur mit Datum und Standort.</p>
+        <p><a className="ow-link" href={exportUrl} download>Vollständiger Export (JSON)</a></p>
+      </div>}
       <div role="status" aria-live="polite">{copied && <p className="ow-muted">{copied}</p>}</div>
       {error && <p className="ow-error" role="alert">{error}</p>}
     </section>

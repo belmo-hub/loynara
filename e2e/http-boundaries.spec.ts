@@ -66,6 +66,7 @@ test("HTTP sessions enforce tenant and staff boundaries, retries, redemption and
     expect((await cashier.context.get(`/api/cashier/lookup?code=${encodeURIComponent(cardA.scanCode)}`)).status()).toBe(200);
     expect((await cashier.context.get("/api/staff")).status()).toBe(403);
     expect((await cashier.context.get("/api/merchant/export")).status()).toBe(403);
+    expect((await cashier.context.get("/api/merchant/export?format=buchungen")).status()).toBe(403);
     const staffAudit = await ownerA.context.get("/api/staff/audit");
     expect(staffAudit.status()).toBe(200);
     expect((await staffAudit.json() as { events: Array<{ action: string }> }).events.map(event => event.action)).toEqual(["invite_accepted", "invite_created"]);
@@ -83,6 +84,15 @@ test("HTTP sessions enforce tenant and staff boundaries, retries, redemption and
     expect(JSON.stringify(merchantData)).not.toContain(cardA.cardToken);
     expect(JSON.stringify(merchantData)).not.toContain(cardA.scanCode);
     expect(merchantData.staffAuditEvents.map(event => event.action)).toEqual(["invite_accepted", "invite_created"]);
+    for (const format of ["karten", "buchungen"]) {
+      const csvExport = await ownerA.context.get(`/api/merchant/export?format=${format}`);
+      expect(csvExport.status()).toBe(200);
+      expect(csvExport.headers()["content-type"]).toBe("text/csv; charset=utf-8");
+      expect(csvExport.headers()["content-disposition"]).toMatch(new RegExp(`attachment; filename="loynara-${format}-\\d{4}-\\d{2}-\\d{2}\\.csv"`));
+      const csvBody = await csvExport.text();
+      for (const secret of [cardA.cardToken, cardA.scanCode, cardB.cardToken]) expect(csvBody).not.toContain(secret);
+    }
+    expect((await ownerA.context.get("/api/merchant/export?format=xlsx")).status()).toBe(400);
 
     const cardExport = await ownerA.context.get(`/api/card/${encodeURIComponent(cardA.cardToken)}/export`);
     expect(cardExport.status()).toBe(200);
