@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, memberships, programRuleVersions, programs, staffRoles } from "@/db/schema";
+import { ledgerEntries, memberships, programRuleVersions, programs, referrals, staffRoles } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
+import { getMerchantAnalytics } from "./merchant-analytics";
 import { getMerchantMember } from "./merchant-members";
+import { configureReferrals, getCardReferralShare } from "./referrals";
+import { getRetentionSummary } from "./retention";
 import { createMerchant, enroll, getCard, updateProgram, updateProgramHappyHour } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
@@ -24,9 +27,9 @@ async function shop(userId: string, type: "stamp" | "points" = "points") {
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   return { ...merchant, card };
 }
-const buy = async (userId: string, m: Awaited<ReturnType<typeof shop>>, key: string = randomUUID()) => {
+const buy = async (userId: string, m: Awaited<ReturnType<typeof shop>>, key: string = randomUUID(), source?: "staff_offline") => {
   const [rule] = await db.select().from(programRuleVersions).where(eq(programRuleVersions.programId, m.programId)).orderBy(desc(programRuleVersions.version)).limit(1);
-  return award({ userId, locationId: m.locationId, membershipId: m.card.id, purchaseAmountMinor: 500, ruleVersionId: rule.id, idempotencyKey: key, requestId: randomUUID() });
+  return award({ userId, locationId: m.locationId, membershipId: m.card.id, purchaseAmountMinor: 500, ruleVersionId: rule.id, idempotencyKey: key, requestId: randomUUID(), source, deviceAt: source ? new Date() : undefined });
 };
 const rows = (membershipId: string) => db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, membershipId)).orderBy(ledgerEntries.createdAt);
 const balanceOf = async (id: string) => (await db.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, id)))[0].balance;
@@ -128,5 +131,40 @@ describe("happy hour", () => {
     await on(owner, m);
     await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Stempelkarte", rulesText: "Ein Stempel.", programType: "stamp", earningMode: "manual" });
     expect((await db.select().from(programs).where(and(eq(programs.id, m.programId))))[0]).toMatchObject({ happyHourEnabled: false });
+  });
+
+  it("gives an offline-synced award nothing: its purchase time is not known to the server", async () => {
+    const owner = await user(); const m = await shop(owner);
+    await on(owner, m);
+    expect(await buy(owner, m, randomUUID(), "staff_offline")).toMatchObject({ balance: 10 });
+    expect((await rows(m.card.id)).map(r => r.source)).toEqual(["staff_offline"]);
+  });
+
+  it("stays below the balance ceiling: the extra points count toward the limit", async () => {
+    const owner = await user(); const m = await shop(owner);
+    await on(owner, m);
+    // 10 points + 10 happy hour would pass 2_147_483_647 from here; 10 alone would not.
+    await db.update(memberships).set({ balance: 2_147_483_647 - 19 }).where(eq(memberships.id, m.card.id));
+    await expect(buy(owner, m)).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" });
+    expect(await rows(m.card.id)).toEqual([]);
+    await db.update(memberships).set({ balance: 2_147_483_647 - 20 }).where(eq(memberships.id, m.card.id));
+    expect(await buy(owner, m)).toMatchObject({ balance: 2_147_483_647 });
+  });
+
+  it("is ignored by analytics, retention and referrals: one purchase is one visit with 10 points issued", async () => {
+    const owner = await user(); const m = await shop(owner);
+    await on(owner, m);
+    await configureReferrals({ actorUserId: owner, programSlug: m.programSlug, enabled: true, referrerBonus: 1, referredBonus: 1 });
+    const referrer = await enroll({ slug: m.programSlug, acceptedTerms: true });
+    const code = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+    const referred = await enroll({ slug: m.programSlug, acceptedTerms: true, referralCode: code });
+    const purchase = await buy(owner, { ...m, card: referred });
+    // 10 + 10 happy hour + 1 referred bonus.
+    expect(purchase.balance).toBe(21);
+    const analytics = await getMerchantAnalytics(owner, { windowDays: 30 });
+    expect(analytics).toMatchObject({ qualifyingCheckouts: 1, issued: { pointUnits: 10, awardActions: 1 } });
+    expect(await db.select().from(referrals)).toMatchObject([{ status: "qualified", qualifyingEntryId: purchase.entryId }]);
+    expect((await getRetentionSummary(owner)).recent).toBe(1);
+    expect((await getMerchantMember(owner, referred.id)).member).toMatchObject({ qualifyingCheckouts: 1 });
   });
 });

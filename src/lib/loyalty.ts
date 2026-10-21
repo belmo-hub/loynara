@@ -152,7 +152,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     const purchaseAmountLimit = staff?.role === "cashier" ? 50_000 : staff?.role === "manager" ? 200_000 : 1_000_000;
     const purchasePointsLimit = staff?.role === "cashier" ? 500 : staff?.role === "manager" ? 2_000 : 10_000;
     if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
-    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
+    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity * (program.happyHourEnabled ? 2 : 1) + program.welcomeBonus > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
 
     const [entry] = await tx.insert(ledgerEntries).values({
       tenantId: member.tenantId,
@@ -174,7 +174,8 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     }
     const staffConfirmed = entry.source === "staff_online" || entry.source === "staff_offline";
     const welcomeBonus = staffConfirmed ? await bookWelcomeBonus(tx, { program, entry }) : 0;
-    const happyHour = staffConfirmed && purchaseMode ? await bookHappyHour(tx, { program, entry }) : 0;
+    // Only online awards: a staff_offline award has no purchase time the server can trust (created_at is the sync time, deviceAt is the till's clock).
+    const happyHour = entry.source === "staff_online" && purchaseMode ? await bookHappyHour(tx, { program, entry }) : 0;
     const balance = member.balance + quantity + welcomeBonus + happyHour;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await enqueueWalletRefresh(tx, member.tenantId, member.id);
