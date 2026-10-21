@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, memberships, plateLinkEvents, programs, rewardVersions, secureTags, tapRequests } from "@/db/schema";
+import { locations, ledgerEntries, memberships, plateLinkEvents, programs, rewardVersions, secureTags, tapRequests } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
@@ -365,5 +365,48 @@ describe("after the end: the owner's export window and what stays closed", () =>
     expect(((await status()) as { requestedAt: Date }).requestedAt).toEqual(first.requestedAt);
     await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-12T10:00:00Z") });
     expect(await status()).toMatchObject({ state: "none", requestedAt: null });
+  });
+});
+
+describe("an owner with two locations, the oldest of which has ended", () => {
+  async function twoLocations() {
+    const f = await shop();
+    const [second] = await db.insert(locations).values({ tenantId: f.tenant.id, name: "Göttingen", city: "Göttingen", country: "DE", timezone: "Europe/Berlin", createdAt: new Date(Date.now() + 60_000) }).returning();
+    const [running] = await db.insert(programs).values({ tenantId: f.tenant.id, locationId: second.id, slug: `second-${randomUUID()}`, name: "Second Card", type: "stamp", rulesText: "One stamp per visit." }).returning();
+    return { ...f, second, running };
+  }
+  const end = (id: string) => db.update(programs).set({ status: "ended", cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date() }).where(eq(programs.id, id));
+
+  it("works in the running location with no selection and with the ended location selected", async () => {
+    const f = await twoLocations();
+    await end(f.program.id);
+    expect(await getMerchantContext(f.userId)).toMatchObject({ locationId: f.second.id, programSlug: f.running.slug });
+    expect(await getMerchantContext(f.userId, f.location.id)).toMatchObject({ locationId: f.second.id, programSlug: f.running.slug });
+    expect(await getMerchantContext(f.userId, f.second.id)).toMatchObject({ locationId: f.second.id });
+    expect(await endedAccount(f.userId)).toBeNull(); // a running programme: no ended page
+  });
+
+  it("shows the ended page only when every location has ended", async () => {
+    const f = await twoLocations();
+    await end(f.program.id);
+    await end(f.running.id);
+    expect(await code(() => getMerchantContext(f.userId))).toBe("PROGRAM_ENDED");
+    expect(await code(() => getMerchantContext(f.userId, f.second.id))).toBe("PROGRAM_ENDED");
+    expect(await endedAccount(f.userId)).toMatchObject({ role: "owner", endedOn: "2026-10-31" });
+  });
+
+  it("does not move a team member: a cashier of the ended location gets the ended answer, a cashier of the running one works", async () => {
+    const f = await twoLocations();
+    await end(f.program.id);
+    const atEnded = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const atRunning = await addStaff(f.tenant.id, f.second.id, "cashier");
+    expect(await code(() => getMerchantContext(atEnded))).toBe("PROGRAM_ENDED");
+    expect(await getMerchantContext(atRunning)).toMatchObject({ locationId: f.second.id });
+  });
+
+  it("keeps SETUP_INCOMPLETE for a location that has no programme yet", async () => {
+    const f = await twoLocations();
+    const [empty] = await db.insert(locations).values({ tenantId: f.tenant.id, name: "Leer", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    expect(await code(() => getMerchantContext(f.userId, empty.id))).toBe("SETUP_INCOMPLETE");
   });
 });
