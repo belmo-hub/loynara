@@ -965,7 +965,7 @@ export const walletTemplateBindings = pgTable("wallet_template_bindings", {
   unique("wallet_template_bindings_template_uq").on(t.templateId),
 ]);
 
-/** Append-only history of every template binding change (trigger in 0035). `import` = copied from PASSFAST_TENANT_TEMPLATES. */
+/** Append-only history of every template binding change (trigger in the migration; fixed lane slot 0035). `import` = copied from PASSFAST_TENANT_TEMPLATES. */
 export const walletTemplateBindingEvents = pgTable("wallet_template_binding_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
