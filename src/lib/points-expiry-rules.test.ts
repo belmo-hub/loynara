@@ -26,15 +26,15 @@ describe("expiryBuckets (oldest first)", () => {
 
   it("is due exactly at the expiry instant, not a millisecond before", () => {
     const buckets = expiryBuckets([row(40, "2026-02-01T10:00:00Z")], rule);
-    expect(duePoints(buckets, at("2026-08-01T09:59:59.999Z")).amount).toBe(0);
-    expect(duePoints(buckets, at("2026-08-01T10:00:00Z"))).toEqual({ amount: 40, lastExpiresAt: at("2026-08-01T10:00:00Z") });
+    expect(duePoints(buckets, at("2026-08-01T09:59:59.999Z"))).toBe(0);
+    expect(duePoints(buckets, at("2026-08-01T10:00:00Z"))).toBe(40);
   });
 
   it("an expiry row uses up the lots that were due, not older undated ones", () => {
     const rows = [row(30, "2025-12-01T10:00:00Z"), row(40, "2026-02-01T10:00:00Z"), row(-40, "2026-08-01T10:00:00Z", "expiry")];
     const buckets = expiryBuckets(rows, rule);
     expect(buckets).toEqual([]);
-    expect(duePoints(buckets, at("2030-01-01T00:00:00Z")).amount).toBe(0);
+    expect(duePoints(buckets, at("2030-01-01T00:00:00Z"))).toBe(0);
   });
 
   it("treats points given back by a correction as freshly earned", () => {

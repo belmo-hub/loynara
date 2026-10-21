@@ -156,6 +156,22 @@ describe("the expiry job", () => {
     await expect(getMerchantMember(other.owner, card.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("keeps going when one card cannot be booked", async () => {
+    const s = await shop();
+    await setExpiry(s, 6);
+    const broken = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const fine = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const first = await give(s, broken.id, 40);
+    await give(s, fine.id, 40);
+    const due = addMonths(await entryTime(first.entryId), 6);
+    const run = new Date(due.getTime() + 60_000);
+    // Something already holds the key this run would use for the first card.
+    await pool.query("INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, request_id, idempotency_key, created_at) VALUES ($1, $2, $3, -1, 'expiry', 'expiry', gen_random_uuid(), $4, $5)",
+      [s.tenantId, s.locationId, broken.id, `expiry:${broken.id}:${run.toISOString()}`, run]);
+    expect(await runPointsExpiry(run)).toBe(1);
+    expect(await balanceOf(fine.id)).toBe(0);
+  });
+
   it("books nothing for an ended programme", async () => {
     const s = await shop();
     await setExpiry(s, 6);

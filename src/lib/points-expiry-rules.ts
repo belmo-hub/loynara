@@ -51,8 +51,7 @@ export function expiryBuckets(rows: ExpiryLedgerRow[], rule: { months: number; s
 
 /** What the expiry job books now: every lot whose date has passed. */
 export function duePoints(buckets: ExpiryBucket[], now: Date) {
-  const due = buckets.filter(lot => lot.expiresAt <= now);
-  return { amount: due.reduce((sum, lot) => sum + lot.amount, 0), lastExpiresAt: due.at(-1)?.expiresAt };
+  return buckets.filter(lot => lot.expiresAt <= now).reduce((sum, lot) => sum + lot.amount, 0);
 }
 
 /** Points that expire within the next EXPIRY_REMINDER_DAYS, and when the first of them goes. */

@@ -33,7 +33,7 @@ const candidates = () => db.select({ membershipId: memberships.id, tenantId: mem
   .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
   .where(and(eq(programs.status, "active"), isNotNull(programs.pointsExpiryMonths), isNull(memberships.closedAt), gt(memberships.balance, 0)));
 
-/** Books one card's due expiry under its lock. Exactly once: a second run finds the lots already used up by the first row. */
+/** Books one card's due expiry under its lock. Exactly once: a second run finds the lots already used up by the first row (the key only names the run). */
 export async function expireCardPoints(membershipId: string, now = new Date()) {
   return db.transaction(async tx => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, membershipId)).for("update");
@@ -41,12 +41,11 @@ export async function expireCardPoints(membershipId: string, now = new Date()) {
     // Shared like a booking, so an owner's save of the rule and this job wait for each other.
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId))).for("share");
     if (!program || program.status !== "active") return 0;
-    const due = duePoints(await cardExpiryBuckets(tx, member.tenantId, member.id, program), now);
-    const amount = Math.min(due.amount, member.balance);
-    if (amount <= 0 || !due.lastExpiresAt) return 0;
+    const amount = Math.min(duePoints(await cardExpiryBuckets(tx, member.tenantId, member.id, program), now), member.balance);
+    if (amount <= 0) return 0;
     await tx.insert(ledgerEntries).values({
       tenantId: member.tenantId, locationId: program.locationId, membershipId: member.id, delta: -amount, kind: "expiry", source: "expiry",
-      actorUserId: null, requestId: randomUUID(), idempotencyKey: `expiry:${member.id}:${due.lastExpiresAt.toISOString()}`, reason: "Punkte verfallen",
+      actorUserId: null, requestId: randomUUID(), idempotencyKey: `expiry:${member.id}:${now.toISOString()}`, reason: "Punkte verfallen",
       // The replay matches this row to the lots due at its time, so it carries the time the amount was computed for.
       createdAt: now,
     });
@@ -59,7 +58,11 @@ export async function expireCardPoints(membershipId: string, now = new Date()) {
 /** Worker tick: books due expiries, then queues the Wallet reminders. Returns how many cards lost points. */
 export async function runPointsExpiry(now = new Date()) {
   let expired = 0;
-  for (const card of await candidates()) if (await expireCardPoints(card.membershipId, now)) expired += 1;
+  for (const card of await candidates()) {
+    // One card that cannot be booked must not stop every other card's expiry or the worker loop.
+    try { if (await expireCardPoints(card.membershipId, now)) expired += 1; }
+    catch (error) { console.error(`Points expiry for card ${card.membershipId} failed (${error instanceof Error ? error.name : "error"})`); }
+  }
   await queueExpiryReminders(now);
   return expired;
 }
@@ -75,7 +78,8 @@ export async function queueExpiryReminders(now = new Date()) {
     const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, row.program), now);
     if (!upcoming) continue;
     const text = expiryReminderText(upcoming.amount, upcoming.firstAt, row.timezone);
-    if (await queueCardWalletMessage({ tenantId: card.tenantId, programId: card.programId, membershipId: card.membershipId, kind: "expiry", text, onceWithinDays: EXPIRY_REMINDER_DAYS }, now)) queued += 1;
+    try { if (await queueCardWalletMessage({ tenantId: card.tenantId, programId: card.programId, membershipId: card.membershipId, kind: "expiry", text, onceWithinDays: EXPIRY_REMINDER_DAYS }, now)) queued += 1; }
+    catch (error) { console.error(`Expiry reminder for card ${card.membershipId} failed (${error instanceof Error ? error.name : "error"})`); }
   }
   return queued;
 }
