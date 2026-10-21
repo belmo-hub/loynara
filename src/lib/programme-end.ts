@@ -89,13 +89,13 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
   return { result: ended ? "end" as const : "unchanged" as const, ...programme, unlinkedPlates: ended?.unlinkedPlates };
 }
 
-/** Customer pages: has this programme ended? A plate unlinked by the end job no longer names its programme, so its last audit row says so. */
+/** Customer pages: has this programme ended? A plate unlinked by the end job no longer names its programme, so the programme named by its last audit row says so (whether the job or the operator unlinked it). */
 export async function programmeEnded(by: { slug: string } | { cardToken: string } | { tapRef: string } | { plateLabel: string }) {
   const found = "slug" in by ? await db.select({ id: programs.id }).from(programs).where(and(eq(programs.slug, by.slug), eq(programs.status, "ended")))
     : "cardToken" in by ? await db.select({ id: programs.id }).from(memberships).innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
       .where(and(eq(memberships.cardToken, by.cardToken), eq(programs.status, "ended")))
       : (await db.execute(sql`SELECT t.id FROM secure_tags t WHERE ${"tapRef" in by ? sql`t.public_ref = ${by.tapRef}` : sql`t.plate_label = ${by.plateLabel}`} AND (
           EXISTS (SELECT 1 FROM programs p WHERE p.id = t.program_id AND p.status = 'ended')
-          OR (t.status = 'unlinked' AND (SELECT e.actor_user_id FROM plate_link_events e WHERE e.tag_id = t.id ORDER BY e.created_at DESC, e.id LIMIT 1) = ${PROGRAMME_END_ACTOR}))`)).rows;
+          OR (t.status = 'unlinked' AND EXISTS (SELECT 1 FROM programs p WHERE p.id = (SELECT e.old_program_id FROM plate_link_events e WHERE e.tag_id = t.id ORDER BY e.created_at DESC, e.id LIMIT 1) AND p.status = 'ended')))`)).rows;
   return found.length > 0;
 }

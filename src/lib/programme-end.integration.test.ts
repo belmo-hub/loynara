@@ -9,7 +9,7 @@ import { sdmFor } from "./nfc-test-support";
 import { processSecureTap } from "./secure-tap";
 import { enroll, getMerchantContext } from "./product";
 import { addStaff, nfcFixture } from "./nfc-test-db";
-import { endDueProgrammes, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
+import { endDueProgrammes, endProgramme, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
 import { germanDate, lastDayOfBerlinMonth } from "./programme-end-date";
 import { POST as cancelPost } from "@/app/api/merchant/program/cancel/route";
 
@@ -120,8 +120,9 @@ describe("the end-date job", () => {
     const f = await shop();
     await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
     const now = at("2026-11-01T00:00:00Z");
-    const runs = await Promise.all([endDueProgrammes(now), endDueProgrammes(now), endDueProgrammes(now)]);
-    expect(runs.reduce((a, b) => a + b, 0)).toBe(1);
+    // Three ends of the same programme at once: only the row lock makes exactly one of them win, every time.
+    const runs = await Promise.all([1, 2, 3].map(() => endProgramme({ programId: f.program.id, actorUserId: PROGRAMME_END_ACTOR, now })));
+    expect(runs.filter(Boolean)).toHaveLength(1);
     expect(await endDueProgrammes(now)).toBe(0);
     const [tag] = await db.select().from(secureTags).where(eq(secureTags.id, f.tag.id));
     expect(tag).toMatchObject({ status: "unlinked", tenantId: null, locationId: null, programId: null, plateLabel: "P-007" });
@@ -212,5 +213,6 @@ describe("operator console", () => {
     expect((await programme(f.program.id)).status).toBe("ended");
     expect((await db.select().from(plateLinkEvents))[0]).toMatchObject({ actorUserId: operator, action: "unlink" });
     expect(await programmeEnded({ slug: f.program.slug })).toBe(true);
+    expect(await programmeEnded({ tapRef: f.tag.publicRef })).toBe(true); // unlinked by the operator, not the job
   });
 });
