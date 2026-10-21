@@ -20,6 +20,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       tenantId: tenants.id, tenant: tenants.name, weeklyReport: tenants.weeklyReportEnabled,
       locationId: locations.id, location: locations.name, city: locations.city,
       programId: programs.id, programme: programs.name, status: programs.status, tapMode: programs.tapMode,
+      endDate: programs.cancellationEndDate, requestedAt: programs.cancellationRequestedAt, confirmedAt: programs.cancellationConfirmedAt,
       cards: sql<number>`coalesce(${cards.cards}, 0)`, lastAward: awards.last,
     }).from(programs)
       .innerJoin(tenants, eq(tenants.id, programs.tenantId))
@@ -33,6 +34,8 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .leftJoin(programs, eq(programs.id, secureTags.programId)).leftJoin(tenants, eq(tenants.id, secureTags.tenantId))
       .leftJoin(locations, eq(locations.id, secureTags.locationId))
       .where(isNotNull(secureTags.plateLabel)).orderBy(asc(secureTags.plateLabel));
-    return { rows, plates };
+    // Age is computed here so the page renders the same on server and client.
+    const now = Date.now();
+    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }
