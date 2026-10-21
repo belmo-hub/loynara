@@ -34,6 +34,8 @@ export type CustomerCardProps = {
   reviewUrl?: string;
   /** End time of the running happy hour; one plain line, absent = none running. */
   happyHourUntil?: string;
+  /** Points expiry: the rule (shown with the rules from the first visit) and the 30-day notice; absent = expiry off. */
+  pointsExpiry?: { rule: string; notice?: string };
   locale?: "de" | "fr";
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
@@ -57,7 +59,7 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, locale = "de", notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -94,6 +96,7 @@ export function CustomerCard(props: CustomerCardProps) {
     {notices}
 
     {happyHourUntil ? <p className={styles.rules}>{t.happyHour(happyHourUntil)}</p> : null}
+    {pointsExpiry?.notice ? <p className={styles.rules} role="status">{pointsExpiry.notice}</p> : null}
 
     {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
       <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>
@@ -123,9 +126,10 @@ export function CustomerCard(props: CustomerCardProps) {
       {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
-    {rulesText ? <section className={styles.panel} aria-labelledby="customer-rules-title">
+    {rulesText || pointsExpiry ? <section className={styles.panel} aria-labelledby="customer-rules-title">
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
-      <p className={styles.rules}>{rulesText}</p>
+      {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
+      {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
       <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
     </section> : null}
 

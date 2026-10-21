@@ -47,9 +47,9 @@ export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Pr
 }
 
 // Every ledger idempotency-key namespace the server generates itself (staff tap confirmation and automatic tap, offline
-// sync, referral bonuses and their reversals, the welcome bonus and the happy-hour extra, each with its reversal). A client key in one of them could take
+// sync, referral bonuses and their reversals, the welcome bonus and the happy-hour extra, each with its reversal, and the expiry job). A client key in one of them could take
 // a key first and block or replay a server booking. Add every new server-generated prefix here.
-export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:"] as const;
+export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "expiry:"] as const;
 const validKeyLength = (key: string) => key.length >= 8 && key.length <= 100;
 
 /** For keys that come from a client (the public award, redeem and reverse entry points). Internal callers never use it. */

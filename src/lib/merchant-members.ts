@@ -21,7 +21,7 @@ type MemberRow = {
   referralStatus: ReferralStatus; qualifiedReferrals: number;
 };
 type TimelineRow = {
-  id: string; kind: "award" | "redeem" | "reversal"; delta: number; source: string;
+  id: string; kind: "award" | "redeem" | "reversal" | "expiry"; delta: number; source: string;
   createdAt: Date; cursorAt: string; reversalOfId: string | null; reversed: boolean; rewardTitle: string | null; reason: string | null;
 };
 type RewardRow = { id: string; title: string; cost: number };

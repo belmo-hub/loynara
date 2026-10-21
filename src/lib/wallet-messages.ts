@@ -187,6 +187,29 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
   });
 }
 
+/**
+ * An automatic message to one card (ENG-051 expiry reminder): the same consent, reachability and per-customer cap as an
+ * owner message, its own kind, no shop cap. At most one of this kind per card within `onceWithinDays`. False = not queued.
+ */
+export async function queueCardWalletMessage(input: { tenantId: string; programId: string; membershipId: string; kind: "expiry"; text: string; onceWithinDays: number }, now = new Date()) {
+  if (surfaceHidden("walletMessages")) return false;
+  return db.transaction(async tx => {
+    await lock(tx, input.tenantId);
+    const [recent] = rows<{ id: string }>(await tx.execute(sql`SELECT m.id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id
+      WHERE m.tenant_id = ${input.tenantId}::uuid AND m.kind = ${input.kind} AND r.membership_id = ${input.membershipId}::uuid
+        AND m.created_at > ${now}::timestamptz - make_interval(days => ${input.onceWithinDays}) LIMIT 1`));
+    if (recent) return false;
+    const [pass] = rows<{ id: string }>(await tx.execute(sql`SELECT p.id ${eligible(input.tenantId, input.programId, now)} AND m.id = ${input.membershipId}::uuid LIMIT 1`));
+    if (!pass) return false;
+    const [message] = rows<{ id: string }>(await tx.execute(sql`INSERT INTO wallet_messages (tenant_id, program_id, kind, text, audience_count, created_at)
+      VALUES (${input.tenantId}::uuid, ${input.programId}::uuid, ${input.kind}, ${input.text}, 1, ${now}::timestamptz) RETURNING id`));
+    await tx.execute(sql`INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, created_at)
+      VALUES (${message.id}::uuid, ${pass.id}::uuid, ${input.tenantId}::uuid, ${input.membershipId}::uuid, ${now}::timestamptz)`);
+    await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES (${input.tenantId}::uuid, 'wallet.message', jsonb_build_object('messageId', ${message.id}::text))`);
+    return true;
+  });
+}
+
 /** Stop switch: nothing queued is sent any more. A delivery already in flight finishes; it cannot be recalled. */
 export async function stopWalletMessage(input: { actorUserId: string; programSlug: string; messageId: string }) {
   available();

@@ -23,6 +23,7 @@ let stopping = false;
 let recoveryPrunedAt = 0;
 let weeklyReportsCheckedAt = 0;
 let programmesEndedAt = 0;
+let pointsExpiredAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -287,6 +288,17 @@ async function main() {
           const { endDueProgrammes } = await import("../src/lib/programme-end");
           await endDueProgrammes();
           programmesEndedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - pointsExpiredAt >= 15 * 60_000) {
+        try {
+          // Idempotent: each card's expiry is booked under its card lock from the ledger itself, so replicas and retries do no harm.
+          const { runPointsExpiry } = await import("../src/lib/points-expiry");
+          await runPointsExpiry();
+          pointsExpiredAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;
