@@ -4,6 +4,7 @@ import { memberships, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { cancellationEnd, germanDate } from "./programme-end-date";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
+import { earliestEndDate, END_DATE_TOO_EARLY } from "./operator-date";
 
 /**
  * Programme cancellation. There is no live billing, so cancelling records an END DATE: the last Berlin calendar day the
@@ -71,11 +72,17 @@ export async function endDueProgrammes(now = new Date()) {
 }
 
 const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar day: the format alone lets 2026-02-30 through, which Date rolls to 2 March and Postgres refuses. */
+const realDay = (day?: string): day is string => !!day && isoDay.test(day) && !Number.isNaN(Date.parse(day)) && new Date(day).toISOString().startsWith(day);
 
 /** Operator console: show, confirm (or move) the end date, or end a programme at once. Dry run unless `execute`. */
-export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end"; endDate?: string; execute: boolean }) {
+export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end"; endDate?: string; execute: boolean; now?: Date }) {
   if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Programme not found");
-  if (input.command === "schedule" && (!input.endDate || !isoDay.test(input.endDate) || Number.isNaN(Date.parse(input.endDate)))) throw new DomainError("INVALID_END_DATE", "End date must look like 2026-10-31");
+  if (input.command === "schedule") {
+    if (!realDay(input.endDate)) throw new DomainError("INVALID_END_DATE", "Dieses Datum gibt es nicht. Bitte einen Kalendertag angeben, z. B. 2026-10-31.");
+    // A day that has begun would end the programme within minutes; ending now is the `end` command.
+    if (input.endDate < earliestEndDate(input.now ?? new Date())) throw new DomainError("END_DATE_TOO_EARLY", END_DATE_TOO_EARLY);
+  }
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [row] = await tx.select({ id: programs.id, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt, requestedAt: programs.cancellationRequestedAt }).from(programs).where(eq(programs.id, input.programId));
