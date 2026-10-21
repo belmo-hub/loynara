@@ -2,6 +2,7 @@ import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, secureTags, tenants } from "@/db/schema";
 import { assertPlateOperator } from "./plates";
+import { walletMessageStats } from "./wallet-messages";
 
 /**
  * The operator's read model: shops and plates, counts and dates only. No customer, card or contact data is selected,
@@ -36,6 +37,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .where(isNotNull(secureTags.plateLabel)).orderBy(asc(secureTags.plateLabel));
     // Age is computed here so the page renders the same on server and client.
     const now = Date.now();
-    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    const messages = await walletMessageStats(tx);
+    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

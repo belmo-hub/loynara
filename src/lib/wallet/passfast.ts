@@ -95,15 +95,17 @@ async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 export type PassFastData = {
   merchantName: string; programName: string; locationName: string; locale: string; programType: string;
   balance: number; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: number; rewardReady: string;
+  /** Owner message (ENG-043): Back of Pass, lock-screen notification `%@`. The last message sent to this card, resent unchanged on every refresh so a refresh never clears it or raises a banner. */
+  message: string;
 };
 export function passFastData(pass: WalletPassData): PassFastData {
   const rewardReady = Boolean(pass.reward && pass.balance >= pass.reward.cost);
   return { merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName,
     locale: pass.locale, programType: pass.programType, balance: pass.balance, cardLocator: pass.cardLocator,
     scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: pass.reward?.cost ?? 0,
-    rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "" };
+    rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "", message: pass.message ?? "" };
 }
-export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: "" } as const satisfies Partial<PassFastData>;
+export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: "", message: "" } as const satisfies Partial<PassFastData>;
 
 type RemotePass = { id: string; status: "active" | "invalidated" | "expired"; saveUrl?: string };
 const record = (value: unknown): Record<string, unknown> => {

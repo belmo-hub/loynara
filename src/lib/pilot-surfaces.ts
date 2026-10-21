@@ -12,6 +12,8 @@ import { anyWalletAvailable } from "./wallet/capability";
  * - cancellation: the owner's "Programm beenden" card and its route, until Legal closes the DS-05 gate. Only the request is
  *   withheld: the ended-programme owner page and its 30-day export stay visible, because the operator can still end a
  *   programme from the console.
+ * - walletMessages: owner messages on Apple Wallet cards (ENG-043): the owner page, its API routes and the consent box on the card page.
+ *   Withheld on real production until Legal's documents are live and the founder switches it on; preview and development show it.
  * - campaigns / audiences: NOT withheld. With production e-mail delivery disabled they are draft-only: the audience
  *   preview and campaign composer work, drafts are saved, and the schedule control does not exist while
  *   promotionalEmailMode() is "disabled" (the server also refuses scheduling with EMAIL_DISABLED and the dispatcher
@@ -25,14 +27,15 @@ import { anyWalletAvailable } from "./wallet/capability";
  *
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
-export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations", "cancellation"];
+export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages";
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations", "cancellation", "walletMessages"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 
 export function hiddenSurfaces(env: SurfaceEnv = process.env): PilotSurface[] {
   const production = isProductionDeployment(env);
-  const hidden: PilotSurface[] = production ? [...PILOT_HIDDEN_SURFACES] : [];
+  // The founder's switch for owner messages on real production; absent or anything but "true" keeps them withheld.
+  const hidden: PilotSurface[] = production ? PILOT_HIDDEN_SURFACES.filter(surface => !(surface === "walletMessages" && env.WALLET_MESSAGES_ENABLED === "true")) : [];
   if (production && !anyWalletAvailable(env)) hidden.push("walletPreviews", "cardLogo");
   if (!nfcCapability(env).available) hidden.push("nfc");
   return hidden;

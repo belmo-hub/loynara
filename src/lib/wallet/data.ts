@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programs, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programs, tenants, walletMessageRecipients, walletMessages } from "@/db/schema";
 import { formatCardLocator } from "@/lib/card-locator";
 import { DomainError } from "@/lib/loyalty";
 import { currentRewards } from "@/lib/product";
@@ -55,6 +55,10 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
   const [latest] = await reader.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
+  const [lastMessage] = await reader.select({ text: walletMessages.text }).from(walletMessageRecipients)
+    .innerJoin(walletMessages, and(eq(walletMessages.id, walletMessageRecipients.messageId), eq(walletMessages.tenantId, walletMessageRecipients.tenantId)))
+    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id), eq(walletMessageRecipients.status, "sent")))
+    .orderBy(desc(walletMessageRecipients.sentAt)).limit(1);
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),
@@ -66,6 +70,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       cardLocator: formatCardLocator(row.member.cardLocator),
       ...(target ? { reward: { title: target.title, cost: target.cost } } : {}),
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
+      ...(lastMessage ? { message: lastMessage.text } : {}),
     },
   };
 }
