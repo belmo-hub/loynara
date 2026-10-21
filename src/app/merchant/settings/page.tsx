@@ -72,6 +72,7 @@ function Cancellation() {
   const [copied, setCopied] = useState(false);
   if (!me) return null;
   const endDate = me.cancellationEndDate ?? null;
+  const confirmed = me.cancellationConfirmed === true;
   const planned = cancellationEnd(new Date());
   const text = endDate ? `Unsere Punktekarte endet am ${germanDate(endDate)}. Löse deine Punkte bis dahin ein.` : "";
   async function send(withdraw: boolean) {
@@ -88,16 +89,20 @@ function Cancellation() {
     <section className="ow-card ow-stack" aria-labelledby="ow-cancel-title">
       <h2 id="ow-cancel-title">Programm beenden</h2>
       {endDate ? <>
-        <Notice tone="warn">Dein Programm endet am {germanDate(endDate)}. Bis dahin läuft alles normal, auch das Einlösen von Prämien.</Notice>
-        <p>Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
-        <div className="ow-field"><label htmlFor="ow-cancel-text" className="ow-sr">Text für deine Kunden</label><textarea id="ow-cancel-text" className="ow-input" readOnly rows={2} value={text} onFocus={event => event.currentTarget.select()} /></div>
+        {confirmed
+          ? <Notice tone="warn">Dein Programm endet am {germanDate(endDate)}. Bis dahin läuft alles normal, auch das Einlösen von Prämien.</Notice>
+          : <Notice tone="warn">Voraussichtlich bis zum {germanDate(endDate)}. Laut Pilotvereinbarung endet der Vertrag mit {MIN_NOTICE_DAYS} Tagen Frist zum Ende eines Abrechnungsmonats. Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal.</Notice>}
+        {confirmed && <>
+          <p>Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
+          <div className="ow-field"><label htmlFor="ow-cancel-text" className="ow-sr">Text für deine Kunden</label><textarea id="ow-cancel-text" className="ow-input" readOnly rows={2} value={text} onFocus={event => event.currentTarget.select()} /></div>
+        </>}
         <div className="ow-row">
-          <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button>
+          {confirmed && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button>}
           <button type="button" className="ow-btn ow-btn--ghost" disabled={saving} onClick={() => void send(true)}>Kündigung zurücknehmen</button>
         </div>
       </> : <>
         <p>Bis zum Enddatum läuft alles normal. Deine Kunden können ihre Punkte weiter einlösen, danach nicht mehr. Ihre Stände bleiben gespeichert.</p>
-        <p><strong>Dein Programm würde am {germanDate(planned.endDate)} enden.</strong>{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, gilt das Ende des Folgemonats.` : ""}</p>
+        <p><strong>Voraussichtlich bis zum {germanDate(planned.endDate)}.</strong> Wir bestätigen dir das genaue Enddatum per E-Mail.{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, rechnen wir mit dem Ende des Folgemonats.` : ""}</p>
         {confirming
           ? <div className="ow-row">
             <button type="button" className="ow-btn ow-btn--danger" disabled={saving} onClick={() => void send(false)}>Ja, Programm beenden</button>

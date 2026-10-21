@@ -1,5 +1,5 @@
 {
-  "id": "ba10b28d-d2b4-4921-b7ad-9a3f057578aa",
+  "id": "36077523-18ea-47f4-9973-351413635beb",
   "prevId": "6f659f43-2751-4e5f-8682-83b93b714886",
   "version": "7",
   "dialect": "postgresql",
@@ -3389,6 +3389,12 @@
         "cancellation_end_date": {
           "name": "cancellation_end_date",
           "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancellation_confirmed_at": {
+          "name": "cancellation_confirmed_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

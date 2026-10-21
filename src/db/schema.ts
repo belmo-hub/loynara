@@ -124,6 +124,8 @@ export const programs = pgTable("programs", {
   happyHourWindows: jsonb("happy_hour_windows").$type<HappyHourWindow[]>().notNull().default(sql`'[]'::jsonb`),
   // Last day (Berlin calendar day) the programme works; the worker ends it after that day. Null = no cancellation.
   cancellationEndDate: date("cancellation_end_date"),
+  // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
+  cancellationConfirmedAt: timestamp("cancellation_confirmed_at", { withTimezone: true }),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [

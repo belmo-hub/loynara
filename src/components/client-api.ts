@@ -70,6 +70,8 @@ export type MeResponse = {
   happyHourWindows?: HappyHourWindow[];
   /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
   cancellationEndDate?: string | null;
+  /** True once the operator has confirmed the end date; before that it is provisional. */
+  cancellationConfirmed?: boolean;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };

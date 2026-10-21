@@ -15,11 +15,11 @@ export const PROGRAMME_END_ACTOR = "system:programme-end";
 type Env = Record<string, string | undefined>;
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** True from the first instant after the end date's last Berlin day (DST-safe: Postgres does the zone arithmetic). */
-const dueSql = (now: Date) => sql<boolean>`${now.toISOString()}::timestamptz >= ((${programs.cancellationEndDate} + 1)::timestamp AT TIME ZONE 'Europe/Berlin')`;
+/** True from the first instant (and only once the operator has confirmed the date) after the end date's last Berlin day (DST-safe: Postgres does the zone arithmetic). */
+const dueSql = (now: Date) => sql<boolean>`${programs.cancellationConfirmedAt} IS NOT NULL AND ${now.toISOString()}::timestamptz >= ((${programs.cancellationEndDate} + 1)::timestamp AT TIME ZONE 'Europe/Berlin')`;
 
 async function ownerProgramme(tx: Transaction, actorUserId: string, programSlug: string, now: Date) {
-  const [program] = await tx.select({ id: programs.id, tenantId: programs.tenantId, status: programs.status, end: programs.cancellationEndDate, due: dueSql(now) }).from(programs).where(eq(programs.slug, programSlug)).for("update");
+  const [program] = await tx.select({ id: programs.id, tenantId: programs.tenantId, status: programs.status, end: programs.cancellationEndDate, confirmed: programs.cancellationConfirmedAt, due: dueSql(now) }).from(programs).where(eq(programs.slug, programSlug)).for("update");
   const [owner] = program ? await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))) : [];
   // Not an owner of this shop: the same answer as a programme that does not exist.
   if (!program || !owner) throw new DomainError("NOT_FOUND", "Program not found");
@@ -31,9 +31,10 @@ export async function requestCancellation(input: { actorUserId: string; programS
   return db.transaction(async tx => {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug, input.now ?? new Date());
     if (program.status !== "active") throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
+    // Provisional: only the operator's confirmation (scripts/operator-programme.ts schedule) lets the end job act.
     const fresh = program.end ? { endDate: program.end, nextMonth: false } : cancellationEnd(input.now ?? new Date());
     await tx.update(programs).set({ cancellationEndDate: fresh.endDate }).where(eq(programs.id, program.id));
-    return fresh;
+    return { ...fresh, confirmed: program.confirmed !== null };
   });
 }
 
@@ -41,7 +42,7 @@ export async function withdrawCancellation(input: { actorUserId: string; program
   return db.transaction(async tx => {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug, input.now ?? new Date());
     if (program.status !== "active" || program.due) throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
-    await tx.update(programs).set({ cancellationEndDate: null }).where(eq(programs.id, program.id));
+    await tx.update(programs).set({ cancellationEndDate: null, cancellationConfirmedAt: null }).where(eq(programs.id, program.id));
     return { endDate: null };
   });
 }
@@ -70,18 +71,18 @@ export async function endDueProgrammes(now = new Date()) {
 
 const isoDay = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Operator console: show, reschedule or end a programme at once. Dry run unless `execute`. */
+/** Operator console: show, confirm (or move) the end date, or end a programme at once. Dry run unless `execute`. */
 export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end"; endDate?: string; execute: boolean }) {
   if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Programme not found");
   if (input.command === "schedule" && (!input.endDate || !isoDay.test(input.endDate) || Number.isNaN(Date.parse(input.endDate)))) throw new DomainError("INVALID_END_DATE", "End date must look like 2026-10-31");
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
-    const [row] = await tx.select({ id: programs.id, name: programs.name, status: programs.status, end: programs.cancellationEndDate }).from(programs).where(eq(programs.id, input.programId));
+    const [row] = await tx.select({ id: programs.id, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt }).from(programs).where(eq(programs.id, input.programId));
     if (!row) throw new DomainError("NOT_FOUND", "Programme not found");
-    if (input.command === "schedule" && input.execute && row.status === "active") await tx.update(programs).set({ cancellationEndDate: input.endDate }).where(eq(programs.id, row.id));
+    if (input.command === "schedule" && input.execute && row.status === "active") await tx.update(programs).set({ cancellationEndDate: input.endDate, cancellationConfirmedAt: new Date() }).where(eq(programs.id, row.id));
     return row;
   });
-  if (input.command === "status") return { result: "status" as const, ...programme };
+  if (input.command === "status") return { result: "status" as const, ...programme, state: programme.end === null ? "none" as const : programme.confirmedAt ? "confirmed" as const : "requested" as const };
   if (programme.status !== "active") return { result: "unchanged" as const, ...programme };
   if (!input.execute) return { result: `would_${input.command}` as const, ...programme, endDate: input.endDate };
   if (input.command === "schedule") return { result: "schedule" as const, ...programme, endDate: input.endDate };

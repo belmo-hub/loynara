@@ -60,8 +60,8 @@ describe("owner request and withdrawal", () => {
   it("records the end date, keeps it when repeated, and lets the owner withdraw", async () => {
     const f = await shop();
     const now = at("2026-10-10T10:00:00Z");
-    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now })).toEqual({ endDate: "2026-10-31", nextMonth: false });
-    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-22T10:00:00Z") })).toEqual({ endDate: "2026-10-31", nextMonth: false });
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now })).toEqual({ endDate: "2026-10-31", nextMonth: false, confirmed: false });
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-22T10:00:00Z") })).toEqual({ endDate: "2026-10-31", nextMonth: false, confirmed: false });
     expect((await programme(f.program.id)).cancellationEndDate).toBe("2026-10-31");
     expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now })).toEqual({ endDate: null });
     expect((await programme(f.program.id)).cancellationEndDate).toBeNull();
@@ -70,25 +70,42 @@ describe("owner request and withdrawal", () => {
   it("moves the end to the next month under the minimum notice, keeps it when repeated, and the owner can still withdraw", async () => {
     const f = await shop();
     const late = at("2026-10-21T10:00:00Z"); // 10 days left
-    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: late })).toEqual({ endDate: "2026-11-30", nextMonth: true });
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: late })).toEqual({ endDate: "2026-11-30", nextMonth: true, confirmed: false });
     expect((await programme(f.program.id)).cancellationEndDate).toBe("2026-11-30");
     expect(await endDueProgrammes(at("2026-11-01T00:00:00Z"))).toBe(0); // October is no longer the end
     expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: late })).toEqual({ endDate: null });
-    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-12-20T10:00:00Z") })).toEqual({ endDate: "2027-01-31", nextMonth: true });
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-12-20T10:00:00Z") })).toEqual({ endDate: "2027-01-31", nextMonth: true, confirmed: false });
   });
 
-  it("puts only the end date on the customer card, and nothing once it ended", async () => {
+  it("an unconfirmed request never ends the programme, however late; the operator's confirmation sets the date and the card follows it", async () => {
     const f = await shop();
-    const before = await getCard(f.member.cardToken);
-    expect(before.endsOn).toBeUndefined();
-    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
-    const { endsOn, ...after } = await getCard(f.member.cardToken);
-    expect(endsOn).toBe("2026-10-31");
-    const { endsOn: none, ...rest } = before;
+    const operate = (endDate: string) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate, execute: true });
+    const { endsOn: none, ...plain } = await getCard(f.member.cardToken);
     expect(none).toBeUndefined();
-    expect(after).toEqual(rest); // the date is the only new field, and nothing else about the programme changed
-    await endDueProgrammes(at("2026-11-01T00:00:00Z"));
+    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
+    expect(await endDueProgrammes(at("2027-06-01T00:00:00Z"))).toBe(0); // long after the provisional date
+    expect((await programme(f.program.id)).status).toBe("active");
+    expect((await getCard(f.member.cardToken)).endsOn).toBeUndefined(); // nothing about the cancellation before confirmation
+    expect(await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "status", execute: false })).toMatchObject({ state: "requested", end: "2026-10-31" });
+    await operate("2026-11-15");
+    expect(await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "status", execute: false })).toMatchObject({ state: "confirmed", end: "2026-11-15" });
+    const { endsOn, ...after } = await getCard(f.member.cardToken);
+    expect(endsOn).toBe("2026-11-15");
+    expect(after).toEqual(plain); // the date is the only new field
+    await operate("2026-11-30"); // moving the date moves the card
+    expect((await getCard(f.member.cardToken)).endsOn).toBe("2026-11-30");
+    expect(await endDueProgrammes(at("2026-11-16T00:00:00Z"))).toBe(0);
+    expect(await endDueProgrammes(at("2026-12-01T00:00:00Z"))).toBe(1);
     expect(await endedCardShop(f.member.cardToken)).toBe("Tap Test Café");
+  });
+
+  it("withdrawing clears the date and the confirmation", async () => {
+    const f = await shop();
+    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
+    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2026-11-15", execute: true });
+    expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-12T10:00:00Z") })).toEqual({ endDate: null });
+    expect(await programme(f.program.id)).toMatchObject({ cancellationEndDate: null, cancellationConfirmedAt: null });
+    expect((await getCard(f.member.cardToken)).endsOn).toBeUndefined();
   });
 
   it("refuses staff, another shop's owner and strangers the same way as a missing programme", async () => {
@@ -106,6 +123,7 @@ describe("owner request and withdrawal", () => {
   it("cannot be withdrawn once the end date has passed", async () => {
     const f = await shop();
     await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
+    await db.update(programs).set({ cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
     expect(await code(() => withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-31T23:00:00Z") }))).toBe("PROGRAM_ENDED");
     expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-31T22:59:59Z") })).toEqual({ endDate: null });
   });
@@ -126,7 +144,7 @@ describe("the end-date job", () => {
       ["2026-03-28", "2026-03-28T22:59:59Z", "2026-03-28T23:00:00Z"], // the day before the 23-hour day
     ]) {
       const f = await shop();
-      await db.update(programs).set({ cancellationEndDate: end }).where(eq(programs.id, f.program.id));
+      await db.update(programs).set({ cancellationEndDate: end, cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
       expect(await endDueProgrammes(at(open)), end).toBe(0);
       expect((await programme(f.program.id)).status).toBe("active");
       expect(await endDueProgrammes(at(due)), end).toBe(1);
@@ -143,7 +161,7 @@ describe("the end-date job", () => {
 
   it("ends once and unlinks the plates with one audit row by the system actor, even when run at the same time", async () => {
     const f = await shop();
-    await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
+    await db.update(programs).set({ cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
     const now = at("2026-11-01T00:00:00Z");
     // Three ends of the same programme at once: only the row lock makes exactly one of them win, every time.
     const runs = await Promise.all([1, 2, 3].map(() => endProgramme({ programId: f.program.id, actorUserId: PROGRAMME_END_ACTOR, now })));
@@ -159,7 +177,7 @@ describe("the end-date job", () => {
   it("keeps the balance and history", async () => {
     const f = await shop();
     await f.book("award");
-    await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
+    await db.update(programs).set({ cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
     await endDueProgrammes(at("2026-11-01T00:00:00Z"));
     expect((await pool.query("SELECT balance FROM memberships WHERE id = $1", [f.member.id])).rows[0].balance).toBe(8);
     expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE membership_id = $1", [f.member.id])).rows[0].n).toBe(1);
@@ -171,7 +189,7 @@ describe("after the end", () => {
     const f = await shop();
     await f.book("award");
     await f.book("award");
-    await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
+    await db.update(programs).set({ cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
     await endDueProgrammes(at("2026-10-31T22:59:59Z")); // last day still open
     expect(await f.book("redeem")).toMatchObject({ duplicate: false });
     await endDueProgrammes(at("2026-10-31T23:00:00Z"));
@@ -183,7 +201,7 @@ describe("after the end", () => {
     const f = await shop();
     const booked = await f.book("award");
     await f.book("award");
-    await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
+    await db.update(programs).set({ cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
     const snapshot = async () => ({
       ledger: (await db.select().from(ledgerEntries)).length, cards: (await db.select().from(memberships)).length, taps: (await db.select().from(tapRequests)).length,
       balance: (await pool.query("SELECT balance FROM memberships WHERE id = $1", [f.member.id])).rows[0].balance as number,
@@ -235,7 +253,7 @@ describe("after the end", () => {
     const f = await shop();
     const by = [{ slug: f.program.slug }, { cardToken: f.member.cardToken }, { tapRef: f.tag.publicRef }, { plateLabel: "P-007" }];
     for (const one of by) expect(await programmeEnded(one)).toBe(false);
-    await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
+    await db.update(programs).set({ cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date() }).where(eq(programs.id, f.program.id));
     await endDueProgrammes(at("2026-11-01T00:00:00Z"));
     for (const one of by) expect(await programmeEnded(one)).toBe(true);
     expect(await programmeEnded({ tapRef: "not-a-tag" })).toBe(false);

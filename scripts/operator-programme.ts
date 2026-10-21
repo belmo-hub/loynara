@@ -4,7 +4,7 @@ import { assertOperatorTarget, OperatorRefusal } from "./operator-identity";
 import { DomainError } from "../src/lib/loyalty";
 
 /**
- * Shows, reschedules or ends a programme (private Railway console, like operator-plate). Ending unlinks its plates.
+ * Shows a programme's cancellation (none / requested / confirmed), confirms or moves its end date, or ends it now (private Railway console, like operator-plate). Ending unlinks its plates.
  *   npx tsx scripts/operator-programme.ts status   --program-id <id> --target loynara-production --actor-user-id <operator user id>
  *   npx tsx scripts/operator-programme.ts schedule --program-id <id> --end-date 2026-11-15 --target ... --actor-user-id ...   # dry run
  *   npx tsx scripts/operator-programme.ts end      --program-id <id> --target ... --actor-user-id ...                         # dry run; ends NOW, final
