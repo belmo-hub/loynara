@@ -25,7 +25,7 @@
   --color-qr-ground: #FFFFFF;
 
   --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-sans);
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --text-12: .75rem;
   --text-14: .875rem;

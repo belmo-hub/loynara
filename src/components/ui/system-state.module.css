@@ -1,7 +1,7 @@
 /* Full-page states (error, not found): what happened, what to do next, and a reference for support. */
 .state { display: grid; gap: var(--space-4); justify-items: start; max-width: 34rem; }
 .icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--color-action-soft); color: var(--color-action); }
-.state .title { margin: 0; font-family: var(--font-display); font-weight: 540; font-size: var(--text-28); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; }
+.state .title { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .body { margin: 0; color: var(--color-ink-muted); text-wrap: pretty; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); width: 100%; margin-top: var(--space-2); }
 .reference { margin: var(--space-2) 0 0; color: var(--color-ink-muted); font-size: var(--text-14); }

@@ -1,4 +1,4 @@
-.goal { margin: 0; font-family: var(--font-display); font-weight: 520; font-size: var(--text-28); line-height: 1.15; text-wrap: balance; }
+.goal { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .object { padding: var(--space-5); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 80%); box-shadow: var(--shadow-object); }
 .cashierCard { display: grid; gap: var(--space-4); padding: var(--space-5); border-radius: var(--radius-xl); background: var(--color-raised); }
 .balance { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); }

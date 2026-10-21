@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { fraunces, manrope } from "./fonts";
+import { manrope } from "./fonts";
 import "../styles/tokens.css";
 import "./globals.css";
 
@@ -13,7 +13,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
-      className={`${manrope.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${manrope.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
