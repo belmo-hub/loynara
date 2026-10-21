@@ -10,6 +10,17 @@
 @media (max-width: 559px) { .actions > * { flex: 1 1 100%; } }
 @media (min-width: 1024px) { .state .title { font-size: var(--display-36); line-height: 1.1; } }
 
+/* Arrival (404, "Schild nicht zugeordnet", "Programm beendet"): the icon lands, then the lines rise in turn, 0.5 s in
+   all. Only opacity and transform move, so nothing shifts and every link works at once. Reduced motion: still. */
+.state > * { animation: rise var(--dur-ui) var(--ease-out) both; }
+.state > :nth-child(2) { animation-delay: 60ms; }
+.state > :nth-child(3) { animation-delay: 120ms; }
+.state > :nth-child(n + 4) { animation-delay: 180ms; }
+.state > .icon { animation: land var(--dur-reward) var(--ease-out) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes land { from { opacity: 0; transform: scale(.6) rotate(-12deg); } 60% { opacity: 1; transform: scale(1.06) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .state > *, .state > .icon { animation: none; } }
+
 /* Loading: nothing for the first 300 ms (most loads finish by then), then a 220 ms fade so the skeleton never flashes. */
 .loading { display: grid; gap: var(--space-4); width: 100%; max-width: 1120px; margin-inline: auto; padding: var(--space-6) var(--space-5) 0; animation: appear var(--dur-ui) var(--ease-out) 300ms both; }
 .cards { display: grid; gap: var(--space-4); margin-top: var(--space-2); }

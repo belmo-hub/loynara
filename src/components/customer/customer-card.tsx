@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
 import { Badge } from "@/components/ui/badge";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
@@ -141,7 +142,7 @@ function Goal({ t, number, programType, remaining, readyCount, nextGoal, several
     {nextGoal ? <p className={styles.goalSub}>{t.nextGoal(number.format(remaining), unitFor(remaining), nextGoal.title)}</p> : null}
   </div>;
   if (!nextGoal) return null;
-  return <div className={styles.goal}><p className={styles.goalLine}>{t.still} <span className={styles.goalNum}>{number.format(remaining)}</span> {t.toGo(unitFor(remaining), several)}</p></div>;
+  return <div className={styles.goal}><p className={styles.goalLine}>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toGo(unitFor(remaining), several)}</p></div>;
 }
 
 function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", t }: CustomerCardProps & { t: Copy }) {

@@ -29,10 +29,13 @@
 .state[data-moment] .icon path { stroke-dasharray: 12; animation: draw 320ms var(--ease-out) 140ms both; }
 .state[data-moment] .plus { animation: rise var(--dur-ui) var(--ease-out) 360ms both; }
 .state[data-moment] .card { --land-delay: 640ms; animation: rise var(--dur-ui) var(--ease-out) 420ms both; }
+/* A refusal (plate not linked, cooldown, expired) nudges its icon sideways once, so it reads as "no" before the words. */
+.state[data-tone="error"] .icon { animation: nudge 360ms var(--ease-out) both; }
+@keyframes nudge { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 @keyframes settle { from { opacity: 0; transform: scale(.6); } }
 @keyframes draw { from { stroke-dashoffset: 12; } to { stroke-dashoffset: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) {
-  .state[data-moment] .icon, .state[data-moment] .icon path, .state[data-moment] .plus, .state[data-moment] .card { animation: none; }
+  .state[data-tone="error"] .icon, .state[data-moment] .icon, .state[data-moment] .icon path, .state[data-moment] .plus, .state[data-moment] .card { animation: none; }
   .state[data-moment] .card { --land-delay: 0ms; }
 }
