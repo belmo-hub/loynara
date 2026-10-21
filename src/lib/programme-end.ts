@@ -56,8 +56,8 @@ export async function endProgramme(input: { programId: string; actorUserId: stri
   return db.transaction(async tx => {
     const [program] = await tx.select({ status: programs.status, due: dueSql(input.now ?? new Date()) }).from(programs).where(eq(programs.id, input.programId)).for("update");
     if (!program || program.status !== "active" || (!input.force && !program.due)) return null;
-    // An immediate end by the operator still gets a confirmed end date (today, Berlin): the owner's export window counts from it.
-    await tx.update(programs).set({ status: "ended", ...(input.force ? { cancellationEndDate: sql`coalesce(${programs.cancellationEndDate}, (now() AT TIME ZONE 'Europe/Berlin')::date)`, cancellationConfirmedAt: sql`coalesce(${programs.cancellationConfirmedAt}, now())` } : {}) }).where(eq(programs.id, input.programId));
+    // An immediate end by the operator still gets a confirmed end date (today, Berlin, replacing any provisional or confirmed date): the owner's export window counts from it.
+    await tx.update(programs).set({ status: "ended", ...(input.force ? { cancellationEndDate: sql`(now() AT TIME ZONE 'Europe/Berlin')::date`, cancellationConfirmedAt: sql`coalesce(${programs.cancellationConfirmedAt}, now())` } : {}) }).where(eq(programs.id, input.programId));
     return { unlinkedPlates: await unlinkProgrammePlates(tx, input.programId, input.actorUserId) };
   });
 }
