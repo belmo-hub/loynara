@@ -109,6 +109,8 @@ export type CardResponse = {
   rulesText?: string;
   /** The shop's news line; absent when the owner left it empty. */
   news?: string;
+  /** Last day of the programme (YYYY-MM-DD) once the shop has cancelled; absent otherwise. */
+  endsOn?: string;
   /** Present only after the card's third staff-confirmed visit and when the shop stored a link. */
   reviewUrl?: string;
   /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */

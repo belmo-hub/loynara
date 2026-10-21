@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { memberships, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { lastDayOfBerlinMonth } from "./programme-end-date";
+import { cancellationEnd } from "./programme-end-date";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
 
 /**
@@ -26,14 +26,14 @@ async function ownerProgramme(tx: Transaction, actorUserId: string, programSlug:
   return program;
 }
 
-/** The owner asks to end the programme at the end of this month. Repeating it keeps the date already recorded. */
+/** The owner asks to end the programme at the end of this month (or the next, under the minimum notice). Repeating it keeps the date already recorded. */
 export async function requestCancellation(input: { actorUserId: string; programSlug: string; now?: Date }) {
   return db.transaction(async tx => {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug, input.now ?? new Date());
     if (program.status !== "active") throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
-    const endDate = program.end ?? lastDayOfBerlinMonth(input.now ?? new Date());
-    await tx.update(programs).set({ cancellationEndDate: endDate }).where(eq(programs.id, program.id));
-    return { endDate };
+    const fresh = program.end ? { endDate: program.end, nextMonth: false } : cancellationEnd(input.now ?? new Date());
+    await tx.update(programs).set({ cancellationEndDate: fresh.endDate }).where(eq(programs.id, program.id));
+    return fresh;
   });
 }
 

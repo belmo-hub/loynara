@@ -7,7 +7,7 @@ import { JoinCard } from "@/components/owner/join-card";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
-import { germanDate } from "@/lib/programme-end-date";
+import { cancellationEnd, germanDate, MIN_NOTICE_DAYS } from "@/lib/programme-end-date";
 
 
 export default function MerchantSettingsPage() {
@@ -72,6 +72,7 @@ function Cancellation() {
   const [copied, setCopied] = useState(false);
   if (!me) return null;
   const endDate = me.cancellationEndDate ?? null;
+  const planned = cancellationEnd(new Date());
   const text = endDate ? `Unsere Punktekarte endet am ${germanDate(endDate)}. Löse deine Punkte bis dahin ein.` : "";
   async function send(withdraw: boolean) {
     if (!me) return;
@@ -95,10 +96,11 @@ function Cancellation() {
           <button type="button" className="ow-btn ow-btn--ghost" disabled={saving} onClick={() => void send(true)}>Kündigung zurücknehmen</button>
         </div>
       </> : <>
-        <p>Du kannst das Programm zum Ende dieses Monats beenden. Bis dahin läuft alles normal. Deine Kunden können ihre Punkte weiter einlösen, danach nicht mehr. Ihre Stände bleiben gespeichert.</p>
+        <p>Bis zum Enddatum läuft alles normal. Deine Kunden können ihre Punkte weiter einlösen, danach nicht mehr. Ihre Stände bleiben gespeichert.</p>
+        <p><strong>Dein Programm würde am {germanDate(planned.endDate)} enden.</strong>{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, gilt das Ende des Folgemonats.` : ""}</p>
         {confirming
           ? <div className="ow-row">
-            <button type="button" className="ow-btn ow-btn--danger" disabled={saving} onClick={() => void send(false)}>Ja, Programm zum Monatsende beenden</button>
+            <button type="button" className="ow-btn ow-btn--danger" disabled={saving} onClick={() => void send(false)}>Ja, Programm beenden</button>
             <button type="button" className="ow-btn ow-btn--ghost" disabled={saving} onClick={() => setConfirming(false)}>Abbrechen</button>
           </div>
           : <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" onClick={() => setConfirming(true)}>Programm beenden</button></div>}

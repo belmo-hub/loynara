@@ -7,7 +7,7 @@ import { award, redeem, reverseEntry } from "./loyalty";
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
 import { processSecureTap } from "./secure-tap";
-import { enroll, getMerchantContext } from "./product";
+import { enroll, getCard, getMerchantContext } from "./product";
 import { addStaff, nfcFixture } from "./nfc-test-db";
 import { endDueProgrammes, endedCardShop, endProgramme, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
 import { GET as exportGet } from "@/app/api/card/[token]/export/route";
@@ -47,7 +47,7 @@ const programme = async (id: string) => (await db.select().from(programs).where(
 
 describe("end date", () => {
   it("is the last Berlin day of the month, across the year end and the time-zone offset", () => {
-    expect(lastDayOfBerlinMonth(at("2026-10-21T10:00:00Z"))).toBe("2026-10-31");
+    expect(lastDayOfBerlinMonth(at("2026-10-10T10:00:00Z"))).toBe("2026-10-31");
     expect(lastDayOfBerlinMonth(at("2026-02-10T10:00:00Z"))).toBe("2026-02-28");
     expect(lastDayOfBerlinMonth(at("2026-12-31T23:30:00Z"))).toBe("2027-01-31"); // already 1 January in Berlin
     expect(lastDayOfBerlinMonth(at("2026-10-31T22:30:00Z"))).toBe("2026-10-31"); // 23:30 on the 31st in Berlin
@@ -59,12 +59,36 @@ describe("end date", () => {
 describe("owner request and withdrawal", () => {
   it("records the end date, keeps it when repeated, and lets the owner withdraw", async () => {
     const f = await shop();
-    const now = at("2026-10-21T10:00:00Z");
-    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now })).toEqual({ endDate: "2026-10-31" });
-    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-22T10:00:00Z") })).toEqual({ endDate: "2026-10-31" });
+    const now = at("2026-10-10T10:00:00Z");
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now })).toEqual({ endDate: "2026-10-31", nextMonth: false });
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-22T10:00:00Z") })).toEqual({ endDate: "2026-10-31", nextMonth: false });
     expect((await programme(f.program.id)).cancellationEndDate).toBe("2026-10-31");
     expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now })).toEqual({ endDate: null });
     expect((await programme(f.program.id)).cancellationEndDate).toBeNull();
+  });
+
+  it("moves the end to the next month under the minimum notice, keeps it when repeated, and the owner can still withdraw", async () => {
+    const f = await shop();
+    const late = at("2026-10-21T10:00:00Z"); // 10 days left
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: late })).toEqual({ endDate: "2026-11-30", nextMonth: true });
+    expect((await programme(f.program.id)).cancellationEndDate).toBe("2026-11-30");
+    expect(await endDueProgrammes(at("2026-11-01T00:00:00Z"))).toBe(0); // October is no longer the end
+    expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: late })).toEqual({ endDate: null });
+    expect(await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-12-20T10:00:00Z") })).toEqual({ endDate: "2027-01-31", nextMonth: true });
+  });
+
+  it("puts only the end date on the customer card, and nothing once it ended", async () => {
+    const f = await shop();
+    const before = await getCard(f.member.cardToken);
+    expect(before.endsOn).toBeUndefined();
+    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
+    const { endsOn, ...after } = await getCard(f.member.cardToken);
+    expect(endsOn).toBe("2026-10-31");
+    const { endsOn: none, ...rest } = before;
+    expect(none).toBeUndefined();
+    expect(after).toEqual(rest); // the date is the only new field, and nothing else about the programme changed
+    await endDueProgrammes(at("2026-11-01T00:00:00Z"));
+    expect(await endedCardShop(f.member.cardToken)).toBe("Tap Test Café");
   });
 
   it("refuses staff, another shop's owner and strangers the same way as a missing programme", async () => {
@@ -81,7 +105,7 @@ describe("owner request and withdrawal", () => {
 
   it("cannot be withdrawn once the end date has passed", async () => {
     const f = await shop();
-    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-21T10:00:00Z") });
+    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
     expect(await code(() => withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-31T23:00:00Z") }))).toBe("PROGRAM_ENDED");
     expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-31T22:59:59Z") })).toEqual({ endDate: null });
   });
