@@ -311,13 +311,25 @@ describe("after the end: the owner's export window and what stays closed", () =>
     for (const run of [() => getMerchantExport(f.userId), () => getMerchantCsv(f.userId, "karten"), () => getMerchantCsv(f.userId, "buchungen")]) expect(await code(run)).toBe("EXPORT_CLOSED");
   });
 
-  it("an immediate operator end pulls a future provisional date back to today and confirms it", async () => {
+  it("an immediate operator end replaces a scheduled future date with today, so the ended page shows today", async () => {
     const f = await shop();
-    await db.update(programs).set({ cancellationEndDate: "2099-12-31" }).where(eq(programs.id, f.program.id));
-    await endProgramme({ programId: f.program.id, actorUserId: operator, force: true });
+    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2099-12-31", execute: true });
+    expect(await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "end", execute: true })).toMatchObject({ result: "end" });
     const [{ today }] = (await pool.query("SELECT (now() AT TIME ZONE 'Europe/Berlin')::date::text AS today")).rows;
     expect(await programme(f.program.id)).toMatchObject({ status: "ended", cancellationEndDate: today });
     expect((await programme(f.program.id)).cancellationConfirmedAt).not.toBeNull();
+    expect(await endedAccount(f.userId)).toMatchObject({ endedOn: today });
+  });
+
+  it("gives endedAccount only the caller's own tenant: not another shop's owner, not a stranger", async () => {
+    const f = await shop();
+    const running = await nfcFixture(); // a second shop whose programme is still running
+    const manager = await addStaff(f.tenant.id, f.location.id, "manager");
+    await endedOn(f.program.id, "2026-10-31");
+    expect(await endedAccount(running.userId)).toBeNull();
+    expect(await endedAccount(randomUUID())).toBeNull();
+    expect(await endedAccount(f.userId)).toMatchObject({ tenantId: f.tenant.id, role: "owner" });
+    expect(await endedAccount(manager)).toMatchObject({ tenantId: f.tenant.id, role: "manager" });
   });
 
   it("refuses non-owners the export and gives them no ended page data, and a shop with a running programme is unaffected", async () => {
