@@ -7,6 +7,7 @@ import { nfcFixture } from "./nfc-test-db";
 import { operatorOverview } from "./operator";
 import { POST as plateRoute } from "@/app/api/operator/plate/route";
 import { POST as programmeRoute } from "@/app/api/operator/programme/route";
+import { earliestEndDate } from "./operator-date";
 import { getCard } from "./product";
 import { requestCancellation } from "./programme-end";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
@@ -102,6 +103,8 @@ it("keeps the end-date route operator-only: an empty 404 for anonymous, shop own
 });
 
 it("lists owner-requested and operator-scheduled cancellations, dry run changes nothing, execute confirms and moves the card's date", async () => {
+  const later = (days: number) => new Date(Date.parse(earliestEndDate(new Date()) + "T00:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
+  const d1 = later(10), d2 = later(20), d3 = later(30);
   const operator = await identity(), asked = await nfcFixture(), planned = await nfcFixture();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
   await requestCancellation({ actorUserId: asked.userId, programSlug: asked.program.slug, now: new Date("2026-10-10T10:00:00Z") });
@@ -112,21 +115,36 @@ it("lists owner-requested and operator-scheduled cancellations, dry run changes 
   expect(await row(planned.program.id)).toMatchObject({ endDate: null, confirmed: false, requestedDays: null });
 
   // Owner-requested: the dry run shows from → to and writes nothing; execute confirms.
-  const dry = await postProgramme({ programId: asked.program.id, endDate: "2026-11-15", execute: false }, operator.cookie);
-  expect(await dry.json()).toMatchObject({ result: "would_schedule", end: "2026-10-31", endDate: "2026-11-15" });
+  const dry = await postProgramme({ programId: asked.program.id, endDate: d1, execute: false }, operator.cookie);
+  expect(await dry.json()).toMatchObject({ result: "would_schedule", end: "2026-10-31", endDate: d1 });
   expect(await row(asked.program.id)).toMatchObject({ endDate: "2026-10-31", confirmed: false });
   expect((await getCard(asked.member.cardToken)).endsOn).toBeUndefined();
-  expect((await postProgramme({ programId: asked.program.id, endDate: "2026-11-15", execute: true }, operator.cookie)).status).toBe(200);
-  expect(await row(asked.program.id)).toMatchObject({ endDate: "2026-11-15", confirmed: true });
-  expect((await getCard(asked.member.cardToken)).endsOn).toBe("2026-11-15");
-  await postProgramme({ programId: asked.program.id, endDate: "2026-11-30", execute: true }, operator.cookie);
-  expect((await getCard(asked.member.cardToken)).endsOn).toBe("2026-11-30"); // moving the date moves the card
+  expect((await postProgramme({ programId: asked.program.id, endDate: d1, execute: true }, operator.cookie)).status).toBe(200);
+  expect(await row(asked.program.id)).toMatchObject({ endDate: d1, confirmed: true });
+  expect((await getCard(asked.member.cardToken)).endsOn).toBe(d1);
+  await postProgramme({ programId: asked.program.id, endDate: d2, execute: true }, operator.cookie);
+  expect((await getCard(asked.member.cardToken)).endsOn).toBe(d2); // moving the date moves the card
 
   // Operator-scheduled, with no owner request: confirmed, and requested_at stays null.
-  expect((await postProgramme({ programId: planned.program.id, endDate: "2026-12-15", execute: true }, operator.cookie)).status).toBe(200);
-  expect(await row(planned.program.id)).toMatchObject({ endDate: "2026-12-15", confirmed: true, requestedDays: null });
+  expect((await postProgramme({ programId: planned.program.id, endDate: d3, execute: true }, operator.cookie)).status).toBe(200);
+  expect(await row(planned.program.id)).toMatchObject({ endDate: d3, confirmed: true, requestedDays: null });
   expect((await pool.query("SELECT cancellation_requested_at FROM programs WHERE id = $1", [planned.program.id])).rows[0].cancellation_requested_at).toBeNull();
-  expect((await getCard(planned.member.cardToken)).endsOn).toBe("2026-12-15");
+  expect((await getCard(planned.member.cardToken)).endsOn).toBe(d3);
   expect((await postProgramme({ programId: planned.program.id, endDate: "15.12.2026", execute: true }, operator.cookie)).status).toBe(400);
   expect(JSON.stringify(await view())).not.toContain(asked.member.cardToken);
+});
+
+it("refuses an end date before tomorrow (Berlin): yesterday and today with a pointer to the console, tomorrow is accepted", async () => {
+  const operator = await identity(), f = await nfcFixture();
+  process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+  const tomorrow = earliestEndDate(new Date());
+  const shift = (days: number) => new Date(Date.parse(tomorrow + "T00:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
+  for (const endDate of [shift(-2), shift(-1)]) for (const execute of [false, true]) {
+    const res = await postProgramme({ programId: f.program.id, endDate, execute }, operator.cookie);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "END_DATE_TOO_EARLY", error: expect.stringContaining("Konsole") });
+  }
+  expect((await pool.query("SELECT cancellation_end_date FROM programs WHERE id = $1", [f.program.id])).rows[0].cancellation_end_date).toBeNull();
+  expect((await postProgramme({ programId: f.program.id, endDate: tomorrow, execute: true }, operator.cookie)).status).toBe(200);
+  expect((await getCard(f.member.cardToken)).endsOn).toBe(tomorrow);
 });

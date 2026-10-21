@@ -12,6 +12,7 @@ import { TextField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 
@@ -56,6 +57,7 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
     finally { setBusy(false); }
   }
   async function sendEnd(execute: boolean) {
+    if (endDate < earliestEndDate(new Date())) { setError(END_DATE_TOO_EARLY); return; }
     setBusy(true); setError("");
     try {
       const result = await postJson<EndPreview>("/api/operator/programme", { programId: prog!.programId, endDate, execute });
@@ -122,7 +124,7 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
       {prog ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{prog.tenant}</strong> · {prog.location} · {prog.programme}</p>
         <p>Jetzt: <strong>{endText(prog)}</strong></p>
-        <TextField label="Letzter Tag" type="date" value={endDate} onChange={event => { setEndDate(event.target.value); setEndPreview(null); }} />
+        <TextField label="Letzter Tag" type="date" min={earliestEndDate(new Date())} value={endDate} onChange={event => { setEndDate(event.target.value); setEndPreview(null); }} />
         {endPreview ? <p role="status">Von <strong>{endText(prog)}</strong> zu <strong>bestätigt bis {germanDate(endPreview.endDate ?? endDate)}</strong></p> : null}
         {error ? <p role="alert">{error}</p> : null}
         {endPreview ? <Button loading={busy} onClick={() => sendEnd(true)}>Bestätigen</Button>

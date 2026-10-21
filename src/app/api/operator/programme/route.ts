@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
 import { assertPlateOperator } from "@/lib/plates";
+import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { operatorProgramme } from "@/lib/programme-end";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 
@@ -18,6 +19,8 @@ export async function POST(request: Request) {
     await enforceRateLimit({ scope: "operator_programme_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const body = await jsonBody(request, 2000) as { programId?: unknown; endDate?: unknown; execute?: unknown };
     if (typeof body.programId !== "string" || typeof body.endDate !== "string" || typeof body.execute !== "boolean") throw new DomainError("INVALID_INPUT", "Invalid input");
+    // A date that has begun would end the programme within minutes; ending now is the console's `end`.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(body.endDate) && body.endDate < earliestEndDate(new Date())) throw new DomainError("END_DATE_TOO_EARLY", END_DATE_TOO_EARLY);
     const result = await operatorProgramme({ actorUserId: user.id, env: process.env, programId: body.programId, command: "schedule", endDate: body.endDate, execute: body.execute });
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
