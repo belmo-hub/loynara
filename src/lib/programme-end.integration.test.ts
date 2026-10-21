@@ -9,7 +9,8 @@ import { sdmFor } from "./nfc-test-support";
 import { processSecureTap } from "./secure-tap";
 import { enroll, getMerchantContext } from "./product";
 import { addStaff, nfcFixture } from "./nfc-test-db";
-import { endDueProgrammes, endProgramme, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
+import { endDueProgrammes, endedCardShop, endProgramme, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
+import { GET as exportGet } from "@/app/api/card/[token]/export/route";
 import { germanDate, lastDayOfBerlinMonth } from "./programme-end-date";
 import { POST as cancelPost } from "@/app/api/merchant/program/cancel/route";
 
@@ -183,6 +184,27 @@ describe("after the end", () => {
     expect(await code(() => f.tap(3))).toBe("NOT_FOUND");
     expect(await db.select().from(tapRequests)).toHaveLength(0);
     expect(await db.select().from(ledgerEntries)).toHaveLength(0);
+  });
+
+  it("keeps the card's data export working and names the shop on the ended card page", async () => {
+    const f = await shop();
+    await f.book("award");
+    expect(await endedCardShop(f.member.cardToken)).toBeNull();
+    await endProgramme({ programId: f.program.id, actorUserId: operator, force: true });
+    expect(await endedCardShop(f.member.cardToken)).toBe("Tap Test Café");
+    const response = await exportGet(new Request(`https://app.example.test/api/card/${f.member.cardToken}/export`, { headers: { "x-forwarded-for": "203.0.113.9" } }), { params: Promise.resolve({ token: f.member.cardToken }) });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ membership: { balance: 8 } });
+  });
+
+  it("renders the export link and the shop line on the ended page,", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { ProgrammeEnded } = await import("@/components/customer/programme-ended");
+    const html = renderToStaticMarkup(ProgrammeEnded({ shop: "Tap Test Café", cardToken: "card_abc" }));
+    expect(html).toContain("Daten herunterladen");
+    expect(html).toContain("/api/card/card_abc/export");
+    expect(html).toContain("Wende dich an Tap Test Café.");
+    expect(html).toContain("Dieses Programm ist beendet.");
   });
 
   it("shows the ended page for the join link, the card, the plate tap and the plate sticker, and for no live programme", async () => {

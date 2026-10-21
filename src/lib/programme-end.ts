@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { memberships, programs, staffRoles } from "@/db/schema";
+import { memberships, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { lastDayOfBerlinMonth } from "./programme-end-date";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
@@ -98,4 +98,13 @@ export async function programmeEnded(by: { slug: string } | { cardToken: string 
           EXISTS (SELECT 1 FROM programs p WHERE p.id = t.program_id AND p.status = 'ended')
           OR (t.status = 'unlinked' AND EXISTS (SELECT 1 FROM programs p WHERE p.id = (SELECT e.old_program_id FROM plate_link_events e WHERE e.tag_id = t.id ORDER BY e.created_at DESC, e.id LIMIT 1) AND p.status = 'ended')))`)).rows;
   return found.length > 0;
+}
+
+/** The shop's name for the ended card page, or null while the card's programme is still running. */
+export async function endedCardShop(cardToken: string): Promise<string | null> {
+  const [row] = await db.select({ shop: tenants.name }).from(memberships)
+    .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+    .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+    .where(and(eq(memberships.cardToken, cardToken), eq(programs.status, "ended")));
+  return row?.shop ?? null;
 }
