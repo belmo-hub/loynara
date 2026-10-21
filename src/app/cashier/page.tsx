@@ -17,7 +17,7 @@ import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
-type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
+type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; visits: number; next: { name: string; visits: number } | null } };
 type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number; challengeBonus?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
@@ -167,7 +167,7 @@ export default function CashierPage() {
       if (result.stage === "preview") { setCard(null); setPreview({ ...result, code }); return; }
       setPreview(null);
       activeCardId.current = result.membershipId;
-      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })) });
+      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), level: result.level?.name ? { name: result.level.name, perk: result.level.perk } : undefined });
       const unresolved = unresolvedRef.current.get(result.membershipId);
       if (unresolved && Date.now() - unresolved.at < UNRESOLVED_TTL_MS) {
         pendingRef.current = unresolved.pending;

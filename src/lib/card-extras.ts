@@ -44,3 +44,18 @@ export function challengeSentence(target: number, bonus: number, type: string, m
     conditions: `Es zählen Besuche, die an der Kasse bestätigt werden, höchstens einer pro Tag. Gilt bis ${endsOn}. ${EXCLUDED_GOODS}`,
   };
 }
+
+/** Customer levels (ENG-053): visit days in the last LEVEL_WINDOW_DAYS days decide Bronze, Silber or Gold. */
+export const LEVEL_WINDOW_DAYS = 90;
+export const LEVEL_PERK_MAX = 60;
+export type LevelName = "Bronze" | "Silber" | "Gold";
+
+/** Bronze from the first visit day in the window; none without one. */
+export function levelFor(visits: number, silver: number, gold: number): LevelName | null {
+  return visits >= gold ? "Gold" : visits >= silver ? "Silber" : visits >= 1 ? "Bronze" : null;
+}
+
+/** A perk is a short plain line the cashier honours (never a booking); the same rules as card news, at most 60 characters. */
+export function levelPerkProblem(text: string) {
+  return Array.from(text).length > LEVEL_PERK_MAX ? "TOO_LONG" : cardNewsProblem(text);
+}

@@ -4,11 +4,13 @@ import { useState } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
-import { CARD_NEWS_MAX, CHALLENGE_VISITS, cardNewsProblem, EXCLUDED_GOODS, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
+import { CARD_NEWS_MAX, CHALLENGE_VISITS, cardNewsProblem, EXCLUDED_GOODS, LEVEL_PERK_MAX, levelPerkProblem, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
 
-type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string; expiryMonths: string; challengeVisits: string; challengeBonus: string };
-const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "", reviewUrl: me.reviewUrl ?? "", expiryMonths: String(me.pointsExpiryMonths ?? ""), challengeVisits: String(me.challengeVisits ?? ""), challengeBonus: String(me.challengeBonus || 1) });
+type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string; expiryMonths: string; challengeVisits: string; challengeBonus: string; levelsEnabled: boolean; silver: string; gold: string; perkBronze: string; perkSilber: string; perkGold: string };
+const LEVELS = [["Bronze", "perkBronze"], ["Silber", "perkSilber"], ["Gold", "perkGold"]] as const;
+const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "", reviewUrl: me.reviewUrl ?? "", expiryMonths: String(me.pointsExpiryMonths ?? ""), challengeVisits: String(me.challengeVisits ?? ""), challengeBonus: String(me.challengeBonus || 1),
+  levelsEnabled: me.levelsEnabled ?? false, silver: String(me.levelSilverVisits ?? ""), gold: String(me.levelGoldVisits ?? ""), perkBronze: me.levelBronzePerk ?? "", perkSilber: me.levelSilverPerk ?? "", perkGold: me.levelGoldPerk ?? "" });
 const NEWS_PROBLEM = { TOO_LONG: `Höchstens ${CARD_NEWS_MAX} Zeichen.`, LINK: "Bitte ohne Links oder Webadressen.", CONTROL: "Bitte in einer Zeile, ohne Zeilenumbruch." };
 
 /** Programme extras the owner sets outside the versioned earning rule. The server checks every value again. */
@@ -27,6 +29,9 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
   const challengeBonus = Number(draft.challengeBonus);
   // The points maximum depends on the cheapest reward; the server checks it and names the limit.
   const challengeValid = !draft.challengeVisits || (/^\d+$/.test(draft.challengeBonus) && challengeBonus >= 1 && (!stamp || challengeBonus <= 3));
+  const silver = Number(draft.silver), gold = Number(draft.gold);
+  // No default thresholds (Product): switching levels on needs both; once typed they must make sense even while off.
+  const levelsValid = (!draft.levelsEnabled || (draft.silver !== "" && draft.gold !== "")) && (draft.silver === "" || (silver >= 2 && silver <= 50)) && (draft.gold === "" || (gold <= 90 && (draft.silver === "" || gold > silver))) && LEVELS.every(([, key]) => !levelPerkProblem(draft[key].trim()));
   const changed = (Object.keys(draft) as Array<keyof Draft>).some(key => draft[key] !== saved[key]);
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("program-extras", changed);
@@ -37,7 +42,8 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
     if (!me.programId) return;
     setState("saving"); setError("");
     try {
-      await postJson("/api/merchant/program/extras", { programId: me.programId, welcomeBonus: bonus, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim(), ...(stamp ? {} : { pointsExpiryMonths: draft.expiryMonths ? Number(draft.expiryMonths) : null }), challengeVisits: draft.challengeVisits ? Number(draft.challengeVisits) : null, ...(draft.challengeVisits ? { challengeBonus } : {}) });
+      await postJson("/api/merchant/program/extras", { programId: me.programId, welcomeBonus: bonus, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim(), ...(stamp ? {} : { pointsExpiryMonths: draft.expiryMonths ? Number(draft.expiryMonths) : null }), challengeVisits: draft.challengeVisits ? Number(draft.challengeVisits) : null, ...(draft.challengeVisits ? { challengeBonus } : {}),
+        levelsEnabled: draft.levelsEnabled, ...(draft.silver ? { levelSilverVisits: silver } : {}), ...(draft.gold ? { levelGoldVisits: gold } : {}), levelBronzePerk: draft.perkBronze.trim(), levelSilverPerk: draft.perkSilber.trim(), levelGoldPerk: draft.perkGold.trim() });
       const next = { ...draft, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim() };
       setSaved(next); setDraft(next); setState("saved"); void owner.refresh();
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
@@ -82,7 +88,19 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         </div>
         <span id="extras-challenge-hint" className={challengeValid ? "ow-hint" : "ow-error"}>{challengeValid ? `Zählt Tage mit einem an der Kasse bestätigten Besuch im Kalendermonat. Der Bonus wird einmal pro Monat mit dem bestätigten Besuch gebucht, der das Ziel erreicht; die Kasse sieht ihn. ${stamp ? "1 bis 3 Stempel." : "Höchstens ein Viertel der günstigsten Prämie."} ${EXCLUDED_GOODS}` : stamp ? "Bonus: 1 bis 3 Stempel." : "Bonus: mindestens 1 Punkt."}</span>
       </fieldset>
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend>Kundenlevel</legend>
+        <label><input type="checkbox" role="switch" checked={draft.levelsEnabled} onChange={event => edit({ levelsEnabled: event.target.checked })} /> Level sind {draft.levelsEnabled ? "an" : "aus"}</label>
+        <span className="ow-hint">Bronze ab dem ersten Besuch, Silber und Gold nach Besuchstagen in den letzten 90 Tagen. Wähle beide selbst, zum Beispiel Friseur/Barber: 3 und 6 · Pizzeria/Imbiss: 5 und 10.</span>
+        <span className="ow-hint">Der Vorteil ist ein Text, den dein Team an der Kasse sieht und einlöst; gebucht wird nichts. Er muss echt sein und eingehalten werden, nie auf Tabak, Presse, Bücher, Lotto oder Handyguthaben.</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <div className="ow-field"><label htmlFor="extras-silver">Silber ab Besuchen</label><input id="extras-silver" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.silver} onChange={event => edit({ silver: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={!levelsValid} /></div>
+          <div className="ow-field"><label htmlFor="extras-gold">Gold ab Besuchen</label><input id="extras-gold" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.gold} onChange={event => edit({ gold: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={!levelsValid} /></div>
+        </div>
+        {LEVELS.map(([name, key]) => <div key={key} className="ow-field"><label htmlFor={`extras-${key}`}>Vorteil {name} (optional)</label><input id={`extras-${key}`} className="ow-input" value={draft[key]} maxLength={LEVEL_PERK_MAX} placeholder={name === "Gold" ? "z. B. Getränk aufs Haus" : ""} onChange={event => edit({ [key]: event.target.value } as Partial<Draft>)} aria-invalid={Boolean(levelPerkProblem(draft[key].trim()))} /></div>)}
+        {!levelsValid && <p className="ow-error">{draft.levelsEnabled && (!draft.silver || !draft.gold) ? "Bitte lege fest, ab wie vielen Besuchen Silber und Gold gelten." : `Silber 2 bis 50 Besuche, Gold mehr als Silber und höchstens 90. Vorteile: nur Text, keine Links, bis ${LEVEL_PERK_MAX} Zeichen.`}</p>}
+      </fieldset>
+      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }

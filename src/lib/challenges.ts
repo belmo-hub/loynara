@@ -1,6 +1,9 @@
 import { sql } from "drizzle-orm";
 import type { db } from "@/db";
 
+// Visit days: days with a cashier-confirmed award (staff_online or staff_offline) that was not corrected. Bonuses, taps
+// without a cashier and expiry rows are never visits.
+
 type Query = Pick<Parameters<Parameters<typeof db.transaction>[0]>[0], "execute">;
 
 /**
@@ -22,4 +25,19 @@ export async function challengeProgress(tx: Query, input: { tenantId: string; me
       AND e.id IS DISTINCT FROM ${input.excluding ?? null}::uuid
       AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)`);
   return row;
+}
+
+/**
+ * Customer levels (ENG-053): the visit days in the last `days` days (location time), newest first, each with the date
+ * („TT.MM.JJJJ“) on which it leaves the window, so the card can say how long a level holds without another visit.
+ */
+export async function recentVisitDays(tx: Query, input: { tenantId: string; membershipId: string; locationId: string; days: number }) {
+  const { rows } = await tx.execute<{ leaves: string }>(sql`
+    SELECT to_char((max(e.created_at) + make_interval(days => ${input.days})) AT TIME ZONE l.timezone, 'DD.MM.YYYY') AS leaves
+    FROM ledger_entries e JOIN locations l ON l.id = ${input.locationId}::uuid AND l.tenant_id = e.tenant_id
+    WHERE e.tenant_id = ${input.tenantId}::uuid AND e.membership_id = ${input.membershipId}::uuid
+      AND e.kind = 'award' AND e.source IN ('staff_online','staff_offline') AND e.created_at > now() - make_interval(days => ${input.days})
+      AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id)
+    GROUP BY (e.created_at AT TIME ZONE l.timezone)::date, l.timezone ORDER BY max(e.created_at) DESC`);
+  return rows.map(row => row.leaves);
 }
