@@ -78,7 +78,8 @@ describe("consent gate", () => {
     if (!snapshot.open) throw new Error("open");
     expect(calls[0].data).toEqual({ ...passFastData({ ...snapshot.pass, message: undefined }), message: TEXT });
     expect(calls[0].data).toMatchObject({ balance: 4 });
-    expect(passFastData(snapshot.pass).message).toBe(TEXT);
+    expect(passFastData(snapshot.pass).message).toBeUndefined(); // flag off: refreshes keep the earlier contract
+    expect(passFastData(snapshot.pass, { WALLET_MESSAGES_ENABLED: "true" }).message).toBe(TEXT);
   });
 
   it("an opt-out in the middle of a send stops that card's message", async () => {
@@ -494,5 +495,36 @@ describe("removed cards", () => {
     await drain(id, s.tenantId, send);
     expect(calls.map(call => call.objectId)).not.toContain(`passfast:${late.passId}`);
     expect((await pool.query("SELECT reason FROM wallet_message_recipients WHERE message_id = $1 AND pass_id = $2", [id, late.passId])).rows[0]).toEqual({ reason: "unreachable" });
+  });
+});
+
+describe("review fixes", () => {
+  it("W-1: matches the Apple row by the serial in its object id when the card's Google pass came first", async () => {
+    const s = await shop(); const card = await enroll({ slug: s.slug, acceptedTerms: true });
+    const googleId = randomUUID(), appleId = randomUUID(), objectId = `passfast:${googleId}:${"a".repeat(64)}`;
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1,$2,$3,'google',$4,'created'), ($5,$2,$3,'apple',$4,'created')",
+      [googleId, s.tenantId, card.id, objectId, appleId]);
+    const raw = eventBody(googleId, "device.unregistered", NOON); // PassFast reports the shared serial
+    expect(await hook(raw, sign(raw), NOON)).toEqual({ recorded: true });
+    expect((await events()).map(row => row.pass_id)).toEqual([appleId]);
+  });
+
+  it("W-2: a refresh carries the newest message that may have reached the device, never an older one", async () => {
+    const s = await shop(); const c = await customer(s);
+    const first = await go(s, NOON, "Erste Nachricht");
+    await drain(first.id, s.tenantId, fake().send);
+    const message = async () => { const snapshot = await walletCardSnapshot(c.id); if (!snapshot.open) throw new Error("open"); return snapshot.pass.message; };
+    expect(await message()).toBe("Erste Nachricht");
+    const second = await go(s, T("2026-10-22T11:00:00Z"), "Zweite Nachricht");
+    expect(await message()).toBe("Erste Nachricht"); // queued, never tried: cannot be on the device yet
+    const state = (status: string, attempts: number, reason: string | null = null) => pool.query("UPDATE wallet_message_recipients SET status = $2, attempts = $3, reason = $4 WHERE message_id = $1", [second.id, status, attempts, reason]);
+    await state("sending", 1);
+    expect(await message()).toBe("Zweite Nachricht"); // a refresh while M2 is in flight
+    await state("queued", 1, "retry");
+    expect(await message()).toBe("Zweite Nachricht"); // M2 timed out but PassFast may have applied it
+    await state("failed", 1, "uncertain");
+    expect(await message()).toBe("Zweite Nachricht");
+    await state("failed", 3, "provider");
+    expect(await message()).toBe("Erste Nachricht");
   });
 });

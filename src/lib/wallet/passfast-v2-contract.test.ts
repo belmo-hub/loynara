@@ -9,8 +9,7 @@ describe("retained published PassFast V2 contract, offline only",()=>{
     expect(template.app_id).toBe("fe0f1e68-4655-41d2-b805-813281911f79");
     expect(template.is_published).toBe(true);expect(template.is_archived).toBe(false);
     const data=passFastData({...pass,locale});
-    expect(Object.keys(data).filter(key=>key!=="message").sort()).toEqual(Object.keys(template.field_schema).sort());
-    expect(data.message).toBe(""); // ENG-043: the v3 field; v2 has no such field and its calls send the empty default
+    expect(Object.keys(data).sort()).toEqual(Object.keys(template.field_schema).sort());
     for(const [key,field] of Object.entries(template.field_schema)) {
       expect(field.required).toBe(true);expect(typeof data[key as keyof typeof data]).toBe(field.type);
     }

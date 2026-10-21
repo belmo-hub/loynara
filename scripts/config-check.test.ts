@@ -215,6 +215,16 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual([]);
     });
 
+    it("owner messages: absent changes nothing; on, they need PassFast and a 16+ character webhook secret", () => {
+      expect(productionConfigIssues({ ...safe, WALLET_MESSAGES_ENABLED: "false" })).toEqual([]);
+      refused({ ...safe, WALLET_MESSAGES_ENABLED: "yes" }, /WALLET_MESSAGES_ENABLED must be exactly/);
+      refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "k".repeat(8) + "9".repeat(24) }, /requires PassFast/);
+      for (const secret of [undefined, "", "short-secret-15"]) refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: secret }, /PASSFAST_WEBHOOK_SECRET with at least 16/);
+      const ok = productionConfigIssues({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" });
+      expect(ok.join(" ")).not.toMatch(/PASSFAST_WEBHOOK_SECRET/);
+      expect(ok.join(" ")).not.toContain("synthetic-hook-0123456789");
+    });
+
     it("requires a separate approval and refuses a stray approval or ambiguous flags", () => {
       refused({ ...apple, WALLET_PRODUCTION_APPROVED: undefined }, /production approval/);
       refused({ ...safe, WALLET_PRODUCTION_APPROVED: "true" }, /no Wallet provider/);

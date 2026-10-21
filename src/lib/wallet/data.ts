@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, tenants, walletMessageRecipients, walletMessages } from "@/db/schema";
 import { formatCardLocator } from "@/lib/card-locator";
@@ -57,8 +57,11 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
   const [lastMessage] = await reader.select({ text: walletMessages.text }).from(walletMessageRecipients)
     .innerJoin(walletMessages, and(eq(walletMessages.id, walletMessageRecipients.messageId), eq(walletMessages.tenantId, walletMessageRecipients.tenantId)))
-    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id), eq(walletMessageRecipients.status, "sent")))
-    .orderBy(desc(walletMessageRecipients.sentAt)).limit(1);
+    // Every row that may have reached the device, so a refresh never puts an older text back (with a banner):
+    // sent, in flight, queued for a retry after a try that may have been applied, or failed with an unknown outcome.
+    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id),
+      sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
+    .orderBy(desc(walletMessages.createdAt)).limit(1);
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),

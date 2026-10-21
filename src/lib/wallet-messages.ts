@@ -65,7 +65,7 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
 
 /**
  * Passes that may get a message now: Apple pass issued through PassFast and still live, card open, an open consent, and
- * room under the per-customer cap. Sent, queued and sending rows count (and a send whose outcome is unknown), so
+ * room under the per-customer cap, counted from delivery (queue time until delivered), as the consent text promises. Sent, queued and sending rows count (and a send whose outcome is unknown), so
  * ENG-044 reuses this one counter by writing its own rows into wallet_message_recipients.
  */
 /** A pass whose latest device event is an unregistration was removed from the Wallet: it gets no more messages (it still gets balance updates). */
@@ -78,7 +78,7 @@ const eligible = (tenantId: string, programId: string, now: Date) => sql`
     AND EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL)
     AND (SELECT count(*) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
       AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain'))
-      AND r.created_at > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS})) < ${CUSTOMER_WEEKLY_CAP}`;
+      AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS})) < ${CUSTOMER_WEEKLY_CAP}`;
 
 /** The two newest owner messages of the window that count against the shop cap (a message stopped before any send does not count). */
 async function shopWindow(tx: Tx, tenantId: string, programId: string, now: Date) {

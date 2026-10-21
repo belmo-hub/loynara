@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletCardSnapshot } from "./data";
-import { PassFastClient, PassFastError, assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidData, PASSFAST_OPERATION_MS } from "./passfast";
+import { PassFastClient, PassFastError, assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidPayload, PASSFAST_OPERATION_MS } from "./passfast";
 
 /** Same pass lock for initial creation and every refresh. Never take a member lock here (lifecycle takes member -> pass).
  * Pending identity and recovery job committed before any provider request. On a lost response we look up the same serial,
@@ -52,8 +52,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
       if (!existing) throw new PassFastError(404);
       if (existing.status === "active") {
         const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-        await client.update(serial, row.provider as "apple" | "google", { merchantName: brand.merchantName, programName: brand.programName,
-          locationName: brand.locationName, locale: brand.locale, programType: brand.programType ?? "stamp", ...passFastVoidData });
+        await client.update(serial, row.provider as "apple" | "google", passFastVoidPayload(brand));
       }
       await client.void(serial, row.provider as "apple" | "google");
       await tx.update(walletPasses).set({ status: "revoked", revokedAt: row.revokedAt ?? new Date(), revokeReason: row.revokeReason ?? (snapshot.open ? "superseded" : "closed"), syncedAt: new Date() }).where(eq(walletPasses.id, row.id));

@@ -24,11 +24,16 @@ function eventTime(value: string | number): Date | null {
   return !at || Number.isNaN(at.getTime()) ? null : at;
 }
 
+/** The route exists only with a 16+ character secret and the surface shown; checked before the body is read. */
+export function passFastEventsAvailable(env: Record<string, string | undefined> = process.env) {
+  return (env.PASSFAST_WEBHOOK_SECRET ?? "").length >= 16 && !surfaceHidden("walletMessages", env);
+}
+
 /** Throws a DomainError for everything the sender should not retry as-is; an unknown pass or an uninteresting event is acknowledged. */
 export async function recordPassFastEvent(raw: string, signature: string | null, now = new Date(), env: Record<string, string | undefined> = process.env) {
   const secret = env.PASSFAST_WEBHOOK_SECRET ?? "";
   // Absent secret or withheld surface: the route does not exist.
-  if (secret.length < 16 || surfaceHidden("walletMessages", env)) throw new DomainError("NOT_FOUND", "Not found");
+  if (!passFastEventsAvailable(env)) throw new DomainError("NOT_FOUND", "Not found");
   if (!validPassFastSignature(raw, signature, secret)) throw new DomainError("UNAUTHENTICATED", "Invalid signature");
   let parsed: z.infer<typeof payload>;
   try { parsed = payload.parse(JSON.parse(raw)); } catch { throw new DomainError("INVALID_EVENT", "Invalid event"); }
@@ -38,7 +43,9 @@ export async function recordPassFastEvent(raw: string, signature: string | null,
   const inserted = await db.execute(sql`
     INSERT INTO wallet_pass_events (pass_id, tenant_id, event, event_at)
     SELECT p.id, p.tenant_id, ${parsed.event}, ${at}::timestamptz FROM wallet_passes p
-    WHERE p.id = ${parsed.serial_number}::uuid AND p.provider_object_id LIKE 'passfast:%'
+    -- One serial is shared by a card's Apple and Google rows (issue.ts), so match the Apple row by the serial in its object id.
+    WHERE p.provider = 'apple' AND (p.provider_object_id = ${"passfast:" + parsed.serial_number} OR p.provider_object_id LIKE ${"passfast:" + parsed.serial_number + ":%"})
+    ORDER BY (p.revoked_at IS NULL) DESC, p.created_at DESC LIMIT 1
     ON CONFLICT ON CONSTRAINT wallet_pass_event_once_uq DO NOTHING RETURNING id`);
   return { recorded: inserted.rows.length === 1 };
 }

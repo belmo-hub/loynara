@@ -114,7 +114,7 @@ const placeholder = /replace|placeholder|example|changeme|test-secret/i;
  */
 function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): string[] {
   const issues: string[] = [];
-  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED"]) {
+  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED", "WALLET_MESSAGES_ENABLED"]) {
     if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
   }
   if (["DEVICE_TEST_APPROVED_WALLET_PROVIDER", "DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL", "DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID"].some(name => env[name])) {
@@ -124,6 +124,13 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
   if (apple) issues.push("Direct native Apple Wallet is dormant; Apple production uses PassFast");
+  // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need PassFast and the event webhook
+  // secret, or no removal would ever be recorded and the removal report would silently read 0.
+  if (env.WALLET_MESSAGES_ENABLED === "true") {
+    if (!passfast) issues.push("WALLET_MESSAGES_ENABLED requires PassFast (PASSFAST_ENABLED=true)");
+    const hook = env.PASSFAST_WEBHOOK_SECRET ?? "";
+    if (hook.length < 16 || placeholder.test(hook)) issues.push("WALLET_MESSAGES_ENABLED requires PASSFAST_WEBHOOK_SECRET with at least 16 characters");
+  }
   if (passfast && !passFastStatus(env).ready) issues.push("PassFast enabled without complete approved configuration");
   if ((passfast || apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
   if (!passfast && !apple && !google && env.WALLET_PRODUCTION_APPROVED === "true") issues.push("WALLET_PRODUCTION_APPROVED is set while no Wallet provider is enabled");
