@@ -311,6 +311,15 @@ describe("after the end: the owner's export window and what stays closed", () =>
     for (const run of [() => getMerchantExport(f.userId), () => getMerchantCsv(f.userId, "karten"), () => getMerchantCsv(f.userId, "buchungen")]) expect(await code(run)).toBe("EXPORT_CLOSED");
   });
 
+  it("an immediate operator end pulls a future provisional date back to today and confirms it", async () => {
+    const f = await shop();
+    await db.update(programs).set({ cancellationEndDate: "2099-12-31" }).where(eq(programs.id, f.program.id));
+    await endProgramme({ programId: f.program.id, actorUserId: operator, force: true });
+    const [{ today }] = (await pool.query("SELECT (now() AT TIME ZONE 'Europe/Berlin')::date::text AS today")).rows;
+    expect(await programme(f.program.id)).toMatchObject({ status: "ended", cancellationEndDate: today });
+    expect((await programme(f.program.id)).cancellationConfirmedAt).not.toBeNull();
+  });
+
   it("refuses non-owners the export and gives them no ended page data, and a shop with a running programme is unaffected", async () => {
     const f = await shop();
     const cashier = await addStaff(f.tenant.id, f.location.id, "cashier");
