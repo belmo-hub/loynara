@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { locations, plateLinkEvents, programs, secureTags, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
@@ -106,6 +106,20 @@ export async function revokeUnlinkedPlate(input: { actorUserId: string; env: Env
     await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel, action: "revoke", actorUserId: input.actorUserId });
     return { result: "revoke" as const, plateLabel };
   });
+}
+
+/**
+ * Unlinks every plate still linked to a programme that is ending, with one audit row each (the caller names the actor,
+ * the system actor for the end-date job). Runs inside the caller's transaction, which already holds the programme lock.
+ */
+export async function unlinkProgrammePlates(tx: Transaction, programId: string, actorUserId: string) {
+  const tags = await tx.select().from(secureTags).where(and(eq(secureTags.programId, programId), eq(secureTags.status, "active"), isNotNull(secureTags.plateLabel))).for("update");
+  for (const tag of tags) {
+    await tx.update(secureTags).set({ tenantId: null, locationId: null, programId: null, status: "unlinked" }).where(eq(secureTags.id, tag.id));
+    await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel: tag.plateLabel!, action: "unlink", actorUserId,
+      oldTenantId: tag.tenantId, oldLocationId: tag.locationId, oldProgramId: programId });
+  }
+  return tags.length;
 }
 
 /** Where the plate's QR sticker leads: the linked shop's public join page, or null while it is not linked. */

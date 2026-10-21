@@ -68,6 +68,8 @@ export type MeResponse = {
   reviewUrl?: string | null;
   happyHourEnabled?: boolean;
   happyHourWindows?: HappyHourWindow[];
+  /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
+  cancellationEndDate?: string | null;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
