@@ -65,6 +65,7 @@ export const staffRoles = pgTable("staff_roles", {
   check("staff_role_valid", sql`${t.role} in ('owner','manager','cashier')`),
 ]);
 
+/** Staff invitations from an owner, and owner invitations from the operator for a shop it created (role owner, ENG-047). */
 export const staffInvites = pgTable("staff_invites", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
@@ -79,7 +80,7 @@ export const staffInvites = pgTable("staff_invites", {
   createdAt: createdAt(),
 }, (t) => [
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
-  check("staff_invite_role_valid", sql`${t.role} in ('manager','cashier')`),
+  check("staff_invite_role_valid", sql`${t.role} in ('owner','manager','cashier')`),
 ]);
 
 export const staffAuditEvents = pgTable("staff_audit_events", {
@@ -96,7 +97,7 @@ export const staffAuditEvents = pgTable("staff_audit_events", {
   index("staff_audit_tenant_time_idx").on(t.tenantId, t.createdAt),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("staff_audit_action_valid", sql`${t.action} in ('invite_created','invite_accepted','access_revoked')`),
-  check("staff_audit_role_valid", sql`${t.role} in ('manager','cashier')`),
+  check("staff_audit_role_valid", sql`${t.role} in ('owner','manager','cashier')`),
 ]);
 
 export const programs = pgTable("programs", {

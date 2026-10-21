@@ -38,14 +38,16 @@ export function ProgramSetup() {
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // A shop the operator created arrives with its name and place filled in; the owner confirms or changes them.
+  const draft = owner.setupDraft;
   const [f, setF] = useState({
-    businessName: "", locationName: "", city: "", country: "DE" as "DE" | "MA", locale: "de" as "de" | "fr", contactEmail: "", preset: "",
+    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", country: (draft?.country === "MA" ? "MA" : "DE") as "DE" | "MA", locale: (draft?.locale === "fr" ? "fr" : "de") as "de" | "fr", contactEmail: "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
     programName: "", brandColor: "#1F4A3A", logo: null as File | null, date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
   });
   const [amount, setAmount] = useState("");
   const set = (patch: Partial<typeof f>) => setF(current => ({ ...current, ...patch }));
-  const touched = Boolean(f.businessName || f.locationName || f.city || f.rewardName || f.cost);
+  const touched = f.businessName !== (draft?.businessName ?? "") || f.locationName !== (draft?.locationName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
   useDirtyGuard("program-setup", touched && !busy);
 
   const currency = f.country === "DE" ? "EUR" : "MAD";
@@ -94,7 +96,7 @@ export function ProgramSetup() {
     try {
       const logoData = f.logo ? await imageToDataUrl(f.logo) : undefined;
       await postJson<{ programSlug: string }>("/api/merchant/onboard", {
-        businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
+        businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: draft && draft.country === f.country ? draft.timezone : f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
         locationName: f.locationName.trim(), ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "@/db";
 import { locations, staffAuditEvents, staffInvites, staffRoles } from "@/db/schema";
@@ -47,6 +47,11 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
     const assigned = await tx.select().from(staffRoles).where(eq(staffRoles.userId, input.userId));
     if (assigned.some((role) => role.tenantId !== invite.tenantId)) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     if (assigned.some((role) => role.active)) throw new DomainError("ALREADY_ASSIGNED", "Account already has an active merchant role");
+    if (invite.role === "owner") {
+      // An owner invitation (ENG-047, from the operator) makes the first and only owner of a shop that has none.
+      const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, invite.tenantId), eq(staffRoles.role, "owner"))).limit(1);
+      if (owner) throw new DomainError("INVALID_INVITE", "Invitation is invalid or expired");
+    }
     const [prior] = assigned;
     if (prior) {
       // Only an invitation issued after this person's latest revocation may restore access. This also covers
@@ -58,7 +63,8 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
     }
     if (prior) await tx.update(staffRoles).set({ role: invite.role, locationId: invite.locationId, active: true }).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, invite.tenantId)));
     else {
-      const inserted = await tx.insert(staffRoles).values({ tenantId: invite.tenantId, userId: input.userId, role: invite.role, locationId: invite.locationId })
+      // An owner works across the shop's locations, like one who set the shop up alone: no fixed location.
+      const inserted = await tx.insert(staffRoles).values({ tenantId: invite.tenantId, userId: input.userId, role: invite.role, locationId: invite.role === "owner" ? null : invite.locationId })
         .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
       if (!inserted.length) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     }
@@ -106,7 +112,7 @@ export async function listStaffInvites(actorUserId: string) {
   const owner = await ownerRole(actorUserId);
   const rows = await db.select({ id: staffInvites.id, email: staffInvites.invitedEmail, role: staffInvites.role,
     locationId: staffInvites.locationId, expiresAt: staffInvites.expiresAt, acceptedAt: staffInvites.acceptedAt,
-    revokedAt: staffInvites.revokedAt }).from(staffInvites).where(eq(staffInvites.tenantId, owner.tenantId))
+    revokedAt: staffInvites.revokedAt }).from(staffInvites).where(and(eq(staffInvites.tenantId, owner.tenantId), ne(staffInvites.role, "owner")))
     .orderBy(desc(staffInvites.createdAt), desc(staffInvites.id));
   const now = new Date();
   return rows.map(({ acceptedAt, revokedAt, ...row }) => ({ ...row,
@@ -121,7 +127,7 @@ export async function revokeStaffInvite(raw: { actorUserId: string; inviteId: st
     // not acquire the candidate user lock or mutate staff roles, avoiding a
     // reverse identity/invitation lock order.
     const [invite] = await tx.select().from(staffInvites)
-      .where(and(eq(staffInvites.id, input.inviteId), eq(staffInvites.tenantId, owner.tenantId))).for("update");
+      .where(and(eq(staffInvites.id, input.inviteId), eq(staffInvites.tenantId, owner.tenantId), ne(staffInvites.role, "owner"))).for("update");
     if (!invite) throw new DomainError("NOT_FOUND", "Einladung nicht gefunden.");
     if (invite.acceptedAt) throw new DomainError("INVITE_USED", "Die Einladung wurde bereits angenommen. Verwende die Verwaltung der Teamzugänge.");
     if (invite.revokedAt) return { inviteId: invite.id, status: "revoked" as const };

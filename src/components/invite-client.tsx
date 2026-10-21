@@ -12,7 +12,7 @@ import { TextField } from "./ui/field";
 import styles from "./auth/auth.module.css";
 import { CONNECTION_LOST, inviteAcceptMessage, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "./auth/auth-errors";
 
-type InvitePreview = { email: string; role: "cashier" | "manager"; businessName: string; locationName: string };
+type InvitePreview = { email: string; role: "owner" | "cashier" | "manager"; businessName: string; locationName: string };
 
 function Alert({ children }: { children: string }) {
   return <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{children}</p>;
@@ -59,6 +59,13 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
     } finally { setBusy(false); }
   }
 
+  // An owner invitation from the operator: the shop exists, the owner sets up the programme next.
+  if (done && invite?.role === "owner") return <AuthShell>
+    <div className={`invite-card ${styles.page}`}>
+      <PageHeader title="Willkommen bei Loynara." description={`Dein Konto für ${invite.businessName} ist aktiv. Jetzt richtest du deine Treuekarte ein: Programm, Prämie und Farbe.`} />
+      <Link href="/merchant/program" className={buttonClassName({ size: "lg", block: true })}>Treuekarte einrichten</Link>
+    </div>
+  </AuthShell>;
   if (done) return <AuthShell>
     <div className={`invite-card ${styles.page}`}>
       <PageHeader title="Willkommen im Team." description={`${invite ? `Dein Zugang für ${invite.locationName} ist aktiv.` : "Dein Teamzugang ist aktiv."} An der Kasse buchst du ab jetzt Besuche und Prämien.`} />
@@ -66,7 +73,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
     </div>
   </AuthShell>;
 
-  const roleLabel = invite?.role === "manager" ? "Leitung" : "Kasse";
+  const roleLabel = invite?.role === "owner" ? "Inhaber:in" : invite?.role === "manager" ? "Leitung" : "Kasse";
   return <AuthShell>
     <div className={`invite-card ${styles.page}`}>
       {invite ? <>

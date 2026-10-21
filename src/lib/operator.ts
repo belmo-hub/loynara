@@ -1,6 +1,7 @@
 import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, secureTags, tenants } from "@/db/schema";
+import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { walletMessageStats } from "./wallet-messages";
 
@@ -38,6 +39,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     // Age is computed here so the page renders the same on server and client.
     const now = Date.now();
     const messages = await walletMessageStats(tx);
-    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    const awaiting = await shopsAwaitingOwner(tx);
+    return { awaiting, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }
