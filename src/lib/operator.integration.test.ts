@@ -10,11 +10,12 @@ import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposab
 
 assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
-const saved = { ids: process.env.PLATE_OPERATOR_USER_IDS, base: process.env.PUBLIC_BASE_URL };
-beforeEach(async () => { await assertDisposableDatabase(pool); await pool.query('TRUNCATE tenants, "user", secure_tags, plate_link_events CASCADE'); process.env.PUBLIC_BASE_URL = origin; });
+const saved = { ids: process.env.PLATE_OPERATOR_USER_IDS, base: process.env.PUBLIC_BASE_URL, registration: process.env.PUBLIC_REGISTRATION_ENABLED };
+beforeEach(async () => { await assertDisposableDatabase(pool); await pool.query('TRUNCATE tenants, "user", secure_tags, plate_link_events CASCADE'); process.env.PUBLIC_BASE_URL = origin; process.env.PUBLIC_REGISTRATION_ENABLED = "true"; });
 afterAll(async () => {
   if (saved.ids === undefined) delete process.env.PLATE_OPERATOR_USER_IDS; else process.env.PLATE_OPERATOR_USER_IDS = saved.ids;
   if (saved.base === undefined) delete process.env.PUBLIC_BASE_URL; else process.env.PUBLIC_BASE_URL = saved.base;
+  if (saved.registration === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = saved.registration;
   await pool.end();
 });
 
