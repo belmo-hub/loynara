@@ -38,6 +38,11 @@ it("answers a plain 404 to anonymous visitors and shop owners, and serves only t
   const body = { plateLabel: "P-001", programId: f.program.id, execute: true };
   for (const cookie of ["", owner.cookie]) { const res = await post(body, cookie); expect(res.status).toBe(404); expect(await res.text()).toBe(""); }
   expect((await post(body, operator.cookie, {})).status).toBe(404); // no same-origin header
+  // Garbage from a non-operator is the same empty 404, never a 400.
+  const junk = await plateRoute(new Request(origin + "/api/operator/plate", { method: "POST", headers: { "Content-Type": "text/plain", Origin: origin, cookie: owner.cookie }, body: "garbage" }));
+  expect(junk.status).toBe(404); expect(await junk.text()).toBe("");
+  expect((await post({ nonsense: 1 }, owner.cookie)).status).toBe(404);
+  expect((await post({ nonsense: 1 }, operator.cookie)).status).toBe(400);
   await expect(operatorOverview(owner.userId)).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await events()).toEqual([]);
   delete process.env.PLATE_OPERATOR_USER_IDS; // absent list: nobody, not even the former operator
