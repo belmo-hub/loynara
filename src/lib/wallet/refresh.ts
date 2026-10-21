@@ -13,6 +13,7 @@ import type { RevokeReason, WalletPassData, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
 import { isPassFastObjectId, passFastStatus, passFastConfig, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
+import { passFastEnv } from "./template-bindings";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
 type PassRow = typeof walletPasses.$inferSelect;
@@ -36,8 +37,9 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
   for (const original of rows) {
     if (isPassFastObjectId(original.providerObjectId)) {
       const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-      if (brand.tenantId !== original.tenantId || !passFastStatus(process.env, original.tenantId, brand.locationId).ready
-        || !passFastConfig(process.env, original.tenantId, brand.locationId).platforms.includes(original.provider as "apple" | "google")) { blocked.push("Wallet provider unavailable"); continue; }
+      const env = await passFastEnv(original.tenantId, brand.locationId);
+      if (brand.tenantId !== original.tenantId || !passFastStatus(env, original.tenantId, brand.locationId).ready
+        || !passFastConfig(env, original.tenantId, brand.locationId).platforms.includes(original.provider as "apple" | "google")) { blocked.push("Wallet provider unavailable"); continue; }
       try { await syncPassFastPass(original.id, { client: deps.passfast, tenantId: original.tenantId, deadline: passFastDeadline }); }
       catch { passFastFailed = true; } // Still retire the other platform; retain this job for bounded retry.
       continue;

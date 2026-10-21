@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, secureTags, tenants } from "@/db/schema";
 import { assertPlateOperator } from "./plates";
 import { walletMessageStats } from "./wallet-messages";
+import { walletTemplateOverview } from "./wallet/template-bindings";
 
 /**
  * The operator's read model: shops and plates, counts and dates only. No customer, card or contact data is selected,
@@ -38,6 +39,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     // Age is computed here so the page renders the same on server and client.
     const now = Date.now();
     const messages = await walletMessageStats(tx);
-    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    const templates = await walletTemplateOverview(tx, env);
+    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

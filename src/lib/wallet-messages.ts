@@ -7,6 +7,7 @@ import { surfaceHidden } from "./pilot-surfaces";
 import { quietHoursDeferral } from "./promotion-policy";
 import { assertPassFastBinding, PassFastClient, passFastConfig, passFastData, passFastSerial } from "./wallet/passfast";
 import { walletCardSnapshot } from "./wallet/data";
+import { passFastEnv } from "./wallet/template-bindings";
 import {
   CAP_WINDOW_DAYS, checkMessageText, germanWhen, CONSENT_TEXT_VERSION, consentText, CUSTOMER_WEEKLY_CAP, OWNER_TEXT_VERSION, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP, WALLET_QUIET_HOURS,
 } from "./wallet-message-rules";
@@ -210,7 +211,7 @@ const refreshCounts = (messageId: string) => db.execute(sql`UPDATE wallet_messag
 export type WalletMessageSend = (call: { tenantId: string; locationId: string; objectId: string; data: Record<string, unknown> }) => Promise<void>;
 /** The full agreed data contract with the one new value: PassFast's docs disagree on merge versus replace for PATCH, so every other field is re-sent unchanged. */
 const providerSend: WalletMessageSend = async ({ tenantId, locationId, objectId, data }) => {
-  const config = passFastConfig(process.env, tenantId, locationId);
+  const config = passFastConfig(await passFastEnv(tenantId, locationId), tenantId, locationId);
   assertPassFastBinding(objectId, config);
   await new PassFastClient(config).update(passFastSerial(objectId), "apple", data);
 };

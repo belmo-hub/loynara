@@ -37,7 +37,7 @@ export function assertPassFastBinding(objectId: string, config: PassFastConfig):
 }
 
 /** Operator-only allowlist: exact tenant/location scopes, distinct templates and no global fallback. */
-function tenantTemplates(raw: string | undefined): Map<string, { tenantId: string; locationId: string; templateId: string }> {
+export function tenantTemplates(raw: string | undefined): Map<string, { tenantId: string; locationId: string; templateId: string }> {
   try {
     if (!raw || raw.length > 65536) throw new PassFastError();
     const values: unknown = JSON.parse(raw);

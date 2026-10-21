@@ -946,3 +946,37 @@ export const walletMessageRecipients = pgTable("wallet_message_recipients", {
   index("wallet_message_recipient_due_idx").on(t.messageId, t.status, t.retryAt),
   check("wallet_message_recipient_status_valid", sql`${t.status} in ('queued','sending','sent','failed','skipped')`),
 ]);
+
+/**
+ * Apple Wallet (PassFast) template per location (ENG-046), set by the operator on /operator. Wins over the env binding of
+ * the same scope; PASSFAST_TENANT_TEMPLATES stays the read-only fallback. One template per location, no template shared.
+ */
+export const walletTemplateBindings = pgTable("wallet_template_bindings", {
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  templateId: uuid("template_id").notNull(),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: createdAt(),
+  changedByUserId: text("changed_by_user_id").notNull(),
+  changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  unique("wallet_template_bindings_template_uq").on(t.templateId),
+]);
+
+/** Append-only history of every template binding change (trigger in 0035). `import` = copied from PASSFAST_TENANT_TEMPLATES. */
+export const walletTemplateBindingEvents = pgTable("wallet_template_binding_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  action: varchar("action", { length: 8 }).notNull(),
+  oldTemplateId: uuid("old_template_id"),
+  newTemplateId: uuid("new_template_id").notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  index("wallet_template_binding_events_scope_idx").on(t.tenantId, t.locationId, t.createdAt),
+  check("wallet_template_binding_action_valid", sql`(${t.action} in ('set','import') and ${t.oldTemplateId} is null) or (${t.action} = 'change' and ${t.oldTemplateId} is not null)`),
+]);
