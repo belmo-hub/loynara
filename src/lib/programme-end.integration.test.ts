@@ -2,8 +2,12 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { plateLinkEvents, programs, rewardVersions, secureTags } from "@/db/schema";
-import { award, redeem } from "./loyalty";
+import { ledgerEntries, memberships, plateLinkEvents, programs, rewardVersions, secureTags, tapRequests } from "@/db/schema";
+import { award, redeem, reverseEntry } from "./loyalty";
+import { DerivedTapKeyProvider, deriveTagKeys, parseMaster } from "./nfc-keys";
+import { sdmFor } from "./nfc-test-support";
+import { processSecureTap } from "./secure-tap";
+import { enroll, getMerchantContext } from "./product";
 import { addStaff, nfcFixture } from "./nfc-test-db";
 import { endDueProgrammes, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
 import { germanDate, lastDayOfBerlinMonth } from "./programme-end-date";
@@ -11,6 +15,9 @@ import { POST as cancelPost } from "@/app/api/merchant/program/cancel/route";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
 
+const VERIFY = parseMaster("7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a");
+const ADMIN = parseMaster("c4e1a07b93d25f68b0a1c3e5d7f9021b4a6c8e0d2f4b6a8c0e1d3f5a7b9c2d4e");
+const UID = "04de5f1eacc041";
 const code = async (fn: () => Promise<unknown>) => { try { await fn(); } catch (error) { return (error as { code?: string }).code ?? "OTHER"; } return "NONE"; };
 const at = (iso: string) => new Date(iso);
 let operator: string;
@@ -25,12 +32,15 @@ afterAll(async () => { await pool.end(); });
 
 async function shop() {
   const f = await nfcFixture();
-  const [tag] = await db.insert(secureTags).values({ publicRef: randomUUID().replaceAll("-", "").slice(0, 24), tenantId: f.tenant.id, locationId: f.location.id, programId: f.program.id, uid: randomUUID().replaceAll("-", "").slice(0, 14), keyRef: "dv1_test", configVersion: 1, status: "active", plateLabel: "P-007", lastCounter: 2 }).returning();
+  const keyRef = `dv1_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
+  const keys = deriveTagKeys({ verifyMaster: VERIFY, adminMaster: ADMIN, ref: keyRef, uid: UID });
+  const [tag] = await db.insert(secureTags).values({ publicRef: randomUUID().replaceAll("-", "").slice(0, 24), tenantId: f.tenant.id, locationId: f.location.id, programId: f.program.id, uid: UID, keyRef, configVersion: 1, status: "active", plateLabel: "P-007", lastCounter: 2 }).returning();
   const [rewardVersion] = await db.select().from(rewardVersions).where(eq(rewardVersions.tenantId, f.tenant.id));
   const book = (kind: "award" | "redeem") => kind === "award"
     ? award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 8, idempotencyKey: randomUUID(), requestId: randomUUID() })
     : redeem({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, rewardVersionId: rewardVersion.id, idempotencyKey: randomUUID(), requestId: randomUUID() });
-  return { ...f, tag, book };
+  const tap = (counter: number) => processSecureTap({ tagRef: tag.publicRef, fields: sdmFor({ uid: UID, counter, keys }), keyProvider: new DerivedTapKeyProvider(VERIFY), cardToken: f.member.cardToken });
+  return { ...f, tag, book, tap };
 }
 const programme = async (id: string) => (await db.select().from(programs).where(eq(programs.id, id)))[0];
 
@@ -141,6 +151,37 @@ describe("after the end", () => {
     await endDueProgrammes(at("2026-10-31T23:00:00Z"));
     expect(await code(() => f.book("redeem"))).toBe("NOT_FOUND");
     expect(await code(() => f.book("award"))).toBe("NOT_FOUND");
+  });
+
+  it("refuses every booking path once ended and books nothing: award, redeem, correction, NFC tap, join", async () => {
+    const f = await shop();
+    const booked = await f.book("award");
+    await f.book("award");
+    await db.update(programs).set({ cancellationEndDate: "2026-10-31" }).where(eq(programs.id, f.program.id));
+    const snapshot = async () => ({
+      ledger: (await db.select().from(ledgerEntries)).length, cards: (await db.select().from(memberships)).length, taps: (await db.select().from(tapRequests)).length,
+      balance: (await pool.query("SELECT balance FROM memberships WHERE id = $1", [f.member.id])).rows[0].balance as number,
+    });
+    // Control: before the end the plate-linked tap opens a request.
+    expect(await f.tap(3)).toMatchObject({ state: "pending_staff" });
+    const before = await snapshot();
+    await endDueProgrammes(at("2026-11-01T00:00:00Z"));
+    expect(await code(() => f.book("award"))).toBe("NOT_FOUND");
+    expect(await code(() => f.book("redeem"))).toBe("NOT_FOUND");
+    expect(await code(() => reverseEntry({ userId: f.userId, locationId: f.location.id, entryId: booked.entryId, reason: "Versehentlich falsch gebucht", idempotencyKey: randomUUID(), requestId: randomUUID() }))).toBe("NOT_FOUND");
+    expect(await code(() => f.tap(4))).toBe("NOT_FOUND"); // the end job unlinked the plate
+    expect(await code(() => enroll({ slug: f.program.slug, acceptedTerms: true }))).toBe("NOT_FOUND");
+    expect(await snapshot()).toEqual(before);
+    // The owner app gets its own answer instead of „Einrichtung unvollständig“.
+    expect(await code(() => getMerchantContext(f.userId))).toBe("PROGRAM_ENDED");
+  });
+
+  it("refuses a tap on a still-linked tag when the programme status is already ended", async () => {
+    const f = await shop();
+    await db.update(programs).set({ status: "ended" }).where(eq(programs.id, f.program.id));
+    expect(await code(() => f.tap(3))).toBe("NOT_FOUND");
+    expect(await db.select().from(tapRequests)).toHaveLength(0);
+    expect(await db.select().from(ledgerEntries)).toHaveLength(0);
   });
 
   it("shows the ended page for the join link, the card, the plate tap and the plate sticker, and for no live programme", async () => {

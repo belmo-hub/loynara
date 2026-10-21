@@ -67,6 +67,7 @@ export function accountLoadMessage(cause: unknown): string {
   // FORBIDDEN means a revoked team account or one without a location; the wording fits both.
   if (cause.code === "FORBIDDEN") return "Dein Zugang ist gesperrt oder keinem Standort zugeordnet. Bitte wende dich an die Inhaberin oder den Inhaber.";
   if (cause.code === "SETUP_INCOMPLETE") return SETUP_INCOMPLETE;
+  if (cause.code === "PROGRAM_ENDED") return "Programm beendet. Die Stände deiner Kunden bleiben gespeichert. Fragen? Schreib uns an den Support.";
   if (cause.code === "NOT_FOUND" || cause.code === "INVALID_LOCATION") return "Der zuletzt gewählte Standort ist nicht mehr verfügbar. Bitte wende dich an den Support.";
   if (cause.status === 429) return RATE_LIMITED;
   if (cause.status >= 500) return "Dein Konto kann gerade nicht geladen werden. Versuche es in einem Moment erneut.";
