@@ -11,6 +11,9 @@ import { enroll, getCard, getMerchantContext } from "./product";
 import { addStaff, nfcFixture } from "./nfc-test-db";
 import { endDueProgrammes, endedCardShop, endProgramme, operatorProgramme, PROGRAMME_END_ACTOR, programmeEnded, requestCancellation, withdrawCancellation } from "./programme-end";
 import { GET as exportGet } from "@/app/api/card/[token]/export/route";
+import { assertExportOpen, endedAccount, exportWindow } from "./programme-end";
+import { getMerchantCsv, getMerchantExport } from "./export";
+import { updateProgramExtras } from "./product";
 import { germanDate, lastDayOfBerlinMonth } from "./programme-end-date";
 import { POST as cancelPost } from "@/app/api/merchant/program/cancel/route";
 
@@ -278,5 +281,68 @@ describe("operator console", () => {
     expect((await db.select().from(plateLinkEvents))[0]).toMatchObject({ actorUserId: operator, action: "unlink" });
     expect(await programmeEnded({ slug: f.program.slug })).toBe(true);
     expect(await programmeEnded({ tapRef: f.tag.publicRef })).toBe(true); // unlinked by the operator, not the job
+  });
+});
+
+describe("after the end: the owner's export window and what stays closed", () => {
+  const endedOn = (id: string, day: string) => db.update(programs).set({ status: "ended", cancellationEndDate: day, cancellationConfirmedAt: new Date() }).where(eq(programs.id, id));
+
+  it("keeps the export open on day 0 and day 30 after the confirmed end date and closes it on day 31 (Berlin days)", async () => {
+    const f = await shop();
+    await endedOn(f.program.id, "2026-10-31");
+    const open = async (iso: string) => (await exportWindow(db, f.tenant.id, at(iso))) as { open: boolean; until: string };
+    expect(await open("2026-10-31T10:00:00Z")).toMatchObject({ open: true, until: "2026-11-30" }); // day 0
+    expect(await open("2026-11-30T22:59:59Z")).toMatchObject({ open: true }); // 23:59:59 on day 30 in Berlin
+    expect(await open("2026-11-30T23:00:00Z")).toMatchObject({ open: false }); // 00:00 on day 31
+    expect(await code(() => assertExportOpen(db, f.tenant.id, at("2026-11-30T22:59:59Z")))).toBe("NONE");
+    expect(await code(() => assertExportOpen(db, f.tenant.id, at("2026-12-01T10:00:00Z")))).toBe("EXPORT_CLOSED");
+    expect(await endedAccount(f.userId, at("2026-11-05T10:00:00Z"))).toMatchObject({ role: "owner", businessName: "Tap Test Café", endedOn: "2026-10-31", exportUntil: "2026-11-30", exportOpen: true });
+    expect(await endedAccount(f.userId, at("2026-12-05T10:00:00Z"))).toMatchObject({ exportOpen: false });
+  });
+
+  it("lets the owner download the full export and both CSVs of an ended programme, and refuses them after the window", async () => {
+    const f = await shop();
+    await f.book("award");
+    await endProgramme({ programId: f.program.id, actorUserId: operator, force: true }); // immediate end: today becomes the confirmed end date
+    expect((await getMerchantExport(f.userId)).memberships).toHaveLength(1);
+    expect((await getMerchantCsv(f.userId, "karten")).body).toContain("Tap Card");
+    expect((await getMerchantCsv(f.userId, "buchungen")).body).toContain("Menge");
+    await endedOn(f.program.id, "2020-01-01");
+    for (const run of [() => getMerchantExport(f.userId), () => getMerchantCsv(f.userId, "karten"), () => getMerchantCsv(f.userId, "buchungen")]) expect(await code(run)).toBe("EXPORT_CLOSED");
+  });
+
+  it("refuses non-owners the export and gives them no ended page data, and a shop with a running programme is unaffected", async () => {
+    const f = await shop();
+    const cashier = await addStaff(f.tenant.id, f.location.id, "cashier");
+    expect((await getMerchantExport(f.userId)).tenant).toBeTruthy(); // running programme: normal operation
+    expect(await endedAccount(f.userId)).toBeNull();
+    await endedOn(f.program.id, "2026-10-31");
+    expect(await code(() => getMerchantExport(cashier))).toBe("FORBIDDEN");
+    expect(await code(() => getMerchantCsv(cashier, "karten"))).toBe("FORBIDDEN");
+    expect(await endedAccount(randomUUID())).toBeNull();
+    expect((await endedAccount(cashier))?.role).toBe("cashier");
+  });
+
+  it("lets the owner change nothing about the programme once it ended", async () => {
+    const f = await shop();
+    await endedOn(f.program.id, "2026-10-31");
+    expect(await code(() => updateProgramExtras({ actorUserId: f.userId, programId: f.program.id, welcomeBonus: 1 }))).toBe("NOT_FOUND");
+    expect(await code(() => requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug }))).toBe("PROGRAM_ENDED");
+    expect(await code(() => withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-01T00:00:00Z") }))).toBe("PROGRAM_ENDED");
+    expect(await code(() => getMerchantContext(f.userId))).toBe("PROGRAM_ENDED");
+  });
+
+  it("records when the request was first made, keeps it on repeats, clears it on withdraw and shows it to the operator", async () => {
+    const f = await shop();
+    const status = () => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "status", execute: false });
+    expect(await status()).toMatchObject({ state: "none", requestedAt: null });
+    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
+    const first = (await status()) as { requestedAt: Date | null; state: string };
+    expect(first.state).toBe("requested");
+    expect(first.requestedAt).toBeInstanceOf(Date);
+    await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-12T10:00:00Z") });
+    expect(((await status()) as { requestedAt: Date }).requestedAt).toEqual(first.requestedAt);
+    await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-12T10:00:00Z") });
+    expect(await status()).toMatchObject({ state: "none", requestedAt: null });
   });
 });

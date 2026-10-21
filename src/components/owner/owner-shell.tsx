@@ -8,6 +8,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 import { useOwner } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
+import { ProgrammeEndedPage } from "./programme-ended-page";
 
 function GuardedLink({ href, children, ...rest }: { href: string; children: ReactNode } & Omit<React.ComponentProps<typeof Link>, "href">) {
   const router = useRouter();
@@ -52,6 +53,10 @@ export function OwnerShell({ children }: { children: ReactNode }) {
 
   if (owner.status === "unprovisioned") {
     return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
+  }
+  if (owner.status === "ended" && owner.ended) {
+    // Nothing else is offered: no navigation and no settings that could change the programme.
+    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main"><ProgrammeEndedPage info={owner.ended} /></main></div>;
   }
   if (owner.status === "error") {
     return <div className="ow-page" style={{ maxWidth: 560, paddingTop: 96 }} role="alert"><div className="ow-card ow-stack"><h1 style={{ fontSize: "var(--text-22)" }}>Dein Bereich ist nicht erreichbar</h1><p className="ow-muted">{owner.error}</p><div><button type="button" className="ow-btn ow-btn--primary" onClick={owner.reload}>Erneut versuchen</button></div><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div></div>;

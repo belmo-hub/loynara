@@ -58,7 +58,7 @@ export type MeResponse = {
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
-  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc">;
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation">;
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
@@ -78,6 +78,9 @@ export type MeResponse = {
   /** occurredAt is localized display text in the merchant's timezone; only createdAt is a raw timestamp. */
   activity?: Array<{ id: string; kind: "award" | "redeem" | "redemption" | "reversal"; occurredAt?: string; createdAt?: string; amount?: number; delta?: number; unit?: string; reference?: string }>;
 };
+
+/** `/api/me` for a shop whose programme has ended: the owner area shows only the export. */
+export type EndedAccountResponse = { userId: string; tenantId: string; publicBaseUrl: string; programEnded: { role: "owner" | "manager" | "cashier"; businessName: string; endedOn: string; exportUntil: string; exportOpen: boolean } };
 
 export type PublicProgram = {
   businessName: string;

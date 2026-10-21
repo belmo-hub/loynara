@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { memberships, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { cancellationEnd } from "./programme-end-date";
+import { cancellationEnd, germanDate } from "./programme-end-date";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
 
 /**
@@ -19,7 +19,7 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const dueSql = (now: Date) => sql<boolean>`${programs.cancellationConfirmedAt} IS NOT NULL AND ${now.toISOString()}::timestamptz >= ((${programs.cancellationEndDate} + 1)::timestamp AT TIME ZONE 'Europe/Berlin')`;
 
 async function ownerProgramme(tx: Transaction, actorUserId: string, programSlug: string, now: Date) {
-  const [program] = await tx.select({ id: programs.id, tenantId: programs.tenantId, status: programs.status, end: programs.cancellationEndDate, confirmed: programs.cancellationConfirmedAt, due: dueSql(now) }).from(programs).where(eq(programs.slug, programSlug)).for("update");
+  const [program] = await tx.select({ id: programs.id, tenantId: programs.tenantId, status: programs.status, end: programs.cancellationEndDate, confirmed: programs.cancellationConfirmedAt, requested: programs.cancellationRequestedAt, due: dueSql(now) }).from(programs).where(eq(programs.slug, programSlug)).for("update");
   const [owner] = program ? await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))) : [];
   // Not an owner of this shop: the same answer as a programme that does not exist.
   if (!program || !owner) throw new DomainError("NOT_FOUND", "Program not found");
@@ -33,7 +33,7 @@ export async function requestCancellation(input: { actorUserId: string; programS
     if (program.status !== "active") throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
     // Provisional: only the operator's confirmation (scripts/operator-programme.ts schedule) lets the end job act.
     const fresh = program.end ? { endDate: program.end, nextMonth: false } : cancellationEnd(input.now ?? new Date());
-    await tx.update(programs).set({ cancellationEndDate: fresh.endDate }).where(eq(programs.id, program.id));
+    await tx.update(programs).set({ cancellationEndDate: fresh.endDate, cancellationRequestedAt: program.requested ?? new Date() }).where(eq(programs.id, program.id));
     return { ...fresh, confirmed: program.confirmed !== null };
   });
 }
@@ -42,7 +42,7 @@ export async function withdrawCancellation(input: { actorUserId: string; program
   return db.transaction(async tx => {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug, input.now ?? new Date());
     if (program.status !== "active" || program.due) throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
-    await tx.update(programs).set({ cancellationEndDate: null, cancellationConfirmedAt: null }).where(eq(programs.id, program.id));
+    await tx.update(programs).set({ cancellationEndDate: null, cancellationConfirmedAt: null, cancellationRequestedAt: null }).where(eq(programs.id, program.id));
     return { endDate: null };
   });
 }
@@ -56,7 +56,8 @@ export async function endProgramme(input: { programId: string; actorUserId: stri
   return db.transaction(async tx => {
     const [program] = await tx.select({ status: programs.status, due: dueSql(input.now ?? new Date()) }).from(programs).where(eq(programs.id, input.programId)).for("update");
     if (!program || program.status !== "active" || (!input.force && !program.due)) return null;
-    await tx.update(programs).set({ status: "ended" }).where(eq(programs.id, input.programId));
+    // An immediate end by the operator still gets a confirmed end date (today, Berlin): the owner's export window counts from it.
+    await tx.update(programs).set({ status: "ended", ...(input.force ? { cancellationEndDate: sql`coalesce(${programs.cancellationEndDate}, (now() AT TIME ZONE 'Europe/Berlin')::date)`, cancellationConfirmedAt: sql`coalesce(${programs.cancellationConfirmedAt}, now())` } : {}) }).where(eq(programs.id, input.programId));
     return { unlinkedPlates: await unlinkProgrammePlates(tx, input.programId, input.actorUserId) };
   });
 }
@@ -77,7 +78,7 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
   if (input.command === "schedule" && (!input.endDate || !isoDay.test(input.endDate) || Number.isNaN(Date.parse(input.endDate)))) throw new DomainError("INVALID_END_DATE", "End date must look like 2026-10-31");
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
-    const [row] = await tx.select({ id: programs.id, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt }).from(programs).where(eq(programs.id, input.programId));
+    const [row] = await tx.select({ id: programs.id, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt, requestedAt: programs.cancellationRequestedAt }).from(programs).where(eq(programs.id, input.programId));
     if (!row) throw new DomainError("NOT_FOUND", "Programme not found");
     if (input.command === "schedule" && input.execute && row.status === "active") await tx.update(programs).set({ cancellationEndDate: input.endDate, cancellationConfirmedAt: new Date() }).where(eq(programs.id, row.id));
     return row;
@@ -108,4 +109,36 @@ export async function endedCardShop(cardToken: string): Promise<string | null> {
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(and(eq(memberships.cardToken, cardToken), eq(programs.status, "ended")));
   return row?.shop ?? null;
+}
+
+/** Days after the confirmed end date during which the owner can still log in and download the export (pilot agreement § 6 (3)). */
+export const EXPORT_DAYS_AFTER_END = 30;
+
+type Executor = Pick<Transaction, "execute">;
+
+/** The export window of a shop with no running programme: when it ended, until when the owner can export, and whether that is still open (Berlin days). */
+export async function exportWindow(executor: Executor, tenantId: string, now = new Date()) {
+  const { rows } = await executor.execute(sql`SELECT count(*) FILTER (WHERE status = 'active')::int AS active,
+      max(cancellation_end_date) FILTER (WHERE status = 'ended')::text AS "endedOn",
+      (max(cancellation_end_date) FILTER (WHERE status = 'ended') + ${EXPORT_DAYS_AFTER_END}::int)::text AS "until",
+      ((${now.toISOString()}::timestamptz AT TIME ZONE 'Europe/Berlin')::date <= max(cancellation_end_date) FILTER (WHERE status = 'ended') + ${EXPORT_DAYS_AFTER_END}::int) AS "open"
+    FROM programs WHERE tenant_id = ${tenantId}`);
+  const row = rows[0] as { active: number; endedOn: string | null; until: string | null; open: boolean | null };
+  // Only a shop whose programmes have all ended is in a window; any running programme means normal operation.
+  return row.active === 0 && row.endedOn ? { ended: true as const, endedOn: row.endedOn, until: row.until!, open: row.open === true } : { ended: false as const };
+}
+
+/** Owner exports stop 30 days after the confirmed end date of a shop whose programme has ended. */
+export async function assertExportOpen(executor: Executor, tenantId: string, now = new Date()) {
+  const window = await exportWindow(executor, tenantId, now);
+  if (window.ended && !window.open) throw new DomainError("EXPORT_CLOSED", `Der Datenexport war bis zum ${germanDate(window.until)} möglich. Bitte wende dich an den Support.`);
+}
+
+/** What an account of a shop whose programme ended sees instead of the owner area. */
+export async function endedAccount(userId: string, now = new Date()) {
+  const [role] = await db.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, businessName: tenants.name }).from(staffRoles)
+    .innerJoin(tenants, eq(tenants.id, staffRoles.tenantId)).where(and(eq(staffRoles.userId, userId), eq(staffRoles.active, true))).limit(1);
+  if (!role) return null;
+  const window = await exportWindow(db, role.tenantId, now);
+  return window.ended ? { tenantId: role.tenantId, role: role.role, businessName: role.businessName, endedOn: window.endedOn, exportUntil: window.until, exportOpen: window.open } : null;
 }

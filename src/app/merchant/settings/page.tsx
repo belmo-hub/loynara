@@ -33,7 +33,7 @@ export default function MerchantSettingsPage() {
         </section>
         <JoinCard me={me} exportUrl="/api/merchant/export" />
         <WeeklyReport />
-        <Cancellation />
+        {!hiddenSurfaces.includes("cancellation") && <Cancellation />}
       </div>
     </div>
   );
