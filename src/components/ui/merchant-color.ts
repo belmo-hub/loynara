@@ -5,9 +5,10 @@ const WHITE = "#FFFFFF";
 const BLACK = "#000000";
 const STAMP = "#E9895F";
 const FALLBACK = "#245D47";
-const SURFACE = { light: "#FCFBF7", dark: "#16201B" } as const;
+// The harder ground for merchant-coloured text in each theme: the page (--color-bg) in light, the panel (--color-surface) in dark.
+const GROUND = { light: "#EEF0EF", dark: "#16201B" } as const;
 
-export type Theme = keyof typeof SURFACE;
+export type Theme = keyof typeof GROUND;
 export type MerchantPalette = {
   merchant: string;
   merchantInk: string;
@@ -38,8 +39,8 @@ export function merchantPalette(input: string, theme: Theme): MerchantPalette {
   const merchant = shiftUntil(base, away, (c) => contrast(merchantInk, c) >= 4.5);
   const deepTarget = mix(merchant, BLACK, merchantInk === WHITE ? 0.3 : 0.14);
   const merchantDeep = contrast(merchantInk, deepTarget) >= 4.5 ? deepTarget : merchant;
-  const surface = SURFACE[theme];
-  const merchantText = shiftUntil(base, theme === "light" ? BLACK : WHITE, (c) => contrast(c, surface) >= 4.5);
+  const ground = GROUND[theme];
+  const merchantText = shiftUntil(base, theme === "light" ? BLACK : WHITE, (c) => contrast(c, ground) >= 4.5);
   // The check mark (ink on coral, about 6:1) carries "earned"; the disc only has to stand apart from the card.
   const coralWorks = contrast(STAMP, merchant) >= 2 && contrast(STAMP, merchantDeep) >= 2;
   const stampFill = coralWorks ? STAMP : merchantInk;
