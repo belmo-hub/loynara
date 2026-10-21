@@ -1,7 +1,8 @@
 import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programs, secureTags, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programmeCancellationEvents, programs, secureTags, tenants } from "@/db/schema";
 import { assertPlateOperator } from "./plates";
+import { PROGRAMME_END_ACTOR } from "./programme-end";
 import { walletMessageStats } from "./wallet-messages";
 
 /**
@@ -38,6 +39,10 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     // Age is computed here so the page renders the same on server and client.
     const now = Date.now();
     const messages = await walletMessageStats(tx);
-    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    // Who acted, not which account: requests and withdrawals come only from the owner route, the end job is the system actor.
+    const events = await tx.select({ programId: programmeCancellationEvents.programId, action: programmeCancellationEvents.action, actorUserId: programmeCancellationEvents.actorUserId, oldEndDate: programmeCancellationEvents.oldEndDate, newEndDate: programmeCancellationEvents.newEndDate, at: programmeCancellationEvents.createdAt })
+      .from(programmeCancellationEvents).orderBy(asc(programmeCancellationEvents.createdAt));
+    const history = Map.groupBy(events.map(({ actorUserId, ...event }) => ({ ...event, by: actorUserId === PROGRAMME_END_ACTOR ? "System" : event.action === "request" || event.action === "withdraw" ? "Inhaber" : "Operator" })), event => event.programId);
+    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

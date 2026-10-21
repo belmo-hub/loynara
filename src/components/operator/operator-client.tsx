@@ -16,7 +16,7 @@ import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 
-type Row = { walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null };
+type Row = { walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
@@ -24,6 +24,8 @@ type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
+const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
+const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 
 export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] }) {
@@ -116,6 +118,9 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
           <strong>{r.tenant}</strong> · {r.location} ({r.city})<br />
           <span className="ow-muted">{r.programme} · {r.status === "active" ? "aktiv" : "archiviert"} · {r.cards} Karten · letzte Gutschrift: {date(r.lastAward)} · Wochenbericht {r.weeklyReport ? "an" : "aus"}{r.endDate ? ` · Kündigung ${origin(r)}, ${endText(r)}` : ""}</span>
           {r.walletMessages ? <><br /><span className={r.walletMessages.warn ? undefined : "ow-muted"} role={r.walletMessages.warn ? "alert" : undefined}>Wallet-Nachrichten (30 Tage): {r.walletMessages.messages} gesendet an {r.walletMessages.sent} Karten · Karten entfernt innerhalb von 48 Stunden: {r.walletMessages.removed}{r.walletMessages.warn ? " · Warnung: mehr Karten entfernt als erwartet" : ""}</span></> : null}
+          {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
+            <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
+          </details> : null}
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
         </li>)}
       </ul>

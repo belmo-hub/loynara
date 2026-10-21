@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { memberships, programs, staffRoles, tenants } from "@/db/schema";
+import { memberships, programmeCancellationEvents, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { cancellationEnd, germanDate } from "./programme-end-date";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
@@ -34,6 +34,7 @@ export async function requestCancellation(input: { actorUserId: string; programS
     // Provisional: only the operator's confirmation (scripts/operator-programme.ts schedule) lets the end job act.
     const fresh = program.end ? { endDate: program.end, nextMonth: false } : cancellationEnd(input.now ?? new Date());
     await tx.update(programs).set({ cancellationEndDate: fresh.endDate, cancellationRequestedAt: program.requested ?? new Date() }).where(eq(programs.id, program.id));
+    await tx.insert(programmeCancellationEvents).values({ tenantId: program.tenantId, programId: program.id, action: "request", actorUserId: input.actorUserId, oldEndDate: program.end, newEndDate: fresh.endDate });
     return { ...fresh, confirmed: program.confirmed !== null };
   });
 }
@@ -43,6 +44,7 @@ export async function withdrawCancellation(input: { actorUserId: string; program
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug, input.now ?? new Date());
     if (program.status !== "active" || program.due) throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
     await tx.update(programs).set({ cancellationEndDate: null, cancellationConfirmedAt: null, cancellationRequestedAt: null }).where(eq(programs.id, program.id));
+    await tx.insert(programmeCancellationEvents).values({ tenantId: program.tenantId, programId: program.id, action: "withdraw", actorUserId: input.actorUserId, oldEndDate: program.end, newEndDate: null });
     return { endDate: null };
   });
 }
@@ -54,10 +56,11 @@ export async function withdrawCancellation(input: { actorUserId: string; program
  */
 export async function endProgramme(input: { programId: string; actorUserId: string; now?: Date; force?: boolean }) {
   return db.transaction(async tx => {
-    const [program] = await tx.select({ status: programs.status, due: dueSql(input.now ?? new Date()) }).from(programs).where(eq(programs.id, input.programId)).for("update");
+    const [program] = await tx.select({ tenantId: programs.tenantId, status: programs.status, end: programs.cancellationEndDate, due: dueSql(input.now ?? new Date()) }).from(programs).where(eq(programs.id, input.programId)).for("update");
     if (!program || program.status !== "active" || (!input.force && !program.due)) return null;
     // An immediate end by the operator still gets a confirmed end date (today, Berlin, replacing any provisional or confirmed date): the owner's export window counts from it.
-    await tx.update(programs).set({ status: "ended", ...(input.force ? { cancellationEndDate: sql`(now() AT TIME ZONE 'Europe/Berlin')::date`, cancellationConfirmedAt: sql`coalesce(${programs.cancellationConfirmedAt}, now())` } : {}) }).where(eq(programs.id, input.programId));
+    const [ended] = await tx.update(programs).set({ status: "ended", ...(input.force ? { cancellationEndDate: sql`(now() AT TIME ZONE 'Europe/Berlin')::date`, cancellationConfirmedAt: sql`coalesce(${programs.cancellationConfirmedAt}, now())` } : {}) }).where(eq(programs.id, input.programId)).returning({ end: programs.cancellationEndDate });
+    await tx.insert(programmeCancellationEvents).values({ tenantId: program.tenantId, programId: input.programId, action: "end", actorUserId: input.actorUserId, oldEndDate: program.end, newEndDate: ended.end });
     return { unlinkedPlates: await unlinkProgrammePlates(tx, input.programId, input.actorUserId) };
   });
 }
@@ -78,9 +81,13 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
   if (input.command === "schedule" && (!input.endDate || !isoDay.test(input.endDate) || Number.isNaN(Date.parse(input.endDate)))) throw new DomainError("INVALID_END_DATE", "End date must look like 2026-10-31");
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
-    const [row] = await tx.select({ id: programs.id, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt, requestedAt: programs.cancellationRequestedAt }).from(programs).where(eq(programs.id, input.programId));
+    const [row] = await tx.select({ id: programs.id, tenantId: programs.tenantId, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt, requestedAt: programs.cancellationRequestedAt }).from(programs).where(eq(programs.id, input.programId)).for("update");
     if (!row) throw new DomainError("NOT_FOUND", "Programme not found");
-    if (input.command === "schedule" && input.execute && row.status === "active") await tx.update(programs).set({ cancellationEndDate: input.endDate, cancellationConfirmedAt: new Date() }).where(eq(programs.id, row.id));
+    if (input.command === "schedule" && input.execute && row.status === "active") {
+      await tx.update(programs).set({ cancellationEndDate: input.endDate, cancellationConfirmedAt: new Date() }).where(eq(programs.id, row.id));
+      // "confirm" answers an owner's open request; "schedule" sets a date of the operator's own or moves a confirmed one.
+      await tx.insert(programmeCancellationEvents).values({ tenantId: row.tenantId, programId: row.id, action: row.end !== null && row.confirmedAt === null ? "confirm" : "schedule", actorUserId: input.actorUserId, oldEndDate: row.end, newEndDate: input.endDate! });
+    }
     return row;
   });
   if (input.command === "status") return { result: "status" as const, ...programme, state: programme.end === null ? "none" as const : programme.confirmedAt ? "confirmed" as const : "requested" as const };

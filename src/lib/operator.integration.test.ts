@@ -132,6 +132,14 @@ it("lists owner-requested and operator-scheduled cancellations, dry run changes 
   expect((await getCard(planned.member.cardToken)).endsOn).toBe(d3);
   expect((await postProgramme({ programId: planned.program.id, endDate: "15.12.2026", execute: true }, operator.cookie)).status).toBe(400);
   expect(JSON.stringify(await view())).not.toContain(asked.member.cardToken);
+  // The audit per programme: who (not which account) and the date before and after, oldest first.
+  expect((await row(asked.program.id)).cancellationHistory).toEqual([
+    expect.objectContaining({ action: "request", by: "Inhaber", oldEndDate: null, newEndDate: "2026-10-31" }),
+    expect.objectContaining({ action: "confirm", by: "Operator", oldEndDate: "2026-10-31", newEndDate: d1 }),
+    expect.objectContaining({ action: "schedule", by: "Operator", oldEndDate: d1, newEndDate: d2 }),
+  ]);
+  expect((await row(planned.program.id)).cancellationHistory).toEqual([expect.objectContaining({ action: "schedule", by: "Operator", oldEndDate: null, newEndDate: d3 })]);
+  expect(JSON.stringify(await view())).not.toContain(asked.userId);
 });
 
 it("refuses an end date before tomorrow (Berlin): yesterday and today with a pointer to the console, tomorrow is accepted", async () => {
