@@ -396,14 +396,20 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
   if (staff.role !== "owner" && !staff.locationId) throw new DomainError("FORBIDDEN", "Deinem Teamzugang fehlt ein Standort. Bitte wende dich an die Inhaberin oder den Inhaber.");
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
   const targetLocationId = staff.role === "owner" ? selectedLocationId : staff.locationId;
-  const [location] = await db.select().from(locations).where(and(eq(locations.tenantId, staff.tenantId), targetLocationId ? eq(locations.id, targetLocationId) : sql`true`)).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
+  let [location] = await db.select().from(locations).where(and(eq(locations.tenantId, staff.tenantId), targetLocationId ? eq(locations.id, targetLocationId) : sql`true`)).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
   if (staff.role === "owner" && selectedLocationId && !location) throw new DomainError("NOT_FOUND", "Der gewählte Standort ist nicht verfügbar. Bitte wende dich an den Support.");
   if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
-  const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
+  let [program] = await db.select().from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
   if (!program) {
     const [ended] = await db.select({ id: programs.id }).from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "ended"))).limit(1);
-    if (ended) throw new DomainError("PROGRAM_ENDED", "Programm beendet");
-    throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
+    if (ended && staff.role === "owner") {
+      // An owner whose location (oldest, or selected) has ended works in the oldest location that still runs a programme.
+      const [running] = await db.select({ location: locations, program: programs }).from(programs)
+        .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+        .where(and(eq(programs.tenantId, tenant.id), eq(programs.status, "active"))).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
+      if (running) ({ location, program } = running);
+    }
+    if (!program) throw new DomainError(ended ? "PROGRAM_ENDED" : "SETUP_INCOMPLETE", ended ? "Programm beendet" : SETUP_INCOMPLETE);
   }
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
   const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, rewardTitle: reward?.title, rewardCost: reward?.cost };
