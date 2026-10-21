@@ -10,6 +10,7 @@ import { draftPriceMinor } from "./pricing";
 import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
+import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy-hour";
 import { cardNewsProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-extras";
 import { hiddenSurfaces } from "./pilot-surfaces";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
@@ -132,7 +133,7 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     const ruleChanged = program.name !== input.name || program.rulesText !== input.rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
     if (ruleChanged) {
       // A welcome bonus is sized for one programme type (up to 3 stamps or 50 points); a type change switches it off.
-      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0 } : {}) }).where(eq(programs.id, program.id));
+      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false } : {}) }).where(eq(programs.id, program.id));
       await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name: input.name, type: nextType, rulesText: input.rulesText, earningMode, pointsPerCurrencyUnit });
       await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     }
@@ -163,6 +164,28 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     if (reviewUrl !== null && !reviewUrlValid(reviewUrl)) throw new DomainError("INVALID_REVIEW_URL", "Review link must be an https Google link (g.page, google.com/maps or search.google.com/local/writereview)");
     const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl }).where(eq(programs.id, program.id)).returning();
     return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl };
+  });
+}
+
+const happyHourInput = z.object({
+  actorUserId: z.string().min(1),
+  programId: z.uuid(),
+  happyHourEnabled: z.boolean(),
+  happyHourWindows: z.array(z.unknown()).max(3),
+}).strict();
+
+/** Owner-only: the programme's happy-hour switch and windows. Points programmes only; windows are checked as a whole. */
+export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>) {
+  const input = happyHourInput.parse(raw);
+  return db.transaction(async (tx) => {
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    if (!program) throw new DomainError("NOT_FOUND", "Program not found");
+    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
+    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (happyHourProblem(input.happyHourWindows)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour: up to 3 weekly windows with weekdays, start and end time (HH:MM), each ending after it starts the same day (midnight-crossing windows are not supported)");
+    if (input.happyHourEnabled && (program.type !== "points" || input.happyHourWindows.length === 0)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour needs a points programme and at least one window");
+    const [updated] = await tx.update(programs).set({ happyHourEnabled: input.happyHourEnabled, happyHourWindows: input.happyHourWindows as HappyHourWindow[] }).where(eq(programs.id, program.id)).returning();
+    return { happyHourEnabled: updated.happyHourEnabled, happyHourWindows: updated.happyHourWindows };
   });
 }
 
@@ -306,7 +329,7 @@ export async function getCard(token: string) {
       eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id), eq(ledgerEntries.kind, "award"),
       sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, news: row.program.cardNews || undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus" })) };
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, rulesText: row.program.rulesText, news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -379,7 +402,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
   const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, tenant.id), eq(programs.locationId, location.id), eq(programs.status, "active"))).limit(1);
   if (!program) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
-  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, rewardTitle: reward?.title, rewardCost: reward?.cost };
+  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, rewardTitle: reward?.title, rewardCost: reward?.cost };
   if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)

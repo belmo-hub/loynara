@@ -22,7 +22,7 @@ const CORRECTION_ERRORS: Record<string, string> = {
 
 /** Which ledger rows can be corrected here; the server enforces the same rules again. */
 export function correctable(entry: Entry) {
-  return (entry.kind === "award" || entry.kind === "redeem") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus";
+  return (entry.kind === "award" || entry.kind === "redeem") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus" && entry.source !== "happy_hour";
 }
 
 export function sourceLabel(source: string) {
