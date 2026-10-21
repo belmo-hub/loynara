@@ -87,6 +87,7 @@ export function ledgerVorgang(kind: string, source: string, programType: string)
   if (kind === "reversal") return "Korrektur";
   if (source === "staff_online") return unit;
   if (source === "staff_offline") return `${unit} (offline)`;
+  if (source === "happy_hour") return "Happy Hour";
   if (source === "nfc_tap") return `${unit} (NFC automatisch)`;
   if (source === "referral_bonus") return "Empfehlungsbonus";
   return "Sonstige Buchung";
