@@ -36,6 +36,8 @@ export type CustomerCardProps = {
   happyHourUntil?: string;
   /** Points expiry: the rule (shown with the rules from the first visit), each batch's date and the 30-day notice; absent = expiry off. */
   pointsExpiry?: { rule: string; batches: string[]; notice?: string };
+  /** The shop's monthly challenge and this card's visit days so far; absent = none. */
+  challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
   locale?: "de" | "fr";
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
@@ -59,7 +61,7 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, locale = "de", notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -97,6 +99,12 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {happyHourUntil ? <p className={styles.rules}>{t.happyHour(happyHourUntil)}</p> : null}
     {pointsExpiry?.notice ? <p className={styles.rules} role="status">{pointsExpiry.notice}</p> : null}
+    {challenge ? <section className={styles.panel} aria-labelledby="customer-challenge-title">
+      <h2 id="customer-challenge-title" className={styles.panelTitle}>Monats-Challenge</h2>
+      <p className={styles.rules}>{challenge.text}</p>
+      <p className={styles.rules}><small>{challenge.conditions}</small></p>
+      <p className={styles.rules}><strong>{challenge.done ? "Geschafft! Der Bonus ist gutgeschrieben." : `${challenge.visits} von ${challenge.target} Besuchen`}</strong></p>
+    </section> : null}
 
     {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
       <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>

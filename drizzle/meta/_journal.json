@@ -232,6 +232,13 @@
       "when": 1792624091047,
       "tag": "0032_points_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792636065818,
+      "tag": "0033_challenges_and_levels",
+      "breakpoints": true
     }
   ]
 }

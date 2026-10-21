@@ -93,7 +93,7 @@ describe("welcome bonus (Startbonus)", () => {
       await expect(redeem({ userId: owner, locationId: merchant.locationId, membershipId: card.id, rewardVersionId: reward.id, idempotencyKey: key, requestId: randomUUID() })).rejects.toMatchObject({ code: "INVALID_KEY" });
       await expect(reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: first.entryId, reason: "Versehentlich gebucht", idempotencyKey: key, requestId: randomUUID() })).rejects.toMatchObject({ code: "INVALID_KEY" });
     }
-    expect(RESERVED_KEY_PREFIXES).toEqual(["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "expiry:"]);
+    expect(RESERVED_KEY_PREFIXES).toEqual(["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "expiry:", "challenge:", "challenge-reversal:"]);
     // A normal client key still works; the bonus and its correction still book under their own keys.
     expect(await award({ userId: owner, locationId: merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: "cashier-key-0001", requestId: randomUUID() })).toMatchObject({ duplicate: false, balance: 4 });
     expect(await reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: first.entryId, reason: "Versehentlich gebucht", idempotencyKey: randomUUID(), requestId: randomUUID() })).toMatchObject({ balance: 1 });

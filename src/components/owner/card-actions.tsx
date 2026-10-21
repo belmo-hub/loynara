@@ -22,11 +22,11 @@ const CORRECTION_ERRORS: Record<string, string> = {
 
 /** Which ledger rows can be corrected here; the server enforces the same rules again. */
 export function correctable(entry: Entry) {
-  return (entry.kind === "award" || entry.kind === "redeem" || entry.kind === "expiry") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus" && entry.source !== "happy_hour";
+  return (entry.kind === "award" || entry.kind === "redeem" || entry.kind === "expiry") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus" && entry.source !== "happy_hour" && entry.source !== "challenge_bonus";
 }
 
 export function sourceLabel(source: string) {
-  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", happy_hour: "Happy Hour", expiry: "Verfall", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
+  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", happy_hour: "Happy Hour", expiry: "Verfall", challenge_bonus: "Monats-Challenge", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
 }
 
 /**

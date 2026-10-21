@@ -1,5 +1,6 @@
 "use client";
 
+import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import type { StaffRole } from "@/lib/award-limits";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -17,7 +18,7 @@ import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOffli
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
 type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }> };
-type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
+type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number; challengeBonus?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
 type OfflineSyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: number; duplicate?: boolean };
@@ -416,7 +417,9 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
     detail = credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited} ${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited} ${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`;
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);
-  const hint = rewardReady ? fr ? "Récompense disponible. Pour l’utiliser, scannez à nouveau la carte." : "Prämie verfügbar. Zum Einlösen die Karte erneut scannen." : undefined;
+  const ready = rewardReady ? fr ? "Récompense disponible. Pour l’utiliser, scannez à nouveau la carte." : "Prämie verfügbar. Zum Einlösen die Karte erneut scannen." : "";
+  const challenge = result.challengeBonus ? `+${result.challengeBonus} ${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
+  const hint = [challenge, ready].filter(Boolean).join(" ") || undefined;
   return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", detail: `${detail} ${newBalance}`, hint }, statusMessage: `${detail} ${newBalance}` };
 }
 
