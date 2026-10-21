@@ -122,6 +122,13 @@ export const programs = pgTable("programs", {
   // Happy hour: weekly windows (lib/happy-hour) in the location's timezone with doubled purchase points. Off by default.
   happyHourEnabled: boolean("happy_hour_enabled").notNull().default(false),
   happyHourWindows: jsonb("happy_hour_windows").$type<HappyHourWindow[]>().notNull().default(sql`'[]'::jsonb`),
+  // Win-back (lib/winback): a card back between day N and N + 14 after its last confirmed stamp gets this bonus with its
+  // next confirmed award (0 = none; stamps 0 or 1, points up to a quarter of the cheapest reward, checked by the app). Off by default.
+  winbackEnabled: boolean("winback_enabled").notNull().default(false),
+  winbackDays: integer("winback_days").notNull().default(30),
+  winbackBonus: integer("winback_bonus").notNull().default(1),
+  // "Fast geschafft" (ENG-045): one Wallet reminder per reward cycle when a card is close to its next reward. Off by default.
+  almostEnabled: boolean("almost_enabled").notNull().default(false),
   // Last day (Berlin calendar day) the programme works; the worker ends it after that day. Null = no cancellation.
   cancellationEndDate: date("cancellation_end_date"),
   // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
@@ -142,6 +149,7 @@ export const programs = pgTable("programs", {
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
+  check("program_winback_valid", sql`${t.winbackDays} between 14 and 90 and ${t.winbackBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
 ]);
 
 export const programRuleVersions = pgTable("program_rule_versions", {
@@ -316,7 +324,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   // Awards add, redemptions subtract, and only a reversal points at the entry it undoes.
   check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} = 'redeem' and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus')`),
   check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
 ]);
 
@@ -901,7 +909,7 @@ export const walletMessageOwnerConfirmations = pgTable("wallet_message_owner_con
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.tenantId, t.version] })]);
 
-/** Audit row of one owner message (kind 'owner'); ENG-044 adds 'winback' rows that share the recipient table and its caps. */
+/** Audit row of one owner message (kind 'owner'), or of one automatic batch ('winback', ENG-044) that shares the recipient table and its caps. */
 export const walletMessages = pgTable("wallet_messages", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
@@ -921,7 +929,7 @@ export const walletMessages = pgTable("wallet_messages", {
   unique("wallet_messages_tenant_id_id_uq").on(t.tenantId, t.id),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   index("wallet_messages_program_idx").on(t.tenantId, t.programId, t.createdAt),
-  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback')`),
+  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback','almost')`),
   check("wallet_message_status_valid", sql`${t.status} in ('queued','sending','complete','stopped')`),
 ]);
 

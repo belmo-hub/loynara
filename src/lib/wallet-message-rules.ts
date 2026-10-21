@@ -48,3 +48,30 @@ export function germanWhen(date: Date, timeZone: string) {
   const day = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone }).format(date);
   return `${day}, ${new Intl.DateTimeFormat("de-DE", { hour: "numeric", minute: "2-digit", hourCycle: "h23", timeZone }).format(date)} Uhr`;
 }
+
+// ---- Win-back (ENG-044): fixed texts (Marketing v1.5, Legal 22 Oct). The owner picks only N and the bonus. ----------------
+
+export const WINBACK_WINDOW_DAYS = 14;
+export const WINBACK_DAYS = { min: 14, max: 90, default: 30 } as const;
+/** Mon–Sat 10:00–18:00 in the location's timezone (ISO weekdays, as happy hour). */
+export const WINBACK_SEND_WINDOW = { days: [1, 2, 3, 4, 5, 6], start: "10:00", end: "18:00" };
+
+const extra = (type: "stamp" | "points", bonus: number) => type === "stamp" ? "einen Stempel extra" : `${bonus} Punkte extra`;
+/** „5. November“: the deadline is a calendar date (YYYY-MM-DD), so it is formatted without a timezone shift. */
+export const germanDay = (isoDate: string) => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${isoDate}T00:00:00Z`));
+
+/** `day` is the deadline as shown („5. November“, see germanDay). */
+export function winbackText(type: "stamp" | "points", bonus: number, day: string) {
+  return bonus > 0 ? `Wir vermissen dich. Komm bis zum ${day} vorbei, dann gibt's ${extra(type, bonus)}.` : "Wir vermissen dich. Deine Karte wartet auf dich, schau gern mal wieder vorbei.";
+}
+
+/** The programme-rules line on the card while the bonus is on (Legal: the bonus must be in the rules customers see). */
+export function winbackRule(type: "stamp" | "points", days: number, bonus: number) {
+  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra, wenn du innerhalb der folgenden 14 Tage wiederkommst. Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+}
+
+export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;
+export const WINBACK_EXCLUSIONS = "Nicht auf Tabak, Presse, Bücher, Lotto, Handyguthaben.";
+
+/** Points bonus: 1 up to a quarter of the cheapest reward (Product); stamps: none or 1. */
+export const winbackBonusMax = (type: "stamp" | "points", cheapestReward: number) => type === "stamp" ? 1 : Math.max(1, Math.floor(cheapestReward / 4));

@@ -71,7 +71,7 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
 /** A pass whose latest device event is an unregistration was removed from the Wallet: it gets no more messages (it still gets balance updates). */
 const reachable = sql`COALESCE((SELECT e.event FROM wallet_pass_events e WHERE e.pass_id = p.id ORDER BY e.event_at DESC, e.received_at DESC LIMIT 1), 'device.registered') <> 'device.unregistered'`;
 
-const eligible = (tenantId: string, programId: string, now: Date) => sql`
+export const eligible = (tenantId: string, programId: string, now: Date) => sql`
   FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id AND m.closed_at IS NULL
   WHERE p.tenant_id = ${tenantId}::uuid AND m.program_id = ${programId}::uuid AND p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%'
     AND p.status = 'created' AND p.revoked_at IS NULL AND ${reachable}
@@ -92,7 +92,7 @@ async function shopWindow(tx: Tx, tenantId: string, programId: string, now: Date
 const reachOf = async (tx: Tx, tenantId: string, programId: string, now: Date) =>
   Number(rows<{ n: number }>(await tx.execute(sql`SELECT count(*)::int AS n ${eligible(tenantId, programId, now)}`))[0].n);
 
-const lock = (tx: Tx, tenantId: string) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${"wallet-message:" + tenantId}, 0))`);
+export const lock = (tx: Tx, tenantId: string) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${"wallet-message:" + tenantId}, 0))`);
 
 // ---- Removal report: cards that left the Wallet within 48 hours after a send ---------------------------------------------
 

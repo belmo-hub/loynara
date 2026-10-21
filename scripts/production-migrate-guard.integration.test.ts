@@ -65,7 +65,8 @@ describe("production migration journal guard", () => {
 
   it("refuses an older entry that lands after a newer one was applied, which drizzle would skip", async () => {
     const client = await scratchDatabase();
-    const gap = journal.entries[last - 1];
+    // A gap that no later migration builds on (0032 alters 0031's table, so the second newest no longer qualifies).
+    const gap = journal.entries.find(entry => entry.tag === "0027_weekly_owner_report")!;
     await migrate(drizzle(client), { migrationsFolder: folderWith("gap", idx => idx !== gap.idx) });
     expect(await skippedMigrations(client, migrationsDir)).toEqual([gap.tag]);
     // The reason for the guard: drizzle itself reports success and leaves the filled gap unapplied.

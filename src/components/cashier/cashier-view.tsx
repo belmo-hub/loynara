@@ -13,11 +13,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
+import { WINBACK_EXCLUSIONS, winbackCashierLine } from "@/lib/wallet-message-rules";
 import styles from "./cashier-view.module.css";
 
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
 export type CashierAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
-export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[] };
+export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Win-back bonus booked with the next award (ENG-044); 0 = none. */ winbackBonus?: number };
 export type CashierViewProps = {
   locationName: string;
   card?: CashierCard | null;
@@ -106,9 +107,12 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
-  const awardLabel = awardCount === 1 && !offlineChoice
-    ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
-    : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
+  const winback = card?.winbackBonus ?? 0;
+  const awardLabel = winback > 0
+    ? `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} + ${winback} ${locale === "fr" ? "en plus" : "extra"}`
+    : awardCount === 1 && !offlineChoice
+      ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
+      : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
   function awardQuantity(selected: CashierCard) {
     const award = { quantity: awardCount };
     if (awardCount === 1 && !offlineChoice) onAward(selected, award);
@@ -197,6 +201,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
         <Button variant="quiet" size="sm" icon={<X size={18} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button>
       </div>
       {card.matchedBy === "locator" && <p className={styles.note} role="note">{locale === "fr" ? "Ouverte par numéro, sans scan. Utilisez une récompense seulement si la personne présente sa propre carte." : "Per Kartennummer geöffnet, ohne Scan. Prämien nur einlösen, wenn die Person ihre eigene Karte zeigt."}</p>}
+      {winback > 0 && <p className={styles.winback} role="note"><strong>{locale === "fr" ? `Bon retour : +${winback} ${unit} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong><small>{WINBACK_EXCLUSIONS}</small></p>}
       <div className={cx("balance-display", styles.balance)}>
         <span>{t.balance}</span>
         <strong>{number.format(card.balance)} <em>{unit}</em></strong>
