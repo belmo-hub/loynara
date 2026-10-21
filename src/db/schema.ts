@@ -372,6 +372,22 @@ export const plateLinkEvents = pgTable("plate_link_events", {
   check("plate_link_action_valid", sql`(${t.action} = 'link' and ${t.oldProgramId} is null and ${t.newProgramId} is not null) or (${t.action} = 'relink' and ${t.oldProgramId} is not null and ${t.newProgramId} is not null) or (${t.action} = 'unlink' and ${t.oldProgramId} is not null and ${t.newProgramId} is null) or (${t.action} = 'revoke' and ${t.oldProgramId} is null and ${t.newProgramId} is null)`),
 ]);
 
+/**
+ * One activation code per plate, printed on the card in the plate's box (ENG-048). Only a salted scrypt hash is kept.
+ * A reissue replaces the row. Five wrong tries lock it until the operator unlocks it.
+ */
+export const plateActivationCodes = pgTable("plate_activation_codes", {
+  tagId: uuid("tag_id").primaryKey().references(() => secureTags.id),
+  codeHash: varchar("code_hash", { length: 160 }).notNull(),
+  failedAttempts: integer("failed_attempts").notNull().default(0),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  issuedByUserId: text("issued_by_user_id").notNull(),
+  issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  check("plate_activation_attempts_valid", sql`${t.failedAttempts} between 0 and 5`),
+]);
+
 export const tapRequests = pgTable("tap_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
   tagId: uuid("tag_id").notNull().references(() => secureTags.id),

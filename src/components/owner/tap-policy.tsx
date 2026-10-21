@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
 import { useDirtyGuard } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
@@ -27,6 +27,31 @@ function Readiness({ status, mode }: { status: TagStatus; mode: Mode }) {
 }
 
 const AUTOMATIC_NOTE = "Im Pilotbetrieb nicht verfügbar.";
+
+/** A plate that came by post: plate name and the code from the card in its box link it to this programme. */
+function PlateActivation({ programId, onLinked }: { programId: string; onLinked: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [linked, setLinked] = useState("");
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const element = event.currentTarget, form = new FormData(element);
+    setBusy(true); setError(""); setLinked("");
+    try {
+      const result = await postJson<{ plateLabel: string }>("/api/merchant/plate/activate", { programId, plateLabel: String(form.get("plate") ?? ""), code: String(form.get("code") ?? "") });
+      setLinked(`Platte ${result.plateLabel} ist aktiv. Probier sie gleich mit einem Handy aus.`); element.reset(); onLinked();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Platte konnte nicht aktiviert werden."); }
+    finally { setBusy(false); }
+  }
+  return <form className="ow-stack" onSubmit={submit} aria-labelledby="plate-activate-title">
+    <strong id="plate-activate-title">Platte aus der Post aktivieren</strong>
+    <div className="ow-field"><label htmlFor="plate-label">Plattenname</label><input id="plate-label" name="plate" className="ow-input" placeholder="P-007" autoCapitalize="characters" autoComplete="off" spellCheck={false} required maxLength={16} style={{ maxWidth: 200 }} /></div>
+    <div className="ow-field"><label htmlFor="plate-code">Code von der Karte in der Box</label><input id="plate-code" name="code" className="ow-input" placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="one-time-code" spellCheck={false} required maxLength={20} style={{ maxWidth: 240 }} /></div>
+    {error && <p className="ow-error" role="alert">{error}</p>}
+    {linked && <p role="status">{linked}</p>}
+    <div><button type="submit" className="ow-btn ow-btn--secondary" disabled={busy}>{busy ? "Wird geprüft …" : "Platte aktivieren"}</button></div>
+  </form>;
+}
 
 /** NFC policy for the programme. A physical tag still needs separate, secure provisioning. */
 export function TapPolicyCard({ me }: { me: MeResponse }) {
@@ -66,6 +91,8 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
         <div className="ow-stack" style={{ marginTop: 12 }}>
           <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, {stamp ? "das Team bestätigt jeden Stempel an der Kasse" : "das Team trägt die Punkte an der Kasse ein und bestätigt sie"}. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
           {tagStatus.state === "ok" && <Readiness status={tagStatus.data} mode={saved.mode} />}
+          {me.programId && saved.mode === "staff_confirmed" ? <PlateActivation programId={me.programId} onLinked={reloadTags} />
+            : <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Eine Platte aus der Post aktivierst du hier, sobald „Mit Bestätigung“ gespeichert ist.</p>}
           <fieldset className="ow-group">
             <legend className="ow-sr">Vergabe nach NFC-Berührung</legend>
             <div className="ow-radio-cards">

@@ -19,7 +19,7 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 
 type Row = { walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null };
-type Plate = { plateLabel: string | null; status: string; everTapped: boolean; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
+type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
@@ -30,6 +30,7 @@ const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, E
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
+const CODE = { none: "kein Code", open: "Code offen", locked: "Code gesperrt", used: "Code benutzt" } as const;
 
 export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[] }) {
   const router = useRouter();
@@ -46,7 +47,9 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [copied, setCopied] = useState("");
+  const [codes, setCodes] = useState<Array<{ plateLabel: string; code: string }> | null>(null);
   const plate = plates.find(p => p.plateLabel === label);
+  const withoutCode = plates.filter(p => p.status === "unlinked" && p.code === "none").map(p => p.plateLabel!);
   // Only programmes a plate may be linked to (the server enforces the same rule).
   const linkable = rows.filter(r => r.status === "active" && r.tapMode === "staff_confirmed");
 
@@ -80,6 +83,17 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
+
+  // Codes are shown once, for printing the box cards: the server keeps only their hashes.
+  async function sendCodes(body: Record<string, unknown>) {
+    setBusy(true); setError("");
+    try {
+      if (body.action === "issue") setCodes((await postJson<{ codes: Array<{ plateLabel: string; code: string }> }>("/api/operator/plate-codes", body)).codes);
+      else await postJson("/api/operator/plate-codes", body);
+      setLabel(null); router.refresh();
+    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
 
   // The link is shown once, here: the server keeps only its hash.
   async function shop(body: Record<string, unknown>, tenant: string) {
@@ -141,6 +155,7 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
 
     <Card as="section" aria-labelledby="op-plates">
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
+      {withoutCode.length ? <Button variant="secondary" loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
       <form onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
         <TextField label="Plattenname" placeholder="P-007" value={typed} onChange={event => setTyped(event.target.value)} autoCapitalize="characters" autoComplete="off" style={{ flex: 1 }} />
@@ -153,6 +168,7 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
             <span style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <Badge tone={p.status === "active" ? "success" : "neutral"}>{STATUS[p.status] ?? p.status}</Badge>
               <Badge>{p.everTapped ? "getippt" : "nie getippt"}</Badge>
+              {p.status === "unlinked" || p.code !== "none" ? <Badge tone={p.code === "locked" ? "warning" : "neutral"}>{CODE[p.code]}</Badge> : null}
             </span>
           </button>
         </li>)}
@@ -183,6 +199,15 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
       </div> : null}
     </Sheet>
 
+    <Sheet open={!!codes} onClose={() => setCodes(null)} title="Aktivierungscodes">
+      {codes ? <div style={{ display: "grid", gap: 12 }}>
+        <p className="ow-muted">Nur jetzt sichtbar. Auf die Karten für die Boxen drucken; verloren: neuen Code erzeugen.</p>
+        <table><thead><tr><th scope="col" style={{ textAlign: "left" }}>Platte</th><th scope="col" style={{ textAlign: "left" }}>Code</th></tr></thead>
+          <tbody>{codes.map(c => <tr key={c.plateLabel}><td>{c.plateLabel}</td><td style={{ fontFamily: "ui-monospace, monospace", letterSpacing: ".05em" }}>{c.code}</td></tr>)}</tbody></table>
+        <Button variant="secondary" onClick={() => window.print()}>Drucken</Button>
+      </div> : null}
+    </Sheet>
+
     <Sheet open={!!prog} onClose={closeEnd} title="Enddatum">
       {prog ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{prog.tenant}</strong> · {prog.location} · {prog.programme}</p>
@@ -210,6 +235,11 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
             : <Button loading={busy} disabled={!programId} onClick={() => send(programId, false)}>{plate.programId ? "Neu verknüpfen" : "Verknüpfen"}</Button>}
           {plate.programId && !preview ? <Button variant="danger" loading={busy} onClick={() => { setProgramId(""); send(null, false); }}>Verknüpfung lösen</Button> : null}
         </> : <p className="ow-muted">Diese Platte ist {STATUS[plate.status] ?? plate.status} und kann nicht verknüpft werden.</p>}
+        {plate.status === "unlinked" ? <>
+          <p>Aktivierungscode: <strong>{CODE[plate.code]}</strong></p>
+          {plate.code === "locked" ? <Button variant="secondary" loading={busy} onClick={() => void sendCodes({ action: "unlock", plateLabel: plate.plateLabel })}>Sperre aufheben</Button> : null}
+          <Button variant="quiet" loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: [plate.plateLabel] })}>{plate.code === "none" ? "Code erzeugen" : "Neuen Code erzeugen (alter gilt nicht mehr)"}</Button>
+        </> : null}
       </div> : null}
     </Sheet>
   </main>;

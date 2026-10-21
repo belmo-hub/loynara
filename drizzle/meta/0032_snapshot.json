@@ -1,5 +1,5 @@
 {
-  "id": "0951252b-684d-463f-a031-7d00fa8c4e5e",
+  "id": "35f4c307-339a-40db-8015-423b6002e648",
   "prevId": "641f1c4a-414c-400c-990e-9d607d4da9f2",
   "version": "7",
   "dialect": "postgresql",
@@ -3013,6 +3013,82 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.plate_activation_codes": {
+      "name": "plate_activation_codes",
+      "schema": "",
+      "columns": {
+        "tag_id": {
+          "name": "tag_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "code_hash": {
+          "name": "code_hash",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failed_attempts": {
+          "name": "failed_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "locked_at": {
+          "name": "locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_by_user_id": {
+          "name": "issued_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plate_activation_codes_tag_id_secure_tags_id_fk": {
+          "name": "plate_activation_codes_tag_id_secure_tags_id_fk",
+          "tableFrom": "plate_activation_codes",
+          "tableTo": "secure_tags",
+          "columnsFrom": [
+            "tag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "plate_activation_attempts_valid": {
+          "name": "plate_activation_attempts_valid",
+          "value": "\"plate_activation_codes\".\"failed_attempts\" between 0 and 5"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.plate_link_events": {
