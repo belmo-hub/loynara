@@ -46,14 +46,14 @@ export default function MerchantAnalyticsPage() {
           {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
             {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
-          <p className="ow-hint">Aktuelle Standortnamen. Eine bestätigte Buchung kann im Export mehrere Zeilen haben, zum Beispiel mit Bonus. Keine Umsatzkennzahl.</p>
+          <p className="ow-hint">Aktuelle Standortnamen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
           <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
           {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Buchungen in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
             {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
-          <p className="ow-hint">Eine bestätigte Buchung kann im Export mehrere Zeilen haben, zum Beispiel mit Bonus. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
+          <p className="ow-hint">Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-ret">
           <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Buchungen sind erfasst?</p></div>
