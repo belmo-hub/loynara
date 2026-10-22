@@ -13,7 +13,7 @@ const LINK = "Mehr in den Datenschutzhinweisen.";
 /**
  * Wallet-message consent (ENG-043): one unticked box with Legal's text, saved on the tap; unticking switches it off without
  * touching the pass. Legal's wording is German only. Renders nothing while the walletMessages surface is withheld (the
- * endpoint answers 404) or the card holds no Apple pass.
+ * endpoint answers 404) or the card holds no pass that can get messages (Apple; Google too with ENG-054's marketing flag).
  */
 export function CardWalletMessages({ token }: { token: string }) {
   const [state, setState] = useState<Consent | null>(null);

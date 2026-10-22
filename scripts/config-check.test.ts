@@ -230,6 +230,14 @@ describe("production configuration gate", () => {
       refused({ ...safe, WALLET_PRODUCTION_APPROVED: "true" }, /no Wallet provider/);
       refused({ ...safe, APPLE_WALLET_ENABLED: "yes" }, /APPLE_WALLET_ENABLED must be exactly/);
       refused({ ...safe, GOOGLE_WALLET_ASSET_ENABLED: "1" }, /GOOGLE_WALLET_ASSET_ENABLED must be exactly/);
+      for (const name of ["GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) {
+        refused({ ...google, [name]: "1" }, new RegExp(`${name} must be exactly`));
+        refused({ ...safe, [name]: "true" }, new RegExp(`${name} requires Google Wallet`));
+        expect(productionConfigIssues({ ...google, [name]: "true", WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" })).toEqual([]);
+        expect(productionConfigIssues({ ...safe, [name]: "false" })).toEqual([]);
+      }
+      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED: "true", GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED: "false" })).toEqual([]);
+      refused({ ...google, GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED: "true" }, /GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED requires WALLET_MESSAGES_ENABLED/);
     });
 
     it.each([

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
 import { outboxJobs, walletPasses } from "@/db/schema";
 import { closeCard } from "@/lib/card-lifecycle";
@@ -216,6 +216,8 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
 });
 
 describe("Google 'Prämie bereit' message (fake provider)", () => {
+  beforeEach(() => { vi.stubEnv("GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "true"); });
+  afterEach(() => { vi.unstubAllEnvs(); });
   const addMessageCalls = (api: ReturnType<typeof fakeGoogleApi>) => api.calls.filter(call => call.url.endsWith("/addMessage"));
   const messagesOf = (api: ReturnType<typeof fakeGoogleApi>, objectId: string) => (api.objects.get(objectId)?.messages ?? []) as Array<Record<string, unknown>>;
   const redeemFirst = async (owner: string, locationId: string, member: { id: string; scanCode: string }) => {
@@ -253,6 +255,18 @@ describe("Google 'Prämie bereit' message (fake provider)", () => {
       expect(addMessageCalls(api)).toHaveLength(2);
       const ids = messagesOf(api, objectId).map(item => item.id);
       expect(new Set(ids).size).toBe(2);
+    });
+  });
+
+  it("with GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED off (the default) the balance still updates but no message is added", async () => {
+    vi.stubEnv("GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", undefined);
+    await withGoogle(async (api, client) => {
+      const { owner, merchant, member, issuer } = await createMember();
+      const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      await stamp(owner, merchant.locationId, member.id, 3);
+      expect(await refreshWalletForMembership(member.id, { google: client })).toEqual({ status: "complete" });
+      expect(api.objects.get(googleObjectId(pass.id, issuer!))).toMatchObject({ loyaltyPoints: { balance: { string: "3 / 3" } } });
+      expect(addMessageCalls(api)).toHaveLength(0);
     });
   });
 

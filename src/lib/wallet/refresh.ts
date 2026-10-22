@@ -66,7 +66,8 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
           await tx.update(walletPasses).set({ status: "revoked", syncedAt: new Date() }).where(eq(walletPasses.id, row.id));
         } else if (latest.open) {
           await google.upsert(latest.pass, row.id, config);
-          const message = await rewardReadyMessage(tx, row, latest.pass);
+          // Service message („Prämie bereit“): off until Google approves the issuer (GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED); the balance update above always runs.
+          const message = process.env.GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED === "true" ? await rewardReadyMessage(tx, row, latest.pass) : null;
           if (message && await google.addMessageOnce(row.providerObjectId, message, config) === "limited") console.warn("Google Wallet reward message skipped: notification limit reached");
           await tx.update(walletPasses).set({ status: row.status === "pending" ? "created" : row.status, syncedAt: new Date(), updatedAt: new Date() }).where(eq(walletPasses.id, row.id));
         }
