@@ -23,6 +23,7 @@ let stopping = false;
 let recoveryPrunedAt = 0;
 let weeklyReportsCheckedAt = 0;
 let programmesEndedAt = 0;
+let winbackCheckedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -287,6 +288,17 @@ async function main() {
           const { endDueProgrammes } = await import("../src/lib/programme-end");
           await endDueProgrammes();
           programmesEndedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - winbackCheckedAt >= 5 * 60_000) {
+        try {
+          // Idempotent under the tenant lock: a card gets one reminder per lapse, so replicas and retries do no harm.
+          const { queueWinbackMessages } = await import("../src/lib/winback");
+          await queueWinbackMessages();
+          winbackCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;

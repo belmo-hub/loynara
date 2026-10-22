@@ -9,10 +9,11 @@ import { useLoad } from "@/components/owner/use-load";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet } from "@/components/ui/sheet";
+import { WinbackCard, type Winback } from "@/components/owner/winback-card";
 import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint, OWNER_CONFIRM_TEXT, OWNER_GUIDANCE, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
 
 type Row = { id: string; text: string; status: "queued" | "sending" | "complete" | "stopped"; createdAt: string; audience: number; sent: number; failed: number; skipped: number; removed: number; warn: boolean };
-type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: Row[] };
+type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: Row[]; winback: Winback };
 
 const DRAFT = "loynara-wallet-message-draft";
 const stamp = (iso: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
@@ -101,6 +102,7 @@ export default function WalletMessagesPage() {
         <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Nachrichten gehen vorerst nur an Karten in Apple Wallet. Du siehst nur Zahlen, nie Namen.</p>
         <Button disabled={!canContinue} onClick={() => setOpen(true)}>{d.quietNow ? "Ab 8 Uhr senden" : "Weiter"}</Button>
       </section>
+      <WinbackCard slug={slug} initial={d.winback} />
       <section className="ow-card ow-stack" aria-labelledby="wm-history">
         <h2 id="wm-history">Gesendete Nachrichten</h2>
         {d.history.length === 0 ? <p className="ow-muted">Noch keine Nachricht gesendet.</p> : (

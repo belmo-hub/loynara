@@ -81,3 +81,6 @@
 .access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
 .access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }
 .access > div a { color: var(--color-on-action); font-size: var(--text-18); }
+/* Win-back bonus (ENG-044): coral because it is a stamp moment; the amount is also in words, never colour alone. */
+.winback { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-stamp); color: var(--color-on-stamp); line-height: var(--leading-body); }
+.winback small { font-size: var(--text-14); }
