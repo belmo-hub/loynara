@@ -26,6 +26,11 @@ async function shop(type: "stamp" | "points" = "stamp", on = true) {
   const owner = await user();
   const m = await createMerchant({ userId: owner, businessName: "Synthetic Pizzeria", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: type, rulesText: "Ein Stempel pro Pizza.", rewardTitle: "Pizza gratis", rewardCost: type === "stamp" ? 10 : 100 });
   const s = { owner, slug: m.programSlug, programId: m.programId, locationId: m.locationId, tenantId: m.tenantId };
+  // The reward's first version takes the database's real time. Every test runs at pinned instants (NOON, the DST nights), so
+  // an identical second version, effective long before them, keeps the suite independent of when it runs (history is append-only).
+  await pool.query(`INSERT INTO reward_versions (tenant_id, reward_id, version, title, cost, terms_text, effective_at)
+    SELECT tenant_id, reward_id, version + 1, title, cost, terms_text, '2026-01-01T00:00:00Z' FROM reward_versions
+    WHERE reward_id = (SELECT id FROM rewards WHERE program_id = $1)`, [m.programId]);
   if (on) await setAlmostThere({ actorUserId: owner, programSlug: s.slug, enabled: true });
   return s;
 }
