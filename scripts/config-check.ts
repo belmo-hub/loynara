@@ -114,7 +114,7 @@ const placeholder = /replace|placeholder|example|changeme|test-secret/i;
  */
 function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): string[] {
   const issues: string[] = [];
-  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED", "WALLET_MESSAGES_ENABLED"]) {
+  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED", "WALLET_MESSAGES_ENABLED", "GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) {
     if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
   }
   if (["DEVICE_TEST_APPROVED_WALLET_PROVIDER", "DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL", "DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID"].some(name => env[name])) {
@@ -165,6 +165,9 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
     const { issue } = inspectGoogleServiceAccountValue(deliveredKey);
     if (issue) issues.push(issue);
   }
+  for (const name of ["GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) if (env[name] === "true" && !google) issues.push(`${name} requires Google Wallet (GOOGLE_WALLET_ENABLED=true)`);
+  // Owner messages to Google ride on the owner-message surface: without it the flag would be set and do nothing.
+  if (env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED === "true" && env.WALLET_MESSAGES_ENABLED !== "true") issues.push("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED requires WALLET_MESSAGES_ENABLED=true");
   if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") {
     const origin = parsedUrl(env.GOOGLE_WALLET_ASSET_ORIGIN);
     if (!google || !origin || origin.protocol !== "https:" || origin.origin !== env.GOOGLE_WALLET_ASSET_ORIGIN || localHosts.has(origin.hostname) || /preview|device[-_]?test/i.test(origin.hostname)) {

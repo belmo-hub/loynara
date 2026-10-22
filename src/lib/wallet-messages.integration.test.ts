@@ -8,7 +8,7 @@ import { walletCardSnapshot } from "./wallet/data";
 import { consentText, CONSENT_TEXT_VERSION } from "./wallet-message-rules";
 import { POST } from "@/app/api/wallet/passfast-events/route";
 import { recordPassFastEvent } from "./wallet-pass-events";
-import { acknowledgeWalletGuidance, deliverWalletMessage, removalWarning, walletMessageStats, getWalletConsent, sendWalletMessage, setWalletConsent, stopWalletMessage, walletMessageOverview, type WalletMessageSend } from "./wallet-messages";
+import { acknowledgeWalletGuidance, deliverWalletMessage, type WalletMessageGoogleSend, removalWarning, walletMessageStats, getWalletConsent, sendWalletMessage, setWalletConsent, stopWalletMessage, walletMessageOverview, type WalletMessageSend } from "./wallet-messages";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -526,5 +526,120 @@ describe("review fixes", () => {
     expect(await message()).toBe("Zweite Nachricht");
     await state("failed", 3, "provider");
     expect(await message()).toBe("Erste Nachricht");
+  });
+});
+
+describe("Google Wallet messages (ENG-054)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  /** A card holding a live Google Direct pass, optionally also an Apple pass. Consent is the same per-card log. */
+  async function googleCustomer(s: Shop, consent = true, apple = false) {
+    const card = apple ? await customer(s, false) : { ...await enroll({ slug: s.slug, acceptedTerms: true }), passId: null };
+    const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+    const googlePassId = randomUUID();
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'google',$4,$5,'created')",
+      [googlePassId, s.tenantId, card.id, `3388000000022123456.loynara_${googlePassId}_${"0".repeat(64)}`, credentialHash(m.scan_code)]);
+    if (consent) { const flag = process.env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED; vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true"); await setWalletConsent(card.cardToken, true); vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", flag); }
+    return { ...card, googlePassId };
+  }
+  const fakeGoogle = (result: "added" | "present" | "limited" = "added") => {
+    const calls: Array<Parameters<WalletMessageGoogleSend>[0]> = [];
+    const googleSend: WalletMessageGoogleSend = async call => { calls.push(call); return result; };
+    return { calls, googleSend };
+  };
+  async function drainAll(messageId: string, tenantId: string, deps: { send: WalletMessageSend; googleSend: WalletMessageGoogleSend }, now = NOON) {
+    for (let i = 0; i < 20; i++) if ((await deliverWalletMessage({ id: randomUUID(), tenantId, payload: { messageId } }, { ...deps, now: () => now })).status !== "deferred") return;
+  }
+
+  it("with the marketing flag off nothing changes, even with the service flag on: a Google pass is not offered consent, not counted and never sent to", async () => {
+    vi.stubEnv("GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "true");
+    const s = await shop(); const g = await googleCustomer(s, false); const both = await googleCustomer(s, false, true);
+    expect((await getWalletConsent(g.cardToken)).available).toBe(false);
+    await expect(setWalletConsent(g.cardToken, true)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await setWalletConsent(both.cardToken, true); // through its Apple pass
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(1);
+    const apple = fake(), google = fakeGoogle();
+    const { id, audience } = await go(s);
+    expect(audience).toBe(1);
+    await drainAll(id, s.tenantId, { send: apple.send, googleSend: google.googleSend });
+    expect(apple.calls.map(c => c.objectId)).toEqual([`passfast:${both.passId}`]);
+    expect(google.calls).toEqual([]);
+  });
+
+  it("with the flag on a consented Google holder gets the message with notification, once, and the Apple path is unchanged", async () => {
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    const s = await shop(); const g = await googleCustomer(s); await googleCustomer(s, false); const both = await googleCustomer(s, true, true);
+    expect(await getWalletConsent(g.cardToken)).toMatchObject({ available: true, granted: true });
+    const apple = fake(), google = fakeGoogle();
+    const { id, audience } = await go(s);
+    expect(audience).toBe(3); // g's Google pass, both's Apple and Google pass; the unconsented card none
+    expect(await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, T("2026-10-23T10:00:00Z"))).toMatchObject({ reach: 2 }); // two customers, three passes
+    await drainAll(id, s.tenantId, { send: apple.send, googleSend: google.googleSend });
+    expect(apple.calls.map(c => c.objectId)).toEqual([`passfast:${both.passId}`]);
+    expect(google.calls.map(c => c.passId).sort()).toEqual([g.googlePassId, both.googlePassId].sort());
+    expect(google.calls[0].message).toMatchObject({ header: "Synthetic Café", body: TEXT, messageType: "TEXT_AND_NOTIFY" });
+    expect(google.calls[0].message.id).toMatch(/^owner_[0-9a-f]{64}$/);
+    expect(new Set(google.calls.map(c => c.message.id)).size).toBe(2);
+    expect((await pool.query("SELECT sent_count FROM wallet_messages WHERE id = $1", [id])).rows[0].sent_count).toBe(3);
+    // Running the job again sends nothing.
+    await drainAll(id, s.tenantId, { send: apple.send, googleSend: google.googleSend });
+    expect(google.calls).toHaveLength(2);
+  });
+
+  it("a card with an Apple and a Google pass uses one of its 2 weekly messages per message, not two", async () => {
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    const s = await shop(); const both = await googleCustomer(s, true, true);
+    const deps = { send: fake().send, googleSend: fakeGoogle().googleSend };
+    await drainAll((await go(s, T("2026-10-20T10:00:00Z"))).id, s.tenantId, deps, T("2026-10-20T10:00:00Z"));
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, T("2026-10-21T10:00:00Z"))).reach).toBe(1); // one customer with room left (counting rows would give 0)
+    await drainAll((await go(s, T("2026-10-21T10:00:00Z"))).id, s.tenantId, deps, T("2026-10-21T10:00:00Z"));
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, T("2026-10-22T10:00:00Z"))).reach).toBe(0);
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_recipients WHERE membership_id = $1 AND status = 'sent'", [both.id])).rows[0].n).toBe(4);
+  });
+
+  it("a retry reuses the same Google message id; Google's notification limit skips the card without a retry", async () => {
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const s = await shop(); await googleCustomer(s);
+    const ids: string[] = [];
+    let first = true;
+    const flaky: WalletMessageGoogleSend = async call => { ids.push(call.message.id); if (first) { first = false; throw new Error("synthetic outage"); } return "added"; };
+    const { id } = await go(s);
+    for (let i = 0; i < 3; i++) {
+      await pool.query("UPDATE wallet_message_recipients SET retry_at = now() WHERE status = 'queued'");
+      await deliverWalletMessage({ id: randomUUID(), tenantId: s.tenantId, payload: { messageId: id } }, { send: fake().send, googleSend: flaky, now: () => NOON });
+    }
+    expect(ids).toHaveLength(2); expect(ids[0]).toBe(ids[1]);
+    expect((await recipientStatuses(id))[0]).toEqual({ status: "sent", reason: null });
+
+    const t = await shop("Other café"); await googleCustomer(t);
+    const limited = fakeGoogle("limited");
+    const second = await go(t);
+    await drainAll(second.id, t.tenantId, { send: fake().send, googleSend: limited.googleSend });
+    expect(limited.calls).toHaveLength(1);
+    expect((await recipientStatuses(second.id))[0]).toEqual({ status: "skipped", reason: "google_limit" });
+  });
+
+  it("the removal warning compares Apple removals with Apple sends only: Google sends do not dilute it", async () => {
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    const s = await shop(); const a = await customer(s);
+    for (let i = 0; i < 20; i++) await googleCustomer(s);
+    const { id } = await go(s);
+    await drainAll(id, s.tenantId, { send: fake().send, googleSend: fakeGoogle().googleSend });
+    await pool.query("INSERT INTO wallet_pass_events (pass_id, tenant_id, event, event_at) SELECT id, tenant_id, 'device.unregistered', now() FROM wallet_passes WHERE id = $1", [a.passId]);
+    // 1 removal of 1 Apple send (100 %), not 1 of 21 sends (4.8 %, under the 5 % threshold).
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).history[0]).toMatchObject({ sent: 21, removed: 1, warn: true });
+    expect((await walletMessageStats()).get(s.programId)).toMatchObject({ sent: 21, removed: 1, warn: true });
+  });
+
+  it("switching the flag off stops Google deliveries already queued; Apple recipients still get theirs", async () => {
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    const s = await shop(); const both = await googleCustomer(s, true, true);
+    const { id } = await go(s);
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "false");
+    const apple = fake(), google = fakeGoogle();
+    await drainAll(id, s.tenantId, { send: apple.send, googleSend: google.googleSend });
+    expect(google.calls).toEqual([]);
+    expect(apple.calls.map(c => c.objectId)).toEqual([`passfast:${both.passId}`]);
+    expect((await pool.query("SELECT reason FROM wallet_message_recipients WHERE pass_id = $1", [both.googlePassId])).rows[0].reason).toBe("google_off");
   });
 });

@@ -111,7 +111,7 @@ export default function WalletMessagesPage() {
           <table className="ow-table"><thead><tr><th>Zeit</th><th>Text</th><th>Status</th><th>Erreicht</th><th></th></tr></thead>
             <tbody>{d.history.map(row => <tr key={row.id}>
               <td data-label="Zeit">{stamp(row.createdAt, d.timezone)}</td><td data-label="Text">{row.text}</td><td data-label="Status">{STATUS[row.status]}</td>
-              <td data-label="Erreicht">{row.sent} von {row.audience}{row.failed ? `, ${row.failed} fehlgeschlagen` : ""}{row.skipped ? `, ${row.skipped} übersprungen` : ""}{row.sent > 0 ? <><br /><span className="ow-muted">Karten entfernt: {row.removed} innerhalb von 48 Stunden</span></> : null}</td>
+              <td data-label="Erreicht">{row.sent} von {row.audience}{row.failed ? `, ${row.failed} fehlgeschlagen` : ""}{row.skipped ? `, ${row.skipped} übersprungen` : ""}{row.sent > 0 ? <><br /><span className="ow-muted">Karten entfernt (nur Apple Wallet): {row.removed} innerhalb von 48 Stunden</span></> : null}</td>
               <td>{row.status === "queued" || row.status === "sending" ? <Button size="sm" variant="secondary" onClick={() => void stop(row.id)}>Stoppen</Button> : null}</td>
             </tr>)}</tbody></table>
         )}

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -7,12 +8,16 @@ import { surfaceHidden } from "./pilot-surfaces";
 import { quietHoursDeferral } from "./promotion-policy";
 import { assertPassFastBinding, PassFastClient, passFastConfig, passFastData, passFastSerial } from "./wallet/passfast";
 import { walletCardSnapshot } from "./wallet/data";
+import { googleObjectId, GoogleWalletClient, type GoogleMessage } from "./wallet/google";
+import { googleDirectConfig } from "./wallet/google-direct";
 import { passFastEnv } from "./wallet/template-bindings";
 import {
   CAP_WINDOW_DAYS, checkMessageText, germanWhen, CONSENT_TEXT_VERSION, consentText, CUSTOMER_WEEKLY_CAP, OWNER_TEXT_VERSION, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP, WALLET_QUIET_HOURS,
 } from "./wallet-message-rules";
 
 // Wallet messages (ENG-043). A message is the PassFast `message` field of one Apple pass; nothing here touches the ledger.
+// ENG-054: with GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED=true a Google Direct pass also gets it, as a Google message with notification.
+// Product: on only after 4 weeks of Apple sends under the removal warning. Service messages have their own flag (refresh.ts).
 // Surface "walletMessages" is withheld on real production until Legal's documents are live and the founder switches it on.
 
 const WORKER_BATCH = 4;           // recipients per job run; a pass refresh takes 16 to 38 s server-side, the lease is 5 minutes
@@ -23,15 +28,21 @@ const STALE_SENDING_MS = 10 * 60_000;
 type Tx = Pick<typeof db, "execute">;
 const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
 const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
+/** Off until Google approves the issuer: absent or anything but "true" leaves the Apple-only behaviour exactly as it was. */
+const googleOn = () => process.env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED === "true";
+/** A pass that can carry a message: an Apple pass through PassFast, and with the Google flag a Google Direct pass. */
+const messagePass = () => googleOn()
+  ? sql`((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR (p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%'))`
+  : sql`p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%'`;
 
 // ---- Consent (customer side, card-token scoped like the other card endpoints) -------------------------------------
 
 async function cardOf(cardToken: string) {
   if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Card not found");
-  const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; applePass: boolean; granted: boolean }>(await db.execute(sql`
+  const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location,
-      EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND p.provider = 'apple'
-        AND p.provider_object_id LIKE 'passfast:%' AND p.status = 'created' AND p.revoked_at IS NULL) AS "applePass",
+      EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND ${messagePass()}
+        AND p.status = 'created' AND p.revoked_at IS NULL) AS "walletPass",
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS granted
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = m.tenant_id
@@ -40,19 +51,19 @@ async function cardOf(cardToken: string) {
   return card;
 }
 
-/** What the card page shows: the unticked box with Legal's text, only for a card that holds an Apple pass. */
+/** What the card page shows: the unticked box with Legal's text, only for a card that holds a pass that can get messages. */
 export async function getWalletConsent(cardToken: string) {
   available();
   const card = await cardOf(cardToken);
   const [given] = rows<{ givenAt: Date }>(await db.execute(sql`SELECT given_at AS "givenAt" FROM wallet_message_consents WHERE tenant_id = ${card.tenantId}::uuid AND membership_id = ${card.membershipId}::uuid AND withdrawn_at IS NULL`));
-  return { available: card.applePass || card.granted, granted: card.granted, givenAt: given ? new Date(given.givenAt).toISOString() : null, shop: card.shop, text: consentText(card.shop, card.location), version: CONSENT_TEXT_VERSION };
+  return { available: card.walletPass || card.granted, granted: card.granted, givenAt: given ? new Date(given.givenAt).toISOString() : null, shop: card.shop, text: consentText(card.shop, card.location), version: CONSENT_TEXT_VERSION };
 }
 
 export async function setWalletConsent(cardToken: string, granted: boolean) {
   available();
   const card = await cardOf(cardToken);
   if (granted) {
-    if (!card.applePass) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!card.walletPass) throw new DomainError("NOT_FOUND", "Card not found");
     await db.execute(sql`INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES (${card.tenantId}::uuid, ${card.membershipId}::uuid, ${CONSENT_TEXT_VERSION})
       ON CONFLICT (membership_id) WHERE withdrawn_at IS NULL DO NOTHING`);
   } else {
@@ -66,7 +77,7 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
 
 /**
  * Passes that may get a message now: Apple pass issued through PassFast and still live, card open, an open consent, and
- * room under the per-customer cap, counted from delivery (queue time until delivered), as the consent text promises. Sent, queued and sending rows count (and a send whose outcome is unknown), so
+ * room under the per-customer cap, counted from delivery (queue time until delivered), as the consent text promises, and per message (a card with an Apple and a Google pass gets one message, not two). Sent, queued and sending rows count (and a send whose outcome is unknown), so
  * ENG-044 reuses this one counter by writing its own rows into wallet_message_recipients.
  */
 /** A pass whose latest device event is an unregistration was removed from the Wallet: it gets no more messages (it still gets balance updates). */
@@ -74,10 +85,10 @@ const reachable = sql`COALESCE((SELECT e.event FROM wallet_pass_events e WHERE e
 
 export const eligible = (tenantId: string, programId: string, now: Date) => sql`
   FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id AND m.closed_at IS NULL
-  WHERE p.tenant_id = ${tenantId}::uuid AND m.program_id = ${programId}::uuid AND p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%'
+  WHERE p.tenant_id = ${tenantId}::uuid AND m.program_id = ${programId}::uuid AND ${messagePass()}
     AND p.status = 'created' AND p.revoked_at IS NULL AND ${reachable}
     AND EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL)
-    AND (SELECT count(*) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
+    AND (SELECT count(DISTINCT r.message_id) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
       AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain'))
       AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS})) < ${CUSTOMER_WEEKLY_CAP}`;
 
@@ -90,8 +101,9 @@ async function shopWindow(tx: Tx, tenantId: string, programId: string, now: Date
     ORDER BY created_at DESC LIMIT ${SHOP_WEEKLY_CAP}`));
 }
 
+// Customers, not passes: a card with an Apple and a Google pass is one person reached.
 const reachOf = async (tx: Tx, tenantId: string, programId: string, now: Date) =>
-  Number(rows<{ n: number }>(await tx.execute(sql`SELECT count(*)::int AS n ${eligible(tenantId, programId, now)}`))[0].n);
+  Number(rows<{ n: number }>(await tx.execute(sql`SELECT count(DISTINCT p.membership_id)::int AS n ${eligible(tenantId, programId, now)}`))[0].n);
 
 export const lock = (tx: Tx, tenantId: string) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${"wallet-message:" + tenantId}, 0))`);
 
@@ -103,16 +115,18 @@ export function removalWarningPercent(env: Record<string, string | undefined> = 
   return value > 0 && value <= 100 ? value : 5;
 }
 export const removalWarning = (removed: number, sent: number, env?: Record<string, string | undefined>) => sent > 0 && removed * 100 > sent * removalWarningPercent(env);
+/** Per message `m`: Apple deliveries; the removal signal exists only for Apple (PassFast device events), so the warning compares Apple with Apple. */
+const appleSent = sql`(SELECT count(*)::int FROM wallet_message_recipients r JOIN wallet_passes p ON p.id = r.pass_id WHERE r.message_id = m.id AND r.status = 'sent' AND p.provider = 'apple')`;
 /** Per message `m`: recipients that unregistered the pass from 0 to 48 hours (inclusive) after their own delivery. */
 const removedWithin48h = sql`(SELECT count(DISTINCT r.pass_id)::int FROM wallet_message_recipients r JOIN wallet_pass_events e ON e.pass_id = r.pass_id AND e.event = 'device.unregistered'
   AND e.event_at >= r.sent_at AND e.event_at <= r.sent_at + interval '48 hours' WHERE r.message_id = m.id AND r.status = 'sent')`;
 
 /** Operator view: owner messages of the last 30 days per programme, counts only. */
 export async function walletMessageStats(tx: Tx = db) {
-  const stats = rows<{ programId: string; messages: number; sent: number; removed: number }>(await tx.execute(sql`
-    SELECT m.program_id AS "programId", count(*)::int AS messages, sum(m.sent_count)::int AS sent, sum(${removedWithin48h})::int AS removed
+  const stats = rows<{ programId: string; messages: number; sent: number; appleSent: number; removed: number }>(await tx.execute(sql`
+    SELECT m.program_id AS "programId", count(*)::int AS messages, sum(m.sent_count)::int AS sent, sum(${appleSent})::int AS "appleSent", sum(${removedWithin48h})::int AS removed
     FROM wallet_messages m WHERE m.kind = 'owner' AND m.created_at > now() - interval '30 days' GROUP BY m.program_id`));
-  return new Map(stats.map(row => [row.programId, { ...row, warn: removalWarning(row.removed, row.sent) }]));
+  return new Map(stats.map(({ appleSent: apple, ...row }) => [row.programId, { ...row, warn: removalWarning(row.removed, apple) }]));
 }
 
 // ---- Owner: overview, send, stop ----------------------------------------------------------------------------------
@@ -125,9 +139,9 @@ export async function walletMessageOverview(input: { actorUserId: string; progra
   const [confirmed] = rows<{ n: number }>(await db.execute(sql`SELECT count(*)::int AS n FROM wallet_message_owner_confirmations WHERE tenant_id = ${program.tenantId}::uuid AND version = ${OWNER_TEXT_VERSION}`));
   const history = rows<Record<string, unknown>>(await db.execute(sql`
     SELECT m.id, m.text, m.status, m.created_at AS "createdAt", m.audience_count AS audience, m.sent_count AS sent, m.failed_count AS failed, m.skipped_count AS skipped,
-      ${removedWithin48h} AS removed
+      ${removedWithin48h} AS removed, ${appleSent} AS "appleSent"
     FROM wallet_messages m WHERE tenant_id = ${program.tenantId}::uuid AND program_id = ${program.id}::uuid AND kind = 'owner' ORDER BY created_at DESC LIMIT 20`))
-    .map(row => ({ ...row, warn: removalWarning(Number(row.removed), Number(row.sent)) }));
+    .map(({ appleSent: apple, ...row }) => ({ ...row, warn: removalWarning(Number(row.removed), Number(apple)) }));
   return {
     shopName: (rows<{ name: string }>(await db.execute(sql`SELECT name FROM tenants WHERE id = ${program.tenantId}::uuid`)))[0].name,
     reach: await reachOf(db, program.tenantId, program.id, now),
@@ -216,10 +230,24 @@ const providerSend: WalletMessageSend = async ({ tenantId, locationId, objectId,
   await new PassFastClient(config).update(passFastSerial(objectId), "apple", data);
 };
 
+export type WalletMessageGoogleSend = (call: { tenantId: string; locationId: string; programId: string; passId: string; objectId: string; message: GoogleMessage }) => Promise<"added" | "present" | "limited">;
+/** Google Direct: the pass's own class binding, then the client's look-before-add, so a retry never adds the message twice. */
+const googleProviderSend: WalletMessageGoogleSend = async ({ tenantId, locationId, programId, passId, objectId, message }) => {
+  const config = googleDirectConfig(process.env, tenantId, locationId, programId, "maintenance");
+  if (objectId !== googleObjectId(passId, config)) throw new Error("Google Wallet binding unavailable");
+  return new GoogleWalletClient(config).addMessageOnce(objectId, message, config);
+};
+/** The same message id for every attempt at one (message, pass): Google keeps duplicate ids, the client looks first. */
+/** Header: the shop's name, which needs no translation (the text is the owner's own, in the owner's language). */
+const googleMessage = (messageId: string, passId: string, shop: string, text: string): GoogleMessage => ({
+  id: `owner_${createHash("sha256").update("loynara-google-owner-message-v1\0").update(`${messageId}\0${passId}`).digest("hex")}`,
+  header: shop, body: text, messageType: "TEXT_AND_NOTIFY",
+});
+
 export type WalletMessageOutcome = { status: "complete" | "blocked" | "suppressed"; reason?: string } | { status: "deferred"; reason: string; until: Date };
 const payload = z.object({ messageId: z.uuid() }).strict();
 
-export async function deliverWalletMessage(job: { id: string; tenantId: string; payload: Record<string, unknown> }, deps: { send?: WalletMessageSend; now?: () => Date } = {}): Promise<WalletMessageOutcome> {
+export async function deliverWalletMessage(job: { id: string; tenantId: string; payload: Record<string, unknown> }, deps: { send?: WalletMessageSend; googleSend?: WalletMessageGoogleSend; now?: () => Date } = {}): Promise<WalletMessageOutcome> {
   const clock = deps.now ?? (() => new Date());
   const send = deps.send ?? providerSend;
   const parsed = payload.safeParse(job.payload);
@@ -247,7 +275,7 @@ export async function deliverWalletMessage(job: { id: string; tenantId: string; 
         ORDER BY created_at, pass_id FOR UPDATE SKIP LOCKED LIMIT 1)
       RETURNING pass_id AS "passId", membership_id AS "membershipId", attempts`));
     if (!claim) break;
-    await deliverOne(job.tenantId, messageId, message.text, claim, send);
+    await deliverOne(job.tenantId, messageId, message.text, claim, send, deps.googleSend ?? googleProviderSend);
   }
   await refreshCounts(messageId);
   const [open] = rows<{ n: number; next: Date | null }>(await db.execute(sql`
@@ -259,14 +287,14 @@ export async function deliverWalletMessage(job: { id: string; tenantId: string; 
   return { status: "deferred", reason: "More recipients", until: new Date(Math.max(clock().getTime() + 1000, (open.next ? new Date(open.next).getTime() : 0))) };
 }
 
-async function deliverOne(tenantId: string, messageId: string, text: string, claim: { passId: string; membershipId: string; attempts: number }, send: WalletMessageSend) {
+async function deliverOne(tenantId: string, messageId: string, text: string, claim: { passId: string; membershipId: string; attempts: number }, send: WalletMessageSend, googleSend: WalletMessageGoogleSend) {
   const settle = (status: "sent" | "failed" | "skipped" | "queued", reason: string | null, retrySeconds = 0) => db.execute(sql`
     UPDATE wallet_message_recipients SET status = ${status}, reason = ${reason}, sent_at = ${status === "sent" ? sql`clock_timestamp()` : sql`NULL`},
       retry_at = clock_timestamp() + make_interval(secs => ${retrySeconds})
     WHERE message_id = ${messageId}::uuid AND pass_id = ${claim.passId}::uuid AND status = 'sending'`);
   // Rechecked right before the provider call: consent withdrawn, pass revoked, card closed or message stopped meanwhile.
-  const [state] = rows<{ objectId: string; locationId: string; live: boolean; reachable: boolean; consent: boolean; stopped: boolean }>(await db.execute(sql`
-    SELECT p.provider_object_id AS "objectId", pr.location_id AS "locationId",
+  const [state] = rows<{ provider: string; objectId: string; locationId: string; programId: string; live: boolean; reachable: boolean; consent: boolean; stopped: boolean }>(await db.execute(sql`
+    SELECT p.provider, p.provider_object_id AS "objectId", pr.location_id AS "locationId", pr.id AS "programId",
       (p.status = 'created' AND p.revoked_at IS NULL AND m.closed_at IS NULL) AS live, ${reachable} AS reachable,
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS consent,
       (SELECT status = 'stopped' FROM wallet_messages WHERE id = ${messageId}::uuid) AS stopped
@@ -277,10 +305,16 @@ async function deliverOne(tenantId: string, messageId: string, text: string, cla
   if (!state.consent) return settle("skipped", "no_consent");
   if (!state.live) return settle("skipped", "pass_gone");
   if (!state.reachable) return settle("skipped", "unreachable");
+  // Switched off after queueing: a Google pass gets nothing (the flag is the stop switch for the whole channel).
+  if (state.provider === "google" && !googleOn()) return settle("skipped", "google_off");
   try {
     const snapshot = await walletCardSnapshot(claim.membershipId);
     if (!snapshot.open) return settle("skipped", "pass_gone");
-    await send({ tenantId, locationId: state.locationId, objectId: state.objectId, data: { ...passFastData(snapshot.pass), message: text } });
+    if (state.provider === "google") {
+      // Google allows 3 notifications per pass per 24 hours; over it the message is not added and the card is skipped.
+      const result = await googleSend({ tenantId, locationId: state.locationId, programId: state.programId, passId: claim.passId, objectId: state.objectId, message: googleMessage(messageId, claim.passId, snapshot.pass.merchantName, text) });
+      if (result === "limited") return settle("skipped", "google_limit");
+    } else await send({ tenantId, locationId: state.locationId, objectId: state.objectId, data: { ...passFastData(snapshot.pass), message: text } });
   } catch (error) {
     // Only the error class is logged: never the text, the card or any contact data.
     console.error(`Wallet message ${messageId} delivery failed (${error instanceof Error ? error.name : "error"})`);
