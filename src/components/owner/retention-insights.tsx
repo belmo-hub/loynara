@@ -70,11 +70,13 @@ export function CardBase({ summary }: { summary: RetentionSummary }) {
   );
 }
 
-export function RetentionInsights({ me, summary, referrals, reload }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; reload: () => void }) {
+/** skipFirst: the Übersicht already shows the first insight as "Als Nächstes". */
+export function RetentionInsights({ me, summary, referrals, reload, skipFirst = false }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; reload: () => void; skipFirst?: boolean }) {
   const isOwner = me.role === "owner";
   const campaigns = !(me.hiddenSurfaces ?? []).includes("campaigns");
   const unit = me.programType === "points" ? "Punkte" : "Stempel";
-  const insights = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals }) : [];
+  const all = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals }) : [];
+  const insights = all.slice(skipFirst ? 1 : 0);
   return (
     <section className="ow-card" aria-labelledby="ow-insight-title" aria-busy={summary.state === "loading"}>
       <div className="ow-card-head"><div><h2 id="ow-insight-title">Was jetzt zählt</h2><p>Berechnet aus bestätigten Buchungen. Jede Zeile nennt ihre Regel.</p></div></div>
@@ -83,9 +85,9 @@ export function RetentionInsights({ me, summary, referrals, reload }: { me: MeRe
       {summary.state === "ok" && (
         <div className="ow-stack" style={{ gap: 16 }}>
           <div><h3 className="ow-label" style={{ marginBottom: 8 }}>Kartenbestand · {cards(summary.data.openCards)}</h3><CardBase summary={summary.data} /></div>
-          {insights.length === 0
+          {all.length === 0
             ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title="Gerade nichts Dringendes.">Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Kassenvorgang.</EmptyState>
-            : <ul className="ow-insights">{insights.map((item, index) => (
+            : insights.length > 0 && <ul className="ow-insights">{insights.map((item, index) => (
               <li key={item.id} className={`ow-action${index === 0 ? " ow-action--lead" : ""}`} data-tone={item.tone}>
                 <h3>{item.title}</h3><p>{item.why}</p>
                 <div className="ow-row">{item.actions.map((action, actionIndex) => <Link key={action.href} className={`ow-btn ow-btn--sm ${index === 0 && actionIndex === item.actions.length - 1 ? "ow-btn--primary" : "ow-btn--secondary"}`} href={action.href}>{action.label}</Link>)}</div>

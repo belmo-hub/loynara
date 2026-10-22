@@ -426,6 +426,17 @@
 .ow-group + .ow-group { border-top: 0; margin-top: var(--space-4); padding-top: var(--space-4); box-shadow: 0 -1px 0 var(--color-line); }
 @media (min-width: 640px) { .ow-radio-cards--row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ow-metrics--auto { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+/* Calm Übersicht: three numbers in one row at every width, then one sentence and one next step. */
+.ow-metrics.ow-metrics--three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+/* Phones: three rows (label and note left, number right), so no label has to hyphenate. */
+@media (max-width: 559px) {
+  .ow-metrics.ow-metrics--three { grid-template-columns: 1fr; gap: var(--space-2); }
+  .ow-metrics--three .ow-metric { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--space-4); padding: var(--space-3) var(--space-4); }
+  .ow-metrics--three .ow-metric dd:not(.ow-metric-note) { grid-column: 2; grid-row: 1 / span 2; }
+}
+.ow-next { display: grid; gap: var(--space-3); justify-items: start; }
+.ow-next .ow-eyebrow { margin: 0; color: var(--color-accent-text); }
+.ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
 .ow-filebtn:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .ow-swatches + .ow-colorrow { margin-top: var(--space-2); }
