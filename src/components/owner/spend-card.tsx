@@ -18,7 +18,8 @@ export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
       {spend.state === "error" && <ErrorNotice message={spend.message} onRetry={reload} />}
       {spend.state === "loading" && <LoadingBlock rows={1} height={64} />}
       {s && (s.overall.total.visits === 0 ? <p className="ow-muted">{C.empty}</p> : <>
-        <div className="ow-metrics">
+        {/* auto: one column on a phone, so a five-digit total never overflows its tile */}
+        <div className="ow-metrics ow-metrics--auto">
           <Figure label={C.recent} note={C.recentNote} figures={s.overall.recent} money={money} />
           <Figure label={C.total} figures={s.overall.total} money={money} />
         </div>
@@ -35,13 +36,14 @@ export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
 }
 
 /** Money when any visit is priced, else the visit count alone (no average entered yet). */
-function value(f: SpendFigures, money: (minor: number) => string) {
-  if (f.averagePerVisitMinor === null) return C.visits(f.visits);
-  const mark = f.estimatedMinor === 0 ? "" : f.realMinor === 0 ? ` (${C.estimated})` : ` (${C.partlyEstimated})`;
-  return `${money(f.spentMinor)}${mark}`;
+function amount(f: SpendFigures, money: (minor: number) => string) {
+  return f.averagePerVisitMinor === null ? C.visits(f.visits) : money(f.spentMinor);
 }
+const estimateMark = (f: SpendFigures) => f.estimatedMinor === 0 ? "" : f.realMinor === 0 ? C.estimated : C.partlyEstimated;
+const value = (f: SpendFigures, money: (minor: number) => string) => `${amount(f, money)}${estimateMark(f) ? ` (${estimateMark(f)})` : ""}`;
 
 function Figure({ label, note, figures, money }: { label: string; note?: string; figures: SpendFigures; money: (minor: number) => string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value(figures, money)}</strong>
-    <p className="ow-metric-note">{C.visits(figures.visits)}{figures.averagePerVisitMinor !== null ? ` · ${C.average(money(figures.averagePerVisitMinor))}` : ""}{note ? `. ${note}` : ""}</p></div>;
+  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{amount(figures, money)}</strong>{estimateMark(figures) && <p className="ow-metric-note"><strong>{estimateMark(figures)}</strong></p>}
+    {/* Without any priced visit the figure itself is the visit count, so the note does not repeat it. */}
+    {(figures.averagePerVisitMinor !== null || note) && <p className="ow-metric-note">{[figures.averagePerVisitMinor !== null && `${C.visits(figures.visits)} · ${C.average(money(figures.averagePerVisitMinor))}`, note].filter(Boolean).join(". ")}</p>}</div>;
 }

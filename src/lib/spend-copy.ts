@@ -6,7 +6,7 @@ export const SPEND_COPY = {
   recentNote: "Heute und die 29 Tage davor, nach der Uhrzeit deines Standorts.",
   total: "Seit Start",
   visits: (n: number) => `${n.toLocaleString("de-DE")} ${n === 1 ? "Besuch" : "Besuche"}`,
-  average: (amount: string) => `Ø ${amount} pro Besuch`,
+  average: (amount: string) => `Ø\u00a0${amount} pro\u00a0Besuch`,
   newAndReturning: (fresh: string, returning: string) => `Neue Karten (im Zeitraum angemeldet): ${fresh} · Wiederkommende Karten: ${returning}`,
   estimated: "geschätzt",
   partlyEstimated: "teilweise geschätzt",
