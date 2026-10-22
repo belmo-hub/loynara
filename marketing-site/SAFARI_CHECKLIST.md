@@ -5,7 +5,7 @@ Local review URL (loopback only, this Mac): `http://127.0.0.1:8791/` — start w
 Run on macOS Safari (latest) and on a physical iPhone (Safari, portrait, then rotate once):
 
 1. **Header and menu:** scroll – the sticky header keeps a readable background; the menu opens, navigates and closes (Escape or tap outside); focus returns to "Menü".
-2. **Fonts:** headline italic (Fraunces) and body (Manrope) render; no layout shift after fonts load.
+2. **Fonts:** Manrope renders for body and for the upright 800 headline emphasis; no layout shift after fonts load.
 3. **Hero:** headline, supporting sentence, small stand, flow line and the paper → digital strip are readable at 320–430 px; nothing overlaps.
 4. **Journey (Starten · Sammeln · Belohnen · Empfehlen):** the tabs are tappable (≥ 44 px) and keep focus; returning card 8 → 9 → 10 → Einlösung; new card 0 → 1; after every tap the next button is fully visible below the header; repeated taps never add a second stamp; switching chapters never records an event; "Neu starten ↺" stays on one line. On the phone only one panel is expanded.
 5. **Empfehlen:** Link teilen → Freund öffnet → Karte erstellen → Besuch bestätigen; the bonus appears only after the last step and only once.

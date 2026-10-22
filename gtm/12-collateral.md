@@ -1,7 +1,7 @@
 # 12 · Sales collateral
 
 Five assets, all printable on A4/A5 or sendable as plain text. Print layout:
-- Concept D colours (forest green + cream), Manrope/Fraunces if available, otherwise system sans.
+- Concept D colours (forest green on light grey #EEF0EF, white cards), Manrope only (emphasis upright 800), otherwise system sans.
 - No merchant logos, no testimonials, no screenshots of real pilots.
 - Every card image carries „Beispiel“.
 
