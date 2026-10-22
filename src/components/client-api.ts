@@ -69,6 +69,8 @@ export type MeResponse = {
   happyHourEnabled?: boolean;
   happyHourWindows?: HappyHourWindow[];
   pointsExpiryMonths?: number | null;
+  challengeVisits?: number | null;
+  challengeBonus?: number;
   /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
   cancellationEndDate?: string | null;
   /** True once the operator has confirmed the end date; before that it is provisional. */
@@ -125,6 +127,8 @@ export type CardResponse = {
   happyHourUntil?: string;
   /** The shop's points expiry rule, each batch's expiry date and, when points expire within 30 days, the notice; absent while expiry is off. */
   pointsExpiry?: { rule: string; batches: string[]; notice?: string };
+  /** This month's challenge and the card's visit days so far; absent while the shop runs none. */
+  challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
-  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean }>;
+  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean; isChallengeBonus?: boolean }>;
 };

@@ -139,6 +139,19 @@ export const programs = pgTable("programs", {
   // earned since `pointsExpirySince` (when the owner last switched it on or changed it) can expire; older points never do.
   pointsExpiryMonths: integer("points_expiry_months"),
   pointsExpirySince: timestamp("points_expiry_since", { withTimezone: true }),
+  // Monthly challenge (ENG-052): this many cashier-confirmed visit days in a calendar month (location time) book the bonus
+  // once that month. Null = off.
+  challengeVisits: integer("challenge_visits"),
+  challengeBonus: integer("challenge_bonus").notNull().default(0),
+  // Customer levels (ENG-053): Bronze from the first visit, Silber and Gold from these visit days in the last 90 days. A perk
+  // is a text the cashier honours, never a booking. Off by default.
+  levelsEnabled: boolean("levels_enabled").notNull().default(false),
+  // No defaults (Product 22 Oct): the owner picks both when switching levels on; barbers and pizzerias need different ones.
+  levelSilverVisits: integer("level_silver_visits"),
+  levelGoldVisits: integer("level_gold_visits"),
+  levelBronzePerk: varchar("level_bronze_perk", { length: 60 }).notNull().default(""),
+  levelSilverPerk: varchar("level_silver_perk", { length: 60 }).notNull().default(""),
+  levelGoldPerk: varchar("level_gold_perk", { length: 60 }).notNull().default(""),
   // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
   // When the owner first asked (kept on repeats); the operator page shows how old the request is.
   cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
@@ -157,6 +170,8 @@ export const programs = pgTable("programs", {
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
   check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (24,36) and ${t.type} = 'points'))`),
+  check("program_challenge_valid", sql`${t.challengeVisits} is null or (${t.challengeVisits} between 2 and 10 and ${t.challengeBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))`),
+  check("program_levels_valid", sql`(not ${t.levelsEnabled} or (${t.levelSilverVisits} is not null and ${t.levelGoldVisits} is not null)) and (${t.levelSilverVisits} is null or ${t.levelSilverVisits} between 2 and 50) and (${t.levelGoldVisits} is null or (${t.levelGoldVisits} <= 90 and (${t.levelSilverVisits} is null or ${t.levelGoldVisits} > ${t.levelSilverVisits})))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
   check("program_birthday_bonus_valid", sql`${t.birthdayBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
   check("program_winback_valid", sql`${t.winbackDays} between 14 and 90 and ${t.winbackBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
@@ -335,7 +350,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} in ('redeem','expiry') and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
   check("ledger_expiry_source_valid", sql`(${t.kind} = 'expiry') = (${t.source} = 'expiry')`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus','expiry')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus','expiry','challenge_bonus')`),
   check("ledger_nfc_actor_valid", sql`(${t.source} in ('nfc_tap','expiry') and ${t.actorUserId} is null) or (${t.source} not in ('nfc_tap','expiry') and ${t.actorUserId} is not null)`),
 ]);
 
