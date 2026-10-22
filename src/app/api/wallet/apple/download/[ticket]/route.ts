@@ -10,6 +10,7 @@ import { noStore, walletDownloadFailure, walletIssueError, walletUnavailable } f
 import { activeApplePass } from "@/lib/wallet/issue";
 import { readDownloadTicket, TICKET_TTL_SECONDS } from "@/lib/wallet/ticket";
 import { assertPassFastBinding, isPassFastObjectId, PassFastClient, passFastConfig, passFastSerial } from "@/lib/wallet/passfast";
+import { passFastEnv } from "@/lib/wallet/template-bindings";
 import { applePreparation, walletDeploymentAvailability } from "@/lib/wallet/preparation";
 
 /** Retrieve an existing archive only. Preparation belongs exclusively to the outbox worker. */
@@ -28,12 +29,13 @@ export async function GET(request: Request, context: { params: Promise<{ ticket:
       const snapshot = await walletCardSnapshot(row.membershipId, database);
       if (!snapshot.open || snapshot.credentialHash !== row.credentialHash || snapshot.pass.tenantId !== row.tenantId) throw new DomainError("NOT_FOUND", "Download link expired");
       const locationId = snapshot.pass.locationId;
-      const availability = walletAvailability(process.env, row.tenantId, locationId);
+      const env = await passFastEnv(row.tenantId, locationId, database);
+      const availability = walletAvailability(env, row.tenantId, locationId);
       if (availability.apple !== "available") return walletDownloadFailure(request, walletUnavailable());
       const managed = isPassFastObjectId(row.providerObjectId);
       let bytes: Buffer;
       if (managed) {
-        const config = passFastConfig(process.env, row.tenantId, locationId);
+        const config = passFastConfig(env, row.tenantId, locationId);
         assertPassFastBinding(row.providerObjectId, config);
         const prepared = await applePreparation({ tenantId: row.tenantId, locationId: locationId!, programId: snapshot.pass.programId, membershipId: row.membershipId, credentialHash: row.credentialHash!, availability }, database);
         if (prepared.status !== "ready") return walletDownloadFailure(request, walletUnavailable());
@@ -51,8 +53,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticket:
           .where(and(eq(walletPasses.id, row.id), eq(walletPasses.credentialHash, row.credentialHash!), isNull(walletPasses.revokedAt)));
         const fresh = await walletCardSnapshot(row.membershipId, tx);
         if (!active || !fresh.open || fresh.pass.tenantId !== row.tenantId || fresh.pass.locationId !== locationId) throw new DomainError("NOT_FOUND", "Download link expired");
-        if (walletAvailability(process.env, row.tenantId, locationId).apple !== "available") throw new DomainError("NOT_FOUND", "Download link expired");
-        if (managed) assertPassFastBinding(row.providerObjectId, passFastConfig(process.env, row.tenantId, locationId));
+        // Re-read: an operator template change during retrieval must not release a pass bound to the old one.
+        const freshEnv = await passFastEnv(row.tenantId, locationId, tx);
+        if (walletAvailability(freshEnv, row.tenantId, locationId).apple !== "available") throw new DomainError("NOT_FOUND", "Download link expired");
+        if (managed) assertPassFastBinding(row.providerObjectId, passFastConfig(freshEnv, row.tenantId, locationId));
         await tx.update(walletPasses).set({ status: "downloaded" }).where(and(eq(walletPasses.id, row.id), inArray(walletPasses.status, ["pending", "created"])));
       });
       const filename = `${snapshot.pass.merchantName.normalize("NFKD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "karte"}.pkpass`;

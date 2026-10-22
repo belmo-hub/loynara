@@ -17,15 +17,18 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 
 type Row = { walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
+type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
+type TemplatePreview = { result: string; from: string | null; to: string; ready: boolean };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
+const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.source === "table" ? "Datenbank" : "Umgebungsvariable"})` : "keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 
 export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] }) {
@@ -40,6 +43,9 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
   const [prog, setProg] = useState<Row | null>(null);
   const [endDate, setEndDate] = useState("");
   const [endPreview, setEndPreview] = useState<EndPreview | null>(null);
+  const [tplRow, setTplRow] = useState<Row | null>(null);
+  const [templateId, setTemplateId] = useState("");
+  const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
   const plate = plates.find(p => p.plateLabel === label);
   // Only programmes a plate may be linked to (the server enforces the same rule).
   const linkable = rows.filter(r => r.status === "active" && r.tapMode === "staff_confirmed");
@@ -67,6 +73,16 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
     } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
+  async function sendTemplate(execute: boolean) {
+    setBusy(true); setError("");
+    try {
+      const result = await postJson<TemplatePreview>("/api/operator/wallet-template", { tenantId: tplRow!.tenantId, locationId: tplRow!.locationId, templateId, execute });
+      if (execute) { setTplRow(null); setTplPreview(null); router.refresh(); } else setTplPreview(result);
+    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
+  const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
   const openEnd = (row: Row) => { setProg(row); setEndDate(row.endDate ?? ""); setEndPreview(null); setError(""); };
   const closeEnd = () => { setProg(null); setEndPreview(null); setError(""); };
   // Unconfirmed first (a request nobody has answered), then by end date.
@@ -135,6 +151,20 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
         {error ? <p role="alert">{error}</p> : null}
         {endPreview ? <Button loading={busy} onClick={() => sendEnd(true)}>Bestätigen</Button>
           : <Button loading={busy} disabled={!endDate} onClick={() => sendEnd(false)}>Prüfen</Button>}
+      </div> : null}
+    </Sheet>
+
+    <Sheet open={!!tplRow} onClose={closeTemplate} title="Apple-Wallet-Vorlage">
+      {tplRow ? <div style={{ display: "grid", gap: 12 }}>
+        <p><strong>{tplRow.tenant}</strong> · {tplRow.location}</p>
+        <p>Jetzt: <strong>{templateText(tplRow.walletTemplate)}</strong></p>
+        <TextField label="Vorlagen-ID aus PassFast (veröffentlicht)" placeholder="00000000-0000-4000-8000-000000000000" value={templateId} onChange={event => { setTemplateId(event.target.value); setTplPreview(null); }} autoComplete="off" spellCheck={false} />
+        {tplRow.walletTemplate ? <p className="ow-muted">Wallet-Karten, die mit der alten Vorlage ausgestellt wurden, bekommen nach der Änderung keine Aktualisierung mehr (Stempel, Prämien, Nachrichten). Das ist wie bisher bei einer Änderung in Railway.</p> : null}
+        {tplPreview ? <p role="status">Von <strong>{tplPreview.from ?? "keine"}</strong> zu <strong>{tplPreview.to}</strong>{tplPreview.result === "unchanged" ? " (keine Änderung)" : ""} · Apple Wallet {tplPreview.ready ? "bereit" : "noch nicht bereit (PassFast aus oder unvollständig)"}</p> : null}
+        {error ? <p role="alert">{error}</p> : null}
+        {tplPreview && tplPreview.result !== "unchanged"
+          ? <Button loading={busy} onClick={() => sendTemplate(true)}>Bestätigen</Button>
+          : <Button loading={busy} disabled={!templateId.trim()} onClick={() => sendTemplate(false)}>Prüfen</Button>}
       </div> : null}
     </Sheet>
 

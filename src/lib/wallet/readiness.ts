@@ -6,6 +6,7 @@ import { DomainError } from "@/lib/loyalty";
 import { walletAvailability } from "./capability";
 import { passInk } from "./content";
 import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl } from "./logo";
+import { passFastEnv } from "./template-bindings";
 
 /**
  * What an owner needs to know about Wallet for one programme, in product terms only. Platform setup (certificates,
@@ -34,7 +35,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
     .where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
   if (!role) throw new DomainError("FORBIDDEN", "Owner access required");
 
-  const availability = walletAvailability(process.env, program.tenantId, program.locationId, program.id);
+  const availability = walletAvailability(await passFastEnv(program.tenantId, program.locationId), program.tenantId, program.locationId, program.id);
   const png = decodeMerchantLogoPng(program.logoData);
   const logo = !program.logoData ? "missing" : !png ? "needs_png" : appleLogoFromData(program.logoData) ? "ready" : "too_large";
   const counts = await db.execute<{ provider: string; n: number }>(sql`

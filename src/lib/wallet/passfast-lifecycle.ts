@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletCardSnapshot } from "./data";
+import { passFastEnv } from "./template-bindings";
 import { PassFastClient, PassFastError, assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidPayload, PASSFAST_OPERATION_MS } from "./passfast";
 
 /** Same pass lock for initial creation and every refresh. Never take a member lock here (lifecycle takes member -> pass).
@@ -20,7 +21,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
     if (!candidate || !isPassFastObjectId(candidate.providerObjectId)) throw new DomainError("NOT_FOUND", "Card not found");
     const candidateSnapshot = await walletCardSnapshot(candidate.membershipId, tx);
     const candidateBrand = candidateSnapshot.open ? candidateSnapshot.pass : candidateSnapshot.brand;
-    const candidateConfig = passFastConfig(process.env, candidate.tenantId, candidateBrand.locationId);
+    const candidateConfig = passFastConfig(await passFastEnv(candidate.tenantId, candidateBrand.locationId, tx), candidate.tenantId, candidateBrand.locationId);
     if (candidateBrand.tenantId !== candidate.tenantId || !candidateConfig.platforms.includes(candidate.provider as "apple" | "google")) throw new PassFastError();
     assertPassFastBinding(candidate.providerObjectId, candidateConfig);
     await tx.update(walletPasses).set({ status: "creating" }).where(and(eq(walletPasses.id, passId),
@@ -36,7 +37,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
     if (row.status === "revoked") return {};
     const snapshot = await walletCardSnapshot(row.membershipId, tx);
     const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-    const config = passFastConfig(process.env, row.tenantId, brand.locationId);
+    const config = passFastConfig(await passFastEnv(row.tenantId, brand.locationId, tx), row.tenantId, brand.locationId);
     if (brand.tenantId !== row.tenantId || !config.platforms.includes(row.provider as "apple" | "google")) throw new PassFastError();
     assertPassFastBinding(row.providerObjectId, config);
     const client = deps.client ?? new PassFastClient(config, fetch, deadline);

@@ -4,6 +4,7 @@ import { ledgerEntries, locations, memberships, programmeCancellationEvents, pro
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
 import { walletMessageStats } from "./wallet-messages";
+import { walletTemplateOverview } from "./wallet/template-bindings";
 
 /**
  * The operator's read model: shops and plates, counts and dates only. No customer, card or contact data is selected,
@@ -43,6 +44,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     const events = await tx.select({ programId: programmeCancellationEvents.programId, action: programmeCancellationEvents.action, actorUserId: programmeCancellationEvents.actorUserId, oldEndDate: programmeCancellationEvents.oldEndDate, newEndDate: programmeCancellationEvents.newEndDate, at: programmeCancellationEvents.createdAt })
       .from(programmeCancellationEvents).orderBy(asc(programmeCancellationEvents.createdAt));
     const history = Map.groupBy(events.map(({ actorUserId, ...event }) => ({ ...event, by: actorUserId === PROGRAMME_END_ACTOR ? "System" : event.action === "request" || event.action === "withdraw" ? "Inhaber" : "Operator" })), event => event.programId);
-    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    const templates = await walletTemplateOverview(tx, env);
+    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }
