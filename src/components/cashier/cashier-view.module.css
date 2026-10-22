@@ -73,7 +73,10 @@
 .bookedAction { grid-column: 1 / -1; }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 .footnote svg { flex: none; margin-top: 3px; }
-@media (prefers-reduced-motion: reduce) { .booked { transition: none; } }
+/* The check draws itself once (220 ms after a 60 ms beat); the box itself still does not move. */
+.booked[data-tone="success"] .outcomeIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick 220ms var(--ease-out) 60ms both; }
+@keyframes tick { from { stroke-dashoffset: 24; } }
+@media (prefers-reduced-motion: reduce) { .booked { transition: none; } .outcomeIcon path { animation: none; } }
 
 /* Loading and blocked access */
 .access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }

@@ -8,7 +8,7 @@ export function ProgrammeEndedPage({ info }: { info: EndedInfo }) {
   const owner = info.role === "owner";
   return (
     <div className="ow-page" style={{ maxWidth: 640 }}>
-      <section className="ow-card ow-stack" aria-labelledby="ow-ended-title">
+      <section className="ow-card ow-stack ow-arrive" aria-labelledby="ow-ended-title">
         <h1 id="ow-ended-title">Programm beendet am {germanDate(info.endedOn)}</h1>
         <p>Das Programm von {info.businessName} läuft nicht mehr. Die Stände deiner Kunden bleiben gespeichert.</p>
         {!owner ? <p>Bitte wende dich an die Inhaberin oder den Inhaber.</p>

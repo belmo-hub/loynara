@@ -10,6 +10,14 @@
 @media (max-width: 559px) { .actions > * { flex: 1 1 100%; } }
 @media (min-width: 1024px) { .state .title { font-size: var(--display-36); line-height: 1.1; } }
 
+/* Arrival (404, "Schild nicht zugeordnet", "Programm beendet"): the lines rise in turn, 0.3 s in all. Nothing is
+   rewarded here, so no overshoot or shake; only opacity and transform move, and every link works at once. */
+.state > * { animation: rise var(--dur-ui) var(--ease-out) both; }
+.state > :nth-child(2) { animation-delay: 40ms; }
+.state > :nth-child(n + 3) { animation-delay: 80ms; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .state > * { animation: none; } }
+
 /* Loading: nothing for the first 300 ms (most loads finish by then), then a 220 ms fade so the skeleton never flashes. */
 .loading { display: grid; gap: var(--space-4); width: 100%; max-width: 1120px; margin-inline: auto; padding: var(--space-6) var(--space-5) 0; animation: appear var(--dur-ui) var(--ease-out) 300ms both; }
 .cards { display: grid; gap: var(--space-4); margin-top: var(--space-2); }

@@ -1,0 +1,4 @@
+.num { display: inline-block; font-variant-numeric: tabular-nums; }
+.roll { animation: roll var(--dur-ui) var(--ease-out); }
+@keyframes roll { from { transform: translateY(.4em); opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .roll { animation: none; } }

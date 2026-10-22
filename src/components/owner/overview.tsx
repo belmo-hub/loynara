@@ -14,6 +14,7 @@ import { germanDate, nf, Skeleton, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClassName } from "@/components/ui/button";
+import { NumberRoll } from "@/components/ui/number-roll";
 
 type Analytics = { currentActiveCards: number; newCards: number; qualifyingCheckouts: number; participatingCards: number; repeatCards: number; rewards: { redemptions: number }; asOf: string; countingRule: string };
 type Brand = { brandColor: string; logoData: string | null };
@@ -119,7 +120,7 @@ function Metric({ label, note, children }: { label: string; note?: string; child
 function value(state: Loadable<number>, reload?: () => void) {
   if (state.state === "loading" || state.state === "idle") return <Skeleton height={32} width={72} />;
   if (state.state === "error") return <><span className="ow-metric-value ow-metric-value--muted">Nicht verfügbar</span>{reload && <div><button type="button" className="ow-link" style={{ background: "none", border: 0, padding: 0, font: "inherit", cursor: "pointer", minHeight: 44 }} onClick={reload}>Erneut laden</button></div>}</>;
-  return <span className="ow-metric-value">{nf.format(state.data)}</span>;
+  return <span className="ow-metric-value"><NumberRoll value={state.data}>{nf.format(state.data)}</NumberRoll></span>;
 }
 const pick = (state: Loadable<Analytics>, read: (data: Analytics) => number): Loadable<number> => state.state === "ok" ? { state: "ok", data: read(state.data), at: state.at } : state.state === "error" ? state : { state: "loading" };
 
