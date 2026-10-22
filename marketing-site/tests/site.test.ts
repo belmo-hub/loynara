@@ -26,6 +26,7 @@ test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to 
   assert.equal((hero.match(/<video /g) ?? []).length, 1, 'one clip');
   assert.match(hero, /<video muted loop playsinline preload="none" poster="\/assets\/motion\/hero\.jpg"[^>]*><source src="\/assets\/motion\/hero\.webm" type="video\/webm"><source src="\/assets\/motion\/hero\.mp4" type="video\/mp4">/, 'poster first, both formats');
   assert.doesNotMatch(home, /autoplay/, 'clips never autoplay: d.ts plays them unless reduced motion is set');
+  assert.equal((home.match(/<button type="button" class="clip-toggle" aria-pressed="false" hidden>.*?Animation pausieren<\/span><\/button>/g) ?? []).length, 4, 'every clip has a pause toggle, hidden until it can move');
   assert.doesNotMatch(hero, /wpass|owner|ref-pair/, 'no Wallet, owner or referral object in the hero');
   assert.match(home, /<a class="login" href="https:\/\/app\.getloynara\.com\/login">Anmelden<\/a>/);
 });

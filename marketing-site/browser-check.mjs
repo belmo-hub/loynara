@@ -232,6 +232,10 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
 { const { page, context } = await newPage({ width: 390, height: 844 }, { scale: 2 });
   await page.waitForTimeout(800);
   check('motion: the hero clip plays while visible', await page.evaluate(() => !document.querySelector('.hero-clip video').paused));
+  await page.locator('.hero-clip .clip-toggle').click();
+  check('motion: the pause toggle stops the hero clip (WCAG 2.2.2)', await page.evaluate(() => document.querySelector('.hero-clip video').paused) && (await page.locator('.hero-clip .clip-toggle').getAttribute('aria-pressed')) === 'true' && await page.locator('.hero-clip .clip-toggle').isVisible());
+  await jump(page, '#rechner'); await page.waitForTimeout(500); await jump(page, '#hero'); await page.waitForTimeout(800);
+  check('motion: a paused clip stays paused after scrolling away and back', await page.evaluate(() => document.querySelector('.hero-clip video').paused));
   await jump(page, '#ablauf'); check('motion: the ablauf clip shows until the visitor uses the demo', await page.locator('[data-clip="ablauf"]').isVisible() && !(await page.locator('.phone-stage').isVisible()));
   await page.locator('[data-act="visit"]').click(); check('motion: a demo button hands over to the live phone', !(await page.locator('[data-clip="ablauf"]').isVisible()) && await page.locator('.phone-stage').isVisible());
   await page.locator('[data-act="visit"]').click(); await settle(page);
@@ -246,7 +250,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
   await context.close(); }
 { const { page, context } = await newPage({ width: 390, height: 844 }, { reduced: true });
   await jump(page, '#hero'); await page.waitForTimeout(600);
-  check('reduced motion: clips stay on their poster', await page.evaluate(() => [...document.querySelectorAll('[data-clip] video')].every(v => v.paused && v.currentTime === 0)));
+  check('reduced motion: clips stay on their poster, no pause toggle', await page.evaluate(() => [...document.querySelectorAll('[data-clip] video')].every(v => v.paused && v.currentTime === 0)) && (await page.locator('.clip-toggle:visible').count()) === 0);
   check('reduced motion: smooth scrolling off, transitions off', await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior === 'auto' && getComputedStyle(document.querySelector('.btn')).transitionDuration === '0s'));
   await jump(page, '#ablauf'); await page.locator('[data-act="visit"]').click(); await page.locator('[data-act="visit"]').click();
   check('reduced motion: the counter demo works with instant state changes', /1\sbestätigter\sBesuch/.test(await page.locator('[data-bind="visit-owner"]').textContent()));
@@ -257,7 +261,7 @@ for (const [label, viewport, mobile] of [['desktop', { width: 1440, height: 900 
 { const { page, context } = await newPage({ width: 390, height: 844 }, { js: false });
   const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
   check('no JS: headline, roles, counter flow, referral rule, price, calculator example and contact are present', /Ein guter Besuch/.test(body) && /Bestätigt den Besuch mit einem Tipp/.test(body) && /Karte öffnen/.test(body) && /keinen Bonus/.test(body) && /49 €/.test(body) && /910 €/.test(body) && /support@getloynara\.com/.test(body));
-  check('no JS: the product objects and the first owner view are rendered', (await page.locator('.hero-clip video[poster]').count()) === 1 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
+  check('no JS: the product objects and the first owner view are rendered, no pause toggle', (await page.locator('.hero-clip video[poster]').count()) === 1 && (await page.locator('.clip-toggle:visible').count()) === 0 && (await page.locator('#studio .stand-obj').count()) === 1 && /12/.test(await page.locator('#owner').innerText()));
   await page.screenshot({ path: `${out}/nojs-top.png`, fullPage: true });
   await context.close(); }
 

@@ -48,8 +48,8 @@ const seg = (id: string, label: string, items: Array<[string, string]>, cls = 's
 const callback = `<div class="callback" aria-hidden="true" data-reveal>${'<span></span>'.repeat(10)}</div>`;
 const steps = (cls: string, labels: string[], lit: number) => `<ol class="steps ${cls}">${labels.map((t, i) => `<li${i < lit ? ' class="done"' : i === lit ? ' class="now"' : ''}>${t}</li>`).join('')}</ol>`;
 
-/** Muted looping clip with a poster. It never autoplays: d.ts plays it while visible unless reduced motion is set, so the poster is the fallback. */
-const clip = (name: string, label: string, cls: string, w = 840, h = 1000) => `<figure class="${cls}" data-clip="${name}" role="img" aria-label="${label}"><video muted loop playsinline preload="none" poster="/assets/motion/${name}.jpg" width="${w}" height="${h}" aria-hidden="true"><source src="/assets/motion/${name}.webm" type="video/webm"><source src="/assets/motion/${name}.mp4" type="video/mp4"></video></figure>`;
+/** Muted looping clip with a poster. It never autoplays: d.ts plays it while visible unless reduced motion is set, so the poster is the fallback. The pause toggle (WCAG 2.2.2) stays hidden unless the clip can move. */
+const clip = (name: string, label: string, cls: string, w = 840, h = 1000) => `<figure class="${cls}" data-clip="${name}"><div role="img" aria-label="${label}"><video muted loop playsinline preload="none" poster="/assets/motion/${name}.jpg" width="${w}" height="${h}" aria-hidden="true"><source src="/assets/motion/${name}.webm" type="video/webm"><source src="/assets/motion/${name}.mp4" type="video/mp4"></video></div><button type="button" class="clip-toggle" aria-pressed="false" hidden><i aria-hidden="true"></i><span class="sr-only">Animation pausieren</span></button></figure>`;
 
 export function homePage(): string {
   return `${head({ title: TITLE, description: DESCRIPTION, path: '/', robots: 'index,follow', social: true })}<script src="/assets/boot.js"></script><script type="module" src="/assets/app.js"></script></head>

@@ -545,7 +545,12 @@ p.fine,.res-note{max-width:38em}
 .hero-scene .phone{transform:translate3d(calc(var(--px,0) * 12px),calc(var(--py,0) * 8px),0) rotate(calc(var(--px,0) * .6deg))}
 .hero-scene .cue{transform:translate3d(calc(var(--px,0) * 20px),calc(var(--py,0) * 14px),0)}
 /* motion clips: poster first, video plays only while visible and never under reduced motion (d.ts); a button in the section hands over to the live demo */
-[data-clip]{margin:0}
+[data-clip]{position:relative;margin:0}
+.clip-toggle{position:absolute;right:14px;bottom:14px;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 4px 14px -6px rgba(15,45,33,.45);display:grid;place-items:center;cursor:pointer}
+.clip-toggle[hidden]{display:none}
+.clip-toggle i{width:14px;height:16px;border:solid var(--ink);border-width:0 5px}
+.clip-toggle[aria-pressed="true"] i{width:0;height:0;margin-left:4px;border-width:8px 0 8px 14px;border-color:transparent transparent transparent var(--ink)}
+.clip-toggle:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
 [data-clip] video{display:block;width:100%;height:auto}
 .hero-clip{align-self:center;width:100%;max-width:520px;justify-self:center;border-radius:28px;overflow:hidden;background:var(--canvas)}
 .clip-box video{max-width:460px;margin:0 auto}
