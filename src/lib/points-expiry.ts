@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs } from "@/db/schema";
-import { duePoints, EXPIRY_REMINDER_DAYS, expiryBuckets, expiryReminderText, expiryRuleText, upcomingExpiry } from "./points-expiry-rules";
+import { duePoints, EXPIRY_REMINDER_DAYS, expiryBatches, expiryBuckets, expiryReminderText, expiryRuleText, upcomingExpiry } from "./points-expiry-rules";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 import { queueCardWalletMessage } from "./wallet-messages";
 
@@ -21,11 +21,12 @@ export async function cardExpiryBuckets(reader: Reader, tenantId: string, member
   return expiryBuckets(rows, { months: rule.pointsExpiryMonths, since: rule.pointsExpirySince });
 }
 
-/** What the card shows: the rule (always, once it is on) and the points that expire within the next 30 days. */
+/** What the card shows: the rule (always, once it is on), each batch's expiry date, and the notice for the next 30 days. */
 export async function cardExpiry(reader: Reader, tenantId: string, membershipId: string, rule: Rule, timeZone: string, now = new Date()) {
   if (!rule.pointsExpiryMonths) return undefined;
-  const upcoming = upcomingExpiry(await cardExpiryBuckets(reader, tenantId, membershipId, rule), now);
-  return { rule: expiryRuleText(rule.pointsExpiryMonths), notice: upcoming ? expiryReminderText(upcoming.amount, upcoming.firstAt, timeZone) : undefined };
+  const buckets = (await cardExpiryBuckets(reader, tenantId, membershipId, rule)).filter(lot => lot.expiresAt > now);
+  const upcoming = upcomingExpiry(buckets, now);
+  return { rule: expiryRuleText(rule.pointsExpiryMonths), batches: expiryBatches(buckets, timeZone), notice: upcoming ? expiryReminderText(upcoming, timeZone) : undefined };
 }
 
 // shortcut: one transaction per card holding points in an expiry programme; fine for a few thousand cards, batch by programme past that.
@@ -67,17 +68,20 @@ export async function runPointsExpiry(now = new Date()) {
   return expired;
 }
 
-/** One Wallet reminder per card and 30 days, covering what expires in the next 30 days; only for consented Apple holders. */
+/**
+ * One Wallet banner per card and 30 days, covering what expires in the next 30 days. Service information, not marketing
+ * (Product/Legal 22 Oct): every live Apple pass gets it, with or without marketing consent; never an email.
+ */
 export async function queueExpiryReminders(now = new Date()) {
   let queued = 0;
   for (const card of await candidates()) {
     const [row] = await db.select({ program: programs, timezone: locations.timezone }).from(programs)
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
-      .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_message_consents c where c.tenant_id = ${card.tenantId}::uuid and c.membership_id = ${card.membershipId}::uuid and c.withdrawn_at is null)`));
+      .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_passes p where p.tenant_id = ${card.tenantId}::uuid and p.membership_id = ${card.membershipId}::uuid and p.provider = 'apple' and p.status = 'created' and p.revoked_at is null)`));
     if (!row) continue;
     const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, row.program), now);
     if (!upcoming) continue;
-    const text = expiryReminderText(upcoming.amount, upcoming.firstAt, row.timezone);
+    const text = expiryReminderText(upcoming, row.timezone);
     try { if (await queueCardWalletMessage({ tenantId: card.tenantId, programId: card.programId, membershipId: card.membershipId, kind: "expiry", text, onceWithinDays: EXPIRY_REMINDER_DAYS }, now)) queued += 1; }
     catch (error) { console.error(`Expiry reminder for card ${card.membershipId} failed (${error instanceof Error ? error.name : "error"})`); }
   }

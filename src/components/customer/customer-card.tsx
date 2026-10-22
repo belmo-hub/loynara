@@ -34,8 +34,8 @@ export type CustomerCardProps = {
   reviewUrl?: string;
   /** End time of the running happy hour; one plain line, absent = none running. */
   happyHourUntil?: string;
-  /** Points expiry: the rule (shown with the rules from the first visit) and the 30-day notice; absent = expiry off. */
-  pointsExpiry?: { rule: string; notice?: string };
+  /** Points expiry: the rule (shown with the rules from the first visit), each batch's date and the 30-day notice; absent = expiry off. */
+  pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   locale?: "de" | "fr";
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
@@ -130,6 +130,7 @@ export function CustomerCard(props: CustomerCardProps) {
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
       {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
       {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
+      {pointsExpiry?.batches.length ? <><p className={styles.rules}>Deine Punkte verfallen:</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
       <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
     </section> : null}
 

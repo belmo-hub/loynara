@@ -1,7 +1,7 @@
 // Points expiry (ENG-051): the pure rules. No database, so client code may import it.
 
-/** The periods an owner can choose; off is the default. */
-export const POINTS_EXPIRY_MONTHS = [6, 12, 24] as const;
+/** The periods an owner can choose; off is the default. Product/Legal 22 Oct: 24 or 36 until counsel confirms 12. */
+export const POINTS_EXPIRY_MONTHS = [24, 36] as const;
 /** The card and the Wallet reminder look this many days ahead; a card gets at most one reminder per such window. */
 export const EXPIRY_REMINDER_DAYS = 30;
 
@@ -54,15 +54,28 @@ export function duePoints(buckets: ExpiryBucket[], now: Date) {
   return buckets.filter(lot => lot.expiresAt <= now).reduce((sum, lot) => sum + lot.amount, 0);
 }
 
-/** Points that expire within the next EXPIRY_REMINDER_DAYS, and when the first of them goes. */
+/** Points that expire within the next EXPIRY_REMINDER_DAYS, and the first and last instant among them. */
 export function upcomingExpiry(buckets: ExpiryBucket[], now: Date) {
   const until = new Date(now.getTime() + EXPIRY_REMINDER_DAYS * 86_400_000);
   const soon = buckets.filter(lot => lot.expiresAt > now && lot.expiresAt <= until);
-  return soon.length ? { amount: soon.reduce((sum, lot) => sum + lot.amount, 0), firstAt: soon[0].expiresAt } : null;
+  return soon.length ? { amount: soon.reduce((sum, lot) => sum + lot.amount, 0), firstAt: soon[0].expiresAt, lastAt: soon.at(-1)!.expiresAt } : null;
 }
 
-/** „Ab dem 15.11.2026 verfallen 80 Punkte auf deiner Karte. Löse sie vorher ein.“ (Wallet reminder and card line). */
-export function expiryReminderText(amount: number, firstAt: Date, timeZone: string) {
-  const day = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone }).format(firstAt);
-  return amount === 1 ? `Ab dem ${day} verfällt 1 Punkt auf deiner Karte. Löse ihn vorher ein.` : `Ab dem ${day} verfallen ${amount} Punkte auf deiner Karte. Löse sie vorher ein.`;
+const germanDay = (at: Date, timeZone: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone }).format(at);
+
+/**
+ * Service information, neutral, no offer (Legal 22 Oct): „Deine 120 Punkte verfallen am 05.08.2027.“ When the 30 days
+ * hold several dates, the last one: „Deine 80 Punkte verfallen bis zum 31.08.2027.“ The card's batch list has each date.
+ */
+export function expiryReminderText(upcoming: { amount: number; firstAt: Date; lastAt: Date }, timeZone: string) {
+  const first = germanDay(upcoming.firstAt, timeZone), last = germanDay(upcoming.lastAt, timeZone);
+  const points = upcoming.amount === 1 ? "Dein 1 Punkt verfällt" : `Deine ${upcoming.amount} Punkte verfallen`;
+  return first === last ? `${points} am ${last}.` : `${points} bis zum ${last}.`;
+}
+
+/** Each expiry date still ahead on the card, one line per day in the shop's timezone, nearest first: „40 Punkte am 05.08.2027“. */
+export function expiryBatches(buckets: ExpiryBucket[], timeZone: string, limit = 6) {
+  const days = new Map<string, number>();
+  for (const lot of buckets) { const day = germanDay(lot.expiresAt, timeZone); days.set(day, (days.get(day) ?? 0) + lot.amount); }
+  return [...days].slice(0, limit).map(([day, amount]) => `${amount} ${amount === 1 ? "Punkt" : "Punkte"} am ${day}`);
 }

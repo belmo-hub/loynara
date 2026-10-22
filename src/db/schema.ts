@@ -145,7 +145,7 @@ export const programs = pgTable("programs", {
   check("program_tap_cooldown_valid", sql`${t.tapCooldownSeconds} is null or ${t.tapCooldownSeconds} between 1 and 86400`),
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
-  check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (6,12,24) and ${t.type} = 'points'))`),
+  check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (24,36) and ${t.type} = 'points'))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
 ]);
 

@@ -3533,7 +3533,7 @@
         },
         "program_points_expiry_valid": {
           "name": "program_points_expiry_valid",
-          "value": "(\"programs\".\"points_expiry_months\" is null) = (\"programs\".\"points_expiry_since\" is null) and (\"programs\".\"points_expiry_months\" is null or (\"programs\".\"points_expiry_months\" in (6,12,24) and \"programs\".\"type\" = 'points'))"
+          "value": "(\"programs\".\"points_expiry_months\" is null) = (\"programs\".\"points_expiry_since\" is null) and (\"programs\".\"points_expiry_months\" is null or (\"programs\".\"points_expiry_months\" in (24,36) and \"programs\".\"type\" = 'points'))"
         },
         "program_welcome_bonus_valid": {
           "name": "program_welcome_bonus_valid",

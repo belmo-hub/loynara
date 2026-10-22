@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, duePoints, expiryBuckets, expiryReminderText, upcomingExpiry, type ExpiryLedgerRow } from "./points-expiry-rules";
+import { addMonths, duePoints, expiryBatches, expiryBuckets, expiryReminderText, upcomingExpiry, type ExpiryLedgerRow } from "./points-expiry-rules";
 
 const at = (iso: string) => new Date(iso);
 const row = (delta: number, iso: string, kind = delta > 0 ? "award" : "redeem"): ExpiryLedgerRow => ({ delta, kind, createdAt: at(iso) });
@@ -47,9 +47,16 @@ describe("upcomingExpiry and the reminder text", () => {
   it("looks 30 days ahead and names the first date", () => {
     const buckets = [{ amount: 10, expiresAt: at("2026-08-05T10:00:00Z") }, { amount: 70, expiresAt: at("2026-08-31T10:00:00Z") }, { amount: 5, expiresAt: at("2026-09-01T10:00:02Z") }];
     const soon = upcomingExpiry(buckets, at("2026-08-02T10:00:01Z"));
-    expect(soon).toEqual({ amount: 80, firstAt: at("2026-08-05T10:00:00Z") });
+    expect(soon).toEqual({ amount: 80, firstAt: at("2026-08-05T10:00:00Z"), lastAt: at("2026-08-31T10:00:00Z") });
     expect(upcomingExpiry(buckets, at("2026-07-01T00:00:00Z"))).toBeNull();
-    expect(expiryReminderText(80, soon!.firstAt, "Europe/Berlin")).toBe("Ab dem 05.08.2026 verfallen 80 Punkte auf deiner Karte. Löse sie vorher ein.");
-    expect(expiryReminderText(1, soon!.firstAt, "Europe/Berlin")).toBe("Ab dem 05.08.2026 verfällt 1 Punkt auf deiner Karte. Löse ihn vorher ein.");
+    expect(expiryReminderText(soon!, "Europe/Berlin")).toBe("Deine 80 Punkte verfallen bis zum 31.08.2026.");
+    const one = at("2026-08-05T10:00:00Z");
+    expect(expiryReminderText({ amount: 120, firstAt: one, lastAt: one }, "Europe/Berlin")).toBe("Deine 120 Punkte verfallen am 05.08.2026.");
+    expect(expiryReminderText({ amount: 1, firstAt: one, lastAt: one }, "Europe/Berlin")).toBe("Dein 1 Punkt verfällt am 05.08.2026.");
+  });
+
+  it("lists each expiry date once, nearest first", () => {
+    const buckets = [{ amount: 10, expiresAt: at("2026-08-05T08:00:00Z") }, { amount: 5, expiresAt: at("2026-08-05T20:00:00Z") }, { amount: 1, expiresAt: at("2026-09-01T10:00:00Z") }];
+    expect(expiryBatches(buckets, "Europe/Berlin")).toEqual(["15 Punkte am 05.08.2026", "1 Punkt am 01.09.2026"]);
   });
 });

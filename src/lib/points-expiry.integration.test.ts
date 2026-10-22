@@ -9,7 +9,7 @@ import { createMerchant, enroll, getCard, getPublicProgram, updateProgramExtras 
 import { addMonths } from "./points-expiry-rules";
 import { expireCardPoints, queueExpiryReminders, runPointsExpiry } from "./points-expiry";
 import { credentialHash } from "./wallet/data";
-import { setWalletConsent } from "./wallet-messages";
+import { deliverWalletMessage, setWalletConsent } from "./wallet-messages";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -31,7 +31,7 @@ const give = (s: Shop, membershipId: string, quantity: number) => award({ userId
 const balanceOf = async (membershipId: string) => (await db.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, membershipId)))[0].balance;
 const expiryRows = (membershipId: string) => db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, membershipId), eq(ledgerEntries.kind, "expiry")));
 const entryTime = async (entryId: string) => (await db.select({ at: ledgerEntries.createdAt }).from(ledgerEntries).where(eq(ledgerEntries.id, entryId)))[0].at;
-const setExpiry = (s: Shop, months: 6 | 12 | 24 | null, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, pointsExpiryMonths: months });
+const setExpiry = (s: Shop, months: 24 | 36 | null, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, pointsExpiryMonths: months });
 
 describe("points expiry setting", () => {
   it("is off by default: nothing expires and the card shows no rule", async () => {
@@ -50,18 +50,18 @@ describe("points expiry setting", () => {
     await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, 'cashier', $3)", [s.tenantId, cashier, s.locationId]);
     const manager = await user();
     await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, 'manager', $3)", [s.tenantId, manager, s.locationId]);
-    await expect(setExpiry(s, 12, cashier)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(setExpiry(s, 12, manager)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(setExpiry(s, 12, other.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(updateProgramExtras({ actorUserId: s.owner, programId: s.programId, pointsExpiryMonths: 3 as 6 })).rejects.toThrow();
+    await expect(setExpiry(s, 36, cashier)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(setExpiry(s, 36, manager)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(setExpiry(s, 36, other.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(updateProgramExtras({ actorUserId: s.owner, programId: s.programId, pointsExpiryMonths: 12 as 24 })).rejects.toThrow();
     const stamps = await shop("stamp", "Synthetic Barber");
-    await expect(setExpiry(stamps, 12)).rejects.toMatchObject({ code: "INVALID_POINTS_EXPIRY" });
+    await expect(setExpiry(stamps, 36)).rejects.toMatchObject({ code: "INVALID_POINTS_EXPIRY" });
 
-    expect(await setExpiry(s, 12)).toMatchObject({ pointsExpiryMonths: 12 });
-    const rule = "Punkte verfallen 12 Monate nach dem Sammeln, die ältesten zuerst.";
+    expect(await setExpiry(s, 36)).toMatchObject({ pointsExpiryMonths: 36 });
+    const rule = "Punkte verfallen 36 Monate nach dem Sammeln, die ältesten zuerst.";
     expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBe(rule);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
-    expect((await getCard(card.cardToken)).pointsExpiry).toEqual({ rule, notice: undefined });
+    expect((await getCard(card.cardToken)).pointsExpiry).toEqual({ rule, batches: [], notice: undefined });
     // The other shop is untouched.
     expect((await getPublicProgram(other.programSlug)).pointsExpiryRule).toBeUndefined();
   });
@@ -70,10 +70,10 @@ describe("points expiry setting", () => {
 describe("the expiry job", () => {
   it("books a labelled ledger row exactly at the expiry instant, once", async () => {
     const s = await shop();
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
-    const due = addMonths(await entryTime(first.entryId), 6);
+    const due = addMonths(await entryTime(first.entryId), 24);
 
     expect(await expireCardPoints(card.id, new Date(due.getTime() - 1))).toBe(0);
     expect(await expireCardPoints(card.id, due)).toBe(40);
@@ -91,36 +91,36 @@ describe("the expiry job", () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     await give(s, card.id, 30);
-    await setExpiry(s, 6);
-    const after = await give(s, card.id, 20);
-    // Changing the period restarts it: the 20 points keep their 6-month promise only until the change, then never expire.
     await setExpiry(s, 24);
+    const after = await give(s, card.id, 20);
+    // Changing the period restarts it: the 20 points keep their 24-month promise only until the change, then never expire.
+    await setExpiry(s, 36);
     const late = await give(s, card.id, 10);
-    const far = addMonths(await entryTime(after.entryId), 12);
+    const far = addMonths(await entryTime(after.entryId), 30);
     expect(await expireCardPoints(card.id, far)).toBe(0);
-    expect(await expireCardPoints(card.id, addMonths(await entryTime(late.entryId), 24))).toBe(10);
+    expect(await expireCardPoints(card.id, addMonths(await entryTime(late.entryId), 36))).toBe(10);
     expect(await balanceOf(card.id)).toBe(50);
   });
 
   it("uses up the oldest points first when a reward is redeemed", async () => {
     const s = await shop();
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const old = await give(s, card.id, 50);
     await give(s, card.id, 80);
     const [reward] = (await getCard(card.cardToken)).rewards;
     await redeem({ userId: s.owner, locationId: s.locationId, membershipId: card.id, rewardVersionId: reward.id, idempotencyKey: randomUUID(), requestId: randomUUID() });
     // 100 redeemed: the 50 old points and 50 of the newer ones; 30 newer points are left and none of them is due yet.
-    expect(await expireCardPoints(card.id, addMonths(await entryTime(old.entryId), 6))).toBe(0);
+    expect(await expireCardPoints(card.id, addMonths(await entryTime(old.entryId), 24))).toBe(0);
     expect(await balanceOf(card.id)).toBe(30);
   });
 
   it("gives expired points back through an ordinary correction, which the job then leaves alone", async () => {
     const s = await shop();
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
-    const due = addMonths(await entryTime(first.entryId), 6);
+    const due = addMonths(await entryTime(first.entryId), 24);
     await expireCardPoints(card.id, due);
     const [row] = await expiryRows(card.id);
     const manager = await user();
@@ -141,13 +141,13 @@ describe("the expiry job", () => {
   it("is not a visit and not a redemption in the owner's numbers, and stays inside its shop", async () => {
     const s = await shop();
     const other = await shop("points", "Other Synthetic Shop");
-    await setExpiry(s, 6);
-    await setExpiry(other, 24);
+    await setExpiry(s, 24);
+    await setExpiry(other, 36);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const neighbour = await enroll({ slug: other.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     await give(other, neighbour.id, 40);
-    await runPointsExpiry(addMonths(await entryTime(first.entryId), 6));
+    await runPointsExpiry(addMonths(await entryTime(first.entryId), 24));
     expect(await balanceOf(card.id)).toBe(0);
     expect(await balanceOf(neighbour.id)).toBe(40);
     expect(await expiryRows(neighbour.id)).toEqual([]);
@@ -158,12 +158,12 @@ describe("the expiry job", () => {
 
   it("keeps going when one card cannot be booked", async () => {
     const s = await shop();
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const broken = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const fine = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, broken.id, 40);
     await give(s, fine.id, 40);
-    const due = addMonths(await entryTime(first.entryId), 6);
+    const due = addMonths(await entryTime(first.entryId), 24);
     const run = new Date(due.getTime() + 60_000);
     // Something already holds the key this run would use for the first card.
     await pool.query("INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, request_id, idempotency_key, created_at) VALUES ($1, $2, $3, -1, 'expiry', 'expiry', gen_random_uuid(), $4, $5)",
@@ -174,11 +174,11 @@ describe("the expiry job", () => {
 
   it("books nothing for an ended programme", async () => {
     const s = await shop();
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     await db.update(programs).set({ status: "ended" }).where(eq(programs.id, s.programId));
-    expect(await runPointsExpiry(addMonths(await entryTime(first.entryId), 7))).toBe(0);
+    expect(await runPointsExpiry(addMonths(await entryTime(first.entryId), 25))).toBe(0);
     expect(await balanceOf(card.id)).toBe(40);
   });
 });
@@ -192,38 +192,50 @@ describe("the 30-day reminder", () => {
     if (consent) await setWalletConsent(card.cardToken, true);
   }
 
-  it("goes to consented Wallet holders once per 30 days; everyone sees it on the card", async () => {
+  it("goes to every Wallet holder as service information, once per 30 days", async () => {
     const s = await shop();
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const consented = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const silent = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const browserOnly = await enroll({ slug: s.programSlug, acceptedTerms: true });
     await applePass(s, consented, true);
     await applePass(s, silent, false);
     const first = await give(s, consented.id, 80);
     await give(s, silent.id, 80);
-    const due = addMonths(await entryTime(first.entryId), 6);
+    await give(s, browserOnly.id, 80);
+    const due = addMonths(await entryTime(first.entryId), 24);
     const reminderAt = new Date(due.getTime() - 20 * 86_400_000);
 
     expect(await queueExpiryReminders(new Date(due.getTime() - 31 * 86_400_000))).toBe(0);
-    expect(await queueExpiryReminders(reminderAt)).toBe(1);
+    expect(await queueExpiryReminders(reminderAt)).toBe(2);
     expect(await queueExpiryReminders(new Date(reminderAt.getTime() + 86_400_000))).toBe(0);
-    const { rows } = await pool.query("SELECT m.kind, m.text, m.sent_by_user_id, r.membership_id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id");
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ kind: "expiry", sent_by_user_id: null, membership_id: consented.id });
-    expect(rows[0].text).toMatch(/^Ab dem \d{2}\.\d{2}\.\d{4} verfallen 80 Punkte auf deiner Karte\. Löse sie vorher ein\.$/);
+    const { rows } = await pool.query("SELECT m.id, m.kind, m.text, m.sent_by_user_id, r.membership_id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id ORDER BY r.membership_id");
+    // Both Apple holders, with and without marketing consent; the browser-only card sees the notice on its card only.
+    expect(rows.map(row => row.membership_id).sort()).toEqual([consented.id, silent.id].sort());
+    for (const row of rows) {
+      expect(row).toMatchObject({ kind: "expiry", sent_by_user_id: null });
+      expect(row.text).toMatch(/^Deine 80 Punkte verfallen am \d{2}\.\d{2}\.\d{4}\.$/);
+    }
     const { rows: jobs } = await pool.query("SELECT kind FROM outbox_jobs WHERE kind = 'wallet.message'");
-    expect(jobs).toHaveLength(1);
+    expect(jobs).toHaveLength(2);
+    // Delivery does not skip the holder without marketing consent (service information), and sends the banner text.
+    const calls: Array<{ data: Record<string, unknown> }> = [];
+    const silentMessage = rows.find(row => row.membership_id === silent.id)!;
+    expect(await deliverWalletMessage({ id: randomUUID(), tenantId: s.tenantId, payload: { messageId: silentMessage.id } }, { send: async call => { calls.push(call); }, now: () => new Date("2026-10-22T10:00:00Z") })).toEqual({ status: "complete" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].data.message).toBe(silentMessage.text);
   });
 
   it("shows the notice on the card within 30 days of the first expiry", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
-    await setExpiry(s, 6);
+    await setExpiry(s, 24);
     const { cardExpiry } = await import("./points-expiry");
     const first = await give(s, card.id, 25);
-    const due = addMonths(await entryTime(first.entryId), 6);
+    const due = addMonths(await entryTime(first.entryId), 24);
     const [program] = await db.select().from(programs).where(eq(programs.id, s.programId));
     expect((await cardExpiry(db, s.tenantId, card.id, program, "Europe/Berlin", new Date(due.getTime() - 31 * 86_400_000)))?.notice).toBeUndefined();
-    expect((await cardExpiry(db, s.tenantId, card.id, program, "Europe/Berlin", new Date(due.getTime() - 29 * 86_400_000)))?.notice).toMatch(/verfallen 25 Punkte/);
+    expect((await cardExpiry(db, s.tenantId, card.id, program, "Europe/Berlin", new Date(due.getTime() - 29 * 86_400_000)))?.notice).toMatch(/^Deine 25 Punkte verfallen am \d{2}\.\d{2}\.\d{4}\.$/);
+    expect((await cardExpiry(db, s.tenantId, card.id, program, "Europe/Berlin", new Date(due.getTime() - 29 * 86_400_000)))?.batches).toEqual([expect.stringMatching(/^25 Punkte am \d{2}\.\d{2}\.\d{4}$/)]);
   });
 });

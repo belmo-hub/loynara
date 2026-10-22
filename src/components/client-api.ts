@@ -123,8 +123,8 @@ export type CardResponse = {
   reviewUrl?: string;
   /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */
   happyHourUntil?: string;
-  /** The shop's points expiry rule and, when points expire within 30 days, the notice; absent while expiry is off. */
-  pointsExpiry?: { rule: string; notice?: string };
+  /** The shop's points expiry rule, each batch's expiry date and, when points expire within 30 days, the notice; absent while expiry is off. */
+  pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean }>;
 };
