@@ -36,6 +36,8 @@ export type WalletPassData = WalletBrand & {
   /** The card's target reward (the first by the merchant's order, as on the browser card). */
   reward?: { title: string; cost: number };
   lastActivityAt?: Date;
+  /** The last owner message sent to this card (PassFast only), kept so a refresh resends it unchanged. */
+  message?: string;
 };
 
 /** What a revoked pass may still show: who issued it and why it no longer works. No balance, QR code or locator. */

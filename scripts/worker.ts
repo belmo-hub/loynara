@@ -105,6 +105,20 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "wallet.message") {
+    try {
+      const { deliverWalletMessage } = await import("../src/lib/wallet-messages");
+      const result = await deliverWalletMessage(job);
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
+      return await mark(job, result.status, result.reason);
+    } catch (error) {
+      // Recipients are claimed before the provider is called, so a retry of the job can never send a second time.
+      const permanent = job.attempts >= maxAttempts;
+      const marked = await mark(job, permanent ? "failed" : "retry", "Wallet message failed", permanent ? 0 : Math.min(3600, 30 * 2 ** (job.attempts - 1)));
+      console.error(`Wallet message job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind === "campaign.dispatch") {
     try {
       const { dispatchCampaign } = await import("../src/lib/campaigns");

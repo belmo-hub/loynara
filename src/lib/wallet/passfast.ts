@@ -95,15 +95,27 @@ async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 export type PassFastData = {
   merchantName: string; programName: string; locationName: string; locale: string; programType: string;
   balance: number; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: number; rewardReady: string;
+  /** Owner message (ENG-043): Back of Pass, lock-screen notification `%@`. The last message sent to this card, resent unchanged on every refresh so a refresh never clears it or raises a banner. */
+  message?: string;
 };
-export function passFastData(pass: WalletPassData): PassFastData {
+/**
+ * The `message` key exists only while WALLET_MESSAGES_ENABLED is "true", which requires every template bound in
+ * PASSFAST_TENANT_TEMPLATES to have the field. Off, every payload is exactly the earlier contract.
+ */
+export const withPassFastMessage = (message: string, env: Record<string, string | undefined> = process.env) => env.WALLET_MESSAGES_ENABLED === "true" ? { message } : {};
+export function passFastData(pass: WalletPassData, env: Record<string, string | undefined> = process.env): PassFastData {
   const rewardReady = Boolean(pass.reward && pass.balance >= pass.reward.cost);
   return { merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName,
     locale: pass.locale, programType: pass.programType, balance: pass.balance, cardLocator: pass.cardLocator,
     scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: pass.reward?.cost ?? 0,
-    rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "" };
+    rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "", ...withPassFastMessage(pass.message ?? "", env) };
 }
 export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: "" } as const satisfies Partial<PassFastData>;
+/** What a retired pass is updated to before it is voided. */
+export function passFastVoidPayload(brand: Pick<WalletPassData, "merchantName" | "programName" | "locationName" | "locale"> & { programType?: string }, env: Record<string, string | undefined> = process.env) {
+  return { merchantName: brand.merchantName, programName: brand.programName, locationName: brand.locationName, locale: brand.locale,
+    programType: brand.programType ?? "stamp", ...passFastVoidData, ...withPassFastMessage("", env) };
+}
 
 type RemotePass = { id: string; status: "active" | "invalidated" | "expired"; saveUrl?: string };
 const record = (value: unknown): Record<string, unknown> => {

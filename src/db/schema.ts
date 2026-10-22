@@ -856,3 +856,93 @@ export const rateLimits = pgTable("rate_limits", {
   index("rate_limits_reset_idx").on(t.resetAt),
   check("rate_limits_hits_positive", sql`${t.hits} > 0`),
 ]);
+
+/**
+ * Wallet-message consent log (ENG-043), one row per grant: append-only. The only permitted change is setting withdrawn_at
+ * once (trigger in 0031); a new grant after a withdrawal is a new row. At most one open grant per card.
+ */
+export const walletMessageConsents = pgTable("wallet_message_consents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  textVersion: varchar("text_version", { length: 40 }).notNull(),
+  channel: varchar("channel", { length: 8 }).notNull().default("wallet"),
+  givenAt: timestamp("given_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  uniqueIndex("wallet_message_consent_open_uq").on(t.membershipId).where(sql`${t.withdrawnAt} is null`),
+  index("wallet_message_consent_member_idx").on(t.tenantId, t.membershipId),
+  check("wallet_message_consent_channel_valid", sql`${t.channel} = 'wallet'`),
+]);
+
+/**
+ * Device events of a PassFast pass (webhook, ENG-043): only the event type, our pass row and the provider's timestamp.
+ * No device id, no payload. An unregistration makes the pass unreachable for messages and counts as a removal in the report.
+ */
+export const walletPassEvents = pgTable("wallet_pass_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  passId: uuid("pass_id").notNull().references(() => walletPasses.id),
+  tenantId: uuid("tenant_id").notNull(),
+  event: varchar("event", { length: 24 }).notNull(),
+  eventAt: timestamp("event_at", { withTimezone: true }).notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("wallet_pass_event_once_uq").on(t.passId, t.event, t.eventAt),
+  index("wallet_pass_event_pass_idx").on(t.passId, t.eventAt),
+  check("wallet_pass_event_valid", sql`${t.event} in ('device.registered','device.unregistered')`),
+]);
+
+/** The owner's one-time confirmation of Legal's guidance, per text version. */
+export const walletMessageOwnerConfirmations = pgTable("wallet_message_owner_confirmations", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  version: varchar("version", { length: 40 }).notNull(),
+  confirmedByUserId: text("confirmed_by_user_id").notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.version] })]);
+
+/** Audit row of one owner message (kind 'owner'); ENG-044 adds 'winback' rows that share the recipient table and its caps. */
+export const walletMessages = pgTable("wallet_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  kind: varchar("kind", { length: 8 }).notNull().default("owner"),
+  sentByUserId: text("sent_by_user_id"),
+  text: varchar("text", { length: 560 }).notNull(),
+  confirmVersion: varchar("confirm_version", { length: 40 }),
+  status: varchar("status", { length: 8 }).notNull().default("queued"),
+  audienceCount: integer("audience_count").notNull().default(0),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  skippedCount: integer("skipped_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  stoppedAt: timestamp("stopped_at", { withTimezone: true }),
+}, (t) => [
+  unique("wallet_messages_tenant_id_id_uq").on(t.tenantId, t.id),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  index("wallet_messages_program_idx").on(t.tenantId, t.programId, t.createdAt),
+  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback')`),
+  check("wallet_message_status_valid", sql`${t.status} in ('queued','sending','complete','stopped')`),
+]);
+
+/** One row per (message, pass): the status of each delivery. Also the per-customer weekly counter (queued and sent rows count). */
+export const walletMessageRecipients = pgTable("wallet_message_recipients", {
+  messageId: uuid("message_id").notNull(),
+  passId: uuid("pass_id").notNull(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  status: varchar("status", { length: 8 }).notNull().default("queued"),
+  attempts: integer("attempts").notNull().default(0),
+  retryAt: timestamp("retry_at", { withTimezone: true }).notNull().defaultNow(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  reason: varchar("reason", { length: 40 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, (t) => [
+  primaryKey({ columns: [t.messageId, t.passId] }),
+  foreignKey({ columns: [t.tenantId, t.messageId], foreignColumns: [walletMessages.tenantId, walletMessages.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("wallet_message_recipient_member_idx").on(t.tenantId, t.membershipId, t.createdAt),
+  index("wallet_message_recipient_due_idx").on(t.messageId, t.status, t.retryAt),
+  check("wallet_message_recipient_status_valid", sql`${t.status} in ('queued','sending','sent','failed','skipped')`),
+]);

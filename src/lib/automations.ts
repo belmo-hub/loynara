@@ -31,7 +31,7 @@ const eventPayload = z.object({ ruleId: z.uuid(), ruleRevision: z.string().regex
 const scanPayload = z.object({ ruleId: z.uuid(), ruleRevision: z.string().regex(/^\d+$/), scanAt: z.iso.datetime() }).strict();
 const deliveryPayload = z.object({ ruleId: z.uuid(), runId: z.uuid(), membershipId: z.uuid() }).strict();
 
-async function ownerProgram(actorUserId: string, programSlug: string, query: Pick<typeof db, "select"> = db) {
+export async function ownerProgram(actorUserId: string, programSlug: string, query: Pick<typeof db, "select"> = db) {
   const [role] = await query.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
   if (!role) throw new DomainError("FORBIDDEN", "Only an active owner can manage automations");
