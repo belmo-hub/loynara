@@ -17,7 +17,7 @@ import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
-type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; visits: number; next: { name: string; visits: number } | null } };
+type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; winbackBonus?: number; birthdayBonus?: number; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; visits: number; next: { name: string; visits: number } | null } };
 type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
