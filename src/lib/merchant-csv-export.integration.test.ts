@@ -7,6 +7,7 @@ import { csvText, getMerchantCsv, ledgerVorgang } from "./export";
 import { award, reverseEntry } from "./loyalty";
 import { formatCardLocator } from "./card-locator";
 import { addStaff, nfcFixture } from "./nfc-test-db";
+import { sourceLabel } from "@/components/owner/card-actions";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
@@ -25,6 +26,17 @@ it("neutralises formulas in text cells only and quotes separators", () => {
   expect(csvText(null)).toBe("");
   expect([ledgerVorgang("award", "staff_online", "stamp"), ledgerVorgang("award", "staff_offline", "points"), ledgerVorgang("award", "nfc_tap", "stamp"), ledgerVorgang("award", "referral_bonus", "stamp"), ledgerVorgang("redeem", "staff_online", "stamp"), ledgerVorgang("reversal", "staff_correction", "stamp"), ledgerVorgang("award", "synthetic_seed", "stamp"), ledgerVorgang("award", "legacy_unclassified", "points")])
     .toEqual(["Stempel", "Punkte (offline)", "Stempel (NFC automatisch)", "Empfehlungsbonus", "Prämie eingelöst", "Korrektur", "Sonstige Buchung", "Sonstige Buchung"]);
+});
+
+it("labels every ledger source the database accepts, in the owner history and the CSV", async () => {
+  const { rows: [{ def }] } = await pool.query<{ def: string }>("select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'ledger_source_valid'");
+  const sources = [...def.matchAll(/'(\w+)'::/g)].map(match => match[1]);
+  expect(sources).toEqual(expect.arrayContaining(["welcome_bonus", "happy_hour"]));
+  for (const source of sources) {
+    expect(sourceLabel(source), source).not.toBe("Unbekannte Quelle");
+    if (source !== "synthetic_seed" && source !== "legacy_unclassified") expect(ledgerVorgang(source === "staff_correction" ? "reversal" : "award", source, "points"), source).not.toBe("Sonstige Buchung");
+  }
+  expect([ledgerVorgang("award", "welcome_bonus", "stamp"), ledgerVorgang("award", "happy_hour", "points"), sourceLabel("welcome_bonus"), sourceLabel("happy_hour")]).toEqual(["Startbonus", "Happy Hour", "Startbonus", "Happy Hour"]);
 });
 
 it("exports Karten and Buchungen for the owner's tenant only, Excel-ready, without credentials", async () => {
