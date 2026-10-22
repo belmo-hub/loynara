@@ -9,7 +9,7 @@ import { useLoad } from "@/components/owner/use-load";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet } from "@/components/ui/sheet";
-import { WinbackCard, type Winback } from "@/components/owner/winback-card";
+import { AlmostCard, WinbackCard, type Winback } from "@/components/owner/winback-card";
 import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint, OWNER_CONFIRM_TEXT, OWNER_GUIDANCE, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
 
 type Row = { id: string; text: string; status: "queued" | "sending" | "complete" | "stopped"; createdAt: string; audience: number; sent: number; failed: number; skipped: number; removed: number; warn: boolean };
@@ -103,6 +103,7 @@ export default function WalletMessagesPage() {
         <Button disabled={!canContinue} onClick={() => setOpen(true)}>{d.quietNow ? "Ab 8 Uhr senden" : "Weiter"}</Button>
       </section>
       <WinbackCard slug={slug} initial={d.winback} />
+      <AlmostCard slug={slug} initial={d.winback} />
       <section className="ow-card ow-stack" aria-labelledby="wm-history">
         <h2 id="wm-history">Gesendete Nachrichten</h2>
         {d.history.length === 0 ? <p className="ow-muted">Noch keine Nachricht gesendet.</p> : (
