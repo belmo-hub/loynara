@@ -25,14 +25,16 @@ async function staff(s: Shop, role: "cashier" | "manager") {
   return id;
 }
 /**
- * A shop whose location timezone has at least one earlier day in the current month, so a visit "on day 1" is a different
- * day of the same month whatever date the suite runs on.
+ * A timezone in which `now` is day 2 or later of its month, so day 1 is an earlier day of the same month whatever date the
+ * suite runs on, the 1st included: when Berlin is on the 1st, Kiritimati (UTC+14) or Pago Pago (UTC-11) is not.
  */
+const zoneWithEarlierDay = (now: Date) => ["Europe/Berlin", "Pacific/Kiritimati", "Pacific/Pago_Pago"].find(zone => Number(new Intl.DateTimeFormat("en", { day: "numeric", timeZone: zone }).format(now)) >= 2);
+/** A shop in such a timezone (see zoneWithEarlierDay). */
 async function shop(programType: "points" | "stamp" = "stamp", name = "Synthetic Döner") {
   const owner = await user();
   const merchant = await createMerchant({ userId: owner, businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType, rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Döner gratis", rewardCost: 10 });
   const { rows: [{ now }] } = await pool.query<{ now: Date }>("SELECT now()");
-  const timezone = ["Europe/Berlin", "Pacific/Kiritimati", "Pacific/Pago_Pago"].find(zone => Number(new Intl.DateTimeFormat("en", { day: "numeric", timeZone: zone }).format(now)) >= 2)!;
+  const timezone = zoneWithEarlierDay(now)!;
   await pool.query("UPDATE locations SET timezone = $1 WHERE id = $2", [timezone, merchant.locationId]);
   return { owner, timezone, ...merchant };
 }
@@ -53,6 +55,14 @@ async function earlierVisit(s: Shop, membershipId: string, source = "staff_onlin
 const bonusRows = (membershipId: string) => db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, membershipId), eq(ledgerEntries.source, "challenge_bonus")));
 const balanceOf = async (membershipId: string) => (await db.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, membershipId)))[0].balance;
 const challenge = (s: Shop, challengeVisits: number | null, challengeBonus?: number, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, challengeVisits, challengeBonus });
+
+describe("date independence of this suite", () => {
+  it("always finds a zone with an earlier day of the month, every half hour from 30 Oct to 3 Nov and around New Year", () => {
+    for (const start of [Date.UTC(2026, 9, 30), Date.UTC(2026, 11, 30)]) {
+      for (let at = start; at < start + 4 * 86_400_000; at += 30 * 60_000) expect(zoneWithEarlierDay(new Date(at)), new Date(at).toISOString()).toBeDefined();
+    }
+  });
+});
 
 describe("challenge setting", () => {
   it("is off by default: no bonus and nothing on the card", async () => {
