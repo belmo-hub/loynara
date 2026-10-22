@@ -1,3 +1,5 @@
+import type { HappyHourWindow } from "@/lib/happy-hour";
+
 export class ClientApiError extends Error {
   constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number) { super(message); }
 }
@@ -64,6 +66,8 @@ export type MeResponse = {
   cardNews?: string;
   /** The shop's Google review link, or null. */
   reviewUrl?: string | null;
+  happyHourEnabled?: boolean;
+  happyHourWindows?: HappyHourWindow[];
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
@@ -105,6 +109,8 @@ export type CardResponse = {
   news?: string;
   /** Present only after the card's third staff-confirmed visit and when the shop stored a link. */
   reviewUrl?: string;
+  /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */
+  happyHourUntil?: string;
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
-  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean }>;
+  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean }>;
 };

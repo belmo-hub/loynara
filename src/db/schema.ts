@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { HappyHourWindow } from "@/lib/happy-hour";
 import {
   boolean,
   check,
@@ -118,6 +119,9 @@ export const programs = pgTable("programs", {
   cardNews: varchar("card_news", { length: 140 }).notNull().default(""),
   // The shop's Google review link, shown on the card after the third visit; never tied to a reward.
   reviewUrl: varchar("review_url", { length: 500 }),
+  // Happy hour: weekly windows (lib/happy-hour) in the location's timezone with doubled purchase points. Off by default.
+  happyHourEnabled: boolean("happy_hour_enabled").notNull().default(false),
+  happyHourWindows: jsonb("happy_hour_windows").$type<HappyHourWindow[]>().notNull().default(sql`'[]'::jsonb`),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [
@@ -130,6 +134,7 @@ export const programs = pgTable("programs", {
   check("program_tap_mode_valid", sql`${t.tapMode} in ('disabled','automatic_fixed','staff_confirmed')`),
   check("program_tap_cooldown_valid", sql`${t.tapCooldownSeconds} is null or ${t.tapCooldownSeconds} between 1 and 86400`),
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
+  check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
 ]);
 
@@ -305,7 +310,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   // Awards add, redemptions subtract, and only a reversal points at the entry it undoes.
   check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} = 'redeem' and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour')`),
   check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
 ]);
 
