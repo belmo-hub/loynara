@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { pool } from "@/db";
 import { deleteCardBirthday, getBirthday, getCardBirthday, queueBirthdayMessages, setCardBirthday, updateBirthday } from "./birthday";
 import { closeCard } from "./card-lifecycle";
+import { getCustomerExport } from "./export";
 import { award, reverseEntry } from "./loyalty";
 import { getMerchantMember } from "./merchant-members";
 import { createMerchant, enroll, getCard, lookupCard } from "./product";
@@ -59,6 +60,10 @@ describe("the birthday on the card", () => {
     await setCardBirthday(c.cardToken, { day: 29, month: 2 });
     await setCardBirthday(c.cardToken, { day: 22, month: 10 });
     expect(await stored(c)).toEqual([{ day: 22, month: 10 }]);
+    // The customer's own export carries it (Art. 15/20), and stops carrying it once deleted.
+    expect((await getCustomerExport(c.cardToken)).birthday).toEqual({ day: 22, month: 10 });
+    await deleteCardBirthday(c.cardToken);
+    expect((await getCustomerExport(c.cardToken)).birthday).toBeNull();
   });
 
   it("is deleted completely on request, even after the owner switched the bonus off, and when the card is closed", async () => {
