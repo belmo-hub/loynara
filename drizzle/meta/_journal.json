@@ -239,6 +239,13 @@
       "when": 1792624651805,
       "tag": "0033_winback",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792624711805,
+      "tag": "0034_birthday",
+      "breakpoints": true
     }
   ]
 }

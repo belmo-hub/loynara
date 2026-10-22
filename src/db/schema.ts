@@ -129,6 +129,9 @@ export const programs = pgTable("programs", {
   winbackBonus: integer("winback_bonus").notNull().default(1),
   // "Fast geschafft" (ENG-045): one Wallet reminder per reward cycle when a card is close to its next reward. Off by default.
   almostEnabled: boolean("almost_enabled").notNull().default(false),
+  // Birthday bonus (ENG-049): booked with a confirmed award in the card's birthday week, once a year. Off by default.
+  birthdayEnabled: boolean("birthday_enabled").notNull().default(false),
+  birthdayBonus: integer("birthday_bonus").notNull().default(1),
   // Last day (Berlin calendar day) the programme works; the worker ends it after that day. Null = no cancellation.
   cancellationEndDate: date("cancellation_end_date"),
   // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
@@ -149,6 +152,7 @@ export const programs = pgTable("programs", {
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
+  check("program_birthday_bonus_valid", sql`${t.birthdayBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
   check("program_winback_valid", sql`${t.winbackDays} between 14 and 90 and ${t.winbackBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
 ]);
 
@@ -324,7 +328,7 @@ export const ledgerEntries = pgTable("ledger_entries", {
   // Awards add, redemptions subtract, and only a reversal points at the entry it undoes.
   check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} = 'redeem' and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus')`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus')`),
   check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
 ]);
 
@@ -882,6 +886,21 @@ export const rateLimits = pgTable("rate_limits", {
 ]);
 
 /**
+ * The customer's optional birthday (ENG-049): day and month only, no year. Its own table so no membership read can carry it
+ * to the shop; deleting the row deletes the birthday. Basis Art. 6 (1) (b) (Legal, 22 Oct): entering it is the choice.
+ */
+export const cardBirthdays = pgTable("card_birthdays", {
+  membershipId: uuid("membership_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  day: integer("day").notNull(),
+  month: integer("month").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  check("card_birthday_valid", sql`${t.month} between 1 and 12 and ${t.day} between 1 and (case when ${t.month} = 2 then 29 when ${t.month} in (4,6,9,11) then 30 else 31 end)`),
+]);
+
+/**
  * Wallet-message consent log (ENG-043), one row per grant: append-only. The only permitted change is setting withdrawn_at
  * once (trigger in 0031); a new grant after a withdrawal is a new row. At most one open grant per card.
  */
@@ -945,7 +964,7 @@ export const walletMessages = pgTable("wallet_messages", {
   unique("wallet_messages_tenant_id_id_uq").on(t.tenantId, t.id),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   index("wallet_messages_program_idx").on(t.tenantId, t.programId, t.createdAt),
-  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback','almost')`),
+  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback','almost','birthday')`),
   check("wallet_message_status_valid", sql`${t.status} in ('queued','sending','complete','stopped')`),
 ]);
 

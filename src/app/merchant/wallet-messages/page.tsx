@@ -9,11 +9,11 @@ import { useLoad } from "@/components/owner/use-load";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet } from "@/components/ui/sheet";
-import { AlmostCard, WinbackCard, type Winback } from "@/components/owner/winback-card";
+import { AlmostCard, BirthdayCard, WinbackCard, type Birthday, type Winback } from "@/components/owner/winback-card";
 import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint, OWNER_CONFIRM_TEXT, OWNER_GUIDANCE, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
 
 type Row = { id: string; text: string; status: "queued" | "sending" | "complete" | "stopped"; createdAt: string; audience: number; sent: number; failed: number; skipped: number; removed: number; warn: boolean };
-type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: Row[]; winback: Winback };
+type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: Row[]; winback: Winback; birthday: Birthday };
 
 const DRAFT = "loynara-wallet-message-draft";
 const stamp = (iso: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
@@ -104,6 +104,7 @@ export default function WalletMessagesPage() {
       </section>
       <WinbackCard slug={slug} initial={d.winback} />
       <AlmostCard slug={slug} initial={d.winback} />
+      <BirthdayCard slug={slug} type={d.winback.type} initial={d.birthday} />
       <section className="ow-card ow-stack" aria-labelledby="wm-history">
         <h2 id="wm-history">Gesendete Nachrichten</h2>
         {d.history.length === 0 ? <p className="ow-muted">Noch keine Nachricht gesendet.</p> : (
