@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import type { MeResponse } from "@/components/client-api";
 import type { LaunchReadiness } from "@/lib/readiness";
 import type { RetentionSummary } from "@/lib/retention";
 import { BrowserCardPreview } from "./card-preview";
 import { JoinCard } from "./join-card";
 import { ReadinessCard } from "./readiness-card";
-import { RetentionInsights, type ReferralRow } from "./retention-insights";
+import { buildInsights, RetentionInsights, type ReferralRow } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { germanDate, nf, Skeleton, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
@@ -60,44 +59,34 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const owner = useOwner();
   const isOwner = me.role === "owner";
   const periodMode = isOwner && owner.locations.length === 1;
-  const [windowDays, setWindowDays] = useState<30 | 90>(30);
-  const [analytics, reloadAnalytics] = useLoad<Analytics>(periodMode ? `/api/merchant/analytics?window=${windowDays}` : null);
+  // shortcut: the analytics API offers 30 or 90 days only; a true "this week" needs a 7-day window (follow-up).
+  const [analytics, reloadAnalytics] = useLoad<Analytics>(periodMode ? "/api/merchant/analytics?window=30" : null);
   const slug = encodeURIComponent(me.programSlug);
   // Retention insights need no campaign surface: they read recorded checkouts and link to real pages (customers,
   // referrals; campaign drafts only where that surface is offered).
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
-  const [referrals, reloadReferrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${slug}` : null);
+  const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${slug}` : null);
   const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const [refreshing, setRefreshing] = useState(false);
-
-  async function refreshAll() {
-    setRefreshing(true);
-    await owner.refresh();
-    reloadAnalytics(); reloadRetention(); reloadReferrals(); reloadReadiness();
-    setRefreshing(false);
-    owner.announce("Übersicht aktualisiert.");
-  }
 
   const asOf = analytics.state === "ok" ? analytics.data.asOf : undefined;
+  // While a required set-up step is open it leads "Als Nächstes"; otherwise the first insight does and leaves the list.
+  const setup = readiness.state === "ok" ? readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly)) : undefined;
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
         <div>
           <p className="ow-eyebrow">{me.locationName}</p>
           <h1>Übersicht</h1>
-          <p>{periodMode ? `Zeitraum: letzte ${windowDays} Tage.` : "Zahlen dieses Standorts seit Programmstart."}{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{isOwner && !periodMode && owner.locations.length > 1 && <> Zeiträume für alle Standorte findest du unter <Link className="ow-link" href="/merchant/analytics">Ergebnisse</Link>.</>}</p>
-        </div>
-        <div className="ow-row">
-          {periodMode && <div className="ow-seg" role="group" aria-label="Zeitraum">{([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}</div>}
-          <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void refreshAll()} disabled={refreshing}>{refreshing ? "Aktualisiert …" : "Aktualisieren"}</button>
+          <p>{periodMode ? "In den letzten 30 Tagen." : "Zahlen dieses Standorts seit Programmstart."}{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{periodMode && <> <Link className="ow-link" href="/merchant/analytics">Alle Zahlen und Zeiträume</Link></>}{isOwner && !periodMode && owner.locations.length > 1 && <> Zeiträume für alle Standorte findest du unter <Link className="ow-link" href="/merchant/analytics">Ergebnisse</Link>.</>}</p>
         </div>
       </header>
 
-      {periodMode ? <PeriodMetrics analytics={analytics} days={windowDays} reload={reloadAnalytics} /> : <LifetimeMetrics me={me} />}
+      {periodMode ? <PeriodMetrics analytics={analytics} reload={reloadAnalytics} /> : <LifetimeMetrics me={me} />}
+      <NextStep me={me} retention={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} readiness={readiness} setup={setup} />
 
       <div className="ow-two">
         <div className="ow-stack">
-          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} />
+          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} skipFirst={!setup && readiness.state === "ok"} />
           <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} compact />
           <RecentActivity me={me} />
         </div>
@@ -120,15 +109,36 @@ function value(state: Loadable<number>, reload?: () => void) {
 }
 const pick = (state: Loadable<Analytics>, read: (data: Analytics) => number): Loadable<number> => state.state === "ok" ? { state: "ok", data: read(state.data), at: state.at } : state.state === "error" ? state : { state: "loading" };
 
-function PeriodMetrics({ analytics, days, reload }: { analytics: Loadable<Analytics>; days: number; reload: () => void }) {
-  const data = analytics.state === "ok" ? analytics.data : null;
+/** The three numbers that matter in a shop's first weeks (Product, 22 Oct); everything else lives on Ergebnisse. */
+function PeriodMetrics({ analytics, reload }: { analytics: Loadable<Analytics>; reload: () => void }) {
   return (
-    <dl className="ow-metrics" aria-label={`Kennzahlen, letzte ${days} Tage`} aria-busy={analytics.state === "loading"}>
-      <Metric label="Aktive Karten" note="Stand jetzt, ohne geschlossene Karten">{value(pick(analytics, d => d.currentActiveCards), reload)}</Metric>
-      <Metric label="Neue Karten" note={`Angemeldet in den letzten ${days} Tagen`}>{value(pick(analytics, d => d.newCards), reload)}</Metric>
-      <Metric label="Bestätigte Buchungen" note={data ? `${nf.format(data.participatingCards)} Karten, ${nf.format(data.repeatCards)} mit mehreren. Kein Umsatz.` : "Vorgänge mit Stempel oder Punkten"}>{value(pick(analytics, d => d.qualifyingCheckouts), reload)}</Metric>
-      <Metric label="Eingelöste Prämien" note={`In den letzten ${days} Tagen`}>{value(pick(analytics, d => d.rewards.redemptions), reload)}</Metric>
+    <dl className="ow-metrics ow-metrics--three" aria-label="Kennzahlen, letzte 30 Tage" aria-busy={analytics.state === "loading"}>
+      <Metric label="Neue Karten" note="erstmals angemeldet">{value(pick(analytics, d => d.newCards), reload)}</Metric>
+      <Metric label="Buchungen" note="bestätigt an deiner Kasse">{value(pick(analytics, d => d.qualifyingCheckouts), reload)}</Metric>
+      <Metric label="Stammkunden" note="Karten mit 2+ Buchungen">{value(pick(analytics, d => d.repeatCards), reload)}</Metric>
     </dl>
+  );
+}
+
+/**
+ * One sentence and one next step. While a required set-up step is open, that step leads (a shop with all zeros needs
+ * set-up, not insight); afterwards the most urgent observation from "Was jetzt zählt", with its main action.
+ */
+function NextStep({ me, retention, referrals, readiness, setup }: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; setup?: LaunchReadiness["steps"][number] }) {
+  const isOwner = me.role === "owner";
+  if (retention.state !== "ok" || readiness.state !== "ok") {
+    return retention.state === "error" || readiness.state === "error" ? null : <Skeleton height={112} />;
+  }
+  const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals })[0];
+  const next = setup ? { text: `${setup.title}: ${setup.evidence}`, action: setup.action }
+    : insight ? { text: `${insight.title}.`, action: insight.actions.at(-1) }
+      : { text: "Gerade nichts Dringendes. Dein Team bucht, die Zahlen oben zeigen, wie es läuft.", action: undefined };
+  return (
+    <section className="ow-card ow-next" aria-labelledby="ow-next-title">
+      <h2 id="ow-next-title" className="ow-eyebrow">Als Nächstes</h2>
+      <p className="ow-next-text">{next.text}</p>
+      {next.action && <div><Link className="ow-btn ow-btn--primary" href={next.action.href}>{next.action.label}</Link></div>}
+    </section>
   );
 }
 
