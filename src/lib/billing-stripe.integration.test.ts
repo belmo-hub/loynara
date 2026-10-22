@@ -7,6 +7,7 @@ import { createAdditionalLocation } from "./locations";
 import { DomainError } from "./loyalty";
 import { createMerchant } from "./product";
 import { getBillingOverview } from "./billing";
+import { operatorOverview } from "./operator";
 import { applyStripeWebhook, createStripeCheckout, createStripePortal, runBillingJob, setStripeClient, setTenantPlan, STRIPE_STATUS, verifyStripeSignature, type StripeClient } from "./billing-stripe";
 import { GUARANTEE_LINE, VAT_NOTE } from "./stripe-config";
 
@@ -252,7 +253,10 @@ describe("cancellation sets the programme's provisional end date (#84)", () => {
     const s = await subscribed();
     s.fake().cancel_at_period_end = true;
     await deliver(eventFor("customer.subscription.updated", s.subscriptionId));
-    expect(await programme(s.programId)).toMatchObject({ status: "active", cancellationEndDate: "2026-12-02", cancellationConfirmedAt: null });
+    expect(await programme(s.programId)).toMatchObject({ status: "active", cancellationEndDate: "2026-12-02", cancellationConfirmedAt: null, cancellationRequestedAt: expect.any(Date) });
+    // It is a request in /operator's Kündigungen block (active, with an end date), unconfirmed and marked as asked for, not planned by the operator.
+    const row = (await operatorOverview(s.operatorId)).rows.find(item => item.programId === s.programId)!;
+    expect(row).toMatchObject({ status: "active", endDate: "2026-12-02", confirmed: false, requestedDays: 0 });
     s.fake().cancel_at_period_end = false;
     await deliver(eventFor("customer.subscription.updated", s.subscriptionId));
     expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: null, cancellationRequestedAt: null });

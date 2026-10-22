@@ -22,11 +22,13 @@ describe("pilot surfaces follow the canonical production definition", () => {
     expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "TRUE" })).toBe(true);
     // stripeEnabled relies on this: whenever Stripe may run, the billing surface is shown (synthetic placeholders, no real key).
     const stripe = { LIVE_BILLING_ENABLED: "true", STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001" };
-    for (const env of [{ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` }, { ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` }]) {
+    for (const env of [{ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, BILLING_PRODUCTION_APPROVED: "true" }, { ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` }]) {
       expect(stripeEnabled(env)).toBe(true);
       expect(surfaceHidden("billing", env)).toBe(false);
     }
     expect(stripeEnabled({ ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` })).toBe(false);
+    // On real production the founder's approval is the second switch: without it Stripe never runs.
+    expect(stripeEnabled({ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` })).toBe(false);
     // The owner's cancel card is withheld on real production only; every other process offers it.
     expect(surfaceHidden("cancellation", PROD)).toBe(true);
     expect(surfaceHidden("cancellation", {})).toBe(false);

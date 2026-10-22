@@ -26,7 +26,7 @@ const formats: Record<string, RegExp> = {
   STRIPE_PRICE_FOUNDING: price,
   STRIPE_PRICE_LIST: price,
 };
-const OPTIONAL_SETTINGS = ["BILLING_VAT_MODE", "STRIPE_TAX_RATE_ID", "START_GUARANTEE_MIN_CUSTOMERS", "START_GUARANTEE_CONTRACT_CUTOFF"];
+const OPTIONAL_SETTINGS = ["BILLING_PRODUCTION_APPROVED", "BILLING_VAT_MODE", "STRIPE_TAX_RATE_ID", "START_GUARANTEE_MIN_CUSTOMERS", "START_GUARANTEE_CONTRACT_CUTOFF"];
 const isoDay = /^\d{4}-\d{2}-\d{2}$/;
 
 const exactFlag = (env: Env, name: string) => env[name] === undefined || env[name] === "true" || env[name] === "false";
@@ -34,17 +34,20 @@ const intIn = (value: string | undefined, min: number, max: number) => value ===
 
 /**
  * Billing is one group: LIVE_BILLING_ENABLED=true needs every Stripe setting, absent or "false" needs none. A live-mode key
- * belongs to real production only and real production only takes a live-mode key. Messages name settings, never values.
+ * belongs to real production only, and real production only takes a live-mode key and the founder's BILLING_PRODUCTION_APPROVED.
+ * Messages name settings, never values.
  */
 export function stripeConfigIssues(env: Env, production: boolean): string[] {
   const issues: string[] = [];
-  for (const name of ["LIVE_BILLING_ENABLED", "START_GUARANTEE_ENABLED"]) if (!exactFlag(env, name)) issues.push(`${name} must be exactly true or false`);
+  for (const name of ["LIVE_BILLING_ENABLED", "BILLING_PRODUCTION_APPROVED", "START_GUARANTEE_ENABLED"]) if (!exactFlag(env, name)) issues.push(`${name} must be exactly true or false`);
   const live = env.LIVE_BILLING_ENABLED === "true";
   if (live) {
     for (const [name, format] of Object.entries(formats)) if (!format.test(env[name] ?? "")) issues.push(`Live billing requires a valid ${name}`);
     if (env.STRIPE_PRICE_FOUNDING && env.STRIPE_PRICE_FOUNDING === env.STRIPE_PRICE_LIST) issues.push("STRIPE_PRICE_FOUNDING and STRIPE_PRICE_LIST must differ");
     const liveKey = /^(sk|rk)_live_/.test(env.STRIPE_SECRET_KEY ?? "");
     if (production && !liveKey) issues.push("Production billing requires a live-mode STRIPE_SECRET_KEY");
+    // Taking real money is a second explicit act on real production (CTO, 22 Oct), like Wallet's production approval; flags get copied between environments.
+    if (production && env.BILLING_PRODUCTION_APPROVED !== "true") issues.push("Live billing requires a separate production approval (BILLING_PRODUCTION_APPROVED=true)");
     if (!production && liveKey) issues.push("A live-mode STRIPE_SECRET_KEY is only allowed on real production");
   } else if ([...Object.keys(formats), ...OPTIONAL_SETTINGS].some(name => env[name]) || env.START_GUARANTEE_ENABLED === "true") {
     issues.push("Stripe, VAT or start-guarantee settings are present while live billing is not enabled");
