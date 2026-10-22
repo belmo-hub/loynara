@@ -115,7 +115,8 @@ it("gives one generic error for unknown, used, wrong and locked codes, and locks
   expect(await unlockPlateCode({ actorUserId: operator.userId, env: env(), plateLabel: "P-001" })).toEqual({ plateLabel: "P-001", result: "unlocked" });
   expect(await attempt("P-001", plain)).toMatchObject({ result: "link" });
   // A reissued code replaces the old one at once.
-  const [{ code: fresh }] = await issue("P-002");
+  for (let i = 0; i < 5; i++) await code(() => attempt("P-002", "AAAA-AAAA-AAAA")); // locked on P-002 too
+  const [{ code: fresh }] = await issue("P-002"); // the new code starts with no strikes
   expect(await code(() => attempt("P-002", other))).toBe("INVALID_ACTIVATION");
   expect(await attempt("P-002", fresh)).toMatchObject({ result: "link" });
 });
