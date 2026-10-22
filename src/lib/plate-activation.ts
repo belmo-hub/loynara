@@ -1,6 +1,6 @@
 import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { plateActivationCodes, plateActivationFailures, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
@@ -89,9 +89,12 @@ export async function plateTripwire(rawLabel: string) {
   catch (error) { if (!(error instanceof RateLimitError)) throw error; }
   let plateLabel: string;
   try { plateLabel = normalizePlateLabel(rawLabel); } catch { return; } // nothing to show for a label no plate can have
-  console.warn(`PLATE_ACTIVATION_TRIPWIRE ${JSON.stringify({ plateLabel })}`);
   const [tag] = await db.select({ id: secureTags.id }).from(secureTags).where(eq(secureTags.plateLabel, plateLabel));
-  if (tag) await db.update(plateActivationCodes).set({ alertedAt: new Date() }).where(eq(plateActivationCodes.tagId, tag.id));
+  // Once per plate and hour, not on every further try: the row records it, the log says it once.
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const alerted = tag ? await db.update(plateActivationCodes).set({ alertedAt: new Date() })
+    .where(and(eq(plateActivationCodes.tagId, tag.id), or(isNull(plateActivationCodes.alertedAt), lt(plateActivationCodes.alertedAt, hourAgo)))).returning({ tagId: plateActivationCodes.tagId }) : [];
+  if (alerted.length) console.warn(`PLATE_ACTIVATION_TRIPWIRE ${JSON.stringify({ plateLabel })}`);
 }
 
 /**

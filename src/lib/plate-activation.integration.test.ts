@@ -177,6 +177,7 @@ it("records more than 50 tries an hour on one plate as a warning for the operato
     for (let i = 0; i < 50; i++) await plateTripwire("P-001");
     expect((await operatorOverview(operator.userId)).plates[0].alertedAt).toBeNull();
     await plateTripwire("P-001"); // the 51st
+    await plateTripwire("P-001"); await plateTripwire("P-001"); // further tries log nothing more
     await plateTripwire("not a plate"); // counted, nothing to record
   } finally { console.warn = warn; }
   expect(warned).toEqual(['PLATE_ACTIVATION_TRIPWIRE {"plateLabel":"P-001"}']);
