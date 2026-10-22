@@ -34,8 +34,8 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--color-bg` | #F6F3EC | #0F1713 | page background |
-| `--color-surface` | #FCFBF7 | #16201B | panels, list groups |
+| `--color-bg` | #EEF0EF | #0F1713 | page background |
+| `--color-surface` | #FFFFFF | #16201B | panels, list groups |
 | `--color-raised` | #FFFFFF | #1D2923 | inputs, tickets, menus |
 | `--color-ink` | #17291F | #E9EFEA | primary text |
 | `--color-ink-muted` | #58645C | #A6B3AA | secondary text (≥ 5.5:1) |

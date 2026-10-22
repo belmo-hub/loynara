@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { contrast, mix, parseHex } from "./color";
 import { merchantPalette } from "./merchant-color";
 
-const SURFACE = { light: "#FCFBF7", dark: "#16201B" };
+const GROUND = { light: "#EEF0EF", dark: "#16201B" };
 const samples = ["#2F6B58", "#245D47", "#FFFFFF", "#000000", "#E9C46A", "#FF0000", "#7A3E9D", "#3B82F6", "#F4DDD0", "#808080"];
 
 describe("merchantPalette", () => {
@@ -15,7 +15,7 @@ describe("merchantPalette", () => {
   });
 
   it.each(samples.flatMap((hex) => (["light", "dark"] as const).map((theme) => [hex, theme] as const)))("gives %s a text colour that passes on the %s surface", (hex, theme) => {
-    expect(contrast(merchantPalette(hex, theme).merchantText, SURFACE[theme])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(merchantPalette(hex, theme).merchantText, GROUND[theme])).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(samples)("keeps earned stamps distinguishable from the card for %s", (hex) => {
