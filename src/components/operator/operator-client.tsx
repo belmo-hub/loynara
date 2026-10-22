@@ -22,12 +22,15 @@ type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
 type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string };
-type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; decidedAt: Date | string | null };
+type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 
+// „erreicht“: the location reached the start target, no credit. „nicht erreicht“: the month-2 credit is owed or issued.
+const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? "Startgarantie nicht erreicht: Monat 2 kostenlos, Gutschrift erteilt" : "Startgarantie nicht erreicht: Gutschrift noch offen")
+  : g.outcome === "reached" ? "Startgarantie erreicht" : g.outcome === "late" ? "Startgarantie zu spät entschieden, keine Gutschrift" : "Startgarantie entfällt (gekündigt, nicht bezahlt oder Vertrag nach Stichtag)";
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
@@ -100,9 +103,9 @@ export function OperatorClient({ rows, plates, billing, guarantees }: { rows: Ro
     </Card> : null}
 
     {guarantees.length ? <Card as="section" aria-labelledby="op-guarantee">
-      <CardHeader id="op-guarantee" title="Startgarantie angewendet" description="Diese Standorte haben auf der Rechnung für Monat 2 eine Gutschrift „Monat 2 kostenlos – Startgarantie“." />
+      <CardHeader id="op-guarantee" title="Startgarantie" description="Je Standort einmal entschieden, mit der Rechnung für Monat 2. Kund:innen = mit bestätigter Gutschrift im ersten Monat." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-        {guarantees.map(g => <li key={g.locationId} role="status"><strong>{g.tenant}</strong> · {g.location} · {g.customers} Kund:innen mit bestätigter Gutschrift im ersten Monat · entschieden am {date(g.decidedAt)}</li>)}
+        {guarantees.map(g => <li key={g.locationId} role={g.outcome === "credit" && !g.credited ? "alert" : "status"}><strong>{g.tenant}</strong> · {g.location} · <Badge tone={g.outcome === "credit" ? (g.credited ? "success" : "warning") : "neutral"}>{GUARANTEE_TEXT(g)}</Badge> · {g.customers} Kund:innen · entschieden am {date(g.decidedAt)}</li>)}
       </ul>
     </Card> : null}
 

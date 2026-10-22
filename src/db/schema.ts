@@ -800,14 +800,18 @@ export const billingLocationPlans = pgTable("billing_location_plans", {
   priceMinor: integer("price_minor").notNull(),
   memberLimit: integer("member_limit").notNull().default(10000),
   createdAt: createdAt(),
-  // Start guarantee (ENG-055), decided once per location: distinct customers with a confirmed credit in its first month.
+  // Start guarantee (ENG-055), decided once per location and recorded BEFORE any Stripe call: the outcome, the month-2 invoice
+  // to credit, and the Stripe invoice item or credit note once issued (null while the credit is still owed).
   guaranteeDecidedAt: timestamp("guarantee_decided_at", { withTimezone: true }),
   guaranteeCustomers: integer("guarantee_customers"),
-  guaranteeApplied: boolean("guarantee_applied").notNull().default(false),
+  guaranteeOutcome: varchar("guarantee_outcome", { length: 12 }),
+  guaranteeInvoiceId: varchar("guarantee_invoice_id", { length: 64 }),
+  guaranteeCreditRef: varchar("guarantee_credit_ref", { length: 64 }),
 }, (t) => [
   primaryKey({ columns: [t.tenantId, t.locationId] }),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("billing_plan_values_valid", sql`${t.priceMinor} > 0 and ${t.memberLimit} > 0 and ${t.planCode} = 'local_standard'`),
+  check("billing_plan_guarantee_valid", sql`${t.guaranteeOutcome} is null or (${t.guaranteeOutcome} in ('credit','reached','ineligible','late') and (${t.guaranteeOutcome} = 'credit') = (${t.guaranteeInvoiceId} is not null))`),
 ]);
 
 export const billingHandoffs = pgTable("billing_handoffs", {

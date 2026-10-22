@@ -168,11 +168,11 @@ export async function applyStripeWebhook(raw: string, signature: string, at = ne
   const event = stripeEvent.parse(parsed);
   if (!event.type.startsWith("customer.subscription.") && event.type !== "invoice.created") return { status: "ignored" as const };
   const payloadHash = createHash("sha256").update(raw).digest("hex");
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${event.id}::text, 13))`);
-    const [prior] = await tx.select({ eventId: billingWebhookEvents.eventId }).from(billingWebhookEvents).where(eq(billingWebhookEvents.eventId, event.id));
-    if (prior) return { status: "duplicate" as const };
-    if (event.type === "invoice.created") return decideStartGuarantee(tx, event.data.object.id, at, { eventId: event.id, eventType: event.type, payloadHash });
+    const [prior] = await tx.select({ tenantId: billingWebhookEvents.tenantId }).from(billingWebhookEvents).where(eq(billingWebhookEvents.eventId, event.id));
+    if (prior) return { status: "duplicate" as const, tenantId: prior.tenantId };
+    if (event.type === "invoice.created") return decideStartGuarantee(tx, event.data.object.id, { eventId: event.id, eventType: event.type, payloadHash }, at);
     const current = stripeSubscription.parse(await client("GET", `/subscriptions/${event.data.object.id}`));
     const tenantId = current.metadata.tenant_id;
     const sub = await lockedSubscription(tx, tenantId);
@@ -206,6 +206,10 @@ export async function applyStripeWebhook(raw: string, signature: string, at = ne
     await tx.insert(billingWebhookEvents).values({ eventId: event.id, tenantId, eventType: event.type, payloadHash });
     return { status: "applied" as const };
   });
+  // The guarantee decision is committed above; only now is the credit issued. If it fails, the error makes Stripe retry the
+  // event, whose duplicate delivery lands here again and finishes the credit (the daily sweep is the backstop).
+  if (event.type === "invoice.created" && "tenantId" in result && result.tenantId) await creditOwedGuarantees(result.tenantId);
+  return { status: result.status };
 }
 
 /** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */
@@ -217,6 +221,12 @@ export async function setTenantPlan(input: { actorUserId: string; env: Env; tena
     const sub = await lockedSubscription(tx, input.tenantId);
     if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Plans are priced in EUR");
     if (sub.providerSubscriptionId && RUNNING.includes(sub.status)) throw new DomainError("BILLING_STATE", "Der Tarif ist für die Vertragslaufzeit fest.");
+    // An open checkout still shows the old price: close it so it can never complete at that price.
+    const open = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, input.tenantId), eq(billingHandoffs.provider, "stripe"), eq(billingHandoffs.status, "pending")));
+    for (const handoff of open) {
+      if (handoff.providerRef) await client("POST", `/checkout/sessions/${handoff.providerRef}/expire`, {}, `expire-${handoff.providerRef}`);
+      await tx.update(billingHandoffs).set({ status: "expired", completedAt: new Date() }).where(eq(billingHandoffs.id, handoff.id));
+    }
     await tx.update(subscriptions).set({ planCode: input.planCode as PlanCode, priceMinor: plan.priceMinor, updatedAt: new Date() }).where(eq(subscriptions.tenantId, input.tenantId));
     await tx.update(billingLocationPlans).set({ priceMinor: plan.priceMinor }).where(eq(billingLocationPlans.tenantId, input.tenantId));
     return { tenantId: input.tenantId, planCode: input.planCode, priceMinor: plan.priceMinor };
@@ -226,16 +236,16 @@ export async function setTenantPlan(input: { actorUserId: string; env: Env; tena
 type Recorded = { eventId: string; eventType: string; payloadHash: string };
 
 /**
- * Start guarantee (pilot agreement § 3 (5)), off by default, decided on the shop's subscription-cycle invoice while it is still
- * a draft, so the credit lands on the month-2 invoice (a daily job could run after Stripe drew it). Per location, once: its
- * first billing month runs from the Berlin day it started billing (the subscription start, or the day a later location was
- * added) to the day before the same day a month later. It qualifies with fewer than START_GUARANTEE_MIN_CUSTOMERS distinct
- * customers who got a team-confirmed credit there (cashier or NFC tap award, not reversed; bonuses and open tap requests do
- * not count). A qualifying location gets one credit line „Monat 2 kostenlos – Startgarantie“ of its monthly price, so a
- * one-location shop's month-2 invoice is still issued, at 0,00 €. A cancelling or unpaid shop, a contract after the cut-off
- * day, or a decision later than the month-2 invoice records "not applied".
+ * Start guarantee (pilot agreement § 3 (5)), off by default, decided when Stripe drafts a subscription-cycle invoice, so the
+ * credit lands on the month-2 invoice (a daily job could run after Stripe drew it). Per location, once: its first billing
+ * month runs from the Berlin day it started billing (the subscription start, or the day a later location was added) to the
+ * day before the same day a month later. It qualifies with fewer than START_GUARANTEE_MIN_CUSTOMERS distinct customers who
+ * got a team-confirmed credit there (cashier or NFC tap award, not reversed within that month; bonuses and open tap requests
+ * do not count). Outcomes: credit, reached, ineligible (cancelling or unpaid shop, contract after the cut-off day), late.
+ * Only the decision is written here, in the webhook's transaction; the credit itself is issued after commit
+ * (creditOwedGuarantees), so a retry can never credit twice.
  */
-async function decideStartGuarantee(tx: Transaction, invoiceId: string, at: Date, recorded: Recorded) {
+async function decideStartGuarantee(tx: Transaction, invoiceId: string, recorded: Recorded, at: Date) {
   const invoice = stripeInvoice.parse(await client("GET", `/invoices/${invoiceId}`));
   const subscriptionId = invoice.parent?.subscription_details?.subscription;
   const [owner] = subscriptionId ? await tx.select({ tenantId: subscriptions.tenantId }).from(subscriptions)
@@ -248,44 +258,67 @@ async function decideStartGuarantee(tx: Transaction, invoiceId: string, at: Date
   if (settings && invoice.billing_reason === "subscription_cycle" && sub.startedAt) {
     const eligible = sub.status === "active" && !sub.cancelAtPeriodEnd && (!settings.cutoff || berlinDay(sub.startedAt) <= settings.cutoff);
     const invoiceAt = new Date(invoice.created * 1000).toISOString();
-    const { rows } = await tx.execute(sql`SELECT p.location_id AS "locationId", p.price_minor AS "priceMinor",
+    // A reversal counts only inside the month it measures: one made later cannot pull a location under the threshold.
+    const { rows } = await tx.execute(sql`SELECT p.location_id AS "locationId",
         ${invoiceAt}::timestamptz < ((w.first_day + interval '2 months')::date::timestamp AT TIME ZONE 'Europe/Berlin') AS "onTime",
         (SELECT count(DISTINCT l.membership_id) FROM ledger_entries l
           WHERE l.tenant_id = p.tenant_id AND l.location_id = p.location_id AND l.kind = 'award' AND l.source IN ('staff_online', 'staff_offline', 'nfc_tap')
-            AND l.created_at >= (w.first_day::timestamp AT TIME ZONE 'Europe/Berlin')
-            AND l.created_at < ((w.first_day + interval '1 month')::date::timestamp AT TIME ZONE 'Europe/Berlin')
-            AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.tenant_id = l.tenant_id AND r.reversal_of_id = l.id))::int AS customers
+            AND l.created_at >= w.month_start AND l.created_at < w.month_end
+            AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.tenant_id = l.tenant_id AND r.reversal_of_id = l.id AND r.created_at < w.month_end))::int AS customers
       FROM billing_location_plans p
-      CROSS JOIN LATERAL (SELECT (greatest(${sub.startedAt.toISOString()}::timestamptz, p.created_at) AT TIME ZONE 'Europe/Berlin')::date AS first_day) w
-      WHERE p.tenant_id = ${sub.tenantId} AND p.guarantee_decided_at IS NULL
-        AND ${invoiceAt}::timestamptz >= ((w.first_day + interval '1 month')::date::timestamp AT TIME ZONE 'Europe/Berlin')
+      CROSS JOIN LATERAL (SELECT (greatest(${sub.startedAt.toISOString()}::timestamptz, p.created_at) AT TIME ZONE 'Europe/Berlin')::date AS first_day) d
+      CROSS JOIN LATERAL (SELECT d.first_day, (d.first_day::timestamp AT TIME ZONE 'Europe/Berlin') AS month_start,
+        ((d.first_day + interval '1 month')::date::timestamp AT TIME ZONE 'Europe/Berlin') AS month_end) w
+      WHERE p.tenant_id = ${sub.tenantId} AND p.guarantee_decided_at IS NULL AND ${invoiceAt}::timestamptz >= w.month_end
       ORDER BY p.location_id`);
-    for (const row of rows as Array<{ locationId: string; priceMinor: number; onTime: boolean; customers: number }>) {
-      const applied = eligible && row.onTime && row.customers < settings.minCustomers;
-      if (applied) {
-        // On the draft month-2 invoice; if Stripe already finalized it, the credit waits for the next invoice instead of being lost.
-        await client("POST", "/invoiceitems", {
-          customer: invoice.customer, amount: String(-row.priceMinor), currency: "eur", description: GUARANTEE_LINE,
-          ...(invoice.status === "draft" ? { invoice: invoice.id } : { subscription: subscriptionId! }),
-          ...(vatMode() === "standard" ? { "tax_rates[0]": process.env.STRIPE_TAX_RATE_ID! } : {}),
-        }, `guarantee-${row.locationId}`);
-      }
-      await tx.update(billingLocationPlans).set({ guaranteeDecidedAt: at, guaranteeCustomers: row.customers, guaranteeApplied: applied })
+    for (const row of rows as Array<{ locationId: string; onTime: boolean; customers: number }>) {
+      const outcome = !eligible ? "ineligible" : !row.onTime ? "late" : row.customers < settings.minCustomers ? "credit" : "reached";
+      await tx.update(billingLocationPlans).set({ guaranteeDecidedAt: at, guaranteeCustomers: row.customers, guaranteeOutcome: outcome, guaranteeInvoiceId: outcome === "credit" ? invoice.id : null })
         .where(and(eq(billingLocationPlans.tenantId, sub.tenantId), eq(billingLocationPlans.locationId, row.locationId)));
-      if (applied) console.log(`Start guarantee applied: tenant ${sub.tenantId}, location ${row.locationId}, ${row.customers} customers`);
       decided += 1;
     }
   }
   await tx.insert(billingWebhookEvents).values({ ...recorded, tenantId: sub.tenantId });
-  return { status: decided ? "applied" as const : "ignored" as const };
+  return { status: decided ? "applied" as const : "ignored" as const, tenantId: sub.tenantId };
 }
 
 /**
- * The worker's daily billing job: one unit per location, so the Stripe quantity follows the shop's location count from the
- * next invoice on (no proration). Returns how many subscriptions it changed.
+ * Issues every start-guarantee credit that is decided but not yet in Stripe (one shop, or all for the daily sweep). Each one
+ * runs under its location row's lock with the idempotency key (invoice, location): a line „Monat 2 kostenlos – Startgarantie“
+ * of the location's monthly price on the month-2 invoice while it is a draft, or, once Stripe finalized it, a credit note on
+ * that invoice with the same line and amount. A failure leaves the credit owed (shown on /operator) and the next webhook
+ * retry or the daily sweep issues it.
+ */
+export async function creditOwedGuarantees(tenantId?: string) {
+  const owed = await db.select({ tenantId: billingLocationPlans.tenantId, locationId: billingLocationPlans.locationId }).from(billingLocationPlans)
+    .where(and(eq(billingLocationPlans.guaranteeOutcome, "credit"), isNull(billingLocationPlans.guaranteeCreditRef), tenantId ? eq(billingLocationPlans.tenantId, tenantId) : undefined));
+  let credited = 0;
+  for (const owedRow of owed) {
+    credited += await db.transaction(async tx => {
+      const [row] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, owedRow.tenantId), eq(billingLocationPlans.locationId, owedRow.locationId), isNull(billingLocationPlans.guaranteeCreditRef))).for("update");
+      if (!row?.guaranteeInvoiceId) return 0;
+      const invoice = stripeInvoice.parse(await client("GET", `/invoices/${row.guaranteeInvoiceId}`));
+      const key = `guarantee-${invoice.id}-${row.locationId}`;
+      const taxRate = vatMode() === "standard" ? process.env.STRIPE_TAX_RATE_ID! : null;
+      // shortcut: a credit note on a paid invoice goes to the customer's Stripe balance (Stripe's default), used by the next invoice; verify in Stripe test mode before live.
+      const created = z.object({ id: z.string().regex(/^(ii|cn)_[A-Za-z0-9]+$/) }).parse(invoice.status === "draft"
+        ? await client("POST", "/invoiceitems", { customer: invoice.customer, invoice: invoice.id, amount: String(-row.priceMinor), currency: "eur", description: GUARANTEE_LINE, ...(taxRate ? { "tax_rates[0]": taxRate } : {}) }, key)
+        : await client("POST", "/credit_notes", { invoice: invoice.id, "lines[0][type]": "custom_line_item", "lines[0][description]": GUARANTEE_LINE, "lines[0][quantity]": "1", "lines[0][unit_amount]": String(row.priceMinor), ...(taxRate ? { "lines[0][tax_rates][0]": taxRate } : {}) }, key));
+      await tx.update(billingLocationPlans).set({ guaranteeCreditRef: created.id }).where(and(eq(billingLocationPlans.tenantId, row.tenantId), eq(billingLocationPlans.locationId, row.locationId)));
+      console.log(`Start guarantee credited: tenant ${row.tenantId}, location ${row.locationId}, ${created.id.startsWith("cn_") ? "credit note" : "invoice line"}`);
+      return 1;
+    });
+  }
+  return credited;
+}
+
+/**
+ * The worker's daily billing job: issues any start-guarantee credit still owed, and keeps one unit per location, so the Stripe
+ * quantity follows the shop's location count from the next invoice on (no proration).
  */
 export async function runBillingJob(env: Env = process.env) {
-  if (!stripeEnabled(env)) return { quantities: 0 };
+  if (!stripeEnabled(env)) return { quantities: 0, credited: 0 };
+  const credited = await creditOwedGuarantees();
   let quantities = 0;
   const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount })
     .from(subscriptions).where(and(eq(subscriptions.provider, "stripe"), eq(subscriptions.status, "active"), isNotNull(subscriptions.providerSubscriptionId)));
@@ -295,5 +328,5 @@ export async function runBillingJob(env: Env = process.env) {
     await client("POST", `/subscription_items/${item.id}`, { quantity: String(shop.locations), proration_behavior: "none" });
     quantities += 1;
   }
-  return { quantities };
+  return { quantities, credited };
 }

@@ -30,6 +30,7 @@ function fakeStripe() {
     price_list00000001: { id: "price_list00000001", active: true, currency: "eur", unit_amount: 4900, recurring: { interval: "month", interval_count: 1 } },
   };
   const invoices = new Map<string, object>();
+  const failing = new Set<string>();
   const taxRate = { active: true, percentage: 19, inclusive: false };
   let next = 0;
   const notFound = () => { throw new DomainError("PROVIDER_ERROR", "Stripe request failed (404, resource_missing)"); };
@@ -45,12 +46,14 @@ function fakeStripe() {
     if (method === "GET" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) return structuredClone(subs.get(match[1])) ?? notFound();
     if (method === "POST" && /^\/subscriptions\/[^/]+$/.test(path)) return {};
     if (method === "GET" && (match = /^\/invoices\/([^/]+)$/.exec(path))) return invoices.get(match[1]) ?? notFound();
+    if (method === "POST" && failing.has(path)) throw new DomainError("PROVIDER_ERROR", "Stripe request failed (500)");
     if (method === "POST" && path === "/invoiceitems") return { id: `ii_test${++next}` };
+    if (method === "POST" && path === "/credit_notes") return { id: `cn_test${++next}` };
     if (method === "GET" && /^\/tax_rates\//.test(path)) return taxRate;
     if (method === "POST" && (match = /^\/subscription_items\/([^/]+)$/.exec(path))) { for (const sub of subs.values()) for (const item of sub.items.data) if (item.id === match[1]) item.quantity = Number(params.quantity); return {}; }
     throw new Error(`Unexpected Stripe call ${method} ${path}`);
   };
-  return { client, calls, subs, sessions, prices, invoices, taxRate };
+  return { client, calls, subs, sessions, prices, invoices, taxRate, failing };
 }
 
 let stripe = fakeStripe();
@@ -213,6 +216,17 @@ describe("plans and checkout", () => {
     expect((await getBillingOverview(s.ownerId)).countingRule).toContain("Zuzüglich 19 % Umsatzsteuer.");
   });
 
+  it("closes an open checkout when the operator changes the plan, so it can never complete at the old price", async () => {
+    const s = await shop();
+    await setTenantPlan({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, planCode: "founding" });
+    const first = await createStripeCheckout(s.ownerId);
+    await setTenantPlan({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, planCode: "list" });
+    expect([...stripe.sessions.values()].map(session => session.status)).toEqual(["expired"]);
+    const second = await createStripeCheckout(s.ownerId);
+    expect(second.url).not.toBe(first.url);
+    expect(stripe.calls.filter(call => call.method === "POST" && call.path === "/checkout/sessions").map(call => call.params["line_items[0][price]"])).toEqual(["price_founding0001", "price_list00000001"]);
+  });
+
   it("lets only the operator choose the plan, and locks it while a subscription runs", async () => {
     const s = await subscribed("founding");
     await expect(setTenantPlan({ actorUserId: s.ownerId, env: process.env, tenantId: s.tenantId, planCode: "list" })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -271,13 +285,16 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
   async function customers(s: { tenantId: string; locationId: string; programId: string }, count: number, at: Date) {
     for (let i = 0; i < count; i++) await credit(s.tenantId, s.locationId, await card(s.tenantId, s.programId), at);
   }
-  async function cycleInvoice(s: { customer: string; subscriptionId: string }, created: Date, overrides: Record<string, unknown> = {}) {
+  function invoiceEvent(s: { customer: string; subscriptionId: string }, created: Date, overrides: Record<string, unknown> = {}) {
     const id = `in_test${++invoiceNumber}x${randomUUID().slice(0, 8)}`;
     stripe.invoices.set(id, { id, customer: s.customer, status: "draft", billing_reason: "subscription_cycle", created: seconds(created), parent: { subscription_details: { subscription: s.subscriptionId } }, ...overrides });
-    const raw = JSON.stringify({ id: `evt_${randomUUID().replaceAll("-", "")}`, type: "invoice.created", data: { object: { id, object: "invoice" } } });
-    return { id, result: await deliver(raw), raw };
+    return { id, raw: JSON.stringify({ id: `evt_${randomUUID().replaceAll("-", "")}`, type: "invoice.created", data: { object: { id, object: "invoice" } } }) };
   }
-  const credits = () => stripe.calls.filter(call => call.method === "POST" && call.path === "/invoiceitems");
+  async function cycleInvoice(s: { customer: string; subscriptionId: string }, created: Date, overrides: Record<string, unknown> = {}) {
+    const event = invoiceEvent(s, created, overrides);
+    return { ...event, result: await deliver(event.raw) };
+  }
+  const credits = () => stripe.calls.filter(call => call.method === "POST" && (call.path === "/invoiceitems" || call.path === "/credit_notes"));
   const plan = async (tenantId: string, locationId: string) => (await db.select().from(billingLocationPlans).where(eq(billingLocationPlans.tenantId, tenantId))).find(row => row.locationId === locationId)!;
 
   it("is off by default: the month-2 invoice is left alone", async () => {
@@ -296,8 +313,8 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
     await customers(s, 1, windowEnd); // nor the same day a month later
     const invoice = await cycleInvoice(s, PERIOD_END);
     expect(invoice.result).toEqual({ status: "applied" });
-    expect(credits()).toMatchObject([{ params: { customer: s.customer, invoice: invoice.id, amount: "-3900", currency: "eur", description: GUARANTEE_LINE }, key: `guarantee-${s.locationId}` }]);
-    expect(await plan(s.tenantId, s.locationId)).toMatchObject({ guaranteeApplied: true, guaranteeCustomers: 19 });
+    expect(credits()).toMatchObject([{ path: "/invoiceitems", params: { customer: s.customer, invoice: invoice.id, amount: "-3900", currency: "eur", description: GUARANTEE_LINE }, key: `guarantee-${invoice.id}-${s.locationId}` }]);
+    expect(await plan(s.tenantId, s.locationId)).toMatchObject({ guaranteeOutcome: "credit", guaranteeCustomers: 19, guaranteeInvoiceId: invoice.id, guaranteeCreditRef: expect.stringMatching(/^ii_/) });
     expect(await deliver(invoice.raw)).toEqual({ status: "duplicate" });
     await cycleInvoice(s, new Date("2027-01-02T10:00:00.000Z"));
     expect(credits()).toHaveLength(1);
@@ -309,9 +326,9 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
     const full = await subscribed();
     await customers(full, 20, inside);
     await cycleInvoice(full, PERIOD_END);
-    expect(await plan(full.tenantId, full.locationId)).toMatchObject({ guaranteeApplied: false, guaranteeCustomers: 20 });
+    expect(await plan(full.tenantId, full.locationId)).toMatchObject({ guaranteeOutcome: "reached", guaranteeCustomers: 20, guaranteeCreditRef: null });
     const mixed = await subscribed();
-    await customers(mixed, 17, inside);
+    await customers(mixed, 16, inside);
     const regular = await card(mixed.tenantId, mixed.programId);
     for (let i = 0; i < 3; i++) await credit(mixed.tenantId, mixed.locationId, regular, inside);
     const reversed = await card(mixed.tenantId, mixed.programId);
@@ -319,9 +336,27 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
     await pool.query("INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, reversal_of_id) VALUES ($1, $2, $3, -1, 'reversal', 'staff_correction', (SELECT user_id FROM staff_roles WHERE tenant_id = $1 LIMIT 1), gen_random_uuid(), 'g-rev-' || gen_random_uuid(), $4)", [mixed.tenantId, mixed.locationId, reversed, award]);
     await credit(mixed.tenantId, mixed.locationId, await card(mixed.tenantId, mixed.programId), inside, "welcome_bonus");
     await credit(mixed.tenantId, mixed.locationId, await card(mixed.tenantId, mixed.programId), inside, "nfc_tap");
+    // A reversal made after the first month cannot pull the location under the threshold: this award keeps counting.
+    const reversedLate = await card(mixed.tenantId, mixed.programId);
+    const lateAward = await credit(mixed.tenantId, mixed.locationId, reversedLate, inside);
+    await pool.query("INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, reversal_of_id, created_at) VALUES ($1, $2, $3, -1, 'reversal', 'staff_correction', (SELECT user_id FROM staff_roles WHERE tenant_id = $1 LIMIT 1), gen_random_uuid(), 'g-rev-' || gen_random_uuid(), $4, $5)", [mixed.tenantId, mixed.locationId, reversedLate, lateAward, windowEnd]);
     await cycleInvoice(mixed, PERIOD_END);
-    // 17 + one customer with three credits + one NFC tap = 19; the reversed award and the welcome bonus do not count.
-    expect(await plan(mixed.tenantId, mixed.locationId)).toMatchObject({ guaranteeApplied: true, guaranteeCustomers: 19 });
+    // 16 + one customer with three credits + one NFC tap + one reversed only after the month = 19;
+    // the award reversed inside the month and the welcome bonus do not count.
+    expect(await plan(mixed.tenantId, mixed.locationId)).toMatchObject({ guaranteeOutcome: "credit", guaranteeCustomers: 19 });
+    expect(credits()).toHaveLength(1);
+  });
+
+  it("counts a reversal made inside the first month", async () => {
+    setEnv({ START_GUARANTEE_ENABLED: "true" });
+    const inside = new Date(windowStart.getTime() + 86_400_000);
+    const s = await subscribed();
+    await customers(s, 19, inside);
+    const reversed = await card(s.tenantId, s.programId);
+    const award = await credit(s.tenantId, s.locationId, reversed, inside);
+    await pool.query("INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, reversal_of_id, created_at) VALUES ($1, $2, $3, -1, 'reversal', 'staff_correction', (SELECT user_id FROM staff_roles WHERE tenant_id = $1 LIMIT 1), gen_random_uuid(), 'g-rev-' || gen_random_uuid(), $4, $5)", [s.tenantId, s.locationId, reversed, award, new Date(inside.getTime() + 3600_000)]);
+    await cycleInvoice(s, PERIOD_END);
+    expect(await plan(s.tenantId, s.locationId)).toMatchObject({ guaranteeOutcome: "credit", guaranteeCustomers: 19 });
     expect(credits()).toHaveLength(1);
   });
 
@@ -333,38 +368,65 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
     await pool.query("UPDATE billing_location_plans SET created_at = $1 WHERE location_id = $2", [new Date("2026-10-01T09:00:00.000Z"), busy.locationId]);
     await pool.query("UPDATE billing_location_plans SET created_at = $1 WHERE location_id = $2", [new Date("2026-11-20T09:00:00.000Z"), late.locationId]);
     await customers({ tenantId: s.tenantId, ...busy }, 25, new Date(windowStart.getTime() + 3600_000));
-    await cycleInvoice(s, PERIOD_END);
-    expect(credits().map(call => call.key)).toEqual([`guarantee-${s.locationId}`]);
-    expect(await plan(s.tenantId, busy.locationId)).toMatchObject({ guaranteeApplied: false, guaranteeCustomers: 25 });
+    const month2 = await cycleInvoice(s, PERIOD_END);
+    expect(credits().map(call => call.key)).toEqual([`guarantee-${month2.id}-${s.locationId}`]);
+    expect(await plan(s.tenantId, busy.locationId)).toMatchObject({ guaranteeOutcome: "reached", guaranteeCustomers: 25 });
     expect((await plan(s.tenantId, late.locationId)).guaranteeDecidedAt).toBeNull();
-    await cycleInvoice(s, new Date("2027-01-02T10:00:00.000Z"));
-    expect(credits().map(call => call.key)).toEqual([`guarantee-${s.locationId}`, `guarantee-${late.locationId}`]);
+    const month3 = await cycleInvoice(s, new Date("2027-01-02T10:00:00.000Z"));
+    expect(credits().map(call => call.key)).toEqual([`guarantee-${month2.id}-${s.locationId}`, `guarantee-${month3.id}-${late.locationId}`]);
   });
 
   it("gives nothing to a cancelling shop, a contract after the cut-off day, or with fewer customers than a configured threshold", async () => {
     setEnv({ START_GUARANTEE_ENABLED: "true" });
     const cancelling = await subscribed("founding", { cancel_at_period_end: true });
     await cycleInvoice(cancelling, PERIOD_END);
-    expect(await plan(cancelling.tenantId, cancelling.locationId)).toMatchObject({ guaranteeApplied: false, guaranteeCustomers: 0 });
+    expect(await plan(cancelling.tenantId, cancelling.locationId)).toMatchObject({ guaranteeOutcome: "ineligible", guaranteeCustomers: 0 });
     setEnv({ START_GUARANTEE_CONTRACT_CUTOFF: "2026-11-01" });
     const late = await subscribed();
     await cycleInvoice(late, PERIOD_END);
-    expect(await plan(late.tenantId, late.locationId)).toMatchObject({ guaranteeApplied: false });
+    expect(await plan(late.tenantId, late.locationId)).toMatchObject({ guaranteeOutcome: "ineligible" });
     setEnv({ START_GUARANTEE_CONTRACT_CUTOFF: "2026-11-02", START_GUARANTEE_MIN_CUSTOMERS: "10" });
     const ten = await subscribed();
     await customers(ten, 10, new Date(windowStart.getTime() + 3600_000));
     await cycleInvoice(ten, PERIOD_END);
-    expect(await plan(ten.tenantId, ten.locationId)).toMatchObject({ guaranteeApplied: false, guaranteeCustomers: 10 });
+    expect(await plan(ten.tenantId, ten.locationId)).toMatchObject({ guaranteeOutcome: "reached", guaranteeCustomers: 10 });
     expect(credits()).toHaveLength(0);
   });
 
-  it("puts the credit on the next invoice when Stripe already finalized month 2, with the 19 % rate in standard VAT mode", async () => {
+  it("issues a credit note with the same line and amount when Stripe already finalized month 2 (19 % rate in standard VAT mode)", async () => {
     setEnv({ START_GUARANTEE_ENABLED: "true" });
     const s = await subscribed();
     setEnv({ BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_test00000001" });
-    await cycleInvoice(s, PERIOD_END, { status: "open" });
-    expect(credits()).toMatchObject([{ params: { subscription: s.subscriptionId, "tax_rates[0]": "txr_test00000001" } }]);
-    expect(credits()[0].params.invoice).toBeUndefined();
+    const invoice = await cycleInvoice(s, PERIOD_END, { status: "open" });
+    expect(credits()).toMatchObject([{ path: "/credit_notes", key: `guarantee-${invoice.id}-${s.locationId}`, params: { invoice: invoice.id, "lines[0][type]": "custom_line_item", "lines[0][description]": GUARANTEE_LINE, "lines[0][quantity]": "1", "lines[0][unit_amount]": "3900", "lines[0][tax_rates][0]": "txr_test00000001" } }]);
+    expect(await plan(s.tenantId, s.locationId)).toMatchObject({ guaranteeOutcome: "credit", guaranteeCreditRef: expect.stringMatching(/^cn_/) });
+  });
+
+  it("records the decision before calling Stripe: a failed credit stays owed and the retried event issues it once, with the same key", async () => {
+    setEnv({ START_GUARANTEE_ENABLED: "true" });
+    const s = await subscribed();
+    stripe.failing.add("/invoiceitems");
+    const event = invoiceEvent(s, PERIOD_END);
+    await expect(deliver(event.raw)).rejects.toMatchObject({ code: "PROVIDER_ERROR" });
+    expect(await plan(s.tenantId, s.locationId)).toMatchObject({ guaranteeOutcome: "credit", guaranteeInvoiceId: event.id, guaranteeCreditRef: null });
+    stripe.failing.clear();
+    // Stripe retries the same event: a duplicate for the decision, and the owed credit is issued now.
+    expect(await deliver(event.raw, new Date(Date.now() + 60_000))).toEqual({ status: "duplicate" });
+    expect((await plan(s.tenantId, s.locationId)).guaranteeCreditRef).toMatch(/^ii_/);
+    expect(credits().map(call => call.key)).toEqual([`guarantee-${event.id}-${s.locationId}`, `guarantee-${event.id}-${s.locationId}`]);
+    expect(await deliver(event.raw, new Date(Date.now() + 120_000))).toEqual({ status: "duplicate" });
+    expect(credits()).toHaveLength(2);
+    expect((await runBillingJob()).credited).toBe(0);
+  });
+
+  it("the daily sweep issues a credit that is still owed", async () => {
+    setEnv({ START_GUARANTEE_ENABLED: "true" });
+    const s = await subscribed();
+    stripe.failing.add("/invoiceitems");
+    await cycleInvoice(s, PERIOD_END).catch(() => undefined);
+    stripe.failing.clear();
+    expect((await runBillingJob()).credited).toBe(1);
+    expect((await plan(s.tenantId, s.locationId)).guaranteeCreditRef).toMatch(/^ii_/);
   });
 
   it("keeps the Stripe quantity equal to the shop's location count", async () => {

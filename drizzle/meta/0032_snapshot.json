@@ -1,5 +1,5 @@
 {
-  "id": "0714de97-0144-4b84-af99-b81407420974",
+  "id": "c70edd63-f62f-4b2f-b6d1-a3696cb1430f",
   "prevId": "641f1c4a-414c-400c-990e-9d607d4da9f2",
   "version": "7",
   "dialect": "postgresql",
@@ -818,12 +818,23 @@
           "primaryKey": false,
           "notNull": false
         },
-        "guarantee_applied": {
-          "name": "guarantee_applied",
-          "type": "boolean",
+        "guarantee_outcome": {
+          "name": "guarantee_outcome",
+          "type": "varchar(12)",
           "primaryKey": false,
-          "notNull": true,
-          "default": false
+          "notNull": false
+        },
+        "guarantee_invoice_id": {
+          "name": "guarantee_invoice_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guarantee_credit_ref": {
+          "name": "guarantee_credit_ref",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -872,6 +883,10 @@
         "billing_plan_values_valid": {
           "name": "billing_plan_values_valid",
           "value": "\"billing_location_plans\".\"price_minor\" > 0 and \"billing_location_plans\".\"member_limit\" > 0 and \"billing_location_plans\".\"plan_code\" = 'local_standard'"
+        },
+        "billing_plan_guarantee_valid": {
+          "name": "billing_plan_guarantee_valid",
+          "value": "\"billing_location_plans\".\"guarantee_outcome\" is null or (\"billing_location_plans\".\"guarantee_outcome\" in ('credit','reached','ineligible','late') and (\"billing_location_plans\".\"guarantee_outcome\" = 'credit') = (\"billing_location_plans\".\"guarantee_invoice_id\" is not null))"
         }
       },
       "isRLSEnabled": false

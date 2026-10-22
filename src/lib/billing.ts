@@ -80,7 +80,7 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
   return db.transaction(async tx => {
     const tenantId = await ownerTenant(actorUserId, tx);
     const subscription = await reconcileSubscription(tx, tenantId, at);
-    const plans = await tx.select({ locationId: billingLocationPlans.locationId, locationName: locations.name, planCode: billingLocationPlans.planCode, priceMinor: billingLocationPlans.priceMinor, currency: billingLocationPlans.currency, memberLimit: billingLocationPlans.memberLimit, guaranteeApplied: billingLocationPlans.guaranteeApplied })
+    const plans = await tx.select({ locationId: billingLocationPlans.locationId, locationName: locations.name, planCode: billingLocationPlans.planCode, priceMinor: billingLocationPlans.priceMinor, currency: billingLocationPlans.currency, memberLimit: billingLocationPlans.memberLimit, guaranteeOutcome: billingLocationPlans.guaranteeOutcome })
       .from(billingLocationPlans).innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
       .where(eq(billingLocationPlans.tenantId, tenantId)).orderBy(locations.createdAt, locations.id);
     const locationUsage = await Promise.all(plans.map(async plan => {
@@ -96,7 +96,7 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       locationCount: locationUsage.length, monthlySubtotalMinor: locationUsage.reduce((sum, plan) => sum + plan.priceMinor, 0),
       locations: locationUsage, invoices, provider: subscription.provider, currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, graceUntil: subscription.graceUntil,
-      liveBilling: stripeEnabled(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, guaranteeApplied: locationUsage.some(plan => plan.guaranteeApplied),
+      liveBilling: stripeEnabled(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
       fixtureAvailable: billingFixtureAvailable(),
       countingRule: stripeEnabled()
         ? `Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist der Standortpreis mal die Zahl der Standorte. ${vatNote()}`
