@@ -18,6 +18,7 @@ const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // no 0/O, 1/I/L: read off a
 const LENGTH = 12; // 31^12 ≈ 2^59
 export const MAX_FAILED_ATTEMPTS = 5;
 export const ACTIVATION_FAILED = "Plattenname oder Code stimmt nicht, oder die Platte ist nach zu vielen Versuchen gesperrt. Prüfe die Karte aus der Box; hilft das nicht, melde dich beim Loynara-Support.";
+export const CODE_FORMAT = "Der Code hat 12 Zeichen: die Ziffern 2 bis 9 und Buchstaben außer I, L und O. Prüfe die Karte aus der Box.";
 const derive = promisify(scrypt) as (password: string, salt: Buffer, length: number) => Promise<Buffer>;
 
 /** Printed as XXXX-XXXX-XXXX; typed in any case, with or without spaces and dashes. */
@@ -87,6 +88,8 @@ export async function activatePlate(input: { userId: string; programId: string; 
   let plateLabel: string | null;
   try { plateLabel = normalizePlateLabel(input.plateLabel); } catch { plateLabel = null; }
   const code = normalizeCode(input.code);
+  // A typo outside the alphabet can never match: say so, and spend no attempt on it. It says nothing about the plate.
+  if (code.length !== LENGTH || [...code].some(char => !ALPHABET.includes(char))) throw new DomainError("INVALID_CODE_FORMAT", CODE_FORMAT);
   const outcome = await db.transaction(async tx => {
     // Programme before tag, the order every tap and confirmation takes.
     await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, input.programId)).for("share");

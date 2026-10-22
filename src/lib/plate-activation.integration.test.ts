@@ -104,6 +104,9 @@ it("gives one generic error for unknown, used, wrong and locked codes, and locks
     await attempt(label, value).catch((error: Error & { code?: string }) => { expect(error.code).toBe("INVALID_ACTIVATION"); messages.add(error.message); });
   }
   expect([...messages]).toEqual([ACTIVATION_FAILED]);
+  // A character outside the alphabet (O for 0, I for 1) or a wrong length is refused with a hint and counts nothing.
+  for (const typo of [plain.replace(/^./, "O"), plain.slice(0, -1), `${plain}2`]) expect(await code(() => attempt("P-001", typo))).toBe("INVALID_CODE_FORMAT");
+  expect((await db.select().from(plateActivationFailures))[0]).toMatchObject({ failedAttempts: 1 });
   for (let i = 0; i < 3; i++) expect(await code(() => attempt("P-001", "AAAA-AAAA-AAAA"))).toBe("INVALID_ACTIVATION");
   expect(await db.select().from(plateActivationFailures).where(eq(plateActivationFailures.tagId, (await tag("P-001")).id))).toMatchObject([{ userId: shop.userId, failedAttempts: 4, lockedAt: null }]);
   expect(await code(() => attempt("P-001", "AAAA-AAAA-AAAA"))).toBe("INVALID_ACTIVATION"); // the fifth
