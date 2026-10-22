@@ -82,3 +82,31 @@ export const winbackBonusMax = (type: "stamp" | "points", cheapestReward: number
 export const almostGap = (type: "stamp" | "points") => type === "stamp" ? 1 : 10;
 export const almostText = (type: "stamp" | "points", missing: number, reward: string) =>
   type === "stamp" ? `Nur noch 1 Stempel bis zu deiner Prämie: ${reward}.` : `Nur noch ${missing} Punkte bis zu deiner Prämie: ${reward}.`;
+
+// ---- Birthday (ENG-049): Legal 22 Oct (field and rules line), Marketing 22 Oct section 8 (reminder and cashier). -----------
+
+export const BIRTHDAY_FIELD_TEXT = (shop: string) => `Geburtstag (freiwillig): nur Tag und Monat, kein Jahr. Damit kann dir ${shop} in deiner Geburtstagswoche eine kleine Prämie geben. Du kannst ihn jederzeit hier löschen.`;
+
+export function birthdayText(type: "stamp" | "points", bonus: number, day: string) {
+  return bonus > 0 ? `Alles Gute zum Geburtstag! Komm bis zum ${day} vorbei, dann gibt's ${extra(type, bonus)}.` : "Alles Gute zum Geburtstag! Wir freuen uns, dich bald wiederzusehen.";
+}
+export const birthdayRule = (type: "stamp" | "points", bonus: number) =>
+  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+/**
+ * The birthday week (Monday to Sunday) that contains `today` (YYYY-MM-DD, the shop's local date), or null. 29 February
+ * counts as 28 February in other years. Checks the birthday in the year before and after too, for weeks across New Year.
+ */
+export function birthdayWeek(day: number, month: number, today: string): { start: string; end: string } | null {
+  const year = Number(today.slice(0, 4));
+  for (const y of [year - 1, year, year + 1]) {
+    const leap = new Date(Date.UTC(y, 1, 29)).getUTCMonth() === 1;
+    const birthday = new Date(Date.UTC(y, month - 1, month === 2 && day === 29 && !leap ? 28 : day));
+    const monday = new Date(birthday.getTime() - ((birthday.getUTCDay() + 6) % 7) * 86_400_000);
+    const start = isoDay(monday), end = isoDay(new Date(monday.getTime() + 6 * 86_400_000));
+    if (start <= today && today <= end) return { start, end };
+  }
+  return null;
+}

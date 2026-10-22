@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { automationRuns, consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
+import { automationRuns, cardBirthdays, consentEvents, contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { revokeCardWalletPasses } from "./wallet/enqueue";
 
@@ -25,6 +25,7 @@ export async function closeCard(cardToken: string): Promise<{ closed: true; rete
 
     await tx.delete(contactVerificationChallenges).where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
     await tx.delete(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
+    await tx.delete(cardBirthdays).where(and(eq(cardBirthdays.tenantId, member.tenantId), eq(cardBirthdays.membershipId, member.id)));
     await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: false, noticeVersion: "2026-09", source: "card_closure" });
     // Queued local messages and wallet refreshes cannot run after closure (the
     // one Wallet revocation job is queued below). Clear message bodies even from

@@ -17,7 +17,7 @@ const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
 
 const settingsInput = z.object({ enabled: z.boolean(), days: z.number().int().min(WINBACK_DAYS.min).max(WINBACK_DAYS.max), bonus: z.number().int().min(0) }).strict();
 
-async function bonusMax(program: { tenantId: string; id: string; type: string }) {
+export async function bonusMax(program: { tenantId: string; id: string; type: string }) {
   const costs = (await currentRewards(program.tenantId, program.id)).map(reward => reward.cost);
   return winbackBonusMax(program.type as "stamp" | "points", costs.length ? Math.min(...costs) : 0);
 }
@@ -53,7 +53,7 @@ export async function updateWinback(input: { actorUserId: string; programSlug: s
  * the outbox job, in the caller's transaction. `due` yields pass_id, tenant_id, membership_id and grp. Shared by the
  * automatic reminders (win-back, ENG-045 "Fast geschafft"); delivery is #88's `wallet.message` job unchanged.
  */
-export async function queueBatch(tx: Pick<typeof db, "execute">, p: { tenantId: string; programId: string }, kind: "winback" | "almost", now: Date, due: SQL, textOf: (grp: string) => string) {
+export async function queueBatch(tx: Pick<typeof db, "execute">, p: { tenantId: string; programId: string }, kind: "winback" | "almost" | "birthday", now: Date, due: SQL, textOf: (grp: string) => string) {
   let count = 0;
   for (const { grp } of rows<{ grp: string }>(await tx.execute(sql`SELECT DISTINCT grp FROM (${due}) x ORDER BY grp`))) {
     const [message] = rows<{ id: string }>(await tx.execute(sql`INSERT INTO wallet_messages (tenant_id, program_id, kind, text, created_at)

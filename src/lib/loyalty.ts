@@ -8,7 +8,7 @@ import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 import { surfaceHidden } from "./pilot-surfaces";
-import { WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
+import { birthdayWeek, WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 
 export class DomainError extends Error {
   constructor(public code: string, message: string) {
@@ -49,9 +49,9 @@ export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Pr
 }
 
 // Every ledger idempotency-key namespace the server generates itself (staff tap confirmation and automatic tap, offline
-// sync, referral bonuses and their reversals, the welcome bonus, the happy-hour extra and the win-back bonus, each with its reversal). A client key in one of them could take
+// sync, referral bonuses and their reversals, the welcome bonus, the happy-hour extra and the win-back and birthday bonuses, each with its reversal). A client key in one of them could take
 // a key first and block or replay a server booking. Add every new server-generated prefix here.
-export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "winback:", "winback-reversal:"] as const;
+export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "winback:", "winback-reversal:", "birthday:", "birthday-reversal:"] as const;
 const validKeyLength = (key: string) => key.length >= 8 && key.length <= 100;
 
 /** For keys that come from a client (the public award, redeem and reverse entry points). Internal callers never use it. */
@@ -87,7 +87,7 @@ async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) 
 }
 
 /** Client entry point (cashier route, scripts). Tap confirmation and offline sync call awardInTransaction with server keys. */
-type AwardResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity: number; winbackBonus?: number };
+type AwardResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity: number; winbackBonus?: number; birthdayBonus?: number };
 
 export async function award(input: AwardInput): Promise<AwardResult> {
   assertClientKey(input.idempotencyKey);
@@ -156,7 +156,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     const purchaseAmountLimit = staff?.role === "cashier" ? 50_000 : staff?.role === "manager" ? 200_000 : 1_000_000;
     const purchasePointsLimit = staff?.role === "cashier" ? 500 : staff?.role === "manager" ? 2_000 : 10_000;
     if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
-    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity * (program.happyHourEnabled ? 2 : 1) + program.welcomeBonus + (program.winbackEnabled ? program.winbackBonus : 0) > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
+    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity * (program.happyHourEnabled ? 2 : 1) + program.welcomeBonus + (program.winbackEnabled ? program.winbackBonus : 0) + (program.birthdayEnabled ? program.birthdayBonus : 0) > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
 
     const [entry] = await tx.insert(ledgerEntries).values({
       tenantId: member.tenantId,
@@ -180,9 +180,10 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     const welcomeBonus = staffConfirmed ? await bookWelcomeBonus(tx, { program, entry }) : 0;
     // Only online awards: a staff_offline award has no purchase time the server can trust (created_at is the sync time, deviceAt is the till's clock).
     const happyHour = entry.source === "staff_online" && purchaseMode ? await bookHappyHour(tx, { program, entry }) : 0;
-    // Win-back depends on the visit day too, so it follows the same rule.
+    // Win-back and birthday depend on the visit day too, so they follow the same rule.
     const winbackBonus = entry.source === "staff_online" ? await bookWinbackBonus(tx, { program, entry }) : 0;
-    const balance = member.balance + quantity + welcomeBonus + happyHour + winbackBonus;
+    const birthdayBonus = entry.source === "staff_online" ? await bookBirthdayBonus(tx, { program, entry }) : 0;
+    const balance = member.balance + quantity + welcomeBonus + happyHour + winbackBonus + birthdayBonus;
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await enqueueWalletRefresh(tx, member.tenantId, member.id);
     const referral = staffConfirmed ? await qualifyReferralOnAward(tx, {
@@ -194,7 +195,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
         .where(and(eq(automationRules.tenantId, member.tenantId), eq(automationRules.programId, program.id), eq(automationRules.triggerKind, "first_checkout"), eq(automationRules.enabled, true))).limit(1);
       if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
     }
-    return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity, winbackBonus };
+    return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity, winbackBonus, birthdayBonus };
 }
 
 // The welcome bonus ("Startbonus") is its own ledger row next to the card's first staff-confirmed award, keyed by that
@@ -269,6 +270,39 @@ async function bookWinbackBonus(tx: Transaction, input: { program: typeof progra
     source: "winback_bonus", actorUserId: entry.actorUserId, requestId: entry.requestId, idempotencyKey: winbackKey(entry.id), reason: "Willkommen-zurück-Bonus",
   });
   return program.winbackBonus;
+}
+
+// Birthday (ENG-049): a card with a stored birthday gets the programme's bonus with a confirmed award in its birthday week
+// (Monday to Sunday in the location's timezone), at most once in BIRTHDAY_REPEAT_DAYS, so moving the birthday does not
+// earn a second one. Same row pattern as the win-back bonus; independent of message consent. Withheld with walletMessages.
+const birthdayKey = (awardEntryId: string) => `birthday:${awardEntryId}`;
+const BIRTHDAY_REPEAT_DAYS = 300;
+
+/** Whether a card is in its birthday week at `at` and has not had the bonus this year; the week's Sunday (YYYY-MM-DD). */
+export async function birthdayState(tx: Pick<typeof db, "execute">, membershipId: string, at: Date) {
+  if (surfaceHidden("walletMessages")) return null;
+  const [row] = (await tx.execute<{ bonus: number; day: number; month: number; today: string; had: boolean }>(sql`
+    SELECT p.birthday_bonus AS bonus, b.day, b.month, (${at}::timestamptz AT TIME ZONE l.timezone)::date::text AS today,
+      EXISTS (SELECT 1 FROM ledger_entries e WHERE e.tenant_id = m.tenant_id AND e.membership_id = m.id AND e.source = 'birthday_bonus' AND e.kind = 'award'
+        AND e.created_at > ${at}::timestamptz - make_interval(days => ${BIRTHDAY_REPEAT_DAYS}) AND NOT EXISTS (SELECT 1 FROM ledger_entries u WHERE u.tenant_id = e.tenant_id AND u.reversal_of_id = e.id)) AS had
+    FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
+      JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id
+      JOIN card_birthdays b ON b.membership_id = m.id AND b.tenant_id = m.tenant_id
+    WHERE m.id = ${membershipId}::uuid AND p.birthday_enabled`)).rows;
+  const week = row && !row.had ? birthdayWeek(row.day, row.month, row.today) : null;
+  return week ? { bonus: row.bonus, end: week.end } : null;
+}
+
+async function bookBirthdayBonus(tx: Transaction, input: { program: typeof programs.$inferSelect; entry: typeof ledgerEntries.$inferSelect }): Promise<number> {
+  const { program, entry } = input;
+  if (!program.birthdayEnabled || program.birthdayBonus <= 0) return 0;
+  // The membership row is locked by the caller, so no other booking for this card can race the once-a-year check.
+  if (!(await birthdayState(tx, entry.membershipId, entry.createdAt))) return 0;
+  await tx.insert(ledgerEntries).values({
+    tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: program.birthdayBonus, kind: "award",
+    source: "birthday_bonus", actorUserId: entry.actorUserId, requestId: entry.requestId, idempotencyKey: birthdayKey(entry.id), reason: "Geburtstags-Bonus",
+  });
+  return program.birthdayBonus;
 }
 
 export type RedeemInput = {
@@ -349,6 +383,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     if (original.source === "referral_bonus") throw new DomainError("REFERRAL_REVIEW_REQUIRED", "Referral bonuses are corrected through referral review");
     if (original.source === "happy_hour") throw new DomainError("HAPPY_HOUR_WITH_AWARD", "The happy-hour points are corrected together with their award");
     if (original.source === "welcome_bonus") throw new DomainError("WELCOME_BONUS_WITH_AWARD", "The welcome bonus is corrected together with the card's first award");
+    if (original.source === "birthday_bonus") throw new DomainError("BIRTHDAY_BONUS_WITH_AWARD", "The birthday bonus is corrected together with its award");
     if (original.source === "winback_bonus") throw new DomainError("WINBACK_BONUS_WITH_AWARD", "The win-back bonus is corrected together with its award");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
@@ -369,12 +404,14 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     const [bonus] = original.kind === "award" ? await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, welcomeBonusKey(original.id)), eq(ledgerEntries.source, "welcome_bonus"))) : [];
     const [extra] = original.kind === "award" ? await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, happyHourKey(original.id)), eq(ledgerEntries.source, "happy_hour"))) : [];
     const [winback] = original.kind === "award" ? await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, winbackKey(original.id)), eq(ledgerEntries.source, "winback_bonus"))) : [];
-    const balance = member.balance - original.delta - (bonus?.delta ?? 0) - (extra?.delta ?? 0) - (winback?.delta ?? 0);
+    const [birthday] = original.kind === "award" ? await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, birthdayKey(original.id)), eq(ledgerEntries.source, "birthday_bonus"))) : [];
+    const balance = member.balance - original.delta - (bonus?.delta ?? 0) - (extra?.delta ?? 0) - (winback?.delta ?? 0) - (birthday?.delta ?? 0);
     if (balance < 0) throw new DomainError("INSUFFICIENT_BALANCE", "Correction would make the balance negative");
     const [entry] = await tx.insert(ledgerEntries).values({ tenantId: original.tenantId, locationId: original.locationId, membershipId: member.id, delta: -original.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: input.idempotencyKey, reason, reversalOfId: original.id }).returning();
     if (bonus) await tx.insert(ledgerEntries).values({ tenantId: bonus.tenantId, locationId: bonus.locationId, membershipId: member.id, delta: -bonus.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: `welcome-reversal:${original.id}`, reason, reversalOfId: bonus.id });
     if (extra) await tx.insert(ledgerEntries).values({ tenantId: extra.tenantId, locationId: extra.locationId, membershipId: member.id, delta: -extra.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: `happyhour-reversal:${original.id}`, reason, reversalOfId: extra.id });
     if (winback) await tx.insert(ledgerEntries).values({ tenantId: winback.tenantId, locationId: winback.locationId, membershipId: member.id, delta: -winback.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: `winback-reversal:${original.id}`, reason, reversalOfId: winback.id });
+    if (birthday) await tx.insert(ledgerEntries).values({ tenantId: birthday.tenantId, locationId: birthday.locationId, membershipId: member.id, delta: -birthday.delta, kind: "reversal", source: "staff_correction", actorUserId: input.userId, requestId: input.requestId, idempotencyKey: `birthday-reversal:${original.id}`, reason, reversalOfId: birthday.id });
     await tx.update(memberships).set({ balance }).where(eq(memberships.id, member.id));
     await enqueueWalletRefresh(tx, original.tenantId, member.id);
     if (original.kind === "award" && (original.source === "staff_online" || original.source === "staff_offline")) {

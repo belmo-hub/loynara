@@ -16,8 +16,8 @@ import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
-type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; winbackBonus?: number };
-type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number; winbackBonus?: number };
+type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; winbackBonus?: number; birthdayBonus?: number };
+type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number; winbackBonus?: number; birthdayBonus?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
 type OfflineSyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: number; duplicate?: boolean };
@@ -166,7 +166,7 @@ export default function CashierPage() {
       if (result.stage === "preview") { setCard(null); setPreview({ ...result, code }); return; }
       setPreview(null);
       activeCardId.current = result.membershipId;
-      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), winbackBonus: result.winbackBonus ?? 0 });
+      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), winbackBonus: result.winbackBonus ?? 0, birthdayBonus: result.birthdayBonus ?? 0 });
       const unresolved = unresolvedRef.current.get(result.membershipId);
       if (unresolved && Date.now() - unresolved.at < UNRESOLVED_TTL_MS) {
         pendingRef.current = unresolved.pending;
@@ -413,7 +413,8 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
   else if (operation.kind === "redeem") detail = fr ? `« ${operation.reward.name} » utilisée sur ${card.cardLocator}.` : `„${operation.reward.name}“ auf ${card.cardLocator} eingelöst.`;
   else {
     const credited = result.creditedQuantity ?? ("quantity" in operation.award ? operation.award.quantity : undefined);
-    const extra = result.winbackBonus ? fr ? ` Dont ${result.winbackBonus} ${unitLabel(card, result.winbackBonus, fr)} en plus.` : ` Inkl. ${result.winbackBonus} ${unitLabel(card, result.winbackBonus, fr)} extra.` : "";
+    const bonus = (result.winbackBonus ?? 0) + (result.birthdayBonus ?? 0);
+    const extra = bonus ? fr ? ` Dont ${bonus} ${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus} ${unitLabel(card, bonus, fr)} extra.` : "";
     detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited} ${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited} ${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);

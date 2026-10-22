@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkMessageText, consentText, needsActionHint } from "./wallet-message-rules";
+import { birthdayWeek, checkMessageText, consentText, needsActionHint } from "./wallet-message-rules";
 
 describe("message text rules", () => {
   it("accepts the founder's example and counts characters, not bytes", () => {
@@ -31,5 +31,20 @@ describe("texts and hints", () => {
   it("shows the action hint for Punkte, Stempel or doppelt in any case, never otherwise", () => {
     for (const text of ["Doppelte Punkte heute", "STEMPEL extra", "heute doppelt", "punkte"]) expect(needsActionHint(text), text).toBe(true);
     expect(needsActionHint("Heute ruhig: Kaffee gratis zum Croissant")).toBe(false);
+  });
+});
+
+describe("birthdayWeek (ENG-049)", () => {
+  it("is Monday to Sunday around the birthday, inclusive", () => {
+    expect(birthdayWeek(22, 10, "2026-10-19")).toEqual({ start: "2026-10-19", end: "2026-10-25" });
+    expect(birthdayWeek(22, 10, "2026-10-25")).toEqual({ start: "2026-10-19", end: "2026-10-25" });
+    expect(birthdayWeek(22, 10, "2026-10-18")).toBeNull();
+    expect(birthdayWeek(22, 10, "2026-10-26")).toBeNull();
+  });
+  it("treats 29 February as 28 February outside leap years, and finds weeks across New Year", () => {
+    expect(birthdayWeek(29, 2, "2027-02-22")).toEqual({ start: "2027-02-22", end: "2027-02-28" });
+    expect(birthdayWeek(29, 2, "2028-02-29")).toEqual({ start: "2028-02-28", end: "2028-03-05" });
+    expect(birthdayWeek(31, 12, "2027-01-02")).toEqual({ start: "2026-12-28", end: "2027-01-03" });
+    expect(birthdayWeek(1, 1, "2026-12-29")).toEqual({ start: "2026-12-28", end: "2027-01-03" });
   });
 });

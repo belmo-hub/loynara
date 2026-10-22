@@ -121,5 +121,5 @@ export type CardResponse = {
   /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */
   happyHourUntil?: string;
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
-  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean }>;
+  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean }>;
 };
