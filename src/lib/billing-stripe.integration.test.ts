@@ -166,6 +166,14 @@ describe("Stripe subscription state", () => {
     await expect(deliver(eventFor("customer.subscription.updated", s.subscriptionId))).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("refuses a second active subscription while the shop's own runs, and keeps the shop on its own (W-1)", async () => {
+    const s = await subscribed();
+    const second = "sub_testintruder01";
+    stripe.subs.set(second, { ...structuredClone(s.fake()), id: second, status: "active" });
+    await expect(deliver(eventFor("customer.subscription.created", second))).rejects.toMatchObject({ code: "BILLING_STATE" });
+    expect(await sub(s.tenantId)).toMatchObject({ status: "active", providerSubscriptionId: s.subscriptionId });
+  });
+
   it("records a late event for a replaced subscription without touching the new one", async () => {
     const s = await subscribed();
     s.fake().status = "canceled";

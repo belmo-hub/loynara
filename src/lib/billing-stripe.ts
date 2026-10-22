@@ -186,7 +186,11 @@ export async function applyStripeWebhook(raw: string, signature: string, at = ne
         await tx.insert(billingWebhookEvents).values({ eventId: event.id, tenantId, eventType: event.type, payloadHash });
         return { status: "stale" as const };
       }
-      if (RUNNING.includes(sub.status)) throw new DomainError("BILLING_STATE", "A second Stripe subscription for this shop needs review");
+      if (RUNNING.includes(sub.status)) {
+        // Stripe retries a refused event for days and only a 4xx shows; this fixed line is what someone searches for.
+        console.error(`Billing: second Stripe subscription for tenant ${tenantId} refused; review in Stripe (kept ${sub.providerSubscriptionId})`);
+        throw new DomainError("BILLING_STATE", "A second Stripe subscription for this shop needs review");
+      }
     }
     const periodEnd = new Date(current.items.data[0].current_period_end * 1000);
     const cancelling = status !== "cancelled" && (current.cancel_at_period_end || current.cancel_at !== null);
@@ -242,8 +246,8 @@ type Recorded = { eventId: string; eventType: string; payloadHash: string };
  * credit lands on the month-2 invoice (a daily job could run after Stripe drew it). Per location, once: its first billing
  * month runs from the Berlin day it started billing (the subscription start, or the day a later location was added) to the
  * day before the same day a month later. It qualifies with fewer than START_GUARANTEE_MIN_CUSTOMERS distinct customers who
- * got a team-confirmed credit there (cashier or NFC tap award, not reversed within that month; bonuses and open tap requests
- * do not count). Outcomes: credit, reached, ineligible (cancelling or unpaid shop, contract after the cut-off day), late.
+ * got a team-confirmed credit there (a cashier award, or an NFC tap award, which production only books after the cashier
+ * confirms it; not reversed within that month; bonuses and open tap requests do not count). Outcomes: credit, reached, ineligible (cancelling or unpaid shop, contract after the cut-off day), late.
  * Only the decision is written here, in the webhook's transaction; the credit itself is issued after commit
  * (creditOwedGuarantees), so a retry can never credit twice.
  */
