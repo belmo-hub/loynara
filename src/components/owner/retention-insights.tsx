@@ -86,7 +86,7 @@ export function RetentionInsights({ me, summary, referrals, reload, skipFirst = 
         <div className="ow-stack" style={{ gap: 16 }}>
           <div><h3 className="ow-label" style={{ marginBottom: 8 }}>Kartenbestand · {cards(summary.data.openCards)}</h3><CardBase summary={summary.data} /></div>
           {all.length === 0
-            ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title="Gerade nichts Dringendes.">Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Kassenvorgang.</EmptyState>
+            ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title="Gerade nichts Dringendes.">Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Buchung.</EmptyState>
             : insights.length > 0 && <ul className="ow-insights">{insights.map((item, index) => (
               <li key={item.id} className={`ow-action${index === 0 ? " ow-action--lead" : ""}`} data-tone={item.tone}>
                 <h3>{item.title}</h3><p>{item.why}</p>

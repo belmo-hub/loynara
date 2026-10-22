@@ -51,10 +51,10 @@ describe("retention signals in rule-based advice", () => {
 describe("rule-based merchant advice", () => {
   it("uses recorded checkout counts and states when unrecorded visits are unknown", () => {
     const advice = buildRuleBasedAdvice(report({ currentActiveCards: 2, newCards: 2 }));
-    expect(advice[0]).toMatchObject({ id: "checkout_flow", observed: [{ label: "Aktive Karten", value: 2 }, { label: "Bestätigte Kassenvorgänge", value: 0 }] });
-    expect(advice[0].reasoning).toContain("0 bestätigten Kassenvorgängen");
+    expect(advice[0]).toMatchObject({ id: "checkout_flow", observed: [{ label: "Aktive Karten", value: 2 }, { label: "Bestätigte Buchungen", value: 0 }] });
+    expect(advice[0].reasoning).toContain("noch keine bestätigte Buchung");
     expect(advice[0].missingInformation.join(" ")).toContain("nicht erfasste Besuche");
-    expect(advice[0].nextAction).toContain("Kassenvorgang");
+    expect(advice[0].nextAction).toContain("Buchung bestätigen");
     expect(JSON.stringify(advice)).not.toContain("KI");
   });
 

@@ -31,7 +31,7 @@ for (const width of [375, 1280]) test(`supported window ignores late obsolete re
   const context = await browser.newContext({ baseURL, storageState: storage, viewport: { width, height: 812 } });
   const page = await context.newPage(); let release!: () => void; let started!: () => void;
   const hold = new Promise<void>(r => { release = r; }); const fetched = new Promise<void>(r => { started = r; });
-  const metric = page.locator('.ow-metric').filter({ has: page.getByRole('heading', { name: 'Bestätigte Kassenvorgänge', exact: true }) }).locator('.ow-metric-value');
+  const metric = page.locator('.ow-metric').filter({ has: page.getByRole('heading', { name: 'Bestätigte Buchungen', exact: true }) }).locator('.ow-metric-value');
   try {
     await page.goto('/merchant/analytics'); await expect(metric).toHaveText('1');
     await page.route('**/api/merchant/analytics?window=90', async route => {
