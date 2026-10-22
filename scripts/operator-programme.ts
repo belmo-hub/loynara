@@ -9,7 +9,7 @@ import { DomainError } from "../src/lib/loyalty";
  *   npx tsx scripts/operator-programme.ts schedule --program-id <id> --end-date 2026-11-15 --target ... --actor-user-id ...   # dry run
  *   npx tsx scripts/operator-programme.ts end      --program-id <id> --target ... --actor-user-id ...                         # dry run; ends NOW, final
  *   ... --execute                                                                                                             # after reading the dry run
- * The actor must be on PLATE_OPERATOR_USER_IDS. Refusals print one reason code.
+ * schedule takes a real day from tomorrow (Berlin) on; to end today, use end. The actor must be on PLATE_OPERATOR_USER_IDS. Refusals print one reason code.
  */
 async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, strict: true, options: { target: { type: "string" }, "actor-user-id": { type: "string" }, "program-id": { type: "string" }, "end-date": { type: "string" }, execute: { type: "boolean" } } });

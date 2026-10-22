@@ -134,7 +134,7 @@ it("lists owner-requested and operator-scheduled cancellations, dry run changes 
   expect(JSON.stringify(await view())).not.toContain(asked.member.cardToken);
 });
 
-it("refuses an end date before tomorrow (Berlin): yesterday and today with a pointer to the console, tomorrow is accepted", async () => {
+it("refuses an end date before tomorrow (Berlin) with a pointer to the console and an impossible day with a message; tomorrow is accepted", async () => {
   const operator = await identity(), f = await nfcFixture();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
   const tomorrow = earliestEndDate(new Date());
@@ -143,6 +143,11 @@ it("refuses an end date before tomorrow (Berlin): yesterday and today with a poi
     const res = await postProgramme({ programId: f.program.id, endDate, execute }, operator.cookie);
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "END_DATE_TOO_EARLY", error: expect.stringContaining("Konsole") });
+  }
+  for (const execute of [false, true]) { // an impossible day is refused with a message, not a 500 from the date cast
+    const res = await postProgramme({ programId: f.program.id, endDate: "2027-02-30", execute }, operator.cookie);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "INVALID_END_DATE", error: expect.stringContaining("gibt es nicht") });
   }
   expect((await pool.query("SELECT cancellation_end_date FROM programs WHERE id = $1", [f.program.id])).rows[0].cancellation_end_date).toBeNull();
   expect((await postProgramme({ programId: f.program.id, endDate: tomorrow, execute: true }, operator.cookie)).status).toBe(200);

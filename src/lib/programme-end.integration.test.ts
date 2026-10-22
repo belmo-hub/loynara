@@ -82,7 +82,7 @@ describe("owner request and withdrawal", () => {
 
   it("an unconfirmed request never ends the programme, however late; the operator's confirmation sets the date and the card follows it", async () => {
     const f = await shop();
-    const operate = (endDate: string) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate, execute: true });
+    const operate = (endDate: string) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate, execute: true, now: at("2026-10-10T10:00:00Z") });
     const { endsOn: none, ...plain } = await getCard(f.member.cardToken);
     expect(none).toBeUndefined();
     await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
@@ -105,7 +105,7 @@ describe("owner request and withdrawal", () => {
   it("withdrawing clears the date and the confirmation", async () => {
     const f = await shop();
     await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
-    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2026-11-15", execute: true });
+    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2026-11-15", execute: true, now: at("2026-10-10T10:00:00Z") });
     expect(await withdrawCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-12T10:00:00Z") })).toEqual({ endDate: null });
     expect(await programme(f.program.id)).toMatchObject({ cancellationEndDate: null, cancellationConfirmedAt: null });
     expect((await getCard(f.member.cardToken)).endsOn).toBeUndefined();
@@ -266,9 +266,14 @@ describe("after the end", () => {
 describe("operator console", () => {
   it("is dry run until execute, only for the allowlist, and ends the programme at once with the operator in the audit", async () => {
     const f = await shop();
-    const run = (command: "status" | "schedule" | "end", execute: boolean, actorUserId = operator, endDate?: string) => operatorProgramme({ actorUserId, env, programId: f.program.id, command, endDate, execute });
+    const run = (command: "status" | "schedule" | "end", execute: boolean, actorUserId = operator, endDate?: string, now = at("2026-10-21T10:00:00Z")) => operatorProgramme({ actorUserId, env, programId: f.program.id, command, endDate, execute, now });
     expect(await code(() => run("end", true, f.userId))).toBe("FORBIDDEN");
     expect(await code(() => run("schedule", true, operator, "31.10.2026"))).toBe("INVALID_END_DATE");
+    for (const impossible of ["2026-02-30", "2026-11-31", "2026-13-01", "2027-02-29"]) for (const execute of [false, true]) expect(await code(() => run("schedule", execute, operator, impossible))).toBe("INVALID_END_DATE");
+    // The console refuses a day that has begun in Berlin too, dry run or not: 22:30 UTC on 21 Oct is already the 22nd there.
+    for (const [endDate, now] of [["2026-10-21", "2026-10-21T10:00:00Z"], ["2026-10-22", "2026-10-21T22:30:00Z"], ["2020-01-01", "2026-10-21T10:00:00Z"]] as const) for (const execute of [false, true]) expect(await code(() => run("schedule", execute, operator, endDate, at(now)))).toBe("END_DATE_TOO_EARLY");
+    expect(await run("schedule", false, operator, "2026-10-22")).toMatchObject({ result: "would_schedule" }); // tomorrow is the earliest
+    expect((await programme(f.program.id)).cancellationEndDate).toBeNull();
     expect(await run("schedule", false, operator, "2026-11-15")).toMatchObject({ result: "would_schedule" });
     expect((await programme(f.program.id)).cancellationEndDate).toBeNull();
     expect(await run("schedule", true, operator, "2026-11-15")).toMatchObject({ result: "schedule" });
