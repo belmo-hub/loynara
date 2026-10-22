@@ -71,6 +71,12 @@ export type MeResponse = {
   pointsExpiryMonths?: number | null;
   challengeVisits?: number | null;
   challengeBonus?: number;
+  levelsEnabled?: boolean;
+  levelSilverVisits?: number;
+  levelGoldVisits?: number;
+  levelBronzePerk?: string;
+  levelSilverPerk?: string;
+  levelGoldPerk?: string;
   /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
   cancellationEndDate?: string | null;
   /** True once the operator has confirmed the end date; before that it is provisional. */
@@ -129,6 +135,8 @@ export type CardResponse = {
   pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   /** This month's challenge and the card's visit days so far; absent while the shop runs none. */
   challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
+  /** The card's level (visit days in 90 days), its perk and the next step; absent while the shop has no levels. */
+  level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean; isChallengeBonus?: boolean }>;
 };

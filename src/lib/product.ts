@@ -11,8 +11,8 @@ import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
 import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy-hour";
-import { CHALLENGE_VISITS, challengeBonusRange, challengeSentence, cardNewsProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-extras";
-import { challengeProgress } from "./challenges";
+import { CHALLENGE_VISITS, challengeBonusRange, challengeSentence, cardNewsProblem, LEVEL_WINDOW_DAYS, levelFor, levelPerkProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-extras";
+import { challengeProgress, recentVisitDays } from "./challenges";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
@@ -189,6 +189,13 @@ const programExtrasInput = z.object({
   /** Monthly challenge: visit days per calendar month (null = off) and the bonus booked once when they are reached. */
   challengeVisits: z.number().int().min(CHALLENGE_VISITS.min).max(CHALLENGE_VISITS.max).nullable().optional(),
   challengeBonus: z.number().int().min(1).max(25000).optional(),
+  /** Customer levels: Silber and Gold thresholds (visit days in 90 days) and one perk text per level. */
+  levelsEnabled: z.boolean().optional(),
+  levelSilverVisits: z.number().int().min(2).max(50).optional(),
+  levelGoldVisits: z.number().int().min(3).max(90).optional(),
+  levelBronzePerk: z.string().max(200).optional(),
+  levelSilverPerk: z.string().max(200).optional(),
+  levelGoldPerk: z.string().max(200).optional(),
 }).strict();
 
 /** Owner-only programme settings outside the versioned earning rule. */
@@ -216,8 +223,20 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
       const range = challengeBonusRange(program.type, cheapest);
       if (challengeBonus < range.min || challengeBonus > range.max) throw new DomainError("INVALID_CHALLENGE", range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : `Bonus: ${range.min} bis ${range.max} ${program.type === "stamp" ? "Stempel" : "Punkte"} (bei Punkten höchstens ein Viertel der günstigsten Prämie).`);
     }
-    const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl, ...expiry, challengeVisits, challengeBonus }).where(eq(programs.id, program.id)).returning();
-    return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl, pointsExpiryMonths: updated.pointsExpiryMonths, challengeVisits: updated.challengeVisits, challengeBonus: updated.challengeBonus };
+    const levels = {
+      levelsEnabled: input.levelsEnabled ?? program.levelsEnabled,
+      levelSilverVisits: input.levelSilverVisits ?? program.levelSilverVisits,
+      levelGoldVisits: input.levelGoldVisits ?? program.levelGoldVisits,
+      levelBronzePerk: input.levelBronzePerk?.trim() ?? program.levelBronzePerk,
+      levelSilverPerk: input.levelSilverPerk?.trim() ?? program.levelSilverPerk,
+      levelGoldPerk: input.levelGoldPerk?.trim() ?? program.levelGoldPerk,
+    };
+    if (levels.levelsEnabled && (levels.levelSilverVisits === null || levels.levelGoldVisits === null)) throw new DomainError("INVALID_LEVELS", "Bitte lege fest, ab wie vielen Besuchen Silber und Gold gelten.");
+    if (levels.levelSilverVisits !== null && levels.levelGoldVisits !== null && levels.levelGoldVisits <= levels.levelSilverVisits) throw new DomainError("INVALID_LEVELS", "Gold braucht mehr Besuche als Silber.");
+    if ([levels.levelBronzePerk, levels.levelSilverPerk, levels.levelGoldPerk].some(levelPerkProblem)) throw new DomainError("INVALID_LEVELS", "Ein Vorteil ist reiner Text, höchstens 60 Zeichen, ohne Links.");
+    const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl, ...expiry, challengeVisits, challengeBonus, ...levels }).where(eq(programs.id, program.id)).returning();
+    return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl, pointsExpiryMonths: updated.pointsExpiryMonths, challengeVisits: updated.challengeVisits, challengeBonus: updated.challengeBonus,
+      levelsEnabled: updated.levelsEnabled, levelSilverVisits: updated.levelSilverVisits, levelGoldVisits: updated.levelGoldVisits, levelBronzePerk: updated.levelBronzePerk, levelSilverPerk: updated.levelSilverPerk, levelGoldPerk: updated.levelGoldPerk };
   });
 }
 
@@ -384,6 +403,20 @@ async function cardChallenge(tx: Parameters<typeof challengeProgress>[0], row: {
   return { ...challengeSentence(row.program.challengeVisits, row.program.challengeBonus, row.program.type, month, endsOn), visits: Math.min(progress.visits, row.program.challengeVisits), target: row.program.challengeVisits, done: progress.bonuses.length > 0 };
 }
 
+/** The card's level from visit days in the last 90 days, its perk and the next step; absent while levels are off. */
+async function cardLevel(tx: Parameters<typeof recentVisitDays>[0], member: typeof memberships.$inferSelect, program: typeof programs.$inferSelect) {
+  const { levelSilverVisits: silver, levelGoldVisits: gold } = program;
+  if (!program.levelsEnabled || silver === null || gold === null) return undefined;
+  const days = await recentVisitDays(tx, { tenantId: member.tenantId, membershipId: member.id, locationId: program.locationId, days: LEVEL_WINDOW_DAYS });
+  const visits = days.length;
+  const name = levelFor(visits, silver, gold);
+  const perk = name === "Gold" ? program.levelGoldPerk : name === "Silber" ? program.levelSilverPerk : name === "Bronze" ? program.levelBronzePerk : "";
+  // „Gold bis …“ (Legal): the level drops when its deciding visit day (the gold-th newest) leaves the 90 days.
+  const until = name ? days[(name === "Gold" ? gold : name === "Silber" ? silver : 1) - 1] : undefined;
+  const next = name === "Gold" ? null : name === "Silber" ? { name: "Gold", visits: gold - visits } : { name: "Silber", visits: silver - visits };
+  return { name, perk: perk || undefined, until, visits, next };
+}
+
 export async function getCard(token: string) {
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
   // Balance, recent activity and reward progress must describe one committed state.
@@ -404,7 +437,7 @@ export async function getCard(token: string) {
       eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id), eq(ledgerEntries.kind, "award"),
       sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone), challenge: await cardChallenge(tx, row), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone), challenge: await cardChallenge(tx, row), level: await cardLevel(tx, row.member, row.program), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -447,7 +480,7 @@ export async function lookupCard(input: { userId: string; locationId: string; sc
   const { member, program, tenant, by } = await resolveCounterCard({ userId: input.userId, locationId: input.locationId, code: input.scanCode });
   const [rule] = await db.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, member.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
   if (!rule) throw new DomainError("NOT_FOUND", "Programme rule not found");
-  return { stage: "open" as const, membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: rule.id, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, new Date())) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, new Date())) ? program.birthdayBonus : 0 };
+  return { stage: "open" as const, membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: rule.id, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, new Date())) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, new Date())) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
 }
 
 export async function getPublicProgram(slug: string) {
@@ -489,7 +522,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
     if (!program) throw new DomainError(ended ? "PROGRAM_ENDED" : "SETUP_INCOMPLETE", ended ? "Programm beendet" : SETUP_INCOMPLETE);
   }
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
-  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, pointsExpiryMonths: program.pointsExpiryMonths, challengeVisits: program.challengeVisits, challengeBonus: program.challengeBonus, rewardTitle: reward?.title, rewardCost: reward?.cost };
+  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, pointsExpiryMonths: program.pointsExpiryMonths, challengeVisits: program.challengeVisits, challengeBonus: program.challengeBonus, levelsEnabled: program.levelsEnabled, levelSilverVisits: program.levelSilverVisits, levelGoldVisits: program.levelGoldVisits, levelBronzePerk: program.levelBronzePerk, levelSilverPerk: program.levelSilverPerk, levelGoldPerk: program.levelGoldPerk, rewardTitle: reward?.title, rewardCost: reward?.cost };
   if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)

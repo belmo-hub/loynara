@@ -38,6 +38,8 @@ export type CustomerCardProps = {
   pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   /** The shop's monthly challenge and this card's visit days so far; absent = none. */
   challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
+  /** The card's level and perk; absent = the shop has no levels. */
+  level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
   locale?: "de" | "fr";
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
@@ -61,7 +63,7 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, locale = "de", notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -99,6 +101,13 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {happyHourUntil ? <p className={styles.rules}>{t.happyHour(happyHourUntil)}</p> : null}
     {pointsExpiry?.notice ? <p className={styles.rules} role="status">{pointsExpiry.notice}</p> : null}
+    {level ? <section className={styles.panel} aria-labelledby="customer-level-title">
+      <h2 id="customer-level-title" className={styles.panelTitle}>{level.name ? `Dein Level: ${level.name}` : "Noch kein Level"}</h2>
+      {level.name && level.until ? <p className={styles.rules}><strong>{level.name} bis {level.until}</strong>, auch ohne weiteren Besuch.</p> : null}
+      {level.perk ? <p className={styles.rules}>Dein Vorteil: {level.perk}</p> : null}
+      <p className={styles.rules}>{level.next ? `Noch ${level.next.visits} ${level.next.visits === 1 ? "Besuch" : "Besuche"} in 90 Tagen bis ${level.next.name}.` : "Höchstes Level erreicht."}</p>
+      <p className={styles.rules}><small>Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum oben sagt, bis wann es sicher gilt.</small></p>
+    </section> : null}
     {challenge ? <section className={styles.panel} aria-labelledby="customer-challenge-title">
       <h2 id="customer-challenge-title" className={styles.panelTitle}>Monats-Challenge</h2>
       <p className={styles.rules}>{challenge.text}</p>
