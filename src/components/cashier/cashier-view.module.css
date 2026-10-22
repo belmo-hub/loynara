@@ -15,7 +15,10 @@
   position: fixed; inset: calc(env(safe-area-inset-top) + 60px) max(var(--gutter), calc((100vw - 560px) / 2 + var(--gutter))) auto auto; margin: 0;
   min-width: 220px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
 }
-.menu:popover-open { display: grid; justify-items: start; gap: var(--space-2); }
+.menu:popover-open { display: grid; gap: var(--space-2); }
+/* One hand, ten seconds: every menu item is a full-width row at cashier height (height, so it beats the 44 px floor). */
+.menu:popover-open > * { width: 100%; }
+.menu:popover-open :is(a, button, select) { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: var(--target-cashier); font-size: var(--text-18); }
 /* Browsers without the popover attribute show the three controls in the header, as before. */
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; } }
 
