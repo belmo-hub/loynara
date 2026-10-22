@@ -1,6 +1,6 @@
-import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, tenants } from "@/db/schema";
+import { billingLocationPlans, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
 import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
@@ -48,6 +48,14 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     const history = Map.groupBy(events.map(({ actorUserId, ...event }) => ({ ...event, by: actorUserId === PROGRAMME_END_ACTOR ? "System" : event.action === "request" || event.action === "withdraw" ? "Inhaber" : "Operator" })), event => event.programId);
     const templates = await walletTemplateOverview(tx, env);
     const awaiting = await shopsAwaitingOwner(tx);
-    return { awaiting, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    // Billing per shop (the plan the operator chose, the Stripe state) and every start-guarantee decision per location (the operator's notice).
+    const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency })
+      .from(subscriptions).innerJoin(tenants, eq(tenants.id, subscriptions.tenantId)).orderBy(asc(tenants.name));
+    const guarantees = await tx.select({ locationId: billingLocationPlans.locationId, tenant: tenants.name, location: locations.name, customers: billingLocationPlans.guaranteeCustomers,
+      outcome: billingLocationPlans.guaranteeOutcome, credited: sql<boolean>`${billingLocationPlans.guaranteeCreditRef} is not null`, decidedAt: billingLocationPlans.guaranteeDecidedAt })
+      .from(billingLocationPlans).innerJoin(tenants, eq(tenants.id, billingLocationPlans.tenantId))
+      .innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
+      .where(isNotNull(billingLocationPlans.guaranteeOutcome)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
+    return { awaiting, billing, guarantees, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

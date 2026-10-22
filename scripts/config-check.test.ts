@@ -168,6 +168,45 @@ describe("production configuration gate", () => {
     expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/fixture/i)]));
   });
 
+  describe("live billing (Stripe)", () => {
+    // Synthetic placeholders shaped like Stripe identifiers; none is a real credential.
+    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true" };
+    it("is accepted off (absent or false) and on with the whole group", () => {
+      expect(productionConfigIssues({ ...safe, LIVE_BILLING_ENABLED: "false" })).toEqual([]);
+      expect(productionConfigIssues(stripe)).toEqual([]);
+    });
+    it.each(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_FOUNDING", "STRIPE_PRICE_LIST"])("refuses live billing without %s, naming the setting and never its value", name => {
+      expect(productionConfigIssues({ ...stripe, [name]: undefined })).toEqual(expect.arrayContaining([`Live billing requires a valid ${name}`]));
+    });
+    it("needs the founder's separate production approval, exactly true", () => {
+      expect(productionConfigIssues({ ...stripe, BILLING_PRODUCTION_APPROVED: undefined })).toEqual(["Live billing requires a separate production approval (BILLING_PRODUCTION_APPROVED=true)"]);
+      expect(productionConfigIssues({ ...stripe, BILLING_PRODUCTION_APPROVED: "yes" })).toEqual(expect.arrayContaining(["BILLING_PRODUCTION_APPROVED must be exactly true or false", "Live billing requires a separate production approval (BILLING_PRODUCTION_APPROVED=true)"]));
+      expect(productionConfigIssues({ ...safe, BILLING_PRODUCTION_APPROVED: "true" })).toEqual(["Stripe, VAT or start-guarantee settings are present while live billing is not enabled"]);
+    });
+    it("refuses a test-mode key, equal price IDs, a half-set group with billing off, and an ambiguous switch", () => {
+      expect(productionConfigIssues({ ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` })).toEqual(["Production billing requires a live-mode STRIPE_SECRET_KEY"]);
+      expect(productionConfigIssues({ ...stripe, STRIPE_PRICE_LIST: stripe.STRIPE_PRICE_FOUNDING })).toEqual(["STRIPE_PRICE_FOUNDING and STRIPE_PRICE_LIST must differ"]);
+      expect(productionConfigIssues({ ...stripe, LIVE_BILLING_ENABLED: undefined })).toEqual(["Stripe, VAT or start-guarantee settings are present while live billing is not enabled"]);
+      expect(productionConfigIssues({ ...stripe, LIVE_BILLING_ENABLED: "yes" })).toEqual(expect.arrayContaining(["LIVE_BILLING_ENABLED must be exactly true or false"]));
+      expect(productionConfigIssues(stripe).join(" ")).not.toContain("x".repeat(24));
+    });
+    it("is Kleinunternehmer by default and switches to 19 % only with a tax rate", () => {
+      expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "kleinunternehmer" })).toEqual([]);
+      expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_synthetic0001" })).toEqual([]);
+      expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "standard" })).toEqual(["BILLING_VAT_MODE=standard requires a valid STRIPE_TAX_RATE_ID"]);
+      expect(productionConfigIssues({ ...stripe, STRIPE_TAX_RATE_ID: "txr_synthetic0001" })).toEqual(["STRIPE_TAX_RATE_ID is set while BILLING_VAT_MODE is not standard"]);
+      expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "19" })).toEqual(["BILLING_VAT_MODE must be exactly kleinunternehmer or standard"]);
+      expect(productionConfigIssues({ ...safe, BILLING_VAT_MODE: "kleinunternehmer" })).toEqual(["Stripe, VAT or start-guarantee settings are present while live billing is not enabled"]);
+    });
+    it("keeps the start guarantee off by default and checks its threshold and cut-off day when set", () => {
+      expect(productionConfigIssues({ ...stripe, START_GUARANTEE_ENABLED: "false" })).toEqual([]);
+      expect(productionConfigIssues({ ...stripe, START_GUARANTEE_ENABLED: "true", START_GUARANTEE_MIN_CUSTOMERS: "10", START_GUARANTEE_CONTRACT_CUTOFF: "2027-03-31" })).toEqual([]);
+      expect(productionConfigIssues({ ...stripe, START_GUARANTEE_ENABLED: "true", START_GUARANTEE_MIN_CUSTOMERS: "0" })).toEqual(["START_GUARANTEE_MIN_CUSTOMERS must be a whole number from 1 to 10000"]);
+      expect(productionConfigIssues({ ...stripe, START_GUARANTEE_ENABLED: "true", START_GUARANTEE_CONTRACT_CUTOFF: "31.03.2027" })).toEqual(["START_GUARANTEE_CONTRACT_CUTOFF must look like 2027-03-31"]);
+      expect(productionConfigIssues({ ...safe, START_GUARANTEE_ENABLED: "true" })).toEqual(["Stripe, VAT or start-guarantee settings are present while live billing is not enabled"]);
+    });
+  });
+
   describe("NFC", () => {
     const master = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
     const on: NodeJS.ProcessEnv = { ...safe, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: master };

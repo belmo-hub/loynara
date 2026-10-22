@@ -853,9 +853,15 @@ export const subscriptions = pgTable("subscriptions", {
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   graceUntil: timestamp("grace_until", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  // Stripe (ENG-055). planCode is the operator's choice (null: not chosen yet, checkout refused).
+  planCode: varchar("plan_code", { length: 16 }),
+  providerCustomerId: varchar("provider_customer_id", { length: 64 }).unique(),
+  providerSubscriptionId: varchar("provider_subscription_id", { length: 64 }).unique(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
 }, (t) => [
-  check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled')`),
+  check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled','active','past_due','suspended')`),
   check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
+  check("subscription_plan_valid", sql`${t.planCode} is null or ${t.planCode} in ('founding','list')`),
 ]);
 
 export const billingLocationPlans = pgTable("billing_location_plans", {
@@ -866,10 +872,18 @@ export const billingLocationPlans = pgTable("billing_location_plans", {
   priceMinor: integer("price_minor").notNull(),
   memberLimit: integer("member_limit").notNull().default(10000),
   createdAt: createdAt(),
+  // Start guarantee (ENG-055), decided once per location and recorded BEFORE any Stripe call: the outcome, the month-2 invoice
+  // to credit, and the Stripe invoice item or credit note once issued (null while the credit is still owed).
+  guaranteeDecidedAt: timestamp("guarantee_decided_at", { withTimezone: true }),
+  guaranteeCustomers: integer("guarantee_customers"),
+  guaranteeOutcome: varchar("guarantee_outcome", { length: 12 }),
+  guaranteeInvoiceId: varchar("guarantee_invoice_id", { length: 64 }),
+  guaranteeCreditRef: varchar("guarantee_credit_ref", { length: 64 }),
 }, (t) => [
   primaryKey({ columns: [t.tenantId, t.locationId] }),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("billing_plan_values_valid", sql`${t.priceMinor} > 0 and ${t.memberLimit} > 0 and ${t.planCode} = 'local_standard'`),
+  check("billing_plan_guarantee_valid", sql`${t.guaranteeOutcome} is null or (${t.guaranteeOutcome} in ('credit','reached','ineligible','late') and (${t.guaranteeOutcome} = 'credit') = (${t.guaranteeInvoiceId} is not null))`),
 ]);
 
 export const billingHandoffs = pgTable("billing_handoffs", {
@@ -881,9 +895,11 @@ export const billingHandoffs = pgTable("billing_handoffs", {
   amountMinor: integer("amount_minor").notNull(),
   createdAt: createdAt(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  // Stripe Checkout Session id; null for the local fixture.
+  providerRef: varchar("provider_ref", { length: 120 }).unique(),
 }, (t) => [
   index("billing_handoff_tenant_idx").on(t.tenantId, t.createdAt),
-  check("billing_handoff_values_valid", sql`${t.provider} = 'local_fixture' and ${t.status} in ('pending','complete') and ${t.amountMinor} > 0`),
+  check("billing_handoff_values_valid", sql`${t.provider} in ('local_fixture','stripe') and ${t.status} in ('pending','complete','expired') and ${t.amountMinor} > 0`),
 ]);
 
 export const billingInvoices = pgTable("billing_invoices", {

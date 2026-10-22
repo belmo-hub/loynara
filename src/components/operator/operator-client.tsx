@@ -27,6 +27,8 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string };
+type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
@@ -36,7 +38,13 @@ const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.sou
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 const CODE = { none: "kein Code", open: "Code offen", locked: "Code offen, ein Konto gesperrt", used: "Code benutzt" } as const;
 
-export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[] }) {
+// „erreicht“: the location reached the start target, no credit. „nicht erreicht“: the month-2 credit is owed or issued.
+const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? "Startgarantie nicht erreicht: Monat 2 kostenlos, Gutschrift erteilt" : "Startgarantie nicht erreicht: Gutschrift noch offen")
+  : g.outcome === "reached" ? "Startgarantie erreicht" : g.outcome === "late" ? "Startgarantie zu spät entschieden, keine Gutschrift" : "Startgarantie entfällt (gekündigt, nicht bezahlt oder Vertrag nach Stichtag)";
+const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
+const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
+
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[] }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -100,6 +108,12 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
+  async function setPlan(tenantId: string, planCode: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-plan", { tenantId, planCode }); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
 
   // Codes are shown once, for printing the box cards: the server keeps only their hashes.
   async function sendCodes(body: Record<string, unknown>) {
@@ -169,6 +183,26 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
         </li>)}
       </ul>
     </Card> : null}
+
+    {guarantees.length ? <Card as="section" aria-labelledby="op-guarantee">
+      <CardHeader id="op-guarantee" title="Startgarantie" description="Je Standort einmal entschieden, mit der Rechnung für Monat 2. Kund:innen = mit bestätigter Gutschrift im ersten Monat." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {guarantees.map(g => <li key={g.locationId} role={g.outcome === "credit" && !g.credited ? "alert" : "status"}><strong>{g.tenant}</strong> · {g.location} · <Badge tone={g.outcome === "credit" ? (g.credited ? "success" : "warning") : "neutral"}>{GUARANTEE_TEXT(g)}</Badge> · {g.customers} Kund:innen · entschieden am {date(g.decidedAt)}</li>)}
+      </ul>
+    </Card> : null}
+
+    <Card as="section" aria-labelledby="op-billing">
+      <CardHeader id="op-billing" title="Tarife" description="Gilt ab dem nächsten Checkout. Während ein Abo läuft, bleibt der Tarif fest." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
+          <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>
+          <Select label={`Tarif für ${b.tenant}`} value={b.planCode ?? ""} disabled={busy} onChange={event => { if (event.target.value) void setPlan(b.tenantId, event.target.value); }}>
+            <option value="">Noch nicht gewählt</option>
+            {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
+          </Select>
+        </li>)}
+      </ul>
+    </Card>
 
     <Card as="section" aria-labelledby="op-plates">
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />

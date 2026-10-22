@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingInvoices, billingLocationPlans, billingWebhookEvents, locations, memberships, programs, staffRoles, subscriptions } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { stripeEnabled, vatNote } from "./stripe-config";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const GRACE_MS = 7 * 86_400_000;
@@ -57,7 +58,7 @@ const fixtureProvider: BillingProvider = {
 export function signFixtureWebhook(raw: string, at = new Date()) { return fixtureProvider.sign(raw, at); }
 export function billingFixtureAvailable() { try { fixtureOrigin(); return true; } catch { return false; } }
 
-async function ownerTenant(actorUserId: string, tx: Transaction | typeof db = db) {
+export async function ownerTenant(actorUserId: string, tx: Transaction | typeof db = db) {
   const [role] = await tx.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
   if (!role) throw new DomainError("FORBIDDEN", "Active owner access required");
@@ -79,7 +80,7 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
   return db.transaction(async tx => {
     const tenantId = await ownerTenant(actorUserId, tx);
     const subscription = await reconcileSubscription(tx, tenantId, at);
-    const plans = await tx.select({ locationId: billingLocationPlans.locationId, locationName: locations.name, planCode: billingLocationPlans.planCode, priceMinor: billingLocationPlans.priceMinor, currency: billingLocationPlans.currency, memberLimit: billingLocationPlans.memberLimit })
+    const plans = await tx.select({ locationId: billingLocationPlans.locationId, locationName: locations.name, planCode: billingLocationPlans.planCode, priceMinor: billingLocationPlans.priceMinor, currency: billingLocationPlans.currency, memberLimit: billingLocationPlans.memberLimit, guaranteeOutcome: billingLocationPlans.guaranteeOutcome })
       .from(billingLocationPlans).innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
       .where(eq(billingLocationPlans.tenantId, tenantId)).orderBy(locations.createdAt, locations.id);
     const locationUsage = await Promise.all(plans.map(async plan => {
@@ -95,8 +96,11 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       locationCount: locationUsage.length, monthlySubtotalMinor: locationUsage.reduce((sum, plan) => sum + plan.priceMinor, 0),
       locations: locationUsage, invoices, provider: subscription.provider, currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, graceUntil: subscription.graceUntil,
-      liveBilling: false as const, fixtureAvailable: billingFixtureAvailable(),
-      countingRule: "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist die Summe der gespeicherten Standortpreise; Steuer ist nicht berechnet und es wird nichts abgebucht." + (billingFixtureAvailable() ? " Fixture-Belege sind keine Steuerrechnungen." : ""),
+      liveBilling: stripeEnabled(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
+      fixtureAvailable: billingFixtureAvailable(),
+      countingRule: stripeEnabled()
+        ? `Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist der Standortpreis mal die Zahl der Standorte. ${vatNote()}`
+        : "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist die Summe der gespeicherten Standortpreise; Steuer ist nicht berechnet und es wird nichts abgebucht." + (billingFixtureAvailable() ? " Fixture-Belege sind keine Steuerrechnungen." : ""),
     };
   });
 }
