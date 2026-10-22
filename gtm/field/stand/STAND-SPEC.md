@@ -73,7 +73,7 @@ Alternatives with the same outer geometry (fabrication choice, not new designs):
 
 | | |
 |---|---|
-| Format | PDF with embedded fonts (Manrope) and SVG source. Colours: deep green `#143D2E`, band `#19493A`, cream `#F6F3EC`, peach `#F2A078`. Convert to CMYK in the print shop's workflow; request a proof |
+| Format | PDF with embedded fonts (Manrope) and SVG source. Colours: deep green `#143D2E`, band `#19493A`, light text `#F6F3EC`, peach `#F2A078`. Convert to CMYK in the print shop's workflow; request a proof |
 | Bleed / trim | 111 × 154 with bleed, 105 × 148 trim; crop-mark version 125 × 168 |
 | Safe zone | Text and QR at least 6 mm inside the trim |
 | QR | Placeholder payload `https://loynara.invalid/platzhalter` (the `.invalid` top-level domain cannot resolve, so the code can never open a live flow), error correction **M**, 29 × 29 modules. Pre: 44 mm (1.52 mm/module) on a 56 mm white card with a 6 mm quiet zone. Post: 31 mm (1.07 mm/module) on a 39.6 mm card |
