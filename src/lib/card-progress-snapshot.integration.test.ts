@@ -1,10 +1,8 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
-import { createServer } from "node:http";
 import { Client } from "pg";
 import { eq } from "drizzle-orm";
 import { rewardVersions } from "@/db/schema";
-import { chromium } from "@playwright/test";
 import { db, pool } from "@/db";
 import { GET } from "@/app/api/card/[token]/route";
 import { editReward, getCard } from "./product";
@@ -13,11 +11,12 @@ import { closeCard } from "./card-lifecycle";
 import { nfcFixture } from "./nfc-test-db";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
-beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
+// rate_limits too: card reads by earlier files (or runs) in the same 15 minutes would otherwise answer 429 before the gate.
+beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, rate_limits CASCADE'); });
 afterAll(async () => { await pool.end(); });
 function signal() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
-it.each(["award", "redemption", "reversal", "catalogue"] as const)("returns one coherent progress/history snapshot to the browser during concurrent %s", async operation => {
+it.each(["award", "redemption", "reversal", "catalogue"] as const)("returns one coherent progress/history snapshot from the card route during concurrent %s", async operation => {
   const f = await nfcFixture();
   const other = await nfcFixture();
   await award({ userId: other.userId, locationId: other.location.id, membershipId: other.member.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() });
@@ -47,33 +46,19 @@ it.each(["award", "redemption", "reversal", "catalogue"] as const)("returns one 
     const result = Reflect.apply(original, this, args);
     return (result as Promise<unknown>).then(async rows => { read.resolve(); await resume.promise; return rows; });
   }) as typeof original);
-  // Actual installed Chrome requests the actual production route over owned
-  // loopback HTTP. This is API correctness evidence, not physical-phone UX.
-  const server = createServer((incoming, outgoing) => {
-    void (async () => {
-      const match = /^\/api\/card\/([^/]+)$/.exec(incoming.url ?? "");
-      if (!match) { outgoing.writeHead(404); outgoing.end("Missing route"); return; }
-      const response = await GET(new Request(`http://127.0.0.1${incoming.url}`), { params: Promise.resolve({ token: decodeURIComponent(match[1]) }) });
-      outgoing.writeHead(response.status, Object.fromEntries(response.headers));
-      outgoing.end(Buffer.from(await response.arrayBuffer()));
-    })().catch(() => { outgoing.writeHead(500); outgoing.end("Synthetic route failed"); });
-  });
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-  let pending: Promise<unknown> | undefined;
-  let gateTimeout: ReturnType<typeof setTimeout> | undefined;
+  let pending: Promise<Response> | undefined;
   try {
-    await new Promise<void>(done => server.listen(0, "127.0.0.1", done));
-    const address = server.address(); if (!address || typeof address === "string") throw new Error("Owned HTTP listener absent");
-    browser = await chromium.launch({ channel: "chrome", headless: true });
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    pending = page.goto(`http://127.0.0.1:${address.port}/api/card/${f.member.cardToken}`, { waitUntil: "domcontentloaded" });
-    await Promise.race([read.promise, new Promise<never>((_, reject) => { gateTimeout = setTimeout(() => reject(new Error("Actual card read gate not reached")), 3000); })]);
+    pending = GET(new Request(`http://localhost/api/card/${f.member.cardToken}`), { params: Promise.resolve({ token: f.member.cardToken }) });
+    // Barrier: the card read holds its real rows here. A route that answers without reaching it fails at once, not on a timer.
+    await Promise.race([read.promise, pending.then(() => { throw new Error("Card read gate not reached"); })]);
     if (operation === "award") await expect(award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 2 });
     else if (operation === "redemption") await expect(redeem(redeemInput)).resolves.toMatchObject({ balance: 0 });
     else if (operation === "reversal" && prior) await expect(reverseEntry({ userId: f.userId, locationId: f.location.id, entryId: prior.entryId, reason: "Synthetic customer history correction", idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 8 });
     else if (operation === "catalogue") await editReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: version.rewardId, title: "Updated coffee", cost: 1, termsText: "" });
-    resume.resolve(); await pending;
-    const snapshot = JSON.parse(await page.locator("body").innerText());
+    resume.resolve();
+    const response = await pending;
+    expect(response.status).toBe(200);
+    const snapshot = await response.json();
     expect(snapshot.balance).toBe(operation === "redemption" ? 8 : 0);
     const oldDeltas = operation === "redemption" ? [8] : operation === "reversal" ? [8, -8] : [];
     expect(snapshot.activity).toHaveLength(oldDeltas.length);
@@ -88,12 +73,8 @@ it.each(["award", "redemption", "reversal", "catalogue"] as const)("returns one 
     expect(fresh.rewards).toEqual([expect.objectContaining({ title: operation === "catalogue" ? "Updated coffee" : "Coffee", cost: operation === "catalogue" ? 1 : 8 })]);
     expect((await getCard(other.member.cardToken)).balance).toBe(5);
   } finally {
-    if (gateTimeout) clearTimeout(gateTimeout);
     resume.resolve();
-    try { await pending; } finally {
-      spy.mockRestore();
-      try { await browser?.close(); } finally { await new Promise<void>(done => server.close(() => done())); }
-    }
+    try { await pending; } finally { spy.mockRestore(); }
   }
 });
 
