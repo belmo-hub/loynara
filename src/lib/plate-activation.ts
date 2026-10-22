@@ -2,7 +2,7 @@ import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { plateActivationCodes, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
+import { plateActivationCodes, plateActivationFailures, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator, normalizePlateLabel, shopOf } from "./plates";
 
@@ -10,7 +10,8 @@ import { assertPlateOperator, normalizePlateLabel, shopOf } from "./plates";
  * Activation codes for mailed plates (ENG-048). The operator issues one per unlinked plate and prints it on the card
  * in the plate's box; the signed-in owner enters plate name and code in the owner app, which links the plate to the
  * owner's current location and programme. Only a salted scrypt hash is stored. Every failure, whatever its cause
- * (no such plate, no code, wrong, used, locked, plate already linked), is one generic error.
+ * (no such plate, no code, wrong, used, locked, plate already linked), is one generic error. Wrong codes count per
+ * account and plate, so nobody can lock someone else's plate by guessing its name.
  */
 type Env = Record<string, string | undefined>;
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // no 0/O, 1/I/L: read off a printed card without doubt
@@ -55,21 +56,24 @@ export async function issuePlateCodes(input: { actorUserId: string; env: Env; pl
       const tag = tags.find(t => t.plateLabel === plateLabel);
       if (!tag) throw new DomainError("NOT_FOUND", `Plate ${plateLabel} not found`);
       if (tag.status !== "unlinked") throw new DomainError("PLATE_LINKED", `Plate ${plateLabel} is not free`);
-      const row = { codeHash, failedAttempts: 0, lockedAt: null, usedAt: null, issuedByUserId: input.actorUserId, issuedAt: new Date() };
+      const row = { codeHash, usedAt: null, issuedByUserId: input.actorUserId, issuedAt: new Date() };
       await tx.insert(plateActivationCodes).values({ tagId: tag.id, ...row }).onConflictDoUpdate({ target: plateActivationCodes.tagId, set: row });
+      // Wrong tries were against the old code.
+      await tx.delete(plateActivationFailures).where(eq(plateActivationFailures.tagId, tag.id));
     }
     return issued.map(({ plateLabel, code }) => ({ plateLabel, code }));
   });
 }
 
-/** Releases a plate locked after too many wrong codes. The code stays the same. */
+/** Releases every account locked out of this plate after too many wrong codes. The code stays the same. */
 export async function unlockPlateCode(input: { actorUserId: string; env: Env; plateLabel: string }) {
   const plateLabel = normalizePlateLabel(input.plateLabel);
   return db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [tag] = await tx.select({ id: secureTags.id }).from(secureTags).where(eq(secureTags.plateLabel, plateLabel));
-    const updated = tag ? await tx.update(plateActivationCodes).set({ failedAttempts: 0, lockedAt: null }).where(eq(plateActivationCodes.tagId, tag.id)).returning({ tagId: plateActivationCodes.tagId }) : [];
-    if (!updated.length) throw new DomainError("NOT_FOUND", "No code for this plate");
+    const [entry] = tag ? await tx.select({ tagId: plateActivationCodes.tagId }).from(plateActivationCodes).where(eq(plateActivationCodes.tagId, tag.id)) : [];
+    if (!entry) throw new DomainError("NOT_FOUND", "No code for this plate");
+    await tx.delete(plateActivationFailures).where(eq(plateActivationFailures.tagId, entry.tagId));
     return { plateLabel, result: "unlocked" as const };
   });
 }
@@ -94,11 +98,12 @@ export async function activatePlate(input: { userId: string; programId: string; 
     if (target.status !== "active" || target.tapMode !== "staff_confirmed" || !target.cooldownSeconds) throw new DomainError("STAFF_CONFIRMATION_REQUIRED", "Schalte zuerst NFC „Mit Bestätigung“ ein.");
     const [tag] = plateLabel ? await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel)).for("update") : [];
     const [entry] = tag ? await tx.select().from(plateActivationCodes).where(eq(plateActivationCodes.tagId, tag.id)).for("update") : [];
+    const [strikes] = tag ? await tx.select().from(plateActivationFailures).where(and(eq(plateActivationFailures.tagId, tag.id), eq(plateActivationFailures.userId, input.userId))).for("update") : [];
     const matches = await codeMatches(code, entry?.codeHash ?? DUMMY);
-    if (!tag || !entry || entry.usedAt || entry.lockedAt || tag.status !== "unlinked") return "failed" as const;
+    if (!tag || !entry || entry.usedAt || strikes?.lockedAt || tag.status !== "unlinked") return "failed" as const;
     if (!matches) {
-      const failedAttempts = entry.failedAttempts + 1;
-      await tx.update(plateActivationCodes).set({ failedAttempts, ...(failedAttempts >= MAX_FAILED_ATTEMPTS ? { lockedAt: new Date() } : {}) }).where(eq(plateActivationCodes.tagId, tag.id));
+      const row = { failedAttempts: (strikes?.failedAttempts ?? 0) + 1, lockedAt: (strikes?.failedAttempts ?? 0) + 1 >= MAX_FAILED_ATTEMPTS ? new Date() : null };
+      await tx.insert(plateActivationFailures).values({ tagId: tag.id, userId: input.userId, ...row }).onConflictDoUpdate({ target: [plateActivationFailures.tagId, plateActivationFailures.userId], set: row });
       return "failed" as const;
     }
     await tx.update(secureTags).set({ tenantId: target.tenantId, locationId: target.locationId, programId: target.programId, status: "active", activatedAt: new Date() }).where(eq(secureTags.id, tag.id));

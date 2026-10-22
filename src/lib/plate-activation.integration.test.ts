@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { plateActivationCodes, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
+import { plateActivationCodes, plateActivationFailures, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
 import { POST as activateRoute } from "@/app/api/merchant/plate/activate/route";
 import { POST as codesRoute } from "@/app/api/operator/plate-codes/route";
 import { auth } from "./auth";
@@ -18,7 +18,7 @@ const saved = { ids: process.env.PLATE_OPERATOR_USER_IDS, base: process.env.PUBL
 let operator: { userId: string; cookie: string };
 beforeEach(async () => {
   await assertDisposableDatabase(pool);
-  await pool.query('TRUNCATE tenants, "user", secure_tags, plate_link_events, plate_activation_codes, rate_limits CASCADE');
+  await pool.query('TRUNCATE tenants, "user", secure_tags, plate_link_events, plate_activation_codes, plate_activation_failures, rate_limits CASCADE');
   process.env.PUBLIC_BASE_URL = origin; process.env.PUBLIC_REGISTRATION_ENABLED = "true";
   operator = await identity();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
@@ -105,7 +105,7 @@ it("gives one generic error for unknown, used, wrong and locked codes, and locks
   }
   expect([...messages]).toEqual([ACTIVATION_FAILED]);
   for (let i = 0; i < 3; i++) expect(await code(() => attempt("P-001", "AAAA-AAAA-AAAA"))).toBe("INVALID_ACTIVATION");
-  expect((await db.select().from(plateActivationCodes).where(eq(plateActivationCodes.tagId, (await tag("P-001")).id)))[0]).toMatchObject({ failedAttempts: 4, lockedAt: null });
+  expect(await db.select().from(plateActivationFailures).where(eq(plateActivationFailures.tagId, (await tag("P-001")).id))).toMatchObject([{ userId: shop.userId, failedAttempts: 4, lockedAt: null }]);
   expect(await code(() => attempt("P-001", "AAAA-AAAA-AAAA"))).toBe("INVALID_ACTIVATION"); // the fifth
   // Locked: even the right code fails, with the same error, and nothing more is counted.
   expect(await code(() => attempt("P-001", plain))).toBe("INVALID_ACTIVATION");
@@ -118,6 +118,21 @@ it("gives one generic error for unknown, used, wrong and locked codes, and locks
   const [{ code: fresh }] = await issue("P-002");
   expect(await code(() => attempt("P-002", other))).toBe("INVALID_ACTIVATION");
   expect(await attempt("P-002", fresh)).toMatchObject({ result: "link" });
+});
+
+it("locks only the account that guessed wrong, for that plate only; another owner's right code still works", async () => {
+  const a = await nfcFixture(), b = await nfcFixture();
+  await plate("P-001"); await plate("P-002");
+  const [{ code: forB }, { code: forA }] = await issue("P-001", "P-002");
+  for (let i = 0; i < 5; i++) expect(await code(() => activatePlate({ userId: a.userId, programId: a.program.id, plateLabel: "P-001", code: "AAAA-AAAA-AAAA" }))).toBe("INVALID_ACTIVATION");
+  expect(await db.select().from(plateActivationFailures)).toMatchObject([{ userId: a.userId, failedAttempts: 5, lockedAt: expect.any(Date) }]);
+  // Owner A is locked out of P-001 even with its right code, but not out of another plate.
+  expect(await code(() => activatePlate({ userId: a.userId, programId: a.program.id, plateLabel: "P-001", code: forB }))).toBe("INVALID_ACTIVATION");
+  expect(await activatePlate({ userId: a.userId, programId: a.program.id, plateLabel: "P-002", code: forA })).toMatchObject({ result: "link" });
+  // Owner B, who holds P-001's box card, links it as if nothing happened.
+  expect(await activatePlate({ userId: b.userId, programId: b.program.id, plateLabel: "P-001", code: forB })).toMatchObject({ result: "link" });
+  expect(await tag("P-001")).toMatchObject({ status: "active", tenantId: b.tenant.id, programId: b.program.id });
+  expect(await db.select().from(plateLinkEvents)).toMatchObject(expect.arrayContaining([expect.objectContaining({ plateLabel: "P-001", actorUserId: b.userId })]));
 });
 
 it("rate-limits the owner route per user and per plate, before any code is checked", async () => {

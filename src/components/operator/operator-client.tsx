@@ -30,7 +30,7 @@ const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, E
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
-const CODE = { none: "kein Code", open: "Code offen", locked: "Code gesperrt", used: "Code benutzt" } as const;
+const CODE = { none: "kein Code", open: "Code offen", locked: "Code offen, ein Konto gesperrt", used: "Code benutzt" } as const;
 
 export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[] }) {
   const router = useRouter();
