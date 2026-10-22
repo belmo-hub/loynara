@@ -22,7 +22,7 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 
 | # | Asset | File | Status |
 |---|---|---|---|
-| 1 | One-page merchant handout (A4) | [`collateral/print/handout.pdf`](field/collateral/print/handout.pdf) | **Print now.** No QR, handwritten contact line, `support@getloynara.com` |
+| 1 | One-page merchant handout | none | **Retired** (23 Oct 2026: Sales confirmed the flyer (Marketing) is the only leave-behind) |
 | 2 | Founder demo cheat sheet (A4, 1 page) | [`demo-cheat-sheet.pdf`](field/collateral/print/demo-cheat-sheet.pdf) | **Use now** (internal; laminate) |
 | 3 | Objection cheat sheet (A4, 2 pages) | [`objection-sheet.pdf`](field/collateral/print/objection-sheet.pdf) | **Use now**. Recovery/correction answers are in the *before-RC* wording |
 | 4 | Pilot interest sheet (A4, internal) | [`pilot-interest-sheet.pdf`](field/collateral/print/pilot-interest-sheet.pdf) | **Use now**. „Kein Vertrag, keine Zahlungszusage, kein Startdatum“ |
@@ -31,7 +31,7 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 
 Release-gated lines (lost card, mistake correction, „Was, wenn NFC nicht geht?“, the NFC footer) are generated from one file, [`collateral/variants.py`](field/collateral/variants.py). After the gates: `python3 gtm/field/collateral/build_collateral.py --rc --nfc` writes **separate** `print-post/` PDFs and never overwrites the current set.
 
-Print notes: handout in colour on 130–170 g/m² matt, 100 % scale; the cheat sheets are for the founder only; the pilot sheet one per interested shop.
+Print notes: the cheat sheets are for the founder only; the pilot sheet one per interested shop.
 
 ## C · Counter stand ([`field/stand/`](field/stand/), spec [`STAND-SPEC.md`](field/stand/STAND-SPEC.md))
 
@@ -56,7 +56,7 @@ One design: **Tresenaufsteller A6**, 122.4 × 92 × 149 mm, 20° tilt, matt-blac
 
 | Ready to print or use now | Waits |
 |---|---|
-| Prospect list and routes · handout · demo and objection cheat sheets · pilot interest sheet · learning sheet · pre-NFC insert · paper prototype · fabrication files (after the tag-thickness measurement) · after-demo template (permitted channel only) | **RC release:** switch the objection answers for lost card / correction / card number (`--rc`). **NFC acceptance + owner approval:** post-NFC insert and NFC footer line (`--nfc`). **Production demo merchant (D-3):** a real QR, the live-scan demo step. **Commercial gates (O-001, O-011, O-012, O-013, D-1):** any payment, paid-start date or setup on real customer data. **O-014:** QR or links on the handout |
+| Prospect list and routes · flyer (Marketing) · demo and objection cheat sheets · pilot interest sheet · learning sheet · pre-NFC insert · paper prototype · fabrication files (after the tag-thickness measurement) · after-demo template (permitted channel only) | **RC release:** switch the objection answers for lost card / correction / card number (`--rc`). **NFC acceptance + owner approval:** post-NFC insert and NFC footer line (`--nfc`). **Production demo merchant (D-3):** a real QR, the live-scan demo step. **Commercial gates (O-001, O-011, O-012, O-013, D-1):** any payment, paid-start date or setup on real customer data. **O-014:** QR or links on the flyer |
 
 ## E · Open dependencies
 

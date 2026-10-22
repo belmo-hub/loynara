@@ -21,7 +21,7 @@ Ready means: the angle library, scripts, demo, pages and measurement can be used
 | Gate | Kind | Blocks | Does not block |
 |---|---|---|---|
 | **O-001 · O-011 · O-012 · O-013 · D-1** | Project commercial / launch gates (owner decisions; not a statement of legal requirements) | Close on written terms, payment, paid-start dates, going live with real customer data | Visits, demos, product feedback, pilot interest |
-| **O-014** public site | Project launch gate | Paid ads, site links in messages and handouts, retargeting | Walk-ins, permitted follow-ups, organic content production |
+| **O-014** public site | Project launch gate | Paid ads, site links in messages and flyers, retargeting | Walk-ins, permitted follow-ups, organic content production |
 | **RC release** | Product release gate | Selling card number, corrections and reissue as live | Saying them as „kommt mit dem nächsten Update“ |
 | **NFC acceptance** | Product + physical test gate | NFC as the primary entry claim | „Antippen per NFC ist vorbereitet“ |
 | **D-3** production demo merchant | Waits for RC rehearsal + approved deployment + production verification | A real scan on the owner's own phone | Demos on the tablet with local or isolated demo data |
@@ -49,7 +49,7 @@ Detail, message hierarchy and claim check: [02-positioning-angles.md](02-positio
 | 09 | [09-content-calendar.md](09-content-calendar.md) | 30-day calendar + the original „Was würdest du tun?“ series |
 | 10 | [10-merchant-referrals.md](10-merchant-referrals.md) | Merchant-to-merchant referrals (ACQ-04), no cash reward |
 | 11 | [11-website-strategy.md](11-website-strategy.md) | Page map, claim review of the built pages, next pages by trigger |
-| 12 | [12-collateral.md](12-collateral.md) | Handout, demo cheat sheet, after-demo summary, objection sheet, onboarding checklist |
+| 12 | [12-collateral.md](12-collateral.md) | Demo cheat sheet, after-demo summary, objection sheet, onboarding checklist |
 | 13 | [13-learning-system.md](13-learning-system.md) | CSV learning system, with angle tracking and FUTURE demand logging |
 | 14 | [14-angle-reconciliation.md](14-angle-reconciliation.md) | All 124 original angles + 45 other original items → canonical angle, coverage before, status |
 | 15 | [15-copy-switches.md](15-copy-switches.md) | NFC and RC copy switches: exact website strings and GTM replacements |

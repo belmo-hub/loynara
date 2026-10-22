@@ -78,5 +78,5 @@ The **`/fuer-cafes/` page** additionally waits for a measured counter scan time 
 | > 70 % of orders through delivery platforms | −3 |
 
 - **8 or more:** push for a demo today.
-- **5–7:** leave the handout and ask permission to follow up.
+- **5–7:** leave the flyer and ask permission to follow up.
 - **Below 5:** be friendly and leave.

@@ -67,7 +67,7 @@ Visual note: the counter-stand illustration changes only its text. Re-adding a t
 | [06](06-demo-script.md) step 1 | QR scan | Tap the demo tag, then show the QR as the fallback |
 | [07](07-objections.md) WALLET-NFC | „Wallet-Karte und Antippen per NFC sind Ausblick…“ | „Antippen per NFC geht, der QR-Code bleibt die Alternative. Die Wallet-Karte ist Ausblick.“ |
 | [08](08-ad-concepts.md) AD-03 / AD-16 | „Keine App. Kein Gerät. Ein QR-Code am Tresen.“ / „Kamera drauf“ | New cut: „Keine App. Antippen oder scannen.“ / „Antippen – fertig“ with the real tag |
-| [12](12-collateral.md) handout „So läuft's“ step 1 and the Ausblick list | QR scan; „Antippen per NFC“ in the Ausblick list | „Handy an den Tresen halten oder QR-Code scannen“; remove NFC from the Ausblick list |
+| [12](12-collateral.md) handout (retired 23 Oct 2026: Sales confirmed the flyer (Marketing) is the only leave-behind) | n/a | n/a |
 | [02](02-positioning-angles.md) spoken positioning | „…ohne App.“ | „…ohne App – antippen oder QR-Code scannen.“ |
 
 ## GTM documents: RC gate (recovery and counter)
@@ -97,7 +97,7 @@ Visual note: the counter-stand illustration changes only its text. Re-adding a t
 
 | Item | Now | After the gate | How |
 |---|---|---|---|
-| Printed handout, cheat sheets, pilot sheet | Current wording | After RC / after NFC acceptance | `python3 gtm/field/collateral/build_collateral.py --rc --nfc` (writes `print-post/`, never overwrites `print/`). Wording lives in `gtm/field/collateral/variants.py` |
+| Printed cheat sheets, pilot sheet | Current wording | After RC / after NFC acceptance | `python3 gtm/field/collateral/build_collateral.py --rc --nfc` (writes `print-post/`, never overwrites `print/`). Wording lives in `gtm/field/collateral/variants.py` |
 | Counter stand insert | `insert-pre-nfc`: „Für deine Kundenkarte QR-Code scannen“, no NFC wording | `HOLD_insert-post-nfc`: „Handy kurz antippen“ / „oder QR-Code scannen“, QR as fallback | Print the held file and drop it into the already-installed stands (tag position is identical). Nothing else changes physically |
 | Insert QR | Placeholder (`loynara.invalid`) | The approved demo/production join URL, error correction M | Edit `PLACEHOLDER_URL` in `gtm/field/stand/artwork.py`, rebuild, reprint (see `STAND-SPEC.md` §8) |
 
