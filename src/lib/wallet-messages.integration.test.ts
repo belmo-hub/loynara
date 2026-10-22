@@ -289,7 +289,8 @@ describe("delivery", () => {
     const s = await shop(); const c = await customer(s);
     const { id } = await go(s);
     // A worker died after claiming the recipient (and maybe after the provider call).
-    await pool.query("UPDATE wallet_message_recipients SET status = 'sending', attempts = 1, claimed_at = now() - interval '11 minutes'");
+    // 11 minutes before the pinned clock the delivery below runs at, not before the database's real time.
+    await pool.query("UPDATE wallet_message_recipients SET status = 'sending', attempts = 1, claimed_at = $1", [new Date(NOON.getTime() - 11 * 60_000)]);
     const { calls, send } = fake();
     expect((await drain(id, s.tenantId, send)).status).toBe("complete");
     expect(calls).toHaveLength(0);
