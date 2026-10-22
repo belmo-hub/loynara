@@ -24,9 +24,9 @@ const DAYS: Days[] = [14, 30, 60, 90];
 /** Why a card is in the chosen view, in the same words the overview uses. */
 function activityRule(activity: Activity, days: Days, unit: string) {
   switch (activity) {
-    case "recent": return `Mindestens ein bestätigter Kassenvorgang in den letzten ${days} Tagen.`;
-    case "drifting": return `Früher bestätigte Kassenvorgänge, aber keiner in den letzten ${days} Tagen. Warum, wissen wir nicht. Geschlossene Karten zählen nicht.`;
-    case "never": return "Angemeldet, aber noch kein bestätigter Kassenvorgang. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.";
+    case "recent": return `Mindestens eine bestätigte Buchung in den letzten ${days} Tagen.`;
+    case "drifting": return `Früher bestätigte Buchungen, aber keine in den letzten ${days} Tagen. Warum, wissen wir nicht. Geschlossene Karten zählen nicht.`;
+    case "never": return "Angemeldet, aber noch keine bestätigte Buchung. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.";
     case "near_reward": return `Bis zur günstigsten aktiven Prämie fehlt höchstens ein Viertel, auf ganze Einheiten aufgerundet; bei 8 ${unit} also 1 bis 2.`;
     case "reward_ready": return "Der aktuelle Stand reicht für die günstigste aktive Prämie.";
     default: return "";
@@ -221,7 +221,7 @@ export function CustomersView() {
             : visible.length === 0 ? (unfiltered(applied) && !next
               // No cards at all yet: the way to the first one is the sign-up code at the counter.
               ? <EmptyState level={3} icon={<OwnerIcon name="users" size={24} />} title="Noch keine Karten." action={<Link href="/merchant" className={buttonClassName({ variant: "secondary", size: "sm" })}>Zur Übersicht</Link>}>Gäste melden sich über deinen Anmeldecode am Tresen an. Den Code findest du in der Übersicht.</EmptyState>
-              : <EmptyState level={3} title={applied.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Kassenvorgängen und keinem in den letzten ${applied.days} Tagen.` : "Ändere oben die Auswahl, um weitere Karten zu sehen."}</EmptyState>)
+              : <EmptyState level={3} title={applied.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : applied.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}>{next ? "Weitere Karten sind noch nicht geladen." : applied.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Buchungen und keiner in den letzten ${applied.days} Tagen.` : "Ändere oben die Auswahl, um weitere Karten zu sehen."}</EmptyState>)
             : <ul className="ow-members">{visible.map(member => (
               <li key={member.id}><button type="button" className="ow-member" aria-current={selected === member.id ? "true" : undefined} onClick={() => void open(member.id)}>
                 <span className="ow-member-id"><strong>{member.pseudonym}</strong><small>{member.programName}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
