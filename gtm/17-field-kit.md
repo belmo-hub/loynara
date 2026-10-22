@@ -26,7 +26,7 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 | 2 | Founder demo cheat sheet (A4, 1 page) | [`demo-cheat-sheet.pdf`](field/collateral/print/demo-cheat-sheet.pdf) | **Use now** (internal; laminate) |
 | 3 | Objection cheat sheet (A4, 2 pages) | [`objection-sheet.pdf`](field/collateral/print/objection-sheet.pdf) | **Use now**. Recovery/correction answers are in the *before-RC* wording |
 | 4 | Pilot interest sheet (A4, internal) | [`pilot-interest-sheet.pdf`](field/collateral/print/pilot-interest-sheet.pdf) | **Use now**. „Kein Vertrag, keine Zahlungszusage, kein Startdatum“ |
-| 5 | After-demo summary | [`after-demo-summary.html`](field/collateral/templates/after-demo-summary.html) (editable) · [`.pdf`](field/collateral/print/after-demo-summary.pdf) · [`after-demo-message.txt`](field/after-demo-message.txt) | **Send only after a recorded permission** for that channel |
+| 5 | After-demo summary | [`after-demo-summary.html`](field/collateral/templates/after-demo-summary.html) (editable) · [`.pdf`](field/collateral/print/after-demo-summary.pdf) · plain-text message: retired 23 Oct 2026, current templates are with Sales outside the repo | **Send only after a recorded permission** for that channel |
 | 6 | Learning sheet | [`learning-sheet.xlsx`](field/learning-sheet.xlsx) (dropdowns) · [`learning-sheet-template.csv`](field/learning-sheet-template.csv) | **Use now** |
 
 Release-gated lines (lost card, mistake correction, „Was, wenn NFC nicht geht?“, the NFC footer) are generated from one file, [`collateral/variants.py`](field/collateral/variants.py). After the gates: `python3 gtm/field/collateral/build_collateral.py --rc --nfc` writes **separate** `print-post/` PDFs and never overwrites the current set.

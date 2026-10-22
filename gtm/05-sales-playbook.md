@@ -102,17 +102,7 @@ Let them talk. Write the answer down after you leave, not in front of them.
 
 Keep each message under 4 lines, with no attachments in message 1 and no voice notes unless they send one first.
 
-**W1: same day (thank you + the one thing they asked about):**
-> Hi [Vorname], hier ist [Name] – war vorhin mit der digitalen Stempelkarte bei dir im Laden. Danke für die Zeit! Wie versprochen: so sieht die Karte aus ↓
-> [Link zur Seite /fuer-barber/ – erst nach Veröffentlichung, sonst Screenshot mit „Beispiel“]
-> Wenn du Fragen hast, schreib einfach.
-
-**W2: day 3–4 (answer their objection, one new piece of information):**
-> Hi [Vorname], du hattest gefragt, [was wenn Kunden kein Smartphone haben / ob das an der Kasse aufhält]. Kurz: [eine Antwort aus 07-objections.md, max. 2 Sätze].
-> Soll ich Donnerstag kurz vorbeikommen und dir das am Tresen zeigen?
-
-**W3: day 10 (last message, easy out):**
-> Hi [Vorname], ich will dich nicht zuschreiben – das ist meine letzte Nachricht dazu. Wenn du's irgendwann ausprobieren willst, meld dich einfach. Und falls du einen Kollegen kennst, für den's passt: ich freu mich über den Kontakt.
+**W1–W3** (same day, day 3–4, day 10): Aktuelle Vorlagen liegen außerhalb des Repos bei Sales.
 
 After W3: stop, and mark the contact `closed_no_reply`. If they ask to stop at any point, reply „Alles klar, danke dir!“ and mark them `SUPPRESSED`.
 
@@ -129,7 +119,7 @@ Allowed only:
 - (b) after permission was given in person
 
 **I1: reply to a comment like „Was kostet das?“:**
-> Hi! 49 € pro Monat und Standort, ohne App für deine Kunden. Was für einen Laden hast du? Dann zeig ich dir das passende Beispiel.
+> 49 € pro Monat und Standort, ohne App für deine Kunden. Für die ersten Läden in Kassel gibt's im persönlichen Gespräch einen Gründungspreis. Was für einen Laden hast du?
 
 **I2: after in-person permission:**
 > Hey, [Name] hier – wir haben heute im Laden gesprochen 👋 Hier wie besprochen das Beispiel für Barber: [Link/Screenshot „Beispiel“]. Sag Bescheid, wann ich zum Einrichten vorbeikommen soll.
@@ -149,39 +139,7 @@ Never send:
 
 Plain text, one link at most, no images. Subject lines are short and internal-sounding.
 
-**E1: day 0. Subject: `stempelkarte – wie besprochen`**
-> Hallo [Vorname],
->
-> danke für das Gespräch heute bei [Laden]. Wie versprochen, kurz das Wichtigste:
->
-> – Dein Kunde scannt einmal den QR-Code am Tresen, die Karte öffnet sich im Browser. Keine App.
-> – Ein Stempel zählt erst, wenn dein Team ihn bestätigt.
-> – Du siehst, wie viele wiederkommen, und pro Karte den letzten Besuch.
-> – 49 € pro Monat und Standort. Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst.
->
-> Wenn du's ausprobieren willst: Antworte einfach mit einem Tag, an dem ich vorbeikommen kann.
->
-> Viele Grüße
-> [Name]
-> [Telefon] · support@getloynara.com
-
-**E2: day 4. Subject: `deine frage zu [thema]`**
-> Hallo [Vorname],
->
-> du hattest gefragt, [Frage]. [Antwort in 2–3 Sätzen, aus 07-objections.md.]
->
-> Passt dir [Tag] am Nachmittag für 30 Minuten? Ich zeig's dir am Beispiel deines Ladens. (Nach Freigabe der Bedingungen: „…für die Einrichtung?“)
->
-> [Name]
-
-**E3: day 12. Subject: `letzte nachricht dazu`**
-> Hallo [Vorname],
->
-> ich melde mich hierzu nicht mehr, versprochen. Falls du später doch ausprobieren willst, reicht eine kurze Antwort.
->
-> Eine Bitte noch: Wenn dir ein anderer Ladeninhaber einfällt, für den das passen könnte, freu ich mich über einen Hinweis.
->
-> [Name]
+**E1–E3** (day 0, day 4, day 12): Aktuelle Vorlagen liegen außerhalb des Repos bei Sales.
 
 **Sie-variant:** replace du/dein with Sie/Ihr and use „Guten Tag Herr/Frau [Nachname]“. Keep the length the same.
 
