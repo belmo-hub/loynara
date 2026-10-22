@@ -11,7 +11,7 @@ import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
 import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy-hour";
-import { CHALLENGE_VISITS, challengeBonusRange, challengeSentence, cardNewsProblem, LEVEL_WINDOW_DAYS, levelFor, levelPerkProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-extras";
+import { CHALLENGE_VISITS, challengeBonusRange, challengeFor, challengeSentence, cardNewsProblem, monthOf, nextMonthStart, pendingChallenge, LEVEL_WINDOW_DAYS, levelFor, levelPerkProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-extras";
 import { challengeProgress, recentVisitDays } from "./challenges";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
@@ -170,7 +170,7 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     const ruleChanged = program.name !== input.name || program.rulesText !== input.rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
     if (ruleChanged) {
       // A welcome bonus is sized for one programme type (up to 3 stamps or 50 points); a type change switches it off.
-      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null, challengeVisits: null } : {}) }).where(eq(programs.id, program.id));
+      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null, challengeVisits: null, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null } : {}) }).where(eq(programs.id, program.id));
       await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name: input.name, type: nextType, rulesText: input.rulesText, earningMode, pointsPerCurrencyUnit });
       await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     }
@@ -199,7 +199,7 @@ const programExtrasInput = z.object({
 }).strict();
 
 /** Owner-only programme settings outside the versioned earning rule. */
-export async function updateProgramExtras(raw: z.input<typeof programExtrasInput>) {
+export async function updateProgramExtras(raw: z.input<typeof programExtrasInput>, now = new Date()) {
   const input = programExtrasInput.parse(raw);
   return db.transaction(async (tx) => {
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
@@ -215,8 +215,17 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     // A new or changed period applies only to points earned from now on: earlier points were collected under the old rule.
     const expiry = input.pointsExpiryMonths === undefined || input.pointsExpiryMonths === program.pointsExpiryMonths ? {}
       : { pointsExpiryMonths: input.pointsExpiryMonths, pointsExpirySince: input.pointsExpiryMonths ? sql`now()` : null };
-    const challengeVisits = input.challengeVisits === undefined ? program.challengeVisits : input.challengeVisits;
-    const challengeBonus = input.challengeBonus ?? program.challengeBonus;
+    // ENG-065: a running challenge changes from the next calendar month (location time); this month keeps the terms the
+    // card shows. Switching on a challenge that is off starts at once. Saving folds a pending change that has started in.
+    const [{ timezone }] = await tx.select({ timezone: locations.timezone }).from(locations).where(and(eq(locations.id, program.locationId), eq(locations.tenantId, program.tenantId)));
+    const month = monthOf(now, timezone);
+    const current = challengeFor(program, month);
+    const latest = pendingChallenge(program, month) ?? current;
+    const challengeVisits = input.challengeVisits === undefined ? latest.visits : input.challengeVisits;
+    const challengeBonus = input.challengeBonus ?? latest.bonus ?? current.bonus;
+    const challenge = current.visits === null || (challengeVisits === current.visits && challengeBonus === current.bonus)
+      ? { challengeVisits, challengeBonus, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null }
+      : { challengeVisits: current.visits, challengeBonus: current.bonus, challengeNextFrom: nextMonthStart(month), challengeNextVisits: challengeVisits, challengeNextBonus: challengeVisits === null ? null : challengeBonus };
     if (challengeVisits !== null) {
       // shortcut: checked when the owner saves; a cheaper reward added later does not re-check the bonus. Re-check on reward changes if owners hit it.
       const cheapest = Math.min(...(await currentRewards(program.tenantId, program.id, tx)).map(reward => reward.cost));
@@ -234,8 +243,8 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     if (levels.levelsEnabled && (levels.levelSilverVisits === null || levels.levelGoldVisits === null)) throw new DomainError("INVALID_LEVELS", "Bitte lege fest, ab wie vielen Besuchen Silber und Gold gelten.");
     if (levels.levelSilverVisits !== null && levels.levelGoldVisits !== null && levels.levelGoldVisits <= levels.levelSilverVisits) throw new DomainError("INVALID_LEVELS", "Gold braucht mehr Besuche als Silber.");
     if ([levels.levelBronzePerk, levels.levelSilverPerk, levels.levelGoldPerk].some(levelPerkProblem)) throw new DomainError("INVALID_LEVELS", "Ein Vorteil ist reiner Text, höchstens 60 Zeichen, ohne Links.");
-    const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl, ...expiry, challengeVisits, challengeBonus, ...levels }).where(eq(programs.id, program.id)).returning();
-    return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl, pointsExpiryMonths: updated.pointsExpiryMonths, challengeVisits: updated.challengeVisits, challengeBonus: updated.challengeBonus,
+    const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl, ...expiry, ...challenge, ...levels }).where(eq(programs.id, program.id)).returning();
+    return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl, pointsExpiryMonths: updated.pointsExpiryMonths, challengeVisits: updated.challengeVisits, challengeBonus: updated.challengeBonus, challengeNext: pendingChallenge(updated, month),
       levelsEnabled: updated.levelsEnabled, levelSilverVisits: updated.levelSilverVisits, levelGoldVisits: updated.levelGoldVisits, levelBronzePerk: updated.levelBronzePerk, levelSilverPerk: updated.levelSilverPerk, levelGoldPerk: updated.levelGoldPerk };
   });
 }
@@ -392,15 +401,22 @@ function shownRules(program: typeof programs.$inferSelect) {
   return lines.join("\n\n");
 }
 
+/** The owner screen's challenge: the terms in force now and a change that starts later („Gilt ab 1.11.“). */
+function meChallenge(program: typeof programs.$inferSelect, timeZone: string) {
+  const month = monthOf(new Date(), timeZone), current = challengeFor(program, month);
+  return { challengeVisits: current.visits, challengeBonus: current.bonus, challengeNext: pendingChallenge(program, month) };
+}
+
 /** The card's line for the running month: the challenge and the visit days so far (absent while the shop has none). */
 async function cardChallenge(tx: Parameters<typeof challengeProgress>[0], row: { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; location: typeof locations.$inferSelect }) {
-  if (!row.program.challengeVisits) return undefined;
   const now = new Date();
+  const rule = challengeFor(row.program, monthOf(now, row.location.timezone));
+  if (!rule.visits) return undefined;
   const progress = await challengeProgress(tx, { tenantId: row.member.tenantId, membershipId: row.member.id, locationId: row.program.locationId, at: now });
   const month = new Intl.DateTimeFormat("de-DE", { month: "long", timeZone: row.location.timezone }).format(now);
   const [year, monthNumber] = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: row.location.timezone }).format(now).split("-").map(Number);
   const endsOn = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, monthNumber, 0)));
-  return { ...challengeSentence(row.program.challengeVisits, row.program.challengeBonus, row.program.type, month, endsOn), visits: Math.min(progress.visits, row.program.challengeVisits), target: row.program.challengeVisits, done: progress.bonuses.length > 0 };
+  return { ...challengeSentence(rule.visits, rule.bonus, row.program.type, month, endsOn), visits: Math.min(progress.visits, rule.visits), target: rule.visits, done: progress.bonuses.length > 0 };
 }
 
 /** The card's level from visit days in the last 90 days, its perk and the next step; absent while levels are off. */
@@ -522,7 +538,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
     if (!program) throw new DomainError(ended ? "PROGRAM_ENDED" : "SETUP_INCOMPLETE", ended ? "Programm beendet" : SETUP_INCOMPLETE);
   }
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
-  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, pointsExpiryMonths: program.pointsExpiryMonths, challengeVisits: program.challengeVisits, challengeBonus: program.challengeBonus, levelsEnabled: program.levelsEnabled, levelSilverVisits: program.levelSilverVisits, levelGoldVisits: program.levelGoldVisits, levelBronzePerk: program.levelBronzePerk, levelSilverPerk: program.levelSilverPerk, levelGoldPerk: program.levelGoldPerk, rewardTitle: reward?.title, rewardCost: reward?.cost };
+  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, pointsExpiryMonths: program.pointsExpiryMonths, ...meChallenge(program, location.timezone), levelsEnabled: program.levelsEnabled, levelSilverVisits: program.levelSilverVisits, levelGoldVisits: program.levelGoldVisits, levelBronzePerk: program.levelBronzePerk, levelSilverPerk: program.levelSilverPerk, levelGoldPerk: program.levelGoldPerk, rewardTitle: reward?.title, rewardCost: reward?.cost };
   if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)

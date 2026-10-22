@@ -59,3 +59,22 @@ export function levelFor(visits: number, silver: number, gold: number): LevelNam
 export function levelPerkProblem(text: string) {
   return Array.from(text).length > LEVEL_PERK_MAX ? "TOO_LONG" : cardNewsProblem(text);
 }
+
+/** The calendar month („2026-10“) an instant falls in, in the shop's timezone. */
+export const monthOf = (at: Date, timeZone: string) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone }).format(at).slice(0, 7);
+/** The 1st („2026-11-01“) of the month after `month`. */
+export function nextMonthStart(month: string) {
+  const [year, number] = month.split("-").map(Number);
+  return number === 12 ? `${year + 1}-01-01` : `${year}-${String(number + 1).padStart(2, "0")}-01`;
+}
+
+type ChallengeColumns = { challengeVisits: number | null; challengeBonus: number; challengeNextFrom: string | null; challengeNextVisits: number | null; challengeNextBonus: number | null };
+/** The challenge in force in `month` (ENG-065): a pending change counts from the month it names, so no job has to switch it. */
+export function challengeFor(p: ChallengeColumns, month: string) {
+  return p.challengeNextFrom && `${month}-01` >= p.challengeNextFrom
+    ? { visits: p.challengeNextVisits, bonus: p.challengeNextBonus ?? p.challengeBonus }
+    : { visits: p.challengeVisits, bonus: p.challengeBonus };
+}
+/** The pending change that has not started by `month`, if any (what the owner screen shows as „Gilt ab 1.11.“). */
+export const pendingChallenge = (p: ChallengeColumns, month: string) =>
+  p.challengeNextFrom && `${month}-01` < p.challengeNextFrom ? { from: p.challengeNextFrom, visits: p.challengeNextVisits, bonus: p.challengeNextBonus } : null;

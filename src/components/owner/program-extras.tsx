@@ -9,7 +9,7 @@ import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules"
 
 type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string; expiryMonths: string; challengeVisits: string; challengeBonus: string; levelsEnabled: boolean; silver: string; gold: string; perkBronze: string; perkSilber: string; perkGold: string };
 const LEVELS = [["Bronze", "perkBronze"], ["Silber", "perkSilber"], ["Gold", "perkGold"]] as const;
-const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "", reviewUrl: me.reviewUrl ?? "", expiryMonths: String(me.pointsExpiryMonths ?? ""), challengeVisits: String(me.challengeVisits ?? ""), challengeBonus: String(me.challengeBonus || 1),
+const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "", reviewUrl: me.reviewUrl ?? "", expiryMonths: String(me.pointsExpiryMonths ?? ""), challengeVisits: String((me.challengeNext ? me.challengeNext.visits : me.challengeVisits) ?? ""), challengeBonus: String((me.challengeNext?.bonus ?? me.challengeBonus) || 1),
   levelsEnabled: me.levelsEnabled ?? false, silver: String(me.levelSilverVisits ?? ""), gold: String(me.levelGoldVisits ?? ""), perkBronze: me.levelBronzePerk ?? "", perkSilber: me.levelSilverPerk ?? "", perkGold: me.levelGoldPerk ?? "" });
 const NEWS_PROBLEM = { TOO_LONG: `Höchstens ${CARD_NEWS_MAX} Zeichen.`, LINK: "Bitte ohne Links oder Webadressen.", CONTROL: "Bitte in einer Zeile, ohne Zeilenumbruch." };
 
@@ -86,7 +86,8 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
           {draft.challengeVisits && <div className="ow-field"><label htmlFor="extras-challenge-bonus">Bonus ({stamp ? "Stempel" : "Punkte"})</label>
             <input id="extras-challenge-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 140 }} value={draft.challengeBonus} onChange={event => edit({ challengeBonus: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={!challengeValid} /></div>}
         </div>
-        <span id="extras-challenge-hint" className={challengeValid ? "ow-hint" : "ow-error"}>{challengeValid ? `Zählt Tage mit einem an der Kasse bestätigten Besuch im Kalendermonat. Der Bonus wird einmal pro Monat mit dem bestätigten Besuch gebucht, der das Ziel erreicht; die Kasse sieht ihn. ${stamp ? "1 bis 3 Stempel." : "Höchstens ein Viertel der günstigsten Prämie."} ${EXCLUDED_GOODS}` : stamp ? "Bonus: 1 bis 3 Stempel." : "Bonus: mindestens 1 Punkt."}</span>
+        {me.challengeNext && <p className="ow-hint" role="status">Diesen Monat gilt noch: {me.challengeVisits}-mal, +{me.challengeBonus} {stamp ? "Stempel" : "Punkte"}. Gilt ab {Number(me.challengeNext.from.slice(8))}.{Number(me.challengeNext.from.slice(5, 7))}.: {me.challengeNext.visits ? `${me.challengeNext.visits}-mal, +${me.challengeNext.bonus} ${stamp ? "Stempel" : "Punkte"}` : "aus"}.</p>}
+        <span id="extras-challenge-hint" className={challengeValid ? "ow-hint" : "ow-error"}>{challengeValid ? `${me.challengeVisits ? "Änderungen an der laufenden Challenge gelten ab dem 1. des nächsten Monats; dieser Monat bleibt, wie die Karte es zeigt. " : ""}Zählt Tage mit einem an der Kasse bestätigten Besuch im Kalendermonat. Der Bonus wird einmal pro Monat mit dem bestätigten Besuch gebucht, der das Ziel erreicht; die Kasse sieht ihn. ${stamp ? "1 bis 3 Stempel." : "Höchstens ein Viertel der günstigsten Prämie."} ${EXCLUDED_GOODS}` : stamp ? "Bonus: 1 bis 3 Stempel." : "Bonus: mindestens 1 Punkt."}</span>
       </fieldset>
       <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>
         <legend>Kundenlevel</legend>

@@ -71,6 +71,8 @@ export type MeResponse = {
   pointsExpiryMonths?: number | null;
   challengeVisits?: number | null;
   challengeBonus?: number;
+  /** A change to the running challenge that starts on the 1st of a later month (ENG-065); visits null = off from then. */
+  challengeNext?: { from: string; visits: number | null; bonus: number | null } | null;
   levelsEnabled?: boolean;
   levelSilverVisits?: number;
   levelGoldVisits?: number;
