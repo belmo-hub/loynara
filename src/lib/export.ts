@@ -95,6 +95,8 @@ export function ledgerVorgang(kind: string, source: string, programType: string)
   if (source === "nfc_tap") return `${unit} (NFC automatisch)`;
   if (source === "referral_bonus") return "Empfehlungsbonus";
   if (source === "challenge_bonus") return "Challenge-Bonus";
+  if (source === "winback_bonus") return "Willkommen-zurück-Bonus";
+  if (source === "birthday_bonus") return "Geburtstags-Bonus";
   return "Sonstige Buchung";
 }
 
