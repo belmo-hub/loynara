@@ -29,11 +29,11 @@ test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to 
   assert.match(home, /<a class="login" href="https:\/\/app\.getloynara\.com\/login">Anmelden<\/a>/);
 });
 test('zero interaction: roles, flow, referral rule, owner value, branding, price and next step are visible by default', () => {
-  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Scannt den Code, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – Stand und Verlauf jeder Karte\./);
+  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Tippt an oder scannt, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – Stand und Verlauf jeder Karte\./);
   assert.match(section('ablauf', 'empfehlung'), /Karte öffnen[\s\S]*Team bestätigt[\s\S]*Stempel wächst[\s\S]*Prämie einlösen/);
   assert.match(section('empfehlung', 'gestaltung'), /Link geteilt[\s\S]*Karte erstellt[\s\S]*Erster Besuch bestätigt[\s\S]*Bonus verbucht/);
   assert.match(section('empfehlung', 'gestaltung'), /Teilen, Öffnen oder Anmelden allein bringt keinen Bonus/);
-  for (const re of [/Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /12 wiederholte Besuche/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /39 € \/ Monat \/ Standort|39 € pro Monat und Standort/, /Demo anfragen/]) assert.match(defaultVisible, re, String(re));
+  for (const re of [/Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /12 wiederholte Besuche/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /49 € \/ Monat \/ Standort|49 € pro Monat und Standort/, /Demo anfragen/]) assert.match(defaultVisible, re, String(re));
 });
 test('interactive modules: two real tablists (screen, owner), roving tabindex, one tabpanel each', () => {
   assert.equal((home.match(/role="tablist"/g) ?? []).length, 2);
@@ -43,15 +43,15 @@ test('interactive modules: two real tablists (screen, owner), roving tabindex, o
   assert.ok(home.includes('data-act="visit"') && home.includes('data-act="ref"'), 'the two demos are single explicit actions, not tabs');
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
-  assert.equal(SITE.price.amount, 39); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
-  assert.match(text, /39 € \/ Monat \/ Standort/); assert.match(text, /Pilotangebot – Details im persönlichen Gespräch/);
+  assert.equal(SITE.price.amount, 49); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
+  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Pilotangebot – Details im persönlichen Gespräch/);
   assert.ok(home.includes('mailto:support@getloynara.com')); assert.ok(home.includes('href="https://app.getloynara.com/login"'));
   assert.doesNotMatch(home, /getlyonara/i);
   const src = ['../template.ts', '../src/final-parts.ts', '../src/d-parts.ts', '../src/d.ts', '../src/calc.ts', '../src/demo.ts', '../src/ref.ts'].map(f => readFileSync(resolve(import.meta.dirname, f), 'utf8')).join('\n');
   assert.ok(!/(?<![#\d,.])\b39\b(?![\d,.;])/.test(src), 'the fee is never hard-coded outside src/site.ts');
 });
 test('no stale price, internal wording or old brand', () => {
-  assert.doesNotMatch(text, /\b49\s*€|€\s*49|\b69\s*€|\b99\s*€|\b397\b|Einrichtungsgebühr|Rabatt|Jahresrabatt|nur noch|begrenzt|kostenlos|Testphase|Probemonat|Kündigung|zzgl\.|inkl\./i);
+  assert.doesNotMatch(text, /\b69\s*€|\b99\s*€|\b397\b|Einrichtungsgebühr|Rabatt|Jahresrabatt|nur noch|begrenzt|kostenlos|Testphase|Probemonat|Kündigung|zzgl\.|inkl\./i);
   assert.doesNotMatch(text, /LoopLocal|synthetic|synthetisch|Audit|Entwurf|nicht geprüft|nicht getestet|in Vorbereitung|Testdaten|lokal getestet/i);
 });
 test('no fabricated proof, misleading referral economics or unsupported availability claims', () => {
@@ -69,7 +69,8 @@ test('platform previews are marked as outlook and kept out of the offer, near th
   const card = visible(home.slice(home.indexOf('class="price-card"'), home.indexOf('class="faq"')));
   const included = card.slice(0, card.indexOf('Demo anfragen'));
   assert.doesNotMatch(included, /Kampagn|Nachricht|Wallet|Aufsteller|Logo-Darstellung/);
-  assert.match(card, /Aufsteller, NFC-Antippen, Wallet-Karte, Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
+  assert.match(card, /Aufsteller, Wallet-Karte, Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
+  assert.doesNotMatch(card.slice(card.indexOf('Demo anfragen')), /NFC/, 'NFC has left the outlook list');
   assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten|wurde gesendet|zugestellt/i);
   assert.match(section('gestaltung', 'inhaber'), /Gestaltungsbeispiel und Ausblick\. Nichts wird hochgeladen oder gespeichert\./);
 });
@@ -77,20 +78,20 @@ test('calculator copy: scope, disclaimer next to the result, honest zero case, r
   const calc = section('rechner', 'angebot');
   assert.match(calc, /Für einen Standort/); assert.match(calc, /Was wäre ein zusätzlicher Besuch wert\?/);
   assert.match(calc, /Rechenbeispiel, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
-  assert.match(calc, /910 €/); assert.match(calc, /\+871 €/); assert.match(calc, /\+10\.452 €/); assert.match(calc, /9\.100 €/);
+  assert.match(calc, /910 €/); assert.match(calc, /\+861 €/); assert.match(calc, /\+10\.332 €/); assert.match(calc, /9\.100 €/);
   assert.match(calc, /Bei dieser Annahme übersteigt die Monatsgebühr den Zusatzumsatz\./);
   assert.ok(home.includes('data-zero-note hidden'));
   assert.doesNotMatch(calc, /Nettogewinn|Netto-Nutzen|Return on|Ihr Geld|verdienst du|mindestens \d/i);
   const detailsAt = home.indexOf('<details class="more">'), ratioAt = home.indexOf('data-out="ratio"');
   assert.ok(detailsAt > 0 && ratioAt > detailsAt, 'the ratio appears only inside the expandable details');
-  assert.match(visible(home.slice(detailsAt, home.indexOf('</details>', detailsAt))), /23,3× .*kein Gewinn und keine garantierte Rendite/);
+  assert.match(visible(home.slice(detailsAt, home.indexOf('</details>', detailsAt))), /18,6× .*kein Gewinn und keine garantierte Rendite/);
   const calcHtml = home.slice(home.indexOf('data-calc'), home.indexOf('id="angebot"'));
   assert.equal((calcHtml.match(/data-range="/g) ?? []).length, 4); assert.equal((calcHtml.match(/data-in="/g) ?? []).length, 4);
 });
-test('offer: what 39 € means, what is included, the pilot qualifier and what happens next', () => {
+test('offer: what 49 € means, what is included, the pilot qualifier and what happens next', () => {
   const offer = section('angebot', 'anfrage');
-  assert.match(offer, /39 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
-  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
+  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
+  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
   assert.match(offer, /Vorläufiger Einstiegspreis\. Konditionen besprechen wir vor dem Start persönlich\./);
   assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');
   assert.match(visible(home.slice(home.indexOf('id="anfrage"'))), /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/);
@@ -122,13 +123,17 @@ test('robustness CSS: solid header fallback, prefixed blur, print shows every ta
   assert.doesNotMatch(css, /color-mix\(/);
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
-test('NFC is shown only as outlook: QR is the way in today (physical NFC acceptance has not run)', () => {
+test('NFC is live: the tap comes first and the QR code always stays the fallback; Wallet stays outlook (set only after the physical NFC acceptance passed in production)', () => {
   const offerIncluded = visible(home.slice(home.indexOf('class="checks"'), home.indexOf('</ul>', home.indexOf('class="checks"'))));
-  assert.doesNotMatch(offerIncluded, /NFC/);
-  assert.doesNotMatch(home.slice(0, home.indexOf('</head>')), /NFC/, 'no NFC in title, description or social metadata');
-  assert.doesNotMatch(visible(home.slice(home.indexOf('id="hero"'), home.indexOf('id="ablauf"'))), /NFC|antippen|tippt/i);
-  const mentions = text.match(/NFC[^.]*\./g) ?? [];
-  assert.ok(mentions.length > 0 && mentions.every(m => /Ausblick|Antippen\?|NFC-Antippen/.test(m) || /NFC zum Antippen/.test(m)), mentions.join(' | '));
-  assert.match(text, /Das Antippen per NFC ist vorbereitet; wir zeigen es als Ausblick\. Gestartet wird mit dem QR-Code\./);
+  assert.match(offerIncluded, /NFC-Antippen und QR-Einstieg am Tresen/);
+  const head = home.slice(0, home.indexOf('</head>'));
+  assert.match(head, /property="og:description" content="[^"]*Antippen oder QR-Code, ohne App/, 'social metadata names the tap and the QR code');
+  assert.doesNotMatch(head, /Ausblick|vorbereitet/);
+  assert.match(visible(home.slice(home.indexOf('id="hero"'), home.indexOf('id="ablauf"'))), /Antippen oder QR-Code/);
+  const mentions = text.match(/[^.?]*NFC[^.?]*[.?]/g) ?? [];
+  assert.ok(mentions.length > 0 && mentions.every(m => /\?$/.test(m) || (/QR/.test(m) && !/Ausblick|vorbereitet/.test(m))), mentions.join(' | '));
+  assert.match(text, /Und wenn ein Handy kein NFC kann\? Dann scannt dein Kunde den QR-Code\. Er öffnet dieselbe Karte und bleibt immer als Alternative\./);
+  assert.doesNotMatch(text, /Das Antippen per NFC ist vorbereitet|NFC-Antippen, Wallet-Karte/);
+  for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|\?$/, m);
 });
 

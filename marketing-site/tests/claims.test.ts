@@ -15,8 +15,8 @@ process.stdout.write(JSON.stringify({ home: homePage(), pages: SUB_PAGES.map(p =
 }
 const all = (r: { home: string; pages: string[] }) => [r.home, ...r.pages].map(visible).join(' ');
 
-test('released gates: QR stays primary while the verified production RC capabilities are live', () => {
-  assert.deepEqual(RELEASED_GATES, { nfcAccepted: false, rcDeployed: true });
+test('released gates: the NFC tap is primary with QR as the fallback, and the verified production RC capabilities are live', () => {
+  assert.deepEqual(RELEASED_GATES, { nfcAccepted: true, rcDeployed: true });
   assert.deepEqual(GATES, RELEASED_GATES, 'tests run without a gate override');
 });
 

@@ -49,7 +49,7 @@ test('collateral (today): claim-safe German, price from the single source, NFC a
     for (const m of t.match(/[^.?!]*(?:Wallet|Nachrichten|Logo)[^.?!]*[.?!]/g) ?? []) assert.match(m, /Ausblick|nicht Teil|Nie|nie|als vorhanden|als live|noch nicht|nicht dabei|schickt Loynara nichts|zeigen wir/, `${f}: ${m}`);
   }
   const obj = visible(docs['objection-sheet.html']);
-  for (const o of ['Ich habe schon Stempelkarten', 'Meine Kunden laden keine App runter', 'Meine Mitarbeiter machen das nicht', 'Das dauert an der Kasse zu lange', 'Ich kenne meine Stammkunden', 'Ich habe Instagram', '39 € ist zu teuer', 'Was, wenn ein Mitarbeiter einen Fehler macht', 'Was, wenn der Kunde seine Karte verliert', 'Was, wenn NFC nicht geht', 'Ich muss darüber nachdenken']) assert.ok(obj.includes(o), o);
+  for (const o of ['Ich habe schon Stempelkarten', 'Meine Kunden laden keine App runter', 'Meine Mitarbeiter machen das nicht', 'Das dauert an der Kasse zu lange', 'Ich kenne meine Stammkunden', 'Ich habe Instagram', '49 € ist zu teuer', 'Was, wenn ein Mitarbeiter einen Fehler macht', 'Was, wenn der Kunde seine Karte verliert', 'Was, wenn NFC nicht geht', 'Ich muss darüber nachdenken']) assert.ok(obj.includes(o), o);
   assert.match(obj, /kommt mit dem nächsten Update/, 'RC items are phrased as upcoming');
   const demo = visible(docs['demo-cheat-sheet.html']);
   for (const b of ['1 Kunde', '2 Tresen', '3 Fortschritt', '4 Empfehlung', '5 Inhaber', '6 Preis', '7 Frage', '20-Sekunden-Pitch', '2-Minuten-Pitch', '5-Minuten-Demo', 'Abschlussfrage']) assert.ok(demo.includes(b), b);

@@ -1,0 +1,1 @@
+(function(d){d.classList.add('js');setTimeout(function(){if(d.classList.contains('app'))return;var s=document.querySelectorAll('.hero-scene,[data-reveal]');for(var i=0;i<s.length;i++){s[i].setAttribute('data-play','');s[i].setAttribute('data-seen','')}},4000)})(document.documentElement);
