@@ -66,7 +66,7 @@ Let them talk. Write the answer down after you leave, not in front of them.
 > „Und das hier siehst du: wie viele Karten diesen Monat wiederkamen, und pro Karte Stand und letzten Besuch. Diese Karte war vor neun Wochen das letzte Mal da. Namen zeigt Loynara nicht – aber du siehst, dass sich da was tut oder eben nicht.“
 
 **Price, plainly (when they ask, or after the owner view):**
-> „39 € im Monat für den Laden. Egal, wie viele Stühle oder Kunden. Bei 25 € pro Haarschnitt sind das zwei Haarschnitte im Monat. Ob die zusätzlich kommen, kann dir keiner versprechen – aber du siehst es schwarz auf weiß.“
+> „Normal 49 €, für die ersten Betriebe in Kassel 39 €, und das bleibt so, solange du dabei bist. Pro Monat für den Laden, egal wie viele Stühle oder Kunden. Bei 25 € pro Haarschnitt sind 49 € zwei Haarschnitte im Monat. Ob die zusätzlich kommen, kann dir keiner versprechen – aber du siehst es schwarz auf weiß.“
 
 **Close: ask for the smallest real step:**
 - Strong fit (score ≥ 8, see [03-verticals.md](03-verticals.md)):
@@ -85,7 +85,7 @@ Let them talk. Write the answer down after you leave, not in front of them.
 **Variations:**
 - **Pizzeria:**
   - Opener: „Ihr habt doch bestimmt auch so 'ne Karte – die zehnte Pizza umsonst?“
-  - Price line: „Bei 18 € pro Bestellung sind 39 € aufgerundet drei Bestellungen.“
+  - Price line: „Bei 18 € pro Bestellung sind 49 € aufgerundet drei Bestellungen.“
   - Say unprompted: „Lieferando-Bestellungen laufen da nicht drüber – das ist für die, die bei dir am Tresen bestellen oder abholen.“
   - Show multiple stamps in one step for family orders.
 - **Café:**
@@ -129,7 +129,7 @@ Allowed only:
 - (b) after permission was given in person
 
 **I1: reply to a comment like „Was kostet das?“:**
-> Hi! 39 € pro Monat und Standort, ohne App für deine Kunden. Was für einen Laden hast du? Dann zeig ich dir das passende Beispiel.
+> Hi! 49 € pro Monat und Standort, ohne App für deine Kunden. Was für einen Laden hast du? Dann zeig ich dir das passende Beispiel.
 
 **I2: after in-person permission:**
 > Hey, [Name] hier – wir haben heute im Laden gesprochen 👋 Hier wie besprochen das Beispiel für Barber: [Link/Screenshot „Beispiel“]. Sag Bescheid, wann ich zum Einrichten vorbeikommen soll.
@@ -157,7 +157,7 @@ Plain text, one link at most, no images. Subject lines are short and internal-so
 > – Dein Kunde scannt einmal den QR-Code am Tresen, die Karte öffnet sich im Browser. Keine App.
 > – Ein Stempel zählt erst, wenn dein Team ihn bestätigt.
 > – Du siehst, wie viele wiederkommen, und pro Karte den letzten Besuch.
-> – 39 € pro Monat und Standort. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst.
+> – 49 € pro Monat und Standort. Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst.
 >
 > Wenn du's ausprobieren willst: Antworte einfach mit einem Tag, an dem ich vorbeikommen kann.
 >
@@ -240,7 +240,7 @@ The original playbook wrote one „Cold DM / WhatsApp“ line per priority angle
 | TRU-08 Marke | „Das Schild und die Kundenkarte sehen nach deinem Laden aus – in deiner Farbe und mit deinem Namen.“ | Logo and premium stand removed (FUTURE) |
 | CORE-08 Sehen, ob es genutzt wird | „Du kennst viele Stammkunden vom Gesicht. Willst du auch sehen, wie viele wirklich regelmäßig kommen?“ | „wer“ → „wie viele“ |
 | FUT-12 Insight → Action | Not sent | FUTURE |
-| CORE-09 39 € | „Ich will dir nicht erzählen, dass Loynara garantiert X Umsatz bringt. Trag lieber deine Zahlen ein und schau dir das Szenario an.“ | unchanged (it already refuses the guarantee) |
+| CORE-09 49 € | „Ich will dir nicht erzählen, dass Loynara garantiert X Umsatz bringt. Trag lieber deine Zahlen ein und schau dir das Szenario an.“ | unchanged (it already refuses the guarantee) |
 | OPS-01 Echte Schicht | „Wenn ein Kunde seinen Link verliert, soll das nicht in Chaos enden. Heute legst du eine neue Karte an und buchst nach; mit dem nächsten Update stellst du die Karte mit gleichem Stand neu aus.“ | RC wording until release |
 
 Original pizzeria example (§5), as a permitted follow-up:

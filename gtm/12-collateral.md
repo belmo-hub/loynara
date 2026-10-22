@@ -20,7 +20,7 @@ ORDER  Kunde → Tresen → Prämie → Empfehlung → Inhaber → Vertrauen →
 5 INHABER    Returning cards + one card (pseudonymous): last visit 9 weeks ago. → "Merkst du sowas heute?"
 6 VERTRAUEN  Before RC: lost link = new card + you re-book; reissue "kommt mit dem Update". After RC: reissue, same stand. Say the Ausblick list.
 7 RECHNUNG   Their basket → calculator. "Rechenbeispiel, keine Prognose."
-8 PREIS      "39 € pro Monat und Standort." Then SILENCE.
+8 PREIS      "Normal 49 €, für die ersten Betriebe in Kassel 39 €, und das bleibt so, solange du dabei bist." Then SILENCE.
 ASK          "Würde dir das bei etwas Konkretem helfen?"
 CLOSE        Before gates: "Willst du einer der ersten sein, sobald die Bedingungen stehen?" (no date, no payment)
              After gates:  "Wollen wir's bei dir ausprobieren? Eine halbe Stunde, wenn's ruhig ist."
@@ -42,12 +42,12 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 > – Prämie, die du dir vorstellen kannst: [ihre Prämie]
 > – Stempel bis zur Prämie: [Zahl]
 > – Wer bestätigt an der Kasse: [Namen/Rollen]
-> – Deine Rechnung: Bei rund [Warenkorb] € pro Besuch entsprechen 39 € etwa [ceil(39/Warenkorb)] Besuchen im Monat. (Rechenbeispiel, keine Prognose.)
+> – Deine Rechnung: Bei rund [Warenkorb] € pro Besuch entsprechen 49 € etwa [ceil(49/Warenkorb)] Besuchen im Monat. (Rechenbeispiel, keine Prognose.)
 >
 > **Was Loynara heute kann:** QR-Karte im Browser, Bestätigung durch dein Team, Prämien, Empfehlungen mit Bonus erst nach dem ersten bestätigten Besuch, Übersicht über wiederkehrende und länger fehlende Kunden.
 > **Was es noch nicht kann:** Nachrichten an Kunden, Wallet, NFC-Antippen, Logo auf der Karte, Kassen- oder Lieferplattform-Anbindung.
 >
-> **Preis:** 39 € pro Monat und Standort. Alle Bedingungen schriftlich, bevor du etwas zahlst.
+> **Preis:** 49 € pro Monat und Standort. Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch. Alle Bedingungen schriftlich, bevor du etwas zahlst.
 >
 > **Nächster Schritt:** [vereinbarter Termin] / Vor Freigabe der Bedingungen: „Ich melde mich, sobald ich dir alles schriftlich geben kann.“ Danach: „Sag mir einen ruhigen Nachmittag, dann richten wir's in einer halben Stunde ein.“
 >
@@ -59,7 +59,7 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 
 | They say | You say (one line) |
 |---|---|
-| Zu teuer | „Bei dir sind 39 € [n] Besuche. Versprechen kann ich nichts – aber du siehst, was passiert.“ |
+| Zu teuer | „Bei dir sind 49 € [n] Besuche. Versprechen kann ich nichts – aber du siehst, was passiert.“ |
 | Papier geht doch | „Gleiche Idee – nur nicht in der falschen Jacke, nicht selbst gestempelt, und du siehst was.“ |
 | Keine App | „Muss keiner laden. Scan mal.“ |
 | Ältere Kunden | „Für die läuft Papier einfach weiter.“ |

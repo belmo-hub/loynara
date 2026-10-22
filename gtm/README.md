@@ -1,6 +1,6 @@
 # Loynara: first 100 merchants (GTM system)
 
-**Goal:** paying German local-merchant locations at **€39 / Monat / Standort**.
+**Goal:** paying German local-merchant locations at **49 € / Monat / Standort** (founding shops: „Gründungspreis 39 € für die ersten Betriebe, fest für die Vertragslaufzeit, nur im persönlichen Gespräch“, D-016).
 - The price is unchanged; its single source is `marketing-site/src/site.ts`.
 - **100 paid locations in month one is the stretch objective, not the expected outcome** ([04](04-funnel.md)).
 

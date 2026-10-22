@@ -24,7 +24,7 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 
 ## Final positioning
 
-**One sentence (internal):** For owner-run barbers, pizzerias and cafés in Kassel, Loynara replaces the paper stamp card with a browser card the customer opens by QR code. The team confirms every visit, so the owner can see how many customers come back, what each card has done, and which recommendation became a real visit. It costs €39 per location, with no customer app and no hardware to buy.
+**One sentence (internal):** For owner-run barbers, pizzerias and cafés in Kassel, Loynara replaces the paper stamp card with a browser card the customer opens by QR code. The team confirms every visit, so the owner can see how many customers come back, what each card has done, and which recommendation became a real visit. It costs 49 € per location (founding shops: 39 €, fixed for the contract term, named only in person), with no customer app and no hardware to buy.
 
 **German, spoken (what the founder says):**
 > „Das ist deine Stempelkarte, nur auf dem Handy deiner Kunden – ohne App. Dein Team bestätigt jeden Besuch, und du siehst, wie viele wiederkommen und welche Empfehlung ein echter Besuch war.“
@@ -103,7 +103,7 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 | CORE-06 | Team bestätigt jeden Stempel | CORE | SELL NOW | Walk-in, Demo, Static ad, Video, FAQ, Homepage |
 | CORE-07 | Empfehlung zählt beim echten Besuch | CORE | SELL NOW | Walk-in, Demo, Static ad, Video, Content, Homepage, Vertical page |
 | CORE-08 | Sehen, ob es genutzt wird | CORE | QUALIFIED / PREVIEW | Demo, Content, Sales follow-up, Vertical page, Homepage |
-| CORE-09 | 39 € mit deinen eigenen Zahlen | CORE | SELL NOW | Walk-in, Demo, Static ad, Video, Homepage, Vertical page, Retargeting |
+| CORE-09 | 49 € mit deinen eigenen Zahlen | CORE | SELL NOW | Walk-in, Demo, Static ad, Video, Homepage, Vertical page, Retargeting |
 | CORE-10 | Mit dir eingerichtet | CORE | SELL NOW | Walk-in, Onboarding, Content, Trust collateral |
 | CORE-11 | Antippen statt scannen (NFC) | CORE | QUALIFIED / PREVIEW | FAQ, Homepage, Walk-in |
 | VER-01 | Barber: jeder Schnitt zählt | VERTICAL | SELL NOW | Vertical page, Walk-in, Video, Static ad |
@@ -285,13 +285,13 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 - **Used in:** Demo, Content, Sales follow-up, Vertical page, Homepage
 - **Boundary:** Cards are pseudonymous: no names, no contact data. Counts only confirmed loyalty activity, not revenue. Days are UTC-based.
 
-#### CORE-09 · 39 € mit deinen eigenen Zahlen
+#### CORE-09 · 49 € mit deinen eigenen Zahlen
 **SELL NOW** · sources: O16, O17, P11, OB-39 · prev A6
 
 - **Merchant pain:** "Noch ein Abo."
-- **Commercial outcome:** The merchant puts in their own basket and sees how many extra visits cover €39.
-- **Strongest hook:** „39 € im Monat. Bei dir sind das [n] Besuche.“
-- **Strongest verticals:** Price-sensitive shops; barber €25 → 2, pizzeria €18 → 3, café €6 → 7
+- **Commercial outcome:** The merchant puts in their own basket and sees how many extra visits cover the 49 € list price.
+- **Strongest hook:** „49 € im Monat. Bei dir sind das [n] Besuche.“
+- **Strongest verticals:** Price-sensitive shops; barber €25 → 2, pizzeria €18 → 3, café €6 → 9
 - **Best channel:** Walk-in close, calculator, static ad
 - **Sales/demo proof:** /#rechner with the merchant's own basket
 - **Objection addressed:** „Zu teuer.“
@@ -362,7 +362,7 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 **SELL NOW** · sources: prev B5
 
 - **Merchant pain:** Platform fees per order.
-- **Commercial outcome:** A flat €39 per location, with no fee per order.
+- **Commercial outcome:** A flat 49 € per location, with no fee per order.
 - **Strongest hook:** „Keine Provision pro Bestellung.“
 - **Strongest verticals:** Pizzeria, Imbiss
 - **Best channel:** Static ad, walk-in
@@ -662,7 +662,7 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 **SELL NOW** · sources: O95, O96 · prev A7
 
 - **Merchant pain:** Tiered pricing by cards or staff is confusing.
-- **Commercial outcome:** €39 per location, without counting cards or staff.
+- **Commercial outcome:** 49 € per location (founding shops 39 €, named in person), without counting cards or staff.
 - **Strongest hook:** „Ein Preis pro Laden. Egal, wie viele Stühle.“
 - **Strongest verticals:** Barber with several chairs, busy café
 - **Best channel:** Static ad, walk-in

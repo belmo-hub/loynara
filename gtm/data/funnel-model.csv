@@ -1,5 +1,5 @@
 row,metric,conservative,target,stretch,type,note
-2,goal_paying_locations,100,100,100,input,Fixed goal. Price stays 39 EUR / location / month.
+2,goal_paying_locations,100,100,100,input,Fixed goal. List price 49 EUR / location / month; founding shops pay 39 EUR, fixed for their contract term (D-016). The model counts shops, not revenue.
 3,locations_per_paying_merchant,1.05,1.1,1.2,input,Some owners have a second shop.
 4,share_of_merchants_from_referrals,0.05,0.15,0.25,input,Merchant-to-merchant introductions that end up paying (see 10-merchant-referrals.md).
 5,rate_door_to_owner_conversation,0.35,0.45,0.55,input,Decision-maker present AND willing to talk for >1 minute.
