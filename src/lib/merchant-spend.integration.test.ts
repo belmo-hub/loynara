@@ -104,6 +104,22 @@ describe("owner spend figures (ENG-070)", () => {
     expect((await getMerchantSpend(owner, { asOf: later() })).overall.total).toMatchObject({ visits: 1, realMinor: 0, estimatedMinor: 2390, spentMinor: 2390, unpricedVisits: 0, averagePerVisitMinor: 2390 });
   });
 
+  it("counts one request with two uncorrected entries as one visit, and mixes real and estimated visits in one programme", async () => {
+    const owner = await user();
+    const shop = await pointsShop(owner, "Synthetic Spend Mixed");
+    // Reachable: a programme switched from stamps to points keeps the average entered for the stamp visits.
+    await db.update(programs).set({ averageVisitSpendMinor: 1000 }).where(eq(programs.id, shop.programId));
+    const rule = await ruleOf(shop.programId);
+    const card = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+    const entry = (requestId: string, delta: number) => ({ tenantId: shop.tenantId, locationId: shop.locationId, membershipId: card.id, actorUserId: owner, requestId, idempotencyKey: randomUUID(), kind: "award" as const, source: "staff_online" as const, delta });
+    const requestId = randomUUID();
+    const [a, b] = await db.insert(ledgerEntries).values([entry(requestId, 12), entry(requestId, 3)]).returning();
+    await db.insert(purchaseAwards).values([{ e: a, amountMinor: 1200 }, { e: b, amountMinor: 300 }].map(({ e, amountMinor }) => ({ ledgerEntryId: e.id, tenantId: shop.tenantId, ruleVersionId: rule, amountMinor, currency: "EUR", appliedRate: 1, pointsAwarded: e.delta })));
+    await db.insert(ledgerEntries).values(entry(randomUUID(), 5)); // a visit without a purchase row: estimated with the average
+
+    expect((await getMerchantSpend(owner, { asOf: later() })).overall.total).toMatchObject({ visits: 2, realMinor: 1500, estimatedMinor: 1000, spentMinor: 2500, unpricedVisits: 0, averagePerVisitMinor: 1250 });
+  });
+
   it("uses today and the 29 local days before, across the 25 October DST change", async () => {
     const owner = await user();
     const shop = await stampShop(owner, "Synthetic Spend DST");
