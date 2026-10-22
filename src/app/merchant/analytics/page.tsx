@@ -35,7 +35,7 @@ export default function MerchantAnalyticsPage() {
       {r && <>
         <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Kassenvorgänge</h2>
           <div className="ow-metrics">
-            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Aktuell nicht geschlossene Karten." />
+            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Alle Karten, die nicht geschlossen sind" />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
             <Metric label="Bestätigte Kassenvorgänge" value={r.qualifyingCheckouts} note="Vom Team bestätigte Vergaben, ohne vollständig rückgängig gemachte." />
             <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Kassenvorgänge.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />

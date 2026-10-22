@@ -94,9 +94,6 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       </header>
 
       {periodMode ? <PeriodMetrics analytics={analytics} days={windowDays} reload={reloadAnalytics} /> : <LifetimeMetrics me={me} />}
-      {periodMode && analytics.state === "ok" && (
-        <details className="ow-muted"><summary style={{ cursor: "pointer", minHeight: 44 }}>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{analytics.data.countingRule}</p></details>
-      )}
 
       <div className="ow-two">
         <div className="ow-stack">
@@ -127,7 +124,7 @@ function PeriodMetrics({ analytics, days, reload }: { analytics: Loadable<Analyt
   const data = analytics.state === "ok" ? analytics.data : null;
   return (
     <dl className="ow-metrics" aria-label={`Kennzahlen, letzte ${days} Tage`} aria-busy={analytics.state === "loading"}>
-      <Metric label="Aktive Karten" note="Stand jetzt, nicht geschlossen">{value(pick(analytics, d => d.currentActiveCards), reload)}</Metric>
+      <Metric label="Aktive Karten" note="Stand jetzt, ohne geschlossene Karten">{value(pick(analytics, d => d.currentActiveCards), reload)}</Metric>
       <Metric label="Neue Karten" note={`Angemeldet in den letzten ${days} Tagen`}>{value(pick(analytics, d => d.newCards), reload)}</Metric>
       <Metric label="Bestätigte Gutschriften" note={data ? `${nf.format(data.participatingCards)} Karten, ${nf.format(data.repeatCards)} mit mehreren. Kein Umsatz.` : "Vorgänge mit Stempel oder Punkten"}>{value(pick(analytics, d => d.qualifyingCheckouts), reload)}</Metric>
       <Metric label="Eingelöste Prämien" note={`In den letzten ${days} Tagen`}>{value(pick(analytics, d => d.rewards.redemptions), reload)}</Metric>
