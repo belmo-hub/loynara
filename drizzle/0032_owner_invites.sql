@@ -7,7 +7,8 @@ CREATE TABLE "plate_activation_codes" (
 	"code_hash" varchar(160) NOT NULL,
 	"used_at" timestamp with time zone,
 	"issued_by_user_id" text NOT NULL,
-	"issued_at" timestamp with time zone DEFAULT now() NOT NULL
+	"issued_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"alerted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "plate_activation_failures" (

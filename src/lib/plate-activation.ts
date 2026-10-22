@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { plateActivationCodes, plateActivationFailures, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { enforceRateLimit, RateLimitError } from "./rate-limit";
 import { assertPlateOperator, normalizePlateLabel, shopOf } from "./plates";
 
 /**
@@ -57,7 +58,7 @@ export async function issuePlateCodes(input: { actorUserId: string; env: Env; pl
       const tag = tags.find(t => t.plateLabel === plateLabel);
       if (!tag) throw new DomainError("NOT_FOUND", `Plate ${plateLabel} not found`);
       if (tag.status !== "unlinked") throw new DomainError("PLATE_LINKED", `Plate ${plateLabel} is not free`);
-      const row = { codeHash, usedAt: null, issuedByUserId: input.actorUserId, issuedAt: new Date() };
+      const row = { codeHash, usedAt: null, alertedAt: null, issuedByUserId: input.actorUserId, issuedAt: new Date() };
       await tx.insert(plateActivationCodes).values({ tagId: tag.id, ...row }).onConflictDoUpdate({ target: plateActivationCodes.tagId, set: row });
       // Wrong tries were against the old code.
       await tx.delete(plateActivationFailures).where(eq(plateActivationFailures.tagId, tag.id));
@@ -77,6 +78,20 @@ export async function unlockPlateCode(input: { actorUserId: string; env: Env; pl
     await tx.delete(plateActivationFailures).where(eq(plateActivationFailures.tagId, entry.tagId));
     return { plateLabel, result: "unlocked" as const };
   });
+}
+
+/**
+ * Across all accounts, more than 50 tries on one plate in an hour is a warning for the operator (log line and a badge
+ * on /operator), never a lock: only the guessing account is ever locked out.
+ */
+export async function plateTripwire(rawLabel: string) {
+  try { await enforceRateLimit({ scope: "plate_activate_plate", identity: rawLabel, max: 50, windowSeconds: 60 * 60 }); return; }
+  catch (error) { if (!(error instanceof RateLimitError)) throw error; }
+  let plateLabel: string;
+  try { plateLabel = normalizePlateLabel(rawLabel); } catch { return; } // nothing to show for a label no plate can have
+  console.warn(`PLATE_ACTIVATION_TRIPWIRE ${JSON.stringify({ plateLabel })}`);
+  const [tag] = await db.select({ id: secureTags.id }).from(secureTags).where(eq(secureTags.plateLabel, plateLabel));
+  if (tag) await db.update(plateActivationCodes).set({ alertedAt: new Date() }).where(eq(plateActivationCodes.tagId, tag.id));
 }
 
 /**

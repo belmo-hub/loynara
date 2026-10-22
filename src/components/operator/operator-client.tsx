@@ -19,7 +19,7 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 
 type Row = { walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null };
-type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
+type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
@@ -169,6 +169,7 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
               <Badge tone={p.status === "active" ? "success" : "neutral"}>{STATUS[p.status] ?? p.status}</Badge>
               <Badge>{p.everTapped ? "getippt" : "nie getippt"}</Badge>
               {p.status === "unlinked" || p.code !== "none" ? <Badge tone={p.code === "locked" ? "warning" : "neutral"}>{CODE[p.code]}</Badge> : null}
+              {p.alertedAt ? <Badge tone="warning">viele Versuche am {date(p.alertedAt)}</Badge> : null}
             </span>
           </button>
         </li>)}
@@ -237,6 +238,7 @@ export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates
         </> : <p className="ow-muted">Diese Platte ist {STATUS[plate.status] ?? plate.status} und kann nicht verknüpft werden.</p>}
         {plate.status === "unlinked" ? <>
           <p>Aktivierungscode: <strong>{CODE[plate.code]}</strong></p>
+          {plate.alertedAt ? <p role="status">Am {date(plate.alertedAt)} kamen mehr als 50 Versuche in einer Stunde, von mehreren Konten. Nichts ist gesperrt; im Zweifel einen neuen Code erzeugen.</p> : null}
           {plate.code === "locked" ? <Button variant="secondary" loading={busy} onClick={() => void sendCodes({ action: "unlock", plateLabel: plate.plateLabel })}>Sperre aufheben</Button> : null}
           <Button variant="quiet" loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: [plate.plateLabel] })}>{plate.code === "none" ? "Code erzeugen" : "Neuen Code erzeugen (alter gilt nicht mehr)"}</Button>
         </> : null}

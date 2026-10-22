@@ -30,7 +30,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .leftJoin(cards, eq(cards.programId, programs.id)).leftJoin(awards, eq(awards.programId, programs.id))
       .orderBy(asc(tenants.name), asc(locations.name), asc(programs.name));
     const plates = await tx.select({
-      plateLabel: secureTags.plateLabel, status: secureTags.status, everTapped: sql<boolean>`${secureTags.lastCounter} > 0`,
+      plateLabel: secureTags.plateLabel, status: secureTags.status, everTapped: sql<boolean>`${secureTags.lastCounter} > 0`, alertedAt: plateActivationCodes.alertedAt,
       code: sql<"none" | "open" | "locked" | "used">`case when ${plateActivationCodes.tagId} is null then 'none' when ${plateActivationCodes.usedAt} is not null then 'used' when exists (select 1 from ${plateActivationFailures} where ${plateActivationFailures.tagId} = ${secureTags.id} and ${plateActivationFailures.lockedAt} is not null) then 'locked' else 'open' end`,
       programId: secureTags.programId, merchant: tenants.name, location: locations.name, programme: programs.name,
     }).from(secureTags)

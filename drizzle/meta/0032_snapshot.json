@@ -1,5 +1,5 @@
 {
-  "id": "b9b346b3-d75e-4d74-b652-b2b89e366698",
+  "id": "1b74a06a-6d09-4287-979c-a91cfc0bdefc",
   "prevId": "641f1c4a-414c-400c-990e-9d607d4da9f2",
   "version": "7",
   "dialect": "postgresql",
@@ -3049,6 +3049,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "alerted_at": {
+          "name": "alerted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

@@ -379,6 +379,8 @@ export const plateActivationCodes = pgTable("plate_activation_codes", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   issuedByUserId: text("issued_by_user_id").notNull(),
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Last time the plate saw more than 50 activation tries in an hour across all accounts: a warning for the operator, never a lock. */
+  alertedAt: timestamp("alerted_at", { withTimezone: true }),
 });
 
 /** Wrong codes per account and plate: five lock that account out of that plate only, until the operator unlocks the plate. */

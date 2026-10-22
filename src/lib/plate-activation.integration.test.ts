@@ -8,7 +8,7 @@ import { POST as codesRoute } from "@/app/api/operator/plate-codes/route";
 import { auth } from "./auth";
 import { nfcFixture } from "./nfc-test-db";
 import { operatorOverview } from "./operator";
-import { ACTIVATION_FAILED, activatePlate, issuePlateCodes, unlockPlateCode } from "./plate-activation";
+import { ACTIVATION_FAILED, activatePlate, issuePlateCodes, plateTripwire, unlockPlateCode } from "./plate-activation";
 import { setPlateLink } from "./plates";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
@@ -139,18 +139,48 @@ it("locks only the account that guessed wrong, for that plate only; another owne
   expect(await db.select().from(plateLinkEvents)).toMatchObject(expect.arrayContaining([expect.objectContaining({ plateLabel: "P-001", actorUserId: b.userId })]));
 });
 
-it("rate-limits the owner route per user and per plate, before any code is checked", async () => {
+it("rate-limits per user and per (user, plate); a stranger never uses up the owner's tries; the per-plate tripwire only warns", async () => {
   const shop = await nfcFixture();
   const signedIn = await identity();
   await db.insert(staffRoles).values({ tenantId: shop.tenant.id, userId: signedIn.userId, role: "owner" });
-  const owner = signedIn.cookie;
-  await plate("P-001");
-  const send = (plateLabel: string) => post(activateRoute, "/api/merchant/plate/activate", { programId: shop.program.id, plateLabel, code: "AAAA-AAAA-AAAA" }, owner);
+  const owner = signedIn.cookie, stranger = (await identity()).cookie;
+  await plate("P-001"); await plate("P-777");
+  await issue("P-777");
+  const send = (plateLabel: string, cookie = owner) => post(activateRoute, "/api/merchant/plate/activate", { programId: shop.program.id, plateLabel, code: "AAAA-AAAA-AAAA" }, cookie);
+  // Only the 15-minute windows (per user, peer) end: the hourly per-(user, plate) counts stay.
+  const nextQuarterHour = () => pool.query("DELETE FROM rate_limits WHERE reset_at < now() + interval '20 minutes'");
   expect((await send("P-001")).status).toBe(400);
   expect(await (await send("P-404")).json()).toMatchObject({ code: "INVALID_ACTIVATION", error: ACTIVATION_FAILED });
   for (let i = 0; i < 8; i++) await send(`P-${100 + i}`);
   expect((await send("P-001")).status).toBe(429); // 10 per user in 15 minutes
   await pool.query("DELETE FROM rate_limits");
-  for (let i = 0; i < 10; i++) await post(activateRoute, "/api/merchant/plate/activate", { programId: shop.program.id, plateLabel: "P-777", code: "AAAA-AAAA-AAAA" }, i < 5 ? owner : (await identity()).cookie);
-  expect((await send("P-777")).status).toBe(429); // 10 per plate name in an hour, whoever asks
+
+  // A stranger's ten tries on P-777 stop the stranger, not the owner.
+  for (let i = 0; i < 10; i++) await send("P-777", stranger);
+  expect((await send("P-777", stranger)).status).toBe(429);
+  expect((await send("P-777")).status).toBe(400);
+  // The owner's own hourly allowance for P-777 is ten, independent of other plates.
+  for (let i = 0; i < 9; i++) await send("P-777");
+  await nextQuarterHour();
+  expect((await send("P-777")).status).toBe(429);
+  expect((await send("P-778")).status).toBe(400);
+});
+
+it("records more than 50 tries an hour on one plate as a warning for the operator, and locks nobody", async () => {
+  const shop = await nfcFixture();
+  await plate("P-001");
+  const [{ code: plain }] = await issue("P-001");
+  const warned: string[] = [];
+  const warn = console.warn;
+  console.warn = (line: string) => { warned.push(line); };
+  try {
+    for (let i = 0; i < 50; i++) await plateTripwire("P-001");
+    expect((await operatorOverview(operator.userId)).plates[0].alertedAt).toBeNull();
+    await plateTripwire("P-001"); // the 51st
+    await plateTripwire("not a plate"); // counted, nothing to record
+  } finally { console.warn = warn; }
+  expect(warned).toEqual(['PLATE_ACTIVATION_TRIPWIRE {"plateLabel":"P-001"}']);
+  expect((await operatorOverview(operator.userId)).plates[0]).toMatchObject({ plateLabel: "P-001", alertedAt: expect.any(Date), code: "open" });
+  // Nobody is locked: the owner with the right code links it.
+  expect(await activatePlate({ userId: shop.userId, programId: shop.program.id, plateLabel: "P-001", code: plain })).toMatchObject({ result: "link" });
 });
