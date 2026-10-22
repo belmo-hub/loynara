@@ -157,6 +157,9 @@ export const programs = pgTable("programs", {
   levelBronzePerk: varchar("level_bronze_perk", { length: 60 }).notNull().default(""),
   levelSilverPerk: varchar("level_silver_perk", { length: 60 }).notNull().default(""),
   levelGoldPerk: varchar("level_gold_perk", { length: 60 }).notNull().default(""),
+  // ENG-070: the owner's average spend per visit in minor units, for the estimated spend of visits without a purchase
+  // amount (stamp and manual points). Null = not entered: the results show visits only.
+  averageVisitSpendMinor: integer("average_visit_spend_minor"),
   // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
   // When the owner first asked (kept on repeats); the operator page shows how old the request is.
   cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
@@ -176,6 +179,7 @@ export const programs = pgTable("programs", {
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
   check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (24,36) and ${t.type} = 'points'))`),
   check("program_challenge_next_valid", sql`(${t.challengeNextFrom} is null and ${t.challengeNextVisits} is null and ${t.challengeNextBonus} is null) or (${t.challengeNextFrom} is not null and extract(day from ${t.challengeNextFrom}) = 1 and ((${t.challengeNextVisits} is null and ${t.challengeNextBonus} is null) or (${t.challengeNextVisits} between 2 and 10 and ${t.challengeNextBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))))`),
+  check("program_average_visit_spend_valid", sql`${t.averageVisitSpendMinor} is null or ${t.averageVisitSpendMinor} between 1 and 100000`),
   check("program_challenge_valid", sql`${t.challengeVisits} is null or (${t.challengeVisits} between 2 and 10 and ${t.challengeBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))`),
   check("program_levels_valid", sql`(not ${t.levelsEnabled} or (${t.levelSilverVisits} is not null and ${t.levelGoldVisits} is not null)) and (${t.levelSilverVisits} is null or ${t.levelSilverVisits} between 2 and 50) and (${t.levelGoldVisits} is null or (${t.levelGoldVisits} <= 90 and (${t.levelSilverVisits} is null or ${t.levelGoldVisits} > ${t.levelSilverVisits})))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),

@@ -288,6 +288,13 @@
       "when": 1792661572170,
       "tag": "0040_challenge_next_month",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792706721960,
+      "tag": "0041_average_visit_spend",
+      "breakpoints": true
     }
   ]
 }
