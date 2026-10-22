@@ -135,6 +135,10 @@ export const programs = pgTable("programs", {
   birthdayBonus: integer("birthday_bonus").notNull().default(1),
   // Last day (Berlin calendar day) the programme works; the worker ends it after that day. Null = no cancellation.
   cancellationEndDate: date("cancellation_end_date"),
+  // Points expiry (ENG-051): points expire this many months after they were earned, oldest first. Null = off. Only points
+  // earned since `pointsExpirySince` (when the owner last switched it on or changed it) can expire; older points never do.
+  pointsExpiryMonths: integer("points_expiry_months"),
+  pointsExpirySince: timestamp("points_expiry_since", { withTimezone: true }),
   // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
   // When the owner first asked (kept on repeats); the operator page shows how old the request is.
   cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
@@ -152,6 +156,7 @@ export const programs = pgTable("programs", {
   check("program_tap_cooldown_valid", sql`${t.tapCooldownSeconds} is null or ${t.tapCooldownSeconds} between 1 and 86400`),
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
+  check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (24,36) and ${t.type} = 'points'))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
   check("program_birthday_bonus_valid", sql`${t.birthdayBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
   check("program_winback_valid", sql`${t.winbackDays} between 14 and 90 and ${t.winbackBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
@@ -325,12 +330,13 @@ export const ledgerEntries = pgTable("ledger_entries", {
   foreignKey({ columns: [t.tenantId, t.reversalOfId], foreignColumns: [t.tenantId, t.id] }),
   index("ledger_member_time_idx").on(t.membershipId, t.createdAt),
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
-  check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
-  // Awards add, redemptions subtract, and only a reversal points at the entry it undoes.
-  check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} = 'redeem' and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
+  check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal','expiry')`),
+  // Awards add, redemptions and expiries subtract, and only a reversal points at the entry it undoes.
+  check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} in ('redeem','expiry') and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
+  check("ledger_expiry_source_valid", sql`(${t.kind} = 'expiry') = (${t.source} = 'expiry')`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus')`),
-  check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus','expiry')`),
+  check("ledger_nfc_actor_valid", sql`(${t.source} in ('nfc_tap','expiry') and ${t.actorUserId} is null) or (${t.source} not in ('nfc_tap','expiry') and ${t.actorUserId} is not null)`),
 ]);
 
 export const secureTags = pgTable("secure_tags", {
@@ -987,7 +993,7 @@ export const walletMessages = pgTable("wallet_messages", {
   unique("wallet_messages_tenant_id_id_uq").on(t.tenantId, t.id),
   foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
   index("wallet_messages_program_idx").on(t.tenantId, t.programId, t.createdAt),
-  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback','almost','birthday')`),
+  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback','almost','birthday','expiry')`),
   check("wallet_message_status_valid", sql`${t.status} in ('queued','sending','complete','stopped')`),
 ]);
 

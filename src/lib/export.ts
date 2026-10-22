@@ -87,6 +87,7 @@ export function ledgerVorgang(kind: string, source: string, programType: string)
   if (source === "synthetic_seed" || source === "legacy_unclassified") return "Sonstige Buchung";
   if (kind === "redeem") return "Prämie eingelöst";
   if (kind === "reversal") return "Korrektur";
+  if (kind === "expiry") return "Punkte verfallen";
   if (source === "staff_online") return unit;
   if (source === "staff_offline") return `${unit} (offline)`;
   if (source === "welcome_bonus") return "Startbonus";

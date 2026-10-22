@@ -15,6 +15,8 @@ import { cardNewsProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-ext
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
+import { cardExpiry } from "./points-expiry";
+import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -167,7 +169,7 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     const ruleChanged = program.name !== input.name || program.rulesText !== input.rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
     if (ruleChanged) {
       // A welcome bonus is sized for one programme type (up to 3 stamps or 50 points); a type change switches it off.
-      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus) } : {}) }).where(eq(programs.id, program.id));
+      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null } : {}) }).where(eq(programs.id, program.id));
       await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name: input.name, type: nextType, rulesText: input.rulesText, earningMode, pointsPerCurrencyUnit });
       await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     }
@@ -181,6 +183,8 @@ const programExtrasInput = z.object({
   welcomeBonus: z.number().int().min(0).max(50).optional(),
   cardNews: z.string().max(1000).optional(),
   reviewUrl: z.string().max(1000).optional(),
+  /** Months after which earned points expire; null switches it off. */
+  pointsExpiryMonths: z.union([z.literal(POINTS_EXPIRY_MONTHS), z.null()]).optional(),
 }).strict();
 
 /** Owner-only programme settings outside the versioned earning rule. */
@@ -196,8 +200,12 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     if (cardNews !== undefined && cardNewsProblem(cardNews)) throw new DomainError("INVALID_CARD_NEWS", "Card news is plain text, at most 140 characters, without links");
     const reviewUrl = input.reviewUrl === undefined ? program.reviewUrl : input.reviewUrl.trim() || null;
     if (reviewUrl !== null && !reviewUrlValid(reviewUrl)) throw new DomainError("INVALID_REVIEW_URL", "Review link must be an https Google link (g.page, google.com/maps or search.google.com/local/writereview)");
-    const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl }).where(eq(programs.id, program.id)).returning();
-    return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl };
+    if (input.pointsExpiryMonths && program.type !== "points") throw new DomainError("INVALID_POINTS_EXPIRY", "Points expiry needs a points programme");
+    // A new or changed period applies only to points earned from now on: earlier points were collected under the old rule.
+    const expiry = input.pointsExpiryMonths === undefined || input.pointsExpiryMonths === program.pointsExpiryMonths ? {}
+      : { pointsExpiryMonths: input.pointsExpiryMonths, pointsExpirySince: input.pointsExpiryMonths ? sql`now()` : null };
+    const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl, ...expiry }).where(eq(programs.id, program.id)).returning();
+    return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl, pointsExpiryMonths: updated.pointsExpiryMonths };
   });
 }
 
@@ -373,7 +381,7 @@ export async function getCard(token: string) {
       eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id), eq(ledgerEntries.kind, "award"),
       sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus" })) };
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -427,7 +435,7 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program), pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {
@@ -458,7 +466,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
     if (!program) throw new DomainError(ended ? "PROGRAM_ENDED" : "SETUP_INCOMPLETE", ended ? "Programm beendet" : SETUP_INCOMPLETE);
   }
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
-  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, rewardTitle: reward?.title, rewardCost: reward?.cost };
+  const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, pointsExpiryMonths: program.pointsExpiryMonths, rewardTitle: reward?.title, rewardCost: reward?.cost };
   if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)

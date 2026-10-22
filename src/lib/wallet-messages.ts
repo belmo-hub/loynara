@@ -27,6 +27,8 @@ const STALE_SENDING_MS = 10 * 60_000;
 
 type Tx = Pick<typeof db, "execute">;
 const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
+/** Message kinds that are service information, not marketing: sent without marketing consent. */
+const SERVICE_KINDS: readonly string[] = ["expiry"];
 const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
 /** Off until Google approves the issuer: absent or anything but "true" leaves the Apple-only behaviour exactly as it was. */
 const googleOn = () => process.env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED === "true";
@@ -83,11 +85,12 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
 /** A pass whose latest device event is an unregistration was removed from the Wallet: it gets no more messages (it still gets balance updates). */
 const reachable = sql`COALESCE((SELECT e.event FROM wallet_pass_events e WHERE e.pass_id = p.id ORDER BY e.event_at DESC, e.received_at DESC LIMIT 1), 'device.registered') <> 'device.unregistered'`;
 
-export const eligible = (tenantId: string, programId: string, now: Date) => sql`
+/** `consent: false` only for service information (the expiry reminder): no marketing consent needed, everything else applies. */
+export const eligible = (tenantId: string, programId: string, now: Date, consent = true) => sql`
   FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id AND m.closed_at IS NULL
   WHERE p.tenant_id = ${tenantId}::uuid AND m.program_id = ${programId}::uuid AND ${messagePass()}
     AND p.status = 'created' AND p.revoked_at IS NULL AND ${reachable}
-    AND EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL)
+    AND (${!consent}::boolean OR EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL))
     AND (SELECT count(DISTINCT r.message_id) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
       AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain'))
       AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS})) < ${CUSTOMER_WEEKLY_CAP}`;
@@ -202,6 +205,30 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
   });
 }
 
+/**
+ * An automatic message to one card (ENG-051 expiry reminder): the same reachability, quiet hours and per-customer cap as
+ * an owner message, its own kind, no shop cap. The expiry reminder is service information, so it needs no marketing
+ * consent (Product/Legal 22 Oct). At most one of this kind per card within `onceWithinDays`. False = not queued.
+ */
+export async function queueCardWalletMessage(input: { tenantId: string; programId: string; membershipId: string; kind: "expiry"; text: string; onceWithinDays: number }, now = new Date()) {
+  if (surfaceHidden("walletMessages")) return false;
+  return db.transaction(async tx => {
+    await lock(tx, input.tenantId);
+    const [recent] = rows<{ id: string }>(await tx.execute(sql`SELECT m.id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id
+      WHERE m.tenant_id = ${input.tenantId}::uuid AND m.kind = ${input.kind} AND r.membership_id = ${input.membershipId}::uuid
+        AND m.created_at > ${now}::timestamptz - make_interval(days => ${input.onceWithinDays}) LIMIT 1`));
+    if (recent) return false;
+    const [pass] = rows<{ id: string }>(await tx.execute(sql`SELECT p.id ${eligible(input.tenantId, input.programId, now, !SERVICE_KINDS.includes(input.kind))} AND m.id = ${input.membershipId}::uuid LIMIT 1`));
+    if (!pass) return false;
+    const [message] = rows<{ id: string }>(await tx.execute(sql`INSERT INTO wallet_messages (tenant_id, program_id, kind, text, audience_count, created_at)
+      VALUES (${input.tenantId}::uuid, ${input.programId}::uuid, ${input.kind}, ${input.text}, 1, ${now}::timestamptz) RETURNING id`));
+    await tx.execute(sql`INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, created_at)
+      VALUES (${message.id}::uuid, ${pass.id}::uuid, ${input.tenantId}::uuid, ${input.membershipId}::uuid, ${now}::timestamptz)`);
+    await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES (${input.tenantId}::uuid, 'wallet.message', jsonb_build_object('messageId', ${message.id}::text))`);
+    return true;
+  });
+}
+
 /** Stop switch: nothing queued is sent any more. A delivery already in flight finishes; it cannot be recalled. */
 export async function stopWalletMessage(input: { actorUserId: string; programSlug: string; messageId: string }) {
   available();
@@ -253,8 +280,8 @@ export async function deliverWalletMessage(job: { id: string; tenantId: string; 
   const parsed = payload.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked", reason: "Invalid wallet message job" };
   const messageId = parsed.data.messageId;
-  const [message] = rows<{ text: string; status: string; timezone: string }>(await db.execute(sql`
-    SELECT m.text, m.status, l.timezone FROM wallet_messages m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
+  const [message] = rows<{ text: string; status: string; timezone: string; kind: string }>(await db.execute(sql`
+    SELECT m.text, m.status, m.kind, l.timezone FROM wallet_messages m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id
     WHERE m.id = ${messageId}::uuid AND m.tenant_id = ${job.tenantId}::uuid`));
   if (!message) return { status: "blocked", reason: "Message not found" };
@@ -275,7 +302,7 @@ export async function deliverWalletMessage(job: { id: string; tenantId: string; 
         ORDER BY created_at, pass_id FOR UPDATE SKIP LOCKED LIMIT 1)
       RETURNING pass_id AS "passId", membership_id AS "membershipId", attempts`));
     if (!claim) break;
-    await deliverOne(job.tenantId, messageId, message.text, claim, send, deps.googleSend ?? googleProviderSend);
+    await deliverOne(job.tenantId, messageId, message.text, claim, send, deps.googleSend ?? googleProviderSend, SERVICE_KINDS.includes(message.kind));
   }
   await refreshCounts(messageId);
   const [open] = rows<{ n: number; next: Date | null }>(await db.execute(sql`
@@ -287,7 +314,7 @@ export async function deliverWalletMessage(job: { id: string; tenantId: string; 
   return { status: "deferred", reason: "More recipients", until: new Date(Math.max(clock().getTime() + 1000, (open.next ? new Date(open.next).getTime() : 0))) };
 }
 
-async function deliverOne(tenantId: string, messageId: string, text: string, claim: { passId: string; membershipId: string; attempts: number }, send: WalletMessageSend, googleSend: WalletMessageGoogleSend) {
+async function deliverOne(tenantId: string, messageId: string, text: string, claim: { passId: string; membershipId: string; attempts: number }, send: WalletMessageSend, googleSend: WalletMessageGoogleSend, service = false) {
   const settle = (status: "sent" | "failed" | "skipped" | "queued", reason: string | null, retrySeconds = 0) => db.execute(sql`
     UPDATE wallet_message_recipients SET status = ${status}, reason = ${reason}, sent_at = ${status === "sent" ? sql`clock_timestamp()` : sql`NULL`},
       retry_at = clock_timestamp() + make_interval(secs => ${retrySeconds})
@@ -302,7 +329,7 @@ async function deliverOne(tenantId: string, messageId: string, text: string, cla
       JOIN programs pr ON pr.id = m.program_id AND pr.tenant_id = m.tenant_id
     WHERE p.id = ${claim.passId}::uuid AND p.tenant_id = ${tenantId}::uuid`));
   if (!state || state.stopped) return settle("skipped", "stopped");
-  if (!state.consent) return settle("skipped", "no_consent");
+  if (!state.consent && !service) return settle("skipped", "no_consent");
   if (!state.live) return settle("skipped", "pass_gone");
   if (!state.reachable) return settle("skipped", "unreachable");
   // Switched off after queueing: a Google pass gets nothing (the flag is the stop switch for the whole channel).

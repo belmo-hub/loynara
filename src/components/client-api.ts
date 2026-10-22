@@ -68,6 +68,7 @@ export type MeResponse = {
   reviewUrl?: string | null;
   happyHourEnabled?: boolean;
   happyHourWindows?: HappyHourWindow[];
+  pointsExpiryMonths?: number | null;
   /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
   cancellationEndDate?: string | null;
   /** True once the operator has confirmed the end date; before that it is provisional. */
@@ -92,6 +93,8 @@ export type PublicProgram = {
   currency: "EUR" | "MAD";
   locale?: "de" | "fr";
   rulesText: string;
+  /** Shown before the card is created whenever the shop lets points expire. */
+  pointsExpiryRule?: string;
   rewardTitle: string;
   rewardCost: number;
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; termsText: string; sortOrder: number }>;
@@ -120,6 +123,8 @@ export type CardResponse = {
   reviewUrl?: string;
   /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */
   happyHourUntil?: string;
+  /** The shop's points expiry rule, each batch's expiry date and, when points expire within 30 days, the notice; absent while expiry is off. */
+  pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean }>;
 };
