@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 const base = process.env.BASE ?? 'http://127.0.0.1:8765';
 const root = resolve(import.meta.dirname, 'site');
 const size = f => { const b = readFileSync(resolve(root, f)); return { raw: b.length, gzip: gzipSync(b).length }; };
-console.log('ASSETS', JSON.stringify({ 'app.js': size('assets/app.js'), 'styles.css': size('styles.css'), 'index.html': size('index.html'), fonts: ['manrope-latin', 'fraunces-latin', 'fraunces-latin-italic'].map(n => statSync(resolve(root, `assets/fonts/${n}.woff2`)).size) }));
+console.log('ASSETS', JSON.stringify({ 'app.js': size('assets/app.js'), 'styles.css': size('styles.css'), 'index.html': size('index.html'), fonts: ['manrope-latin'].map(n => statSync(resolve(root, `assets/fonts/${n}.woff2`)).size) }));
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 for (const [label, viewport, mobile] of [['mobile 390x844', { width: 390, height: 844 }, true], ['desktop 1440x900', { width: 1440, height: 900 }, false]]) {
   const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });

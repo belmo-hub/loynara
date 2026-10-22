@@ -117,7 +117,7 @@ test('publication changes survive: legal links, no terms link, legal fragments r
 test('robustness CSS: solid header fallback, prefixed blur, print shows every tab view and drops sticky positioning, no color-mix', () => {
   const css = readFileSync(resolve(import.meta.dirname, '../design/d.css'), 'utf8');
   assert.match(css, /\.top\{position:sticky;[^}]*background:var\(--canvas\)/);
-  assert.match(css, /@supports \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{\.top\{background:rgba\(246,243,236,\.92\);-webkit-backdrop-filter:[^}]*backdrop-filter:/);
+  assert.match(css, /@supports \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{\.top\{background:rgba\(238,240,239,\.92\);-webkit-backdrop-filter:[^}]*backdrop-filter:/);
   assert.match(css, /@media print\{\.top\{position:static\}\[data-show\]\[hidden\]\{display:block!important\}/);
   assert.doesNotMatch(css, /color-mix\(/);
   assert.match(css, /prefers-reduced-motion:reduce/);

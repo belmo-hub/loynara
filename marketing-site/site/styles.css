@@ -1,9 +1,7 @@
 /* Loynara marketing page (Concept D). Tokens and primitives first, then page scenes. Generated brand variables are appended by the build. */
 @font-face{font-family:Manrope;src:url(/assets/fonts/manrope-latin.woff2) format("woff2");font-weight:200 800;font-display:swap}
-@font-face{font-family:Fraunces;src:url(/assets/fonts/fraunces-latin.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
-@font-face{font-family:Fraunces;src:url(/assets/fonts/fraunces-latin-italic.woff2) format("woff2");font-weight:100 900;font-style:italic;font-display:swap}
 
-:root{--canvas:#F6F3EC;--paper:#FCFBF7;--ink:#17291F;--muted:#58645C;--brand:#245D47;--deep:#143D2E;--soft:#E6EEDF;--warm:#9E4B2D;--line:#DCE0D6;--on-dark:#CFE0D5;--gut:20px;--max:1160px;--b-dark:#143D2E;--b-mid:#245D47;--b-accent:#F4DDD0;--b-soft:#E6EEDF}
+:root{--canvas:#EEF0EF;--paper:#FFFFFF;--ink:#17291F;--muted:#58645C;--brand:#245D47;--deep:#143D2E;--soft:#E6EEDF;--warm:#9E4B2D;--line:#DCE0D6;--on-dark:#CFE0D5;--gut:20px;--max:1160px;--b-dark:#143D2E;--b-mid:#245D47;--b-accent:#F4DDD0;--b-soft:#E6EEDF}
 @media (min-width:900px){:root{--gut:40px}}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -15,7 +13,7 @@ ol,ul{list-style:none}
 h1,h2,h3{font-weight:760;letter-spacing:-.028em;line-height:1.07;text-wrap:balance}
 p{text-wrap:pretty}
 a{color:inherit}
-em{font-family:Fraunces,Georgia,serif;font-style:italic;font-weight:520;letter-spacing:-.01em;color:var(--brand)}
+em{font:inherit;font-style:normal;font-weight:800;color:var(--brand)}
 .wrap{width:100%;max-width:calc(var(--max) + 2 * var(--gut));margin:0 auto;padding:0 var(--gut)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .eyebrow{font-size:.76rem;font-weight:780;letter-spacing:.14em;text-transform:uppercase;color:var(--warm);margin-bottom:16px}
@@ -119,7 +117,7 @@ input[aria-invalid=true]{color:#A3321E}
 
 /* ===== header / footer ====================================================================================================== */
 .top{position:sticky;top:0;z-index:20;background:var(--canvas)}
-@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.top{background:rgba(246,243,236,.92);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.top{background:rgba(238,240,239,.92);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:68px}
 .logo{display:inline-flex;align-items:center;gap:10px;font-size:1.16rem;font-weight:800;text-decoration:none}
 .logo img{width:32px;height:32px}

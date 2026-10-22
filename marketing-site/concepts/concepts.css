@@ -1,9 +1,7 @@
 /* Loynara design-direction prototypes. Shared tokens and primitives first, then one scoped block per concept (.ca .cb .cc). */
 @font-face{font-family:Manrope;src:url(/assets/fonts/manrope-latin.woff2) format("woff2");font-weight:200 800;font-display:swap}
-@font-face{font-family:Fraunces;src:url(/assets/fonts/fraunces-latin.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
-@font-face{font-family:Fraunces;src:url(/assets/fonts/fraunces-latin-italic.woff2) format("woff2");font-weight:100 900;font-style:italic;font-display:swap}
 
-:root{--canvas:#F6F3EC;--paper:#FCFBF7;--ink:#17291F;--muted:#58645C;--brand:#245D47;--deep:#143D2E;--soft:#E6EEDF;--warm:#9E4B2D;--line:#DCE0D6;--on-dark:#CFE0D5;--gut:20px;--max:1160px;--b-dark:#143D2E;--b-mid:#245D47;--b-accent:#F4DDD0;--b-soft:#E6EEDF}
+:root{--canvas:#EEF0EF;--paper:#FFFFFF;--ink:#17291F;--muted:#58645C;--brand:#245D47;--deep:#143D2E;--soft:#E6EEDF;--warm:#9E4B2D;--line:#DCE0D6;--on-dark:#CFE0D5;--gut:20px;--max:1160px;--b-dark:#143D2E;--b-mid:#245D47;--b-accent:#F4DDD0;--b-soft:#E6EEDF}
 @media (min-width:900px){:root{--gut:40px}}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -15,7 +13,7 @@ ol,ul{list-style:none}
 h1,h2,h3{font-weight:760;letter-spacing:-.028em;line-height:1.07;text-wrap:balance}
 p{text-wrap:pretty}
 a{color:inherit}
-em{font-family:Fraunces,Georgia,serif;font-style:italic;font-weight:520;letter-spacing:-.01em;color:var(--brand)}
+em{font:inherit;font-style:normal;font-weight:800;color:var(--brand)}
 .wrap{width:100%;max-width:calc(var(--max) + 2 * var(--gut));margin:0 auto;padding:0 var(--gut)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .eyebrow{font-size:.76rem;font-weight:780;letter-spacing:.14em;text-transform:uppercase;color:var(--warm);margin-bottom:16px}
@@ -40,7 +38,7 @@ em{font-family:Fraunces,Georgia,serif;font-style:italic;font-weight:520;letter-s
 .proto{display:flex;justify-content:space-between;gap:12px;margin:0;padding:8px var(--gut);background:var(--ink);color:#DCE6DF;font-size:.76rem;font-weight:650}
 .proto a{text-decoration:none}.proto span{opacity:.65}
 @media (max-width:380px){.proto span{display:none}}
-.top{position:sticky;top:0;z-index:20;background:rgba(246,243,236,.9);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+.top{position:sticky;top:0;z-index:20;background:rgba(238,240,239,.9);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
 .bar{display:flex;align-items:center;justify-content:space-between;min-height:68px}
 .logo{display:inline-flex;align-items:center;gap:10px;font-size:1.16rem;font-weight:800;text-decoration:none}
 .foot{padding:32px 0 44px;font-size:.9rem;color:var(--muted)}
@@ -238,7 +236,7 @@ input[aria-invalid=true]{color:#A3321E}
 /* ===================================================================== B — Editorial Product ====== */
 .cb{background:#F7F5EF}
 .cb .top{background:rgba(247,245,239,.9)}
-.cb h1,.cb h2{font-family:Fraunces,Georgia,serif;font-weight:540;letter-spacing:-.02em}
+.cb h1,.cb h2{font-weight:540;letter-spacing:-.02em}
 .cb h1{font-size:clamp(2.1rem,10.6vw,5.8rem);line-height:1.01}
 .cb h2{font-size:clamp(2.15rem,8.8vw,4.1rem);line-height:1.03}
 .cb em{font-weight:440}
@@ -269,7 +267,7 @@ input[aria-invalid=true]{color:#A3321E}
 .cb .tokens{display:grid;grid-template-columns:1fr 32px 1fr;align-items:center;gap:8px;width:100%;max-width:520px}
 .cb .token{display:grid;justify-items:center;gap:6px;padding:24px 10px;border-radius:24px;background:#fff;border:1.5px solid transparent;box-shadow:0 24px 44px -32px rgba(20,50,35,.5);transition:background .3s,color .3s,border-color .3s,box-shadow .3s}
 .cb .token small{font-size:.74rem;font-weight:780;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.cb .token b{font-family:Fraunces,Georgia,serif;font-size:3.2rem;font-weight:520;line-height:1;font-variant-numeric:tabular-nums}
+.cb .token b{font-size:3.2rem;font-weight:520;line-height:1;font-variant-numeric:tabular-nums}
 .cb .token b i{font-family:Manrope,sans-serif;font-style:normal;font-size:1.05rem;font-weight:650;color:var(--muted)}
 .cb .tk-note{font-size:.86rem;color:var(--muted)}
 .cb .tk-link{border-top:2px dashed #A6B1A9}
@@ -311,19 +309,19 @@ input[aria-invalid=true]{color:#A3321E}
 .cb .cf{padding:22px 0}
 .cb .cf-head{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
 .cb .cf-head label{font-size:.74rem;font-weight:780;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.cb .cf-val{justify-content:flex-start;font-family:Fraunces,Georgia,serif;font-size:2.6rem;font-weight:500;line-height:1.1}
+.cb .cf-val{justify-content:flex-start;font-size:2.6rem;font-weight:500;line-height:1.1}
 .cb .cf-val input{width:auto;min-width:1ch;text-align:left;font-variant-numeric:lining-nums tabular-nums}
 .cb .cf-unit{font-size:1.5rem;font-weight:500;color:var(--muted)}
 .cb .cf-val:focus-within input{box-shadow:0 2px 0 var(--brand)}
 .cb .result{display:grid;gap:14px;align-content:start}
-.cb .res-big{font-family:Fraunces,Georgia,serif;font-size:clamp(4.2rem,21vw,7rem);font-weight:500;line-height:.95;letter-spacing:-.03em;color:var(--deep);font-variant-numeric:lining-nums tabular-nums}
+.cb .res-big{font-size:clamp(4.2rem,21vw,7rem);font-weight:500;line-height:.95;letter-spacing:-.03em;color:var(--deep);font-variant-numeric:lining-nums tabular-nums}
 .cb .res-label{font-weight:720}
 .cb .res-line{font-size:1.04rem;line-height:1.6}.cb .res-line b{font-variant-numeric:tabular-nums}
 .cb .res-note{padding-top:16px;border-top:1px solid var(--line);font-size:.86rem;line-height:1.5;color:var(--muted)}
 .cb .result .chartfig{margin-top:26px}
 @media (min-width:900px){.cb .calc{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);column-gap:96px}.cb .calc-head{grid-column:1/-1}}
 .cb .price .wrap{display:grid;justify-items:center;text-align:center}
-.cb .price-giant{font-family:Fraunces,Georgia,serif;font-size:clamp(6rem,32vw,10rem);font-weight:480;line-height:.9;letter-spacing:-.04em;color:var(--deep)}
+.cb .price-giant{font-size:clamp(6rem,32vw,10rem);font-weight:480;line-height:.9;letter-spacing:-.04em;color:var(--deep)}
 .cb .price-unit{margin-top:12px;font-size:1.2rem;font-weight:700}
 .cb .price-note{margin:6px 0 32px;color:var(--muted)}
 .cb .inline{display:grid;gap:10px;margin-bottom:36px}
@@ -333,7 +331,7 @@ input[aria-invalid=true]{color:#A3321E}
 .cb .price .fine{margin-top:16px}
 .cb .outlook{max-width:34em;margin-top:22px;font-size:.88rem;color:var(--muted)}
 .cb .final{padding:88px 0;background:#132A20}
-.cb .final h2{font-family:Fraunces,Georgia,serif}
+.cb .final h2{}
 
 /* ===================================================================== C — Hybrid =============== */
 .cc h1{font-size:clamp(2.05rem,9.8vw,4.5rem);line-height:1.03}
