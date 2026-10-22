@@ -35,6 +35,20 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const side = useRef<HTMLElement>(null);
   const restoreMenuFocus = useRef(false);
+  const subnav = useRef<HTMLDivElement>(null);
+
+  // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
+  useEffect(() => {
+    const row = subnav.current;
+    if (!row) return;
+    const edges = () => { row.dataset.start = String(row.scrollLeft > 1); row.dataset.end = String(row.scrollLeft + row.clientWidth < row.scrollWidth - 1); };
+    const active = row.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active) row.scrollLeft = active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2;
+    edges();
+    row.addEventListener("scroll", edges, { passive: true });
+    window.addEventListener("resize", edges);
+    return () => { row.removeEventListener("scroll", edges); window.removeEventListener("resize", edges); };
+  }, [pathname, owner.me]);
 
   useEffect(() => {
     if (!open) {
@@ -96,7 +110,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         </div>
         {subItems.length > 1 && (
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>
-            <div className="ow-subnav-inner">
+            <div ref={subnav} className="ow-subnav-inner">
               {subItems.map(item => {
                 const current = item.exactMatch ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return <GuardedLink key={item.href} href={item.href} aria-current={current ? "page" : undefined}>{item.label}</GuardedLink>;

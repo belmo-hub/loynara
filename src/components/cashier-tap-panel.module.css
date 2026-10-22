@@ -141,9 +141,12 @@
   text-align: center;
 }
 
+/* Busy or not yet possible: its own colours, as on the owner buttons, never transparency. */
 .panel .primary:disabled,
 .panel .secondary:disabled {
-  opacity: .55;
+  background: var(--color-fill);
+  border-color: var(--color-line);
+  color: var(--color-ink-muted);
   cursor: not-allowed;
   transform: none;
 }

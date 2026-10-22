@@ -50,6 +50,11 @@
 .ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: color-mix(in srgb, var(--color-bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-line); }
 .ow-subnav-inner { max-width: 1120px; margin-inline: auto; padding-inline: var(--space-6); display: flex; align-items: center; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
 .ow-subnav-inner::-webkit-scrollbar { display: none; }
+/* Scroll hint: the side with more tabs behind it fades out (data-start / data-end are set by owner-shell). */
+.ow-subnav-inner { position: relative; --ow-fade: 40px; }
+.ow-subnav-inner[data-end="true"] { mask-image: linear-gradient(to left, transparent, var(--color-ink) var(--ow-fade)); }
+.ow-subnav-inner[data-start="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade)); }
+.ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
 .ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
 .ow-subnav a:hover { color: var(--color-ink); }
 .ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-action); }
@@ -112,7 +117,9 @@
 .ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: 2px; }
 .ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
-.ow-btn:disabled { opacity: .55; cursor: not-allowed; }
+/* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
+.ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
+.ow-btn--ghost:disabled { background: transparent; }
 .ow-btn--primary { background: var(--color-action); color: var(--color-on-action); }
 .ow-btn--primary:hover:not(:disabled) { background: var(--color-action-hover); }
 .ow-btn--secondary { background: var(--color-raised); border-color: var(--color-line-strong); color: var(--color-ink); }
@@ -390,6 +397,14 @@
 }
 .ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
 .ow-check input { width: 20px; height: 20px; accent-color: var(--color-action); }
+/* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
+.ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
+.ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-raised); box-shadow: var(--shadow-hairline); transition: transform var(--dur-ui) var(--ease-out); }
+.ow-check input[role="switch"]:checked { background: var(--color-action); }
+.ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
+.ow-check input[role="switch"]:disabled { background: var(--color-line); cursor: not-allowed; }
+.ow-check input[role="switch"]:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ow-check input[role="switch"], .ow-check input[role="switch"]::before { transition: none; } }
 
 /* Trend bars */
 .ow-trend { display: flex; flex-direction: column; gap: var(--space-3); }

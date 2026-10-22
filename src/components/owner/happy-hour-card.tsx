@@ -40,7 +40,7 @@ export function HappyHourCard({ me, earningMode }: { me: MeResponse; earningMode
   return (
     <section className="ow-card ow-stack" aria-labelledby="happy-title">
       <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="happy-title">Happy Hour</h2><p>Zu ruhigen Zeiten bekommen Gäste automatisch doppelte Punkte, nach Uhrzeit in {me.locationName}.</p></div></div>
-      <label><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ ...draft, enabled: event.target.checked })} /> Happy Hour ist {draft.enabled ? "an" : "aus"}</label>
+      <label className="ow-check"><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ ...draft, enabled: event.target.checked })} /> Happy Hour ist {draft.enabled ? "an" : "aus"}</label>
       <p className="ow-hint">Gilt nur, wenn Punkte nach dem Einkaufsbetrag vergeben werden{earningMode === "purchase" ? "" : " (bei euch derzeit nicht der Fall)"}, und nicht für Buchungen, die offline erfasst und später übertragen wurden.</p>
       {draft.windows.map((w, index) => (
         <fieldset key={index} className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>

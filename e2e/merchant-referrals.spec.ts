@@ -30,7 +30,7 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       const merchantPage = await ownerBrowser.newPage();
       await merchantPage.goto("/merchant/referrals");
       await expect(merchantPage.getByRole("heading", { name: "Empfehlungen", exact: true })).toBeVisible();
-      await merchantPage.getByRole("checkbox", { name: /Empfehlungen für neue Anmeldungen/ }).check();
+      await merchantPage.getByRole("switch", { name: /Empfehlungen für neue Anmeldungen/ }).check();
       await merchantPage.getByLabel("Bonus für empfehlende Karte (Stempel)").fill("2");
       await merchantPage.getByLabel("Bonus für neue Karte (Stempel)").fill("1");
       await merchantPage.getByRole("button", { name: "Regel speichern" }).click();

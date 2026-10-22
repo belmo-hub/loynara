@@ -93,7 +93,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cool`}>Mindestabstand in Tagen</label><input id={`${editor.triggerKind}-cool`} className="ow-input" type="number" value={editor.cooldownDays} min={7} max={365} required onChange={event => edit({ cooldownDays: Number(event.target.value) })} /></div>
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cap`}>Tageslimit je Regel</label><input id={`${editor.triggerKind}-cap`} className="ow-input" type="number" value={editor.dailyCap} min={1} max={20} required onChange={event => edit({ dailyCap: Number(event.target.value) })} /></div>
         </div>
-        <label className="ow-check"><input type="checkbox" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
+        <label className="ow-check"><input type="checkbox" role="switch" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
         <SaveBar asSubmit state={shown} onDiscard={() => { setEditor(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Regel gespeichert. Änderungen gelten nur für neue Ausführungen." : undefined} />
       </form>
     </section>

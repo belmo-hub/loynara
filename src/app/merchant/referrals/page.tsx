@@ -87,7 +87,7 @@ function Loaded({ slug, businessName, locationName, head, settings, list, reload
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
         <form className="ow-card ow-stack" onSubmit={save}>
           <div><p className="ow-eyebrow">{businessName} · {locationName}</p><h2>Bonusregel</h2></div>
-          <label className="ow-check"><input type="checkbox" checked={enabled} onChange={event => { setEnabled(event.target.checked); touch(); }} /> Empfehlungen für neue Anmeldungen aktivieren</label>
+          <label className="ow-check"><input type="checkbox" role="switch" checked={enabled} onChange={event => { setEnabled(event.target.checked); touch(); }} /> Empfehlungen für neue Anmeldungen aktivieren</label>
           <div className="ow-grid-2">
             <div className="ow-field"><label htmlFor="rf-a">Bonus für empfehlende Karte ({unit})</label><input id="rf-a" className="ow-input" type="number" min="0" max="1000" required value={referrerBonus} onChange={event => { setReferrerBonus(event.target.value); touch(); }} /></div>
             <div className="ow-field"><label htmlFor="rf-b">Bonus für neue Karte ({unit})</label><input id="rf-b" className="ow-input" type="number" min="0" max="1000" required value={referredBonus} onChange={event => { setReferredBonus(event.target.value); touch(); }} /></div>
