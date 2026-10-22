@@ -140,7 +140,7 @@ describe("win-back bonus at the counter", () => {
 describe("owner set-up", () => {
   it("limits N to 14–90, stamps to none or 1, points to a quarter of the cheapest reward, owners only", async () => {
     const s = await shop("stamp", null);
-    expect(await getWinback({ actorUserId: s.owner, programSlug: s.slug })).toEqual({ enabled: false, days: 30, bonus: 1, bonusMax: 1, type: "stamp" });
+    expect(await getWinback({ actorUserId: s.owner, programSlug: s.slug })).toEqual({ enabled: false, days: 30, bonus: 1, bonusMax: 1, type: "stamp", almost: false });
     const set = (settings: { enabled: boolean; days: number; bonus: number }, slug = s.slug, actor = s.owner) => updateWinback({ actorUserId: actor, programSlug: slug, settings });
     await expect(set({ enabled: true, days: 13, bonus: 1 })).rejects.toThrow();
     await expect(set({ enabled: true, days: 91, bonus: 1 })).rejects.toThrow();

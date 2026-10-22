@@ -295,9 +295,11 @@ async function main() {
       }
       if (Date.now() - winbackCheckedAt >= 5 * 60_000) {
         try {
-          // Idempotent under the tenant lock: a card gets one reminder per lapse, so replicas and retries do no harm.
+          // Idempotent under the tenant lock: a card gets one reminder per lapse or reward cycle, so replicas and retries do no harm.
           const { queueWinbackMessages } = await import("../src/lib/winback");
+          const { queueAlmostMessages } = await import("../src/lib/almost-there");
           await queueWinbackMessages();
+          await queueAlmostMessages();
           winbackCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;

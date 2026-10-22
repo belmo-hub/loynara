@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { ownerProgram } from "./automations";
@@ -24,8 +24,9 @@ async function bonusMax(program: { tenantId: string; id: string; type: string })
 
 const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
 
-async function winbackSettings(program: { tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number }) {
-  return { enabled: program.winbackEnabled, days: program.winbackDays, bonus: program.winbackBonus, bonusMax: await bonusMax(program), type: program.type };
+async function winbackSettings(program: { tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number; almostEnabled: boolean }) {
+  // `almost`: the owner switch of ENG-045 ("Fast geschafft"), shown on the same page.
+  return { enabled: program.winbackEnabled, days: program.winbackDays, bonus: program.winbackBonus, bonusMax: await bonusMax(program), type: program.type, almost: program.almostEnabled };
 }
 
 /** The owner's set-up (owner only, withheld with the walletMessages surface). */
@@ -39,12 +40,31 @@ export async function updateWinback(input: { actorUserId: string; programSlug: s
   const settings = settingsInput.parse(input.settings);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   if (settings.bonus > await bonusMax(program)) throw new DomainError("INVALID_WINBACK_BONUS", program.type === "stamp" ? "Bonus: kein Bonus oder 1 Stempel." : "Bonus: höchstens ein Viertel deiner günstigsten Prämie.");
-  const [updated] = rows<{ tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number }>(await db.execute(sql`
+  const [updated] = rows<{ tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number; almostEnabled: boolean }>(await db.execute(sql`
     UPDATE programs SET winback_enabled = ${settings.enabled}, winback_days = ${settings.days}, winback_bonus = ${settings.bonus}
     WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid AND status = 'active'
-    RETURNING tenant_id AS "tenantId", id, type, winback_enabled AS "winbackEnabled", winback_days AS "winbackDays", winback_bonus AS "winbackBonus"`));
+    RETURNING tenant_id AS "tenantId", id, type, winback_enabled AS "winbackEnabled", winback_days AS "winbackDays", winback_bonus AS "winbackBonus", almost_enabled AS "almostEnabled"`));
   if (!updated) throw new DomainError("NOT_FOUND", "Programme not found in this merchant");
   return winbackSettings(updated);
+}
+
+/**
+ * One message row per group (`grp` of `due`, the part of the text that differs) and one recipient row per due pass, plus
+ * the outbox job, in the caller's transaction. `due` yields pass_id, tenant_id, membership_id and grp. Shared by the
+ * automatic reminders (win-back, ENG-045 "Fast geschafft"); delivery is #88's `wallet.message` job unchanged.
+ */
+export async function queueBatch(tx: Pick<typeof db, "execute">, p: { tenantId: string; programId: string }, kind: "winback" | "almost", now: Date, due: SQL, textOf: (grp: string) => string) {
+  let count = 0;
+  for (const { grp } of rows<{ grp: string }>(await tx.execute(sql`SELECT DISTINCT grp FROM (${due}) x ORDER BY grp`))) {
+    const [message] = rows<{ id: string }>(await tx.execute(sql`INSERT INTO wallet_messages (tenant_id, program_id, kind, text, created_at)
+      VALUES (${p.tenantId}::uuid, ${p.programId}::uuid, ${kind}, ${textOf(grp)}, ${now}::timestamptz) RETURNING id`));
+    const inserted = await tx.execute(sql`INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, created_at)
+      SELECT ${message.id}::uuid, x.pass_id, x.tenant_id, x.membership_id, ${now}::timestamptz FROM (${due}) x WHERE x.grp = ${grp} ON CONFLICT DO NOTHING RETURNING pass_id`);
+    await tx.execute(sql`UPDATE wallet_messages SET audience_count = ${inserted.rows.length} WHERE id = ${message.id}::uuid`);
+    await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES (${p.tenantId}::uuid, 'wallet.message', jsonb_build_object('messageId', ${message.id}::text))`);
+    count += inserted.rows.length;
+  }
+  return count;
 }
 
 /**
@@ -61,25 +81,14 @@ export async function queueWinbackMessages(now = new Date()) {
   for (const p of programs) {
     if (!activeHappyHour([WINBACK_SEND_WINDOW], now, p.timezone)) continue;
     queued += await db.transaction(async tx => {
-      await lock(tx, p.tenantId);
       // Same tenant lock as owner sends, so the customer cap is counted once across both.
-      const due = sql`SELECT d.*, ((d.last AT TIME ZONE ${p.timezone})::date + ${p.days}::int + ${WINBACK_WINDOW_DAYS}::int)::text AS deadline
+      await lock(tx, p.tenantId);
+      const due = sql`SELECT d.*, ((d.last AT TIME ZONE ${p.timezone})::date + ${p.days}::int + ${WINBACK_WINDOW_DAYS}::int)::text AS grp
         FROM (SELECT p.id AS pass_id, p.tenant_id, p.membership_id, ${lastConfirmedStamp(now)} AS last ${eligible(p.tenantId, p.programId, now)}) d
         WHERE (${now}::timestamptz AT TIME ZONE ${p.timezone})::date - (d.last AT TIME ZONE ${p.timezone})::date BETWEEN ${p.days}::int AND ${p.days + WINBACK_WINDOW_DAYS}::int
           AND NOT EXISTS (SELECT 1 FROM wallet_message_recipients r JOIN wallet_messages w ON w.id = r.message_id AND w.tenant_id = r.tenant_id AND w.kind = 'winback'
             WHERE r.tenant_id = d.tenant_id AND r.membership_id = d.membership_id AND r.created_at > d.last)`;
-      const deadlines = rows<{ deadline: string }>(await tx.execute(sql`SELECT DISTINCT deadline FROM (${due}) x ORDER BY deadline`));
-      let count = 0;
-      for (const { deadline } of deadlines) {
-        const [message] = rows<{ id: string }>(await tx.execute(sql`INSERT INTO wallet_messages (tenant_id, program_id, kind, text, created_at)
-          VALUES (${p.tenantId}::uuid, ${p.programId}::uuid, 'winback', ${winbackText(p.type, p.bonus, germanDay(deadline))}, ${now}::timestamptz) RETURNING id`));
-        const inserted = await tx.execute(sql`INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, created_at)
-          SELECT ${message.id}::uuid, x.pass_id, x.tenant_id, x.membership_id, ${now}::timestamptz FROM (${due}) x WHERE x.deadline = ${deadline} ON CONFLICT DO NOTHING RETURNING pass_id`);
-        await tx.execute(sql`UPDATE wallet_messages SET audience_count = ${inserted.rows.length} WHERE id = ${message.id}::uuid`);
-        await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload) VALUES (${p.tenantId}::uuid, 'wallet.message', jsonb_build_object('messageId', ${message.id}::text))`);
-        count += inserted.rows.length;
-      }
-      return count;
+      return queueBatch(tx, p, "winback", now, due, deadline => winbackText(p.type, p.bonus, germanDay(deadline)));
     });
   }
   return queued;

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { postJson } from "@/components/client-api";
 import { useDirtyGuard } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
-import { WINBACK_DAYS, winbackRule, winbackText } from "@/lib/wallet-message-rules";
+import { almostText, WINBACK_DAYS, winbackRule, winbackText } from "@/lib/wallet-message-rules";
 
-export type Winback = { enabled: boolean; days: number; bonus: number; bonusMax: number; type: "stamp" | "points" };
+export type Winback = { enabled: boolean; days: number; bonus: number; bonusMax: number; type: "stamp" | "points"; almost: boolean };
 type Draft = { enabled: boolean; days: string; bonus: string };
 const fromSaved = (w: Winback): Draft => ({ enabled: w.enabled, days: String(w.days), bonus: String(w.bonus) });
 
@@ -54,6 +54,28 @@ export function WinbackCard({ slug, initial }: { slug: string; initial: Winback 
       <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{winbackText(initial.type, bonusValid ? bonus : 0, "[Datum]")}</p></div>
       {bonusValid && bonus > 0 && <p className="ow-hint">Steht auf der Karte: {winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus)}</p>}
       <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+    </section>
+  );
+}
+
+/** „Fast geschafft“ (ENG-045): one switch; the text is fixed. Saved at once, like the card's consent box. */
+export function AlmostCard({ slug, initial }: { slug: string; initial: Winback }) {
+  const [enabled, setEnabled] = useState(initial.almost);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function toggle(next: boolean) {
+    setBusy(true); setError("");
+    try { await postJson("/api/merchant/wallet-messages", { programSlug: slug, almost: next }); setEnabled(next); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt. Versuche es noch einmal."); }
+    finally { setBusy(false); }
+  }
+  return (
+    <section className="ow-card ow-stack" aria-labelledby="almost-title">
+      <h2 id="almost-title">Fast geschafft</h2>
+      <label><input type="checkbox" role="switch" checked={enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} /> Eingeschaltet</label>
+      <p className="ow-hint">Fehlt einer Karte nach einem Besuch nur noch {initial.type === "stamp" ? "1 Stempel" : "wenige Punkte (bis 10)"} bis zur nächsten Prämie, bekommt sie einmal eine Erinnerung, sofern Nachrichten erlaubt sind. Nicht zwischen 21 und 8 Uhr.</p>
+      <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{almostText(initial.type, 10, "[Prämie]")}</p></div>
+      {error && <p role="alert" className="ow-error">{error}</p>}
     </section>
   );
 }

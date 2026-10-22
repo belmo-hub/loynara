@@ -75,3 +75,10 @@ export const WINBACK_EXCLUSIONS = "Nicht auf Tabak, Presse, Bücher, Lotto, Hand
 
 /** Points bonus: 1 up to a quarter of the cheapest reward (Product); stamps: none or 1. */
 export const winbackBonusMax = (type: "stamp" | "points", cheapestReward: number) => type === "stamp" ? 1 : Math.max(1, Math.floor(cheapestReward / 4));
+
+// ---- "Fast geschafft" (ENG-045): Marketing 22 Oct, section 7. [Prämie] is the reward title as the owner typed it. ---------
+
+/** A card this close to its next reward gets the reminder: 1 stamp, or up to about 10 points (founder brief). */
+export const almostGap = (type: "stamp" | "points") => type === "stamp" ? 1 : 10;
+export const almostText = (type: "stamp" | "points", missing: number, reward: string) =>
+  type === "stamp" ? `Nur noch 1 Stempel bis zu deiner Prämie: ${reward}.` : `Nur noch ${missing} Punkte bis zu deiner Prämie: ${reward}.`;
