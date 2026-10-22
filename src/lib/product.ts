@@ -177,6 +177,7 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     const challengeVisits = input.challengeVisits === undefined ? program.challengeVisits : input.challengeVisits;
     const challengeBonus = input.challengeBonus ?? program.challengeBonus;
     if (challengeVisits !== null) {
+      // shortcut: checked when the owner saves; a cheaper reward added later does not re-check the bonus. Re-check on reward changes if owners hit it.
       const cheapest = Math.min(...(await currentRewards(program.tenantId, program.id, tx)).map(reward => reward.cost));
       const range = challengeBonusRange(program.type, cheapest);
       if (challengeBonus < range.min || challengeBonus > range.max) throw new DomainError("INVALID_CHALLENGE", range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : `Bonus: ${range.min} bis ${range.max} ${program.type === "stamp" ? "Stempel" : "Punkte"} (bei Punkten höchstens ein Viertel der günstigsten Prämie).`);
