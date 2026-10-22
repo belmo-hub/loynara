@@ -6,3 +6,10 @@ collateral/preview-post/
 stand/preview/
 __pycache__/
 *.pyc
+# the prospect list lives with Sales outside the repo (data protection, 23 Oct 2026); never commit a copy
+prospects*.csv
+prospects*.xlsx
+prospect_data.py
+route.md
+build_prospects.py
+check_prospects.py
