@@ -143,7 +143,6 @@
 
 .panel .primary:disabled,
 .panel .secondary:disabled {
-  opacity: .55;
   cursor: not-allowed;
   transform: none;
 }
