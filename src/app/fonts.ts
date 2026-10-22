@@ -9,10 +9,3 @@ export const manrope = localFont({
   fallback: ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
 });
 
-export const fraunces = localFont({
-  src: "./fonts/fraunces-latin.woff2",
-  weight: "100 900",
-  variable: "--font-fraunces",
-  display: "swap",
-  fallback: ["Georgia", "Times New Roman", "serif"],
-});

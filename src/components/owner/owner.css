@@ -95,7 +95,7 @@
 .ow-page { max-width: 1120px; margin-inline: auto; padding: var(--space-8) var(--space-6) 0; display: flex; flex-direction: column; gap: var(--space-6); }
 @media (max-width: 640px) { .ow-page { padding: var(--space-6) var(--space-4) 0; } }
 .ow-pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: 540; line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; hyphens: auto; }
+.ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 @media (min-width: 1024px) { .ow-pagehead h1 { font-size: var(--display-36); line-height: 1.1; } }
 .ow-pagehead p { color: var(--color-ink-muted); margin-top: 4px; max-width: 62ch; }
 .ow-eyebrow { font-size: var(--text-14); font-weight: 700; letter-spacing: .04em; color: var(--color-ink-muted); margin-bottom: 4px; }
@@ -415,7 +415,7 @@
 .ow-feed-reason { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-readiness-group + .ow-readiness-group { margin-top: var(--space-4); }
 .ow-readiness-group h3 { font-size: var(--text-16); margin: 0; }
-.ow-step-mark--external { border-style: dashed; font-style: italic; font-family: var(--font-display); }
+.ow-step-mark--external { border-style: dashed; }
 .ow-step-mark--na { border-color: var(--color-line); }
 .ow-step-mark--todo { border-color: var(--color-line-strong); }
 details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }

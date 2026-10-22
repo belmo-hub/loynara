@@ -9,7 +9,7 @@
 .state[data-tone="done"] .icon { background: color-mix(in oklab, var(--color-success), transparent 84%); color: var(--color-success); }
 .state[data-tone="waiting"] .icon { background: color-mix(in oklab, var(--color-warning), transparent 84%); color: var(--color-warning); }
 .state[data-tone="error"] .icon { background: color-mix(in oklab, var(--color-danger), transparent 86%); color: var(--color-danger); }
-.title { margin: 0; font-family: var(--font-display); font-weight: 540; font-size: var(--text-28); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; }
+.title { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .detail { margin: 0; font-size: var(--text-18); line-height: 1.45; text-wrap: pretty; }
 .number { display: grid; gap: var(--space-1); width: 100%; margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-raised); box-shadow: 0 0 0 1px var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); }
 .number strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; color: var(--color-ink); overflow-wrap: anywhere; }

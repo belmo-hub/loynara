@@ -6,7 +6,7 @@
 .merchantText span { font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .goal { display: grid; gap: var(--space-1); padding-inline: var(--space-1); }
-.goalLine { margin: 0; font-family: var(--font-display); font-weight: 520; font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; hyphens: auto; }
+.goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 .goalNum { color: var(--merchant-text); font-size: 1.2em; font-variant-numeric: lining-nums; }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 

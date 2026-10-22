@@ -1,7 +1,7 @@
 # Loynara product design system
 
 The product (customer card, cashier, owner dashboard, sign-in and legal pages) shares one visual language with the
-marketing site: warm paper, forest green, Manrope for text, Fraunces for numbers and titles, and the stamp as the
+marketing site: warm paper, forest green, Manrope for text and titles, and the stamp as the
 one recurring motif. Direction "Stempelpapier": the card is a physical object, a stamp is a pressed mark, and nothing
 else competes for attention. The cashier uses a dark, camera-first variant of the same tokens.
 
@@ -76,8 +76,9 @@ owner.css and tokens.css themselves, over every ground (≥ 4.5:1).
 
 ## Typography
 
-Manrope (variable 200–800) for all text; Fraunces (variable) for page titles, the customer goal line and
-large numerals. Both self-hosted through `next/font/local` from OFL files; no external requests.
+Manrope (variable 200–800) for all text. Display titles (`--font-display`: page titles, the customer goal line, large
+numerals) are Manrope 800 with -0.025em tracking, never italic. Self-hosted through `next/font/local` from the OFL
+file; no external requests.
 
 | Token | Size / line | Use |
 |---|---|---|
@@ -86,12 +87,12 @@ large numerals. Both self-hosted through `next/font/local` from OFL files; no ex
 | `--text-16` | 16 / 24 | body, buttons, inputs (16 px stops iOS zoom) |
 | `--text-18` | 18 / 26 | section titles |
 | `--text-22` | 22 / 28 | panel titles, cashier state |
-| `--text-28` | 28 / 34 | page titles on phones, customer goal line (Fraunces) |
-| `--display-36` | 36 / 40 | page titles ≥ 1024 px (Fraunces) |
-| `--display-num` | clamp(40, 11vw, 56) / 1 | customer balance and goal numerals (Fraunces) |
+| `--text-28` | 28 / 34 | page titles on phones, customer goal line (display) |
+| `--display-36` | 36 / 40 | page titles ≥ 1024 px (display) |
+| `--display-num` | clamp(40, 11vw, 56) / 1 | customer balance and goal numerals (display) |
 
 Dashboard data (Stat values, tables, charts) stays in Manrope: values 800 with proportional figures, columns with
-tabular figures. Fraunces is a brand voice for titles and the customer card, never for data.
+tabular figures.
 
 Weights: 400 body, 650 labels, 720 buttons and emphasis, 800 card codes and cashier numerals. Headings use
 `text-wrap: balance`, paragraphs `pretty`. Long German compounds: `hyphens: auto` on headings with `lang="de"`,
@@ -140,11 +141,11 @@ No hover lift on cards, no stagger on page load, no animation on keyboard-trigge
 
 ## Layout patterns
 
-- **Customer card.** Merchant row → goal line (Fraunces) → card object (stamp grid or points ladder) → code ticket (QR on white, card number 28 px, tabular) → Wallet buttons → rewards list (points) → invite → optional "Karte sichern" row → recent visits → legal links. The QR always sits on `#FFFFFF`, in both themes.
+- **Customer card.** Merchant row → goal line (display) → card object (stamp grid or points ladder) → code ticket (QR on white, card number 28 px, tabular) → Wallet buttons → rewards list (points) → invite → optional "Karte sichern" row → recent visits → legal links. The QR always sits on `#FFFFFF`, in both themes.
 - **Stamps.** Grid of 4 columns (up to 12 stamps; 5 columns for 10, 15). Earned stamps are pressed coral marks with a small resting rotation; empty slots are dashed rings.
 - **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track; the rewards list below always carries the names.
 - **Cashier.** Status bar (Scannen / Karte offen / Wird gebucht / Erledigt / Fehler) → camera or opened card → stepper (stamps) or amount field (points) → bottom dock with the primary booking button (thumb zone). Destructive actions only get a confirm dialog.
-- **Dashboard.** Sidebar groups: Überblick · Programm · Kunden · Marketing · Auswertung · Betrieb, location switcher on top, "Kasse öffnen" and user menu at the bottom. Phones: top bar with location switcher, bottom bar (Übersicht, Kunden, Programm, Auswertung, Mehr) and a "Mehr" sheet with the remaining groups. Page header = Fraunces title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
+- **Dashboard.** Sidebar groups: Überblick · Programm · Kunden · Marketing · Auswertung · Betrieb, location switcher on top, "Kasse öffnen" and user menu at the bottom. Phones: top bar with location switcher, bottom bar (Übersicht, Kunden, Programm, Auswertung, Mehr) and a "Mehr" sheet with the remaining groups. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
   high instead of 48) but keep the shared shapes: pill buttons and segmented controls, `--radius-md` inputs. Forms: titled sections, inline validation, sticky save bar when dirty.
 
 ## Copy rules
