@@ -400,6 +400,28 @@ export const programmeCancellationEvents = pgTable("programme_cancellation_event
   check("programme_cancellation_action_valid", sql`${t.action} in ('request','withdraw','schedule','confirm','end')`),
 ]);
 
+/** One activation code per plate, printed on the card in the plate's box (ENG-048). Only a salted scrypt hash is kept; a reissue replaces the row. */
+export const plateActivationCodes = pgTable("plate_activation_codes", {
+  tagId: uuid("tag_id").primaryKey().references(() => secureTags.id),
+  codeHash: varchar("code_hash", { length: 160 }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  issuedByUserId: text("issued_by_user_id").notNull(),
+  issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Last time the plate saw more than 50 activation tries in an hour across all accounts: a warning for the operator, never a lock. */
+  alertedAt: timestamp("alerted_at", { withTimezone: true }),
+});
+
+/** Wrong codes per account and plate: five lock that account out of that plate only, until the operator unlocks the plate. */
+export const plateActivationFailures = pgTable("plate_activation_failures", {
+  tagId: uuid("tag_id").notNull().references(() => secureTags.id),
+  userId: text("user_id").notNull(),
+  failedAttempts: integer("failed_attempts").notNull(),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
+}, (t) => [
+  primaryKey({ columns: [t.tagId, t.userId] }),
+  check("plate_activation_attempts_valid", sql`${t.failedAttempts} between 1 and 5`),
+]);
+
 export const tapRequests = pgTable("tap_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
   tagId: uuid("tag_id").notNull().references(() => secureTags.id),

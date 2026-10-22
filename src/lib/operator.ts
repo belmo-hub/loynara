@@ -1,6 +1,6 @@
 import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programmeCancellationEvents, programs, secureTags, tenants } from "@/db/schema";
+import { ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, tenants } from "@/db/schema";
 import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
@@ -32,11 +32,12 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .leftJoin(cards, eq(cards.programId, programs.id)).leftJoin(awards, eq(awards.programId, programs.id))
       .orderBy(asc(tenants.name), asc(locations.name), asc(programs.name));
     const plates = await tx.select({
-      plateLabel: secureTags.plateLabel, status: secureTags.status, everTapped: sql<boolean>`${secureTags.lastCounter} > 0`,
+      plateLabel: secureTags.plateLabel, status: secureTags.status, everTapped: sql<boolean>`${secureTags.lastCounter} > 0`, alertedAt: plateActivationCodes.alertedAt,
+      code: sql<"none" | "open" | "locked" | "used">`case when ${plateActivationCodes.tagId} is null then 'none' when ${plateActivationCodes.usedAt} is not null then 'used' when exists (select 1 from ${plateActivationFailures} where ${plateActivationFailures.tagId} = ${secureTags.id} and ${plateActivationFailures.lockedAt} is not null) then 'locked' else 'open' end`,
       programId: secureTags.programId, merchant: tenants.name, location: locations.name, programme: programs.name,
     }).from(secureTags)
       .leftJoin(programs, eq(programs.id, secureTags.programId)).leftJoin(tenants, eq(tenants.id, secureTags.tenantId))
-      .leftJoin(locations, eq(locations.id, secureTags.locationId))
+      .leftJoin(locations, eq(locations.id, secureTags.locationId)).leftJoin(plateActivationCodes, eq(plateActivationCodes.tagId, secureTags.id))
       .where(isNotNull(secureTags.plateLabel)).orderBy(asc(secureTags.plateLabel));
     // Age is computed here so the page renders the same on server and client.
     const now = Date.now();

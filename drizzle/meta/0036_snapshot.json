@@ -1,5 +1,5 @@
 {
-  "id": "b1c108a8-4def-4ca2-8972-6aabc925bcc7",
+  "id": "8f1f4507-351f-448b-8d2c-1ebbaffd4836",
   "prevId": "ef8fc26a-9d73-4f22-a88b-3254ceb1d37b",
   "version": "7",
   "dialect": "postgresql",
@@ -3078,6 +3078,134 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.plate_activation_codes": {
+      "name": "plate_activation_codes",
+      "schema": "",
+      "columns": {
+        "tag_id": {
+          "name": "tag_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "code_hash": {
+          "name": "code_hash",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_by_user_id": {
+          "name": "issued_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "alerted_at": {
+          "name": "alerted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plate_activation_codes_tag_id_secure_tags_id_fk": {
+          "name": "plate_activation_codes_tag_id_secure_tags_id_fk",
+          "tableFrom": "plate_activation_codes",
+          "tableTo": "secure_tags",
+          "columnsFrom": [
+            "tag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.plate_activation_failures": {
+      "name": "plate_activation_failures",
+      "schema": "",
+      "columns": {
+        "tag_id": {
+          "name": "tag_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failed_attempts": {
+          "name": "failed_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locked_at": {
+          "name": "locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plate_activation_failures_tag_id_secure_tags_id_fk": {
+          "name": "plate_activation_failures_tag_id_secure_tags_id_fk",
+          "tableFrom": "plate_activation_failures",
+          "tableTo": "secure_tags",
+          "columnsFrom": [
+            "tag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "plate_activation_failures_tag_id_user_id_pk": {
+          "name": "plate_activation_failures_tag_id_user_id_pk",
+          "columns": [
+            "tag_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "plate_activation_attempts_valid": {
+          "name": "plate_activation_attempts_valid",
+          "value": "\"plate_activation_failures\".\"failed_attempts\" between 1 and 5"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.plate_link_events": {
