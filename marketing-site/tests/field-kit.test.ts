@@ -3,37 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { parseCsv } from '../../gtm/data/csv.mjs';
 
 const field = resolve(import.meta.dirname, '../../gtm/field');
 const read = (p: string) => readFileSync(resolve(field, p), 'utf8');
-const rows = (() => { const [h, ...r] = parseCsv(read('prospects.csv')) as string[][]; return r.map(x => Object.fromEntries(h.map((k, i) => [k, x[i] ?? '']))); })();
 const visible = (html: string) => html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
-
-test('prospects: 60 unique rows, 22 barbers and 38 pizzerias/Imbiss, routed 20/20/20, every row sourced', () => {
-  assert.equal(rows.length, 60);
-  assert.equal(new Set(rows.map(r => r.merchant_id)).size, 60);
-  assert.equal(rows.filter(r => r.category === 'Barber').length, 22);
-  assert.equal(rows.filter(r => r.category !== 'Barber').length, 38);
-  for (const g of ['FIRST 20', 'NEXT 20', 'FINAL 20']) assert.equal(rows.filter(r => r.route_group === g).length, 20, g);
-  for (const r of rows) {
-    assert.match(r.priority, /^[ABC]$/, r.merchant_id); assert.match(r.data_confidence, /^[ABC]$/, r.merchant_id);
-    assert.ok(r.sources.startsWith('http'), `${r.merchant_id} has a source`); assert.ok(r.opening_hours && r.street && r.neighborhood, r.merchant_id);
-    assert.match(r.retrieved_on, /^2026-10-05$/); assert.ok(r.maps_url.startsWith('https://www.google.com/maps/search/'), r.merchant_id);
-    assert.match(r.paper_stamp_card_evidence, /Not evidenced online/); // no claim of paper-card evidence that cannot be seen online
-  }
-});
-
-test('prospects: no personal data and no invented proof (no owner names, no mobile numbers unless the business publishes them, Instagram only with a stated basis)', () => {
-  const header = Object.keys(rows[0]);
-  for (const bad of ['owner_name', 'email', 'public_business_email', 'contact_name']) assert.ok(!header.includes(bad), bad);
-  for (const r of rows) {
-    if (/^(?:\+49 ?1|01[567])/.test(r.public_phone)) assert.match(r.public_phone, /published on the shop's own website/, r.merchant_id);
-    if (r.instagram) assert.match(r.instagram, /\((?:site|search hit|embedded on site)|not checked|exists/, r.merchant_id);
-    assert.doesNotMatch(r.loyalty_programme_public + r.digital_loyalty_evidence, /Stempelkarte vorhanden|hat eine Stempelkarte/i, r.merchant_id);
-  }
-  assert.ok(rows.every(r => !/zentral|franchise/i.test(r.owner_operated_likely)), 'owner flag is a short enum');
-});
 
 const variants = (flags: string[]) => JSON.parse(execFileSync('python3', ['-c', `import variants,json;print(json.dumps(variants.variant(${flags.includes('nfc') ? 'nfc=True' : ''}${flags.length === 2 ? ',' : ''}${flags.includes('rc') ? 'rc=True' : ''})))`], { cwd: resolve(field, 'collateral') }).toString());
 const build = (flags: string[]) => { const v = variants(flags); const out: Record<string, string> = {}; for (const f of readdirSync(resolve(field, 'collateral/templates')).filter(x => x.endsWith('.html'))) out[f] = read(`collateral/templates/${f}`).replace(/\{\{(\w+)\}\}/g, (_, k) => { assert.ok(k in v, `${f} uses ${k}`); return v[k]; }); return out; };

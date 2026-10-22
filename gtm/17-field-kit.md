@@ -6,10 +6,7 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 
 | File | What it is |
 |---|---|
-| [`field/prospects.xlsx`](field/prospects.xlsx) | Sheets: *Alle 60*, *FIRST 20*, *NEXT 20*, *FINAL 20* (printable route sheets with empty „Besucht / Ergebnis / Notizen“ columns), *Legende*. Filters and frozen headers |
-| [`field/prospects.csv`](field/prospects.csv) | Same data, 37 columns |
-| [`field/route.md`](field/route.md) | Day-by-day route tables, the redistribution note and the verification limits |
-| [`field/prospect_data.py`](field/prospect_data.py) / `build_prospects.py` | Editable source and generator |
+| [`field/PROSPECTS.md`](field/PROSPECTS.md) | Die Interessentenliste liegt außerhalb des Repos bei Sales (moved for data protection, Legal, 23 Oct 2026) |
 
 - **22 barbers + 38 pizzerias/Imbiss** (not 30 + 30): only about 22 independent barber-focused shops in Kassel could be confirmed in public sources; many „barbers“ in directories are unisex salons or have no usable data. The 8 extra come from pizzerias/Imbiss. Vertical order is unchanged.
 - **Routes:** FIRST 20 = Mitte (Martinsplatz, Treppenstraße, Friedrich-Ebert-Straße) + Nord-Holland (Holländische Straße, Untere Königsstraße): two walkable days. NEXT 20 = rest of Mitte + Vorderer Westen/Wehlheiden (Wilhelmshöher Allee) + Wesertor/Süd (Frankfurter Straße). FINAL 20 = Wilhelmshöhe, Rothenditmold, Kirchditmold, Bettenhausen, Zwehren/Nordshausen and the weakest fits.
