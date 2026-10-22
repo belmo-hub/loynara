@@ -75,7 +75,7 @@ export default function MerchantAudiencesPage() {
               : preview ? <div><strong className="ow-metric-value" style={{ fontSize: "var(--display-num)" }} data-testid="audience-total">{preview.total}</strong><p>pseudonyme {preview.total === 1 ? "Karte erfüllt" : "Karten erfüllen"} diese Regel.</p><p className="ow-hint">Datenstand: <time dateTime={preview.asOf}>{germanDate(preview.asOf, true)}</time></p>{campaignLink && <p style={{ marginTop: 12 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={campaignLink}>Kampagnenentwurf für diese Zielgruppe</Link></p>}</div>
               : <p className="ow-muted">Wähle eine Regel und berechne die Anzahl.</p>}
             {error && <ErrorNotice message={error} />}
-            <Notice><div><strong>So wird gezählt</strong><p style={{ marginTop: 4 }}>Eine nicht stornierte, bestätigte Buchung zählt einmal. Eine Buchung beweist keinen physischen Besuch. Eine Kartenanmeldung oder ein Startguthaben zählt hier nicht.</p><p style={{ marginTop: 4 }}>Für Nachrichten braucht jede Person zusätzlich eine verifizierte Kontaktadresse und eine passende Einwilligung.</p></div></Notice>
+            <Notice><div><strong>So wird gezählt</strong><p style={{ marginTop: 4 }}>Jede bestätigte Buchung zählt einmal, außer sie wurde korrigiert. Eine Buchung ist kein Beweis für einen Besuch. Anmeldung und Startguthaben zählen hier nicht.</p><p style={{ marginTop: 4 }}>Für Nachrichten braucht jede Person zusätzlich eine verifizierte Kontaktadresse und eine passende Einwilligung.</p></div></Notice>
           </section>
         </div>
       )}
