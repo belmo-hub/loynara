@@ -61,10 +61,11 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
         sql`${staffAuditEvents.createdAt} >= (SELECT created_at FROM staff_invites WHERE id = ${invite.id})`)).limit(1);
       if (revokedSince) throw new DomainError("INVALID_INVITE", "Invitation is invalid or expired");
     }
-    if (prior) await tx.update(staffRoles).set({ role: invite.role, locationId: invite.locationId, active: true }).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, invite.tenantId)));
+    // An owner works across the shop's locations, like one who set the shop up alone: no fixed location.
+    const locationId = invite.role === "owner" ? null : invite.locationId;
+    if (prior) await tx.update(staffRoles).set({ role: invite.role, locationId, active: true }).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, invite.tenantId)));
     else {
-      // An owner works across the shop's locations, like one who set the shop up alone: no fixed location.
-      const inserted = await tx.insert(staffRoles).values({ tenantId: invite.tenantId, userId: input.userId, role: invite.role, locationId: invite.role === "owner" ? null : invite.locationId })
+      const inserted = await tx.insert(staffRoles).values({ tenantId: invite.tenantId, userId: input.userId, role: invite.role, locationId })
         .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
       if (!inserted.length) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     }

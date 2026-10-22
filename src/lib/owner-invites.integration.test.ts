@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
@@ -9,7 +9,7 @@ import { pendingInvite } from "./invite-signup";
 import { operatorOverview } from "./operator";
 import { createShopWithOwnerInvite, reissueOwnerInvite, revokeOwnerInvite } from "./owner-invites";
 import { createMerchant, getMerchantContext, setupDraft } from "./product";
-import { acceptStaffInvite, createStaffInvite, listStaffAudit, listStaffInvites, revokeStaffInvite } from "./staff";
+import { acceptStaffInvite, createStaffInvite, inviteTokenHash, listStaffAudit, listStaffInvites, revokeStaffInvite } from "./staff";
 import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposable-test-database";
 
 assertLocalTestDatabaseUrl();
@@ -131,6 +131,18 @@ it("is single use, expires after 7 days, can be revoked, and a new one is issued
   expect(await code(() => revokeOwnerInvite({ actorUserId: operator.userId, env: env(), inviteId: third.inviteId }))).toBe("INVITE_USED");
   expect(await code(() => reissueOwnerInvite({ actorUserId: operator.userId, env: env(), tenantId: first.tenantId, ownerEmail: "zweite@example.test" }))).toBe("SHOP_HAS_OWNER");
   expect(await db.select().from(staffRoles)).toHaveLength(1);
+});
+
+it("refuses a second owner even if a second owner invitation got past issuing", async () => {
+  const shop = await create();
+  const first = await identity("inhaber@example.test", shop.token);
+  await acceptStaffInvite({ userId: first.userId, token: shop.token });
+  // Not reachable through issuing (it refuses once the shop has an owner): written directly, as defence in depth.
+  const token = randomBytes(32).toString("base64url");
+  await db.insert(staffInvites).values({ tenantId: shop.tenantId, locationId: shop.locationId, invitedEmail: "zweite@example.test", role: "owner", tokenHash: inviteTokenHash(token), invitedByUserId: operator.userId, expiresAt: new Date(Date.now() + 86_400_000) });
+  const second = await identity("zweite@example.test", token);
+  expect(await code(() => acceptStaffInvite({ userId: second.userId, token }))).toBe("INVALID_INVITE");
+  expect(await db.select().from(staffRoles).where(eq(staffRoles.tenantId, shop.tenantId))).toMatchObject([{ userId: first.userId, role: "owner" }]);
 });
 
 it("keeps owner invitations apart from other shops and from staff invitations", async () => {
