@@ -269,10 +269,15 @@ describe("production configuration gate", () => {
       refused({ ...safe, WALLET_PRODUCTION_APPROVED: "true" }, /no Wallet provider/);
       refused({ ...safe, APPLE_WALLET_ENABLED: "yes" }, /APPLE_WALLET_ENABLED must be exactly/);
       refused({ ...safe, GOOGLE_WALLET_ASSET_ENABLED: "1" }, /GOOGLE_WALLET_ASSET_ENABLED must be exactly/);
+      // Google with the full valid Apple group (PassFast and owner messages with their webhook secret), as production would run it.
+      const messages: NodeJS.ProcessEnv = { ...google, PASSFAST_ENABLED: "true", PASSFAST_WALLET_TYPES: "apple", PASSFAST_API_KEY: "sk_live_" + "abcdef0123456789".repeat(4), PASSFAST_APP_ID: "11111111-1111-4111-8111-111111111111",
+        PASSFAST_TENANT_TEMPLATES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", templateId: "22222222-2222-4222-8222-222222222222" }]),
+        WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" };
+      expect(productionConfigIssues(messages)).toEqual([]);
       for (const name of ["GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) {
         refused({ ...google, [name]: "1" }, new RegExp(`${name} must be exactly`));
         refused({ ...safe, [name]: "true" }, new RegExp(`${name} requires Google Wallet`));
-        expect(productionConfigIssues({ ...google, [name]: "true", WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" })).toEqual([]);
+        expect(productionConfigIssues({ ...messages, [name]: "true" })).toEqual([]);
         expect(productionConfigIssues({ ...safe, [name]: "false" })).toEqual([]);
       }
       expect(productionConfigIssues({ ...google, GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED: "true", GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED: "false" })).toEqual([]);
