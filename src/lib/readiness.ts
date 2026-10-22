@@ -93,8 +93,8 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
 
   const nfc = nfcCapability(env);
   if (!nfc.available) steps.push({ id: "nfc", group: "external", required: false, status: "external", title: "NFC am Tresen", evidence: "In dieser Umgebung ist keine NFC-Schlüsselverwaltung eingerichtet. Tags, Schlüssel und der Test mit echten Telefonen werden außerhalb von Loynara freigegeben. QR-Code und Kartennummer funktionieren unabhängig davon." });
-  else if (program?.tapMode === "staff_confirmed") steps.push({ id: "nfc", group: "verify", required: false, status: facts.live_tags > 0 && facts.confirmed_taps > 0 ? "done" : "todo", title: "NFC-Tag am Tresen geprüft",
-    evidence: facts.live_tags === 0 ? "NFC ist eingeschaltet, aber an diesem Standort ist kein aktiver Tag registriert." : facts.confirmed_taps === 0 ? `${facts.live_tags} aktiver Tag, aber noch kein bestätigter Tap. Ein lesbarer Tag beweist noch keinen Kassenvorgang.` : `${facts.live_tags} aktiver Tag, ${facts.confirmed_taps} bestätigte Taps.`,
+  else if (program?.tapMode === "staff_confirmed") steps.push({ id: "nfc", group: "verify", required: false, status: facts.live_tags > 0 && facts.confirmed_taps > 0 ? "done" : "todo", title: "NFC-Schild am Tresen geprüft",
+    evidence: facts.live_tags === 0 ? "NFC ist an, aber an diesem Standort ist noch kein NFC-Schild aktiv." : facts.confirmed_taps === 0 ? `Aktive NFC-Schilder: ${facts.live_tags}. Noch kein bestätigtes Antippen: Dass ein Schild lesbar ist, heißt noch nicht, dass Buchungen klappen.` : `Aktive NFC-Schilder: ${facts.live_tags} · bestätigt angetippt: ${facts.confirmed_taps}`,
     action: { label: "NFC-Einstellungen", href: "/merchant/program", ownerOnly: true } });
   else steps.push({ id: "nfc", group: "verify", required: false, status: "not_applicable", title: "NFC am Tresen", evidence: "NFC ist für dieses Programm ausgeschaltet. QR-Code und Kartennummer reichen für den Start." });
 

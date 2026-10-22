@@ -88,8 +88,8 @@ export function retentionPredicate(filter: RetentionFilter, cutoff: string) {
 }
 
 export const RETENTION_RULES = {
-  drifting: "Karten mit mindestens einem bestätigten Kassenvorgang, aber keinem innerhalb der gewählten Tage.",
-  never: "Angemeldete Karten ohne bestätigten Kassenvorgang. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.",
+  drifting: "Karten mit mindestens einer bestätigten Buchung, aber keiner in den gewählten Tagen.",
+  never: "Angemeldete Karten ohne bestätigte Buchung. Ob diese Kundinnen und Kunden trotzdem da waren und warum nicht gebucht wurde, wissen wir nicht.",
   nearReward: "Karten, denen höchstens ein Viertel der günstigsten aktiven Prämie fehlt, auf ganze Einheiten aufgerundet; bei 8 Stempeln also 1 bis 2.",
   rewardReady: "Karten, deren aktueller Stand für die günstigste aktive Prämie reicht.",
 } as const;
