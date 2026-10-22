@@ -40,7 +40,7 @@ export function walletHtml(b: BrandState = initialBrand(), balance = 8): string 
 
 /** The studio picture for the selected view: Tresen (stand + card, default) or Wallet-Vorschau. */
 export function studioHtml(b: BrandState, view: 'tresen' | 'wallet'): string {
-  if (view === 'wallet') return `<figure class="studio-fig studio-wallet">${walletHtml(b)}<figcaption>Wallet-Vorschau · Ausblick, keine eingerichtete Karte</figcaption></figure>`;
+  if (view === 'wallet') return `<figure class="studio-fig studio-wallet">${walletHtml(b)}<figcaption>Wallet-Vorschau · Gestaltungsbeispiel, Apple Wallet auf Wunsch</figcaption></figure>`;
   return `<figure class="studio-fig studio-pair"><div class="pair-stand">${standSvg(b)}</div><div class="pair-card">${cardHtml({ balance: 8, status: statusFor(8), brand: b, size: 'md' })}</div><figcaption>Aufsteller und Karte · Gestaltungsbeispiel</figcaption></figure>`;
 }
 const SW = (Object.keys(STYLES) as StyleKey[]);

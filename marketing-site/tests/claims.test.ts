@@ -27,12 +27,13 @@ test('pre-gate copy: NFC only as prepared outlook, no RC-only capability claimed
   assert.match(text, /Per QR-Code/);
 });
 
-test('post-NFC copy: NFC is primary and QR stays the fallback; Wallet stays outlook', () => {
+test('post-NFC copy: NFC is primary and QR stays the fallback; Apple Wallet on request, never Google Wallet', () => {
   const text = all(render('nfcAccepted'));
   assert.match(text, /Antippen oder QR-Code/);
   assert.match(text, /QR-Code (?:bleibt immer als Alternative|scannen)/);
   assert.doesNotMatch(text, /NFC[^.]*Ausblick/, 'NFC is no longer outlook after acceptance');
-  for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|\?$/, m);
+  for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|auf Wunsch|\?$/, m);
+  assert.doesNotMatch(text, /Google Wallet/);
 });
 
 test('post-RC copy: lost link means reissue with the same balance, history and card number; old access stops', () => {

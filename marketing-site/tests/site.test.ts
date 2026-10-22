@@ -44,7 +44,7 @@ test('interactive modules: two real tablists (screen, owner), roving tabindex, o
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
   assert.equal(SITE.price.amount, 49); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
-  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Pilotangebot – Details im persönlichen Gespräch/);
+  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch\./); assert.doesNotMatch(text, /Vorläufiger Einstiegspreis/);
   assert.ok(home.includes('mailto:support@getloynara.com')); assert.ok(home.includes('href="https://app.getloynara.com/login"'));
   assert.doesNotMatch(home, /getlyonara/i);
   const src = ['../template.ts', '../src/final-parts.ts', '../src/d-parts.ts', '../src/d.ts', '../src/calc.ts', '../src/demo.ts', '../src/ref.ts'].map(f => readFileSync(resolve(import.meta.dirname, f), 'utf8')).join('\n');
@@ -68,11 +68,13 @@ test('platform previews are marked as outlook and kept out of the offer, near th
   assert.match(visible(owner), /Der Überblick gehört zum Pilotangebot\. Wer fehlt und ruhige Zeiten sind Plattform-Ausblick; Nachrichten bleiben Vorschau\./);
   const card = visible(home.slice(home.indexOf('class="price-card"'), home.indexOf('class="faq"')));
   const included = card.slice(0, card.indexOf('Demo anfragen'));
-  assert.doesNotMatch(included, /Kampagn|Nachricht|Wallet|Aufsteller|Logo-Darstellung/);
-  assert.match(card, /Aufsteller, Wallet-Karte, Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
+  assert.doesNotMatch(included, /Kampagn|Nachricht|Google|Aufsteller|Logo-Darstellung/);
+  assert.equal((included.match(/Wallet/g) ?? []).length, 1, 'Wallet appears once in the offer'); assert.match(included, /Apple Wallet auf Wunsch/);
+  assert.match(card, /Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
+  assert.doesNotMatch(card.slice(card.indexOf('Demo anfragen')), /Aufsteller|Wallet/, 'the stand and Apple Wallet are not outlook');
   assert.doesNotMatch(card.slice(card.indexOf('Demo anfragen')), /NFC/, 'NFC has left the outlook list');
   assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten|wurde gesendet|zugestellt/i);
-  assert.match(section('gestaltung', 'inhaber'), /Gestaltungsbeispiel und Ausblick\. Nichts wird hochgeladen oder gespeichert\./);
+  assert.match(section('gestaltung', 'inhaber'), /Gestaltungsbeispiele; Apple Wallet schalten wir für deinen Laden auf Wunsch dazu\. Nichts wird hochgeladen oder gespeichert\./);
 });
 test('calculator copy: scope, disclaimer next to the result, honest zero case, ratio only in the details', () => {
   const calc = section('rechner', 'angebot');
@@ -90,9 +92,9 @@ test('calculator copy: scope, disclaimer next to the result, honest zero case, r
 });
 test('offer: what 49 € means, what is included, the pilot qualifier and what happens next', () => {
   const offer = section('angebot', 'anfrage');
-  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Pilotangebot – Details im persönlichen Gespräch/);
-  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte']) assert.ok(offer.includes(x), x);
-  assert.match(offer, /Vorläufiger Einstiegspreis\. Konditionen besprechen wir vor dem Start persönlich\./);
+  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch\./); assert.doesNotMatch(offer.slice(0, offer.indexOf('Gut zu wissen')), /Pilotangebot|vorläufig/i, 'no pilot or provisional label next to the price');
+  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte', 'Apple Wallet auf Wunsch']) assert.ok(offer.includes(x), x);
+  assert.match(offer, /Konditionen besprechen wir vor dem Start persönlich\./); assert.doesNotMatch(offer, /Vorläufiger Einstiegspreis/);
   assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');
   assert.match(visible(home.slice(home.indexOf('id="anfrage"'))), /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/);
 });
@@ -123,7 +125,7 @@ test('robustness CSS: solid header fallback, prefixed blur, print shows every ta
   assert.doesNotMatch(css, /color-mix\(/);
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
-test('NFC is live: the tap comes first and the QR code always stays the fallback; Wallet stays outlook (set only after the physical NFC acceptance passed in production)', () => {
+test('NFC is live: the tap comes first and the QR code always stays the fallback; Apple Wallet on request, never Google Wallet (set only after the physical NFC acceptance passed in production)', () => {
   const offerIncluded = visible(home.slice(home.indexOf('class="checks"'), home.indexOf('</ul>', home.indexOf('class="checks"'))));
   assert.match(offerIncluded, /NFC-Antippen und QR-Einstieg am Tresen/);
   const head = home.slice(0, home.indexOf('</head>'));
@@ -134,6 +136,7 @@ test('NFC is live: the tap comes first and the QR code always stays the fallback
   assert.ok(mentions.length > 0 && mentions.every(m => /\?$/.test(m) || (/QR/.test(m) && !/Ausblick|vorbereitet/.test(m))), mentions.join(' | '));
   assert.match(text, /Und wenn ein Handy kein NFC kann\? Dann scannt dein Kunde den QR-Code\. Er öffnet dieselbe Karte und bleibt immer als Alternative\./);
   assert.doesNotMatch(text, /Das Antippen per NFC ist vorbereitet|NFC-Antippen, Wallet-Karte/);
-  for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|\?$/, m);
+  for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|auf Wunsch|\?$/, m);
+  assert.doesNotMatch(text, /Google Wallet/);
 });
 

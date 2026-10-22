@@ -5,7 +5,7 @@ export const SITE = {
   loginUrl: 'https://app.getloynara.com/login',
   supportEmail: 'support@getloynara.com',
   /** Provisional introductory offer. Shown with "details in a personal conversation"; no setup fee, discount or VAT statement is made. */
-  price: { amount: 49, unit: 'Monat / Standort', note: 'Pilotangebot – Details im persönlichen Gespräch' },
+  price: { amount: 49, unit: 'Monat / Standort', note: 'Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch.' },
 } as const;
 
 export type IndustryKey = 'cafe' | 'barber' | 'friseur' | 'nagelstudio' | 'gastro' | 'autopflege' | 'fitness' | 'wellness';
