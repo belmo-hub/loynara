@@ -64,7 +64,7 @@ export default function MerchantLocationsPage() {
       {message && <div role="status"><Notice tone="ok">{message}</Notice></div>}
       {error && <ErrorNotice message={error} />}
       <section className="ow-card ow-stack" aria-labelledby="loc-overview"><h2 id="loc-overview">Gesamtübersicht</h2>
-        <dl className="ow-metrics"><Stat label="Standorte" value={l.totals.locations} /><Stat label="Karten insgesamt" value={l.totals.cards} /><Stat label="Gutschrift-Einträge" value={l.totals.awards} /><Stat label="Einlösungen" value={l.totals.redemptions} /></dl>
+        <dl className="ow-metrics"><Stat label="Standorte" value={l.totals.locations} /><Stat label="Karten insgesamt" value={l.totals.cards} /><Stat label="Buchungen" value={l.totals.awards} /><Stat label="Einlösungen" value={l.totals.redemptions} /></dl>
         <p className="ow-hint">{l.countingRule}</p></section>
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
         <section aria-labelledby="loc-list" className="ow-stack"><h2 id="loc-list" style={{ fontSize: "var(--text-18)" }}>Deine Standorte</h2>
@@ -72,7 +72,7 @@ export default function MerchantLocationsPage() {
             <article className="ow-card ow-stack" key={location.id}>
               <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h3 style={{ fontSize: "var(--text-16)" }}>{location.name}</h3><p>{location.city} · {location.country}</p></div>{location.id === me.locationId && <span className="ow-chip ow-chip--ok">Aktiver Standort</span>}</div>
               <p>{location.programName || "Kein aktives Programm"}{location.programType ? ` · ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}</p>
-              <dl className="ow-dl"><dt>Karten</dt><dd className="ow-num">{location.cards}</dd><dt>Gutschriften</dt><dd className="ow-num">{location.awards}</dd><dt>Einlösungen</dt><dd className="ow-num">{location.redemptions}</dd><dt>Aktive Teamzugänge</dt><dd className="ow-num">{location.activeStaff}</dd></dl>
+              <dl className="ow-dl"><dt>Karten</dt><dd className="ow-num">{location.cards}</dd><dt>Buchungen</dt><dd className="ow-num">{location.awards}</dd><dt>Einlösungen</dt><dd className="ow-num">{location.redemptions}</dd><dt>Aktive Teamzugänge</dt><dd className="ow-num">{location.activeStaff}</dd></dl>
               <div>{location.id !== me.locationId ? <button type="button" className="ow-btn ow-btn--secondary" disabled={busy || owner.switching} onClick={() => owner.switchLocation(location.id)}>Als aktiven Standort wählen</button> : <GuardedLink href="/merchant/program" className="ow-btn ow-btn--secondary">Programm ansehen</GuardedLink>}</div>
             </article>
           ))}

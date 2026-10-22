@@ -126,7 +126,7 @@ function PeriodMetrics({ analytics, days, reload }: { analytics: Loadable<Analyt
     <dl className="ow-metrics" aria-label={`Kennzahlen, letzte ${days} Tage`} aria-busy={analytics.state === "loading"}>
       <Metric label="Aktive Karten" note="Stand jetzt, ohne geschlossene Karten">{value(pick(analytics, d => d.currentActiveCards), reload)}</Metric>
       <Metric label="Neue Karten" note={`Angemeldet in den letzten ${days} Tagen`}>{value(pick(analytics, d => d.newCards), reload)}</Metric>
-      <Metric label="Bestätigte Gutschriften" note={data ? `${nf.format(data.participatingCards)} Karten, ${nf.format(data.repeatCards)} mit mehreren. Kein Umsatz.` : "Vorgänge mit Stempel oder Punkten"}>{value(pick(analytics, d => d.qualifyingCheckouts), reload)}</Metric>
+      <Metric label="Bestätigte Buchungen" note={data ? `${nf.format(data.participatingCards)} Karten, ${nf.format(data.repeatCards)} mit mehreren. Kein Umsatz.` : "Vorgänge mit Stempel oder Punkten"}>{value(pick(analytics, d => d.qualifyingCheckouts), reload)}</Metric>
       <Metric label="Eingelöste Prämien" note={`In den letzten ${days} Tagen`}>{value(pick(analytics, d => d.rewards.redemptions), reload)}</Metric>
     </dl>
   );
@@ -138,7 +138,7 @@ function LifetimeMetrics({ me }: { me: MeResponse }) {
   return (
     <dl className="ow-metrics ow-metrics--auto" aria-label="Kennzahlen seit Programmstart">
       <Metric label="Karten" note="Seit Programmstart">{value(ok(stats?.members))}</Metric>
-      <Metric label="Gutschrift-Buchungen" note="Stempel- oder Punktebuchungen, kein Umsatz.">{value(ok(stats?.awards))}</Metric>
+      <Metric label="Buchungen" note="Stempel- oder Punktebuchungen, kein Umsatz.">{value(ok(stats?.awards))}</Metric>
       <Metric label="Eingelöste Prämien" note="Seit Programmstart">{value(ok(stats?.redemptions))}</Metric>
     </dl>
   );
@@ -147,7 +147,7 @@ function LifetimeMetrics({ me }: { me: MeResponse }) {
 function RecentActivity({ me }: { me: MeResponse }) {
   const unit = unitOf(me);
   const items = (me.activity ?? []).slice(0, 8);
-  const label = (kind: string) => kind === "award" ? "Gutschrift" : kind === "reversal" ? "Korrektur" : "Prämie eingelöst";
+  const label = (kind: string) => kind === "award" ? "Buchung" : kind === "reversal" ? "Korrektur" : "Prämie eingelöst";
   return (
     <section className="ow-card" aria-labelledby="ow-act-title">
       <div className="ow-card-head"><div><h2 id="ow-act-title">Letzte Vorgänge</h2><p>Am Standort {me.locationName}</p></div></div>

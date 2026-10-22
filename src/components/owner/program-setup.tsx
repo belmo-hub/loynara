@@ -146,7 +146,7 @@ export function ProgramSetup() {
             </fieldset>
           </>}
           {step === 1 && <>
-            <div><h2>Wie sammeln Kunden?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Wähle, wie eine Gutschrift entsteht. Wer sie bestätigt, steht darunter.</p></div>
+            <div><h2>Wie sammeln Kunden?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Wähle, wie eine Buchung entsteht. Wer sie bestätigt, steht darunter.</p></div>
             <div className="ow-radio-cards" role="radiogroup" aria-label="Sammelart">
               {([["stamp", "manual", "Stempel", "Dein Team vergibt an der Kasse Stempel, meist einen pro Besuch."], ["points", "purchase", "Punkte nach Einkaufswert", "Das Team gibt den Betrag ein, das System rechnet und rundet ab."], ["points", "manual", "Punkte manuell", "Das Team gibt die Punktmenge direkt ein."]] as const).map(([type, mode, title, text]) => (
                 <label key={title} className="ow-radio-card"><input type="radio" name="su-earn" checked={f.type === type && effectiveMode === mode} onChange={() => set({ type, mode })} /><div><strong>{title}</strong><span>{text}</span></div></label>
