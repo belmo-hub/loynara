@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { locations, ledgerEntries, memberships, plateLinkEvents, programs, rewardVersions, secureTags, tapRequests } from "@/db/schema";
+import { locations, ledgerEntries, memberships, plateLinkEvents, programmeCancellationEvents, programs, rewardVersions, secureTags, tapRequests } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
@@ -413,5 +413,49 @@ describe("an owner with two locations, the oldest of which has ended", () => {
     const f = await twoLocations();
     const [empty] = await db.insert(locations).values({ tenantId: f.tenant.id, name: "Leer", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
     expect(await code(() => getMerchantContext(f.userId, empty.id))).toBe("SETUP_INCOMPLETE");
+  });
+});
+
+describe("cancellation audit", () => {
+  const history = async (programId: string) => (await db.select().from(programmeCancellationEvents).where(eq(programmeCancellationEvents.programId, programId)).orderBy(programmeCancellationEvents.createdAt))
+    .map(({ action, actorUserId, oldEndDate, newEndDate }) => ({ action, actorUserId, oldEndDate, newEndDate }));
+
+  it("records every request, withdrawal, confirmation, move and end with the actor and the date before and after; rows cannot change", async () => {
+    const f = await shop();
+    const owner = { actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") };
+    const schedule = (endDate: string, execute = true) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate, execute });
+    await requestCancellation(owner);
+    await requestCancellation(owner); // a repeat is recorded too, with the date kept
+    await withdrawCancellation(owner);
+    await requestCancellation(owner);
+    await schedule("2099-11-15", false); // a dry run records nothing
+    await schedule("2099-11-15");
+    await schedule("2099-11-30");
+    await expect(code(() => withdrawCancellation({ ...owner, actorUserId: randomUUID() }))).resolves.toBe("NOT_FOUND"); // a refusal records nothing
+    expect(await endDueProgrammes(at("2099-12-01T00:00:00Z"))).toBe(1);
+    expect(await endDueProgrammes(at("2099-12-02T00:00:00Z"))).toBe(0); // no second end row
+    expect(await history(f.program.id)).toEqual([
+      { action: "request", actorUserId: f.userId, oldEndDate: null, newEndDate: "2026-10-31" },
+      { action: "request", actorUserId: f.userId, oldEndDate: "2026-10-31", newEndDate: "2026-10-31" },
+      { action: "withdraw", actorUserId: f.userId, oldEndDate: "2026-10-31", newEndDate: null },
+      { action: "request", actorUserId: f.userId, oldEndDate: null, newEndDate: "2026-10-31" },
+      { action: "confirm", actorUserId: operator, oldEndDate: "2026-10-31", newEndDate: "2099-11-15" },
+      { action: "schedule", actorUserId: operator, oldEndDate: "2099-11-15", newEndDate: "2099-11-30" },
+      { action: "end", actorUserId: PROGRAMME_END_ACTOR, oldEndDate: "2099-11-30", newEndDate: "2099-11-30" },
+    ]);
+    await expect(pool.query("UPDATE programme_cancellation_events SET new_end_date = NULL")).rejects.toThrow(/append-only/);
+    await expect(pool.query("DELETE FROM programme_cancellation_events")).rejects.toThrow(/append-only/);
+    await expect(pool.query("INSERT INTO programme_cancellation_events (tenant_id, program_id, action, actor_user_id) VALUES ($1, $2, 'cancel', 'x')", [f.tenant.id, f.program.id])).rejects.toThrow(/programme_cancellation_action_valid/);
+  });
+
+  it("records an operator's schedule without a request, and an immediate end with the operator and today's date", async () => {
+    const f = await shop();
+    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2099-11-15", execute: true });
+    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "end", execute: true });
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
+    expect(await history(f.program.id)).toEqual([
+      { action: "schedule", actorUserId: operator, oldEndDate: null, newEndDate: "2099-11-15" },
+      { action: "end", actorUserId: operator, oldEndDate: "2099-11-15", newEndDate: today },
+    ]);
   });
 });

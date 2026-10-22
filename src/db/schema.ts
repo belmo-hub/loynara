@@ -371,6 +371,22 @@ export const plateLinkEvents = pgTable("plate_link_events", {
   check("plate_link_action_valid", sql`(${t.action} = 'link' and ${t.oldProgramId} is null and ${t.newProgramId} is not null) or (${t.action} = 'relink' and ${t.oldProgramId} is not null and ${t.newProgramId} is not null) or (${t.action} = 'unlink' and ${t.oldProgramId} is not null and ${t.newProgramId} is null) or (${t.action} = 'revoke' and ${t.oldProgramId} is null and ${t.newProgramId} is null)`),
 ]);
 
+/** Append-only record of every cancellation step of a programme: who, when, the end date before and after (trigger in migration 0032). */
+export const programmeCancellationEvents = pgTable("programme_cancellation_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  action: varchar("action", { length: 8 }).notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  oldEndDate: date("old_end_date"),
+  newEndDate: date("new_end_date"),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ name: "programme_cancellation_events_program_fk", columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  index("programme_cancellation_events_program_idx").on(t.programId, t.createdAt),
+  check("programme_cancellation_action_valid", sql`${t.action} in ('request','withdraw','schedule','confirm','end')`),
+]);
+
 export const tapRequests = pgTable("tap_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
   tagId: uuid("tag_id").notNull().references(() => secureTags.id),

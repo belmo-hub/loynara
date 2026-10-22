@@ -226,7 +226,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       const applied = (await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n;
       await run(upgrade, migrationsDir);
       expect((await upgrade.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(applied);
-      expect(applied).toBe(32);
+      expect(applied).toBe(33);
     } finally { await upgrade.end(); await fresh.end(); }
   }, 180_000);
 
@@ -236,7 +236,7 @@ describe("fresh install and upgrade from the 0017 release schema", () => {
       await run(fresh, migrationsDir);
       expect((await fresh.query("SELECT count(*)::int AS n FROM memberships")).rows[0].n).toBe(0);
       const triggers = (await fresh.query<{ tgname: string }>("SELECT tgname FROM pg_trigger WHERE NOT tgisinternal")).rows.map(row => row.tgname);
-      for (const name of ["ledger_append_only", "program_rule_versions_append_only", "purchase_awards_append_only", "staff_audit_append_only", "memberships_assign_card_locator", "memberships_card_locator_immutable", "card_security_events_append_only"]) expect(triggers, name).toContain(name);
+      for (const name of ["ledger_append_only", "program_rule_versions_append_only", "purchase_awards_append_only", "staff_audit_append_only", "memberships_assign_card_locator", "memberships_card_locator_immutable", "card_security_events_append_only", "programme_cancellation_events_append_only"]) expect(triggers, name).toContain(name);
       const indexes = (await fresh.query<{ indexname: string }>("SELECT indexname FROM pg_indexes WHERE tablename IN ('memberships', 'card_security_events')")).rows.map(row => row.indexname);
       expect(indexes).toEqual(expect.arrayContaining(["memberships_card_locator_uq", "card_security_idempotency_uq"]));
     } finally { await fresh.end(); }
@@ -654,7 +654,7 @@ describe("0025 data integrity guards", () => {
       await run(target, migrationsDir);
       expect(await fingerprint(target)).toEqual(history);
       expect((await target.query("SELECT count(*)::int AS n FROM ledger_entries WHERE idempotency_key = 'legacy-unlinked-correction'")).rows[0].n).toBe(1);
-      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(32);
+      expect((await target.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations")).rows[0].n).toBe(33);
       await expect(target.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key)
         SELECT tenant_id, location_id, membership_id, -1, 'award', 'staff_online', actor_user_id, gen_random_uuid(), 'negative-award'
         FROM ledger_entries WHERE tenant_id = $1 AND actor_user_id IS NOT NULL LIMIT 1`, [seeded.tenants[0]])).rejects.toThrow(/ledger_kind_sign_valid/);
