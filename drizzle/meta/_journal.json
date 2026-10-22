@@ -225,6 +225,13 @@
       "when": 1792622149245,
       "tag": "0031_wallet_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792900039000,
+      "tag": "0032_stripe_billing",
+      "breakpoints": true
     }
   ]
 }

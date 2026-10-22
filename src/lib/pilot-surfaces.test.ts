@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
+import { stripeEnabled } from "./stripe-config";
 
 const PROD = { PRODUCTION_ENVIRONMENT: "loynara-production" };
 const digestOf = (fn: () => unknown) => { try { fn(); } catch (error) { return String((error as { digest?: string }).digest ?? "OTHER"); } return "NONE"; };
@@ -16,6 +17,16 @@ describe("pilot surfaces follow the canonical production definition", () => {
     expect(hiddenSurfaces({ NODE_ENV: "development", TAP_SYNTHETIC_KEY_FILE: "/x/keys.json" })).toEqual([]);
     expect(surfaceHidden("billing", PROD)).toBe(true);
     expect(surfaceHidden("billing", {})).toBe(false);
+    // Live billing is the founder's switch on real production (the production gate requires the whole Stripe group with it).
+    expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "true" })).toBe(false);
+    expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "TRUE" })).toBe(true);
+    // stripeEnabled relies on this: whenever Stripe may run, the billing surface is shown (synthetic placeholders, no real key).
+    const stripe = { LIVE_BILLING_ENABLED: "true", STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001" };
+    for (const env of [{ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` }, { ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` }]) {
+      expect(stripeEnabled(env)).toBe(true);
+      expect(surfaceHidden("billing", env)).toBe(false);
+    }
+    expect(stripeEnabled({ ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` })).toBe(false);
     // The owner's cancel card is withheld on real production only; every other process offers it.
     expect(surfaceHidden("cancellation", PROD)).toBe(true);
     expect(surfaceHidden("cancellation", {})).toBe(false);

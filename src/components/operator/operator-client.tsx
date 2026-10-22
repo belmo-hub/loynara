@@ -21,12 +21,17 @@ type Plate = { plateLabel: string | null; status: string; everTapped: boolean; p
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string };
+type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 
-export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] }) {
+const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
+const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
+
+export function OperatorClient({ rows, plates, billing, guarantees }: { rows: Row[]; plates: Plate[]; billing: Billing[]; guarantees: Guarantee[] }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -72,6 +77,12 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
+  async function setPlan(tenantId: string, planCode: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-plan", { tenantId, planCode }); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
 
   return <main className="ow-page" id="ow-main">
     <PageHeader title="Operator" description="Platten und Geschäfte. Nur für dich sichtbar." />
@@ -87,6 +98,26 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
         </li>)}
       </ul>
     </Card> : null}
+
+    {guarantees.length ? <Card as="section" aria-labelledby="op-guarantee">
+      <CardHeader id="op-guarantee" title="Startgarantie angewendet" description="Diese Standorte haben auf der Rechnung für Monat 2 eine Gutschrift „Monat 2 kostenlos – Startgarantie“." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {guarantees.map(g => <li key={g.locationId} role="status"><strong>{g.tenant}</strong> · {g.location} · {g.customers} Kund:innen mit bestätigter Gutschrift im ersten Monat · entschieden am {date(g.decidedAt)}</li>)}
+      </ul>
+    </Card> : null}
+
+    <Card as="section" aria-labelledby="op-billing">
+      <CardHeader id="op-billing" title="Tarife" description="Gilt ab dem nächsten Checkout. Während ein Abo läuft, bleibt der Tarif fest." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
+          <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>
+          <Select label={`Tarif für ${b.tenant}`} value={b.planCode ?? ""} disabled={busy} onChange={event => { if (event.target.value) void setPlan(b.tenantId, event.target.value); }}>
+            <option value="">Noch nicht gewählt</option>
+            {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
+          </Select>
+        </li>)}
+      </ul>
+    </Card>
 
     <Card as="section" aria-labelledby="op-plates">
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />

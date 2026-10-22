@@ -1,6 +1,6 @@
-import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programs, secureTags, tenants } from "@/db/schema";
+import { billingLocationPlans, ledgerEntries, locations, memberships, programs, secureTags, subscriptions, tenants } from "@/db/schema";
 import { assertPlateOperator } from "./plates";
 import { walletMessageStats } from "./wallet-messages";
 
@@ -38,6 +38,13 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     // Age is computed here so the page renders the same on server and client.
     const now = Date.now();
     const messages = await walletMessageStats(tx);
-    return { rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    // Billing per shop (the plan the operator chose, the Stripe state) and the locations the start guarantee made free (the operator's notice).
+    const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency })
+      .from(subscriptions).innerJoin(tenants, eq(tenants.id, subscriptions.tenantId)).orderBy(asc(tenants.name));
+    const guarantees = await tx.select({ locationId: billingLocationPlans.locationId, tenant: tenants.name, location: locations.name, customers: billingLocationPlans.guaranteeCustomers, decidedAt: billingLocationPlans.guaranteeDecidedAt })
+      .from(billingLocationPlans).innerJoin(tenants, eq(tenants.id, billingLocationPlans.tenantId))
+      .innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
+      .where(eq(billingLocationPlans.guaranteeApplied, true)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
+    return { billing, guarantees, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

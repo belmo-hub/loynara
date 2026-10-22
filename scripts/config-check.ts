@@ -3,6 +3,7 @@ import { passFastStatus } from "../src/lib/wallet/passfast";
 import { googleLocationClasses } from "../src/lib/wallet/google-direct";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "./google-wallet-credential";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
+import { stripeConfigIssues } from "../src/lib/stripe-config";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -94,7 +95,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   } else if (env.NFC_VERIFY_MASTER_KEY || env.NFC_KEY_PROVIDER) {
     issues.push("NFC key settings are present while NFC is not enabled");
   }
-  if (env.LIVE_BILLING_ENABLED === "true") issues.push("Live billing is not configured and approved for production");
+  issues.push(...stripeConfigIssues(env, true));
   if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");

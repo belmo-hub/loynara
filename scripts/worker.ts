@@ -23,6 +23,7 @@ let stopping = false;
 let recoveryPrunedAt = 0;
 let weeklyReportsCheckedAt = 0;
 let programmesEndedAt = 0;
+let billingCheckedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -290,6 +291,21 @@ async function main() {
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;
+        }
+      }
+      if (Date.now() - billingCheckedAt >= 24 * 60 * 60_000) {
+        try {
+          // Daily and idempotent (sets each Stripe quantity to the location count); a no-op unless Stripe billing is enabled.
+          const { runBillingJob } = await import("../src/lib/billing-stripe");
+          const result = await runBillingJob();
+          if (result.quantities) console.log(`Billing: location quantity updated for ${result.quantities} subscription(s)`);
+          billingCheckedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          // A provider outage must not stop stamping jobs: log a fixed line and retry within the hour.
+          const code = error instanceof Error && "code" in error ? ` ${String(error.code)}` : "";
+          console.error(`Billing job failed (${error instanceof Error ? error.name : "error"}${code}); retrying in an hour`);
+          billingCheckedAt = Date.now() - 23 * 60 * 60_000;
         }
       }
       let processed = 0;
