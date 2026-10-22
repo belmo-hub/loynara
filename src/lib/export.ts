@@ -4,6 +4,7 @@ import { billingInvoices, billingLocationPlans, cardSecurityEvents, consentEvent
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
+import { assertExportOpen } from "./programme-end";
 
 const MAX_ROWS = 50_000;
 function checked<T>(rows: T[], label: string) {
@@ -22,6 +23,7 @@ export async function getMerchantExport(actorUserId: string) {
   // Owner authorization and every exported category share one committed snapshot.
   return db.transaction(async (tx) => {
     const tenantId = await ownerTenantId(tx, actorUserId);
+    await assertExportOpen(tx, tenantId);
     const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows] = await Promise.all([
       tx.select().from(tenants).where(eq(tenants.id, tenantId)),
       tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
@@ -97,6 +99,7 @@ export function ledgerVorgang(kind: string, source: string, programType: string)
 export async function getMerchantCsv(actorUserId: string, kind: MerchantCsvKind) {
   return db.transaction(async (tx) => {
     const tenantId = await ownerTenantId(tx, actorUserId);
+    await assertExportOpen(tx, tenantId);
     const filename = `loynara-${kind}-${berlinIsoDate.format(new Date())}.csv`;
     if (kind === "karten") {
       const rows = checked(await tx.select({ cardLocator: memberships.cardLocator, program: programs.name, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt })

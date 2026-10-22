@@ -58,7 +58,7 @@ export type MeResponse = {
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
-  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc">;
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation">;
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
@@ -68,12 +68,19 @@ export type MeResponse = {
   reviewUrl?: string | null;
   happyHourEnabled?: boolean;
   happyHourWindows?: HappyHourWindow[];
+  /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
+  cancellationEndDate?: string | null;
+  /** True once the operator has confirmed the end date; before that it is provisional. */
+  cancellationConfirmed?: boolean;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
   /** occurredAt is localized display text in the merchant's timezone; only createdAt is a raw timestamp. */
   activity?: Array<{ id: string; kind: "award" | "redeem" | "redemption" | "reversal"; occurredAt?: string; createdAt?: string; amount?: number; delta?: number; unit?: string; reference?: string }>;
 };
+
+/** `/api/me` for a shop whose programme has ended: the owner area shows only the export. */
+export type EndedAccountResponse = { userId: string; tenantId: string; publicBaseUrl: string; programEnded: { role: "owner" | "manager" | "cashier"; businessName: string; endedOn: string; exportUntil: string; exportOpen: boolean } };
 
 export type PublicProgram = {
   businessName: string;
@@ -107,6 +114,8 @@ export type CardResponse = {
   rulesText?: string;
   /** The shop's news line; absent when the owner left it empty. */
   news?: string;
+  /** Last day of the programme (YYYY-MM-DD) once the shop has cancelled; absent otherwise. */
+  endsOn?: string;
   /** Present only after the card's third staff-confirmed visit and when the shop stored a link. */
   reviewUrl?: string;
   /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */

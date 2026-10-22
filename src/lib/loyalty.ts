@@ -307,6 +307,9 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     if (original.source === "welcome_bonus") throw new DomainError("WELCOME_BONUS_WITH_AWARD", "The welcome bonus is corrected together with the card's first award");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
     if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    // An ended programme books nothing more, corrections included (the end job never touches memberships, so a plain read is safe).
+    const [ended] = member ? await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.id, member.programId), eq(programs.status, "ended"))) : [];
+    if (ended) throw new DomainError("NOT_FOUND", "Card not found at this location");
     const staff = await checkoutStaff(tx, original.tenantId, input.userId);
     if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Manager or owner access required");
     if (staff.role === "manager" && Math.abs(original.delta) > 100) throw new DomainError("LIMIT_EXCEEDED", "Owner approval required for this correction");

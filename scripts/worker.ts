@@ -22,6 +22,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 let stopping = false;
 let recoveryPrunedAt = 0;
 let weeklyReportsCheckedAt = 0;
+let programmesEndedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -261,6 +262,17 @@ async function main() {
           const { queueWeeklyOwnerReports } = await import("../src/lib/weekly-owner-report");
           await queueWeeklyOwnerReports(housekeepingDatabase);
           weeklyReportsCheckedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - programmesEndedAt >= 60_000) {
+        try {
+          // Idempotent: each programme is ended once, under its row lock, so replicas and retries do no harm.
+          const { endDueProgrammes } = await import("../src/lib/programme-end");
+          await endDueProgrammes();
+          programmesEndedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;

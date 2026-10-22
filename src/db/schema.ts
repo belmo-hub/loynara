@@ -122,6 +122,12 @@ export const programs = pgTable("programs", {
   // Happy hour: weekly windows (lib/happy-hour) in the location's timezone with doubled purchase points. Off by default.
   happyHourEnabled: boolean("happy_hour_enabled").notNull().default(false),
   happyHourWindows: jsonb("happy_hour_windows").$type<HappyHourWindow[]>().notNull().default(sql`'[]'::jsonb`),
+  // Last day (Berlin calendar day) the programme works; the worker ends it after that day. Null = no cancellation.
+  cancellationEndDate: date("cancellation_end_date"),
+  // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
+  // When the owner first asked (kept on repeats); the operator page shows how old the request is.
+  cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
+  cancellationConfirmedAt: timestamp("cancellation_confirmed_at", { withTimezone: true }),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [
@@ -129,7 +135,7 @@ export const programs = pgTable("programs", {
   uniqueIndex("programs_one_active_per_location_uq").on(t.locationId).where(sql`${t.status} = 'active'`),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("program_type_valid", sql`${t.type} in ('stamp','points')`),
-  check("program_status_valid", sql`${t.status} in ('active','archived')`),
+  check("program_status_valid", sql`${t.status} in ('active','archived','ended')`),
   check("program_earning_mode_valid", sql`${t.earningMode} in ('manual','purchase')`),
   check("program_tap_mode_valid", sql`${t.tapMode} in ('disabled','automatic_fixed','staff_confirmed')`),
   check("program_tap_cooldown_valid", sql`${t.tapCooldownSeconds} is null or ${t.tapCooldownSeconds} between 1 and 86400`),
