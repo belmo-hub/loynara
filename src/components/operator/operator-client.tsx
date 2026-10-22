@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import QRCode from "qrcode";
 import { ScanLine } from "lucide-react";
 import { QrScanner } from "@/components/qr-scanner";
 import { ClientApiError, postJson } from "@/components/client-api";
@@ -23,6 +25,9 @@ type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
 type TemplatePreview = { result: string; from: string | null; to: string; ready: boolean };
+type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
+type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
+const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
@@ -31,7 +36,7 @@ const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", {
 const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.source === "table" ? "Datenbank" : "Umgebungsvariable"})` : "keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 
-export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] }) {
+export function OperatorClient({ rows, plates, awaiting }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[] }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -46,6 +51,9 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
   const [tplRow, setTplRow] = useState<Row | null>(null);
   const [templateId, setTemplateId] = useState("");
   const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
+  const [shopError, setShopError] = useState("");
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [copied, setCopied] = useState("");
   const plate = plates.find(p => p.plateLabel === label);
   // Only programmes a plate may be linked to (the server enforces the same rule).
   const linkable = rows.filter(r => r.status === "active" && r.tapMode === "staff_confirmed");
@@ -91,9 +99,52 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
 
+  // The link is shown once, here: the server keeps only its hash.
+  async function shop(body: Record<string, unknown>, tenant: string) {
+    setBusy(true); setShopError(""); setCopied("");
+    try {
+      if (body.action === "revoke") await postJson("/api/operator/shop", body);
+      else {
+        const result = await postJson<{ link: string; email: string; expiresAt: string }>("/api/operator/shop", body);
+        setInvitation({ tenant, email: result.email, link: result.link, expiresAt: result.expiresAt, qr: await QRCode.toDataURL(result.link, { margin: 1, width: 240, errorCorrectionLevel: "M" }) });
+      }
+      router.refresh();
+      return true;
+    } catch (cause) { setShopError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); return false; }
+    finally { setBusy(false); }
+  }
+  async function createShop(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const element = event.currentTarget, form = new FormData(element);
+    const text = (key: string) => String(form.get(key) ?? "").trim();
+    if (await shop({ action: "create", businessName: text("businessName"), ...(text("locationName") ? { locationName: text("locationName") } : {}), city: text("city"), country: text("country"), timezone: text("timezone"), ownerEmail: text("ownerEmail") }, text("businessName"))) element.reset();
+  }
+
   return <main className="ow-page" id="ow-main">
     <PageHeader title="Operator" description="Platten und Geschäfte. Nur für dich sichtbar." />
     {error && !label ? <p role="alert">{error}</p> : null}
+
+    <Card as="section" aria-labelledby="op-new">
+      <CardHeader id="op-new" title="Neues Geschäft" description="Legt Geschäft und Standort an und erstellt eine Einladung für die Inhaberin oder den Inhaber. Sie gilt 7 Tage und nur einmal. Das Passwort wählt die Person selbst." />
+      <form onSubmit={createShop} style={{ display: "grid", gap: 8 }}>
+        <TextField label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
+        <TextField label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
+        <TextField label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
+        <Select label="Land" name="country" defaultValue="DE"><option value="DE">Deutschland</option><option value="MA">Marokko</option></Select>
+        <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
+        <TextField label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
+        {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
+        <Button type="submit" loading={busy}>Geschäft anlegen und einladen</Button>
+      </form>
+      {awaiting.length ? <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }} aria-label="Geschäfte ohne Programm">
+        {awaiting.map(a => <li key={a.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
+          <span><strong>{a.tenant}</strong> · {a.location} ({a.city})</span>
+          <span className="ow-muted">{INVITE_STATUS[a.status]} · {a.email}{a.status === "pending" ? ` · gültig bis ${date(a.expiresAt)}` : ""}</span>
+          {a.status === "pending" ? <Button variant="danger" loading={busy} onClick={() => void shop({ action: "revoke", inviteId: a.inviteId }, a.tenant)}>Einladung widerrufen</Button>
+            : a.status !== "accepted" ? <Button variant="secondary" loading={busy} onClick={() => void shop({ action: "reissue", tenantId: a.tenantId, ownerEmail: a.email }, a.tenant)}>Neue Einladung an {a.email}</Button> : null}
+        </li>)}
+      </ul> : null}
+    </Card>
 
     {cancellations.length ? <Card as="section" aria-labelledby="op-cancel">
       <CardHeader id="op-cancel" title="Kündigungen" description="Vorläufige Termine zuerst. Ohne Bestätigung endet nichts." />
@@ -141,6 +192,17 @@ export function OperatorClient({ rows, plates }: { rows: Row[]; plates: Plate[] 
         </li>)}
       </ul>
     </Card>
+
+    <Sheet open={!!invitation} onClose={() => setInvitation(null)} title="Einladung">
+      {invitation ? <div style={{ display: "grid", gap: 12 }}>
+        <p><strong>{invitation.tenant}</strong> · für {invitation.email} · gültig bis {date(invitation.expiresAt)}</p>
+        <Image unoptimized src={invitation.qr} alt={`QR-Code der Einladung für ${invitation.tenant}`} width={240} height={240} style={{ justifySelf: "center" }} />
+        <p style={{ wordBreak: "break-all" }}>{invitation.link}</p>
+        <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(invitation.link).then(() => setCopied("Link kopiert."), () => setCopied("Kopieren nicht möglich.")); }}>Link kopieren</Button>
+        {copied ? <p role="status">{copied}</p> : null}
+        <p className="ow-muted">Der Link wird nur jetzt angezeigt. Geht er verloren: widerrufen und neu einladen.</p>
+      </div> : null}
+    </Sheet>
 
     <Sheet open={!!prog} onClose={closeEnd} title="Enddatum">
       {prog ? <div style={{ display: "grid", gap: 12 }}>

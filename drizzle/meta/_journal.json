@@ -253,6 +253,13 @@
       "when": 1792624771805,
       "tag": "0035_wallet_template_bindings",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792624831805,
+      "tag": "0036_owner_invites",
+      "breakpoints": true
     }
   ]
 }

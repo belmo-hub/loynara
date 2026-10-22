@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { birthdayState, DomainError, winbackState } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
@@ -44,7 +44,7 @@ const merchantInput = z.object({
 function randomCode(bytes: number) { return randomBytes(bytes).toString("base64url"); }
 const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
 const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
-function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
+export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
 function checkedLogo(value?: string) {
   if (!value) return null;
   const match = /^data:(image\/png|image\/jpeg|image\/webp);base64,([A-Za-z0-9+/=]+)$/.exec(value);
@@ -78,6 +78,13 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
       if (ownedLocations.length > 1) throw new DomainError("ALREADY_ONBOARDED", "Dein Geschäft ist bereits eingerichtet. Öffne die Übersicht und wähle dort den gewünschten Standort.");
       const [location] = ownedLocations;
       if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
+      if (await awaitsSetup(tx, tenant.id)) {
+        // A shop the operator created (ENG-047): the owner's answers replace the operator's draft, then the programme starts.
+        await tx.update(tenants).set({ name: input.businessName, currency: input.currency, locale: input.locale }).where(eq(tenants.id, tenant.id));
+        const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude })
+          .where(and(eq(locations.id, location.id), eq(locations.tenantId, tenant.id))).returning();
+        return startProgramme(tx, tenant.id, updated, input, earningMode);
+      }
       const [completed] = await tx.select({ program: programs }).from(programs)
         .innerJoin(programRuleVersions, and(eq(programRuleVersions.tenantId, existing.tenantId), eq(programRuleVersions.programId, programs.id)))
         .innerJoin(billingLocationPlans, and(eq(billingLocationPlans.tenantId, existing.tenantId), eq(billingLocationPlans.locationId, location.id)))
@@ -93,15 +100,41 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
-    const [program] = await tx.insert(programs).values({ tenantId: tenant.id, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, earningMode, pointsPerCurrencyUnit: input.pointsPerCurrencyUnit ?? 1, rulesText: input.rulesText, effectiveAt: input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined }).returning();
-    await tx.insert(programRuleVersions).values({ tenantId: tenant.id, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, effectiveAt: program.effectiveAt });
-    const [reward] = await tx.insert(rewards).values({ tenantId: tenant.id, programId: program.id }).returning();
-    await tx.insert(rewardVersions).values({ tenantId: tenant.id, rewardId: reward.id, version: 1, title: input.rewardTitle, cost: input.rewardCost });
-    const priceMinor = draftPriceMinor(input.currency);
-    await tx.insert(subscriptions).values({ tenantId: tenant.id, currency: input.currency, priceMinor });
-    await tx.insert(billingLocationPlans).values({ tenantId: tenant.id, locationId: location.id, currency: input.currency, priceMinor });
-    return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
+    return startProgramme(tx, tenant.id, location, input, earningMode);
   });
+}
+
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * A shop the operator created (its owner accepted an owner invitation) with no programme and no subscription yet: the
+ * assistant finishes it. Any other half-made shop keeps the explicit setup error.
+ */
+async function awaitsSetup(tx: Transaction | typeof db, tenantId: string) {
+  const [row] = await tx.select({ waiting: sql<boolean>`exists (select 1 from ${staffInvites} where ${staffInvites.tenantId} = ${tenantId} and ${staffInvites.role} = 'owner' and ${staffInvites.acceptedAt} is not null)
+    and not exists (select 1 from ${programs} where ${programs.tenantId} = ${tenantId}) and not exists (select 1 from ${subscriptions} where ${subscriptions.tenantId} = ${tenantId})` }).from(tenants).where(eq(tenants.id, tenantId));
+  return row?.waiting === true;
+}
+
+async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
+  const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const [program] = await tx.insert(programs).values({ tenantId, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, earningMode, pointsPerCurrencyUnit: input.pointsPerCurrencyUnit ?? 1, rulesText: input.rulesText, effectiveAt: input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined }).returning();
+  await tx.insert(programRuleVersions).values({ tenantId, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, effectiveAt: program.effectiveAt });
+  const [reward] = await tx.insert(rewards).values({ tenantId, programId: program.id }).returning();
+  await tx.insert(rewardVersions).values({ tenantId, rewardId: reward.id, version: 1, title: input.rewardTitle, cost: input.rewardCost });
+  const priceMinor = draftPriceMinor(input.currency);
+  await tx.insert(subscriptions).values({ tenantId, currency: input.currency, priceMinor });
+  await tx.insert(billingLocationPlans).values({ tenantId, locationId: location.id, currency: input.currency, priceMinor });
+  return { tenantId, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
+}
+
+/** What the operator entered for a shop still waiting for its owner's assistant, to prefill it; null for any other account. */
+export async function setupDraft(userId: string) {
+  const [row] = await db.select({ tenantId: tenants.id, businessName: tenants.name, locationName: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, locale: tenants.locale })
+    .from(staffRoles).innerJoin(tenants, eq(tenants.id, staffRoles.tenantId)).innerJoin(locations, eq(locations.tenantId, staffRoles.tenantId))
+    .where(and(eq(staffRoles.userId, userId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
+  if (!row || !await awaitsSetup(db, row.tenantId)) return null;
+  return { businessName: row.businessName, locationName: row.locationName, city: row.city, country: row.country, timezone: row.timezone, locale: row.locale };
 }
 
 const updateProgramInput = z.object({
@@ -420,6 +453,8 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
         .where(and(eq(programs.tenantId, tenant.id), eq(programs.status, "active"))).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
       if (running) ({ location, program } = running);
     }
+    // The owner of a shop the operator created has no programme yet: like an identity-only account, the assistant comes next.
+    if (!ended && staff.role === "owner" && await awaitsSetup(db, tenant.id)) return null;
     if (!program) throw new DomainError(ended ? "PROGRAM_ENDED" : "SETUP_INCOMPLETE", ended ? "Programm beendet" : SETUP_INCOMPLETE);
   }
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
