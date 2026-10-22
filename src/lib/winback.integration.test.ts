@@ -67,6 +67,12 @@ describe("win-back bonus at the counter", () => {
     }
   });
 
+  it("is not booked with an offline-synced award: its visit day is not known to the server (as happy hour)", async () => {
+    const s = await shop(); const c = await card(s, "none");
+    await stampAt(s, c, berlinDaysAgo(31));
+    expect(await award({ userId: s.owner, locationId: s.locationId, membershipId: c.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID(), source: "staff_offline" })).toMatchObject({ winbackBonus: 0, balance: 2 });
+  });
+
   it("applies to every returning card, with or without message consent or a Wallet pass (Art. 7 (4) DSGVO)", async () => {
     const s = await shop();
     for (const wallet of ["none", "pass", "consent"] as const) {
