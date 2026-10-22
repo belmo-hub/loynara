@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs } from "@/db/schema";
 import { duePoints, EXPIRY_REMINDER_DAYS, expiryBatches, expiryBuckets, expiryReminderText, expiryRuleText, upcomingExpiry } from "./points-expiry-rules";
@@ -17,7 +17,7 @@ type Rule = { pointsExpiryMonths: number | null; pointsExpirySince: Date | null 
 export async function cardExpiryBuckets(reader: Reader, tenantId: string, membershipId: string, rule: Rule) {
   if (!rule.pointsExpiryMonths || !rule.pointsExpirySince) return [];
   const rows = await reader.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
-    .where(and(eq(ledgerEntries.tenantId, tenantId), eq(ledgerEntries.membershipId, membershipId)));
+    .where(and(eq(ledgerEntries.tenantId, tenantId), eq(ledgerEntries.membershipId, membershipId))).orderBy(asc(ledgerEntries.createdAt), asc(ledgerEntries.id));
   return expiryBuckets(rows, { months: rule.pointsExpiryMonths, since: rule.pointsExpirySince });
 }
 

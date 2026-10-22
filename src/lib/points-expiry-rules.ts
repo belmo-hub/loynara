@@ -28,6 +28,8 @@ export type ExpiryBucket = { amount: number; expiresAt: Date };
  * (an award, or a correction that gives points back) is a lot earned at its time; every negative row uses up the oldest
  * lots first; an expiry row uses up the lots that were due when it was booked. Only lots earned since the rule started
  * get an expiry date, so points collected before the customer could know the rule never expire.
+ * A correction that takes points back (a reversed award) also uses up the oldest lot, not the one it reverses: fewer
+ * points expire early, which favours the customer. The sort is stable, so rows of one instant keep the database order.
  */
 export function expiryBuckets(rows: ExpiryLedgerRow[], rule: { months: number; since: Date }): ExpiryBucket[] {
   const lots: Array<{ amount: number; expiresAt: Date | null }> = [];
