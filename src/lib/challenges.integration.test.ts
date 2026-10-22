@@ -38,11 +38,16 @@ async function shop(programType: "points" | "stamp" = "stamp", name = "Synthetic
 }
 type Shop = Awaited<ReturnType<typeof shop>>;
 const give = (s: Shop, membershipId: string, userId = s.owner, quantity = 1) => award({ userId, locationId: s.locationId, membershipId, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() });
-/** A ledger row on day 1, 12:00, of the current month in the shop's timezone. */
+/**
+ * A ledger row on day 1, 12:00, of the current month in the shop's timezone. shop() picks a zone where today is day 2 or
+ * later, so this is an earlier day of the same month on any run date, the 1st included; the check below proves it.
+ */
 async function earlierVisit(s: Shop, membershipId: string, source = "staff_online") {
-  await pool.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, created_at)
-    VALUES ($1, $2, $3, 1, 'award', $4, $5, gen_random_uuid(), $6, (date_trunc('month', now() AT TIME ZONE $7) + interval '12 hours') AT TIME ZONE $7)`,
+  const { rows: [row] } = await pool.query<{ earlier: boolean }>(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, created_at)
+    VALUES ($1, $2, $3, 1, 'award', $4, $5, gen_random_uuid(), $6, (date_trunc('month', now() AT TIME ZONE $7) + interval '12 hours') AT TIME ZONE $7)
+    RETURNING (created_at AT TIME ZONE $7)::date < (now() AT TIME ZONE $7)::date AS earlier`,
     [s.tenantId, s.locationId, membershipId, source, source === "nfc_tap" ? null : s.owner, `synthetic-${randomUUID()}`, s.timezone]);
+  if (!row.earlier) throw new Error("Synthetic earlier visit is not on an earlier day of this month");
   await pool.query("UPDATE memberships SET balance = balance + 1 WHERE id = $1", [membershipId]);
 }
 const bonusRows = (membershipId: string) => db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, membershipId), eq(ledgerEntries.source, "challenge_bonus")));
@@ -197,6 +202,8 @@ describe("changes to a running challenge wait for the next month (ENG-065)", () 
     expect(await getMerchantContext(s.owner)).toMatchObject({ challengeVisits: 2, challengeBonus: 1, challengeNext: { from: nextMonthStart(thisMonth(s)), visits: 3, bonus: 2 } });
     expect((await getCard(card.cardToken)).challenge).toMatchObject({ target: 2, visits: 1, text: expect.stringMatching(/^Komm 2-mal .* 1 Stempel extra\.$/) });
     expect(await give(s, card.id)).toMatchObject({ challengeBonus: 1 });
+    // A save that does not touch the challenge keeps the pending change.
+    expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, welcomeBonus: 0 })).toMatchObject({ challengeNext: { visits: 3, bonus: 2 } });
     // Saving the same terms again drops the pending change.
     await challenge(s, 2, 1);
     expect(await next(s)).toEqual({ from: null, visits: null, bonus: null });
@@ -255,6 +262,21 @@ describe("changes to a running challenge wait for the next month (ENG-065)", () 
     await challenge(s, 5, 1);
     await reverseEntry({ userId: s.owner, locationId: s.locationId, entryId: extra.entryId, reason: "Doppelt gebucht heute", idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.reversalOfId, (await bonusRows(card.id))[0].id))).toEqual([]);
+  });
+
+  it("judges a correction by the terms of the visit's month once a change has started", async () => {
+    const s = await shop();
+    await challenge(s, 5, 1);
+    // The change to 2 visits started on this month's 1st (saved last month); the stored current target is still 5.
+    await pool.query("UPDATE programs SET challenge_next_from = $1, challenge_next_visits = 2, challenge_next_bonus = 1 WHERE id = $2", [`${thisMonth(s)}-01`, s.programId]);
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await earlierVisit(s, card.id);
+    await give(s, card.id);
+    const extra = await give(s, card.id);
+    await reverseEntry({ userId: s.owner, locationId: s.locationId, entryId: extra.entryId, reason: "Doppelt gebucht heute", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const bonuses = await bonusRows(card.id);
+    expect(bonuses).toHaveLength(1);
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.reversalOfId, bonuses[0].id))).toEqual([]);
   });
 
   it("is the owning shop's alone and changes no other shop", async () => {
