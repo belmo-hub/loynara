@@ -54,6 +54,7 @@ export type MeResponse = {
   programSlug: string;
   programId?: string;
   programType: "stamp" | "points";
+  earningMode?: "manual" | "purchase";
   tapMode?: "disabled" | "automatic_fixed" | "staff_confirmed";
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;

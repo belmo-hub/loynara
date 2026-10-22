@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, programRuleVersions, programs, purchaseAwards, staffRoles } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
-import { createMerchant, enroll, updateProgramExtras } from "./product";
+import { createMerchant, enroll, getMerchantContext, updateProgramExtras } from "./product";
 import { getMerchantSpend } from "./merchant-analytics";
 import { createAdditionalLocation } from "./locations";
 
@@ -90,6 +90,18 @@ describe("owner spend figures (ENG-070)", () => {
     expect((await db.select({ v: programs.averageVisitSpendMinor }).from(programs).where(eq(programs.id, shop.programId)))[0].v).toBe(1250);
     await updateProgramExtras({ actorUserId: owner, programId: shop.programId, averageVisitSpendMinor: null });
     expect((await getMerchantSpend(owner, { asOf: later() })).overall.total).toMatchObject({ visits: 2, spentMinor: 0, unpricedVisits: 2 });
+  });
+
+  it("lets a manual-points shop (no purchase amounts) enter an average and estimates its visits like stamps", async () => {
+    const owner = await user();
+    const shop = await createMerchant({ ...shopInput(owner, "Synthetic Spend Manual"), programName: "Punkte von Hand", programType: "points", earningMode: "manual", rulesText: "Punkte nach Ansage.", rewardCost: 100 });
+    expect(await getMerchantContext(owner)).toMatchObject({ programType: "points", earningMode: "manual", averageVisitSpendMinor: null });
+    const card = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+    await award({ userId: owner, locationId: shop.locationId, membershipId: card.id, quantity: 10, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect((await getMerchantSpend(owner, { asOf: later() })).overall.total).toMatchObject({ visits: 1, spentMinor: 0, unpricedVisits: 1 });
+    await updateProgramExtras({ actorUserId: owner, programId: shop.programId, averageVisitSpendMinor: 2390 });
+    expect(await getMerchantContext(owner)).toMatchObject({ earningMode: "manual", averageVisitSpendMinor: 2390 });
+    expect((await getMerchantSpend(owner, { asOf: later() })).overall.total).toMatchObject({ visits: 1, realMinor: 0, estimatedMinor: 2390, spentMinor: 2390, unpricedVisits: 0, averagePerVisitMinor: 2390 });
   });
 
   it("uses today and the 29 local days before, across the 25 October DST change", async () => {
