@@ -159,7 +159,7 @@ h3{font-size:1.25rem;line-height:1.25}
 .facts{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:20px;font-size:.875rem;font-weight:650;color:var(--muted)}
 .facts span{display:inline-flex;align-items:center;gap:8px}
 .facts span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand)}
-.hero-scene,.studio-scene{position:relative;height:400px;margin:0;overflow:hidden;border-radius:28px;background:linear-gradient(180deg,var(--b-soft) 0%,#EDE9DF 100%)}
+.hero-scene,.studio-scene{position:relative;height:400px;margin:0;overflow:hidden;border-radius:28px;background:var(--canvas)}
 .scene-floor{position:absolute;left:0;right:0;bottom:0;height:86px;background:linear-gradient(180deg,#E3DDCF,#D9D2C1)}
 .scene-stand{position:absolute;z-index:1;left:4%;bottom:30px;width:40%;max-width:220px}
 .stand-obj{display:block;width:100%;height:auto;overflow:visible}
@@ -344,7 +344,7 @@ h3{font-size:1.25rem;line-height:1.25}
 @media print{.top{position:static}[data-show][hidden]{display:block!important}.btn,.seg,.controls,.demo-actions{display:none}.sec{padding:32px 0}.hero-scene,.studio-scene{height:auto;min-height:420px}}
 @media (max-width:430px){.bar{flex-wrap:wrap;row-gap:4px;padding-top:4px;padding-bottom:4px}}
 /* the two demo stages sit on the same soft product surface as the hero, so every product moment looks alike */
-#ablauf .scene-visual,#empfehlung .scene-visual{padding:36px 20px;border-radius:28px;background:linear-gradient(180deg,var(--soft) 0%,#EDE9DF 100%)}
+#ablauf .scene-visual,#empfehlung .scene-visual{padding:36px 20px;border-radius:28px;background:var(--canvas)}
 #empfehlung .person{background:#fff}
 #empfehlung .ref-pair[data-phase=qualified] .person-a{background:var(--deep)}
 #empfehlung [data-phase=idle] .person-b,#empfehlung [data-phase=shared] .person-b,#empfehlung [data-phase=opened] .person-b{background:rgba(255,255,255,.4)}
@@ -548,7 +548,6 @@ p.fine,.res-note{max-width:38em}
 [data-clip]{margin:0}
 [data-clip] video{display:block;width:100%;height:auto}
 .hero-clip{align-self:center;width:100%;max-width:520px;justify-self:center;border-radius:28px;overflow:hidden;background:var(--canvas)}
-#ablauf .clip-box,#empfehlung .clip-box{background:var(--canvas)}
 .clip-box video{max-width:460px;margin:0 auto}
 .clip-wide video{max-width:600px}
 #inhaber .clip-box{background:var(--deep)}
