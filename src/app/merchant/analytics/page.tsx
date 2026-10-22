@@ -35,23 +35,23 @@ export default function MerchantAnalyticsPage() {
       {r && <>
         <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Kassenvorgänge</h2>
           <div className="ow-metrics">
-            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Aktuell nicht geschlossene Karten." />
+            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Alle Karten, die nicht geschlossen sind" />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
             <Metric label="Bestätigte Kassenvorgänge" value={r.qualifyingCheckouts} note="Vom Team bestätigte Vergaben, ohne vollständig rückgängig gemachte." />
             <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Kassenvorgänge.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
           </div>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-locations">
-          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Gutschrift-Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
+          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
           {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
-            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
           <p className="ow-hint">Aktuelle Standortnamen. Mehrere Buchungen können zu einem Kassenvorgang gehören. Keine Umsatzkennzahl.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
-          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Gutschrift-Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
-          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Gutschriften in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
-            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
+          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Buchungen in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
+            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
           <p className="ow-hint">Mehrere Buchungen können zu einem Kassenvorgang gehören. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
         </section>
@@ -70,7 +70,7 @@ export default function MerchantAnalyticsPage() {
             </div>
           </>}
         </section>
-        <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }} aria-label="Prämien und Gutschriften">
+        <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }} aria-label="Prämien und Buchungen">
           <section className="ow-card ow-stack"><h2>Vergebene Einheiten</h2>
             <dl className="ow-dl">{(me.programType === "stamp" || r.issued.stampUnits > 0) && <><dt>Stempel</dt><dd className="ow-num">{r.issued.stampUnits}</dd></>}{(me.programType === "points" || r.issued.pointUnits > 0) && <><dt>Punkte</dt><dd className="ow-num">{r.issued.pointUnits}</dd></>}<dt>Buchungen</dt><dd className="ow-num">{r.issued.awardActions}</dd></dl></section>
           <section className="ow-card ow-stack"><h2>Einlösungen</h2><strong className="ow-metric-value">{r.rewards.redemptions}</strong>

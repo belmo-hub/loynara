@@ -97,7 +97,7 @@ function Loaded({ slug, businessName, locationName, head, settings, list, reload
         </form>
         <section className="ow-card ow-stack" aria-labelledby="rf-how"><h2 id="rf-how">So funktioniert es</h2>
           <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Der erste Kassenvorgang der neuen Karte wird an deiner Kasse bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol>
-          <p className="ow-hint">Gleiche verifizierte E-Mail-Adressen werden zur Prüfung angehalten. Pseudonyme Karten lassen sich nicht zuverlässig derselben Person zuordnen; Missbrauch kann daher nicht vollständig ausgeschlossen werden.</p></section>
+          <p className="ow-hint">Melden sich zwei Karten mit derselben bestätigten E-Mail-Adresse an, hält Loynara die Empfehlung zur Prüfung an. Ganz ausschließen lässt sich Missbrauch nicht, weil Karten keine Namen haben.</p></section>
       </div>
       <section className="ow-card ow-stack" aria-labelledby="rf-hist">
         <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="rf-hist">Vorgänge und Prüfung</h2><p>Letzte 100 Empfehlungen</p></div><span className="ow-muted">{referrals.length} angezeigt</span></div>

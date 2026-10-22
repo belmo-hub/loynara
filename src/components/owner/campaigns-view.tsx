@@ -60,7 +60,7 @@ function editorFrom(c: Detail["campaign"]): Editor {
 }
 function audienceSentence(e: Editor, unit: string) {
   switch (e.kind) {
-    case "all": return "Alle aktiven, nicht geschlossenen Karten";
+    case "all": return "Alle Karten außer geschlossenen";
     case "inactive": return `Karten mit früheren Kassenvorgängen, aber keinem in den letzten ${e.daysSinceLast} Tagen`;
     case "recently_active": return `Karten mit bestätigtem Vorgang in den letzten ${e.withinDays} Tagen`;
     case "new": return `Karten, die in den letzten ${e.withinDays} Tagen angelegt wurden`;

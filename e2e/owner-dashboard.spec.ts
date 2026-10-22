@@ -159,7 +159,7 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
 
       await page.reload();
       await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeVisible();
-      await expect(page.getByText("Bestätigte Gutschriften")).toBeVisible();
+      await expect(page.getByText("Bestätigte Buchungen")).toBeVisible();
       await expect(page.getByText("Kein Umsatz.", { exact: false })).toBeVisible();
       // The confirmed counter award completes the required evidence; the checklist collapses but stays reachable.
       await expect(page.locator("details.ow-readiness summary")).toContainText("Alle 3 Pflichtschritte sind belegt");
