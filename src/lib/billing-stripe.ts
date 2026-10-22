@@ -59,7 +59,9 @@ const stripeSubscription = z.object({
 const stripeInvoice = z.object({
   id: z.string().regex(/^in_[A-Za-z0-9]+$/), customer: z.string(), status: z.string(), billing_reason: z.string().nullable(), created: z.number().int(),
   parent: z.object({ subscription_details: z.object({ subscription: z.string() }).nullable().optional() }).nullable().optional(),
+  lines: z.object({ data: z.array(z.object({ id: z.string(), metadata: z.record(z.string(), z.string()).nullable().optional() })) }).optional(),
 });
+const taggedList = z.object({ data: z.array(z.object({ id: z.string(), metadata: z.record(z.string(), z.string()).nullable().optional() })) });
 const stripeEvent = z.object({ id: z.string().regex(/^evt_[A-Za-z0-9]{8,100}$/), type: z.string().max(64), data: z.object({ object: z.object({ id: z.string().max(120) }) }) });
 
 /** Our states for Stripe's. `incomplete_expired` is a first payment that never happened: back to the start, not a cancellation. */
@@ -284,10 +286,11 @@ async function decideStartGuarantee(tx: Transaction, invoiceId: string, recorded
 
 /**
  * Issues every start-guarantee credit that is decided but not yet in Stripe (one shop, or all for the daily sweep). Each one
- * runs under its location row's lock with the idempotency key (invoice, location): a line „Monat 2 kostenlos – Startgarantie“
- * of the location's monthly price on the month-2 invoice while it is a draft, or, once Stripe finalized it, a credit note on
- * that invoice with the same line and amount. A failure leaves the credit owed (shown on /operator) and the next webhook
- * retry or the daily sweep issues it.
+ * runs under its location row's lock with the key (invoice, location), sent both as the idempotency key and as metadata: a
+ * line „Monat 2 kostenlos – Startgarantie“ of the location's monthly price on the month-2 invoice while it is a draft, or,
+ * once Stripe finalized it, a credit note on that invoice with the same line and amount. A credit Stripe already holds under
+ * that key (issued, but its id never stored, even after the 24-hour idempotency window) is recorded instead of issued again.
+ * A failure leaves the credit owed (shown on /operator) and the next webhook retry or the daily sweep issues it.
  */
 export async function creditOwedGuarantees(tenantId?: string) {
   const owed = await db.select({ tenantId: billingLocationPlans.tenantId, locationId: billingLocationPlans.locationId }).from(billingLocationPlans)
@@ -299,11 +302,19 @@ export async function creditOwedGuarantees(tenantId?: string) {
       if (!row?.guaranteeInvoiceId) return 0;
       const invoice = stripeInvoice.parse(await client("GET", `/invoices/${row.guaranteeInvoiceId}`));
       const key = `guarantee-${invoice.id}-${row.locationId}`;
+      const tagged = (list: { id: string; metadata?: Record<string, string> | null }[] | undefined) => list?.find(item => item.metadata?.guarantee_key === key)?.id;
+      // shortcut: reads the invoice's first page of lines and credit notes; a month-2 invoice has one line per location plus its credits, far below a page.
+      const existing = tagged(invoice.lines?.data)
+        ?? (invoice.status === "draft" ? undefined : tagged(taggedList.parse(await client("GET", "/credit_notes", { invoice: invoice.id, limit: "100" })).data));
+      if (existing) {
+        await tx.update(billingLocationPlans).set({ guaranteeCreditRef: existing }).where(and(eq(billingLocationPlans.tenantId, row.tenantId), eq(billingLocationPlans.locationId, row.locationId)));
+        return 1;
+      }
       const taxRate = vatMode() === "standard" ? process.env.STRIPE_TAX_RATE_ID! : null;
       // shortcut: a credit note on a paid invoice goes to the customer's Stripe balance (Stripe's default), used by the next invoice; verify in Stripe test mode before live.
       const created = z.object({ id: z.string().regex(/^(ii|cn)_[A-Za-z0-9]+$/) }).parse(invoice.status === "draft"
-        ? await client("POST", "/invoiceitems", { customer: invoice.customer, invoice: invoice.id, amount: String(-row.priceMinor), currency: "eur", description: GUARANTEE_LINE, ...(taxRate ? { "tax_rates[0]": taxRate } : {}) }, key)
-        : await client("POST", "/credit_notes", { invoice: invoice.id, "lines[0][type]": "custom_line_item", "lines[0][description]": GUARANTEE_LINE, "lines[0][quantity]": "1", "lines[0][unit_amount]": String(row.priceMinor), ...(taxRate ? { "lines[0][tax_rates][0]": taxRate } : {}) }, key));
+        ? await client("POST", "/invoiceitems", { customer: invoice.customer, invoice: invoice.id, amount: String(-row.priceMinor), currency: "eur", description: GUARANTEE_LINE, "metadata[guarantee_key]": key, ...(taxRate ? { "tax_rates[0]": taxRate } : {}) }, key)
+        : await client("POST", "/credit_notes", { invoice: invoice.id, "lines[0][type]": "custom_line_item", "lines[0][description]": GUARANTEE_LINE, "lines[0][quantity]": "1", "lines[0][unit_amount]": String(row.priceMinor), "metadata[guarantee_key]": key, ...(taxRate ? { "lines[0][tax_rates][0]": taxRate } : {}) }, key));
       await tx.update(billingLocationPlans).set({ guaranteeCreditRef: created.id }).where(and(eq(billingLocationPlans.tenantId, row.tenantId), eq(billingLocationPlans.locationId, row.locationId)));
       console.log(`Start guarantee credited: tenant ${row.tenantId}, location ${row.locationId}, ${created.id.startsWith("cn_") ? "credit note" : "invoice line"}`);
       return 1;

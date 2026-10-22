@@ -31,6 +31,7 @@ function fakeStripe() {
   };
   const invoices = new Map<string, object>();
   const failing = new Set<string>();
+  const creditNotes: Array<{ id: string; invoice: string; metadata: Record<string, string> }> = [];
   const taxRate = { active: true, percentage: 19, inclusive: false };
   let next = 0;
   const notFound = () => { throw new DomainError("PROVIDER_ERROR", "Stripe request failed (404, resource_missing)"); };
@@ -48,12 +49,13 @@ function fakeStripe() {
     if (method === "GET" && (match = /^\/invoices\/([^/]+)$/.exec(path))) return invoices.get(match[1]) ?? notFound();
     if (method === "POST" && failing.has(path)) throw new DomainError("PROVIDER_ERROR", "Stripe request failed (500)");
     if (method === "POST" && path === "/invoiceitems") return { id: `ii_test${++next}` };
-    if (method === "POST" && path === "/credit_notes") return { id: `cn_test${++next}` };
+    if (method === "POST" && path === "/credit_notes") { const note = { id: `cn_test${++next}`, invoice: params.invoice, metadata: { guarantee_key: params["metadata[guarantee_key]"] } }; creditNotes.push(note); return note; }
+    if (method === "GET" && path === "/credit_notes") return { data: creditNotes.filter(note => note.invoice === params.invoice) };
     if (method === "GET" && /^\/tax_rates\//.test(path)) return taxRate;
     if (method === "POST" && (match = /^\/subscription_items\/([^/]+)$/.exec(path))) { for (const sub of subs.values()) for (const item of sub.items.data) if (item.id === match[1]) item.quantity = Number(params.quantity); return {}; }
     throw new Error(`Unexpected Stripe call ${method} ${path}`);
   };
-  return { client, calls, subs, sessions, prices, invoices, taxRate, failing };
+  return { client, calls, subs, sessions, prices, invoices, taxRate, failing, creditNotes };
 }
 
 let stripe = fakeStripe();
@@ -313,7 +315,7 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
     await customers(s, 1, windowEnd); // nor the same day a month later
     const invoice = await cycleInvoice(s, PERIOD_END);
     expect(invoice.result).toEqual({ status: "applied" });
-    expect(credits()).toMatchObject([{ path: "/invoiceitems", params: { customer: s.customer, invoice: invoice.id, amount: "-3900", currency: "eur", description: GUARANTEE_LINE }, key: `guarantee-${invoice.id}-${s.locationId}` }]);
+    expect(credits()).toMatchObject([{ path: "/invoiceitems", params: { customer: s.customer, invoice: invoice.id, amount: "-3900", currency: "eur", description: GUARANTEE_LINE, "metadata[guarantee_key]": `guarantee-${invoice.id}-${s.locationId}` }, key: `guarantee-${invoice.id}-${s.locationId}` }]);
     expect(await plan(s.tenantId, s.locationId)).toMatchObject({ guaranteeOutcome: "credit", guaranteeCustomers: 19, guaranteeInvoiceId: invoice.id, guaranteeCreditRef: expect.stringMatching(/^ii_/) });
     expect(await deliver(invoice.raw)).toEqual({ status: "duplicate" });
     await cycleInvoice(s, new Date("2027-01-02T10:00:00.000Z"));
@@ -417,6 +419,30 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
     expect(await deliver(event.raw, new Date(Date.now() + 120_000))).toEqual({ status: "duplicate" });
     expect(credits()).toHaveLength(2);
     expect((await runBillingJob()).credited).toBe(0);
+  });
+
+  it("records a credit Stripe already holds under the key instead of issuing a second one (id lost after the idempotency window)", async () => {
+    setEnv({ START_GUARANTEE_ENABLED: "true" });
+    const s = await subscribed();
+    stripe.failing.add("/invoiceitems");
+    const event = invoiceEvent(s, PERIOD_END);
+    await deliver(event.raw).catch(() => undefined);
+    stripe.failing.clear();
+    // Stripe did create the line, then finalized the invoice; only our database never learned the id.
+    const key = `guarantee-${event.id}-${s.locationId}`;
+    Object.assign(stripe.invoices.get(event.id)!, { status: "open", lines: { data: [{ id: "il_testsub", metadata: {} }, { id: "il_testguarantee", metadata: { guarantee_key: key } }] } });
+    expect((await runBillingJob()).credited).toBe(1);
+    expect((await plan(s.tenantId, s.locationId)).guaranteeCreditRef).toBe("il_testguarantee");
+    expect(credits().filter(call => call.path === "/credit_notes")).toHaveLength(0);
+    // The same for a credit note already on a finalized invoice.
+    const t = await subscribed();
+    stripe.failing.add("/credit_notes");
+    const second = invoiceEvent(t, PERIOD_END, { status: "open" });
+    await deliver(second.raw).catch(() => undefined);
+    stripe.failing.clear();
+    stripe.creditNotes.push({ id: "cn_testexisting", invoice: second.id, metadata: { guarantee_key: `guarantee-${second.id}-${t.locationId}` } });
+    expect((await runBillingJob()).credited).toBe(1);
+    expect((await plan(t.tenantId, t.locationId)).guaranteeCreditRef).toBe("cn_testexisting");
   });
 
   it("the daily sweep issues a credit that is still owed", async () => {
