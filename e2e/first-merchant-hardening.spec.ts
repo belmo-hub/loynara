@@ -371,7 +371,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     // The guest can also ask for the current balance while the card stays open.
     await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
-    await page.getByRole("button", { name: "Kontostand aktualisieren" }).click();
+    await page.getByRole("button", { name: "Karte aktualisieren" }).click();
     await expect(page.locator(".customer-balance-line strong")).toHaveText("2 Stempel");
     expect(reads).toHaveLength(initial + 2);
 

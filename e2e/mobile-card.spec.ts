@@ -45,7 +45,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   await expect(page.getByRole("link", { name: "Apple Wallet" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google Wallet" })).toHaveCount(0);
   if (reward && card.balance < reward.cost) {
-    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${reward.cost - card.balance} Stempel für „${reward.title}“`);
+    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${reward.cost - card.balance} Stempel bis zu deiner Prämie: ${reward.title}`);
   }
   await expect(page.locator(".customer-wallet")).toContainText(`Notiere dir deine Kartennummer ${card.cardLocator}.`);
   await expect(page.locator(".customer-wallet")).toContainText("nach einer Prüfung einen neuen Kartenlink geben");

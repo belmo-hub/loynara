@@ -33,24 +33,27 @@ describe("progress (Impeccable K1, K3)", () => {
   it("states the progress once, above the card, and names the reward", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3 }));
     expect(count(out, "reward-remaining")).toBe(1);
-    expect(out).toMatch(/class="reward-remaining[^"]*">Noch <span[^>]*>2<\/span> Stempel für „Kaffee“\.<\/p>/);
+    expect(out).toMatch(/class="reward-remaining[^"]*">Noch <span[^>]*>2<\/span> Stempel bis zu deiner Prämie: Kaffee<\/p>/);
     expect(out.indexOf("reward-remaining")).toBeLessThan(out.indexOf("customer-card "));
   });
   it("names the ready reward, and the next goal underneath", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5, rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
-    expect(out).toContain("Prämie verfügbar: „Kaffee“.");
+    expect(out).toContain("Deine Prämie ist bereit: Kaffee");
     expect(out).toContain("Nächstes Ziel: noch 4 Stempel für „Kuchen“.");
     expect(out).toContain("Zum Einlösen an der Kasse zeigen.");
   });
-  it("puts no shop rule under the code", () => {
-    expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("Buchungen müssen an der Kasse bestätigt werden");
+  it("puts no shop rule under the code and no bank word on the balance (K2, Marketing 23 Oct)", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, base));
+    expect(out).not.toContain("Buchungen müssen an der Kasse bestätigt werden");
+    expect(out).not.toContain("Kontostand");
+    expect(out).toContain("<span>Gesammelt</span>");
   });
 });
 
 describe("ending programme (ENG-075, card half)", () => {
   it("opens the card with the end date and what still works until then", () => {
-    const out = renderToStaticMarkup(h(CustomerCard, { ...base, endsOn: "30.11.2026" }));
-    expect(out).toContain("Diese Karte endet am 30.11.2026.");
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, endsOn: "30. November 2026" }));
+    expect(out).toContain("Diese Karte endet am 30. November 2026.");
     expect(out).toContain("Bis dahin kannst du weiter Stempel sammeln und Prämien einlösen.");
     expect(out.indexOf("Diese Karte endet")).toBeLessThan(out.indexOf("reward-remaining"));
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", endsOn: "30.11.2026" }))).toContain("weiter Punkte sammeln");

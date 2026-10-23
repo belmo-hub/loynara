@@ -164,7 +164,7 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
     : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
   return <div className={styles.goal}>
     <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor(selected.title)
-      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.forReward(unitFor(remaining), selected.title)}</>}</p>
+      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining), selected.title)}</>}</p>
     {sub ? <p className={styles.goalSub}>{sub}</p> : null}
   </div>;
 }

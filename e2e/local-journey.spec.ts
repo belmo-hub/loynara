@@ -30,7 +30,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
-    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} für „${program.rewardTitle}“`);
+    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} bis zu deiner Prämie: ${program.rewardTitle}`);
     // The card no longer reveals the raw scan code as text; the QR image carries it, as a camera would read it.
     await expect(page.getByRole("button", { name: "Kartencode anzeigen" })).toHaveCount(0);
     const scanCode = new URL(await page.locator(".customer-qr img").getAttribute("src") ?? "", "http://localhost").searchParams.get("value") ?? "";
@@ -75,7 +75,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await page.reload();
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
-    await expect(page.locator(".reward-remaining")).toContainText("Prämie verfügbar");
+    await expect(page.locator(".reward-remaining")).toContainText("Deine Prämie ist bereit");
 
     await cashier.locator(".reward-action-list button").first().click();
     await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toBeVisible();
@@ -97,7 +97,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`-${program.rewardCost} ${unit}`);
-    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} für „${program.rewardTitle}“`);
+    await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} bis zu deiner Prämie: ${program.rewardTitle}`);
     await expect(page.getByText("Prämie eingelöst")).toBeVisible();
 
     await page.getByRole("button", { name: "Karte schließen" }).click();
