@@ -203,9 +203,9 @@ export function CustomersView() {
         <details className="ow-filters-more" open={filtered || undefined}>
           <summary>{filterSummary}</summary>
           <div className="ow-filters-fields">
-        <div className="ow-field"><label htmlFor="cu-a">Ansicht</label><select id="cu-a" className="ow-select" value={filters.activity} onChange={event => pick({ activity: event.target.value as Activity })}>{ACTIVITY.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-        {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-field"><label htmlFor="cu-d">Zeitraum</label><select id="cu-d" className="ow-select" value={filters.days} onChange={event => pick({ days: Number(event.target.value) as Days })}>{DAYS.map(days => <option key={days} value={days}>{days} Tage</option>)}</select></div>}
-        {filters.activity === "all" && <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>}
+            <div className="ow-field"><label htmlFor="cu-a">Ansicht</label><select id="cu-a" className="ow-select" value={filters.activity} onChange={event => pick({ activity: event.target.value as Activity })}>{ACTIVITY.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-field"><label htmlFor="cu-d">Zeitraum</label><select id="cu-d" className="ow-select" value={filters.days} onChange={event => pick({ days: Number(event.target.value) as Days })}>{DAYS.map(days => <option key={days} value={days}>{days} Tage</option>)}</select></div>}
+            {filters.activity === "all" && <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>}
           </div>
         </details>
       </form>
