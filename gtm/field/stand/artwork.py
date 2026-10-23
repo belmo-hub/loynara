@@ -13,8 +13,7 @@ TRIM_W, TRIM_H = 105.0, 148.0
 
 def font_css():
     b64 = lambda f: base64.b64encode(open(os.path.join(FONTS, f), 'rb').read()).decode()
-    return (f"@font-face{{font-family:Manrope;src:url(data:font/woff2;base64,{b64('manrope-latin.woff2')}) format('woff2');font-weight:200 800}}"
-            f"@font-face{{font-family:Fraunces;src:url(data:font/woff2;base64,{b64('fraunces-latin-italic.woff2')}) format('woff2');font-weight:100 900;font-style:italic}}")
+    return f"@font-face{{font-family:Manrope;src:url(data:font/woff2;base64,{b64('manrope-latin.woff2')}) format('woff2');font-weight:200 800}}"
 
 def qr_matrix(payload=PLACEHOLDER_URL):
     q = qrcode.QRCode(version=None, error_correction=ERROR_CORRECT_M, box_size=1, border=0); q.add_data(payload); q.make(fit=True)

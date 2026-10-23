@@ -17,9 +17,9 @@ test('each concept carries the same commercial facts from the single price sourc
   for (const k of ['a', 'b', 'c'] as const) {
     const t = text(pages[k]);
     assert.ok(t.includes(`${SITE.price.amount} €`), `${k}: price`);
-    assert.match(t, /Pilotangebot – Details im persönlichen Gespräch/, k);
+    assert.match(t, /Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch\./, k);
     assert.match(t, /Gezeigter Ausblick,? ?·? ?gesondert zu vereinbaren/i, k);
-    assert.match(t, /910 €/, k); assert.match(t, /\+871 €/, k); assert.match(t, /\+10\.452 €/, k);
+    assert.match(t, /910 €/, k); assert.match(t, /\+861 €/, k); assert.match(t, /\+10\.332 €/, k);
     assert.match(t, /Rechenbeispiel, keine Umsatzprognose\./, k);
     assert.match(t, /Plattform-Ausblick – nicht im aktuellen Pilotangebot/, k);
     assert.match(t, /Gestaltungsbeispiel/, k); assert.match(t, /Wallet-Vorschau/, k);

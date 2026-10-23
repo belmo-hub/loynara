@@ -1,7 +1,5 @@
 @font-face{font-family:Manrope;src:url(../../../marketing-site/site/assets/fonts/manrope-latin.woff2) format("woff2");font-weight:200 800}
-@font-face{font-family:Fraunces;src:url(../../../marketing-site/site/assets/fonts/fraunces-latin.woff2) format("woff2");font-weight:100 900;font-style:normal}
-@font-face{font-family:Fraunces;src:url(../../../marketing-site/site/assets/fonts/fraunces-latin-italic.woff2) format("woff2");font-weight:100 900;font-style:italic}
-:root{--canvas:#F6F3EC;--paper:#FCFBF7;--ink:#17291F;--muted:#58645C;--brand:#245D47;--deep:#143D2E;--soft:#E6EEDF;--warm:#9E4B2D;--line:#DCE0D6;--on-dark:#CFE0D5;--accent:#F2A078}
+:root{--canvas:#EEF0EF;--paper:#FFFFFF;--ink:#17291F;--muted:#58645C;--brand:#245D47;--deep:#143D2E;--soft:#E6EEDF;--warm:#9E4B2D;--line:#DCE0D6;--on-dark:#CFE0D5;--accent:#F2A078}
 @page{size:A4;margin:0}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -10,7 +8,7 @@ body{font:400 9.6pt/1.42 Manrope,system-ui,sans-serif;color:var(--ink);backgroun
 .page:last-child{page-break-after:auto}
 h1,h2,h3,p,ul,ol{margin:0;padding:0}ul,ol{list-style:none}
 h1,h2,h3{font-weight:780;letter-spacing:-.02em;line-height:1.1}
-em{font-family:Fraunces,Georgia,serif;font-style:italic;font-weight:520;color:var(--brand)}
+em{font:inherit;font-style:normal;font-weight:800;color:var(--brand)}
 .eyebrow{font-size:7.2pt;font-weight:790;letter-spacing:.14em;text-transform:uppercase;color:var(--warm)}
 .fine{font-size:7.6pt;line-height:1.4;color:var(--muted)}
 .mark{width:9mm;height:9mm;display:inline-block;vertical-align:middle}

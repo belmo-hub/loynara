@@ -5,7 +5,7 @@ Start with [../17-field-kit.md](../17-field-kit.md).
 | Folder / file | Content |
 |---|---|
 | `prospects.xlsx` / `.csv` / `route.md` | 60 Kassel prospects and three 20-shop routes (research only) |
-| `collateral/` | Handout, demo and objection cheat sheets, pilot interest sheet, after-demo summary: `templates/` (source), `print/` (PDF), `variants.py` (release-gated wording) |
+| `collateral/` | Demo and objection cheat sheets, pilot interest sheet, after-demo summary: `templates/` (source), `print/` (PDF), `variants.py` (release-gated wording) |
 | `learning-sheet.xlsx` / `learning-sheet-template.csv` | One row per conversation |
 | `after-demo-message.txt` | Plain-text follow-up for WhatsApp/e-mail (only after permission) |
 | `stand/` | Counter stand: spec, artwork, laser files, fabrication sheet, previews, QA |

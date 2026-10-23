@@ -40,20 +40,16 @@ const build = (flags: string[]) => { const v = variants(flags); const out: Recor
 
 test('collateral (today): claim-safe German, price from the single source, NFC and RC items only in their allowed wording', () => {
   const docs = build([]);
-  assert.deepEqual(Object.keys(docs).sort(), ['after-demo-summary.html', 'demo-cheat-sheet.html', 'handout.html', 'objection-sheet.html', 'pilot-interest-sheet.html']);
+  assert.deepEqual(Object.keys(docs).sort(), ['after-demo-summary.html', 'demo-cheat-sheet.html', 'objection-sheet.html', 'pilot-interest-sheet.html']);
   const BANNED = /garantiert|Testimonial|Referenzkunde|\d+\s?% mehr|nur noch|kostenlos|gratis|mehr Umsatz/i;
   for (const [f, html] of Object.entries(docs)) {
     const t = visible(html.replace(/<span class="code">[^<]*<\/span>/g, ' ')).replace(/Stand: [^.]*?Abnahme/g, ' ');   // objection codes and the release-state label are internal, not customer copy           // internal release-state label, not customer copy
-    if (f === 'handout.html' || f === 'after-demo-summary.html') assert.doesNotMatch(t, BANNED, `${f} (merchant-facing)`);
+    if (f === 'after-demo-summary.html') assert.doesNotMatch(t, BANNED, `${f} (merchant-facing)`);
     for (const m of t.match(/[^.?!]*(?:NFC|antipp)[^.?!]*[.?!]/gi) ?? []) assert.match(m, /vorbereitet|Ausblick|NFC nicht geht|nicht geht|\?$|Nie|nie sagen|als vorhanden|als live/i, `${f}: ${m}`);
     for (const m of t.match(/[^.?!]*(?:Wallet|Nachrichten|Logo)[^.?!]*[.?!]/g) ?? []) assert.match(m, /Ausblick|nicht Teil|Nie|nie|als vorhanden|als live|noch nicht|nicht dabei|schickt Loynara nichts|zeigen wir/, `${f}: ${m}`);
   }
-  assert.match(visible(docs['handout.html']), /39 €[^]*pro Monat und Standort/);
-  assert.match(visible(docs['handout.html']), /Rechenbeispiel, keine Prognose/);
-  for (const q of ['Was ist Loynara?', 'Was macht der Kunde?', 'Was macht das Team?', 'Was hat der Inhaber davon?', 'Was kostet es?', 'Was passiert als Nächstes?']) assert.ok(visible(docs['handout.html']).includes(q), q);
-  assert.doesNotMatch(visible(docs['handout.html']), /Kartennummer|neu ausstellen|korrigier/i, 'RC capabilities are not on the handout');
   const obj = visible(docs['objection-sheet.html']);
-  for (const o of ['Ich habe schon Stempelkarten', 'Meine Kunden laden keine App runter', 'Meine Mitarbeiter machen das nicht', 'Das dauert an der Kasse zu lange', 'Ich kenne meine Stammkunden', 'Ich habe Instagram', '39 € ist zu teuer', 'Was, wenn ein Mitarbeiter einen Fehler macht', 'Was, wenn der Kunde seine Karte verliert', 'Was, wenn NFC nicht geht', 'Ich muss darüber nachdenken']) assert.ok(obj.includes(o), o);
+  for (const o of ['Ich habe schon Stempelkarten', 'Meine Kunden laden keine App runter', 'Meine Mitarbeiter machen das nicht', 'Das dauert an der Kasse zu lange', 'Ich kenne meine Stammkunden', 'Ich habe Instagram', '49 € ist zu teuer', 'Was, wenn ein Mitarbeiter einen Fehler macht', 'Was, wenn der Kunde seine Karte verliert', 'Was, wenn NFC nicht geht', 'Ich muss darüber nachdenken']) assert.ok(obj.includes(o), o);
   assert.match(obj, /kommt mit dem nächsten Update/, 'RC items are phrased as upcoming');
   const demo = visible(docs['demo-cheat-sheet.html']);
   for (const b of ['1 Kunde', '2 Tresen', '3 Fortschritt', '4 Empfehlung', '5 Inhaber', '6 Preis', '7 Frage', '20-Sekunden-Pitch', '2-Minuten-Pitch', '5-Minuten-Demo', 'Abschlussfrage']) assert.ok(demo.includes(b), b);
@@ -69,9 +65,7 @@ test('collateral after the gates: reissue/correction and tap wording switch toge
   assert.match(obj, /stellt die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer/);
   assert.match(obj, /Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr/);
   assert.match(obj, /korrigiert mit Begründung/);
-  assert.match(visible(docs['handout.html']), /Handy kurz antippen oder QR-Code scannen/);
   assert.match(obj, /scannt der Kunde den QR-Code\. Der bleibt immer die Alternative/);
-  assert.doesNotMatch(visible(docs['handout.html']), /ist vorbereitet/);
 });
 
 test('stand artwork: pre-NFC never advertises NFC, post-NFC says antippen with QR fallback, QR payload cannot resolve, QA passes', () => {

@@ -1,7 +1,7 @@
 /**
  * Supporting pages (Concept D language: headline, one sentence, one product object, one action).
  * Each page has a distinct sales purpose: two first-wave industries and the referral explainer.
- * Claims follow the same boundary as the home page: QR today, NFC/Wallet/messages only as outlook,
+ * Claims follow the same boundary as the home page: the entry claim follows the NFC gate in claims.ts, Apple Wallet on request, messages only as outlook,
  * example data labelled as such, no proof, results or availability that the product cannot show.
  */
 import { ENTRY_COPY as E, RECOVERY_COPY as R } from './claims.js';
@@ -133,7 +133,7 @@ export const referrals: SubPage = {
     `<section class="sec" id="branchen"><div class="wrap"><div class="head"><p class="eyebrow">Wo es besonders gut passt</p><h2>Überall, wo Kunden <em>sich gegenseitig fragen.</em></h2><p class="lead">„Wo lässt du dir die Haare schneiden?“ – „Wo holt ihr eure Pizza?“ Genau in diesen Gesprächen entsteht der nächste Kunde.</p></div><ul class="checks"><li><a href="/fuer-barber/">Barbershops</a>: Freunde gehen oft zum selben Barber.</li><li><a href="/fuer-pizzerien/">Pizzerien und Imbisse</a>: Familie und Kollegen bestellen mit.</li><li>Cafés und Salons: Wer zufrieden ist, nimmt jemanden mit.</li></ul></div></section>`,
   ],
   faq: [
-    ['Kostet das extra?', `Nein. Empfehlungen gehören zum Pilotangebot für ${price()} pro Monat und Standort.`],
+    ['Kostet das extra?', `Nein. Empfehlungen sind im Preis von ${price()} pro Monat und Standort enthalten.`],
     ['Wie teilen meine Kunden ihren Link?', 'Auf ihrer Karte im Browser gibt es einen persönlichen Link. Den schicken sie wie jeden anderen Link, etwa per WhatsApp.'],
     ['Was, wenn jemand sich selbst empfiehlt?', 'Ein Bonus entsteht erst mit einem Besuch, den dein Team bestätigt. Auffällige Fälle wie dieselbe verifizierte E-Mail-Adresse werden zur Prüfung zurückgestellt, du entscheidest.'],
     ['Kann ich Empfehlungen ausschalten?', 'Ja. Sie sind ausgeschaltet, bis du sie einschaltest, und du kannst sie jederzeit wieder abschalten.'],

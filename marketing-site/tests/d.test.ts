@@ -10,7 +10,7 @@ const bal = (html: string) => Number(html.match(/(\d+) von 10 Stempeln/)![1]);
 
 test('counter demo screen: the stamp appears only after staff confirmation; reward only at ten; redemption resets', () => {
   const s0 = initialDemo('returning');
-  assert.equal(bal(visitScreen(s0)), 8); assert.match(visitScreen(s0), /QR-Code am Tresen scannen/); assert.doesNotMatch(visitScreen(s0), /antippen|NFC/i);
+  assert.equal(bal(visitScreen(s0)), 8); assert.match(visitScreen(s0), /Handy an den Tresen halten/); assert.match(visitScreen(s0), /Oder QR-Code scannen\./);
   const req = run(s0, { type: 'open' }); assert.equal(bal(visitScreen(req)), 8); assert.match(visitScreen(req), /Dein Team scannt und bestätigt/);
   const c1 = run(req, { type: 'confirm' }); assert.equal(bal(visitScreen(c1)), 9); assert.match(visitScreen(c1), /Stempel erhalten/);
   assert.equal(run(c1, { type: 'confirm' }), c1, 'a second confirm does nothing');
@@ -36,7 +36,7 @@ test('referral picture: no bonus for sharing, opening or joining; exactly one bo
 });
 test('product objects: one brand on stand and phone, honest labels, nothing that looks like a provisioned pass or a send', () => {
   const b = { ...initialBrand(), logo: 'welle' as const };
-  assert.match(standObj(b), /Gestaltungsbeispiel/); assert.match(standObj(b), /Scannen und sammeln/); assert.doesNotMatch(standObj(b), /NFC|Antippen|so-wave/);
+  assert.match(standObj(b), /Gestaltungsbeispiel/); assert.match(standObj(b), /Antippen oder scannen/); assert.match(standObj(b), /aria-label="Aufsteller am Tresen mit NFC und QR-Code, Gestaltungsbeispiel"/); assert.doesNotMatch(standObj(b), /so-wave/, 'the stand changes only its text; no tap symbol is added');
   assert.match(phone(walletScreen(b)), /Wallet-Vorschau/); assert.doesNotMatch(phone(walletScreen(b)), /hinzufügen|Add to Wallet/i);
   for (const v of ['gone', 'quiet'] as const) { assert.match(ownerViewsD[v], /Plattform-Ausblick/); assert.match(ownerViewsD[v], /Vorschau · nicht versendet/); }
   assert.doesNotMatch(ownerViewsD.back, /Plattform-Ausblick/); assert.match(ownerViewsD.back, /Beispieldaten/);

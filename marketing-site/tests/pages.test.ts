@@ -41,11 +41,13 @@ test('price comes from the single source and the break-even line is plain arithm
   }
 });
 
-test('claim safety: QR today; NFC, Wallet and messages only as outlook; no proof, results or availability the product cannot show', () => {
+test('claim safety: NFC tap with the QR code always as the fallback; Apple Wallet on request, messages only as outlook; no proof, results or availability the product cannot show', () => {
   for (const { p, text } of pages) {
     const hero = visible(subPage(p).slice(subPage(p).indexOf('id="hero"'), subPage(p).indexOf('</section>')));
-    assert.doesNotMatch(hero, /NFC|Wallet|antippen/i, `${p.path} hero`);
-    for (const m of text.match(/[^.?]*(?:NFC|Wallet)[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|\?$/, `${p.path}: ${m}`);
+    assert.match(hero, /Antippen oder QR-Code/, `${p.path} hero`); assert.doesNotMatch(hero, /Wallet/i, `${p.path} hero`);
+    for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|auf Wunsch|\?$/, `${p.path}: ${m}`);
+    assert.doesNotMatch(text, /Google Wallet/, p.path);
+    for (const m of text.match(/[^.?]*(?:NFC|[Aa]ntippen)[^.?]*[.?]/g) ?? []) if (!/\?$/.test(m)) { assert.match(m, /QR-Code/, `${p.path}: the QR code stays named as the alternative: ${m}`); assert.doesNotMatch(m, /Ausblick|vorbereitet/, `${p.path}: ${m}`); }
     for (const m of text.match(/[^.]*(?:Nachrichten|Aktionen)[^.]*\./g) ?? []) assert.match(m, /Ausblick|nicht Teil/, `${p.path}: ${m}`);
     assert.doesNotMatch(text, /Testimonial|Referenzkunde|bereits im Einsatz|vertrauen uns|zufriedene Kunden|\bgarantiert\b|Garantie|mehr Umsatz|Umsatzplus|ROI\b|Rendite|\d+\s?% mehr|verdoppel/i, p.path);
     assert.doesNotMatch(text, /Zu Wallet hinzufügen|Add to Wallet|Apple Pay|Google Pay|Kampagne starten|Nachricht senden|automatisch (?:verschickt|gesendet)|Kassenanbindung inklusive/i, p.path);

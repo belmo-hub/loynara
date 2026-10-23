@@ -35,11 +35,11 @@ for (const file of walk(resolve(root, 'assets')).filter(f => f.endsWith('.js')))
 const headers = readFileSync(resolve(root, '_headers'), 'utf8');
 assert.match(headers, /script-src 'self'/); assert.match(headers, /connect-src 'none'/); assert.match(headers, /form-action 'none'/); assert.doesNotMatch(headers, /unsafe-inline|unsafe-eval/);
 const robots = readFileSync(resolve(root, 'robots.txt'), 'utf8'); assert.match(robots, /Sitemap: https:\/\/getloynara\.com\/sitemap\.xml/); assert.doesNotMatch(robots, /Disallow: \//);
-for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/app.js', 'assets/fonts/manrope-latin.woff2', 'assets/fonts/fraunces-latin.woff2', 'assets/fonts/fraunces-latin-italic.woff2', 'assets/fonts/Manrope-OFL.txt', 'assets/fonts/Fraunces-OFL.txt', 'styles.css']) assert.ok(existsSync(resolve(root, asset)), asset);
+for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/app.js', 'assets/fonts/manrope-latin.woff2', 'assets/fonts/Manrope-OFL.txt', 'styles.css']) assert.ok(existsSync(resolve(root, asset)), asset);
 console.log(`PASS: ${pages.length} pages, ${links} links/anchors/assets, metadata, private-output and browser data-flow checks.`);
 for (const b of blockers) console.log(`PUBLICATION BLOCKER: ${b}`);
 
 if (process.env.MARKETING_PUBLIC === 'true') {
   assert.equal(blockers.length, 0, 'Public verification requires legal content');
-  for (const page of pages) assert.doesNotMatch(readFileSync(page, 'utf8'), /data-legal-placeholder|Entwurf|Teilnahmebedingungen|teilnahmebedingungen|49\s*€|€\s*49/i, 'No draft legal or retired offer in public output');
+  for (const page of pages) assert.doesNotMatch(readFileSync(page, 'utf8'), /data-legal-placeholder|Entwurf|Teilnahmebedingungen|teilnahmebedingungen|39\s*€|€\s*39/i, 'No draft legal or retired offer in public output');
 }

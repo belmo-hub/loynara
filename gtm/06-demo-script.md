@@ -14,7 +14,7 @@ Physical kit for each walk-in:
 - Tablet with A and B open (offline-capable screenshots as a backup, labelled *Beispiel*)
 - Founder phone (staff view in B)
 - Printed example Tresenschild (*Beispiel*, no live QR until C exists)
-- Handouts (see [12-collateral.md](12-collateral.md))
+- The flyer (Marketing) as the leave-behind; cheat sheets in [12-collateral.md](12-collateral.md)
 
 ## Canonical demo (2 minutes standing / 8 minutes seated)
 

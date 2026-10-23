@@ -40,13 +40,20 @@ export function walletHtml(b: BrandState = initialBrand(), balance = 8): string 
 
 /** The studio picture for the selected view: Tresen (stand + card, default) or Wallet-Vorschau. */
 export function studioHtml(b: BrandState, view: 'tresen' | 'wallet'): string {
-  if (view === 'wallet') return `<figure class="studio-fig studio-wallet">${walletHtml(b)}<figcaption>Wallet-Vorschau · Ausblick, keine eingerichtete Karte</figcaption></figure>`;
+  if (view === 'wallet') return `<figure class="studio-fig studio-wallet">${walletHtml(b)}<figcaption>Wallet-Vorschau · Gestaltungsbeispiel, Apple Wallet auf Wunsch</figcaption></figure>`;
   return `<figure class="studio-fig studio-pair"><div class="pair-stand">${standSvg(b)}</div><div class="pair-card">${cardHtml({ balance: 8, status: statusFor(8), brand: b, size: 'md' })}</div><figcaption>Aufsteller und Karte · Gestaltungsbeispiel</figcaption></figure>`;
 }
 const SW = (Object.keys(STYLES) as StyleKey[]);
 export function studioControls(b: BrandState): string {
   return `<div class="controls"><div class="ctl"><span class="ctl-label" id="ctl-farbe">Farbe <b data-brand-label>${STYLES[b.style].label}</b></span><div class="swatches" role="group" aria-labelledby="ctl-farbe">${SW.map(k => `<button type="button" class="swatch sw-${k}" data-brand-style="${k}" aria-label="${STYLES[k].label}" aria-pressed="${k === b.style}"></button>`).join('')}</div></div><div class="ctl"><span class="ctl-label" id="ctl-marke">Marke</span><div class="logos" role="group" aria-labelledby="ctl-marke">${(Object.keys(LOGOS) as LogoKey[]).map(k => `<button type="button" class="logo-pick" data-brand-logo="${k}" aria-label="Marke: ${LOGOS[k].label}" aria-pressed="${k === b.logo}">${LOGOS[k].svg}</button>`).join('')}</div></div><div class="ctl"><label class="ctl-label" for="brand-reward">Prämie</label><select id="brand-reward" data-brand-reward>${(Object.keys(REWARD_LABELS) as RewardKey[]).map(k => `<option value="${k}"${k === b.reward ? ' selected' : ''}>${REWARD_LABELS[k]}</option>`).join('')}</select></div></div>`;
 }
+
+/**
+ * Calculator stamp grid (decorative, aria-hidden, text-free): row one is one day of purchases as 20 stamps (5 % each); row two
+ * receives one coral stamp per 5 % of assumed increase, so the picture is strictly proportional to the visitor's own input.
+ */
+export const stampCount = (gain: number) => Math.max(0, Math.min(20, Math.round(gain / 5)));
+export const stampbar = (gain: number) => `${'<span class="sb-base"></span>'.repeat(20)}${Array.from({ length: 20 }, (_, i) => `<span${i < stampCount(gain) ? ' class="sb-extra"' : ''}></span>`).join('')}`;
 
 /** Calculator field: label, large value, slider. */
 export function calcField(key: FieldKey, value: number, hint = ''): string {

@@ -1,47 +1,13 @@
 # 12 · Sales collateral
 
 Five assets, all printable on A4/A5 or sendable as plain text. Print layout:
-- Concept D colours (forest green + cream), Manrope/Fraunces if available, otherwise system sans.
+- Concept D colours (forest green on light grey #EEF0EF, white cards), Manrope only (emphasis upright 800), otherwise system sans.
 - No merchant logos, no testimonials, no screenshots of real pilots.
 - Every card image carries „Beispiel“.
 
 ---
 
-## 1 · One-page handout (A5, front and back), left at the counter
-
-**Front**
-
-> # Deine Stempelkarte. Jetzt auf dem Handy.
-> **Ohne App. Dein Team bestätigt jeden Besuch.**
->
-> [Bild: Handy mit Beispielkarte · klein: „Beispiel“]
->
-> **So läuft's**
-> 1. Dein Kunde scannt den QR-Code am Tresen – die Karte öffnet sich im Browser.
-> 2. Beim Bezahlen zeigt er sie, dein Team scannt und bestätigt. Selbststempeln geht nicht.
-> 3. Bei 10 Stempeln (oder was du festlegst) gibt's die Prämie.
->
-> **Was du davon hast**
-> – Keine verlorenen oder selbst gestempelten Papierkarten mehr.
-> – Du siehst, wie viele wiederkommen, und pro Karte den letzten Besuch.
-> – Stammkunden können Freunde werben – Bonus erst nach deren erstem bestätigten Besuch.
-
-**Back**
-
-> **39 € pro Monat und Standort.**
-> Egal, wie viele Kunden, Karten oder Mitarbeiter. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst.
->
-> **Rechenbeispiel, keine Prognose:** Bei 25 € pro Haarschnitt sind 39 € zwei Haarschnitte im Monat. Bei 18 € pro Bestellung etwa drei Bestellungen.
->
-> **Was es (noch) nicht kann – damit du's weißt:**
-> Nachrichten an Kunden, Wallet-Karte, dein Logo auf der Karte, Anbindung an Kasse oder Lieferplattformen. Das zeigen wir als Ausblick, es ist nicht Teil des Angebots. Antippen per NFC ist vorbereitet; heute startest du mit dem QR-Code.
->
-> **Einrichtung:** Ich komm vorbei, wir legen die Prämie fest, drucken das Schild und loggen dein Team ein.
->
-> [Name] · [Telefon] · support@getloynara.com
-> [QR zur Seite – erst nach Veröffentlichung (O-014). Bis dahin kein QR auf dem Handzettel; ein QR zur Demo-Karte erst, wenn der Demo-Händler in Produktion existiert (D-3).]
-
----
+## 1 · One-page handout: retired 23 Oct 2026: Sales confirmed the flyer (Marketing) is the only leave-behind. Do not reprint or revive it.
 
 ## 2 · Demo cheat sheet (founder only, one side, laminated)
 

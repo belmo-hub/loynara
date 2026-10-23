@@ -1,6 +1,6 @@
 # 01 · Product truth: three evidence states
 
-Every script, ad, page and handout in `gtm/` is checked against this file. Angles in [02](02-positioning-angles.md) carry the matching status.
+Every script, ad, page and printed piece in `gtm/` is checked against this file. Angles in [02](02-positioning-angles.md) carry the matching status.
 
 | Evidence state | Meaning | Angle status |
 |---|---|---|
