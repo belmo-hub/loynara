@@ -22,11 +22,11 @@ const CORRECTION_ERRORS: Record<string, string> = {
 
 /** Which ledger rows can be corrected here; the server enforces the same rules again. */
 export function correctable(entry: Entry) {
-  return (entry.kind === "award" || entry.kind === "redeem") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus";
+  return (entry.kind === "award" || entry.kind === "redeem" || entry.kind === "expiry") && !entry.reversed && entry.source !== "referral_bonus" && entry.source !== "welcome_bonus" && entry.source !== "happy_hour" && entry.source !== "winback_bonus" && entry.source !== "birthday_bonus" && entry.source !== "challenge_bonus";
 }
 
 export function sourceLabel(source: string) {
-  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
+  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", happy_hour: "Happy Hour", expiry: "Verfall", winback_bonus: "Willkommen-zurück-Bonus", birthday_bonus: "Geburtstags-Bonus", challenge_bonus: "Monats-Challenge", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
 }
 
 /**
@@ -61,10 +61,10 @@ export function CorrectionDialog({ entry, unit, locationId, balance, onClose, on
       <button type="button" className="ow-btn ow-btn--secondary" onClick={onClose} disabled={state === "saving"}>Abbrechen</button>
       <button type="button" className="ow-btn ow-btn--primary" onClick={() => void submit()} disabled={!valid || state === "saving"} aria-busy={state === "saving"}>{state === "saving" ? "Wird gebucht …" : state === "uncertain" ? "Erneut senden" : "Korrektur buchen"}</button>
     </>}>
-      <p>{entry.kind === "award" ? "Gutschrift" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unit}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p>
+      <p>{entry.kind === "award" ? "Buchung" : entry.kind === "expiry" ? "Verfall" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unit}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p>
       {balance !== undefined && <div className="ow-readonly ow-row" style={{ justifyContent: "space-between" }} aria-label="Rechnerische Auswirkung dieses Vorgangs"><span>Stand jetzt <strong className="ow-num">{balance} {unit}</strong></span><span aria-hidden="true">→</span><span>nur dieser Vorgang <strong className="ow-num">{balance + effect} {unit}</strong></span></div>}
-      {balance !== undefined && <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einem ersten Kassenvorgang können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>}
-      <p className="ow-muted">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unit}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Kassenvorgang für Empfehlungen" : ""}.</p>
+      {balance !== undefined && <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einer ersten Buchung können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>}
+      <p className="ow-muted">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unit}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Buchung für Empfehlungen" : ""}.</p>
       <div className="ow-field"><label htmlFor="corr-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="corr-reason" className="ow-textarea" data-autofocus rows={3} readOnly={state === "saving" || state === "uncertain"} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Versehentlich zwei Stempel statt einem vergeben" aria-describedby="corr-reason-n" /><ReasonHint id="corr-reason-n" length={reason.trim().length} /></div>
       {state === "uncertain" && <p className="ow-hint">Für die Wiederholung bleibt der ursprünglich gesendete Grund unverändert.</p>}
       {error && <Notice tone={state === "uncertain" ? "warn" : "danger"} role="alert">{error}</Notice>}

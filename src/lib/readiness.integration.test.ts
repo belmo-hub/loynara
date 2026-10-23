@@ -147,7 +147,7 @@ describe("launch readiness", () => {
     const [tag] = await db.insert(secureTags).values({ publicRef: "readiness-tag-ref-0001", tenantId: merchant.tenantId, locationId: merchant.locationId, programId: merchant.programId, uid: "04A1B2C3D4E5F6", keyRef: "synthetic-key", configVersion: 1, status: "active" }).returning();
     const readTag = await nfc(withKeys);
     expect(readTag.status).toBe("todo");
-    expect(readTag.evidence).toContain("noch kein bestätigter Tap"); // a readable, active tag proves no checkout
+    expect(readTag.evidence).toContain("Noch kein bestätigtes Antippen"); // a readable, active tag proves no checkout
     await db.insert(tapRequests).values({ tagId: tag.id, counter: 1, tenantId: merchant.tenantId, locationId: merchant.locationId, programId: merchant.programId, membershipId: card.id, status: "confirmed", expiresAt: new Date(Date.now() + 60_000) });
     expect(await nfc(withKeys)).toMatchObject({ status: "done" });
     // NFC is never a required step for the first pilot.

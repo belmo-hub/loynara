@@ -3,6 +3,7 @@ import { passFastStatus } from "../src/lib/wallet/passfast";
 import { googleLocationClasses } from "../src/lib/wallet/google-direct";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "./google-wallet-credential";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
+import { stripeConfigIssues } from "../src/lib/stripe-config";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -94,7 +95,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   } else if (env.NFC_VERIFY_MASTER_KEY || env.NFC_KEY_PROVIDER) {
     issues.push("NFC key settings are present while NFC is not enabled");
   }
-  if (env.LIVE_BILLING_ENABLED === "true") issues.push("Live billing is not configured and approved for production");
+  issues.push(...stripeConfigIssues(env, true));
   if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
@@ -114,7 +115,7 @@ const placeholder = /replace|placeholder|example|changeme|test-secret/i;
  */
 function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): string[] {
   const issues: string[] = [];
-  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED"]) {
+  for (const name of ["PASSFAST_ENABLED", "APPLE_WALLET_ENABLED", "GOOGLE_WALLET_ENABLED", "GOOGLE_WALLET_ASSET_ENABLED", "WALLET_MESSAGES_ENABLED", "GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) {
     if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
   }
   if (["DEVICE_TEST_APPROVED_WALLET_PROVIDER", "DEVICE_TEST_APPROVED_GOOGLE_LOGO_URL", "DEVICE_TEST_APPROVED_GOOGLE_ISSUER_ID"].some(name => env[name])) {
@@ -124,6 +125,13 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
   if (apple) issues.push("Direct native Apple Wallet is dormant; Apple production uses PassFast");
+  // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need PassFast and the event webhook
+  // secret, or no removal would ever be recorded and the removal report would silently read 0.
+  if (env.WALLET_MESSAGES_ENABLED === "true") {
+    if (!passfast) issues.push("WALLET_MESSAGES_ENABLED requires PassFast (PASSFAST_ENABLED=true)");
+    const hook = env.PASSFAST_WEBHOOK_SECRET ?? "";
+    if (hook.length < 16 || placeholder.test(hook)) issues.push("WALLET_MESSAGES_ENABLED requires PASSFAST_WEBHOOK_SECRET with at least 16 characters");
+  }
   if (passfast && !passFastStatus(env).ready) issues.push("PassFast enabled without complete approved configuration");
   if ((passfast || apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
   if (!passfast && !apple && !google && env.WALLET_PRODUCTION_APPROVED === "true") issues.push("WALLET_PRODUCTION_APPROVED is set while no Wallet provider is enabled");
@@ -158,6 +166,9 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
     const { issue } = inspectGoogleServiceAccountValue(deliveredKey);
     if (issue) issues.push(issue);
   }
+  for (const name of ["GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) if (env[name] === "true" && !google) issues.push(`${name} requires Google Wallet (GOOGLE_WALLET_ENABLED=true)`);
+  // Owner messages to Google ride on the owner-message surface: without it the flag would be set and do nothing.
+  if (env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED === "true" && env.WALLET_MESSAGES_ENABLED !== "true") issues.push("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED requires WALLET_MESSAGES_ENABLED=true");
   if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") {
     const origin = parsedUrl(env.GOOGLE_WALLET_ASSET_ORIGIN);
     if (!google || !origin || origin.protocol !== "https:" || origin.origin !== env.GOOGLE_WALLET_ASSET_ORIGIN || localHosts.has(origin.hostname) || /preview|device[-_]?test/i.test(origin.hostname)) {

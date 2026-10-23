@@ -11,6 +11,7 @@ import { isPassFastObjectId, passFastConfig, bindPassFastObjectId, assertPassFas
 import { walletCardEligibility } from "./eligibility";
 import { googleDirectConfig } from "./google-direct";
 import { googleObjectId } from "./google";
+import { passFastEnv } from "./template-bindings";
 
 export type IssuedPass = typeof walletPasses.$inferSelect;
 
@@ -37,7 +38,7 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
     if (isPassFastObjectId(objectIdFor(member.id))) {
       const eligibility = await walletCardEligibility(cardToken, tx);
       if (eligibility.availability[provider] !== "available") throw new DomainError("FORBIDDEN", "Wallet unavailable");
-      managedConfig = passFastConfig(process.env, eligibility.tenantId, eligibility.locationId);
+      managedConfig = passFastConfig(await passFastEnv(eligibility.tenantId, eligibility.locationId, tx), eligibility.tenantId, eligibility.locationId);
     }
     const hash = credentialHash(member.scanCode);
     const [active] = await tx.select().from(walletPasses)

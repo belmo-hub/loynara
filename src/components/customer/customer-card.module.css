@@ -6,7 +6,7 @@
 .merchantText span { font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .goal { display: grid; gap: var(--space-1); padding-inline: var(--space-1); }
-.goalLine { margin: 0; font-family: var(--font-display); font-weight: 520; font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; hyphens: auto; }
+.goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 .goalNum { color: var(--merchant-text); font-size: 1.2em; font-variant-numeric: lining-nums; }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 
@@ -15,7 +15,10 @@
 .business { display: grid; margin: 0; min-width: 0; }
 .business strong { font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; overflow-wrap: anywhere; }
 .business span { font-size: var(--text-14); overflow-wrap: anywhere; }
-.readyTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: #FFFFFF; color: #143D2E; font-size: var(--text-14); font-weight: var(--weight-heavy); }
+.readyTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: #FFFFFF; color: #143D2E; font-size: var(--text-14); font-weight: var(--weight-heavy); animation: press var(--dur-reward) var(--ease-out); }
+/* „Prämie bereit“ lands like a stamp: a little large and tilted, then pressed flat. Once, on arrival. */
+@keyframes press { from { transform: scale(1.35) rotate(-8deg); opacity: 0; } 60% { transform: scale(.96) rotate(1deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .readyTag { animation: none; } }
 .stamps { margin: 0; }
 .stamps li { max-width: 56px; justify-self: center; width: 100%; }
 .ladder { margin-block: var(--space-1) 0; }

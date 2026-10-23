@@ -1,3 +1,5 @@
+import type { HappyHourWindow } from "@/lib/happy-hour";
+
 export class ClientApiError extends Error {
   constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number) { super(message); }
 }
@@ -56,7 +58,7 @@ export type MeResponse = {
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
-  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc">;
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation">;
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
@@ -64,12 +66,30 @@ export type MeResponse = {
   cardNews?: string;
   /** The shop's Google review link, or null. */
   reviewUrl?: string | null;
+  happyHourEnabled?: boolean;
+  happyHourWindows?: HappyHourWindow[];
+  pointsExpiryMonths?: number | null;
+  challengeVisits?: number | null;
+  challengeBonus?: number;
+  levelsEnabled?: boolean;
+  levelSilverVisits?: number;
+  levelGoldVisits?: number;
+  levelBronzePerk?: string;
+  levelSilverPerk?: string;
+  levelGoldPerk?: string;
+  /** Last day of the programme (YYYY-MM-DD) once the owner has asked to end it, else null. */
+  cancellationEndDate?: string | null;
+  /** True once the operator has confirmed the end date; before that it is provisional. */
+  cancellationConfirmed?: boolean;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };
   /** occurredAt is localized display text in the merchant's timezone; only createdAt is a raw timestamp. */
   activity?: Array<{ id: string; kind: "award" | "redeem" | "redemption" | "reversal"; occurredAt?: string; createdAt?: string; amount?: number; delta?: number; unit?: string; reference?: string }>;
 };
+
+/** `/api/me` for a shop whose programme has ended: the owner area shows only the export. */
+export type EndedAccountResponse = { userId: string; tenantId: string; publicBaseUrl: string; programEnded: { role: "owner" | "manager" | "cashier"; businessName: string; endedOn: string; exportUntil: string; exportOpen: boolean } };
 
 export type PublicProgram = {
   businessName: string;
@@ -81,6 +101,8 @@ export type PublicProgram = {
   currency: "EUR" | "MAD";
   locale?: "de" | "fr";
   rulesText: string;
+  /** Shown before the card is created whenever the shop lets points expire. */
+  pointsExpiryRule?: string;
   rewardTitle: string;
   rewardCost: number;
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; termsText: string; sortOrder: number }>;
@@ -103,8 +125,18 @@ export type CardResponse = {
   rulesText?: string;
   /** The shop's news line; absent when the owner left it empty. */
   news?: string;
+  /** Last day of the programme (YYYY-MM-DD) once the shop has cancelled; absent otherwise. */
+  endsOn?: string;
   /** Present only after the card's third staff-confirmed visit and when the shop stored a link. */
   reviewUrl?: string;
+  /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */
+  happyHourUntil?: string;
+  /** The shop's points expiry rule, each batch's expiry date and, when points expire within 30 days, the notice; absent while expiry is off. */
+  pointsExpiry?: { rule: string; batches: string[]; notice?: string };
+  /** This month's challenge and the card's visit days so far; absent while the shop runs none. */
+  challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
+  /** The card's level (visit days in 90 days), its perk and the next step; absent while the shop has no levels. */
+  level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
   rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
-  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean }>;
+  activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean; isChallengeBonus?: boolean }>;
 };

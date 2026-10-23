@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { HappyHourWindow } from "@/lib/happy-hour";
 import {
   boolean,
   check,
@@ -64,6 +65,7 @@ export const staffRoles = pgTable("staff_roles", {
   check("staff_role_valid", sql`${t.role} in ('owner','manager','cashier')`),
 ]);
 
+/** Staff invitations from an owner, and owner invitations from the operator for a shop it created (role owner, ENG-047). */
 export const staffInvites = pgTable("staff_invites", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
@@ -78,7 +80,7 @@ export const staffInvites = pgTable("staff_invites", {
   createdAt: createdAt(),
 }, (t) => [
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
-  check("staff_invite_role_valid", sql`${t.role} in ('manager','cashier')`),
+  check("staff_invite_role_valid", sql`${t.role} in ('owner','manager','cashier')`),
 ]);
 
 export const staffAuditEvents = pgTable("staff_audit_events", {
@@ -95,7 +97,7 @@ export const staffAuditEvents = pgTable("staff_audit_events", {
   index("staff_audit_tenant_time_idx").on(t.tenantId, t.createdAt),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("staff_audit_action_valid", sql`${t.action} in ('invite_created','invite_accepted','access_revoked')`),
-  check("staff_audit_role_valid", sql`${t.role} in ('manager','cashier')`),
+  check("staff_audit_role_valid", sql`${t.role} in ('owner','manager','cashier')`),
 ]);
 
 export const programs = pgTable("programs", {
@@ -118,6 +120,42 @@ export const programs = pgTable("programs", {
   cardNews: varchar("card_news", { length: 140 }).notNull().default(""),
   // The shop's Google review link, shown on the card after the third visit; never tied to a reward.
   reviewUrl: varchar("review_url", { length: 500 }),
+  // Happy hour: weekly windows (lib/happy-hour) in the location's timezone with doubled purchase points. Off by default.
+  happyHourEnabled: boolean("happy_hour_enabled").notNull().default(false),
+  happyHourWindows: jsonb("happy_hour_windows").$type<HappyHourWindow[]>().notNull().default(sql`'[]'::jsonb`),
+  // Win-back (lib/winback): a card back between day N and N + 14 after its last confirmed stamp gets this bonus with its
+  // next confirmed award (0 = none; stamps 0 or 1, points up to a quarter of the cheapest reward, checked by the app). Off by default.
+  winbackEnabled: boolean("winback_enabled").notNull().default(false),
+  winbackDays: integer("winback_days").notNull().default(30),
+  winbackBonus: integer("winback_bonus").notNull().default(1),
+  // "Fast geschafft" (ENG-045): one Wallet reminder per reward cycle when a card is close to its next reward. Off by default.
+  almostEnabled: boolean("almost_enabled").notNull().default(false),
+  // Birthday bonus (ENG-049): booked with a confirmed award in the card's birthday week, once a year. Off by default.
+  birthdayEnabled: boolean("birthday_enabled").notNull().default(false),
+  birthdayBonus: integer("birthday_bonus").notNull().default(1),
+  // Last day (Berlin calendar day) the programme works; the worker ends it after that day. Null = no cancellation.
+  cancellationEndDate: date("cancellation_end_date"),
+  // Points expiry (ENG-051): points expire this many months after they were earned, oldest first. Null = off. Only points
+  // earned since `pointsExpirySince` (when the owner last switched it on or changed it) can expire; older points never do.
+  pointsExpiryMonths: integer("points_expiry_months"),
+  pointsExpirySince: timestamp("points_expiry_since", { withTimezone: true }),
+  // Monthly challenge (ENG-052): this many cashier-confirmed visit days in a calendar month (location time) book the bonus
+  // once that month. Null = off.
+  challengeVisits: integer("challenge_visits"),
+  challengeBonus: integer("challenge_bonus").notNull().default(0),
+  // Customer levels (ENG-053): Bronze from the first visit, Silber and Gold from these visit days in the last 90 days. A perk
+  // is a text the cashier honours, never a booking. Off by default.
+  levelsEnabled: boolean("levels_enabled").notNull().default(false),
+  // No defaults (Product 22 Oct): the owner picks both when switching levels on; barbers and pizzerias need different ones.
+  levelSilverVisits: integer("level_silver_visits"),
+  levelGoldVisits: integer("level_gold_visits"),
+  levelBronzePerk: varchar("level_bronze_perk", { length: 60 }).notNull().default(""),
+  levelSilverPerk: varchar("level_silver_perk", { length: 60 }).notNull().default(""),
+  levelGoldPerk: varchar("level_gold_perk", { length: 60 }).notNull().default(""),
+  // Set only by the operator (scripts/operator-programme.ts schedule). Until then the end date is provisional and nothing ends.
+  // When the owner first asked (kept on repeats); the operator page shows how old the request is.
+  cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
+  cancellationConfirmedAt: timestamp("cancellation_confirmed_at", { withTimezone: true }),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [
@@ -125,12 +163,18 @@ export const programs = pgTable("programs", {
   uniqueIndex("programs_one_active_per_location_uq").on(t.locationId).where(sql`${t.status} = 'active'`),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("program_type_valid", sql`${t.type} in ('stamp','points')`),
-  check("program_status_valid", sql`${t.status} in ('active','archived')`),
+  check("program_status_valid", sql`${t.status} in ('active','archived','ended')`),
   check("program_earning_mode_valid", sql`${t.earningMode} in ('manual','purchase')`),
   check("program_tap_mode_valid", sql`${t.tapMode} in ('disabled','automatic_fixed','staff_confirmed')`),
   check("program_tap_cooldown_valid", sql`${t.tapCooldownSeconds} is null or ${t.tapCooldownSeconds} between 1 and 86400`),
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
+  check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
+  check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (24,36) and ${t.type} = 'points'))`),
+  check("program_challenge_valid", sql`${t.challengeVisits} is null or (${t.challengeVisits} between 2 and 10 and ${t.challengeBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))`),
+  check("program_levels_valid", sql`(not ${t.levelsEnabled} or (${t.levelSilverVisits} is not null and ${t.levelGoldVisits} is not null)) and (${t.levelSilverVisits} is null or ${t.levelSilverVisits} between 2 and 50) and (${t.levelGoldVisits} is null or (${t.levelGoldVisits} <= 90 and (${t.levelSilverVisits} is null or ${t.levelGoldVisits} > ${t.levelSilverVisits})))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
+  check("program_birthday_bonus_valid", sql`${t.birthdayBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
+  check("program_winback_valid", sql`${t.winbackDays} between 14 and 90 and ${t.winbackBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
 ]);
 
 export const programRuleVersions = pgTable("program_rule_versions", {
@@ -301,12 +345,13 @@ export const ledgerEntries = pgTable("ledger_entries", {
   foreignKey({ columns: [t.tenantId, t.reversalOfId], foreignColumns: [t.tenantId, t.id] }),
   index("ledger_member_time_idx").on(t.membershipId, t.createdAt),
   check("ledger_delta_nonzero", sql`${t.delta} <> 0`),
-  check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal')`),
-  // Awards add, redemptions subtract, and only a reversal points at the entry it undoes.
-  check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} = 'redeem' and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
+  check("ledger_kind_valid", sql`${t.kind} in ('award','redeem','reversal','expiry')`),
+  // Awards add, redemptions and expiries subtract, and only a reversal points at the entry it undoes.
+  check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} in ('redeem','expiry') and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
+  check("ledger_expiry_source_valid", sql`(${t.kind} = 'expiry') = (${t.source} = 'expiry')`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus')`),
-  check("ledger_nfc_actor_valid", sql`(${t.source} = 'nfc_tap' and ${t.actorUserId} is null) or (${t.source} <> 'nfc_tap' and ${t.actorUserId} is not null)`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus','expiry','challenge_bonus')`),
+  check("ledger_nfc_actor_valid", sql`(${t.source} in ('nfc_tap','expiry') and ${t.actorUserId} is null) or (${t.source} not in ('nfc_tap','expiry') and ${t.actorUserId} is not null)`),
 ]);
 
 export const secureTags = pgTable("secure_tags", {
@@ -358,6 +403,44 @@ export const plateLinkEvents = pgTable("plate_link_events", {
 }, (t) => [
   index("plate_link_events_tag_time_idx").on(t.tagId, t.createdAt),
   check("plate_link_action_valid", sql`(${t.action} = 'link' and ${t.oldProgramId} is null and ${t.newProgramId} is not null) or (${t.action} = 'relink' and ${t.oldProgramId} is not null and ${t.newProgramId} is not null) or (${t.action} = 'unlink' and ${t.oldProgramId} is not null and ${t.newProgramId} is null) or (${t.action} = 'revoke' and ${t.oldProgramId} is null and ${t.newProgramId} is null)`),
+]);
+
+/** Append-only record of every cancellation step of a programme: who, when, the end date before and after (trigger in migration 0032). */
+export const programmeCancellationEvents = pgTable("programme_cancellation_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  action: varchar("action", { length: 8 }).notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  oldEndDate: date("old_end_date"),
+  newEndDate: date("new_end_date"),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ name: "programme_cancellation_events_program_fk", columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  index("programme_cancellation_events_program_idx").on(t.programId, t.createdAt),
+  check("programme_cancellation_action_valid", sql`${t.action} in ('request','withdraw','schedule','confirm','end')`),
+]);
+
+/** One activation code per plate, printed on the card in the plate's box (ENG-048). Only a salted scrypt hash is kept; a reissue replaces the row. */
+export const plateActivationCodes = pgTable("plate_activation_codes", {
+  tagId: uuid("tag_id").primaryKey().references(() => secureTags.id),
+  codeHash: varchar("code_hash", { length: 160 }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  issuedByUserId: text("issued_by_user_id").notNull(),
+  issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Last time the plate saw more than 50 activation tries in an hour across all accounts: a warning for the operator, never a lock. */
+  alertedAt: timestamp("alerted_at", { withTimezone: true }),
+});
+
+/** Wrong codes per account and plate: five lock that account out of that plate only, until the operator unlocks the plate. */
+export const plateActivationFailures = pgTable("plate_activation_failures", {
+  tagId: uuid("tag_id").notNull().references(() => secureTags.id),
+  userId: text("user_id").notNull(),
+  failedAttempts: integer("failed_attempts").notNull(),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
+}, (t) => [
+  primaryKey({ columns: [t.tagId, t.userId] }),
+  check("plate_activation_attempts_valid", sql`${t.failedAttempts} between 1 and 5`),
 ]);
 
 export const tapRequests = pgTable("tap_requests", {
@@ -770,9 +853,15 @@ export const subscriptions = pgTable("subscriptions", {
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   graceUntil: timestamp("grace_until", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  // Stripe (ENG-055). planCode is the operator's choice (null: not chosen yet, checkout refused).
+  planCode: varchar("plan_code", { length: 16 }),
+  providerCustomerId: varchar("provider_customer_id", { length: 64 }).unique(),
+  providerSubscriptionId: varchar("provider_subscription_id", { length: 64 }).unique(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
 }, (t) => [
-  check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled')`),
+  check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled','active','past_due','suspended')`),
   check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
+  check("subscription_plan_valid", sql`${t.planCode} is null or ${t.planCode} in ('founding','list')`),
 ]);
 
 export const billingLocationPlans = pgTable("billing_location_plans", {
@@ -783,10 +872,18 @@ export const billingLocationPlans = pgTable("billing_location_plans", {
   priceMinor: integer("price_minor").notNull(),
   memberLimit: integer("member_limit").notNull().default(10000),
   createdAt: createdAt(),
+  // Start guarantee (ENG-055), decided once per location and recorded BEFORE any Stripe call: the outcome, the month-2 invoice
+  // to credit, and the Stripe invoice item or credit note once issued (null while the credit is still owed).
+  guaranteeDecidedAt: timestamp("guarantee_decided_at", { withTimezone: true }),
+  guaranteeCustomers: integer("guarantee_customers"),
+  guaranteeOutcome: varchar("guarantee_outcome", { length: 12 }),
+  guaranteeInvoiceId: varchar("guarantee_invoice_id", { length: 64 }),
+  guaranteeCreditRef: varchar("guarantee_credit_ref", { length: 64 }),
 }, (t) => [
   primaryKey({ columns: [t.tenantId, t.locationId] }),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
   check("billing_plan_values_valid", sql`${t.priceMinor} > 0 and ${t.memberLimit} > 0 and ${t.planCode} = 'local_standard'`),
+  check("billing_plan_guarantee_valid", sql`${t.guaranteeOutcome} is null or (${t.guaranteeOutcome} in ('credit','reached','ineligible','late') and (${t.guaranteeOutcome} = 'credit') = (${t.guaranteeInvoiceId} is not null))`),
 ]);
 
 export const billingHandoffs = pgTable("billing_handoffs", {
@@ -798,9 +895,11 @@ export const billingHandoffs = pgTable("billing_handoffs", {
   amountMinor: integer("amount_minor").notNull(),
   createdAt: createdAt(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  // Stripe Checkout Session id; null for the local fixture.
+  providerRef: varchar("provider_ref", { length: 120 }).unique(),
 }, (t) => [
   index("billing_handoff_tenant_idx").on(t.tenantId, t.createdAt),
-  check("billing_handoff_values_valid", sql`${t.provider} = 'local_fixture' and ${t.status} in ('pending','complete') and ${t.amountMinor} > 0`),
+  check("billing_handoff_values_valid", sql`${t.provider} in ('local_fixture','stripe') and ${t.status} in ('pending','complete','expired') and ${t.amountMinor} > 0`),
 ]);
 
 export const billingInvoices = pgTable("billing_invoices", {
@@ -844,4 +943,143 @@ export const rateLimits = pgTable("rate_limits", {
 }, (t) => [
   index("rate_limits_reset_idx").on(t.resetAt),
   check("rate_limits_hits_positive", sql`${t.hits} > 0`),
+]);
+
+/**
+ * The customer's optional birthday (ENG-049): day and month only, no year. Its own table so no membership read can carry it
+ * to the shop; deleting the row deletes the birthday. Basis Art. 6 (1) (b) (Legal, 22 Oct): entering it is the choice.
+ */
+export const cardBirthdays = pgTable("card_birthdays", {
+  membershipId: uuid("membership_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  day: integer("day").notNull(),
+  month: integer("month").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  check("card_birthday_valid", sql`${t.month} between 1 and 12 and ${t.day} between 1 and (case when ${t.month} = 2 then 29 when ${t.month} in (4,6,9,11) then 30 else 31 end)`),
+]);
+
+/**
+ * Wallet-message consent log (ENG-043), one row per grant: append-only. The only permitted change is setting withdrawn_at
+ * once (trigger in 0031); a new grant after a withdrawal is a new row. At most one open grant per card.
+ */
+export const walletMessageConsents = pgTable("wallet_message_consents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  textVersion: varchar("text_version", { length: 40 }).notNull(),
+  channel: varchar("channel", { length: 8 }).notNull().default("wallet"),
+  givenAt: timestamp("given_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  uniqueIndex("wallet_message_consent_open_uq").on(t.membershipId).where(sql`${t.withdrawnAt} is null`),
+  index("wallet_message_consent_member_idx").on(t.tenantId, t.membershipId),
+  check("wallet_message_consent_channel_valid", sql`${t.channel} = 'wallet'`),
+]);
+
+/**
+ * Device events of a PassFast pass (webhook, ENG-043): only the event type, our pass row and the provider's timestamp.
+ * No device id, no payload. An unregistration makes the pass unreachable for messages and counts as a removal in the report.
+ */
+export const walletPassEvents = pgTable("wallet_pass_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  passId: uuid("pass_id").notNull().references(() => walletPasses.id),
+  tenantId: uuid("tenant_id").notNull(),
+  event: varchar("event", { length: 24 }).notNull(),
+  eventAt: timestamp("event_at", { withTimezone: true }).notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("wallet_pass_event_once_uq").on(t.passId, t.event, t.eventAt),
+  index("wallet_pass_event_pass_idx").on(t.passId, t.eventAt),
+  check("wallet_pass_event_valid", sql`${t.event} in ('device.registered','device.unregistered')`),
+]);
+
+/** The owner's one-time confirmation of Legal's guidance, per text version. */
+export const walletMessageOwnerConfirmations = pgTable("wallet_message_owner_confirmations", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  version: varchar("version", { length: 40 }).notNull(),
+  confirmedByUserId: text("confirmed_by_user_id").notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.version] })]);
+
+/** Audit row of one owner message (kind 'owner'), or of one automatic batch ('winback', ENG-044) that shares the recipient table and its caps. */
+export const walletMessages = pgTable("wallet_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  kind: varchar("kind", { length: 8 }).notNull().default("owner"),
+  sentByUserId: text("sent_by_user_id"),
+  text: varchar("text", { length: 560 }).notNull(),
+  confirmVersion: varchar("confirm_version", { length: 40 }),
+  status: varchar("status", { length: 8 }).notNull().default("queued"),
+  audienceCount: integer("audience_count").notNull().default(0),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  skippedCount: integer("skipped_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  stoppedAt: timestamp("stopped_at", { withTimezone: true }),
+}, (t) => [
+  unique("wallet_messages_tenant_id_id_uq").on(t.tenantId, t.id),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  index("wallet_messages_program_idx").on(t.tenantId, t.programId, t.createdAt),
+  check("wallet_message_kind_valid", sql`${t.kind} in ('owner','winback','almost','birthday','expiry')`),
+  check("wallet_message_status_valid", sql`${t.status} in ('queued','sending','complete','stopped')`),
+]);
+
+/** One row per (message, pass): the status of each delivery. Also the per-customer weekly counter (queued and sent rows count). */
+export const walletMessageRecipients = pgTable("wallet_message_recipients", {
+  messageId: uuid("message_id").notNull(),
+  passId: uuid("pass_id").notNull(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  status: varchar("status", { length: 8 }).notNull().default("queued"),
+  attempts: integer("attempts").notNull().default(0),
+  retryAt: timestamp("retry_at", { withTimezone: true }).notNull().defaultNow(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  reason: varchar("reason", { length: 40 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, (t) => [
+  primaryKey({ columns: [t.messageId, t.passId] }),
+  foreignKey({ columns: [t.tenantId, t.messageId], foreignColumns: [walletMessages.tenantId, walletMessages.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("wallet_message_recipient_member_idx").on(t.tenantId, t.membershipId, t.createdAt),
+  index("wallet_message_recipient_due_idx").on(t.messageId, t.status, t.retryAt),
+  check("wallet_message_recipient_status_valid", sql`${t.status} in ('queued','sending','sent','failed','skipped')`),
+]);
+
+/**
+ * Apple Wallet (PassFast) template per location (ENG-046), set by the operator on /operator. Wins over the env binding of
+ * the same scope; PASSFAST_TENANT_TEMPLATES stays the read-only fallback. One template per location, no template shared.
+ */
+export const walletTemplateBindings = pgTable("wallet_template_bindings", {
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  templateId: uuid("template_id").notNull(),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: createdAt(),
+  changedByUserId: text("changed_by_user_id").notNull(),
+  changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  unique("wallet_template_bindings_template_uq").on(t.templateId),
+]);
+
+/** Append-only history of every template binding change (trigger in the migration; fixed lane slot 0035). `import` = copied from PASSFAST_TENANT_TEMPLATES. */
+export const walletTemplateBindingEvents = pgTable("wallet_template_binding_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  action: varchar("action", { length: 8 }).notNull(),
+  oldTemplateId: uuid("old_template_id"),
+  newTemplateId: uuid("new_template_id").notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  index("wallet_template_binding_events_scope_idx").on(t.tenantId, t.locationId, t.createdAt),
+  check("wallet_template_binding_action_valid", sql`(${t.action} in ('set','import') and ${t.oldTemplateId} is null) or (${t.action} = 'change' and ${t.oldTemplateId} is not null)`),
 ]);

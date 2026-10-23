@@ -13,7 +13,7 @@ export function inviteSignUpEnabled(env: Record<string, string | undefined> = pr
 
 const tokenPattern = /^[A-Za-z0-9_-]{40,60}$/;
 
-type PendingInvite = { email: string; role: "cashier" | "manager"; businessName: string; locationName: string; expiresAt: Date };
+type PendingInvite = { email: string; role: "owner" | "cashier" | "manager"; businessName: string; locationName: string; expiresAt: Date };
 
 export async function pendingInvite(token: string): Promise<PendingInvite | null> {
   if (!tokenPattern.test(token)) return null;

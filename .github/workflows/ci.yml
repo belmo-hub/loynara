@@ -38,6 +38,16 @@ jobs:
       - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
+      # A schema change without its migration (or a stale snapshot) makes drizzle-kit write a new one here.
+      - name: Check the schema needs no new migration
+        run: |
+          npx drizzle-kit generate < /dev/null
+          drift="$(git status --porcelain -- drizzle)"
+          if [ -n "$drift" ]; then
+            echo "::error::src/db/schema.ts and the newest drizzle snapshot differ. Run npm run db:generate and commit the result."
+            echo "$drift"
+            exit 1
+          fi
 
   build:
     name: Production build

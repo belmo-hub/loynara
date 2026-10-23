@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { germanDate } from "@/lib/programme-end-date";
 import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
 import { type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate } from "@/lib/refresh-gate";
 import { CustomerCard } from "./customer/customer-card";
 import { CustomerCardLoading, CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
 import { CardReferral } from "./card-referral";
+import { CardBirthday } from "./card-birthday";
+import { CardWalletMessages } from "./card-wallet-messages";
 import { Button } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
 import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
@@ -193,13 +196,14 @@ export function CardClient({ token }: { token: string }) {
   if (!card) return <CardState title="Karte nicht erreichbar." message={error} tone="error" />;
   const firstReward = card.rewards[0];
   const french = card.locale === "fr";
-  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
+  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
   const notices = <>
+    {card.endsOn && <p className={noticeClass}>{french ? `Cette carte prend fin le ${germanDate(card.endsOn)}.` : `Diese Karte endet am ${germanDate(card.endsOn)}.`}</p>}
     {authenticationRequired && <section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section>}
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
     {bindingError && <p role="alert" className={noticeClass}>{bindingError}</p>}
   </>;
-  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} reviewUrl={card.reviewUrl} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
+  return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} challenge={card.challenge} level={card.level} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardWalletMessages token={token} /><CardBirthday token={token} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
 function CardState({ title, message, tone = "info" }: { title: string; message: string; tone?: "info" | "error" }) {

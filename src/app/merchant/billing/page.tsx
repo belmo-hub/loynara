@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
@@ -9,12 +9,14 @@ import { useLoad } from "@/components/owner/use-load";
 type Overview = {
   status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
   currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; graceUntil: string | null;
-  liveBilling: false; fixtureAvailable: boolean; countingRule: string;
+  liveBilling: boolean; planCode: "founding" | "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
   locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
   invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
 };
 const money = (minor: number, currency: "EUR" | "MAD") => new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(minor / 100);
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
+const LIVE_STATUS: Record<string, string> = { manual_pending: "Noch kein Abo", pending_checkout: "Zahlung noch nicht abgeschlossen", active: "Abo aktiv", past_due: "Zahlung fehlgeschlagen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
+const PLAN: Record<string, string> = { founding: "Gründungspreis", list: "Listenpreis" };
 const STATUS: Record<string, string> = { manual_pending: "Entwurf ohne Zahlung", pending_checkout: "Lokaler Testvorgang offen", active_fixture: "Lokale Testperiode aktiv", grace_fixture: "Lokale Test-Nachfrist", suspended_fixture: "Lokale Testperiode ausgesetzt", cancelled: "Lokale Testperiode beendet" };
 
 export default function MerchantBillingPage() {
@@ -29,6 +31,7 @@ export default function MerchantBillingPage() {
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
   const o = data.data;
+  if (o.liveBilling) return <LiveBilling o={o} head={head} />;
 
   async function startFixture() {
     setBusy(true); setError("");
@@ -70,6 +73,43 @@ export default function MerchantBillingPage() {
         </div>
       </section>
       <Notice>{o.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</Notice>
+    </div>
+  );
+}
+
+/** Live billing through Stripe: checkout and the customer portal are Stripe-hosted pages; only their exact hosts are followed. */
+function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function go(path: string, host: string) {
+    setBusy(true); setError("");
+    try {
+      const { url } = await postJson<{ url: string }>(path, {});
+      if (new URL(url).origin !== host) throw new Error("Der Zahlungslink ist ungültig.");
+      window.location.assign(url);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt."); setBusy(false); }
+  }
+  const canCheckout = o.planCode !== null && ["manual_pending", "pending_checkout", "cancelled"].includes(o.status);
+  return (
+    <div className="ow-page">
+      {head}
+      {error && <ErrorNotice message={error} />}
+      {o.status === "past_due" && <Notice tone="warn" role="alert">Die letzte Zahlung ist fehlgeschlagen. Bitte prüfe deine Zahlungsdaten.</Notice>}
+      <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
+        <div><p className="ow-eyebrow">Status</p><h2>{LIVE_STATUS[o.status] ?? o.status}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.` : o.currentPeriodEnd ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : o.planCode ? PLAN[o.planCode] : "Dein Tarif wird noch festgelegt."}</p></div>
+        <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.monthlySubtotalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{o.locationCount} Standort{o.locationCount === 1 ? "" : "e"} · monatlich kündbar{o.guaranteeApplied ? " · Startgarantie: Gutschrift auf der Rechnung für Monat 2" : ""}</p></div>
+      </section>
+      <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standorte und Nutzung</h2>
+        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">{o.planCode ? PLAN[o.planCode] : "Tarif offen"} · {money(location.priceMinor, o.currency)} / Monat</small></span><span className="ow-num">{location.activeMembers} von {location.memberLimit} aktiven Karten</span></li>)}</ul></section>
+      <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Zahlung</h2>
+        <p>Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe.</p>
+        <div className="ow-row">
+          {canCheckout && <button type="button" className="ow-btn ow-btn--primary" disabled={busy} onClick={() => void go("/api/merchant/billing/handoff", "https://checkout.stripe.com")}>Abo abschließen</button>}
+          {o.paymentAccount && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={() => void go("/api/merchant/billing/portal", "https://billing.stripe.com")}>Zahlungsdaten, Rechnungen und Kündigung</button>}
+        </div>
+        {o.planCode === null && <p className="ow-hint">Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen.</p>}
+      </section>
+      <Notice>{o.countingRule}</Notice>
     </div>
   );
 }

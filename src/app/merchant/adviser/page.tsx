@@ -28,7 +28,7 @@ export default function MerchantAdviserPage() {
       {r && <>
         <div className="ow-notice ow-notice--ok"><span><strong>Nach festen Regeln</strong></span><span>Diese Hinweise folgen festen, sichtbaren Regeln und beruhen nur auf deinen bestätigten Vorgängen.</span></div>
         <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
-          <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Kassenvorgänge" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
+          <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Buchungen" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
         </dl>
         <section aria-labelledby="advice-heading" className="ow-stack"><h2 id="advice-heading" style={{ fontSize: "var(--text-18)" }}>Prüfpunkte</h2>
           {r.recommendations.map(item => (

@@ -1,6 +1,6 @@
 .header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3) var(--space-4); }
 .titles { display: grid; gap: var(--space-1); min-width: 0; }
-.title { margin: 0; font-family: var(--font-display); font-weight: 540; font-size: var(--text-28); line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; hyphens: auto; overflow-wrap: break-word; }
+.title { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; overflow-wrap: break-word; }
 .description { margin: 0; color: var(--color-ink-muted); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 @media (min-width: 1024px) { .title { font-size: var(--display-36); line-height: 1.1; } }

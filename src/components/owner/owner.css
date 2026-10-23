@@ -50,6 +50,11 @@
 .ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: color-mix(in srgb, var(--color-bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-line); }
 .ow-subnav-inner { max-width: 1120px; margin-inline: auto; padding-inline: var(--space-6); display: flex; align-items: center; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
 .ow-subnav-inner::-webkit-scrollbar { display: none; }
+/* Scroll hint: the side with more tabs behind it fades out (data-start / data-end are set by owner-shell). */
+.ow-subnav-inner { position: relative; --ow-fade: 40px; }
+.ow-subnav-inner[data-end="true"] { mask-image: linear-gradient(to left, transparent, var(--color-ink) var(--ow-fade)); }
+.ow-subnav-inner[data-start="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade)); }
+.ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
 .ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
 .ow-subnav a:hover { color: var(--color-ink); }
 .ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-action); }
@@ -67,6 +72,10 @@
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
+/* A full-page notice (programme ended) rises in once. */
+.ow-arrive { animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
+@keyframes ow-arrive { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .ow-arrive { animation: none; } }
 /* Phone and tablet chrome: compact top bar, and a bottom bar with the first areas plus "Mehr" (opens the panel). */
 .ow-tabs { display: none; }
 .ow-topbar-brand { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-left: -6px; border-radius: var(--radius-md); }
@@ -95,7 +104,7 @@
 .ow-page { max-width: 1120px; margin-inline: auto; padding: var(--space-8) var(--space-6) 0; display: flex; flex-direction: column; gap: var(--space-6); }
 @media (max-width: 640px) { .ow-page { padding: var(--space-6) var(--space-4) 0; } }
 .ow-pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: 540; line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; hyphens: auto; }
+.ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 @media (min-width: 1024px) { .ow-pagehead h1 { font-size: var(--display-36); line-height: 1.1; } }
 .ow-pagehead p { color: var(--color-ink-muted); margin-top: 4px; max-width: 62ch; }
 .ow-eyebrow { font-size: var(--text-14); font-weight: 700; letter-spacing: .04em; color: var(--color-ink-muted); margin-bottom: 4px; }
@@ -108,7 +117,9 @@
 .ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: 2px; }
 .ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
-.ow-btn:disabled { opacity: .55; cursor: not-allowed; }
+/* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
+.ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
+.ow-btn--ghost:disabled { background: transparent; }
 .ow-btn--primary { background: var(--color-action); color: var(--color-on-action); }
 .ow-btn--primary:hover:not(:disabled) { background: var(--color-action-hover); }
 .ow-btn--secondary { background: var(--color-raised); border-color: var(--color-line-strong); color: var(--color-ink); }
@@ -386,6 +397,14 @@
 }
 .ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
 .ow-check input { width: 20px; height: 20px; accent-color: var(--color-action); }
+/* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
+.ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
+.ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-raised); box-shadow: var(--shadow-hairline); transition: transform var(--dur-ui) var(--ease-out); }
+.ow-check input[role="switch"]:checked { background: var(--color-action); }
+.ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
+.ow-check input[role="switch"]:disabled { background: var(--color-line); cursor: not-allowed; }
+.ow-check input[role="switch"]:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ow-check input[role="switch"], .ow-check input[role="switch"]::before { transition: none; } }
 
 /* Trend bars */
 .ow-trend { display: flex; flex-direction: column; gap: var(--space-3); }
@@ -407,6 +426,17 @@
 .ow-group + .ow-group { border-top: 0; margin-top: var(--space-4); padding-top: var(--space-4); box-shadow: 0 -1px 0 var(--color-line); }
 @media (min-width: 640px) { .ow-radio-cards--row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ow-metrics--auto { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+/* Calm Übersicht: three numbers in one row at every width, then one sentence and one next step. */
+.ow-metrics.ow-metrics--three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+/* Phones: three rows (label and note left, number right), so no label has to hyphenate. */
+@media (max-width: 559px) {
+  .ow-metrics.ow-metrics--three { grid-template-columns: 1fr; gap: var(--space-2); }
+  .ow-metrics--three .ow-metric { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--space-4); padding: var(--space-3) var(--space-4); }
+  .ow-metrics--three .ow-metric dd:not(.ow-metric-note) { grid-column: 2; grid-row: 1 / span 2; }
+}
+.ow-next { display: grid; gap: var(--space-3); justify-items: start; }
+.ow-next .ow-eyebrow { margin: 0; color: var(--color-accent-text); }
+.ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
 .ow-filebtn:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .ow-swatches + .ow-colorrow { margin-top: var(--space-2); }
@@ -415,7 +445,7 @@
 .ow-feed-reason { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-readiness-group + .ow-readiness-group { margin-top: var(--space-4); }
 .ow-readiness-group h3 { font-size: var(--text-16); margin: 0; }
-.ow-step-mark--external { border-style: dashed; font-style: italic; font-family: var(--font-display); }
+.ow-step-mark--external { border-style: dashed; }
 .ow-step-mark--na { border-color: var(--color-line); }
 .ow-step-mark--todo { border-color: var(--color-line-strong); }
 details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }

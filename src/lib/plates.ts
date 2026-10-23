@@ -1,12 +1,12 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { locations, plateLinkEvents, programs, secureTags, tenants } from "@/db/schema";
+import { locations, plateActivationCodes, plateLinkEvents, programs, secureTags, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 
 /**
- * Plates: NFC tags provisioned without a shop and linked to one later, on the server, by the operator only.
- * There is no web route for any write here: the operator runs scripts/operator-plate.ts in the private Railway console,
- * and the actor must be on PLATE_OPERATOR_USER_IDS. Moving a plate moves no history: awards, requests and cards keep
+ * Plates: NFC tags provisioned without a shop and linked to one later, on the server, by the operator (console or
+ * /operator, actor on PLATE_OPERATOR_USER_IDS) or by the shop's owner with the plate's activation code
+ * (lib/plate-activation). Moving a plate moves no history: awards, requests and cards keep
  * the tenant they were made under.
  */
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -26,7 +26,7 @@ export async function assertPlateOperator(tx: Pick<Transaction, "execute">, acto
   if (found.rows.length !== 1) throw new DomainError("FORBIDDEN", "Plate operator access required");
 }
 
-async function shopOf(tx: Transaction, programId: string | null) {
+export async function shopOf(tx: Transaction, programId: string | null) {
   if (!programId) return null;
   const [row] = await tx.select({ tenantId: programs.tenantId, locationId: programs.locationId, programId: programs.id, merchant: tenants.name, location: locations.name, programme: programs.name, status: programs.status, tapMode: programs.tapMode, cooldownSeconds: programs.tapCooldownSeconds })
     .from(programs).innerJoin(tenants, eq(tenants.id, programs.tenantId))
@@ -81,6 +81,8 @@ export async function setPlateLink(input: { actorUserId: string; env: Env; plate
     await tx.update(secureTags).set(target
       ? { tenantId: target.tenantId, locationId: target.locationId, programId: target.programId, status: "active", activatedAt: new Date() }
       : { tenantId: null, locationId: null, programId: null, status: "unlinked" }).where(eq(secureTags.id, tag.id));
+    // A plate the operator links by hand never needs its box code again: the code cannot link it later, after an unlink.
+    if (target) await tx.update(plateActivationCodes).set({ usedAt: new Date() }).where(and(eq(plateActivationCodes.tagId, tag.id), isNull(plateActivationCodes.usedAt)));
     await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel, action, actorUserId: input.actorUserId,
       oldTenantId: current?.tenantId, oldLocationId: current?.locationId, oldProgramId: current?.programId,
       newTenantId: target?.tenantId, newLocationId: target?.locationId, newProgramId: target?.programId });
@@ -106,6 +108,20 @@ export async function revokeUnlinkedPlate(input: { actorUserId: string; env: Env
     await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel, action: "revoke", actorUserId: input.actorUserId });
     return { result: "revoke" as const, plateLabel };
   });
+}
+
+/**
+ * Unlinks every plate still linked to a programme that is ending, with one audit row each (the caller names the actor,
+ * the system actor for the end-date job). Runs inside the caller's transaction, which already holds the programme lock.
+ */
+export async function unlinkProgrammePlates(tx: Transaction, programId: string, actorUserId: string) {
+  const tags = await tx.select().from(secureTags).where(and(eq(secureTags.programId, programId), eq(secureTags.status, "active"), isNotNull(secureTags.plateLabel))).for("update");
+  for (const tag of tags) {
+    await tx.update(secureTags).set({ tenantId: null, locationId: null, programId: null, status: "unlinked" }).where(eq(secureTags.id, tag.id));
+    await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel: tag.plateLabel!, action: "unlink", actorUserId,
+      oldTenantId: tag.tenantId, oldLocationId: tag.locationId, oldProgramId: programId });
+  }
+  return tags.length;
 }
 
 /** Where the plate's QR sticker leads: the linked shop's public join page, or null while it is not linked. */

@@ -1,14 +1,15 @@
 import { existsSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
+import { stripeEnabled } from "./stripe-config";
 
 const PROD = { PRODUCTION_ENVIRONMENT: "loynara-production" };
 const digestOf = (fn: () => unknown) => { try { fn(); } catch (error) { return String((error as { digest?: string }).digest ?? "OTHER"); } return "NONE"; };
 
 describe("pilot surfaces follow the canonical production definition", () => {
-  it("hides billing, automations, wallet previews, the logo upload and the NFC card on real production; campaigns and audiences stay draft-only visible", () => {
-    expect(hiddenSurfaces(PROD).sort()).toEqual(["automations", "billing", "cardLogo", "nfc", "walletPreviews"]);
-    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(5);
+  it("hides billing, automations, the cancel card, wallet previews, the logo upload and the NFC card on real production; campaigns and audiences stay draft-only visible", () => {
+    expect(hiddenSurfaces(PROD).sort()).toEqual(["automations", "billing", "cancellation", "cardLogo", "nfc", "walletMessages", "walletPreviews"]);
+    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(7);
     // device-test / preview (NODE_ENV=production without the marker) and development keep every surface that does not depend on NFC keys
     expect(hiddenSurfaces({ NODE_ENV: "production" })).toEqual(["nfc"]);
     expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "device-test" })).toEqual(["nfc"]);
@@ -16,6 +17,22 @@ describe("pilot surfaces follow the canonical production definition", () => {
     expect(hiddenSurfaces({ NODE_ENV: "development", TAP_SYNTHETIC_KEY_FILE: "/x/keys.json" })).toEqual([]);
     expect(surfaceHidden("billing", PROD)).toBe(true);
     expect(surfaceHidden("billing", {})).toBe(false);
+    // Live billing is the founder's switch on real production (the production gate requires the whole Stripe group with it).
+    expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "true" })).toBe(false);
+    expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "TRUE" })).toBe(true);
+    // stripeEnabled relies on this: whenever Stripe may run, the billing surface is shown (synthetic placeholders, no real key).
+    const stripe = { LIVE_BILLING_ENABLED: "true", STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001" };
+    for (const env of [{ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, BILLING_PRODUCTION_APPROVED: "true" }, { ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` }]) {
+      expect(stripeEnabled(env)).toBe(true);
+      expect(surfaceHidden("billing", env)).toBe(false);
+    }
+    expect(stripeEnabled({ ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` })).toBe(false);
+    // On real production the founder's approval is the second switch: without it Stripe never runs.
+    expect(stripeEnabled({ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}` })).toBe(false);
+    // The owner's cancel card is withheld on real production only; every other process offers it.
+    expect(surfaceHidden("cancellation", PROD)).toBe(true);
+    expect(surfaceHidden("cancellation", {})).toBe(false);
+    expect(surfaceHidden("cancellation", { NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "device-test" })).toBe(false);
   });
 });
 
@@ -23,7 +40,7 @@ describe("the NFC surface follows capability", () => {
   const MASTER = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
   it("appears on real production exactly when NFC is enabled with the derived key provider, and then no other surface changes", () => {
     const configured = { ...PROD, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: MASTER };
-    expect(hiddenSurfaces(configured).sort()).toEqual(["automations", "billing", "cardLogo", "walletPreviews"]);
+    expect(hiddenSurfaces(configured).sort()).toEqual(["automations", "billing", "cancellation", "cardLogo", "walletMessages", "walletPreviews"]);
     expect(hiddenSurfaces({ ...configured, NFC_ENABLED: "false" })).toContain("nfc");
     expect(hiddenSurfaces({ ...configured, NFC_VERIFY_MASTER_KEY: "bad" })).toContain("nfc");
     expect(hiddenSurfaces({ ...PROD, NFC_ENABLED: "true", TAP_SYNTHETIC_KEY_FILE: "/x" })).toContain("nfc");
@@ -36,7 +53,7 @@ describe("Wallet surfaces follow capability", () => {
     const apple = appleFixture();
     try {
       expect(hiddenSurfaces({ ...PROD, APPLE_WALLET_ENABLED: "true" })).toEqual(expect.arrayContaining(["walletPreviews", "cardLogo"]));
-      expect(hiddenSurfaces({ ...PROD, ...apple.env }).sort()).toEqual(["automations", "billing", "nfc"]);
+      expect(hiddenSurfaces({ ...PROD, ...apple.env }).sort()).toEqual(["automations", "billing", "cancellation", "nfc", "walletMessages"]);
     } finally { apple.cleanup(); }
   });
 });

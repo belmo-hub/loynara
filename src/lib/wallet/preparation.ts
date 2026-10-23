@@ -5,6 +5,7 @@ import { walletAvailability, type WalletAvailability } from "./capability";
 import type { WalletCardEligibility } from "./eligibility";
 import { assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastStatus } from "./passfast";
 import { createDownloadTicket } from "./ticket";
+import { passFastEnv } from "./template-bindings";
 import { googleDirectStatus } from "./google-direct";
 
 export type ApplePreparation = { status: "unavailable" | "not_requested" | "pending" | "ready" | "failed"; url?: string; retryAfterSeconds?: number };
@@ -26,7 +27,7 @@ export async function applePreparation(eligibility: WalletCardEligibility, reade
   const [pass] = await reader.select().from(walletPasses).where(and(eq(walletPasses.tenantId,eligibility.tenantId),eq(walletPasses.membershipId,eligibility.membershipId),eq(walletPasses.provider,"apple"),eq(walletPasses.credentialHash,eligibility.credentialHash),isNull(walletPasses.revokedAt))).limit(1);
   if (!pass) return { status: "not_requested" };
   if (isPassFastObjectId(pass.providerObjectId)) {
-    assertPassFastBinding(pass.providerObjectId,passFastConfig(process.env,eligibility.tenantId,eligibility.locationId));
+    assertPassFastBinding(pass.providerObjectId,passFastConfig(await passFastEnv(eligibility.tenantId,eligibility.locationId,reader),eligibility.tenantId,eligibility.locationId));
     const jobs = await reader.select({ status:outboxJobs.status, nextAttemptAt:outboxJobs.nextAttemptAt }).from(outboxJobs)
       .where(and(eq(outboxJobs.tenantId,eligibility.tenantId),eq(outboxJobs.kind,"wallet.refresh"),sql`${outboxJobs.payload} ->> 'membershipId' = ${eligibility.membershipId}`,inArray(outboxJobs.status,["pending","processing","retry","blocked","failed"])))
       .orderBy(desc(outboxJobs.createdAt));

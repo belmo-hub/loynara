@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { walletPasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletCardSnapshot } from "./data";
-import { PassFastClient, PassFastError, assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidData, PASSFAST_OPERATION_MS } from "./passfast";
+import { passFastEnv } from "./template-bindings";
+import { PassFastClient, PassFastError, assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastData, passFastSerial, passFastVoidPayload, PASSFAST_OPERATION_MS } from "./passfast";
 
 /** Same pass lock for initial creation and every refresh. Never take a member lock here (lifecycle takes member -> pass).
  * Pending identity and recovery job committed before any provider request. On a lost response we look up the same serial,
@@ -20,7 +21,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
     if (!candidate || !isPassFastObjectId(candidate.providerObjectId)) throw new DomainError("NOT_FOUND", "Card not found");
     const candidateSnapshot = await walletCardSnapshot(candidate.membershipId, tx);
     const candidateBrand = candidateSnapshot.open ? candidateSnapshot.pass : candidateSnapshot.brand;
-    const candidateConfig = passFastConfig(process.env, candidate.tenantId, candidateBrand.locationId);
+    const candidateConfig = passFastConfig(await passFastEnv(candidate.tenantId, candidateBrand.locationId, tx), candidate.tenantId, candidateBrand.locationId);
     if (candidateBrand.tenantId !== candidate.tenantId || !candidateConfig.platforms.includes(candidate.provider as "apple" | "google")) throw new PassFastError();
     assertPassFastBinding(candidate.providerObjectId, candidateConfig);
     await tx.update(walletPasses).set({ status: "creating" }).where(and(eq(walletPasses.id, passId),
@@ -36,7 +37,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
     if (row.status === "revoked") return {};
     const snapshot = await walletCardSnapshot(row.membershipId, tx);
     const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-    const config = passFastConfig(process.env, row.tenantId, brand.locationId);
+    const config = passFastConfig(await passFastEnv(row.tenantId, brand.locationId, tx), row.tenantId, brand.locationId);
     if (brand.tenantId !== row.tenantId || !config.platforms.includes(row.provider as "apple" | "google")) throw new PassFastError();
     assertPassFastBinding(row.providerObjectId, config);
     const client = deps.client ?? new PassFastClient(config, fetch, deadline);
@@ -52,8 +53,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
       if (!existing) throw new PassFastError(404);
       if (existing.status === "active") {
         const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-        await client.update(serial, row.provider as "apple" | "google", { merchantName: brand.merchantName, programName: brand.programName,
-          locationName: brand.locationName, locale: brand.locale, programType: brand.programType ?? "stamp", ...passFastVoidData });
+        await client.update(serial, row.provider as "apple" | "google", passFastVoidPayload(brand));
       }
       await client.void(serial, row.provider as "apple" | "google");
       await tx.update(walletPasses).set({ status: "revoked", revokedAt: row.revokedAt ?? new Date(), revokeReason: row.revokeReason ?? (snapshot.open ? "superseded" : "closed"), syncedAt: new Date() }).where(eq(walletPasses.id, row.id));

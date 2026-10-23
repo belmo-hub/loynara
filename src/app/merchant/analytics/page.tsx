@@ -21,7 +21,7 @@ export default function MerchantAnalyticsPage() {
   const [lapseDays, setLapseDays] = useState<RetentionDays>(30);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? `/api/merchant/retention?days=${lapseDays}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Ergebnisse" title="Auswertung" lead="Neue Karten, bestätigte Kassenvorgänge und Prämien im gewählten Zeitraum." />;
+  const head = <PageHead eyebrow="Ergebnisse" title="Auswertung" lead="Neue Karten, bestätigte Buchungen und Prämien im gewählten Zeitraum." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Auswertung sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   const maxSeries = Math.max(1, ...(r?.series.map(bucket => Math.max(bucket.newCards, bucket.checkouts)) ?? []));
@@ -33,44 +33,44 @@ export default function MerchantAnalyticsPage() {
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Kassenvorgänge</h2>
+        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Buchungen</h2>
           <div className="ow-metrics">
-            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Aktuell nicht geschlossene Karten." />
+            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Alle Karten, die nicht geschlossen sind" />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
-            <Metric label="Bestätigte Kassenvorgänge" value={r.qualifyingCheckouts} note="Vom Team bestätigte Vergaben, ohne vollständig rückgängig gemachte." />
-            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Kassenvorgänge.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
+            <Metric label="Bestätigte Buchungen" value={r.qualifyingCheckouts} note="Vom Team bestätigte Vergaben, ohne vollständig rückgängig gemachte." />
+            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Buchungen.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
           </div>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-locations">
-          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Gutschrift-Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
+          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
           {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
-            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
-          <p className="ow-hint">Aktuelle Standortnamen. Mehrere Buchungen können zu einem Kassenvorgang gehören. Keine Umsatzkennzahl.</p>
+          <p className="ow-hint">Aktuelle Standortnamen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
-          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Gutschrift-Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
-          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Gutschriften in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
-            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Gutschrift-Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
+          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Buchungen in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
+            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
-          <p className="ow-hint">Mehrere Buchungen können zu einem Kassenvorgang gehören. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
+          <p className="ow-hint">Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-ret">
-          <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Kassenvorgänge sind erfasst?</p></div>
+          <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Buchungen sind erfasst?</p></div>
             <div className="ow-field"><label htmlFor="an-lapse" className="ow-sr">Als weggeblieben gilt nach</label><select id="an-lapse" className="ow-select" value={lapseDays} onChange={event => setLapseDays(Number(event.target.value) as RetentionDays)}>{([14, 30, 60, 90] as const).map(days => <option key={days} value={days}>Weg nach {days} Tagen</option>)}</select></div></div>
           {retention.state === "error" && <ErrorNotice message={retention.message} onRetry={reloadRetention} />}
           {retention.state === "loading" && <LoadingBlock rows={1} height={64} />}
           {retention.state === "ok" && <>
             <CardBase summary={retention.data} />
             <div className="ow-metrics">
-              <RetentionMetric label="Länger nicht da" value={retention.data.drifting} note={`Früher bestätigte Kassenvorgänge, seit ${retention.data.inactiveDays}+ Tagen keiner mehr. Vor einer Woche: ${retention.data.driftingWeekAgo}.`} href={retentionCustomerHref(retention.data, "drifting")} />
+              <RetentionMetric label="Länger nicht da" value={retention.data.drifting} note={`Früher bestätigte Buchungen, seit ${retention.data.inactiveDays}+ Tagen keine mehr. Vor einer Woche: ${retention.data.driftingWeekAgo}.`} href={retentionCustomerHref(retention.data, "drifting")} />
               <RetentionMetric label="Prämie jetzt einlösbar" value={retention.data.rewardReady} note="Ein Anlass, die Prämie beim nächsten Besuch anzubieten." href={retentionCustomerHref(retention.data, "reward_ready")} />
               <RetentionMetric label="Kurz vor der Prämie" value={retention.data.nearReward} note="Höchstens ein Viertel fehlt bis zur günstigsten Prämie, auf ganze Einheiten aufgerundet." href={retentionCustomerHref(retention.data, "near_reward")} />
               <RetentionMetric label="Noch nie an der Kasse" value={retention.data.never} note={`${retention.data.neverAfterWeek} davon seit über einer Woche angemeldet.`} href={retentionCustomerHref(retention.data, "never")} />
             </div>
           </>}
         </section>
-        <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }} aria-label="Prämien und Gutschriften">
+        <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }} aria-label="Prämien und Buchungen">
           <section className="ow-card ow-stack"><h2>Vergebene Einheiten</h2>
             <dl className="ow-dl">{(me.programType === "stamp" || r.issued.stampUnits > 0) && <><dt>Stempel</dt><dd className="ow-num">{r.issued.stampUnits}</dd></>}{(me.programType === "points" || r.issued.pointUnits > 0) && <><dt>Punkte</dt><dd className="ow-num">{r.issued.pointUnits}</dd></>}<dt>Buchungen</dt><dd className="ow-num">{r.issued.awardActions}</dd></dl></section>
           <section className="ow-card ow-stack"><h2>Einlösungen</h2><strong className="ow-metric-value">{r.rewards.redemptions}</strong>
@@ -83,17 +83,17 @@ export default function MerchantAnalyticsPage() {
 </section>
         )}
         {r.series.some(bucket => bucket.newCards + bucket.checkouts > 0) && (
-        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Neue Karten und bestätigte Kassenvorgänge je Woche.</p></div>
+        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Neue Karten und bestätigte Buchungen je Woche.</p></div>
           <div className="ow-trend">{r.series.map(bucket => <div className="ow-trend-row" key={bucket.from}><span className="ow-num">{date(bucket.from)}–{date(bucket.to)}</span>
             <div><div className="ow-bar"><span style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} {bucket.newCards === 1 ? "Karte" : "Karten"}</small></div>
-            <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} {bucket.checkouts === 1 ? "Kassenvorgang" : "Kassenvorgänge"}</small></div></div>)}</div></section>
+            <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} {bucket.checkouts === 1 ? "Buchung" : "Buchungen"}</small></div></div>)}</div></section>
         )}
         {r.campaignAttempts.total > 0 && (
         <section className="ow-card ow-stack" aria-labelledby="an-camp"><h2 id="an-camp">Kampagnenversuche</h2>
           <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
           <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
         )}
-        <details className="ow-muted"><summary>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} Die Zahlen zeigen bestätigte Kassenvorgänge, nicht alle Besuche, und sagen nichts über Umsatz.</p></details>
+        <details className="ow-muted"><summary>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} Die Zahlen zeigen bestätigte Buchungen, nicht alle Besuche, und sagen nichts über Umsatz.</p></details>
       </>}
     </div>
   );

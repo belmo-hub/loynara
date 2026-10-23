@@ -8,6 +8,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 import { useOwner } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
+import { ProgrammeEndedPage } from "./programme-ended-page";
 
 function GuardedLink({ href, children, ...rest }: { href: string; children: ReactNode } & Omit<React.ComponentProps<typeof Link>, "href">) {
   const router = useRouter();
@@ -34,6 +35,20 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const side = useRef<HTMLElement>(null);
   const restoreMenuFocus = useRef(false);
+  const subnav = useRef<HTMLDivElement>(null);
+
+  // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
+  useEffect(() => {
+    const row = subnav.current;
+    if (!row) return;
+    const edges = () => { row.dataset.start = String(row.scrollLeft > 1); row.dataset.end = String(row.scrollLeft + row.clientWidth < row.scrollWidth - 1); };
+    const active = row.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active) row.scrollLeft = active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2;
+    edges();
+    row.addEventListener("scroll", edges, { passive: true });
+    window.addEventListener("resize", edges);
+    return () => { row.removeEventListener("scroll", edges); window.removeEventListener("resize", edges); };
+  }, [pathname, owner.me]);
 
   useEffect(() => {
     if (!open) {
@@ -52,6 +67,10 @@ export function OwnerShell({ children }: { children: ReactNode }) {
 
   if (owner.status === "unprovisioned") {
     return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
+  }
+  if (owner.status === "ended" && owner.ended) {
+    // Nothing else is offered: no navigation and no settings that could change the programme.
+    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main"><ProgrammeEndedPage info={owner.ended} /></main></div>;
   }
   if (owner.status === "error") {
     return <div className="ow-page" style={{ maxWidth: 560, paddingTop: 96 }} role="alert"><div className="ow-card ow-stack"><h1 style={{ fontSize: "var(--text-22)" }}>Dein Bereich ist nicht erreichbar</h1><p className="ow-muted">{owner.error}</p><div><button type="button" className="ow-btn ow-btn--primary" onClick={owner.reload}>Erneut versuchen</button></div><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div></div>;
@@ -91,7 +110,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         </div>
         {subItems.length > 1 && (
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>
-            <div className="ow-subnav-inner">
+            <div ref={subnav} className="ow-subnav-inner">
               {subItems.map(item => {
                 const current = item.exactMatch ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return <GuardedLink key={item.href} href={item.href} aria-current={current ? "page" : undefined}>{item.label}</GuardedLink>;

@@ -204,6 +204,83 @@
       "when": 1792526203420,
       "tag": "0028_card_extras",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792609369809,
+      "tag": "0029_happy_hour",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792612730182,
+      "tag": "0030_programme_cancellation",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792622149245,
+      "tag": "0031_wallet_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792624591805,
+      "tag": "0032_programme_cancellation_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792624651805,
+      "tag": "0033_winback",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792624711805,
+      "tag": "0034_birthday",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792624771805,
+      "tag": "0035_wallet_template_bindings",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792624831805,
+      "tag": "0036_owner_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792624891805,
+      "tag": "0037_points_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792624951805,
+      "tag": "0038_challenges_and_levels",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792625011805,
+      "tag": "0039_stripe_billing",
+      "breakpoints": true
     }
   ]
 }

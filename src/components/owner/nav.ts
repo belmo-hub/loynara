@@ -23,9 +23,10 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "Kundenkarten", href: "/merchant/customers", roles: BOTH },
     { label: "Zielgruppen", href: "/merchant/audiences", roles: BOTH, surface: "audiences" },
   ] },
-  { id: "actions", label: "Aktionen", trimmedLabel: "Auswertung", icon: "megaphone", roles: OWNER, prefixes: ["/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser"], items: [
+  { id: "actions", label: "Aktionen", trimmedLabel: "Auswertung", icon: "megaphone", roles: OWNER, prefixes: ["/merchant/campaigns", "/merchant/automations", "/merchant/wallet-messages", "/merchant/analytics", "/merchant/adviser"], items: [
     { label: "Kampagnen", href: "/merchant/campaigns", roles: OWNER, surface: "campaigns" },
     { label: "Automationen", href: "/merchant/automations", roles: OWNER, surface: "automations" },
+    { label: "Nachricht senden", href: "/merchant/wallet-messages", roles: OWNER, surface: "walletMessages" },
     { label: "Ergebnisse", href: "/merchant/analytics", roles: OWNER },
     { label: "Beratung", href: "/merchant/adviser", roles: OWNER },
   ] },

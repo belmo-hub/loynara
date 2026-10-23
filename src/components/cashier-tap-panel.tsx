@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
 import { apiJson, ClientApiError } from "./client-api";
@@ -40,13 +41,15 @@ type Outcome = { tone: "success" | "neutral" | "error"; text: string };
 const POLL_MS = 2000;
 const CLOCK_TICK_MS = 1000;
 const REQUEST_TIMEOUT_MS = 8000;
+/** How long a confirmed request stays on screen with its tick before it leaves the list. */
+const DONE_MS = 900;
 /** Dispatched on window by the page when a push arrives or the page becomes visible again (contract 7). */
 export const TAP_REFRESH_EVENT = "loynara:tap-refresh";
 
 const STRINGS: Record<TapPanelLocale, {
   title: string; empty: string; intro: string; offline: string; loadError: string;
   cardLabel: string; balanceLabel: string; ago: (seconds: number) => string; expires: (countdown: string) => string;
-  confirm: string; reject: string; newRequest: string; signedOut: string;
+  confirm: string; done: string; reject: string; newRequest: string; signedOut: string;
   confirmed: (cardLocator: string, balance: string) => string;
   rejected: string; alreadyProcessed: string;
   expired: string; cooldown: string; forbidden: string; notFound: string; rateLimited: string; network: string; failed: string;
@@ -66,6 +69,7 @@ const STRINGS: Record<TapPanelLocale, {
     expires: countdown => `läuft ab in ${countdown}`,
     signedOut: "Du bist nicht mehr angemeldet. Bitte melde dich neu an, um NFC-Anfragen zu sehen.",
     confirm: "Stempel bestätigen",
+    done: "Bestätigt",
     reject: "Ablehnen",
     newRequest: "Neue NFC-Anfrage eingegangen.",
     confirmed: (cardLocator, balance) => `Stempel für ${cardLocator} bestätigt. Neuer Stand: ${balance}.`,
@@ -105,6 +109,7 @@ const STRINGS: Record<TapPanelLocale, {
     expires: countdown => `expire dans ${countdown}`,
     signedOut: "Vous n’êtes plus connecté(e). Reconnectez-vous pour voir les demandes NFC.",
     confirm: "Confirmer le tampon",
+    done: "Confirmé",
     reject: "Refuser",
     newRequest: "Nouvelle demande NFC reçue.",
     confirmed: (cardLocator, balance) => `Tampon confirmé pour ${cardLocator}. Nouveau solde : ${balance}.`,
@@ -230,6 +235,8 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   // Points requests: what the cashier typed per request, and the one under review before it is booked.
   const [entries, setEntries] = useState<Record<string, string>>({});
   const [review, setReview] = useState<{ item: PendingTapRequest; award: TapAward; points: number } | null>(null);
+  // Requests the server just confirmed: the row stays for DONE_MS with its button swapped to a tick, then leaves.
+  const [done, setDone] = useState<PendingTapRequest[]>([]);
 
   // Only the newest refresh may update the list, so a slow poll cannot bring back a request that was just confirmed.
   const refreshSeq = useRef(0);
@@ -355,7 +362,11 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       const result = await apiJson<{ state: string; balance?: number }>(`/api/cashier/tap/${encodeURIComponent(item.id)}/${action}`, award
         ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(award) } : { method: "POST" });
       if (action === "cancel") setOutcome({ tone: "neutral", text: t.rejected });
-      else if (result.state === "confirmed") setOutcome({ tone: "success", text: (points ? t.confirmedPoints : t.confirmed)(item.cardLocator, typeof result.balance === "number" ? String(result.balance) : "–") });
+      else if (result.state === "confirmed") {
+        setDone(current => [...current, item]);
+        setTimeout(() => setDone(current => current.filter(entry => entry.id !== item.id)), DONE_MS);
+        setOutcome({ tone: "success", text: (points ? t.confirmedPoints : t.confirmed)(item.cardLocator, typeof result.balance === "number" ? String(result.balance) : "–") });
+      }
       else setOutcome({ tone: "neutral", text: t.alreadyProcessed });
     } catch (error) {
       const alreadyDone = error instanceof ClientApiError && (error.code === "TAP_ALREADY_CONFIRMED" || error.code === "KEY_REUSED");
@@ -369,6 +380,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
 
   const open = items.filter(item => isOpenRequest(item, now));
   const openCount = open.length;
+  const shown = [...open, ...done.filter(item => !open.some(other => other.id === item.id))];
   const money = (amountMinor: number, currency = "EUR") => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", { style: "currency", currency }).format(amountMinor / 100);
 
   useEffect(() => { onCountRef.current?.(openCount); }, [openCount]);
@@ -383,11 +395,12 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       {offline && <p className={styles.notice} role="status">{t.offline}</p>}
       {!offline && loadFailed && <p className={styles.notice} role="status">{t.loadError}</p>}
       {signedOut && <p className={styles.notice} role="alert">{signedOut === "signedOut" ? t.signedOut : t.forbidden}</p>}
-      {openCount > 0 && <>
+      {shown.length > 0 && <>
         <p className={styles.intro}>{open.some(item => item.programType === "points") ? t.introPoints : t.intro}</p>
         <ul className={styles.list}>
-          {open.map(item => {
-            const busy = busyIds.has(item.id);
+          {shown.map(item => {
+            const confirmed = done.some(entry => entry.id === item.id);
+            const busy = busyIds.has(item.id) || confirmed;
             const purchase = item.earningMode === "purchase";
             const entry = item.programType === "points" ? pointsEntry(item, entries[item.id] ?? "") : null;
             return <li key={item.id} className={styles.item}>
@@ -405,9 +418,9 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
                 placeholder={purchase ? "16,70" : "10"} value={entries[item.id] ?? ""} disabled={busy} onChange={event => { const value = event.target.value; setEntries(current => ({ ...current, [item.id]: value })); }} />}
               <div className={styles.actions}>
                 {item.programType === "points"
-                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} disabled={busy || !entry} onClick={() => { if (entry) setReview({ item, ...entry }); }}>{t.review(entry?.points)}</button>
-                  : <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} disabled={busy} onClick={() => void act(item, "confirm")}>{t.confirm}</button>}
-                <button type="button" className={`${buttonClassName({ variant: "secondary" })} ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>
+                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (entry) setReview({ item, ...entry }); }}>{confirmed ? <Done label={t.done} /> : t.review(entry?.points)}</button>
+                  : <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy} onClick={() => void act(item, "confirm")}>{confirmed ? <Done label={t.done} /> : t.confirm}</button>}
+                {!confirmed && <button type="button" className={`${buttonClassName({ variant: "secondary" })} ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>}
               </div>
             </li>;
           })}
@@ -423,4 +436,9 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
     </section>
   );
+}
+
+/** The confirm button's label after the server confirmed: a tick that draws in, swapped in place of the action. */
+function Done({ label }: { label: string }) {
+  return <span className={styles.done}><Check size={20} aria-hidden="true" />{label}</span>;
 }

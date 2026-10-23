@@ -7,6 +7,8 @@ import { JoinCard } from "@/components/owner/join-card";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { cancellationEnd, germanDate, MIN_NOTICE_DAYS } from "@/lib/programme-end-date";
+
 
 export default function MerchantSettingsPage() {
   const { me, locations, hiddenSurfaces } = useOwner();
@@ -31,6 +33,7 @@ export default function MerchantSettingsPage() {
         </section>
         <JoinCard me={me} exportUrl="/api/merchant/export" />
         <WeeklyReport />
+        {!hiddenSurfaces.includes("cancellation") && <Cancellation />}
       </div>
     </div>
   );
@@ -54,7 +57,59 @@ function WeeklyReport() {
       <h2 id="ow-weekly-title">Wochenbericht</h2>
       <p>Jeden Montag um 7 Uhr eine E-Mail mit Besuchen, neuen Kunden, Stammkunden, zurückgewonnenen Kunden und eingelösten Prämien der Vorwoche.</p>
       {setting.state === "error" ? <ErrorNotice message={setting.message} onRetry={reload} />
-        : <label className="ow-check"><input type="checkbox" checked={enabled ?? false} disabled={enabled === null || saving} onChange={event => change(event.target.checked)} /> Wochenbericht per E-Mail senden</label>}
+        : <label className="ow-check"><input type="checkbox" role="switch" checked={enabled ?? false} disabled={enabled === null || saving} onChange={event => change(event.target.checked)} /> Wochenbericht per E-Mail senden</label>}
+      {error && <Notice tone="danger">{error}</Notice>}
+    </section>
+  );
+}
+
+// Cancelling records an end date only; nothing is sent to customers and nothing is deleted. Redemptions work until then.
+function Cancellation() {
+  const { me, refresh } = useOwner();
+  const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  if (!me) return null;
+  const endDate = me.cancellationEndDate ?? null;
+  const confirmed = me.cancellationConfirmed === true;
+  const planned = cancellationEnd(new Date());
+  const text = endDate ? `Unsere Punktekarte endet am ${germanDate(endDate)}. Löse deine Punkte bis dahin ein.` : "";
+  async function send(withdraw: boolean) {
+    if (!me) return;
+    setSaving(true); setError("");
+    try { await postJson("/api/merchant/program/cancel", { programSlug: me.programSlug, withdraw }); setConfirming(false); await refresh(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Speichern fehlgeschlagen."); }
+    finally { setSaving(false); }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setError("Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell."); }
+  }
+  return (
+    <section className="ow-card ow-stack" aria-labelledby="ow-cancel-title">
+      <h2 id="ow-cancel-title">Programm beenden</h2>
+      {endDate ? <>
+        {confirmed
+          ? <Notice tone="warn">Dein Programm endet am {germanDate(endDate)}. Bis dahin läuft alles normal, auch das Einlösen von Prämien.</Notice>
+          : <Notice tone="warn">Voraussichtlich bis zum {germanDate(endDate)}. Laut Pilotvereinbarung endet der Vertrag mit {MIN_NOTICE_DAYS} Tagen Frist zum Ende eines Abrechnungsmonats. Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal.</Notice>}
+        {confirmed && <>
+          <p>Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
+          <div className="ow-field"><label htmlFor="ow-cancel-text" className="ow-sr">Text für deine Kunden</label><textarea id="ow-cancel-text" className="ow-input" readOnly rows={2} value={text} onFocus={event => event.currentTarget.select()} /></div>
+        </>}
+        <div className="ow-row">
+          {confirmed && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button>}
+          <button type="button" className="ow-btn ow-btn--ghost" disabled={saving} onClick={() => void send(true)}>Kündigung zurücknehmen</button>
+        </div>
+      </> : <>
+        <p>Bis zum Enddatum läuft alles normal. Deine Kunden können ihre Punkte weiter einlösen, danach nicht mehr. Ihre Stände bleiben gespeichert.</p>
+        <p><strong>Voraussichtlich bis zum {germanDate(planned.endDate)}.</strong> Wir bestätigen dir das genaue Enddatum per E-Mail.{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, rechnen wir mit dem Ende des Folgemonats.` : ""}</p>
+        {confirming
+          ? <div className="ow-row">
+            <button type="button" className="ow-btn ow-btn--danger" disabled={saving} onClick={() => void send(false)}>Ja, Programm beenden</button>
+            <button type="button" className="ow-btn ow-btn--ghost" disabled={saving} onClick={() => setConfirming(false)}>Abbrechen</button>
+          </div>
+          : <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" onClick={() => setConfirming(true)}>Programm beenden</button></div>}
+      </>}
       {error && <Notice tone="danger">{error}</Notice>}
     </section>
   );

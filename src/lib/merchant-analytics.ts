@@ -242,7 +242,7 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
       series,
       staffActivity: staffActivity.rows,
       locationActivity: locationActivity.rows,
-      countingRule: "Ein Kassenvorgang ist eine vom Server bestätigte Gutschrift auf einer Karte, ohne vollständig rückgängig gemachte; ausstehende Offline-Vergaben zählen nicht. Wiederkehrend bedeutet mindestens zwei solche Kassenvorgänge im gewählten Zeitraum. Zurückgewonnen bedeutet ein solcher Kassenvorgang mindestens 21 Tage nach dem vorherigen derselben Karte. Stempel und Punkte werden getrennt gezählt. Empfehlungswerte zählen Beitritt, Bonusqualifikation und Korrektur jeweils nach ihrem eigenen Ereignisdatum.",
+      countingRule: "Eine Buchung zählt, wenn dein Team sie bestätigt hat und sie nicht vollständig korrigiert wurde. Offline gemachte Buchungen zählen erst, wenn sie übertragen sind. Wiederkehrend heißt: mindestens zwei solche Buchungen im gewählten Zeitraum. Zurückgewonnen heißt: eine Buchung mindestens 21 Tage nach der vorherigen derselben Karte. Stempel und Punkte zählen getrennt. Bei Empfehlungen zählt jeder Schritt (Anmeldung, Bonus, Korrektur) an seinem eigenen Tag.",
       limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
     };
 }

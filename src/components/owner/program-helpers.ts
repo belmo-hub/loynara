@@ -38,7 +38,7 @@ export function minimumSpendMinor(cost: number, rate: number): number | null {
 }
 
 export const MIN_SPEND_LABEL = "Nur reguläres Sammeln; zusätzliche Boni nicht berücksichtigt.";
-export const NO_MIN_SPEND_LABEL = "Kein Mindestumsatz ableitbar";
+export const NO_MIN_SPEND_LABEL = "Mindestumsatz offen: kein €-Wert pro Punkt";
 
 export type ExampleResult = { ok: true; amountMinor: number; points: number } | { ok: false; message: string };
 /** Worked example through the same functions the server uses. German decimal input ("12,90") is accepted. */

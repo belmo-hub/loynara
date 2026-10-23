@@ -30,12 +30,12 @@ test("synthetic merchant adviser changes after a confirmed checkout", async ({ b
       await page.goto("/merchant/adviser");
       await expect(page.getByRole("heading", { name: "Beratung", exact: true })).toBeVisible();
       await expect(page.getByText("Nach festen Regeln", { exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Ersten Kassenvorgang prüfen" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Erste Buchung testen" })).toBeVisible();
       expect((await owner.get("/api/merchant/adviser?window=30")).status()).toBe(200);
       const award = await owner.post("/api/cashier/award", { data: { membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() } });
       expect(award.status()).toBe(200);
       await page.reload();
-      await expect(page.getByRole("heading", { name: "Ersten Kassenvorgang prüfen" })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Erste Buchung testen" })).toHaveCount(0);
       await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
       await page.screenshot({ path: "screenshots/platform-after-adviser.png", fullPage: true });
     } finally { await ownerBrowser.close(); }

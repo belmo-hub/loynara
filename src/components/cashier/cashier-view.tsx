@@ -2,22 +2,26 @@
 
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
-import { ArrowRight, Check, Clock, Minus, Plus, ScanLine, ShieldAlert, ShieldCheck, WifiOff, X } from "lucide-react";
+import { ArrowRight, Check, Clock, Menu, Minus, Plus, ScanLine, ShieldAlert, ShieldCheck, WifiOff, X } from "lucide-react";
 import type { ProgramType, UiLocale } from "@/components/loyalty-ui";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
 import { cx } from "@/components/ui/cx";
 import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
+import { Sheet } from "@/components/ui/sheet";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
+import { birthdayCashierLine, WINBACK_EXCLUSIONS, winbackCashierLine } from "@/lib/wallet-message-rules";
 import styles from "./cashier-view.module.css";
 
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
 export type CashierAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
-export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[] };
+export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: win-back (ENG-044), birthday (ENG-049); 0 = none. */ winbackBonus?: number; birthdayBonus?: number; level?: { name: string; perk?: string } };
 export type CashierViewProps = {
   locationName: string;
   card?: CashierCard | null;
@@ -73,6 +77,8 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
   const [quantity, setQuantity] = useState(1);
   const maxQuantity = quantityPickerMax(role);
   const [purchaseAmount, setPurchaseAmount] = useState("");
+  // Points shops: the amount is typed in a bottom sheet, next to the keyboard and the thumb.
+  const [amountOpen, setAmountOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ kind: "award"; award: CashierAward } | { kind: "redeem"; reward: CashierReward } | null>(null);
   // Each card (and each booking) starts from a clean form. Reset during render instead of remounting the view, which
   // would also restart the counter camera.
@@ -80,13 +86,13 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
   const [seenFormKey, setSeenFormKey] = useState(formKey);
   if (seenFormKey !== formKey) {
     setSeenFormKey(formKey);
-    setQuantity(1); setPurchaseAmount(""); setConfirm(null);
+    setQuantity(1); setPurchaseAmount(""); setConfirm(null); setAmountOpen(false);
     if (card || preview) setCode("");
   }
   const t = locale === "fr" ? {
-    overview: "Vue d’ensemble", found: "Carte trouvée.", scanTitle: "Scanner la carte. Puis décider.", foundIntro: "Vérifiez le solde et confirmez chaque opération.", scanIntro: "Le scan identifie seulement la carte. Aucune opération n’est enregistrée automatiquement.", success: "Enregistré", pending: "En attente", offline: "Hors connexion", rejected: "Impossible", ready: "Prêt pour la prochaine carte", scanHelp: "Présentez le QR code à la caméra ou saisissez le numéro de la carte.", camera: "Ouvrir la caméra", manual: "Numéro ou code de la carte", check: "Vérifier", cameraFallback: "Caméra indisponible ? Le numéro de carte fonctionne aussi sans caméra.", verified: "Carte vérifiée", other: "Autre carte", balance: "Solde actuel", stamps: "tampons", points: "points", awardHint: "Un tampon s’ajoute d’un seul geste. Pour davantage, augmentez la quantité ; vous confirmerez ensuite.", decrease: "Diminuer la quantité", increase: "Augmenter la quantité", reviewAward: "Vérifier l’ajout", redeem: "Utiliser une récompense", review: "Vérifier →", unavailable: "Indisponible", noRewards: "Aucune récompense n’est configurée pour cette carte.", footnote: "Une connexion est nécessaire pour utiliser une récompense. Le serveur confirme les opérations.", confirmAward: "Confirmer l’ajout ?", confirmRedeem: "Confirmer la récompense ?", bookFor: "à ajouter à la carte", redeemFor: "à utiliser sur la carte", cancel: "Annuler", yesAward: "Oui, ajouter", yesRedeem: "Oui, utiliser", working: "Un instant …", cardOpen: "Carte ouverte", cardCheck: "Vérifier la carte", cardFound: "Carte trouvée",
+    overview: "Vue d’ensemble", menu: "Menu : langue et déconnexion", found: "Carte trouvée.", scanTitle: "Scanner la carte. Puis décider.", foundIntro: "Vérifiez le solde et confirmez chaque opération.", scanIntro: "Le scan identifie seulement la carte. Aucune opération n’est enregistrée automatiquement.", success: "Enregistré", pending: "En attente", offline: "Hors connexion", rejected: "Impossible", ready: "Prêt pour la prochaine carte", scanHelp: "Présentez le QR code à la caméra ou saisissez le numéro de la carte.", camera: "Ouvrir la caméra", manual: "Numéro ou code de la carte", check: "Vérifier", cameraFallback: "Caméra indisponible ? Le numéro de carte fonctionne aussi sans caméra.", verified: "Carte vérifiée", other: "Autre carte", balance: "Solde actuel", stamps: "tampons", points: "points", awardHint: "Un tampon s’ajoute d’un seul geste. Pour davantage, augmentez la quantité ; vous confirmerez ensuite.", decrease: "Diminuer la quantité", increase: "Augmenter la quantité", reviewAward: "Vérifier l’ajout", enterAmount: "Saisir le montant", redeem: "Utiliser une récompense", review: "Vérifier →", unavailable: "Indisponible", noRewards: "Aucune récompense n’est configurée pour cette carte.", footnote: "Une connexion est nécessaire pour utiliser une récompense. Le serveur confirme les opérations.", confirmAward: "Confirmer l’ajout ?", confirmRedeem: "Confirmer la récompense ?", bookFor: "à ajouter à la carte", redeemFor: "à utiliser sur la carte", cancel: "Annuler", yesAward: "Oui, ajouter", yesRedeem: "Oui, utiliser", working: "Un instant …", cardOpen: "Carte ouverte", cardCheck: "Vérifier la carte", cardFound: "Carte trouvée",
   } : {
-    overview: "Zur Übersicht", found: "Karte gefunden.", scanTitle: "Karte scannen. Dann entscheiden.", foundIntro: "Prüfe den Kontostand und bestätige jeden Vorgang bewusst.", scanIntro: "Ein Scan identifiziert nur die Karte. Es wird nichts automatisch gebucht.", success: "Gebucht", pending: "Ausstehend", offline: "Keine Verbindung", rejected: "Nicht möglich", ready: "Bereit für die nächste Karte", scanHelp: "Halte den QR-Code in die Kamera oder gib die Kartennummer ein.", camera: "Kamera öffnen", manual: "Kartennummer oder Kartencode", check: "Prüfen", cameraFallback: "Kamera nicht verfügbar? Die Kartennummer funktioniert auch ohne Kamerafreigabe.", verified: "Geprüfte Karte", other: "Andere Karte", balance: "Aktueller Kontostand", stamps: "Stempel", points: "Punkte", awardHint: "Ein Stempel wird mit einem Tippen gebucht. Für mehr die Menge erhöhen; das bestätigst du dann.", decrease: "Menge verringern", increase: "Menge erhöhen", reviewAward: "Vergabe prüfen", redeem: "Prämie einlösen", review: "Prüfen →", unavailable: "Nicht verfügbar", noRewards: "Für diese Karte ist keine Prämie eingerichtet.", footnote: "Einlösungen brauchen eine Verbindung. Buchungen werden vom Server bestätigt.", confirmAward: "Vergabe bestätigen?", confirmRedeem: "Einlösung bestätigen?", bookFor: "für Karte", redeemFor: "auf Karte", cancel: "Abbrechen", yesAward: "Ja, vergeben", yesRedeem: "Ja, einlösen", working: "Einen Moment …", cardOpen: "Karte offen", cardCheck: "Karte prüfen", cardFound: "Karte gefunden",
+    overview: "Zur Übersicht", menu: "Menü: Sprache und Abmelden", found: "Karte gefunden.", scanTitle: "Karte scannen. Dann entscheiden.", foundIntro: "Prüfe den Kontostand und bestätige jeden Vorgang bewusst.", scanIntro: "Ein Scan identifiziert nur die Karte. Es wird nichts automatisch gebucht.", success: "Gebucht", pending: "Ausstehend", offline: "Keine Verbindung", rejected: "Nicht möglich", ready: "Bereit für die nächste Karte", scanHelp: "Halte den QR-Code in die Kamera oder gib die Kartennummer ein.", camera: "Kamera öffnen", manual: "Kartennummer oder Kartencode", check: "Prüfen", cameraFallback: "Kamera nicht verfügbar? Die Kartennummer funktioniert auch ohne Kamerafreigabe.", verified: "Geprüfte Karte", other: "Andere Karte", balance: "Aktueller Kontostand", stamps: "Stempel", points: "Punkte", awardHint: "Ein Stempel wird mit einem Tippen gebucht. Für mehr die Menge erhöhen; das bestätigst du dann.", decrease: "Menge verringern", increase: "Menge erhöhen", reviewAward: "Vergabe prüfen", enterAmount: "Kaufbetrag eingeben", redeem: "Prämie einlösen", review: "Prüfen →", unavailable: "Nicht verfügbar", noRewards: "Für diese Karte ist keine Prämie eingerichtet.", footnote: "Einlösungen brauchen eine Verbindung. Buchungen werden vom Server bestätigt.", confirmAward: "Vergabe bestätigen?", confirmRedeem: "Einlösung bestätigen?", bookFor: "für Karte", redeemFor: "auf Karte", cancel: "Abbrechen", yesAward: "Ja, vergeben", yesRedeem: "Ja, einlösen", working: "Einen Moment …", cardOpen: "Karte offen", cardCheck: "Karte prüfen", cardFound: "Karte gefunden",
   };
   const unit = card?.programType === "points" ? t.points : t.stamps;
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
@@ -106,9 +112,12 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
-  const awardLabel = awardCount === 1 && !offlineChoice
-    ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
-    : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
+  const winback = card?.winbackBonus ?? 0, birthday = card?.birthdayBonus ?? 0;
+  const awardLabel = winback + birthday > 0
+    ? `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} + ${winback + birthday} ${locale === "fr" ? "en plus" : "extra"}`
+    : awardCount === 1 && !offlineChoice
+      ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
+      : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
   function awardQuantity(selected: CashierCard) {
     const award = { quantity: awardCount };
     if (awardCount === 1 && !offlineChoice) onAward(selected, award);
@@ -124,21 +133,26 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
     : status === "rejected" ? t.rejected : status === "offline" ? t.offline : status === "pending" ? t.pending : busy ? t.working
       : card ? t.cardOpen : preview ? t.cardCheck : t.ready;
   const stateDetail = booked || status === "rejected" || status === "offline" ? undefined : card?.cardLocator ?? preview?.cardLocator;
+  // Status and "Kamera öffnen" come first; language, overview and sign-out wait behind one menu button.
   const headerActions = <div className={styles.headerActions}>
+    <button type="button" className={styles.menuButton} popoverTarget="cashier-menu" aria-label={t.menu}><Menu size={22} aria-hidden="true" /></button>
+    <div id="cashier-menu" popover="auto" className={styles.menu}>
     {onLocaleChange && <select className={styles.locale} aria-label={locale === "fr" ? "Langue" : "Sprache"} value={locale} onChange={event => onLocaleChange(event.target.value as UiLocale)}>
       <option value="de">DE</option>
       <option value="fr">FR</option>
     </select>}
     {showOverview && <Link href="/merchant" className={buttonClassName({ variant: "quiet", size: "sm" })}>{t.overview}</Link>}
     {logoutControl}
+    </div>
   </div>;
 
   // Progress towards the cheapest reward; long programmes (more than STAMP_GRID_MAX stamps) show the number only.
   const cheapest = card && card.programType !== "points" && card.rewards.length ? Math.min(...card.rewards.map(reward => reward.cost)) : 0;
   const stampGoal = cheapest > 0 && cheapest <= STAMP_GRID_MAX ? cheapest : 0;
   const dock = card ? purchaseMode
-    ? <Button variant="go" size="xl" block icon={<ArrowRight size={20} />} disabled={busy || !purchasePreview}
-      onClick={() => { if (purchasePreview) setConfirm({ kind: "award", award: { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } }); }}>{t.reviewAward}</Button>
+    ? <Button variant="go" size="xl" block icon={<ArrowRight size={20} />} disabled={busy}
+      // Opened and focused inside the tap, so phones raise the number keyboard at once.
+      onClick={() => { flushSync(() => setAmountOpen(true)); document.getElementById("purchase-amount")?.focus(); }}>{t.enterAmount}</Button>
     : <>
       <div className={cx("quantity-row", styles.stepper)}>
         <Button variant="secondary" size="lg" className={styles.step} aria-label={t.decrease} onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1 || busy}><Minus size={22} aria-hidden="true" /></Button>
@@ -197,23 +211,34 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
         <Button variant="quiet" size="sm" icon={<X size={18} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button>
       </div>
       {card.matchedBy === "locator" && <p className={styles.note} role="note">{locale === "fr" ? "Ouverte par numéro, sans scan. Utilisez une récompense seulement si la personne présente sa propre carte." : "Per Kartennummer geöffnet, ohne Scan. Prämien nur einlösen, wenn die Person ihre eigene Karte zeigt."}</p>}
+      {winback + birthday > 0 && <p className={styles.winback} role="note">
+        {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${winback} ${unit} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
+        {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${birthday} ${unit} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
+        <small>{WINBACK_EXCLUSIONS}</small></p>}
       <div className={cx("balance-display", styles.balance)}>
         <span>{t.balance}</span>
-        <strong>{number.format(card.balance)} <em>{unit}</em></strong>
+        <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unit}</em></strong>
       </div>
+      {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />
         : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} size="sm" />}
-      {purchaseMode ? <div className={styles.stack}>
-        <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
-          onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
-        <p id="purchase-preview" className={styles.help} aria-live="polite">{purchasePreview
-          ? locale === "fr" ? `${number.format(purchasePreview.points)} point(s) prévus pour cet achat. Le serveur calcule le montant final.` : `${number.format(purchasePreview.points)} Punkte voraussichtlich für diesen Kauf. Der Server berechnet die endgültige Menge.`
-          : purchaseAmount
-            ? locale === "fr" ? "Saisissez un montant positif avec au plus deux décimales. Les achats sans point ne peuvent pas être enregistrés." : "Positiven Kaufbetrag mit höchstens zwei Nachkommastellen eingeben. Käufe ohne Punkt können nicht gebucht werden."
-            : locale === "fr" ? "Saisissez le montant payé; vérifiez les points avant de confirmer." : "Gezahlten Betrag eingeben und Punkte vor der Bestätigung prüfen."}</p>
+      {purchaseMode ? <>
         <p className={styles.help}>{locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}. Les fractions sont arrondies vers le bas. Le serveur confirme le calcul.` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}. Punktbruchteile werden abgerundet. Der Server bestätigt die Berechnung.`}</p>
-      </div> : <p className={styles.help}>{t.awardHint}</p>}
+        <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
+          footer={<Button variant="go" size="xl" block icon={<ArrowRight size={20} />} disabled={busy || !purchasePreview}
+            onClick={() => { if (purchasePreview) { setAmountOpen(false); setConfirm({ kind: "award", award: { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } }); } }}>{t.reviewAward}</Button>}>
+          <div className={styles.stack}>
+            <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
+              onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
+            <p id="purchase-preview" className={styles.help} aria-live="polite">{purchasePreview
+              ? locale === "fr" ? `${number.format(purchasePreview.points)} point(s) prévus pour cet achat. Le serveur calcule le montant final.` : `${number.format(purchasePreview.points)} Punkte voraussichtlich für diesen Kauf. Der Server berechnet die endgültige Menge.`
+              : purchaseAmount
+                ? locale === "fr" ? "Saisissez un montant positif avec au plus deux décimales. Les achats sans point ne peuvent pas être enregistrés." : "Positiven Kaufbetrag mit höchstens zwei Nachkommastellen eingeben. Käufe ohne Punkt können nicht gebucht werden."
+                : locale === "fr" ? "Saisissez le montant payé; vérifiez les points avant de confirmer." : "Gezahlten Betrag eingeben und Punkte vor der Bestätigung prüfen."}</p>
+          </div>
+        </Sheet>
+      </> : <p className={styles.help}>{t.awardHint}</p>}
       <div className={styles.rewards}>
         <h3>{t.redeem}</h3>
         {card.rewards.length ? <div className={cx("reward-action-list", styles.rewardList)}>

@@ -26,7 +26,7 @@ export default function AutomationsPage() {
   const slug = me?.programSlug ?? "";
   const [data, reload] = useLoad<Data>(me?.role === "owner" && slug ? `/api/merchant/automations?programSlug=${encodeURIComponent(slug)}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach dem ersten bestätigten Kassenvorgang, nach einer einstellbaren Inaktivität oder wenn eine Prämie einlösbar ist. Vor dem Versand werden Kontakt, Einwilligung und Versandgrenzen erneut geprüft." />;
+  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;
@@ -40,7 +40,7 @@ export default function AutomationsPage() {
       <div className="ow-two">
         <div className="ow-stack">
           <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
-          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einem früheren bestätigten Kassenvorgang. Ohne neue Aktivität nach der gewählten Frist." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
+          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einer früheren bestätigten Buchung, die länger als die eingestellten Tage keine bestätigte Buchung hatten." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
           <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
@@ -93,7 +93,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cool`}>Mindestabstand in Tagen</label><input id={`${editor.triggerKind}-cool`} className="ow-input" type="number" value={editor.cooldownDays} min={7} max={365} required onChange={event => edit({ cooldownDays: Number(event.target.value) })} /></div>
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cap`}>Tageslimit je Regel</label><input id={`${editor.triggerKind}-cap`} className="ow-input" type="number" value={editor.dailyCap} min={1} max={20} required onChange={event => edit({ dailyCap: Number(event.target.value) })} /></div>
         </div>
-        <label className="ow-check"><input type="checkbox" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
+        <label className="ow-check"><input type="checkbox" role="switch" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
         <SaveBar asSubmit state={shown} onDiscard={() => { setEditor(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Regel gespeichert. Änderungen gelten nur für neue Ausführungen." : undefined} />
       </form>
     </section>

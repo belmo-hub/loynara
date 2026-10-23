@@ -13,6 +13,7 @@ import type { RevokeReason, WalletPassData, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
 import { isPassFastObjectId, passFastStatus, passFastConfig, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
+import { passFastEnv } from "./template-bindings";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
 type PassRow = typeof walletPasses.$inferSelect;
@@ -36,8 +37,9 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
   for (const original of rows) {
     if (isPassFastObjectId(original.providerObjectId)) {
       const brand = snapshot.open ? snapshot.pass : snapshot.brand;
-      if (brand.tenantId !== original.tenantId || !passFastStatus(process.env, original.tenantId, brand.locationId).ready
-        || !passFastConfig(process.env, original.tenantId, brand.locationId).platforms.includes(original.provider as "apple" | "google")) { blocked.push("Wallet provider unavailable"); continue; }
+      const env = await passFastEnv(original.tenantId, brand.locationId);
+      if (brand.tenantId !== original.tenantId || !passFastStatus(env, original.tenantId, brand.locationId).ready
+        || !passFastConfig(env, original.tenantId, brand.locationId).platforms.includes(original.provider as "apple" | "google")) { blocked.push("Wallet provider unavailable"); continue; }
       try { await syncPassFastPass(original.id, { client: deps.passfast, tenantId: original.tenantId, deadline: passFastDeadline }); }
       catch { passFastFailed = true; } // Still retire the other platform; retain this job for bounded retry.
       continue;
@@ -64,7 +66,8 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
           await tx.update(walletPasses).set({ status: "revoked", syncedAt: new Date() }).where(eq(walletPasses.id, row.id));
         } else if (latest.open) {
           await google.upsert(latest.pass, row.id, config);
-          const message = await rewardReadyMessage(tx, row, latest.pass);
+          // Service message („Prämie bereit“): off until Google approves the issuer (GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED); the balance update above always runs.
+          const message = process.env.GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED === "true" ? await rewardReadyMessage(tx, row, latest.pass) : null;
           if (message && await google.addMessageOnce(row.providerObjectId, message, config) === "limited") console.warn("Google Wallet reward message skipped: notification limit reached");
           await tx.update(walletPasses).set({ status: row.status === "pending" ? "created" : row.status, syncedAt: new Date(), updatedAt: new Date() }).where(eq(walletPasses.id, row.id));
         }

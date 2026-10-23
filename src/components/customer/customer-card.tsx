@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
 import { Badge } from "@/components/ui/badge";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
@@ -32,6 +33,14 @@ export type CustomerCardProps = {
   news?: string;
   /** The shop's review link; a plain link, never tied to a reward. */
   reviewUrl?: string;
+  /** End time of the running happy hour; one plain line, absent = none running. */
+  happyHourUntil?: string;
+  /** Points expiry: the rule (shown with the rules from the first visit), each batch's date and the 30-day notice; absent = expiry off. */
+  pointsExpiry?: { rule: string; batches: string[]; notice?: string };
+  /** The shop's monthly challenge and this card's visit days so far; absent = none. */
+  challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
+  /** The card's level and perk; absent = the shop has no levels. */
+  level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
   locale?: "de" | "fr";
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
@@ -55,7 +64,7 @@ export type CustomerCardProps = {
 
 /** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, locale = "de", notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -91,6 +100,22 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {notices}
 
+    {happyHourUntil ? <p className={styles.rules}>{t.happyHour(happyHourUntil)}</p> : null}
+    {pointsExpiry?.notice ? <p className={styles.rules} role="status">{pointsExpiry.notice}</p> : null}
+    {level ? <section className={styles.panel} aria-labelledby="customer-level-title">
+      <h2 id="customer-level-title" className={styles.panelTitle}>{level.name ? `Dein Level: ${level.name}` : "Noch kein Level"}</h2>
+      {level.name && level.until ? <p className={styles.rules}><strong>{level.name} bis {level.until}</strong>, auch ohne weiteren Besuch.</p> : null}
+      {level.perk ? <p className={styles.rules}>Dein Vorteil: {level.perk}</p> : null}
+      <p className={styles.rules}>{level.next ? `Noch ${level.next.visits} ${level.next.visits === 1 ? "Besuch" : "Besuche"} in 90 Tagen bis ${level.next.name}.` : "Höchstes Level erreicht."}</p>
+      <p className={styles.rules}><small>Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum oben sagt, bis wann es sicher gilt.</small></p>
+    </section> : null}
+    {challenge ? <section className={styles.panel} aria-labelledby="customer-challenge-title">
+      <h2 id="customer-challenge-title" className={styles.panelTitle}>Monats-Challenge</h2>
+      <p className={styles.rules}>{challenge.text}</p>
+      <p className={styles.rules}><small>{challenge.conditions}</small></p>
+      <p className={styles.rules}><strong>{challenge.done ? "Geschafft! Der Bonus ist gutgeschrieben." : `${challenge.visits} von ${challenge.target} Besuchen`}</strong></p>
+    </section> : null}
+
     {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
       <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>
       <p className={styles.rules}>{news}</p>
@@ -119,9 +144,11 @@ export function CustomerCard(props: CustomerCardProps) {
       {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
-    {rulesText ? <section className={styles.panel} aria-labelledby="customer-rules-title">
+    {rulesText || pointsExpiry ? <section className={styles.panel} aria-labelledby="customer-rules-title">
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
-      <p className={styles.rules}>{rulesText}</p>
+      {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
+      {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
+      {pointsExpiry?.batches.length ? <><p className={styles.rules}>Deine Punkte verfallen:</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
       <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
     </section> : null}
 
@@ -137,7 +164,7 @@ function Goal({ t, number, programType, remaining, readyCount, nextGoal, several
     {nextGoal ? <p className={styles.goalSub}>{t.nextGoal(number.format(remaining), unitFor(remaining), nextGoal.title)}</p> : null}
   </div>;
   if (!nextGoal) return null;
-  return <div className={styles.goal}><p className={styles.goalLine}>{t.still} <span className={styles.goalNum}>{number.format(remaining)}</span> {t.toGo(unitFor(remaining), several)}</p></div>;
+  return <div className={styles.goal}><p className={styles.goalLine}>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toGo(unitFor(remaining), several)}</p></div>;
 }
 
 function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", t }: CustomerCardProps & { t: Copy }) {

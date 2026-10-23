@@ -2,8 +2,8 @@
    Light values sit on :root. Dark values apply inside .ly-theme-dark (forced) or .ly-theme-auto (follows the system);
    both dark blocks must stay identical (asserted by tokens.test.ts). See DESIGN.md for roles and rules. */
 :root {
-  --color-bg: #F6F3EC;
-  --color-surface: #FCFBF7;
+  --color-bg: #EEF0EF;
+  --color-surface: #FFFFFF;
   --color-raised: #FFFFFF;
   --color-ink: #17291F;
   --color-ink-muted: #58645C;
@@ -25,7 +25,7 @@
   --color-qr-ground: #FFFFFF;
 
   --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-sans);
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --text-12: .75rem;
   --text-14: .875rem;

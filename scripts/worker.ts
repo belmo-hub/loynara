@@ -22,6 +22,10 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 let stopping = false;
 let recoveryPrunedAt = 0;
 let weeklyReportsCheckedAt = 0;
+let programmesEndedAt = 0;
+let winbackCheckedAt = 0;
+let pointsExpiredAt = 0;
+let billingCheckedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -101,6 +105,20 @@ async function processJob(job: Job, claimedAt: number) {
       const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
       const marked = await mark(job, permanent ? "failed" : "retry", "Weekly report failed", permanent ? 0 : delay);
       console.error(`Weekly report job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
+  if (job.kind === "wallet.message") {
+    try {
+      const { deliverWalletMessage } = await import("../src/lib/wallet-messages");
+      const result = await deliverWalletMessage(job);
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
+      return await mark(job, result.status, result.reason);
+    } catch (error) {
+      // Recipients are claimed before the provider is called, so a retry of the job can never send a second time.
+      const permanent = job.attempts >= maxAttempts;
+      const marked = await mark(job, permanent ? "failed" : "retry", "Wallet message failed", permanent ? 0 : Math.min(3600, 30 * 2 ** (job.attempts - 1)));
+      console.error(`Wallet message job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return marked;
     }
   }
@@ -264,6 +282,59 @@ async function main() {
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;
+        }
+      }
+      if (Date.now() - programmesEndedAt >= 60_000) {
+        try {
+          // Idempotent: each programme is ended once, under its row lock, so replicas and retries do no harm.
+          const { endDueProgrammes } = await import("../src/lib/programme-end");
+          await endDueProgrammes();
+          programmesEndedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - winbackCheckedAt >= 5 * 60_000) {
+        try {
+          // Idempotent under the tenant lock: a card gets one reminder per lapse, reward cycle or birthday, so replicas and retries do no harm.
+          const { queueWinbackMessages } = await import("../src/lib/winback");
+          const { queueAlmostMessages } = await import("../src/lib/almost-there");
+          const { queueBirthdayMessages } = await import("../src/lib/birthday");
+          await queueWinbackMessages();
+          await queueAlmostMessages();
+          await queueBirthdayMessages();
+          winbackCheckedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - pointsExpiredAt >= 15 * 60_000) {
+        try {
+          // Idempotent: each card's expiry is booked under its card lock from the ledger itself, so replicas and retries do no harm.
+          const { runPointsExpiry } = await import("../src/lib/points-expiry");
+          await runPointsExpiry();
+          pointsExpiredAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - billingCheckedAt >= 24 * 60 * 60_000) {
+        try {
+          // Daily and idempotent (owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
+          const { runBillingJob } = await import("../src/lib/billing-stripe");
+          const result = await runBillingJob();
+          if (result.quantities) console.log(`Billing: location quantity updated for ${result.quantities} subscription(s)`);
+          if (result.credited) console.log(`Billing: ${result.credited} owed start-guarantee credit(s) issued`);
+          billingCheckedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          // A provider outage must not stop stamping jobs: log a fixed line and retry within the hour.
+          const code = error instanceof Error && "code" in error ? ` ${String(error.code)}` : "";
+          console.error(`Billing job failed (${error instanceof Error ? error.name : "error"}${code}); retrying in an hour`);
+          billingCheckedAt = Date.now() - 23 * 60 * 60_000;
         }
       }
       let processed = 0;

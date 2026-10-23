@@ -31,21 +31,21 @@ export function buildInsights(input: { summary: RetentionSummary; unit: string; 
     actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "reward_ready") }] });
   if (s.drifting > 0) {
     const trend = s.driftingWeekAgo === s.drifting ? "Gleich viele wie vor einer Woche." : s.driftingWeekAgo < s.drifting ? `Vor einer Woche waren es ${nf.format(s.driftingWeekAgo)}.` : `Vor einer Woche waren es noch ${nf.format(s.driftingWeekAgo)}.`;
-    list.push({ id: "drifting", tone: "act", title: `${cards(s.drifting)} seit über ${days} Tagen ohne bestätigten Kassenvorgang`,
-      why: `Diese Karten hatten schon bestätigte Kassenvorgänge, aber keinen in den letzten ${days} Tagen. ${trend} Warum, wissen wir nicht.`,
+    list.push({ id: "drifting", tone: "act", title: `${cards(s.drifting)} seit über ${days} Tagen ohne bestätigte Buchung`,
+      why: `Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten ${days} Tagen. ${trend} Warum, wissen wir nicht.`,
       actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "drifting") }, ...(draft ? [{ label: "Rückhol-Aktion vorbereiten", href: `/merchant/campaigns?goal=winback&days=${days}` }] : [])] });
   }
   if (s.nearReward > 0) {
     const gap = s.nearRewardMaxRemaining;
     list.push({ id: "near-reward", tone: "watch", title: `${cards(s.nearReward)} ${s.nearReward === 1 ? "ist" : "sind"} kurz vor einer Prämie`,
-      why: gap ? `Es fehlen höchstens ${gap} ${unit}. Den aktuellen Prämienstand kann dein Team beim nächsten Kassenvorgang ansprechen.` : "Es fehlt höchstens ein Viertel bis zur günstigsten Prämie, auf ganze Einheiten aufgerundet.",
+      why: gap ? `Es fehlen höchstens ${gap} ${unit}. Den aktuellen Prämienstand kann dein Team beim nächsten Mal an der Kasse ansprechen.` : "Es fehlt höchstens ein Viertel bis zur günstigsten Prämie, auf ganze Einheiten aufgerundet.",
       actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "near_reward") }, ...(draft && gap && s.nearRewardId ? [{ label: "Erinnerung vorbereiten", href: `/merchant/campaigns?goal=near-reward&maxRemaining=${gap}&rewardId=${encodeURIComponent(s.nearRewardId!)}` }] : [])] });
   }
   if (s.neverAfterWeek > 0) list.push({ id: "never", tone: "watch", title: `${cards(s.neverAfterWeek)} seit über einer Woche angemeldet, aber nie an der Kasse bestätigt`,
-    why: "Für diese Karten ist noch kein bestätigter Kassenvorgang erfasst. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.",
+    why: "Für diese Karten ist noch keine bestätigte Buchung erfasst. Nicht erfasste Besuche und die Gründe dafür sind unbekannt.",
     actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "never", 7) }] });
   const waiting = referrals?.filter(row => row.status === "pending").length ?? 0;
-  if (waiting > 0) list.push({ id: "referral-waiting", tone: "watch", title: `${nf.format(waiting)} ${waiting === 1 ? "geworbene Karte wartet" : "geworbene Karten warten"} auf den ersten Kassenvorgang`,
+  if (waiting > 0) list.push({ id: "referral-waiting", tone: "watch", title: `${nf.format(waiting)} ${waiting === 1 ? "geworbene Karte wartet" : "geworbene Karten warten"} auf die erste bestätigte Buchung`,
     why: "Geteilt und angemeldet ist noch kein Erfolg. Der Bonus fließt erst, wenn die neue Karte an deiner Kasse bestätigt wird.",
     actions: [{ label: "Empfehlungen ansehen", href: "/merchant/referrals" }] });
   return list;
@@ -70,22 +70,24 @@ export function CardBase({ summary }: { summary: RetentionSummary }) {
   );
 }
 
-export function RetentionInsights({ me, summary, referrals, reload }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; reload: () => void }) {
+/** skipFirst: the Übersicht already shows the first insight as "Als Nächstes". */
+export function RetentionInsights({ me, summary, referrals, reload, skipFirst = false }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; reload: () => void; skipFirst?: boolean }) {
   const isOwner = me.role === "owner";
   const campaigns = !(me.hiddenSurfaces ?? []).includes("campaigns");
   const unit = me.programType === "points" ? "Punkte" : "Stempel";
-  const insights = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals }) : [];
+  const all = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals }) : [];
+  const insights = all.slice(skipFirst ? 1 : 0);
   return (
     <section className="ow-card" aria-labelledby="ow-insight-title" aria-busy={summary.state === "loading"}>
-      <div className="ow-card-head"><div><h2 id="ow-insight-title">Was jetzt zählt</h2><p>Aus bestätigten Kassenvorgängen abgeleitet. Jede Zeile nennt ihre Regel.</p></div></div>
+      <div className="ow-card-head"><div><h2 id="ow-insight-title">Was jetzt zählt</h2><p>Berechnet aus bestätigten Buchungen. Jede Zeile nennt ihre Regel.</p></div></div>
       {(summary.state === "loading" || summary.state === "idle") && <div className="ow-stack"><Skeleton height={44} /><Skeleton height={88} /><Skeleton height={88} /></div>}
       {summary.state === "error" && <Notice tone="warn" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reload}>Erneut laden</button>}>Der Kartenbestand konnte gerade nicht berechnet werden. Das heißt nicht, dass niemand betroffen ist.</Notice>}
       {summary.state === "ok" && (
         <div className="ow-stack" style={{ gap: 16 }}>
           <div><h3 className="ow-label" style={{ marginBottom: 8 }}>Kartenbestand · {cards(summary.data.openCards)}</h3><CardBase summary={summary.data} /></div>
-          {insights.length === 0
-            ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title="Gerade nichts Dringendes.">Geprüft: verdiente Prämien, Karten ohne bestätigten Kassenvorgang seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Kassenvorgang.</EmptyState>
-            : <ul className="ow-insights">{insights.map((item, index) => (
+          {all.length === 0
+            ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title="Gerade nichts Dringendes.">Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Buchung.</EmptyState>
+            : insights.length > 0 && <ul className="ow-insights">{insights.map((item, index) => (
               <li key={item.id} className={`ow-action${index === 0 ? " ow-action--lead" : ""}`} data-tone={item.tone}>
                 <h3>{item.title}</h3><p>{item.why}</p>
                 <div className="ow-row">{item.actions.map((action, actionIndex) => <Link key={action.href} className={`ow-btn ow-btn--sm ${index === 0 && actionIndex === item.actions.length - 1 ? "ow-btn--primary" : "ow-btn--secondary"}`} href={action.href}>{action.label}</Link>)}</div>

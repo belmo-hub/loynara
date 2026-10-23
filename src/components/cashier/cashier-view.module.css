@@ -8,6 +8,19 @@
   background: var(--color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23CFD8D2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
 }
 .locale:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.menuButton { display: grid; place-items: center; width: var(--target); height: var(--target); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); }
+.menuButton:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+/* Opens under the header, at the right edge of the 560 px counter column. */
+.menu {
+  position: fixed; inset: calc(env(safe-area-inset-top) + 60px) max(var(--gutter), calc((100vw - 560px) / 2 + var(--gutter))) auto auto; margin: 0;
+  min-width: 220px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
+}
+.menu:popover-open { display: grid; gap: var(--space-2); }
+/* One hand, ten seconds: every menu item is a full-width row at cashier height (height, so it beats the 44 px floor). */
+.menu:popover-open > * { width: 100%; }
+.menu:popover-open :is(a, button, select) { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: var(--target-cashier); font-size: var(--text-18); }
+/* Browsers without the popover attribute show the three controls in the header, as before. */
+@supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; } }
 
 .intro h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
 .intro p { margin: var(--space-1) 0 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
@@ -73,7 +86,10 @@
 .bookedAction { grid-column: 1 / -1; }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 .footnote svg { flex: none; margin-top: 3px; }
-@media (prefers-reduced-motion: reduce) { .booked { transition: none; } }
+/* The check draws itself once (220 ms after a 60 ms beat); the box itself still does not move. */
+.booked[data-tone="success"] .outcomeIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick 220ms var(--ease-out) 60ms both; }
+@keyframes tick { from { stroke-dashoffset: 24; } }
+@media (prefers-reduced-motion: reduce) { .booked { transition: none; } .outcomeIcon path { animation: none; } }
 
 /* Loading and blocked access */
 .access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }
@@ -81,3 +97,6 @@
 .access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
 .access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }
 .access > div a { color: var(--color-on-action); font-size: var(--text-18); }
+/* Win-back bonus (ENG-044): coral because it is a stamp moment; the amount is also in words, never colour alone. */
+.winback { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-stamp); color: var(--color-on-stamp); line-height: var(--leading-body); }
+.winback small { font-size: var(--text-14); }

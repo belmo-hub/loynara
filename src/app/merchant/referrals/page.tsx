@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 type Settings = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points" };
 type Referral = { id: string; status: string; referrerCard: string; referredCard: string; referrerBonus: number; referredBonus: number; reviewReason: string | null; hasCreditedBonus: boolean; createdAt: string; qualifiedAt: string | null };
 
-const STATUS: Record<string, string> = { pending: "Wartet auf den ersten Kassenvorgang", qualified: "Bonus gebucht", review: "Prüfung nötig", rejected: "Abgelehnt", reversed: "Bonus korrigiert" };
+const STATUS: Record<string, string> = { pending: "Wartet auf erste Buchung", qualified: "Bonus gebucht", review: "Prüfung nötig", rejected: "Abgelehnt", reversed: "Bonus korrigiert" };
 const status = (value: string) => STATUS[value] ?? value;
 function reviewReason(value: string | null) {
   switch (value) {
@@ -87,7 +87,7 @@ function Loaded({ slug, businessName, locationName, head, settings, list, reload
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
         <form className="ow-card ow-stack" onSubmit={save}>
           <div><p className="ow-eyebrow">{businessName} · {locationName}</p><h2>Bonusregel</h2></div>
-          <label className="ow-check"><input type="checkbox" checked={enabled} onChange={event => { setEnabled(event.target.checked); touch(); }} /> Empfehlungen für neue Anmeldungen aktivieren</label>
+          <label className="ow-check"><input type="checkbox" role="switch" checked={enabled} onChange={event => { setEnabled(event.target.checked); touch(); }} /> Empfehlungen für neue Anmeldungen aktivieren</label>
           <div className="ow-grid-2">
             <div className="ow-field"><label htmlFor="rf-a">Bonus für empfehlende Karte ({unit})</label><input id="rf-a" className="ow-input" type="number" min="0" max="1000" required value={referrerBonus} onChange={event => { setReferrerBonus(event.target.value); touch(); }} /></div>
             <div className="ow-field"><label htmlFor="rf-b">Bonus für neue Karte ({unit})</label><input id="rf-b" className="ow-input" type="number" min="0" max="1000" required value={referredBonus} onChange={event => { setReferredBonus(event.target.value); touch(); }} /></div>
@@ -96,8 +96,8 @@ function Loaded({ slug, businessName, locationName, head, settings, list, reload
           <SaveBar asSubmit state={shown} onDiscard={() => { setEnabled(saved.enabled); setReferrerBonus(String(saved.referrerBonus)); setReferredBonus(String(saved.referredBonus)); setState("clean"); setError(""); }} canSave={changed && ruleOk} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Empfehlungsregel gespeichert. Änderungen gelten für neue Anmeldungen mit Empfehlungslink." : shown === "dirty" && !ruleOk ? "Bei aktiver Regel muss ein Bonus größer als null sein." : undefined} />
         </form>
         <section className="ow-card ow-stack" aria-labelledby="rf-how"><h2 id="rf-how">So funktioniert es</h2>
-          <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Der erste Kassenvorgang der neuen Karte wird an deiner Kasse bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol>
-          <p className="ow-hint">Gleiche verifizierte E-Mail-Adressen werden zur Prüfung angehalten. Pseudonyme Karten lassen sich nicht zuverlässig derselben Person zuordnen; Missbrauch kann daher nicht vollständig ausgeschlossen werden.</p></section>
+          <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}><li>Eine Person teilt den Link ihrer Karte.</li><li>Eine neue Karte wird über diesen Link erstellt. Dafür gibt es noch keinen Bonus.</li><li>Die erste Buchung der neuen Karte wird an deiner Kasse bestätigt. Dann werden beide konfigurierten Boni einmalig im Buchungsjournal erfasst.</li></ol>
+          <p className="ow-hint">Melden sich zwei Karten mit derselben bestätigten E-Mail-Adresse an, hält Loynara die Empfehlung zur Prüfung an. Ganz ausschließen lässt sich Missbrauch nicht, weil Karten keine Namen haben.</p></section>
       </div>
       <section className="ow-card ow-stack" aria-labelledby="rf-hist">
         <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="rf-hist">Vorgänge und Prüfung</h2><p>Letzte 100 Empfehlungen</p></div><span className="ow-muted">{referrals.length} angezeigt</span></div>

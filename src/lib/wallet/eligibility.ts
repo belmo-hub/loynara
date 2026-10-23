@@ -5,6 +5,7 @@ import { validCardToken } from "@/lib/card-lifecycle";
 import { DomainError } from "@/lib/loyalty";
 import { walletAvailability, type WalletAvailability } from "./capability";
 import { credentialHash } from "./data";
+import { passFastEnv } from "./template-bindings";
 
 export type WalletCardEligibility = { tenantId: string; locationId: string; programId: string; membershipId: string; credentialHash: string; availability: WalletAvailability };
 /** Authenticate a current card bearer and resolve its tenant-owned programme/location. Never accept browser scope. */
@@ -17,5 +18,5 @@ export async function walletCardEligibility(cardToken: string, reader: Pick<type
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt))).limit(1);
   if (!row) throw new DomainError("NOT_FOUND", "Card not found");
-  return { tenantId: row.tenantId, locationId: row.locationId, programId: row.programId, membershipId: row.membershipId, credentialHash: credentialHash(row.scanCode), availability: walletAvailability(process.env, row.tenantId, row.locationId, row.programId) };
+  return { tenantId: row.tenantId, locationId: row.locationId, programId: row.programId, membershipId: row.membershipId, credentialHash: credentialHash(row.scanCode), availability: walletAvailability(await passFastEnv(row.tenantId, row.locationId, reader), row.tenantId, row.locationId, row.programId) };
 }
