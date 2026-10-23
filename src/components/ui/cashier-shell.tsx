@@ -22,8 +22,10 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
       </header>
       <div className={styles.status} data-state={state} role={live ? "status" : undefined} aria-live={live ? "polite" : undefined}>
         <span className={styles.dot} aria-hidden="true" />
-        <strong className={styles.stateLabel}>{stateLabel}</strong>
-        {stateDetail ? <span className={styles.detail}>{stateDetail}</span> : null}
+        <span className={styles.stateText}>
+          <strong className={styles.stateLabel}>{stateLabel}</strong>
+          {stateDetail ? <span className={styles.detail}>{stateDetail}</span> : null}
+        </span>
       </div>
       <main id="inhalt" className={styles.main}>{children}</main>
       {dock ? <div className={styles.dock} data-dock="true">{dock}</div> : null}

@@ -123,6 +123,9 @@
   color: var(--color-ink);
 }
 
+/* What „Buchen“ books, under the amount: the points and the new balance. */
+.preview { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; }
+
 .actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
