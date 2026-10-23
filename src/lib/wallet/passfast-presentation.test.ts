@@ -21,10 +21,11 @@ describe("PassFast reward presentation preserves loyalty state", () => {
     const before = structuredClone(pass);
     expect(passFastData(pass)).toEqual({
       merchantName: "Café", programName: "Coffee", locationName: "Mitte", locale,
-      programType: "stamp", balance, scanCode: "sc_synthetic", cardLocator: "K-ABCDEF",
-      rewardTitle: reward ? "Coffee" : "", rewardCost: reward ? 5 : 0, rewardReady: text,
+      programType: "stamp", balance: String(balance), scanCode: "sc_synthetic", cardLocator: "K-ABCDEF",
+      rewardTitle: reward ? "Coffee" : "", rewardCost: reward ? "5" : "0", rewardReady: text,
     });
     expect(typeof passFastData(pass).rewardReady).toBe("string");
+    expect(typeof passFastData(pass).balance).toBe("string");
     expect(walletProgress(pass).ready).toBe(ready);
     expect(typeof walletProgress(pass).ready).toBe("boolean");
     expect(pass).toEqual(before);

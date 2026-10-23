@@ -94,16 +94,17 @@ async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 /** Exact approved-template data contract; never includes bearer, contact, tenant/member IDs, ledger or referral history. */
 export type PassFastData = {
   merchantName: string; programName: string; locationName: string; locale: string; programType: string;
-  balance: number; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: number; rewardReady: string;
+  balance: string; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: string; rewardReady: string;
 };
 export function passFastData(pass: WalletPassData): PassFastData {
   const rewardReady = Boolean(pass.reward && pass.balance >= pass.reward.cost);
   return { merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName,
-    locale: pass.locale, programType: pass.programType, balance: pass.balance, cardLocator: pass.cardLocator,
-    scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: pass.reward?.cost ?? 0,
+    locale: pass.locale, programType: pass.programType, balance: String(pass.balance), cardLocator: pass.cardLocator,
+    scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: String(pass.reward?.cost ?? 0),
     rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "" };
 }
-export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: "" } as const satisfies Partial<PassFastData>;
+// Templates published since Oct 2026 type every data field as a string; v2 accepts both.
+export const passFastVoidData = { scanCode: "", cardLocator: "", balance: "0", rewardTitle: "", rewardCost: "0", rewardReady: "" } as const satisfies Partial<PassFastData>;
 
 type RemotePass = { id: string; status: "active" | "invalidated" | "expired"; saveUrl?: string };
 const record = (value: unknown): Record<string, unknown> => {
