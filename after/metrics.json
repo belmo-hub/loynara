@@ -3,168 +3,168 @@
   "scroll": false,
   "h": 2132,
   "small": 0,
-  "words": 168,
+  "words": 170,
   "sections": 7
  },
  "stamp-7of8-375-dark": {
   "scroll": false,
   "h": 2132,
   "small": 0,
-  "words": 168,
+  "words": 170,
   "sections": 7
  },
  "stamp-7of8-320-light": {
   "scroll": false,
-  "h": 2268,
+  "h": 2296,
   "small": 0,
-  "words": 168,
+  "words": 170,
   "sections": 7
  },
  "stamp-7of8-1280-light": {
   "scroll": false,
   "h": 2131,
   "small": 0,
-  "words": 168,
+  "words": 170,
   "sections": 7
  },
  "stamp-ready-375-light": {
   "scroll": false,
   "h": 2155,
   "small": 0,
-  "words": 172,
+  "words": 173,
   "sections": 7
  },
  "stamp-ready-375-dark": {
   "scroll": false,
   "h": 2155,
   "small": 0,
-  "words": 172,
+  "words": 173,
   "sections": 7
  },
  "stamp-ready-320-light": {
   "scroll": false,
   "h": 2292,
   "small": 0,
-  "words": 172,
+  "words": 173,
   "sections": 7
  },
  "stamp-ready-1280-light": {
   "scroll": false,
   "h": 2154,
   "small": 0,
-  "words": 172,
+  "words": 173,
   "sections": 7
  },
  "stamp-new-375-light": {
   "scroll": false,
   "h": 2121,
   "small": 0,
-  "words": 172,
+  "words": 174,
   "sections": 7
  },
  "stamp-new-375-dark": {
   "scroll": false,
   "h": 2121,
   "small": 0,
-  "words": 172,
+  "words": 174,
   "sections": 7
  },
  "stamp-new-320-light": {
   "scroll": false,
-  "h": 2277,
+  "h": 2305,
   "small": 0,
-  "words": 172,
+  "words": 174,
   "sections": 7
  },
  "stamp-new-1280-light": {
   "scroll": false,
   "h": 2120,
   "small": 0,
-  "words": 172,
+  "words": 174,
   "sections": 7
  },
  "points-90-375-light": {
   "scroll": false,
   "h": 2354,
   "small": 0,
-  "words": 188,
+  "words": 190,
   "sections": 8
  },
  "points-90-375-dark": {
   "scroll": false,
   "h": 2354,
   "small": 0,
-  "words": 188,
+  "words": 190,
   "sections": 8
  },
  "points-90-320-light": {
   "scroll": false,
   "h": 2536,
   "small": 0,
-  "words": 188,
+  "words": 190,
   "sections": 8
  },
  "points-90-1280-light": {
   "scroll": false,
   "h": 2357,
   "small": 0,
-  "words": 188,
+  "words": 190,
   "sections": 8
  },
  "worst-all-banners-375-light": {
   "scroll": false,
-  "h": 3030,
+  "h": 3053,
   "small": 0,
-  "words": 292,
+  "words": 296,
   "sections": 10
  },
  "worst-all-banners-375-dark": {
   "scroll": false,
-  "h": 3030,
+  "h": 3053,
   "small": 0,
-  "words": 292,
+  "words": 296,
   "sections": 10
  },
  "worst-all-banners-320-light": {
   "scroll": false,
   "h": 3323,
   "small": 0,
-  "words": 292,
+  "words": 296,
   "sections": 10
  },
  "worst-all-banners-1280-light": {
   "scroll": false,
-  "h": 3012,
+  "h": 3035,
   "small": 0,
-  "words": 292,
+  "words": 296,
   "sections": 10
  },
  "ending-only-375-light": {
   "scroll": false,
-  "h": 2248,
+  "h": 2272,
   "small": 0,
-  "words": 183,
+  "words": 187,
   "sections": 8
  },
  "ending-only-375-dark": {
   "scroll": false,
-  "h": 2248,
+  "h": 2272,
   "small": 0,
-  "words": 183,
+  "words": 187,
   "sections": 8
  },
  "ending-only-320-light": {
   "scroll": false,
-  "h": 2408,
+  "h": 2435,
   "small": 0,
-  "words": 183,
+  "words": 187,
   "sections": 8
  },
  "ending-only-1280-light": {
   "scroll": false,
-  "h": 2247,
+  "h": 2270,
   "small": 0,
-  "words": 183,
+  "words": 187,
   "sections": 8
  }
 }
