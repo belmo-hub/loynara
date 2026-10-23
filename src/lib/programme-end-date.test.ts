@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cancellationEnd, germanDate, lastDayOfBerlinMonth, MIN_NOTICE_DAYS } from "./programme-end-date";
+import { cancellationEnd, cancellationTimeline, germanDate, lastDayOfBerlinMonth, MIN_NOTICE_DAYS } from "./programme-end-date";
 
 const end = (iso: string) => cancellationEnd(new Date(iso));
 
@@ -33,5 +33,21 @@ describe("cancellation end date with the minimum notice", () => {
   it("still formats the date for the owner and the card", () => {
     expect(lastDayOfBerlinMonth(new Date("2026-10-21T10:00:00Z"))).toBe("2026-10-31");
     expect(germanDate("2027-01-31")).toBe("31.01.2027");
+  });
+});
+
+describe("cancellationTimeline", () => {
+  const t = (end: string, now: string) => cancellationTimeline(end, new Date(now));
+  it("counts Berlin calendar days: running before the end date, last-day on it, past after it", () => {
+    expect(t("2026-11-30", "2026-11-10T10:00:00Z")).toMatchObject({ daysLeft: 20, phase: "running", exportUntil: "2026-12-30" });
+    expect(t("2026-11-30", "2026-11-29T23:30:00Z")).toMatchObject({ daysLeft: 0, phase: "last-day" }); // already 30 Nov, 00:30 in Berlin
+    expect(t("2026-11-30", "2026-11-30T22:59:59Z")).toMatchObject({ phase: "last-day" });
+    expect(t("2026-11-30", "2026-11-30T23:00:00Z")).toMatchObject({ daysLeft: -1, phase: "past" });
+  });
+  it("is DST-safe across both time changes and a year end", () => {
+    expect(t("2026-10-25", "2026-10-24T22:00:00Z")).toMatchObject({ phase: "last-day" }); // 00:00 CEST on the 25-hour day
+    expect(t("2026-10-25", "2026-10-25T23:00:00Z")).toMatchObject({ phase: "past" });
+    expect(t("2026-03-29", "2026-03-28T23:00:00Z")).toMatchObject({ phase: "last-day" }); // the 23-hour day
+    expect(t("2026-12-31", "2026-12-30T23:00:00Z")).toMatchObject({ phase: "last-day", exportUntil: "2027-01-30" });
   });
 });
