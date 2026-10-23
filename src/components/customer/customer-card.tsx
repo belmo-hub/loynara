@@ -163,8 +163,8 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
   const sub = remaining > 0 ? (readyCount === 1 ? t.readyOne : readyCount > 1 ? t.readyMany(readyCount) : null)
     : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
   return <div className={styles.goal}>
-    <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor(selected.title)
-      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining), selected.title)}</>}</p>
+    <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor
+      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={styles.rewardName}>{selected.title}</span></p>
     {sub ? <p className={styles.goalSub}>{sub}</p> : null}
   </div>;
 }
@@ -172,14 +172,14 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
 type Extra = { key: string; line: string; block: ReactNode };
 
 /**
- * Time-bound extras, most urgent first: points about to expire (something is lost), a happy hour running now, this
- * month's challenge, then the 90-day level. The first one present is shown in full; the rest fold into one quiet list,
+ * Time-bound extras, nearest deadline first (Head of Design, 23 Oct): a happy hour running now ends today, the expiry
+ * notice covers the next 30 days, the challenge ends with the month, the level runs 90 days. The first one present is shown in full; the rest fold into one quiet list,
  * so a card never stacks four panels. Their fine print lives in the programme rules.
  */
 function extras({ t, happyHourUntil, pointsExpiry, challenge, level }: Pick<CustomerCardProps, "happyHourUntil" | "pointsExpiry" | "challenge" | "level"> & { t: Copy }): Extra[] {
   const items: Extra[] = [];
-  if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
   if (happyHourUntil) items.push({ key: "happy", line: t.happyHour(happyHourUntil), block: <p className={styles.highlight}>{t.happyHour(happyHourUntil)}</p> });
+  if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
   if (challenge) {
     const progress = challenge.done ? "Geschafft! Der Bonus ist gutgeschrieben." : `${challenge.visits} von ${challenge.target} Besuchen`;
     items.push({ key: "challenge", line: `Monats-Challenge: ${challenge.done ? "geschafft" : progress}`, block: <section className={styles.panel} aria-labelledby="customer-challenge-title">

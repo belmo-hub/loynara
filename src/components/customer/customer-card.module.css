@@ -8,6 +8,8 @@
 .goal { display: grid; gap: var(--space-1); padding-inline: var(--space-1); }
 .goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 .goalNum { color: var(--merchant-text); font-size: 1.2em; font-variant-numeric: lining-nums; }
+/* The reward is a name: it wraps at spaces only (Head of Design), very long single words may still break. */
+.rewardName { hyphens: manual; overflow-wrap: anywhere; }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
