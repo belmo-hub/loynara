@@ -41,7 +41,7 @@ describe("the end-date notice", () => {
     const html = notice(requested, "2026-10-21T10:00:00Z");
     expect(html).toContain("Voraussichtlich bis zum 31.10.2026.");
     expect(html).toContain("Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal, auch das Einlösen von Prämien.");
-    expect(html).toContain("Kündigung in den Einstellungen");
+    expect(html).toContain("Kündigung ansehen");
     expect(html).not.toContain("Dein Programm endet am");
   });
 
@@ -86,6 +86,14 @@ describe("a calm Übersicht never says nothing is urgent while the programme is 
   it("says so when nothing is going on and no cancellation exists", () => {
     expect(next({})).toContain("Gerade nichts Dringendes");
     expect(insights({})).toContain("Gerade nichts Dringendes");
+  });
+
+  it.each([["requested", requested], ["confirmed", confirmed]])("leaves out „Als Nächstes“ even when a set-up step or an insight is due (%s)", (_, cancellation) => {
+    const setup = { id: "first-award", title: "Erste Gutschrift", evidence: "Noch keine", status: "todo", required: true, action: { href: "/cashier", label: "Kasse öffnen" } };
+    const open = { state: "ok" as const, at: 0, data: { ...readiness.data, steps: [setup] } };
+    const urgent = { state: "ok" as const, at: 0, data: { ...quiet, rewardReady: 2 } };
+    expect(renderToStaticMarkup(createElement(NextStep, { me: { ...base, ...cancellation }, retention: urgent, referrals: null, readiness: open, setup } as never))).toBe("");
+    expect(renderToStaticMarkup(createElement(NextStep, { me: base, retention: urgent, referrals: null, readiness: open, setup } as never))).toContain("Als Nächstes");
   });
 
   it.each([["requested", requested], ["confirmed", confirmed]])("does not say so while a cancellation is %s", (_, cancellation) => {

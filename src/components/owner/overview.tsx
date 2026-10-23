@@ -90,7 +90,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
       <div className="ow-two">
         <div className="ow-stack">
-          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} skipFirst={!setup && readiness.state === "ok"} />
+          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} skipFirst={!me.cancellationEndDate && !setup && readiness.state === "ok"} />
           <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} compact />
           <RecentActivity me={me} />
         </div>
@@ -130,15 +130,15 @@ function PeriodMetrics({ analytics, reload }: { analytics: Loadable<Analytics>; 
  */
 export function NextStep({ me, retention, referrals, readiness, setup }: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; setup?: LaunchReadiness["steps"][number] }) {
   const isOwner = me.role === "owner";
+  // While the programme is ending, the end-date card above is the one leading card with one job.
+  if (me.cancellationEndDate) return null;
   if (retention.state !== "ok" || readiness.state !== "ok") {
     return retention.state === "error" || readiness.state === "error" ? null : <Skeleton height={112} />;
   }
   const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals })[0];
   const next = setup ? { text: `${setup.title}: ${setup.evidence}`, action: setup.action }
     : insight ? { text: `${insight.title}.`, action: insight.actions.at(-1) }
-      : me.cancellationEndDate ? null // the end-date card above is the next step
-        : { text: "Gerade nichts Dringendes. Dein Team bucht, die Zahlen oben zeigen, wie es läuft.", action: undefined };
-  if (!next) return null;
+      : { text: "Gerade nichts Dringendes. Dein Team bucht, die Zahlen oben zeigen, wie es läuft.", action: undefined };
   return (
     <section className="ow-card ow-next" aria-labelledby="ow-next-title">
       <h2 id="ow-next-title" className="ow-eyebrow">Als Nächstes</h2>

@@ -30,7 +30,7 @@ export function CancellationNotice({ me, now }: { me: MeResponse; now?: Date }) 
       <p className="ow-next-text">{confirmed ? `Dein Programm endet am ${germanDate(endDate)}.` : `Voraussichtlich bis zum ${germanDate(endDate)}.`}</p>
       <p className="ow-muted">{running}</p>
       {confirmed && <p className="ow-muted">{phase !== "past" && "Sag es deinen Kunden, damit sie ihre Prämien noch einlösen."}{isOwner && `${phase !== "past" ? " " : ""}Deine Daten kannst du bis zum ${germanDate(exportUntil)} herunterladen.`}</p>}
-      {settings && phase !== "past" && <div><Link className="ow-btn ow-btn--secondary" href="/merchant/settings">{confirmed ? "Text für deine Kunden" : "Kündigung in den Einstellungen"}</Link></div>}
+      {settings && phase !== "past" && <div><Link className="ow-btn ow-btn--secondary" href="/merchant/settings">{confirmed ? "Text für deine Kunden" : "Kündigung ansehen"}</Link></div>}
     </section>
   );
 }
