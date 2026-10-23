@@ -151,7 +151,7 @@ it("keeps successful Apple reconciliation ready when an older exhausted claim ex
   const fresh=await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:5});expect(fresh?.id).not.toBe(exhausted!.id);expect(fresh?.attempts).toBe(1);
   expect(await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId})).toEqual({status:"complete"});
   expect(await completeWalletOutboxJob(pool,fresh!)).toBe(true);expect((await projection(f.member.id)).status).toBe("created");
-  expect(remote!.dynamic_data.balance).toBe(1);
+  expect(remote!.dynamic_data.balance).toBe("1");
   await pool.query("SELECT pg_sleep(LEAST(3.1,GREATEST(0,extract(epoch FROM(next_attempt_at-clock_timestamp()))+0.01))) FROM outbox_jobs WHERE id=$1",[exhausted!.id]);
   expect(await claimOutboxJob(pool,{maxAttempts:5,leaseMinutes:5})).toBeNull();
   const before=calls.length;const result=await(await status(f.member.cardToken)).json();
