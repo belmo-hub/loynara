@@ -14,6 +14,7 @@ import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy
 import { CHALLENGE_VISITS, challengeBonusRange, challengeFor, challengeSentence, cardNewsProblem, monthOf, nextMonthStart, pendingChallenge, LEVEL_WINDOW_DAYS, levelFor, levelPerkProblem, REVIEW_AFTER_VISITS, reviewUrlValid } from "./card-extras";
 import { challengeProgress, recentVisitDays } from "./challenges";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
+import { germanDate } from "./programme-end-date";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 import { cardExpiry } from "./points-expiry";
@@ -409,11 +410,15 @@ function meChallenge(program: typeof programs.$inferSelect, timeZone: string) {
   return { challengeVisits: current.visits, challengeBonus: current.bonus, challengeNext: pendingChallenge(program, month) };
 }
 
-/** The card's line for the running month: the challenge and the visit days so far (absent while the shop has none). */
-async function cardChallenge(tx: Parameters<typeof challengeProgress>[0], row: { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; location: typeof locations.$inferSelect }) {
-  const now = new Date();
+/**
+ * The card's line for the running month: the challenge and the visit days so far (absent while the shop has none). With a
+ * confirmed programme end (`programmeEnd`, YYYY-MM-DD) a month that ends after it shows no challenge (Product, 24 Oct).
+ */
+async function cardChallenge(tx: Parameters<typeof challengeProgress>[0], row: { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; location: typeof locations.$inferSelect }, programmeEnd?: string, now = new Date()) {
   const rule = challengeFor(row.program, monthOf(now, row.location.timezone));
   if (!rule.visits) return undefined;
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: row.location.timezone }).format(now).split("-").map(Number);
+  if (programmeEnd && new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) > programmeEnd) return undefined;
   const progress = await challengeProgress(tx, { tenantId: row.member.tenantId, membershipId: row.member.id, locationId: row.program.locationId, at: now });
   const month = new Intl.DateTimeFormat("de-DE", { month: "long", timeZone: row.location.timezone }).format(now);
   const [year, monthNumber] = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: row.location.timezone }).format(now).split("-").map(Number);
@@ -435,7 +440,14 @@ async function cardLevel(tx: Parameters<typeof recentVisitDays>[0], member: type
   return { name, perk: perk || undefined, until, visits, next };
 }
 
-export async function getCard(token: string) {
+/** A level's „bis“ date (DD.MM.YYYY) never runs past a confirmed programme end (YYYY-MM-DD): it is capped at the end. */
+export function capLevelUntil<T extends { until?: string }>(level: T | undefined, programmeEnd?: string): T | undefined {
+  if (!level?.until || !programmeEnd) return level;
+  const iso = `${level.until.slice(6, 10)}-${level.until.slice(3, 5)}-${level.until.slice(0, 2)}`;
+  return iso > programmeEnd ? { ...level, until: germanDate(programmeEnd) } : level;
+}
+
+export async function getCard(token: string, now = new Date()) {
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
   // Balance, recent activity and reward progress must describe one committed state.
   return db.transaction(async (tx) => {
@@ -455,7 +467,9 @@ export async function getCard(token: string) {
       eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id), eq(ledgerEntries.kind, "award"),
       sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone), challenge: await cardChallenge(tx, row), level: await cardLevel(tx, row.member, row.program), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    // With a confirmed end date nothing dated after it shows: the end date, no later challenge month, level date or expiry batch.
+    const programmeEnd = row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined;
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 

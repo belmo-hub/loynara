@@ -21,10 +21,14 @@ export async function cardExpiryBuckets(reader: Reader, tenantId: string, member
   return expiryBuckets(rows, { months: rule.pointsExpiryMonths, since: rule.pointsExpirySince });
 }
 
-/** What the card shows: the rule (always, once it is on), each batch's expiry date, and the notice for the next 30 days. */
-export async function cardExpiry(reader: Reader, tenantId: string, membershipId: string, rule: Rule, timeZone: string, now = new Date()) {
+/**
+ * What the card shows: the rule (always, once it is on), each batch's expiry date, and the notice for the next 30 days.
+ * With a confirmed programme end (`endsOn`, YYYY-MM-DD) batches dated after it are left out: redemption ends with the programme.
+ */
+export async function cardExpiry(reader: Reader, tenantId: string, membershipId: string, rule: Rule, timeZone: string, now = new Date(), endsOn?: string) {
   if (!rule.pointsExpiryMonths) return undefined;
-  const buckets = (await cardExpiryBuckets(reader, tenantId, membershipId, rule)).filter(lot => lot.expiresAt > now);
+  const localDay = (at: Date) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(at);
+  const buckets = (await cardExpiryBuckets(reader, tenantId, membershipId, rule)).filter(lot => lot.expiresAt > now && (!endsOn || localDay(lot.expiresAt) <= endsOn));
   const upcoming = upcomingExpiry(buckets, now);
   return { rule: expiryRuleText(rule.pointsExpiryMonths), batches: expiryBatches(buckets, timeZone), notice: upcoming ? expiryReminderText(upcoming, timeZone) : undefined };
 }
