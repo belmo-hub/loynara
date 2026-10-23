@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { automationRules, ledgerEntries, locations, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { challengeFor } from "./card-extras";
 import { challengeProgress } from "./challenges";
 import { activeHappyHour } from "./happy-hour";
 import { PointsError, purchasePoints } from "./points";
@@ -157,7 +158,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     const purchaseAmountLimit = staff?.role === "cashier" ? 50_000 : staff?.role === "manager" ? 200_000 : 1_000_000;
     const purchasePointsLimit = staff?.role === "cashier" ? 500 : staff?.role === "manager" ? 2_000 : 10_000;
     if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
-    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity * (program.happyHourEnabled ? 2 : 1) + program.welcomeBonus + (program.winbackEnabled ? program.winbackBonus : 0) + (program.birthdayEnabled ? program.birthdayBonus : 0) + (program.challengeVisits ? program.challengeBonus : 0) > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
+    if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity * (program.happyHourEnabled ? 2 : 1) + program.welcomeBonus + (program.winbackEnabled ? program.winbackBonus : 0) + (program.birthdayEnabled ? program.birthdayBonus : 0) + Math.max(program.challengeVisits ? program.challengeBonus : 0, program.challengeNextBonus ?? 0) > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
 
     const [entry] = await tx.insert(ledgerEntries).values({
       tenantId: member.tenantId,
@@ -315,15 +316,17 @@ const challengeKey = (awardEntryId: string) => `challenge:${awardEntryId}`;
 
 async function bookChallengeBonus(tx: Transaction, input: { program: typeof programs.$inferSelect; entry: typeof ledgerEntries.$inferSelect }): Promise<number> {
   const { program, entry } = input;
-  if (!program.challengeVisits) return 0;
+  if (!program.challengeVisits && !program.challengeNextVisits) return 0;
   // The membership row is locked by the caller, so two bookings for this card cannot both see "not yet booked".
   const progress = await challengeProgress(tx, { tenantId: entry.tenantId, membershipId: entry.membershipId, locationId: program.locationId, at: entry.createdAt });
-  if (progress.visits < program.challengeVisits || progress.bonuses.length) return 0;
+  // The terms of the visit's own month (ENG-065): an owner's change waits for the next month.
+  const rule = challengeFor(program, progress.month);
+  if (!rule.visits || progress.visits < rule.visits || progress.bonuses.length) return 0;
   await tx.insert(ledgerEntries).values({
-    tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: program.challengeBonus, kind: "award",
+    tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: rule.bonus, kind: "award",
     source: "challenge_bonus", actorUserId: entry.actorUserId, requestId: entry.requestId, idempotencyKey: challengeKey(entry.id), reason: "Monats-Challenge",
   });
-  return program.challengeBonus;
+  return rule.bonus;
 }
 
 export type RedeemInput = {
@@ -386,11 +389,13 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
 }
 
 async function challengeToTakeBack(tx: Transaction, original: typeof ledgerEntries.$inferSelect, programId: string) {
-  const [program] = await tx.select({ locationId: programs.locationId, target: programs.challengeVisits }).from(programs).where(and(eq(programs.id, programId), eq(programs.tenantId, original.tenantId)));
-  // shortcut: compares with today's target; a target raised after the bonus was booked can take it back early. Store the target on the bonus if owners change it mid-month.
-  if (!program?.target) return [];
+  const [program] = await tx.select().from(programs).where(and(eq(programs.id, programId), eq(programs.tenantId, original.tenantId)));
+  if (!program || (!program.challengeVisits && !program.challengeNextVisits)) return [];
   const progress = await challengeProgress(tx, { tenantId: original.tenantId, membershipId: original.membershipId, locationId: program.locationId, at: original.createdAt, excluding: original.id });
-  return progress.visits < program.target ? progress.bonuses : [];
+  // Compared with the terms of the corrected visit's month (ENG-065), so a later change never takes a bonus back early.
+  // shortcut: once a later save has folded the pending terms in, a correction of an older month sees the newer terms; keep earlier terms if that matters.
+  const target = challengeFor(program, progress.month).visits;
+  return target && progress.visits < target ? progress.bonuses : [];
 }
 
 export type ReversalInput = {

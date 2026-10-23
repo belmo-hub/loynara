@@ -143,6 +143,11 @@ export const programs = pgTable("programs", {
   // once that month. Null = off.
   challengeVisits: integer("challenge_visits"),
   challengeBonus: integer("challenge_bonus").notNull().default(0),
+  // ENG-065: a change to a running challenge waits for the next calendar month (this month keeps the terms the card shows).
+  // From `challengeNextFrom` (a 1st, location time) these apply, with no job: next visits null = switched off from then.
+  challengeNextFrom: date("challenge_next_from"),
+  challengeNextVisits: integer("challenge_next_visits"),
+  challengeNextBonus: integer("challenge_next_bonus"),
   // Customer levels (ENG-053): Bronze from the first visit, Silber and Gold from these visit days in the last 90 days. A perk
   // is a text the cashier honours, never a booking. Off by default.
   levelsEnabled: boolean("levels_enabled").notNull().default(false),
@@ -170,6 +175,7 @@ export const programs = pgTable("programs", {
   check("program_points_positive", sql`${t.pointsPerCurrencyUnit} between 1 and 1000`),
   check("program_happy_hour_valid", sql`jsonb_typeof(${t.happyHourWindows}) = 'array' and jsonb_array_length(${t.happyHourWindows}) <= 3 and (not ${t.happyHourEnabled} or jsonb_array_length(${t.happyHourWindows}) > 0)`),
   check("program_points_expiry_valid", sql`(${t.pointsExpiryMonths} is null) = (${t.pointsExpirySince} is null) and (${t.pointsExpiryMonths} is null or (${t.pointsExpiryMonths} in (24,36) and ${t.type} = 'points'))`),
+  check("program_challenge_next_valid", sql`(${t.challengeNextFrom} is null and ${t.challengeNextVisits} is null and ${t.challengeNextBonus} is null) or (${t.challengeNextFrom} is not null and extract(day from ${t.challengeNextFrom}) = 1 and ((${t.challengeNextVisits} is null and ${t.challengeNextBonus} is null) or (${t.challengeNextVisits} between 2 and 10 and ${t.challengeNextBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))))`),
   check("program_challenge_valid", sql`${t.challengeVisits} is null or (${t.challengeVisits} between 2 and 10 and ${t.challengeBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))`),
   check("program_levels_valid", sql`(not ${t.levelsEnabled} or (${t.levelSilverVisits} is not null and ${t.levelGoldVisits} is not null)) and (${t.levelSilverVisits} is null or ${t.levelSilverVisits} between 2 and 50) and (${t.levelGoldVisits} is null or (${t.levelGoldVisits} <= 90 and (${t.levelSilverVisits} is null or ${t.levelGoldVisits} > ${t.levelSilverVisits})))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),

@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
 import { getMerchantMember } from "./merchant-members";
-import { createMerchant, enroll, getCard, updateProgramExtras } from "./product";
+import { createMerchant, enroll, getCard, getMerchantContext, updateProgramExtras } from "./product";
+import { monthOf, nextMonthStart } from "./card-extras";
+import { challengeProgress } from "./challenges";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -23,29 +25,44 @@ async function staff(s: Shop, role: "cashier" | "manager") {
   return id;
 }
 /**
- * A shop whose location timezone has at least one earlier day in the current month, so a visit "on day 1" is a different
- * day of the same month whatever date the suite runs on.
+ * A timezone in which `now` is day 2 or later of its month, so day 1 is an earlier day of the same month whatever date the
+ * suite runs on, the 1st included: when Berlin is on the 1st, Kiritimati (UTC+14) or Pago Pago (UTC-11) is not.
  */
+const zoneWithEarlierDay = (now: Date) => ["Europe/Berlin", "Pacific/Kiritimati", "Pacific/Pago_Pago"].find(zone => Number(new Intl.DateTimeFormat("en", { day: "numeric", timeZone: zone }).format(now)) >= 2);
+/** A shop in such a timezone (see zoneWithEarlierDay). */
 async function shop(programType: "points" | "stamp" = "stamp", name = "Synthetic Döner") {
   const owner = await user();
   const merchant = await createMerchant({ userId: owner, businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType, rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Döner gratis", rewardCost: 10 });
   const { rows: [{ now }] } = await pool.query<{ now: Date }>("SELECT now()");
-  const timezone = ["Europe/Berlin", "Pacific/Kiritimati", "Pacific/Pago_Pago"].find(zone => Number(new Intl.DateTimeFormat("en", { day: "numeric", timeZone: zone }).format(now)) >= 2)!;
+  const timezone = zoneWithEarlierDay(now)!;
   await pool.query("UPDATE locations SET timezone = $1 WHERE id = $2", [timezone, merchant.locationId]);
   return { owner, timezone, ...merchant };
 }
 type Shop = Awaited<ReturnType<typeof shop>>;
 const give = (s: Shop, membershipId: string, userId = s.owner, quantity = 1) => award({ userId, locationId: s.locationId, membershipId, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() });
-/** A ledger row on day 1, 12:00, of the current month in the shop's timezone. */
+/**
+ * A ledger row on day 1, 12:00, of the current month in the shop's timezone. shop() picks a zone where today is day 2 or
+ * later, so this is an earlier day of the same month on any run date, the 1st included; the check below proves it.
+ */
 async function earlierVisit(s: Shop, membershipId: string, source = "staff_online") {
-  await pool.query(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, created_at)
-    VALUES ($1, $2, $3, 1, 'award', $4, $5, gen_random_uuid(), $6, (date_trunc('month', now() AT TIME ZONE $7) + interval '12 hours') AT TIME ZONE $7)`,
+  const { rows: [row] } = await pool.query<{ earlier: boolean }>(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, created_at)
+    VALUES ($1, $2, $3, 1, 'award', $4, $5, gen_random_uuid(), $6, (date_trunc('month', now() AT TIME ZONE $7) + interval '12 hours') AT TIME ZONE $7)
+    RETURNING (created_at AT TIME ZONE $7)::date < (now() AT TIME ZONE $7)::date AS earlier`,
     [s.tenantId, s.locationId, membershipId, source, source === "nfc_tap" ? null : s.owner, `synthetic-${randomUUID()}`, s.timezone]);
+  if (!row.earlier) throw new Error("Synthetic earlier visit is not on an earlier day of this month");
   await pool.query("UPDATE memberships SET balance = balance + 1 WHERE id = $1", [membershipId]);
 }
 const bonusRows = (membershipId: string) => db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, membershipId), eq(ledgerEntries.source, "challenge_bonus")));
 const balanceOf = async (membershipId: string) => (await db.select({ balance: memberships.balance }).from(memberships).where(eq(memberships.id, membershipId)))[0].balance;
 const challenge = (s: Shop, challengeVisits: number | null, challengeBonus?: number, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, challengeVisits, challengeBonus });
+
+describe("date independence of this suite", () => {
+  it("always finds a zone with an earlier day of the month, every half hour from 30 Oct to 3 Nov and around New Year", () => {
+    for (const start of [Date.UTC(2026, 9, 30), Date.UTC(2026, 11, 30)]) {
+      for (let at = start; at < start + 4 * 86_400_000; at += 30 * 60_000) expect(zoneWithEarlierDay(new Date(at)), new Date(at).toISOString()).toBeDefined();
+    }
+  });
+});
 
 describe("challenge setting", () => {
   it("is off by default: no bonus and nothing on the card", async () => {
@@ -72,8 +89,8 @@ describe("challenge setting", () => {
     await expect(challenge(points, 3, 3)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" });
     await expect(challenge(points, 3, 0)).rejects.toThrow();
     expect(await challenge(points, 3, 2)).toMatchObject({ challengeVisits: 3, challengeBonus: 2 });
-    // Switching it off keeps the bonus value for next time.
-    expect(await challenge(points, null)).toMatchObject({ challengeVisits: null, challengeBonus: 2 });
+    // Switching a running challenge off waits for the next month (ENG-065); the bonus value is kept.
+    expect(await challenge(points, null)).toMatchObject({ challengeVisits: 3, challengeBonus: 2, challengeNext: { visits: null, bonus: null } });
   });
 });
 
@@ -179,5 +196,112 @@ describe("challenge bonus", () => {
     await give(s, card.id);
     expect((await getMerchantMember(s.owner, card.id)).member).toMatchObject({ qualifyingCheckouts: 2 });
     await expect(getMerchantMember(other.owner, card.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("changes to a running challenge wait for the next month (ENG-065)", () => {
+  const thisMonth = (s: Shop) => monthOf(new Date(), s.timezone);
+  const next = (s: Shop) => db.execute<{ from: string | null; visits: number | null; bonus: number | null }>(sql`SELECT challenge_next_from::text AS "from", challenge_next_visits AS visits, challenge_next_bonus AS bonus FROM programs WHERE id = ${s.programId}::uuid`).then(result => result.rows[0]);
+
+  it("leaves this month's terms, progress and bonus as the card shows them, and records the change for the 1st", async () => {
+    const s = await shop();
+    expect(await challenge(s, 2, 1)).toMatchObject({ challengeVisits: 2, challengeBonus: 1, challengeNext: null });
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await earlierVisit(s, card.id);
+    expect(await challenge(s, 3, 2)).toMatchObject({ challengeVisits: 2, challengeBonus: 1, challengeNext: { from: nextMonthStart(thisMonth(s)), visits: 3, bonus: 2 } });
+    expect(await getMerchantContext(s.owner)).toMatchObject({ challengeVisits: 2, challengeBonus: 1, challengeNext: { from: nextMonthStart(thisMonth(s)), visits: 3, bonus: 2 } });
+    expect((await getCard(card.cardToken)).challenge).toMatchObject({ target: 2, visits: 1, text: expect.stringMatching(/^Komm 2-mal .* 1 Stempel extra\.$/) });
+    expect(await give(s, card.id)).toMatchObject({ challengeBonus: 1 });
+    // A save that does not touch the challenge keeps the pending change.
+    expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, welcomeBonus: 0 })).toMatchObject({ challengeNext: { visits: 3, bonus: 2 } });
+    // Saving the same terms again drops the pending change.
+    await challenge(s, 2, 1);
+    expect(await next(s)).toEqual({ from: null, visits: null, bonus: null });
+  });
+
+  it("applies the new terms from the 1st, without a job, and the next save folds them in", async () => {
+    const s = await shop();
+    await challenge(s, 3, 1);
+    // As if the owner had saved last month: the change starts with this month.
+    await pool.query("UPDATE programs SET challenge_next_from = $1, challenge_next_visits = 2, challenge_next_bonus = 2 WHERE id = $2", [`${thisMonth(s)}-01`, s.programId]);
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    expect((await getCard(card.cardToken)).challenge).toMatchObject({ target: 2 });
+    expect(await getMerchantContext(s.owner)).toMatchObject({ challengeVisits: 2, challengeBonus: 2, challengeNext: null });
+    await earlierVisit(s, card.id);
+    expect(await give(s, card.id)).toMatchObject({ challengeBonus: 2 });
+    expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, welcomeBonus: 0 })).toMatchObject({ challengeVisits: 2, challengeBonus: 2, challengeNext: null });
+    expect(await next(s)).toEqual({ from: null, visits: null, bonus: null });
+  });
+
+  it("starts the month on the 1st in the shop's timezone, across the switch to winter time on 25 Oct", async () => {
+    const s = await shop();
+    await pool.query("UPDATE locations SET timezone = 'Europe/Berlin' WHERE id = $1", [s.locationId]);
+    const at = (iso: string) => challengeProgress(db, { tenantId: s.tenantId, membershipId: randomUUID(), locationId: s.locationId, at: new Date(iso) }).then(row => row.month);
+    // Summer time (UTC+2) at the start of October, winter time (UTC+1) at its end.
+    expect([await at("2026-09-30T21:59:59.999Z"), await at("2026-09-30T22:00:00Z"), await at("2026-10-31T22:59:59.999Z"), await at("2026-10-31T23:00:00Z")]).toEqual(["2026-09", "2026-10", "2026-10", "2026-11"]);
+    expect([monthOf(new Date("2026-10-31T22:59:59.999Z"), "Europe/Berlin"), monthOf(new Date("2026-10-31T23:00:00Z"), "Europe/Berlin")]).toEqual(["2026-10", "2026-11"]);
+    await challenge(s, 2, 1);
+    expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, challengeVisits: 3, challengeBonus: 2 }, new Date("2026-10-31T22:59:59Z"))).toMatchObject({ challengeVisits: 2, challengeNext: { from: "2026-11-01", visits: 3 } });
+    // One second later it is November in Kassel: the pending change is in force, and a new one waits for December.
+    expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, challengeVisits: 4, challengeBonus: 2 }, new Date("2026-10-31T23:00:00Z"))).toMatchObject({ challengeVisits: 3, challengeBonus: 2, challengeNext: { from: "2026-12-01", visits: 4 } });
+  });
+
+  it("still pays this month's bonus after the owner switches it off mid-month", async () => {
+    const s = await shop();
+    await challenge(s, 2, 1);
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await earlierVisit(s, card.id);
+    expect(await challenge(s, null)).toMatchObject({ challengeVisits: 2, challengeNext: { from: nextMonthStart(thisMonth(s)), visits: null } });
+    expect((await getCard(card.cardToken)).challenge).toMatchObject({ target: 2 });
+    expect(await give(s, card.id)).toMatchObject({ challengeBonus: 1 });
+  });
+
+  it("switches an idle challenge on at once", async () => {
+    const s = await shop();
+    expect(await challenge(s, 2, 1)).toMatchObject({ challengeVisits: 2, challengeNext: null });
+    expect(await next(s)).toEqual({ from: null, visits: null, bonus: null });
+  });
+
+  it("keeps a bonus when a correction leaves the month's own target met, whatever the owner changed since", async () => {
+    const s = await shop();
+    await challenge(s, 2, 1);
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await earlierVisit(s, card.id);
+    await give(s, card.id);
+    const extra = await give(s, card.id);
+    await challenge(s, 5, 1);
+    await reverseEntry({ userId: s.owner, locationId: s.locationId, entryId: extra.entryId, reason: "Doppelt gebucht heute", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.reversalOfId, (await bonusRows(card.id))[0].id))).toEqual([]);
+  });
+
+  it("judges a correction by the terms of the visit's month once a change has started", async () => {
+    const s = await shop();
+    await challenge(s, 5, 1);
+    // The change to 2 visits started on this month's 1st (saved last month); the stored current target is still 5.
+    await pool.query("UPDATE programs SET challenge_next_from = $1, challenge_next_visits = 2, challenge_next_bonus = 1 WHERE id = $2", [`${thisMonth(s)}-01`, s.programId]);
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await earlierVisit(s, card.id);
+    await give(s, card.id);
+    const extra = await give(s, card.id);
+    await reverseEntry({ userId: s.owner, locationId: s.locationId, entryId: extra.entryId, reason: "Doppelt gebucht heute", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const bonuses = await bonusRows(card.id);
+    expect(bonuses).toHaveLength(1);
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.reversalOfId, bonuses[0].id))).toEqual([]);
+  });
+
+  it("is the owning shop's alone and changes no other shop", async () => {
+    const s = await shop();
+    const other = await shop("stamp", "Other Synthetic Shop");
+    await challenge(s, 2, 1);
+    await challenge(other, 2, 3);
+    await challenge(s, 3, 2);
+    await expect(challenge(other, 4, 1, s.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await next(other)).toEqual({ from: null, visits: null, bonus: null });
+  });
+
+  it("leaves the ledger and message checks of the stack untouched (X-1 unions)", async () => {
+    const defs = Object.fromEntries((await pool.query<{ conname: string; def: string }>("SELECT conname, pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname IN ('ledger_source_valid','wallet_message_kind_valid')")).rows.map(row => [row.conname, row.def]));
+    for (const source of ["winback_bonus", "birthday_bonus", "expiry", "challenge_bonus", "welcome_bonus", "happy_hour"]) expect(defs.ledger_source_valid).toContain(`'${source}'`);
+    for (const kind of ["owner", "winback", "almost", "birthday", "expiry"]) expect(defs.wallet_message_kind_valid).toContain(`'${kind}'`);
   });
 });
