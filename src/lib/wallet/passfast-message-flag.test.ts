@@ -9,8 +9,8 @@ const pass: WalletPassData = {
   locationName: "Mitte", brandColor: "#214739", country: "DE", locale: "de", programType: "stamp", balance: 10, scanCode: "sc_synthetic",
   cardLocator: "K-ABCDEF", reward: { title: "Kaffee gratis", cost: 10 }, message: "Heute ruhig: doppelte Punkte bis 17 Uhr",
 };
-const earlierData = '{"merchantName":"Café","programName":"Kaffee","locationName":"Mitte","locale":"de","programType":"stamp","balance":10,"cardLocator":"K-ABCDEF","scanCode":"sc_synthetic","rewardTitle":"Kaffee gratis","rewardCost":10,"rewardReady":"Prämie bereit"}';
-const earlierVoid = '{"merchantName":"Café","programName":"Kaffee","locationName":"Mitte","locale":"de","programType":"stamp","scanCode":"","cardLocator":"","balance":0,"rewardTitle":"","rewardCost":0,"rewardReady":""}';
+const earlierData = '{"merchantName":"Café","programName":"Kaffee","locationName":"Mitte","locale":"de","programType":"stamp","balance":"10","cardLocator":"K-ABCDEF","scanCode":"sc_synthetic","rewardTitle":"Kaffee gratis","rewardCost":"10","rewardReady":"Prämie bereit"}';
+const earlierVoid = '{"merchantName":"Café","programName":"Kaffee","locationName":"Mitte","locale":"de","programType":"stamp","scanCode":"","cardLocator":"","balance":"0","rewardTitle":"","rewardCost":"0","rewardReady":""}';
 
 describe("PassFast payloads and the WALLET_MESSAGES_ENABLED switch", () => {
   it.each([{}, { WALLET_MESSAGES_ENABLED: "false" }, { WALLET_MESSAGES_ENABLED: "TRUE" }, { WALLET_MESSAGES_ENABLED: "" }])("off (%o): generate/refresh and void are the earlier contract exactly", env => {
