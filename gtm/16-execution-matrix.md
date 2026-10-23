@@ -16,7 +16,7 @@ Ad numbers refer to [08-ad-concepts.md](08-ad-concepts.md); FAQ codes to [07-obj
 | **CORE-06** Team bestätigt | „Stempelt bei euch auch mal einer selbst?“ | Step 2: a screenshot of a card earns nothing | „Ein Stempel zählt erst, wenn dein Team ihn bestätigt.“ | AD-02 „Selbststempeln“ (staged) | FAQ card: „Kann man das austricksen?“ | ABUSE | Busy counters with staff. |
 | **CORE-07** Empfehlung beim echten Besuch | „Wie kommen neue Kunden heute zu dir?“ | Step 4: shared → created → first visit confirmed → bonus | AD-B „Dein bester Kunde kennt vielleicht deinen nächsten.“ | AD-09 „Barber leben von Mundpropaganda“ | AD-10 carousel „Fürs Teilen gibt's nichts“ | ABUSE (referrals): bonus only after the confirmed first visit | Barber: lead step. Pizzeria: household and friends. Café: short. |
 | **CORE-08** Sehen, ob es genutzt wird | „Weißt du, wie viele deiner Kunden diesen Monat zweimal da waren?“ | Step 5: Auswertung (returning cards) + one card's history | „Wer kommt wirklich wieder? Bestätigte Besuche statt Bauchgefühl.“ (Beispieldaten) | Owner view: counts this week → one card's last visit | „Was würdest du tun?“: 12 returning cards this week | OBJ-01 „Kommen eh“ → „Dann sieh, wie viele es sind.“ | Barber: rhythm per card. Pizzeria: weekly orderers. Never name customers. |
-| **CORE-09** 39 € mit deinen Zahlen | „Was kostet bei dir ein Haarschnitt im Schnitt?“ | Step 7: the merchant types their basket into the calculator | AD-05 „39 € = zwei Haarschnitte“ (Rechenbeispiel) | AD-29 calculator screen recording | „Ab wie vielen Besuchen rechnet sich das?“ | PRICE | Barber €25 → 2 · pizzeria €18 → 3 · café €6 → 7 · salon €45 → 1. |
+| **CORE-09** 49 € mit deinen Zahlen | „Was kostet bei dir ein Haarschnitt im Schnitt?“ | Step 7: the merchant types their basket into the calculator | AD-05 „49 € = zwei Haarschnitte“ (Rechenbeispiel) | AD-29 calculator screen recording | „Ab wie vielen Besuchen rechnet sich das?“ | PRICE | Barber €25 → 2 · pizzeria €18 → 3 · café €6 → 9 · salon €45 → 2. |
 | **CORE-10** Mit dir eingerichtet | „Ich richte es mit dir ein – halbe Stunde, wenn's ruhig ist.“ | Close: onboarding checklist | „Heute eingerichtet. Morgen stempelt dein erster Kunde.“ (AD-13) | Setup timelapse (real merchant, written permission) | AD-31 „Ein Tag, ein Laden“ (setup only, no results) | TIME-SETUP | All. |
 | **CORE-11** NFC (gated) | Pre-gate: „Antippen per NFC ist vorbereitet – heute startest du mit dem QR-Code.“ Post-gate: „Handy an den Tresen halten.“ | Post-gate only: a physical tag tap | Post-gate only: „Antippen. Öffnen. Sammeln.“ | Post-gate only: tap on a real tag, QR as the fallback | Pre-gate: none. Post-gate: „QR oder NFC? Beides.“ | WALLET-NFC | Café and bakery first after the gate (fastest counter). |
 
@@ -32,7 +32,7 @@ Ad numbers refer to [08-ad-concepts.md](08-ad-concepts.md); FAQ codes to [07-obj
 | Merchant referral | „This works for shops like yours“ | ACQ-04 ([10](10-merchant-referrals.md)) |
 | Sales demo | Whole system | Canonical demo ([06](06-demo-script.md)) |
 | Calculator | Economics | CORE-09, ECO-02 |
-| Retargeting | No app / €39 / simple setup | CORE-04, CORE-09, CORE-10, OBJ-02 (after O-014 and with a consent decision on tracking) |
+| Retargeting | No app / 49 € / simple setup | CORE-04, CORE-09, CORE-10, OBJ-02 (after O-014 and with a consent decision on tracking) |
 
 ## Long-tail placements
 

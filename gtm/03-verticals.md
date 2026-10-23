@@ -17,7 +17,7 @@ Scores run 1–5 and are the founder's judgement, not measured data. Re-score af
 | Criterion (weight) | Barber | Pizzeria/Imbiss | Café | Bakery | Salon (women) | Nails | Gym | Car wash | Restaurant |
 |---|---|---|---|---|---|---|---|---|---|
 | Visit frequency fits a 10-stamp card (×3) | 4 (every 2–5 weeks) | 5 (weekly) | 5 (daily) | 5 | 3 (every 6–8 weeks) | 3 | 2 (membership) | 3 | 2 |
-| €39 vs basket: visits to break even (×3) | 5 (≈2 at €25) | 4 (≈3 at €18) | 2 (≈7 at €6) | 1 (≈13 at €3) | 5 | 4 | 3 | 4 | 4 |
+| 49 € list price vs basket: visits to break even (×3) | 5 (≈2 at €25) | 4 (≈3 at €18) | 2 (≈9 at €6) | 1 (≈17 at €3) | 5 | 4 | 3 | 4 | 4 |
 | Owner present, decides alone on the spot (×3) | 5 | 4 | 3 | 2 (chains, staff) | 4 | 4 | 2 | 3 | 3 |
 | Paper cards already common, so no education needed (×2) | 4 | 5 | 5 | 4 | 3 | 4 | 1 | 4 | 2 |
 | Word of mouth drives new customers, so referrals fit (×2) | 5 | 3 | 3 | 2 | 5 | 5 | 3 | 2 | 3 |
@@ -30,7 +30,7 @@ Salon and nails score well but sit behind barbers. They overlap in motion and me
 
 ## Why barber first
 
-- **The maths is easiest to say out loud:** „39 € sind zwei Haarschnitte.“
+- **The maths is easiest to say out loud:** „49 € sind zwei Haarschnitte.“
 - **The owner is at the chair:** no gatekeeper. You can wait for a gap between cuts.
 - **Referrals are native:** a barber's growth *is* word of mouth, and our referral rules are the most differentiated sell-now feature.
 - **The visit rhythm speaks to a real fear:** a 4-week regular who's been gone for 9 weeks is probably at another barber. Today this shows per card (last visit, pseudonymous); a list of dormant regulars is FUTURE (RET-01 / FUT-01).

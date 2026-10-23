@@ -6,7 +6,7 @@ row,metric,A_solo,B_plus_seller,C_plus_referrals,D_plus_inbound,E_all_levers,F_a
 6,doors_per_seller_day,25,25,25,25,25,25,input,
 7,rate_door_to_conversation,0.45,0.45,0.45,0.45,0.45,0.55,input,Planning assumption (target scenario of funnel-model.csv); F uses its stretch value.
 8,rate_conversation_to_demo,0.5,0.5,0.5,0.5,0.5,0.6,input,
-9,rate_demo_to_close,0.35,0.35,0.35,0.35,0.35,0.45,input,Close = agrees to the €39 terms (paid start only after the owner clears the commercial gates).
+9,rate_demo_to_close,0.35,0.35,0.35,0.35,0.35,0.45,input,Close = agrees to the written terms, 49 € list or 39 € founding price (paid start only after the owner clears the commercial gates).
 10,close_rate_factor,1,0.9,1,1,0.9,0.9,input,Blended factor for a newer second seller (assumption).
 11,rate_close_to_activated,0.75,0.75,0.75,0.75,0.75,0.85,input,Activated = live and >= 25 confirmed visits by day 14 (hypothesis).
 12,locations_per_merchant,1.1,1.1,1.1,1.1,1.1,1.2,input,

@@ -6,10 +6,7 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 
 | File | What it is |
 |---|---|
-| [`field/prospects.xlsx`](field/prospects.xlsx) | Sheets: *Alle 60*, *FIRST 20*, *NEXT 20*, *FINAL 20* (printable route sheets with empty „Besucht / Ergebnis / Notizen“ columns), *Legende*. Filters and frozen headers |
-| [`field/prospects.csv`](field/prospects.csv) | Same data, 37 columns |
-| [`field/route.md`](field/route.md) | Day-by-day route tables, the redistribution note and the verification limits |
-| [`field/prospect_data.py`](field/prospect_data.py) / `build_prospects.py` | Editable source and generator |
+| [`field/PROSPECTS.md`](field/PROSPECTS.md) | Die Interessentenliste liegt außerhalb des Repos bei Sales (moved for data protection, Legal, 23 Oct 2026) |
 
 - **22 barbers + 38 pizzerias/Imbiss** (not 30 + 30): only about 22 independent barber-focused shops in Kassel could be confirmed in public sources; many „barbers“ in directories are unisex salons or have no usable data. The 8 extra come from pizzerias/Imbiss. Vertical order is unchanged.
 - **Routes:** FIRST 20 = Mitte (Martinsplatz, Treppenstraße, Friedrich-Ebert-Straße) + Nord-Holland (Holländische Straße, Untere Königsstraße): two walkable days. NEXT 20 = rest of Mitte + Vorderer Westen/Wehlheiden (Wilhelmshöher Allee) + Wesertor/Süd (Frankfurter Straße). FINAL 20 = Wilhelmshöhe, Rothenditmold, Kirchditmold, Bettenhausen, Zwehren/Nordshausen and the weakest fits.
@@ -26,7 +23,7 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 | 2 | Founder demo cheat sheet (A4, 1 page) | [`demo-cheat-sheet.pdf`](field/collateral/print/demo-cheat-sheet.pdf) | **Use now** (internal; laminate) |
 | 3 | Objection cheat sheet (A4, 2 pages) | [`objection-sheet.pdf`](field/collateral/print/objection-sheet.pdf) | **Use now**. Recovery/correction answers are in the *before-RC* wording |
 | 4 | Pilot interest sheet (A4, internal) | [`pilot-interest-sheet.pdf`](field/collateral/print/pilot-interest-sheet.pdf) | **Use now**. „Kein Vertrag, keine Zahlungszusage, kein Startdatum“ |
-| 5 | After-demo summary | [`after-demo-summary.html`](field/collateral/templates/after-demo-summary.html) (editable) · [`.pdf`](field/collateral/print/after-demo-summary.pdf) · [`after-demo-message.txt`](field/after-demo-message.txt) | **Send only after a recorded permission** for that channel |
+| 5 | After-demo summary | [`after-demo-summary.html`](field/collateral/templates/after-demo-summary.html) (editable) · [`.pdf`](field/collateral/print/after-demo-summary.pdf) · plain-text message: retired 23 Oct 2026, current templates are with Sales outside the repo | **Send only after a recorded permission** for that channel |
 | 6 | Learning sheet | [`learning-sheet.xlsx`](field/learning-sheet.xlsx) (dropdowns) · [`learning-sheet-template.csv`](field/learning-sheet-template.csv) | **Use now** |
 
 Release-gated lines (lost card, mistake correction, „Was, wenn NFC nicht geht?“, the NFC footer) are generated from one file, [`collateral/variants.py`](field/collateral/variants.py). After the gates: `python3 gtm/field/collateral/build_collateral.py --rc --nfc` writes **separate** `print-post/` PDFs and never overwrites the current set.

@@ -38,7 +38,7 @@ Formats: **R** = IG Reel 9:16 · **T** = TikTok 9:16 · **S** = static 4:5 · **
 - **On-screen text:** „Die Stempelkarte – jetzt auf dem Handy. Ohne App.“
 - **Visual:** A crumpled paper card pulled from a jacket, then a phone scanning a counter QR, then a card opening (Beispiel).
 - **15s:** Hook (0–3) → jacket/paper card (3–6) → scan, card opens (6–11) → „Ohne App. Dein Team bestätigt jeden Stempel.“ (11–15)
-- **30s:** The 15s cut, plus the staff confirm close-up (15–21), the returning-cards number in the analytics (21–26) and the price line „39 € pro Monat und Laden“ (26–30).
+- **30s:** The 15s cut, plus the staff confirm close-up (15–21), the returning-cards number in the analytics (21–26) and the price line „49 € pro Monat und Laden“ (26–30).
 - **CTA:** DM „KARTE“
 - **Measure:** Hold3s ≥ 30 % means the paper-card pain is recognised. Compare with AD-03.
 
@@ -74,10 +74,10 @@ Formats: **R** = IG Reel 9:16 · **T** = TikTok 9:16 · **S** = static 4:5 · **
 
 ### AD-05 · „Zwei Haarschnitte“
 - **Format:** S · **Vertical:** barber · **Angle:** CORE-09 · **Status:** SELL NOW (Rechenbeispiel)
-- **Hook:** „39 € im Monat. Das sind zwei Haarschnitte.“
+- **Hook:** „49 € im Monat. Das sind zwei Haarschnitte.“
 - **On-screen text:** The headline plus a small „Rechenbeispiel bei 25 € pro Haarschnitt. Keine Prognose.“
 - **Visual:** Two pairs of scissors on a mirror shelf, with the price card overlay.
-- **15s:** Scissors (0–3) → „39 €“ (3–7) → „= 2 Haarschnitte“ (7–11) → fine print + CTA (11–15)
+- **15s:** Scissors (0–3) → „49 €“ (3–7) → „= 2 Haarschnitte“ (7–11) → fine print + CTA (11–15)
 - **30s:** The 15s cut, plus „Ob die zusätzlich kommen, kann dir keiner versprechen. Aber du siehst es.“ with the owner list (15–30).
 - **CTA:** DM „RECHNEN“
 - **Measure:** If DM „RECHNEN“ > DM „KARTE“, price clarity is a driver, so move the break-even earlier in the walk-in.
@@ -106,7 +106,7 @@ Formats: **R** = IG Reel 9:16 · **T** = TikTok 9:16 · **S** = static 4:5 · **
 - **Format:** S · **Vertical:** pizzeria · **Angle:** VER-03/ECO-03 · **Status:** SELL NOW
 - **Hook:** „Keine Provision pro Bestellung. Ein Preis pro Laden.“
 - **On-screen text:** Headline plus the small line „Bestellungen über Lieferplattformen laufen nicht über Loynara.“
-- **Visual:** Plain receipt-style graphic: „Loynara: 39 € / Monat / Standort“.
+- **Visual:** Plain receipt-style graphic: „Loynara: 49 € / Monat / Standort“.
 - **15s:** Receipt prints (0–6) → headline (6–11) → qualifier + CTA (11–15)
 - **30s:** The 15s cut, plus the founder to camera: „Deine Stammkunden gehören dir, nicht einer Plattform.“ (15–30)
 - **CTA:** DM „PIZZA“
@@ -150,7 +150,7 @@ Formats: **R** = IG Reel 9:16 · **T** = TikTok 9:16 · **S** = static 4:5 · **
 ### AD-12 · „Ein Laden, ein Preis“
 - **Format:** S · **Vertical:** barber, café · **Angle:** ECO-03 · **Status:** SELL NOW
 - **Hook:** „Egal, wie viele Stühle. Egal, wie viele Karten.“
-- **On-screen text:** „39 € / Monat / Standort.“
+- **On-screen text:** „49 € / Monat / Standort.“
 - **Visual:** A row of 4 barber chairs with one price tag.
 - **15s:** Pan across the chairs (0–8) → price tag (8–15)
 - **30s:** The 15s cut, plus „Jeder Mitarbeiter bekommt seinen eigenen Zugang“ (15–30).

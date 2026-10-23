@@ -39,8 +39,8 @@ Source: *Loynara Marketing & Acquisition Playbook* (Appendix A, 124 angles; plus
 | 13 | **More value from existing customers** — Before paying to find strangers, work with the customers already earned. | missing | ECO-01 Erst die Kunden, die du schon hast | SELL NOW |
 | 14 | **Repeat-purchase frequency** — Move the next visit sooner. | missing | ECO-02 Ein Besuch mehr, aufs Jahr gerechnet | SELL NOW |
 | 15 | **Lifetime value** — One extra visit matters; repeated extra visits matter more. | missing | ECO-02 Ein Besuch mehr, aufs Jahr gerechnet | SELL NOW |
-| 16 | **Revenue scenario / calculator** — Let merchants model their own assumptions. | represented | CORE-09 39 € mit deinen eigenen Zahlen | SELL NOW |
-| 17 | **€39 in context** — Put one clear fee next to the merchant’s own economic scenario. | represented | CORE-09 39 € mit deinen eigenen Zahlen | SELL NOW |
+| 16 | **Revenue scenario / calculator** — Let merchants model their own assumptions. | represented | CORE-09 49 € mit deinen eigenen Zahlen | SELL NOW |
+| 17 | **€39 in context** — Put one clear fee next to the merchant’s own economic scenario. | represented | CORE-09 49 € mit deinen eigenen Zahlen | SELL NOW |
 | 18 | **Referral acquisition** — Keep the customer and let them help bring the next one. | represented | CORE-07 Empfehlung zählt beim echten Besuch | SELL NOW |
 | 19 | **Customer as advocate** — Turn satisfied regulars into introducers. | partial | ACQ-01 Mundpropaganda bekommt ein System | SELL NOW |
 | 20 | **Reward for introduction** — Reward not only repeat visits but qualified introductions. | represented | CORE-07 Empfehlung zählt beim echten Besuch | SELL NOW |
@@ -163,7 +163,7 @@ Source: *Loynara Marketing & Acquisition Playbook* (Appendix A, 124 angles; plus
 | Priority 8 | **Physical + branded experience** — PARTIAL / HARDWARE DEPENDENT | partial | TRU-08 Deine Marke vorne | QUALIFIED / PREVIEW |
 | Priority 9 | **Know who returns** — NOW / PARTIAL ANALYTICS | represented | CORE-08 Sehen, ob es genutzt wird | QUALIFIED / PREVIEW |
 | Priority 10 | **Insight → Action** — FUTURE DIFFERENTIATOR | missing | FUT-12 Sehen → Verstehen → Handeln | FUTURE / DO NOT SELL YET |
-| Priority 11 | **€39 economics** — Merchant inputs own numbers | represented | CORE-09 39 € mit deinen eigenen Zahlen | SELL NOW |
+| Priority 11 | **€39 economics** — Merchant inputs own numbers | represented | CORE-09 49 € mit deinen eigenen Zahlen | SELL NOW |
 | Priority 12 | **Operational maturity / recovery** — NOW AFTER HARDENING (original treats reissue as live) | partial | OPS-01 Gebaut für die echte Schicht | QUALIFIED / PREVIEW |
 | Vertical | **Pizzeria / takeaway** — Aus einer Bestellung wird der nächste Besuch. | represented | VER-02 Pizzeria: aus einer Bestellung die nächste | SELL NOW |
 | Vertical | **Barber** — Den Rhythmus nicht verlieren. | represented | VER-01 Barber: jeder Schnitt zählt | SELL NOW |
@@ -190,7 +190,7 @@ Source: *Loynara Marketing & Acquisition Playbook* (Appendix A, 124 angles; plus
 | Objection bank B | **I don’t want to spam customers** | partial | TRU-06 Kein Spam an deine Kunden | QUALIFIED / PREVIEW |
 | Objection bank B | **I already use Instagram** | missing | OBJ-02 „Ich hab doch Instagram“ | SELL NOW |
 | Objection bank B | **I don’t know if it works** | represented | OBJ-04 „Ich weiß nicht, ob das funktioniert“ | SELL NOW |
-| Objection bank B | **€39 is another subscription** | represented | CORE-09 39 € mit deinen eigenen Zahlen | SELL NOW |
+| Objection bank B | **€39 is another subscription** | represented | CORE-09 49 € mit deinen eigenen Zahlen | SELL NOW |
 | Objection bank B | **What if something goes wrong?** | missing | OPS-01 Gebaut für die echte Schicht | QUALIFIED / PREVIEW |
 | Objection bank B | **I have several employees** | partial | OPS-05 Eigene Zugänge und Rollen | SELL NOW |
 | Objection bank B | **I have several stores** | missing | OPS-06 Mehrere Standorte | SELL NOW |

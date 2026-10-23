@@ -6,4 +6,10 @@ collateral/preview-post/
 stand/preview/
 __pycache__/
 *.pyc
-# real prospects work files stay local (personal data); the committed prospects.csv/xlsx hold public business data only
+# the prospect list lives with Sales outside the repo (data protection, 23 Oct 2026); never commit a copy
+prospects*.csv
+prospects*.xlsx
+prospect_data.py
+route.md
+build_prospects.py
+check_prospects.py

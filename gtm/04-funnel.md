@@ -23,7 +23,7 @@ node gtm/data/funnel.mjs --month-one --actuals gtm/data/private/pipeline.csv
 | Pilot live | Counter sign is up, ≥ 1 staff login works, first real visit confirmed. Going live with real customer data is owner decision D-1. | `pilot_live_date` |
 | Active | ≥ 25 confirmed visits in the first 14 days. This is a hypothesis; tune it per vertical. | `active_by_day14` |
 | Pilot interest | The owner says they want to start once terms are ready. This is allowed before the commercial gates clear. | `pilot_interest_date` |
-| Close | The owner agrees to the written €39 terms. Only possible after the owner clears the commercial gates. | `close_date` |
+| Close | The owner agrees to the written terms (49 € list or the 39 € founding price). Only possible after the owner clears the commercial gates. | `close_date` |
 | Paid | First invoice paid | `paid_date` |
 
 ## Three scenarios (from the model)
@@ -63,7 +63,7 @@ These are **project commercial / launch gates** that the owner set, not statemen
 |---|---|
 | O-001 | Operator identity |
 | O-011 | Invoice route |
-| O-012 | VAT presentation of the €39 |
+| O-012 | VAT presentation of the price (49 € list, 39 € founding price) |
 | O-013 | AGB / AVV |
 | D-1 | Pilot terms before invoicing exists |
 
@@ -72,7 +72,7 @@ These are **project commercial / launch gates** that the owner set, not statemen
 **Not allowed until the owner clears the gates:** close (written terms), collecting payment, a promised paid-start date, going live with real customer data (D-1).
 
 These docs don't invent free months or discounts. The founder line:
-> „Der Preis ist 39 € pro Monat und Standort. Bevor du irgendetwas zahlst, bekommst du alle Bedingungen schriftlich – ein Startdatum nenne ich dir erst, wenn die stehen.“
+> „Pro Monat und Standort: normal 49 €, für die ersten Betriebe in Kassel 39 €, und das bleibt so, solange du dabei bist. Bevor du irgendetwas zahlst, bekommst du alle Bedingungen schriftlich – ein Startdatum nenne ich dir erst, wenn die stehen.“
 
 **Consequence for month one:** if the gates are not cleared before week 1, month one produces *pilot interest*, not paid locations. Every month-one number below assumes the gates were cleared before the first field day.
 
@@ -81,7 +81,7 @@ These docs don't invent free months or discounts. The founder line:
 Editable: sheet *Month one* in the workbook, or `month-one-model.csv`. Run `node gtm/data/funnel.mjs --month-one`. The rates are the target-scenario planning assumptions above (column F uses the stretch rates). **No rate is measured yet.**
 
 Definitions for this sheet:
-- **Close** = agrees to the €39 terms.
+- **Close** = agrees to the written terms (49 € list or 39 € founding price).
 - **Activated** = live and ≥ 25 confirmed visits by day 14. Closes from weeks 3–4 activate in month two, so these figures are an upper bound for month one.
 
 | Operating model | Doors in 4 weeks | Demos | Activated merchants | Paying locations expected | Doors needed for 100 | …per seller field day | Demo rate needed | Close rate needed | Activation rate needed |
