@@ -18,12 +18,14 @@ export function nearestReward<T extends CardReward>(rewards: T[], balance: numbe
  * next reward, with the code ticket passed in as children. The guest's card page and the owner's previews both use
  * it, so the owner sees exactly what guests see. Colours come from the merchant palette variables on an ancestor.
  */
-export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, locale = "de", className, children }: {
+export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, locale = "de", progress = true, className, children }: {
   businessName: string; locationName: string; programType: "stamps" | "points"; balance: number; rewards: CardReward[];
   /** The reward the progress line refers to. */
   selected?: CardReward;
   /** The stamp count that was just reached; that stamp plays the landing motion once. */
-  landed?: number; locale?: "de" | "fr"; className?: string; children?: ReactNode;
+  landed?: number; locale?: "de" | "fr";
+  /** The line to the selected reward; the guest's card page states it once, above the card, and passes false. */
+  progress?: boolean; className?: string; children?: ReactNode;
 }) {
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
@@ -40,7 +42,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
       : <PointsLadder balance={balance} rewards={rewards} locale={locale} className={styles.ladder} />}
     <div className={styles.balancePanel}>
       <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong><NumberRoll value={balance}>{number.format(balance)}</NumberRoll> <em>{unit}</em></strong></p>
-      {selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), remaining === 1 && programType === "points" ? t.point : unit, selected.title)}</p> : null}
+      {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), remaining === 1 && programType === "points" ? t.point : unit, selected.title)}</p> : null}
     </div>
     {children}
   </section>;

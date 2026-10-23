@@ -42,6 +42,8 @@ export type CustomerCardProps = {
   /** The card's level and perk; absent = the shop has no levels. */
   level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
   locale?: "de" | "fr";
+  /** The programme's last day (already formatted): stated first on the card, with what still works until then (ENG-075). */
+  endsOn?: string;
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
   /** Offered only when the server reports the provider available; absent = no button at all. */
@@ -62,9 +64,12 @@ export type CustomerCardProps = {
   closeError?: string;
 };
 
-/** The guest's card: goal, then the card itself with the code inset like a Wallet pass, then everything that keeps the card findable. */
+/**
+ * The guest's card: an ending programme first, then one progress line that names the reward, the card itself with the
+ * code inset like a Wallet pass, at most one highlighted extra, then everything that keeps the card findable.
+ */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, locale = "de", notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -81,14 +86,19 @@ export function CustomerCard(props: CustomerCardProps) {
   </div>;
 
   return <CardStatusProvider><CustomerShell brandColor={brandColor} locale={locale} header={header} footer={<p className={styles.footer}>{t.footer}</p>}>
-    <Goal t={t} number={number} programType={programType} remaining={nextGoal ? nextGoal.cost - balance : 0} readyCount={readyCount} nextGoal={nextGoal} several={rewards.length > 1} />
+    {endsOn ? <section className={styles.ending} aria-labelledby="customer-ending-title">
+      <h2 id="customer-ending-title" className={styles.endingTitle}>{t.endsOn(endsOn)}</h2>
+      <p>{t.endsWindow(programType === "points")}</p>
+    </section> : null}
+
+    <Goal t={t} number={number} programType={programType} balance={balance} selected={selected} readyCount={readyCount} nextGoal={nextGoal} />
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
-    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale}>
+    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false}>
       <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
         {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
         {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong>{cardLocator}</strong><small>{t.cardNumberHint}</small></p> : null}
-        <p className={styles.ticketNote}>{readyCount > 0 ? t.showToRedeem : t.scanNote}</p>
+        {readyCount > 0 ? <p className={styles.ticketNote}>{t.showToRedeem}</p> : null}
       </section>
     </CardFace>
     {props.onRefresh ? <div className={styles.refresh}>
@@ -100,21 +110,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {notices}
 
-    {happyHourUntil ? <p className={styles.rules}>{t.happyHour(happyHourUntil)}</p> : null}
-    {pointsExpiry?.notice ? <p className={styles.rules} role="status">{pointsExpiry.notice}</p> : null}
-    {level ? <section className={styles.panel} aria-labelledby="customer-level-title">
-      <h2 id="customer-level-title" className={styles.panelTitle}>{level.name ? `Dein Level: ${level.name}` : "Noch kein Level"}</h2>
-      {level.name && level.until ? <p className={styles.rules}><strong>{level.name} bis {level.until}</strong>, auch ohne weiteren Besuch.</p> : null}
-      {level.perk ? <p className={styles.rules}>Dein Vorteil: {level.perk}</p> : null}
-      <p className={styles.rules}>{level.next ? `Noch ${level.next.visits} ${level.next.visits === 1 ? "Besuch" : "Besuche"} in 90 Tagen bis ${level.next.name}.` : "Höchstes Level erreicht."}</p>
-      <p className={styles.rules}><small>Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum oben sagt, bis wann es sicher gilt.</small></p>
-    </section> : null}
-    {challenge ? <section className={styles.panel} aria-labelledby="customer-challenge-title">
-      <h2 id="customer-challenge-title" className={styles.panelTitle}>Monats-Challenge</h2>
-      <p className={styles.rules}>{challenge.text}</p>
-      <p className={styles.rules}><small>{challenge.conditions}</small></p>
-      <p className={styles.rules}><strong>{challenge.done ? "Geschafft! Der Bonus ist gutgeschrieben." : `${challenge.visits} von ${challenge.target} Besuchen`}</strong></p>
-    </section> : null}
+    <Extras items={extras({ t, happyHourUntil, pointsExpiry, challenge, level })} />
 
     {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
       <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>
@@ -144,11 +140,13 @@ export function CustomerCard(props: CustomerCardProps) {
       {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
-    {rulesText || pointsExpiry ? <section className={styles.panel} aria-labelledby="customer-rules-title">
+    {rulesText || pointsExpiry || challenge || level ? <section className={styles.panel} aria-labelledby="customer-rules-title">
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
       {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
       {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
       {pointsExpiry?.batches.length ? <><p className={styles.rules}>Deine Punkte verfallen:</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
+      {challenge ? <p className={styles.rules}>Monats-Challenge: {challenge.conditions}</p> : null}
+      {level ? <p className={styles.rules}>Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum beim Level sagt, bis wann es sicher gilt.</p> : null}
       <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
     </section> : null}
 
@@ -157,14 +155,58 @@ export function CustomerCard(props: CustomerCardProps) {
   </CustomerShell></CardStatusProvider>;
 }
 
-function Goal({ t, number, programType, remaining, readyCount, nextGoal, several }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; remaining: number; readyCount: number; nextGoal?: Reward; several: boolean }) {
+/** The one progress statement: how many are missing for which reward, or which reward is ready. */
+function Goal({ t, number, programType, balance, selected, readyCount, nextGoal }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; balance: number; selected?: Reward; readyCount: number; nextGoal?: Reward }) {
+  if (!selected) return null;
   const unitFor = (n: number) => (programType === "points" ? (n === 1 ? t.point : t.points) : t.stamps);
-  if (readyCount > 0) return <div className={styles.goal}>
-    <p className={styles.goalLine}>{readyCount === 1 ? t.readyOne : t.readyMany(readyCount)}</p>
-    {nextGoal ? <p className={styles.goalSub}>{t.nextGoal(number.format(remaining), unitFor(remaining), nextGoal.title)}</p> : null}
+  const remaining = Math.max(0, selected.cost - balance);
+  const sub = remaining > 0 ? (readyCount === 1 ? t.readyOne : readyCount > 1 ? t.readyMany(readyCount) : null)
+    : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
+  return <div className={styles.goal}>
+    <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor(selected.title)
+      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.forReward(unitFor(remaining), selected.title)}</>}</p>
+    {sub ? <p className={styles.goalSub}>{sub}</p> : null}
   </div>;
-  if (!nextGoal) return null;
-  return <div className={styles.goal}><p className={styles.goalLine}>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toGo(unitFor(remaining), several)}</p></div>;
+}
+
+type Extra = { key: string; line: string; block: ReactNode };
+
+/**
+ * Time-bound extras, most urgent first: points about to expire (something is lost), a happy hour running now, this
+ * month's challenge, then the 90-day level. The first one present is shown in full; the rest fold into one quiet list,
+ * so a card never stacks four panels. Their fine print lives in the programme rules.
+ */
+function extras({ t, happyHourUntil, pointsExpiry, challenge, level }: Pick<CustomerCardProps, "happyHourUntil" | "pointsExpiry" | "challenge" | "level"> & { t: Copy }): Extra[] {
+  const items: Extra[] = [];
+  if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
+  if (happyHourUntil) items.push({ key: "happy", line: t.happyHour(happyHourUntil), block: <p className={styles.highlight}>{t.happyHour(happyHourUntil)}</p> });
+  if (challenge) {
+    const progress = challenge.done ? "Geschafft! Der Bonus ist gutgeschrieben." : `${challenge.visits} von ${challenge.target} Besuchen`;
+    items.push({ key: "challenge", line: `Monats-Challenge: ${challenge.done ? "geschafft" : progress}`, block: <section className={styles.panel} aria-labelledby="customer-challenge-title">
+      <h2 id="customer-challenge-title" className={styles.panelTitle}>Monats-Challenge</h2>
+      <p className={styles.rules}>{challenge.text}</p>
+      <p className={styles.rules}><strong>{progress}</strong></p>
+    </section> });
+  }
+  if (level) {
+    const title = level.name ? `Dein Level: ${level.name}` : "Noch kein Level";
+    items.push({ key: "level", line: level.perk ? `${title} · ${level.perk}` : title, block: <section className={styles.panel} aria-labelledby="customer-level-title">
+      <h2 id="customer-level-title" className={styles.panelTitle}>{title}</h2>
+      {level.name && level.until ? <p className={styles.rules}><strong>{level.name} bis {level.until}</strong>, auch ohne weiteren Besuch.</p> : null}
+      {level.perk ? <p className={styles.rules}>Dein Vorteil: {level.perk}</p> : null}
+      <p className={styles.rules}>{level.next ? `Noch ${level.next.visits} ${level.next.visits === 1 ? "Besuch" : "Besuche"} in 90 Tagen bis ${level.next.name}.` : "Höchstes Level erreicht."}</p>
+    </section> });
+  }
+  return items;
+}
+
+function Extras({ items }: { items: Extra[] }) {
+  const [first, ...rest] = items;
+  if (!first) return null;
+  return <>
+    {first.block}
+    {rest.length ? <ul className={styles.moreList} aria-label="Außerdem">{rest.map(item => <li key={item.key}>{item.line}</li>)}</ul> : null}
+  </>;
 }
 
 function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", t }: CustomerCardProps & { t: Copy }) {
