@@ -265,3 +265,15 @@ if (heroScene && matchMedia('(pointer: fine)').matches && !calm()) {
 }
 for (const sec of $$('[data-reveal]')) seen(sec, { rootMargin: '0px 0px -22% 0px' }, () => { sec.dataset.seen = ''; setTimeout(() => { sec.dataset.done = ''; }, 2800); });
 addEventListener('resize', () => update());
+// Motion clips: play while visible, pause outside, never under reduced motion (the poster stays). The toggle pauses for good, until pressed again (WCAG 2.2.2).
+// In a demo section any other button hands over to the live demo.
+for (const fig of $$('[data-clip]')) {
+  const v = $<HTMLVideoElement>('video', fig)!, toggle = $<HTMLButtonElement>('.clip-toggle', fig)!;
+  let held = false;
+  if (!calm() && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => { if (e.isIntersecting && !held) v.play().catch(() => {}); else v.pause(); }, { threshold: 0.25 }).observe(fig);
+    toggle.hidden = false;
+    toggle.addEventListener('click', () => { held = !held; toggle.setAttribute('aria-pressed', String(held)); if (held) v.pause(); else v.play().catch(() => {}); });
+  }
+  if (fig.dataset.clip !== 'hero') fig.closest('section')!.addEventListener('click', e => { const b = (e.target as Element).closest('button'); if (b && !fig.contains(b)) { v.pause(); fig.hidden = true; } });
+}
