@@ -246,3 +246,117 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
       limits: { availableWindowsDays: [30, 90], bucketDays: 7, topRewardTitles: 5 },
     };
 }
+
+export type SpendFigures = {
+  /** Counted visits: distinct staff-award requests per card, as in the checkout rule above. */
+  visits: number;
+  /** Confirmed purchase amounts plus, for visits without one, the programme's average; integer minor units. */
+  spentMinor: number;
+  realMinor: number;
+  estimatedMinor: number;
+  /** Visits without a purchase amount whose programme has no average entered: counted, not priced. */
+  unpricedVisits: number;
+  averagePerVisitMinor: number | null;
+  /** Spend of cards that joined inside the window; null for the since-start figure. */
+  newCardMinor: number | null;
+  returningCardMinor: number | null;
+};
+export type MerchantSpend = {
+  asOf: string;
+  currency: string;
+  overall: { recent: SpendFigures; total: SpendFigures };
+  locations: Array<{ locationId: string; name: string; recentFrom: string; recent: SpendFigures; total: SpendFigures }>;
+};
+type SpendRow = { locationId: string; name: string; recentFrom: Date; period: "recent" | "total"; visits: number; pricedVisits: number; estimatedVisits: number; realMinor: string; estimatedMinor: string; newCardMinor: string };
+type SpendSums = { visits: number; priced: number; estimated: number; real: bigint; estimatedMinor: bigint; newCard: bigint | null };
+
+export const SPEND_RECENT_DAYS = 30;
+const ZERO = BigInt(0), TWO = BigInt(2);
+
+/**
+ * "Spent by your Loynara customers" for the last 30 local calendar days (today and the 29 before, in each location's
+ * time zone, so a DST change moves no visit across the edge) and since the start. Real amounts come from the purchase
+ * row of each counted, uncorrected award; a reversal removes its entry's amount, so a corrected-and-rebooked purchase
+ * counts the rebooked amount. Bonus sources never count. Visits without a purchase row are estimated with the
+ * programme's average (null = counted but unpriced).
+ */
+export async function getMerchantSpend(actorUserId: string, options: { asOf?: Date } = {}): Promise<MerchantSpend> {
+  return inSnapshot(undefined, async client => {
+    const asOf = options.asOf ?? (await client.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
+    if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");
+    const [owner] = (await client.query<{ tenantId: string; currency: string }>(
+      `SELECT r.tenant_id AS "tenantId", t.currency FROM staff_roles r JOIN tenants t ON t.id = r.tenant_id
+       WHERE r.user_id = $1 AND r.role = 'owner' AND r.active = true LIMIT 1`,
+      [actorUserId],
+    )).rows;
+    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    const { rows } = await client.query<SpendRow>(`
+      WITH loc AS (
+        SELECT l.id, l.name,
+          (((($2::timestamptz AT TIME ZONE l.timezone)::date - ${SPEND_RECENT_DAYS - 1})::timestamp) AT TIME ZONE l.timezone) AS recent_from
+        FROM locations l WHERE l.tenant_id = $1
+      ), counted AS (
+        SELECT e.location_id, e.membership_id, e.request_id, e.created_at, m.created_at AS card_created_at,
+          pa.amount_minor, p.average_visit_spend_minor AS average
+        FROM ledger_entries e
+        JOIN memberships m ON m.tenant_id = e.tenant_id AND m.id = e.membership_id
+        JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
+        LEFT JOIN purchase_awards pa ON pa.tenant_id = e.tenant_id AND pa.ledger_entry_id = e.id
+        WHERE e.tenant_id = $1 AND e.created_at < $2
+          AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+          AND NOT EXISTS (
+            SELECT 1 FROM ledger_entries undo
+            WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id AND undo.created_at < $2
+          )
+      ), visits AS (
+        SELECT location_id, min(created_at) AS at, min(card_created_at) AS card_created_at,
+          sum(amount_minor)::bigint AS real_minor, max(average) AS average
+        FROM counted GROUP BY location_id, membership_id, request_id
+      )
+      SELECT l.id AS "locationId", l.name, l.recent_from AS "recentFrom", w.period,
+        count(v.at)::int AS visits,
+        count(v.real_minor)::int AS "pricedVisits",
+        count(v.average) FILTER (WHERE v.real_minor IS NULL)::int AS "estimatedVisits",
+        coalesce(sum(v.real_minor), 0)::bigint::text AS "realMinor",
+        coalesce(sum(v.average) FILTER (WHERE v.real_minor IS NULL), 0)::bigint::text AS "estimatedMinor",
+        coalesce(sum(coalesce(v.real_minor, v.average)) FILTER (WHERE v.card_created_at >= l.recent_from), 0)::bigint::text AS "newCardMinor"
+      FROM loc l
+      CROSS JOIN (VALUES ('recent'), ('total')) w(period)
+      LEFT JOIN visits v ON v.location_id = l.id AND (w.period = 'total' OR v.at >= l.recent_from)
+      GROUP BY l.id, l.name, l.recent_from, w.period
+      ORDER BY l.name, l.id, w.period
+    `, [owner.tenantId, asOf]);
+
+    const sums = (list: SpendRow[], period: SpendRow["period"]): SpendSums => list.filter(row => row.period === period).reduce<SpendSums>((sum, row) => ({
+      visits: sum.visits + row.visits, priced: sum.priced + row.pricedVisits, estimated: sum.estimated + row.estimatedVisits,
+      real: sum.real + BigInt(row.realMinor), estimatedMinor: sum.estimatedMinor + BigInt(row.estimatedMinor),
+      newCard: period === "recent" ? (sum.newCard ?? ZERO) + BigInt(row.newCardMinor) : null,
+    }), { visits: 0, priced: 0, estimated: 0, real: ZERO, estimatedMinor: ZERO, newCard: null });
+    const ids = [...new Set(rows.map(row => row.locationId))];
+    return {
+      asOf: asOf.toISOString(),
+      currency: owner.currency,
+      overall: { recent: spendFigures(sums(rows, "recent")), total: spendFigures(sums(rows, "total")) },
+      locations: ids.map(id => {
+        const own = rows.filter(row => row.locationId === id);
+        return { locationId: id, name: own[0].name, recentFrom: own[0].recentFrom.toISOString(), recent: spendFigures(sums(own, "recent")), total: spendFigures(sums(own, "total")) };
+      }),
+    };
+  });
+}
+
+function spendFigures(sum: SpendSums): SpendFigures {
+  const spent = sum.real + sum.estimatedMinor;
+  const pricedVisits = BigInt(sum.priced + sum.estimated);
+  return {
+    visits: sum.visits,
+    spentMinor: Number(spent),
+    realMinor: Number(sum.real),
+    estimatedMinor: Number(sum.estimatedMinor),
+    unpricedVisits: sum.visits - sum.priced - sum.estimated,
+    // Integer half-up rounding over priced visits only, so unpriced visits do not pull the average down.
+    averagePerVisitMinor: pricedVisits === ZERO ? null : Number((TWO * spent + pricedVisits) / (TWO * pricedVisits)),
+    newCardMinor: sum.newCard === null ? null : Number(sum.newCard),
+    returningCardMinor: sum.newCard === null ? null : Number(spent - sum.newCard),
+  };
+}

@@ -11,6 +11,8 @@ import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-anal
 import { retentionCustomerHref } from "@/lib/retention-links";
 import type { RetentionDays, RetentionSummary } from "@/lib/retention";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SpendCard } from "@/components/owner/spend-card";
+import { SPEND_COPY } from "@/lib/spend-copy";
 
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
@@ -29,6 +31,7 @@ export default function MerchantAnalyticsPage() {
     <div className="ow-page">
       {head}
       {locations.length > 1 && <Notice>{ALL_LOCATIONS_NOTE}</Notice>}
+      <SpendCard multiLocation={locations.length > 1} />
       <PeriodBar id="analytics-window" value={windowDays} onChange={setWindowDays} meta={r ? `${date(r.from)} bis ${date(r.asOf)}` : undefined} />
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
@@ -93,7 +96,7 @@ export default function MerchantAnalyticsPage() {
           <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
           <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
         )}
-        <details className="ow-muted"><summary>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} Die Zahlen zeigen bestätigte Buchungen, nicht alle Besuche, und sagen nichts über Umsatz.</p></details>
+        <details className="ow-muted"><summary>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} {SPEND_COPY.bookingsNote}</p></details>
       </>}
     </div>
   );

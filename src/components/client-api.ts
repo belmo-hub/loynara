@@ -54,6 +54,7 @@ export type MeResponse = {
   programSlug: string;
   programId?: string;
   programType: "stamp" | "points";
+  earningMode?: "manual" | "purchase";
   tapMode?: "disabled" | "automatic_fixed" | "staff_confirmed";
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
@@ -74,6 +75,8 @@ export type MeResponse = {
   /** A change to the running challenge that starts on the 1st of a later month (ENG-065); visits null = off from then. */
   challengeNext?: { from: string; visits: number | null; bonus: number | null } | null;
   levelsEnabled?: boolean;
+  /** Owner-entered average spend per visit (minor units) for the estimated results figure; null = not entered. */
+  averageVisitSpendMinor?: number | null;
   levelSilverVisits?: number;
   levelGoldVisits?: number;
   levelBronzePerk?: string;

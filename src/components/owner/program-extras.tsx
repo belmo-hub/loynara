@@ -6,11 +6,14 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
 import { CARD_NEWS_MAX, CHALLENGE_VISITS, cardNewsProblem, EXCLUDED_GOODS, LEVEL_PERK_MAX, levelPerkProblem, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
+import { parsePurchaseAmountMinor } from "@/lib/points";
+import { AVERAGE_VISIT_SPEND_MAX_MINOR, SPEND_COPY } from "@/lib/spend-copy";
 
-type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string; expiryMonths: string; challengeVisits: string; challengeBonus: string; levelsEnabled: boolean; silver: string; gold: string; perkBronze: string; perkSilber: string; perkGold: string };
+type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string; expiryMonths: string; challengeVisits: string; challengeBonus: string; levelsEnabled: boolean; silver: string; gold: string; perkBronze: string; perkSilber: string; perkGold: string; averageSpend: string };
 const LEVELS = [["Bronze", "perkBronze"], ["Silber", "perkSilber"], ["Gold", "perkGold"]] as const;
 const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonus ?? 0), cardNews: me.cardNews ?? "", reviewUrl: me.reviewUrl ?? "", expiryMonths: String(me.pointsExpiryMonths ?? ""), challengeVisits: String((me.challengeNext ? me.challengeNext.visits : me.challengeVisits) ?? ""), challengeBonus: String((me.challengeNext?.bonus ?? me.challengeBonus) || 1),
-  levelsEnabled: me.levelsEnabled ?? false, silver: String(me.levelSilverVisits ?? ""), gold: String(me.levelGoldVisits ?? ""), perkBronze: me.levelBronzePerk ?? "", perkSilber: me.levelSilverPerk ?? "", perkGold: me.levelGoldPerk ?? "" });
+  levelsEnabled: me.levelsEnabled ?? false, silver: String(me.levelSilverVisits ?? ""), gold: String(me.levelGoldVisits ?? ""), perkBronze: me.levelBronzePerk ?? "", perkSilber: me.levelSilverPerk ?? "", perkGold: me.levelGoldPerk ?? "", averageSpend: me.averageVisitSpendMinor ? `${Math.floor(me.averageVisitSpendMinor / 100)},${String(me.averageVisitSpendMinor % 100).padStart(2, "0")}` : "" });
+const averageMinor = (text: string) => { try { const minor = parsePurchaseAmountMinor(text); return minor <= AVERAGE_VISIT_SPEND_MAX_MINOR ? minor : undefined; } catch { return undefined; } };
 const NEWS_PROBLEM = { TOO_LONG: `Höchstens ${CARD_NEWS_MAX} Zeichen.`, LINK: "Bitte ohne Links oder Webadressen.", CONTROL: "Bitte in einer Zeile, ohne Zeilenumbruch." };
 
 /** Programme extras the owner sets outside the versioned earning rule. The server checks every value again. */
@@ -32,6 +35,10 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
   const silver = Number(draft.silver), gold = Number(draft.gold);
   // No default thresholds (Product): switching levels on needs both; once typed they must make sense even while off.
   const levelsValid = (!draft.levelsEnabled || (draft.silver !== "" && draft.gold !== "")) && (draft.silver === "" || (silver >= 2 && silver <= 50)) && (draft.gold === "" || (gold <= 90 && (draft.silver === "" || gold > silver))) && LEVELS.every(([, key]) => !levelPerkProblem(draft[key].trim()));
+  const average = draft.averageSpend.trim() ? averageMinor(draft.averageSpend) : null;
+  // Stamps and hand-entered points carry no purchase amount; only purchase-mode points shops have real ones.
+  const unpriced = stamp || me.earningMode === "manual";
+  const averageValid = !unpriced || average !== undefined;
   const changed = (Object.keys(draft) as Array<keyof Draft>).some(key => draft[key] !== saved[key]);
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("program-extras", changed);
@@ -43,7 +50,7 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
     setState("saving"); setError("");
     try {
       await postJson("/api/merchant/program/extras", { programId: me.programId, welcomeBonus: bonus, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim(), ...(stamp ? {} : { pointsExpiryMonths: draft.expiryMonths ? Number(draft.expiryMonths) : null }), challengeVisits: draft.challengeVisits ? Number(draft.challengeVisits) : null, ...(draft.challengeVisits ? { challengeBonus } : {}),
-        levelsEnabled: draft.levelsEnabled, ...(draft.silver ? { levelSilverVisits: silver } : {}), ...(draft.gold ? { levelGoldVisits: gold } : {}), levelBronzePerk: draft.perkBronze.trim(), levelSilverPerk: draft.perkSilber.trim(), levelGoldPerk: draft.perkGold.trim() });
+        levelsEnabled: draft.levelsEnabled, ...(draft.silver ? { levelSilverVisits: silver } : {}), ...(draft.gold ? { levelGoldVisits: gold } : {}), levelBronzePerk: draft.perkBronze.trim(), levelSilverPerk: draft.perkSilber.trim(), levelGoldPerk: draft.perkGold.trim(), ...(unpriced ? { averageVisitSpendMinor: average } : {}) });
       const next = { ...draft, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim() };
       setSaved(next); setDraft(next); setState("saved"); void owner.refresh();
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
@@ -101,7 +108,12 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         {LEVELS.map(([name, key]) => <div key={key} className="ow-field"><label htmlFor={`extras-${key}`}>Vorteil {name} (optional)</label><input id={`extras-${key}`} className="ow-input" value={draft[key]} maxLength={LEVEL_PERK_MAX} placeholder={name === "Gold" ? "z. B. Getränk aufs Haus" : ""} onChange={event => edit({ [key]: event.target.value } as Partial<Draft>)} aria-invalid={Boolean(levelPerkProblem(draft[key].trim()))} /></div>)}
         {!levelsValid && <p className="ow-error">{draft.levelsEnabled && (!draft.silver || !draft.gold) ? "Bitte lege fest, ab wie vielen Besuchen Silber und Gold gelten." : `Silber 2 bis 50 Besuche, Gold mehr als Silber und höchstens 90. Vorteile: nur Text, keine Links, bis ${LEVEL_PERK_MAX} Zeichen.`}</p>}
       </fieldset>
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      {unpriced && <div className="ow-field">
+        <label htmlFor="extras-average">{SPEND_COPY.averageLabel}</label>
+        <input id="extras-average" className="ow-input" inputMode="decimal" style={{ maxWidth: 160 }} value={draft.averageSpend} placeholder="z. B. 12,50" onChange={event => edit({ averageSpend: event.target.value.replace(/[^0-9,.]/g, "") })} aria-invalid={!averageValid} aria-describedby="extras-average-hint" />
+        <span id="extras-average-hint" className={averageValid ? "ow-hint" : "ow-error"}>{averageValid ? SPEND_COPY.averageHint : SPEND_COPY.averageError}</span>
+      </div>}
+      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid && averageValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }
