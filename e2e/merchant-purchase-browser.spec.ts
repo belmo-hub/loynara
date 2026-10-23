@@ -67,6 +67,8 @@ test("cashier browser confirms purchase points and selected reward before card r
       await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText("Kaffee");
       await cashier.getByRole("button", { name: "Ja, einlösen" }).click();
       await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 0 Punkte");
+      // A redemption is never undone at the counter: the reward may already be handed over (the owner corrects it).
+      await expect(cashier.locator(".cashier-booked").getByRole("button", { name: "Rückgängig" })).toHaveCount(0);
 
       const card = await browserContext.newPage();
       await card.goto(`/card/${encodeURIComponent(cardToken)}`);

@@ -375,8 +375,10 @@ export default function CashierPage() {
         if (activeCardId.current === null) { setStatus("success"); setMessage(summary.statusMessage); }
         return;
       }
-      finishBooking({ ...summary.booked, undo: role === "owner" || role === "manager" ? "available" : "staff-only" }, "success", summary.statusMessage);
-      lastBooking.current = role === "owner" || role === "manager" ? { entryId: result.entryId, card: selectedCard, key: newRequestId() } : null;
+      // Only an award can be undone here: after a redemption the reward may already be handed over (owner corrects it).
+      const undoable = operation.kind === "award" && (role === "owner" || role === "manager");
+      finishBooking({ ...summary.booked, undo: operation.kind !== "award" ? undefined : undoable ? "available" : "staff-only" }, "success", summary.statusMessage);
+      lastBooking.current = undoable ? { entryId: result.entryId, card: selectedCard, key: newRequestId() } : null;
     } catch (cause) {
       if (cause instanceof ClientApiError && (cause.status === 401 || cause.status === 403)) { setAccessState("blocked"); setAccessMessage(cause.status === 401 ? "Deine Anmeldung ist nicht mehr aktiv. Bitte melde dich erneut an." : "Dein Kassenzugang ist nicht mehr aktiv."); }
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
@@ -462,7 +464,7 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
     if (credited !== undefined) headline = `+${credited} ${unitLabel(card, credited, fr)}${bonus ? ` +${bonus} extra` : ""}`;
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);
-  const ready = rewardReady ? fr ? "Récompense disponible. Pour l’utiliser, scannez à nouveau la carte." : "Prämie verfügbar. Zum Einlösen die Karte erneut scannen." : "";
+  const ready = rewardReady ? fr ? "Récompense prête : rescannez pour l’utiliser." : "Prämie bereit: zum Einlösen neu scannen." : "";
   const challenge = result.challengeBonus ? `+${result.challengeBonus} ${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
   const hint = [challenge, ready].filter(Boolean).join(" ") || undefined;
   // The screen shows the headline large; a duplicate keeps its sentence, since nothing new was booked.

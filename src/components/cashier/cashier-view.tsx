@@ -202,7 +202,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {/* After a booking the result owns the top of the screen, readable from arm's length: what was booked, the new balance. */}
       {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
         <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={36} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={32} /> : <Clock size={32} />}</span>
-        <h2>{booked.title}</h2>
+        {/* With an amount, the tick and the amount say it and the strip above carries the title; the heading stays for screen readers. */}
+        <h2 className={booked.headline ? styles.srOnly : undefined}>{booked.title}</h2>
         {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
         <p className={styles.bookedDetail}>{booked.detail}</p>
         {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
