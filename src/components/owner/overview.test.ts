@@ -8,7 +8,7 @@ vi.mock("./owner-context", () => ({ useOwner: () => ({ me: state.me, locations: 
 
 import { Overview } from "./overview";
 import { germanDate } from "./owner-ui";
-import { buildInsights } from "./retention-insights";
+import { buildInsights, RetentionInsights } from "./retention-insights";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 
 function renderActivity(activity: NonNullable<MeResponse["activity"]>) {
@@ -101,7 +101,7 @@ describe("buildInsights", () => {
   it("turns each observation into a real destination and orders actionable items first", () => {
     const items = buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: [{ status: "review" }, { status: "pending" }, { status: "qualified" }] });
     expect(items.map(item => item.id)).toEqual(["referral-review", "reward-ready", "drifting", "near-reward", "never", "referral-waiting"]);
-    expect(hrefs(items)).toContain("/merchant/campaigns?goal=winback&days=30");
+    expect(hrefs(items).some(href => href.includes("goal=winback"))).toBe(false); // never an unreleased e-mail campaign (O8)
     expect(hrefs(items)).toContain("/merchant/customers?activity=drifting&days=30&scope=all");
     expect(items.find(item => item.id === "drifting")?.why).toContain("Vor einer Woche waren es 4.");
     expect(items.find(item => item.id === "reward-ready")?.title).toBe("1 Karte kann jetzt eine Prämie einlösen");
@@ -127,6 +127,27 @@ describe("buildInsights", () => {
   it("never links to campaigns where they are withheld or for managers", () => {
     expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: false, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
     expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: false, campaigns: true, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
+  });
+
+  it("points drifting cards to the Wallet win-back where it is offered (O8)", () => {
+    const drifting = (winback?: { enabled: boolean; inWindow: number } | null) => buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: null, winback }).find(item => item.id === "drifting")!;
+    expect(drifting(null).actions).toEqual([{ label: "Karten ansehen", href: "/merchant/customers?activity=drifting&days=30&scope=all" }]);
+    expect(drifting(null).next).toBeUndefined();
+    expect(drifting({ enabled: false, inWindow: 0 }).actions.at(-1)).toEqual({ label: "Willkommen-zurück-Bonus einschalten", href: "/merchant/wallet-messages#winback-title" });
+    const on = drifting({ enabled: true, inWindow: 3 });
+    expect(on.next).toBe("3 Karten sind gerade im Rückkehr-Fenster deines Willkommen-zurück-Bonus.");
+    expect(on.why).toContain(on.next);
+    expect(on.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
+    expect(drifting({ enabled: true, inWindow: 1 }).next).toBe("1 Karte ist gerade im Rückkehr-Fenster deines Willkommen-zurück-Bonus.");
+  });
+
+  it("says „Gerade nichts Dringendes“ once: the Übersicht's insight card leaves it to „Als Nächstes“ (N5)", () => {
+    const quiet = { ...summary, drifting: 0, neverAfterWeek: 0, nearReward: 0, rewardReady: 0 };
+    const me = { userId: "u", tenantId: "t", locationId: "l", role: "owner", businessName: "B", locationName: "L", publicBaseUrl: "http://localhost:3000", programSlug: "p", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5 } as MeResponse;
+    const render = (skipFirst: boolean) => renderToStaticMarkup(createElement(RetentionInsights, { me, summary: { state: "ok", data: quiet, at: 0 }, referrals: null, reload: () => {}, skipFirst }));
+    expect(render(true)).not.toContain("Gerade nichts Dringendes");
+    expect(render(true)).toContain("Geprüft:");
+    expect(render(false)).toContain("Gerade nichts Dringendes");
   });
 
   it("says nothing when the data shows nothing", () => {

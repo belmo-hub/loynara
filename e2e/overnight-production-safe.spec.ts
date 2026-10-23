@@ -65,7 +65,8 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   await expect(page.getByText("Warum diese Karten?")).toBeVisible();await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
   const progress=await(await owner.get(`/api/card/${f.referrerToken}/referral`)).json();expect(JSON.stringify(progress)).not.toContain("@example.test");
   await page.goto("/merchant");
-  const insight=page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"});await expect(insight).toBeVisible();await insight.click();
+  // Product O8: the Übersicht never points drifting cards to an unreleased e-mail campaign; the draft page itself stays draft-only.
+  await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);await page.goto("/merchant/campaigns?goal=winback&days=30");
   await expect(page.getByLabel("Inaktiv seit mindestens (Tage)")).toHaveValue("30");
   await page.getByRole("button",{name:"Zielgruppe prüfen"}).click();await expect(page.getByText(/Karten, davon/)).toBeVisible();
   await page.getByRole("button",{name:"Weiter",exact:true}).click();await page.getByLabel("Interner Titel").fill(`Review-only draft ${width}`);await page.getByRole("button",{name:"Weiter",exact:true}).click();
