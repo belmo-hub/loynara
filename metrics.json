@@ -275,9 +275,9 @@
   "after/cafe-inhaber-merchant-analytics-375-light": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/cafe-inhaber-merchant-375-dark": {
     "scroll": false,
@@ -291,9 +291,9 @@
   "after/cafe-inhaber-merchant-analytics-375-dark": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/cafe-inhaber-merchant-1280-light": {
     "scroll": false,
@@ -307,9 +307,9 @@
   "after/cafe-inhaber-merchant-analytics-1280-light": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/cafe-inhaber-merchant-1280-dark": {
     "scroll": false,
@@ -323,9 +323,9 @@
   "after/cafe-inhaber-merchant-analytics-1280-dark": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/cafe-leitung-merchant-375-light": {
     "scroll": false,
@@ -367,9 +367,9 @@
   "after/baeckerei-merchant-analytics-375-light": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/baeckerei-merchant-375-dark": {
     "scroll": false,
@@ -383,9 +383,9 @@
   "after/baeckerei-merchant-analytics-375-dark": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/baeckerei-merchant-1280-light": {
     "scroll": false,
@@ -399,9 +399,9 @@
   "after/baeckerei-merchant-analytics-1280-light": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/baeckerei-merchant-1280-dark": {
     "scroll": false,
@@ -415,9 +415,9 @@
   "after/baeckerei-merchant-analytics-1280-dark": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/barbier-merchant-375-light": {
     "scroll": false,
@@ -431,9 +431,9 @@
   "after/barbier-merchant-analytics-375-light": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/barbier-merchant-375-dark": {
     "scroll": false,
@@ -447,9 +447,9 @@
   "after/barbier-merchant-analytics-375-dark": {
     "scroll": false,
     "nothingUrgent": 0,
-    "besuch": 1,
+    "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/barbier-merchant-1280-light": {
     "scroll": false,
@@ -465,11 +465,11 @@
     "nothingUrgent": 0,
     "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/barbier-merchant-1280-dark": {
     "scroll": false,
-    "nothingUrgent": 0,
+    "nothingUrgent": 1,
     "besuch": 0,
     "small": [
       "Alle Zahlen und Zeiträume (22px)"
@@ -481,34 +481,62 @@
     "nothingUrgent": 0,
     "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/blumen-merchant-analytics-375-light": {
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/blumen-merchant-analytics-375-dark": {
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/blumen-merchant-analytics-1280-light": {
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
   },
   "after/blumen-merchant-analytics-1280-dark": {
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 0,
     "small": [],
-    "h1": "Auswertung"
+    "h1": "Ergebnisse"
+  },
+  "after/blumen-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Dein Treueprogramm einrichten"
+  },
+  "after/blumen-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Dein Treueprogramm einrichten"
+  },
+  "after/blumen-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Dein Treueprogramm einrichten"
+  },
+  "after/blumen-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Dein Treueprogramm einrichten"
   }
 }
