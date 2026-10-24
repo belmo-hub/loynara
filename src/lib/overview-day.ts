@@ -6,7 +6,7 @@
 
 export type DayCount = { date: string; bookings: number };
 /** One local day of the diary: its counted bookings, the units they awarded and every entry in order (never netted). */
-export type DiaryDay = { date: string; bookings: number; units: number; entries: Array<{ kind: "award" | "correction" | "redemption"; amount: number }> };
+export type DiaryDay = { date: string; bookings: number; units: number; entries: Array<{ kind: "award" | "correction" | "redemption"; amount: number }>; more: number };
 /** The board's day data for one location (part of the per-location read). */
 export type LocationDays = {
   timezone: string;
@@ -17,8 +17,11 @@ export type LocationDays = {
   lastBookingOn: string | null;
   /** The programme ran the full 15 days the „bester Tag“ rule compares. */
   fullTwoWeeks: boolean;
-  /** Up to 10 local days with entries in the last 30 days, newest first. */
+  /** Up to 10 local days with entries in the last 30 local days, newest first, at most 50 entries each (`more` counts the rest). */
   diary: DiaryDay[];
+  firstBookingOn: string | null;
+  /** The welcome-back bonus setting of the location's active programme (the „Wiedergekommen“ tile), for every role. */
+  winbackSetting: { enabled: boolean; days: number } | null;
 };
 
 const NBSP = "\u00a0";
