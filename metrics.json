@@ -219,25 +219,25 @@
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 558
+    "newsBottom": 513
   },
   "after/normal-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 558
+    "newsBottom": 513
   },
   "after/normal-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 511
+    "newsBottom": 466
   },
   "after/normal-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 511
+    "newsBottom": 466
   },
   "after/loading-375-light": {
     "scroll": false,
@@ -291,25 +291,25 @@
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 558
+    "newsBottom": 513
   },
   "after/offline-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 558
+    "newsBottom": 513
   },
   "after/offline-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 511
+    "newsBottom": 466
   },
   "after/offline-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 511
+    "newsBottom": 466
   },
   "after/ergebnisse-375-light": {
     "scroll": false,
