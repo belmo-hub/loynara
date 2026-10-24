@@ -53,7 +53,7 @@ test("owner sees tenant-scoped checkout analytics while cashier and guest cannot
     try {
       const page = await ownerBrowser.newPage();
       await page.goto("/merchant/analytics");
-      await expect(page.getByRole("heading", { name: "Auswertung", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Ergebnisse", exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Bestätigte Buchungen" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Einlösungen" })).toBeVisible();
       await expect(page.getByText("Kaffee", { exact: true })).toHaveCount(0);

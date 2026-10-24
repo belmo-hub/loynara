@@ -22,6 +22,8 @@ export type ReadinessStep = {
   status: ReadinessStatus;
   title: string;
   evidence: string;
+  /** What does not count, shown muted under the step; kept out of `evidence` so the next-step line is the action alone. */
+  note?: string;
   action?: { label: string; href: string; ownerOnly?: boolean };
 };
 export type LaunchReadiness = {
@@ -85,14 +87,14 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
     ? { id: "enrolment", group: "verify", required: true, status: "done", title: "Erste Karte angemeldet", evidence: `${facts.cards} ${facts.cards === 1 ? "Karte" : "Karten"} an diesem Standort.` }
     : { id: "enrolment", group: "verify", required: true, status: "todo", title: "Erste Karte angemeldet", evidence: "Noch keine Karte. Melde dich mit dem Anmeldelink oder dem Tresenschild selbst an.", action: { label: "Anmeldelink öffnen", href: "/merchant/settings" } });
   steps.push(facts.first_award_at
-    ? { id: "first_award", group: "verify", required: true, status: "done", title: "Erste Gutschrift an der Kasse bestätigt", evidence: `Erstmals am ${germanDate(facts.first_award_at, location.timezone)}; nicht korrigiert.` }
-    : { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Gutschrift an der Kasse bestätigt", evidence: "Noch keine bestätigte Kassen-Gutschrift. Demo-Daten, Empfehlungsboni, NFC-Taps und korrigierte Vorgänge zählen hier nicht.", action: { label: "Kasse öffnen", href: "/cashier" } });
+    ? { id: "first_award", group: "verify", required: true, status: "done", title: "Erste Buchung an der Kasse bestätigt", evidence: `Erstmals am ${germanDate(facts.first_award_at, location.timezone)}; nicht korrigiert.` }
+    : { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Buchung an der Kasse bestätigt", evidence: "Lass an der Kasse eine Buchung auf deiner eigenen Karte bestätigen.", note: "Demo-Daten, Boni, bloßes Antippen und korrigierte Buchungen zählen hier nicht.", action: { label: "Kasse öffnen", href: "/cashier" } });
   steps.push(facts.first_redeem_at
     ? { id: "first_redemption", group: "verify", required: false, status: "done", title: "Einlösung einmal durchgespielt", evidence: `Erstmals am ${germanDate(facts.first_redeem_at, location.timezone)}.` }
-    : { id: "first_redemption", group: "verify", required: false, status: "todo", title: "Einlösung einmal durchgespielt", evidence: "Noch keine Prämie eingelöst. Ein Probelauf zeigt dem Team, wie die Bestätigung aussieht.", action: { label: "Kasse öffnen", href: "/cashier" } });
+    : { id: "first_redemption", group: "verify", required: false, status: "todo", title: "Einlösung einmal durchgespielt", evidence: "Löse an der Kasse einmal eine Prämie ein, damit dein Team den Ablauf kennt.", action: { label: "Kasse öffnen", href: "/cashier" } });
 
   const nfc = nfcCapability(env);
-  if (!nfc.available) steps.push({ id: "nfc", group: "external", required: false, status: "external", title: "NFC am Tresen", evidence: "In dieser Umgebung ist keine NFC-Schlüsselverwaltung eingerichtet. Tags, Schlüssel und der Test mit echten Telefonen werden außerhalb von Loynara freigegeben. QR-Code und Kartennummer funktionieren unabhängig davon." });
+  if (!nfc.available) steps.push({ id: "nfc", group: "external", required: false, status: "external", title: "NFC am Tresen", evidence: "NFC wird außerhalb von Loynara eingerichtet und geprüft. QR-Code und Kartennummer funktionieren auch ohne." });
   else if (program?.tapMode === "staff_confirmed") steps.push({ id: "nfc", group: "verify", required: false, status: facts.live_tags > 0 && facts.confirmed_taps > 0 ? "done" : "todo", title: "NFC-Schild am Tresen geprüft",
     evidence: facts.live_tags === 0 ? "NFC ist an, aber an diesem Standort ist noch kein NFC-Schild aktiv." : facts.confirmed_taps === 0 ? `Aktive NFC-Schilder: ${facts.live_tags}. Noch kein bestätigtes Antippen: Dass ein Schild lesbar ist, heißt noch nicht, dass Buchungen klappen.` : `Aktive NFC-Schilder: ${facts.live_tags} · bestätigt angetippt: ${facts.confirmed_taps}`,
     action: { label: "NFC-Einstellungen", href: "/merchant/program", ownerOnly: true } });
@@ -101,11 +103,11 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
   const order: ReadinessStep["id"][] = ["programme", "enrolment", "first_award", "team", "card", "first_redemption", "nfc"];
   const reasons: Partial<Record<ReadinessStep["id"], string>> = {
     programme: "Ohne aktive Prämie hat eine Anmeldung keinen Zweck.",
-    enrolment: "Erst mit einer eigenen Karte lässt sich der Ablauf an der Kasse prüfen.",
-    first_award: "Eine bestätigte Gutschrift beweist, dass Scan oder Kartennummer, Berechtigung und Buchung zusammen funktionieren.",
-    team: "Mitarbeitende brauchen einen eigenen Zugang; das Inhaberkonto wird nicht geteilt.",
+    enrolment: "Mit deiner eigenen Karte probierst du die Kasse aus.",
+    first_award: "So siehst du, dass Scan, Zugang und Buchung zusammen klappen.",
+    team: "Jede Person bekommt einen eigenen Zugang. Dein Konto teilst du nicht.",
     card: "Kunden erkennen die Karte an deiner Farbe.",
-    first_redemption: "Die Einlösung ist der Moment, den Kunden erleben; einmal durchspielen vermeidet Unsicherheit am ersten Tag.",
+    first_redemption: "Dann sitzt die Einlösung am ersten Tag.",
     nfc: "NFC ist eingeschaltet, aber noch nicht mit einem echten Tap belegt.",
   };
   const nextStep = order.map(id => steps.find(step => step.id === id)!).find(step => step.status === "todo" && (step.required || !step.action?.ownerOnly || staff.role === "owner"));

@@ -2,13 +2,13 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 
-const ALL = ["billing", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
+const ALL = ["billing", "campaigns", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
 const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
-const HIDDEN_HREFS = ["/merchant/billing", "/merchant/automations"];
-const DRAFT_HREFS = ["/merchant/campaigns", "/merchant/audiences"];
+const HIDDEN_HREFS = ["/merchant/billing", "/merchant/campaigns", "/merchant/automations"];
+const DRAFT_HREFS = ["/merchant/audiences"];
 
 describe("navigation with pilot-withheld surfaces", () => {
-  it("owner: no entry for billing or automations; campaigns and audiences are present and the group keeps its name", () => {
+  it("owner: no entry for billing, campaigns or automations; audiences are present and the group keeps its name while owner messages are offered", () => {
     const groups = visibleGroups("owner", ALL);
     expect(groups.map(group => groupLabel(group, ALL))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = groups.flatMap(group => visibleItems(group, "owner", ALL).map(item => item.href));
@@ -16,6 +16,12 @@ describe("navigation with pilot-withheld surfaces", () => {
     expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
     expect(visibleGroups("owner", FULL).length).toBe(5);
     expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/staff"]));
+  });
+  it("with every sending surface withheld the group is named after what is left: Ergebnisse", () => {
+    const hidden = [...ALL, "walletMessages"] as const;
+    const actions = visibleGroups("owner", hidden).find(group => group.id === "actions")!;
+    expect(groupLabel(actions, hidden)).toBe("Ergebnisse");
+    expect(visibleItems(actions, "owner", hidden).map(item => item.href)).toEqual(["/merchant/analytics", "/merchant/adviser"]);
   });
   it("every visible entry leads to an existing page (no dead navigation), for owner and manager", () => {
     for (const role of ["owner", "manager"] as const) {

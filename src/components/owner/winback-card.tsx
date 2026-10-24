@@ -35,7 +35,7 @@ export function WinbackCard({ slug, initial }: { slug: string; initial: Winback 
   return (
     <section className="ow-card ow-stack" aria-labelledby="winback-title">
       <h2 id="winback-title">Kunden zurückholen</h2>
-      <label><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Eingeschaltet</label>
+      <label className="ow-check"><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Eingeschaltet</label>
       <div className="ow-field">
         <label htmlFor="winback-days">Erinnerung nach … Tagen ohne Besuch ({WINBACK_DAYS.min}–{WINBACK_DAYS.max})</label>
         <input id="winback-days" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.days} aria-invalid={!daysValid} onChange={event => edit({ days: event.target.value.replace(/[^0-9]/g, "") })} />
@@ -72,7 +72,7 @@ export function AlmostCard({ slug, initial }: { slug: string; initial: Winback }
   return (
     <section className="ow-card ow-stack" aria-labelledby="almost-title">
       <h2 id="almost-title">Fast geschafft</h2>
-      <label><input type="checkbox" role="switch" checked={enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} /> Eingeschaltet</label>
+      <label className="ow-check"><input type="checkbox" role="switch" checked={enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} /> Eingeschaltet</label>
       <p className="ow-hint">Fehlt einer Karte nach einem Besuch nur noch {initial.type === "stamp" ? "1 Stempel" : "wenige Punkte (bis 10)"} bis zur nächsten Prämie, bekommt sie einmal eine Erinnerung, sofern Nachrichten erlaubt sind. Nicht zwischen 21 und 8 Uhr.</p>
       <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{almostText(initial.type, 10, "[Prämie]")}</p></div>
       {error && <p role="alert" className="ow-error">{error}</p>}
@@ -102,7 +102,7 @@ export function BirthdayCard({ slug, type, initial }: { slug: string; type: "sta
   return (
     <section className="ow-card ow-stack" aria-labelledby="birthday-title">
       <h2 id="birthday-title">Geburtstags-Bonus</h2>
-      <label><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Eingeschaltet</label>
+      <label className="ow-check"><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Eingeschaltet</label>
       {type === "stamp"
         ? <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}><legend>Bonus</legend>
           <label><input type="radio" name="birthday-bonus" checked={bonus === 0} onChange={() => edit({ bonus: "0" })} /> Kein Bonus</label>

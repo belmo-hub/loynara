@@ -188,7 +188,7 @@ export function CampaignsView() {
   }
 
   const head = (
-    <header className="ow-pagehead"><div><p className="ow-eyebrow">Aktionen · {me.locationName}</p><h1>Kampagnen</h1><p>Wähle ein Ziel, prüfe die Zielgruppe und speichere einen Entwurf. Nichts wird automatisch versendet.</p></div>{!builder && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => start({ ...BLANK })}>Eigene Kampagne</button>}</header>
+    <header className="ow-pagehead"><div><p className="ow-eyebrow">Aktionen</p><h1>Kampagnen</h1><p>Wähle ein Ziel, prüfe die Zielgruppe und speichere einen Entwurf. Nichts wird automatisch versendet.</p></div>{!builder && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => start({ ...BLANK })}>Eigene Kampagne</button>}</header>
   );
   const notices = <>
     {error && <Notice tone="danger" role="alert">{error}</Notice>}

@@ -15,10 +15,9 @@ import { anyWalletAvailable } from "./wallet/capability";
  *   programme from the console.
  * - walletMessages: owner messages on Apple Wallet cards (ENG-043): the owner page, its API routes and the consent box on the card page.
  *   Withheld on real production until Legal's documents are live and the founder switches it on; preview and development show it.
- * - campaigns / audiences: NOT withheld. With production e-mail delivery disabled they are draft-only: the audience
- *   preview and campaign composer work, drafts are saved, and the schedule control does not exist while
- *   promotionalEmailMode() is "disabled" (the server also refuses scheduling with EMAIL_DISABLED and the dispatcher
- *   blocks any job). Nothing can be sent or shown as sent.
+ * - campaigns: withheld like automations while production e-mail delivery is disabled (Product, 24 Oct: the owner area offers
+ *   one way to bring customers back, the Wallet win-back bonus on the programme page).
+ * - audiences: NOT withheld. The audience preview only counts cards; nothing can be sent from it.
  * - walletPreviews / cardLogo: Apple/Google Wallet previews, Wallet readiness and the logo upload in the card studio.
  *   Like NFC these follow CAPABILITY on real production: withheld while no Wallet provider can issue a pass (the browser
  *   card does not show a logo, the Apple pass does), shown automatically once Apple or Google Wallet is configured.
@@ -29,7 +28,7 @@ import { anyWalletAvailable } from "./wallet/capability";
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
 export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "automations", "cancellation", "walletMessages"];
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "cancellation", "walletMessages"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 

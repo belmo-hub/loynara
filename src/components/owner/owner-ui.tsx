@@ -83,6 +83,11 @@ export function germanDate(value: string, withTime = false) {
   return new Intl.DateTimeFormat("de-DE", withTime ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
+/** Secondary detail behind one tap, so the page leads with its action. Text inside stays word for word. */
+export function MoreInfo({ summary = "Mehr dazu", children }: { summary?: string; children: ReactNode }) {
+  return <details className="ow-more"><summary>{summary}</summary><div className="ow-more-body">{children}</div></details>;
+}
+
 export function PageHead({ eyebrow, title, lead, actions }: { eyebrow?: string; title: string; lead?: string; actions?: ReactNode }) {
   return <header className="ow-pagehead"><div>{eyebrow && <p className="ow-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{lead && <p>{lead}</p>}</div>{actions && <div className="ow-row">{actions}</div>}</header>;
 }
