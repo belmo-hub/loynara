@@ -5,6 +5,7 @@ import type { PoolClient } from "pg";
 import { DomainError, lastConfirmedStamp } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
 import { retentionScope, uuidPattern } from "./retention";
+import type { DiaryDay, LocationDays } from "./overview-day";
 import { WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 
 export type AnalyticsWindowDays = 30 | 90;
@@ -366,8 +367,9 @@ function spendFigures(sum: SpendSums): SpendFigures {
   };
 }
 
-type LocationCounts = { newCards: number; qualifyingCheckouts: number; repeatCards: number };
-export type LocationAnalytics = {
+/** Redemptions and welcome-back bonuses count when not reversed by the window's end, like checkouts. */
+type LocationCounts = { newCards: number; qualifyingCheckouts: number; repeatCards: number; redemptions: number; winbacks: number };
+export type LocationAnalytics = LocationDays & {
   locationId: string;
   windowDays: 30;
   from: string;
@@ -395,8 +397,9 @@ export async function getLocationAnalytics(actorUserId: string, options: { locat
     const locationId = scope.locationId!;
     const from = new Date(asOf.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
     const before = new Date(from.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
-    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackEnabled: boolean }>(`
-      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AS "winbackEnabled"
+    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackEnabled: boolean; winbackOn: boolean; winbackDays: number; effectiveAt: Date }>(`
+      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AS "winbackEnabled", winback_enabled AND winback_bonus > 0 AS "winbackOn",
+        winback_days AS "winbackDays", effective_at AS "effectiveAt"
       FROM programs WHERE tenant_id = $1 AND location_id = $2 AND status = 'active'
     `, [scope.tenantId, locationId, before])).rows;
     const winback = scope.role === "owner" && program && !surfaceHidden("walletMessages")
@@ -407,8 +410,87 @@ export async function getLocationAnalytics(actorUserId: string, options: { locat
       current: await locationCounts(client, scope.tenantId, locationId, from, asOf),
       previous: program?.fullPeriod ? await locationCounts(client, scope.tenantId, locationId, before, from) : null,
       winback,
+      ...await locationDays(client, scope.tenantId, locationId, asOf, program?.effectiveAt ?? null),
+      winbackSetting: program ? { enabled: program.winbackOn, days: program.winbackDays } : null,
     };
   });
+}
+
+const STAFF_AWARD = `e.kind = 'award' AND e.source IN ('staff_online','staff_offline')`;
+const NOT_REVERSED = (until: string) => `NOT EXISTS (SELECT 1 FROM ledger_entries u WHERE u.tenant_id = e.tenant_id AND u.reversal_of_id = e.id AND u.created_at < ${until})`;
+const DIARY_DAYS = 10;
+const DIARY_ENTRIES = 50;
+
+/**
+ * ENG-085: bookings per local day at one till for the board's strip and headline, the first and last booking, and the
+ * diary. Local days come from the location's time zone in PostgreSQL, so a clock change never moves a day boundary.
+ * Counts and stamp/point amounts only (amounts a manager already sees in /api/me and the card timeline): no euros, no
+ * card ids, no times below the day.
+ */
+async function locationDays(client: PoolClient, tenantId: string, locationId: string, asOf: Date, effectiveAt: Date | null): Promise<Omit<LocationDays, "winbackSetting">> {
+  const [bounds] = (await client.query<{ timezone: string; today: string; stripFrom: Date; todayFrom: Date; diaryFrom: Date; lastFrom: Date; startedOn: string | null }>(`
+    SELECT l.timezone, ($3::timestamptz AT TIME ZONE l.timezone)::date::text AS today,
+      ((($3::timestamptz AT TIME ZONE l.timezone)::date - 90)::timestamp AT TIME ZONE l.timezone) AS "lastFrom",
+      ($4::timestamptz AT TIME ZONE l.timezone)::date::text AS "startedOn",
+      ((($3::timestamptz AT TIME ZONE l.timezone)::date - 15)::timestamp AT TIME ZONE l.timezone) AS "stripFrom",
+      (($3::timestamptz AT TIME ZONE l.timezone)::date::timestamp AT TIME ZONE l.timezone) AS "todayFrom",
+      ((($3::timestamptz AT TIME ZONE l.timezone)::date - 29)::timestamp AT TIME ZONE l.timezone) AS "diaryFrom"
+    FROM locations l WHERE l.tenant_id = $1 AND l.id = $2
+  `, [tenantId, locationId, asOf, effectiveAt])).rows;
+  const where = `e.tenant_id = $1 AND e.location_id = $2`;
+  const [perDay, edges, diary] = await Promise.all([
+    client.query<{ date: string; bookings: number }>(`
+      SELECT (e.created_at AT TIME ZONE $3)::date::text AS date, count(DISTINCT (e.membership_id, e.request_id))::int AS bookings
+      FROM ledger_entries e
+      WHERE ${where} AND ${STAFF_AWARD} AND e.created_at >= $4 AND e.created_at < $5 AND ${NOT_REVERSED("$6")}
+      GROUP BY 1
+    `, [tenantId, locationId, bounds.timezone, bounds.stripFrom, bounds.todayFrom, asOf]),
+    // Bounded to 90 local days (no index on location and time yet, ENG-088); beyond that the board says „vor über 90 Tagen“.
+    client.query<{ last: string | null }>(`
+      SELECT (e.created_at AT TIME ZONE $3)::date::text AS last FROM ledger_entries e
+      WHERE ${where} AND ${STAFF_AWARD} AND e.created_at >= $5 AND e.created_at < $4 AND ${NOT_REVERSED("$4")}
+      ORDER BY e.created_at DESC LIMIT 1
+    `, [tenantId, locationId, bounds.timezone, asOf, bounds.lastFrom]),
+    // Staff awards, redemptions, and the corrections of either, each its own entry (never netted).
+    client.query<{ date: string; bookings: number; units: number; entries: number; list: Array<{ kind: string; delta: number }> }>(`
+      WITH ev AS (
+        SELECT (e.created_at AT TIME ZONE $3)::date AS day, e.created_at, e.id, e.kind, e.delta, e.membership_id, e.request_id,
+          (e.kind = 'award' AND ${NOT_REVERSED("$5")}) AS counted
+        FROM ledger_entries e
+        WHERE ${where} AND e.created_at >= $4 AND e.created_at < $5
+          AND ((${STAFF_AWARD}) OR e.kind = 'redeem' OR (e.kind = 'reversal' AND EXISTS (
+            SELECT 1 FROM ledger_entries o WHERE o.tenant_id = e.tenant_id AND o.id = e.reversal_of_id
+              AND (o.kind = 'redeem' OR (o.kind = 'award' AND o.source IN ('staff_online','staff_offline'))))))
+      ), days AS (
+        SELECT day, count(DISTINCT (membership_id, request_id)) FILTER (WHERE counted)::int AS bookings,
+          coalesce(sum(delta) FILTER (WHERE counted), 0)::int AS units, count(*)::int AS entries
+        FROM ev GROUP BY day ORDER BY day DESC LIMIT ${DIARY_DAYS}
+      ), ranked AS (
+        SELECT ev.day, ev.kind, ev.delta, row_number() OVER (PARTITION BY ev.day ORDER BY ev.created_at, ev.id) AS n FROM ev JOIN days USING (day)
+      )
+      SELECT d.day::text AS date, d.bookings, d.units, d.entries,
+        coalesce((SELECT json_agg(json_build_object('kind', r.kind, 'delta', r.delta) ORDER BY r.n) FROM ranked r WHERE r.day = d.day AND r.n <= ${DIARY_ENTRIES}), '[]') AS list
+      FROM days d ORDER BY d.day DESC
+    `, [tenantId, locationId, bounds.timezone, bounds.diaryFrom, asOf]),
+  ]);
+  const counted = new Map(perDay.rows.map(row => [row.date, row.bookings]));
+  const todayNoon = new Date(`${bounds.today}T12:00:00Z`).getTime();
+  const days = Array.from({ length: 15 }, (_, index) => new Date(todayNoon - (15 - index) * 86_400_000).toISOString().slice(0, 10))
+    .map(date => ({ date, bookings: counted.get(date) ?? 0 }));
+  const kindOf = (kind: string): DiaryDay["entries"][number]["kind"] => kind === "award" ? "award" : kind === "redeem" ? "redemption" : "correction";
+  return {
+    timezone: bounds.timezone,
+    today: bounds.today,
+    days,
+    lastBookingOn: edges.rows[0]?.last ?? null,
+    programStartedOn: bounds.startedOn,
+    // The „bester Tag“ rule compares yesterday with the 14 days before: the programme must have run that whole stretch.
+    fullTwoWeeks: effectiveAt !== null && effectiveAt.getTime() <= bounds.stripFrom.getTime(),
+    diary: diary.rows.map(row => ({
+      date: row.date, bookings: row.bookings, units: row.units, more: row.entries - row.list.length,
+      entries: row.list.map(entry => ({ kind: kindOf(entry.kind), amount: entry.kind === "redeem" ? 0 : Math.abs(entry.delta) })),
+    })),
+  };
 }
 
 async function locationCounts(client: PoolClient, tenantId: string, locationId: string, from: Date, to: Date): Promise<LocationCounts> {
@@ -422,7 +504,11 @@ async function locationCounts(client: PoolClient, tenantId: string, locationId: 
       (SELECT count(*) FROM memberships m JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
         WHERE m.tenant_id = $1 AND p.location_id = $4 AND m.created_at >= $2 AND m.created_at < $3)::int AS "newCards",
       (SELECT count(*) FROM (SELECT DISTINCT membership_id, request_id FROM here) requests)::int AS "qualifyingCheckouts",
-      (SELECT count(*) FROM per_card WHERE checkouts >= 2)::int AS "repeatCards"
+      (SELECT count(*) FROM per_card WHERE checkouts >= 2)::int AS "repeatCards",
+      (SELECT count(*) FROM ledger_entries e WHERE e.tenant_id = $1 AND e.location_id = $4 AND e.kind = 'redeem'
+        AND e.created_at >= $2 AND e.created_at < $3 AND ${NOT_REVERSED("$3")})::int AS "redemptions",
+      (SELECT count(*) FROM ledger_entries e WHERE e.tenant_id = $1 AND e.location_id = $4 AND e.kind = 'award' AND e.source = 'winback_bonus'
+        AND e.created_at >= $2 AND e.created_at < $3 AND ${NOT_REVERSED("$3")})::int AS "winbacks"
   `, [tenantId, from, to, locationId])).rows[0];
 }
 

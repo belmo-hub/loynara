@@ -8,8 +8,7 @@ const state = vi.hoisted(() => ({ locations: [] as unknown[] }));
 vi.mock("./owner-context", () => ({ useOwner: () => ({ locations: state.locations }) }));
 
 import { CancellationNotice } from "./cancellation-notice";
-import { NextStep } from "./overview";
-import { RetentionInsights } from "./retention-insights";
+import { nextStep } from "./overview";
 
 const base: MeResponse = {
   userId: "u", tenantId: "t", locationId: "l", role: "owner", businessName: "Pizzeria Test", locationName: "Kassel Mitte", publicBaseUrl: "http://localhost:3000",
@@ -75,30 +74,22 @@ describe("the end-date notice", () => {
   });
 });
 
-describe("a calm Übersicht never says nothing is urgent while the programme is ending", () => {
+describe("„Als Nächstes“ steps aside while the programme is ending (the end-date card leads)", () => {
   const quiet: RetentionSummary = { asOf: "2026-11-10T00:00:00.000Z", inactiveDays: 30, locationId: null, openCards: 5, recent: 5, drifting: 0, never: 0, neverAfterWeek: 0,
     nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 0, nearRewardId: null, programCount: 1, rules: RETENTION_RULES };
   const readiness = { state: "ok" as const, at: 0, data: { locationId: "l", steps: [], next: null, requiredDone: 0, requiredTotal: 0 } };
-  const retention = { state: "ok" as const, at: 0, data: quiet };
-  const next = (me: Partial<MeResponse>) => renderToStaticMarkup(createElement(NextStep, { me: { ...base, ...me }, retention, referrals: null, readiness }));
-  const insights = (me: Partial<MeResponse>) => renderToStaticMarkup(createElement(RetentionInsights, { me: { ...base, ...me }, summary: retention, referrals: null, reload: () => undefined }));
+  const next = (me: Partial<MeResponse>, patch: { retention?: RetentionSummary; steps?: unknown[]; quiet?: number | "over90" | null } = {}) =>
+    nextStep({ me: { ...base, ...me }, retention: { state: "ok", at: 0, data: patch.retention ?? quiet }, referrals: null, readiness: { ...readiness, data: { ...readiness.data, steps: (patch.steps ?? []) as never } }, winback: null, quiet: patch.quiet ?? null, sign: () => undefined });
 
-  it("says so when nothing is going on and no cancellation exists", () => {
-    expect(next({})).toContain("Gerade nichts Dringendes");
-    expect(insights({})).toContain("Gerade nichts Dringendes");
+  it("shows no bar at all when nothing is urgent (direction D drops „Gerade nichts Dringendes“)", () => {
+    expect(next({})).toBeNull();
   });
 
-  it.each([["requested", requested], ["confirmed", confirmed]])("leaves out „Als Nächstes“ even when a set-up step or an insight is due (%s)", (_, cancellation) => {
-    const setup = { id: "first-award", title: "Erste Gutschrift", evidence: "Noch keine", status: "todo", required: true, action: { href: "/cashier", label: "Kasse öffnen" } };
-    const open = { state: "ok" as const, at: 0, data: { ...readiness.data, steps: [setup] } };
-    const urgent = { state: "ok" as const, at: 0, data: { ...quiet, rewardReady: 2 } };
-    expect(renderToStaticMarkup(createElement(NextStep, { me: { ...base, ...cancellation }, retention: urgent, referrals: null, readiness: open, setup } as never))).toBe("");
-    expect(renderToStaticMarkup(createElement(NextStep, { me: base, retention: urgent, referrals: null, readiness: open, setup } as never))).toContain("Als Nächstes");
-  });
-
-  it.each([["requested", requested], ["confirmed", confirmed]])("does not say so while a cancellation is %s", (_, cancellation) => {
-    expect(next(cancellation)).toBe("");
-    expect(insights(cancellation)).not.toContain("Gerade nichts Dringendes");
-    expect(insights(cancellation)).toContain("Sonst ist nichts offen.");
+  it.each([["requested", requested], ["confirmed", confirmed]])("leaves out „Als Nächstes“ even when a set-up step, an insight or a quiet week is due (%s)", (_, cancellation) => {
+    const setup = { id: "first_award", group: "verify", title: "Erste Buchung", evidence: "Lass an der Kasse eine Buchung bestätigen.", status: "todo", required: true, action: { href: "/cashier", label: "Kasse öffnen" } };
+    const due = { retention: { ...quiet, rewardReady: 2 }, steps: [setup], quiet: 9 };
+    expect(next(cancellation, due)).toBeNull();
+    expect(next({}, due)).toMatchObject({ title: "Seit 9 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?" }); // the quiet week first
+    expect(next({}, { ...due, quiet: null })).toMatchObject({ title: "Lass an der Kasse eine Buchung bestätigen.", action: { href: "/cashier" } });
   });
 });

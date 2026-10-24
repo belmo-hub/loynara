@@ -23,6 +23,12 @@
   --color-focus: #2E7D5B;
   --color-scrim: rgba(15, 23, 19, .48);
   --color-qr-ground: #FFFFFF;
+  /* The Übersicht board (ENG-085): one deep green panel, built from values above (action-hover, dark action-hover/action). */
+  --color-board: #143D2E;
+  --color-on-board: #FFFFFF;
+  --color-on-board-muted: #B9E2CA;
+  --color-board-mark: #9FD3B5;
+  --color-board-line: color-mix(in oklab, #FFFFFF, transparent 86%);
 
   --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-sans);
@@ -35,6 +41,10 @@
   --text-28: 1.75rem;
   --display-36: 2.25rem;
   --display-num: clamp(2.5rem, 11vw, 3.5rem);
+  /* The Übersicht board number: 64 px on a phone, 88 px on desktop. */
+  --display-board: clamp(4rem, 7vw, 5.5rem);
+  /* The Übersicht tile numbers (40 px). */
+  --display-tile: 2.5rem;
   --leading-tight: 1.2;
   --leading-body: 1.5;
   --weight-body: 400;
@@ -103,6 +113,11 @@
   --color-warning: #F2C14E;
   --color-focus: #9FD3B5;
   --color-scrim: rgba(0, 0, 0, .6);
+  --color-board: #22352B;
+  --color-on-board: #E9EFEA;
+  --color-on-board-muted: #B9E2CA;
+  --color-board-mark: #9FD3B5;
+  --color-board-line: color-mix(in oklab, #FFFFFF, transparent 86%);
   --shadow-raised: 0 10px 28px -14px rgba(0, 0, 0, .7), 0 0 0 1px var(--color-line);
   --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8);
   --shadow-overlay: 0 28px 60px -24px rgba(0, 0, 0, .8);
@@ -128,6 +143,11 @@
     --color-warning: #F2C14E;
     --color-focus: #9FD3B5;
     --color-scrim: rgba(0, 0, 0, .6);
+    --color-board: #22352B;
+    --color-on-board: #E9EFEA;
+    --color-on-board-muted: #B9E2CA;
+    --color-board-mark: #9FD3B5;
+    --color-board-line: color-mix(in oklab, #FFFFFF, transparent 86%);
     --shadow-raised: 0 10px 28px -14px rgba(0, 0, 0, .7), 0 0 0 1px var(--color-line);
     --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8);
     --shadow-overlay: 0 28px 60px -24px rgba(0, 0, 0, .8);

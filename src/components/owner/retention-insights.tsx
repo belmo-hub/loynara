@@ -1,12 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import type { MeResponse } from "@/components/client-api";
 import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
-import { nf, Notice, Skeleton, OwnerIcon } from "./owner-ui";
-import type { Loadable } from "./use-load";
-import { EmptyState } from "@/components/ui/empty-state";
+import { nf } from "./owner-ui";
 
 export type ReferralRow = { status: string };
 /** `next`: an extra sentence for "Als Nächstes" on the Übersicht. */
@@ -74,36 +70,5 @@ export function CardBase({ summary }: { summary: RetentionSummary }) {
         {parts.map(part => <li key={part.key}><span className={`ow-base-dot ${part.className}`} aria-hidden="true" /><strong className="ow-num">{nf.format(part.value)}</strong> {part.label}</li>)}
       </ul>
     </div>
-  );
-}
-
-/** skipFirst: the Übersicht already shows the first insight as "Als Nächstes". */
-export function RetentionInsights({ me, summary, referrals, winback, reload, skipFirst = false }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; winback?: WinbackState; reload: () => void; skipFirst?: boolean }) {
-  const isOwner = me.role === "owner";
-  const campaigns = !(me.hiddenSurfaces ?? []).includes("campaigns");
-  const unit = me.programType === "points" ? "Punkte" : "Stempel";
-  const all = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals, winback }) : [];
-  const insights = all.slice(skipFirst ? 1 : 0);
-  return (
-    <section className="ow-card" aria-labelledby="ow-insight-title" aria-busy={summary.state === "loading"}>
-      <div className="ow-card-head"><div><h2 id="ow-insight-title">Was jetzt zählt</h2><p>Berechnet aus bestätigten Buchungen. Jede Zeile nennt ihre Regel.</p></div></div>
-      {(summary.state === "loading" || summary.state === "idle") && <div className="ow-stack"><Skeleton height={44} /><Skeleton height={88} /><Skeleton height={88} /></div>}
-      {summary.state === "error" && <Notice tone="warn" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reload}>Erneut laden</button>}>Der Kartenbestand konnte gerade nicht berechnet werden. Das heißt nicht, dass niemand betroffen ist.</Notice>}
-      {summary.state === "ok" && (
-        <div className="ow-stack" style={{ gap: 16 }}>
-          <div><h3 className="ow-label" style={{ marginBottom: 8 }}>Kartenbestand · {cards(summary.data.openCards)}</h3><CardBase summary={summary.data} /></div>
-          {/* skipFirst: "Als Nächstes" above already says „Gerade nichts Dringendes“, so it is not said twice (N5). */}
-          {all.length === 0 && skipFirst
-            ? <p className="ow-muted">Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Buchung.</p>
-            : all.length === 0
-            ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title={me.cancellationEndDate ? "Sonst ist nichts offen." : "Gerade nichts Dringendes."}>Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Buchung.</EmptyState>
-            : insights.length > 0 && <ul className="ow-insights">{insights.map((item, index) => (
-              <li key={item.id} className={`ow-action${index === 0 ? " ow-action--lead" : ""}`} data-tone={item.tone}>
-                <h3>{item.title}</h3><p>{item.why}</p>
-                <div className="ow-row">{item.actions.map((action, actionIndex) => <Link key={action.href} className={`ow-btn ow-btn--sm ${index === 0 && actionIndex === item.actions.length - 1 ? "ow-btn--primary" : "ow-btn--secondary"}`} href={action.href}>{action.label}</Link>)}</div>
-              </li>))}</ul>}
-        </div>
-      )}
-    </section>
   );
 }
