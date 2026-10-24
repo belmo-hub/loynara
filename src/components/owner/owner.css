@@ -164,6 +164,8 @@
 }
 .ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 6%, var(--color-raised)); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+/* Controls on one line when one label wraps and the other doesn't; only for fields without a hint under the control. */
+.ow-grid-2--end { align-items: end; }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
 .ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
