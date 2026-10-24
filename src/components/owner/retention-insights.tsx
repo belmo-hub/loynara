@@ -9,7 +9,11 @@ import type { Loadable } from "./use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 
 export type ReferralRow = { status: string };
-export type Insight = { id: string; tone: "act" | "watch"; title: string; why: string; actions: Array<{ label: string; href: string }> };
+/** `next`: an extra sentence for "Als Nächstes" on the Übersicht. */
+export type Insight = { id: string; tone: "act" | "watch"; title: string; why: string; next?: string; actions: Array<{ label: string; href: string }> };
+/** The owner's Wallet win-back (ENG-044), as the per-location read returns it: null where it is not offered or not the owner's. */
+export type WinbackState = { enabled: boolean; inWindow: number } | null;
+const WINBACK_HREF = "/merchant/wallet-messages#winback-title";
 
 const cards = (n: number) => `${nf.format(n)} ${n === 1 ? "Karte" : "Karten"}`;
 
@@ -17,8 +21,8 @@ const cards = (n: number) => `${nf.format(n)} ${n === 1 ? "Karte" : "Karten"}`;
  * Deterministic observations from recorded data, each with the rule that produced it and a real next step.
  * Campaign links appear only where the campaigns surface is offered and the viewer is the owner.
  */
-export function buildInsights(input: { summary: RetentionSummary; unit: string; isOwner: boolean; campaigns: boolean; referrals: ReferralRow[] | null }): Insight[] {
-  const { summary: s, unit, isOwner, campaigns, referrals } = input;
+export function buildInsights(input: { summary: RetentionSummary; unit: string; isOwner: boolean; campaigns: boolean; referrals: ReferralRow[] | null; winback?: WinbackState }): Insight[] {
+  const { summary: s, unit, isOwner, campaigns, referrals, winback } = input;
   const days = s.inactiveDays;
   const draft = isOwner && campaigns && s.programCount === 1;
   const list: Insight[] = [];
@@ -31,9 +35,12 @@ export function buildInsights(input: { summary: RetentionSummary; unit: string; 
     actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "reward_ready") }] });
   if (s.drifting > 0) {
     const trend = s.driftingWeekAgo === s.drifting ? "Gleich viele wie vor einer Woche." : s.driftingWeekAgo < s.drifting ? `Vor einer Woche waren es ${nf.format(s.driftingWeekAgo)}.` : `Vor einer Woche waren es noch ${nf.format(s.driftingWeekAgo)}.`;
+    // Product (O8): drifting cards lead to the Wallet win-back where it is offered, never to an unreleased e-mail campaign.
+    const returning = winback?.enabled ? `${cards(winback.inWindow)} ${winback.inWindow === 1 ? "bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt." : "bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen."}` : undefined;
     list.push({ id: "drifting", tone: "act", title: `${cards(s.drifting)} seit über ${days} Tagen ohne bestätigte Buchung`,
-      why: `Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten ${days} Tagen. ${trend} Warum, wissen wir nicht.`,
-      actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "drifting") }, ...(draft ? [{ label: "Rückhol-Aktion vorbereiten", href: `/merchant/campaigns?goal=winback&days=${days}` }] : [])] });
+      why: `Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten ${days} Tagen. ${trend} Warum, wissen wir nicht.${returning ? ` ${returning}` : ""}`,
+      next: returning,
+      actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "drifting") }, ...(winback && !winback.enabled ? [{ label: "Willkommen-zurück-Bonus einschalten", href: WINBACK_HREF }] : [])] });
   }
   if (s.nearReward > 0) {
     const gap = s.nearRewardMaxRemaining;
@@ -71,11 +78,11 @@ export function CardBase({ summary }: { summary: RetentionSummary }) {
 }
 
 /** skipFirst: the Übersicht already shows the first insight as "Als Nächstes". */
-export function RetentionInsights({ me, summary, referrals, reload, skipFirst = false }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; reload: () => void; skipFirst?: boolean }) {
+export function RetentionInsights({ me, summary, referrals, winback, reload, skipFirst = false }: { me: MeResponse; summary: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; winback?: WinbackState; reload: () => void; skipFirst?: boolean }) {
   const isOwner = me.role === "owner";
   const campaigns = !(me.hiddenSurfaces ?? []).includes("campaigns");
   const unit = me.programType === "points" ? "Punkte" : "Stempel";
-  const all = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals }) : [];
+  const all = summary.state === "ok" ? buildInsights({ summary: summary.data, unit, isOwner, campaigns, referrals, winback }) : [];
   const insights = all.slice(skipFirst ? 1 : 0);
   return (
     <section className="ow-card" aria-labelledby="ow-insight-title" aria-busy={summary.state === "loading"}>
@@ -85,7 +92,10 @@ export function RetentionInsights({ me, summary, referrals, reload, skipFirst = 
       {summary.state === "ok" && (
         <div className="ow-stack" style={{ gap: 16 }}>
           <div><h3 className="ow-label" style={{ marginBottom: 8 }}>Kartenbestand · {cards(summary.data.openCards)}</h3><CardBase summary={summary.data} /></div>
-          {all.length === 0
+          {/* skipFirst: "Als Nächstes" above already says „Gerade nichts Dringendes“, so it is not said twice (N5). */}
+          {all.length === 0 && skipFirst
+            ? <p className="ow-muted">Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Buchung.</p>
+            : all.length === 0
             ? <EmptyState level={3} icon={<OwnerIcon name="check" size={24} />} title={me.cancellationEndDate ? "Sonst ist nichts offen." : "Gerade nichts Dringendes."}>Geprüft: verdiente Prämien, Karten ohne bestätigte Buchung seit {summary.data.inactiveDays} Tagen, Karten kurz vor der Prämie und Anmeldungen ohne Buchung.</EmptyState>
             : insights.length > 0 && <ul className="ow-insights">{insights.map((item, index) => (
               <li key={item.id} className={`ow-action${index === 0 ? " ow-action--lead" : ""}`} data-tone={item.tone}>

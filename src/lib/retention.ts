@@ -94,7 +94,8 @@ export const RETENTION_RULES = {
   rewardReady: "Karten, deren aktueller Stand für die günstigste aktive Prämie reicht.",
 } as const;
 
-async function retentionScope(actorUserId: string, requestedLocationId?: string | null, snapshot?: PoolClient) {
+/** Owner: the whole tenant or one of its locations. Manager: their own location only. Cashiers and strangers: FORBIDDEN. */
+export async function retentionScope(actorUserId: string, requestedLocationId?: string | null, snapshot?: PoolClient) {
   const scopedDb = snapshot ? drizzle({ client: snapshot, schema }) : db;
   const [staff] = await scopedDb.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true))).limit(1);
@@ -103,16 +104,16 @@ async function retentionScope(actorUserId: string, requestedLocationId?: string 
   }
   if (staff.role === "manager") {
     if (requestedLocationId && requestedLocationId !== staff.locationId) throw new DomainError("NOT_FOUND", "Location not found in your scope");
-    return { tenantId: staff.tenantId, locationId: staff.locationId! };
+    return { tenantId: staff.tenantId, locationId: staff.locationId!, role: staff.role };
   }
-  if (!requestedLocationId) return { tenantId: staff.tenantId, locationId: null };
+  if (!requestedLocationId) return { tenantId: staff.tenantId, locationId: null, role: staff.role };
   const [location] = await scopedDb.select({ id: locations.id }).from(locations)
     .where(and(eq(locations.id, requestedLocationId), eq(locations.tenantId, staff.tenantId))).limit(1);
   if (!location) throw new DomainError("NOT_FOUND", "Location not found in your scope");
-  return { tenantId: staff.tenantId, locationId: location.id };
+  return { tenantId: staff.tenantId, locationId: location.id, role: staff.role };
 }
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function getRetentionSummary(actorUserId: string, options: { inactiveDays?: RetentionDays; locationId?: string | null; asOf?: Date } = {}, snapshot?: PoolClient): Promise<RetentionSummary> {
   const inactiveDays = options.inactiveDays ?? 30;
