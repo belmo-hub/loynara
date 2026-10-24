@@ -115,3 +115,16 @@ describe("round 2 (Impeccable batch 2, PR I)", () => {
     expect(out).not.toMatch(/Monats-Challenge|Dein Level|Das Level zählt|von 3 Besuchen|Außerdem/);
   });
 });
+
+describe("win-back window on the card (ENG-089)", () => {
+  it("names the bonus and the window's last day, right after a running happy hour", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, winback: { bonus: 1, until: "2026-11-05" } }));
+    expect(out).toMatch(/>Willkommen zurück! Bis zum 5. November gibt&#x27;s bei deinem nächsten Besuch 1 Stempel extra\. <a href="#customer-rules"[^>]*>Bedingungen<\/a><\/p>/);
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, rulesText: "Ein Stempel pro Kaffee.", winback: { bonus: 1, until: "2026-11-05" } }))).toContain('<section id="customer-rules"');
+    const both = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", happyHourUntil: "17:00", winback: { bonus: 20, until: "2026-11-05" } }));
+    expect(both).toContain(">Doppelte Punkte bis 17:00</p>");
+    expect(both).toMatch(/<li>Willkommen zurück! Bis zum 5. November gibt&#x27;s bei deinem nächsten Besuch 20 Punkte extra\. <a [^>]*>Bedingungen<\/a><\/li>/);
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, locale: "fr", winback: { bonus: 1, until: "2026-11-05" } }))).toContain("Bon retour ! Jusqu’au 5 novembre, votre prochaine visite vous rapporte 1 tampon supplémentaire.");
+    expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("Willkommen zurück");
+  });
+});

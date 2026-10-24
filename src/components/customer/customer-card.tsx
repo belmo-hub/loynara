@@ -35,6 +35,8 @@ export type CustomerCardProps = {
   reviewUrl?: string;
   /** End time of the running happy hour; one plain line, absent = none running. */
   happyHourUntil?: string;
+  /** The card is inside its win-back window: the bonus and the window's last day (YYYY-MM-DD); absent = not in a window. */
+  winback?: { bonus: number; until: string };
   /** Points expiry: the rule (shown with the rules from the first visit), each batch's date and the 30-day notice; absent = expiry off. */
   pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   /** The shop's monthly challenge and this card's visit days so far; absent = none. */
@@ -69,7 +71,7 @@ export type CustomerCardProps = {
  * code inset like a Wallet pass, at most one highlighted extra, then everything that keeps the card findable.
  */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const unit = programType === "points" ? t.points : t.stamps;
@@ -110,7 +112,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {notices}
 
-    <Extras items={extras({ t, happyHourUntil, pointsExpiry, challenge, level })} label={t.more} />
+    <Extras items={extras({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level })} label={t.more} />
 
     {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
       <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>
@@ -140,7 +142,7 @@ export function CustomerCard(props: CustomerCardProps) {
       {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
-    {rulesText || pointsExpiry || challenge || level ? <section className={styles.panel} aria-labelledby="customer-rules-title">
+    {rulesText || pointsExpiry || challenge || level ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
       {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
       {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
@@ -169,16 +171,21 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
   </div>;
 }
 
-type Extra = { key: string; line: string; block: ReactNode };
+type Extra = { key: string; line: ReactNode; block: ReactNode };
 
 /**
- * Time-bound extras, nearest deadline first (Head of Design, 23 Oct): a happy hour running now ends today, the expiry
- * notice covers the next 30 days, the challenge ends with the month, the level runs 90 days. The first one present is shown in full; the rest fold into one quiet list,
+ * Time-bound extras, nearest deadline first (Head of Design, 23 Oct): a happy hour running now ends today, a win-back
+ * window within 14 days, the expiry notice covers the next 30 days, the challenge ends with the month, the level runs 90 days. The first one present is shown in full; the rest fold into one quiet list,
  * so a card never stacks four panels. Their fine print lives in the programme rules.
  */
-function extras({ t, happyHourUntil, pointsExpiry, challenge, level }: Pick<CustomerCardProps, "happyHourUntil" | "pointsExpiry" | "challenge" | "level"> & { t: Copy }): Extra[] {
+function extras({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level }: Pick<CustomerCardProps, "locale" | "programType" | "happyHourUntil" | "winback" | "pointsExpiry" | "challenge" | "level"> & { t: Copy }): Extra[] {
   const items: Extra[] = [];
   if (happyHourUntil) items.push({ key: "happy", line: t.happyHour(happyHourUntil), block: <p className={styles.highlight}>{t.happyHour(happyHourUntil)}</p> });
+  if (winback) {
+    const day = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "de-DE", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${winback.until}T00:00:00Z`));
+    const line = <>{t.winback(programType === "points", winback.bonus, day)} <a href="#customer-rules" className={styles.inlineLink}>{t.conditions}</a></>;
+    items.push({ key: "winback", line, block: <p className={styles.highlight}>{line}</p> });
+  }
   if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
   if (challenge) {
     const progress = challenge.done ? t.challengeDone : t.challengeProgress(challenge.visits, challenge.target);
