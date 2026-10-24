@@ -43,7 +43,7 @@ export const EXCLUDED_GOODS = "Nicht auf Tabak, Presse, Bücher, Lotto und Handy
  */
 export function challengeSentence(target: number, bonus: number, type: string, month: string, endsOn: string, locale = "de") {
   if (locale === "fr") return {
-    text: `Venez ${target} fois en ${month} et recevez ${bonus} ${type === "stamp" ? bonus === 1 ? "tampon" : "tampons" : "points"} en plus.`,
+    text: `Venez ${target} fois en ${month} et recevez ${bonus} ${type === "stamp" ? bonus === 1 ? "tampon supplémentaire" : "tampons supplémentaires" : "points supplémentaires"}.`,
     conditions: `Seules les visites confirmées en caisse comptent, une par jour au maximum. Valable jusqu’au ${endsOn}. Hors tabac, presse, livres, loterie et recharges téléphoniques.`,
   };
   return {
