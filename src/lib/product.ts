@@ -393,13 +393,16 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
   });
 }
 
-/** Programme rules as customers see them (card and sign-up): the owner's text, plus the win-back and birthday lines while those bonuses are on (Legal). */
+/**
+ * Programme rules as customers see them (card and sign-up): the owner's text, plus the win-back and birthday lines while
+ * those bonuses are on (Legal). Win-back runs without Wallet messages (ENG-089); birthday stays with them.
+ */
 function shownRules(program: typeof programs.$inferSelect) {
-  if (surfaceHidden("walletMessages")) return program.rulesText;
+  const messages = !surfaceHidden("walletMessages");
   const type = program.type as "stamp" | "points";
   const lines = [program.rulesText];
-  if (program.winbackEnabled && program.winbackBonus > 0) lines.push(winbackRule(type, program.winbackDays, program.winbackBonus));
-  if (program.birthdayEnabled && program.birthdayBonus > 0) lines.push(birthdayRule(type, program.birthdayBonus));
+  if (program.winbackEnabled && program.winbackBonus > 0) lines.push(winbackRule(type, program.winbackDays, program.winbackBonus, messages));
+  if (messages && program.birthdayEnabled && program.birthdayBonus > 0) lines.push(birthdayRule(type, program.birthdayBonus));
   return lines.join("\n\n");
 }
 

@@ -66,8 +66,9 @@ export function winbackText(type: "stamp" | "points", bonus: number, day: string
 }
 
 /** The programme-rules line on the card while the bonus is on (Legal: the bonus must be in the rules customers see). */
-export function winbackRule(type: "stamp" | "points", days: number, bonus: number) {
-  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra, wenn du innerhalb der folgenden 14 Tage wiederkommst. Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+/** `reminders`: the Wallet sentence only while Wallet messages are offered (ENG-089, Product; Marketing's cut line). */
+export function winbackRule(type: "stamp" | "points", days: number, bonus: number, reminders = true) {
+  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra, wenn du innerhalb der folgenden 14 Tage wiederkommst.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""} Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
 }
 
 export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;

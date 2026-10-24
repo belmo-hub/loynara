@@ -133,6 +133,9 @@ describe("win-back bonus at the counter", () => {
     await expect(updateWinback({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, days: 30, bonus: 2 } })).rejects.toMatchObject({ code: "INVALID_WINBACK_BONUS" });
     expect((await lookupCard({ userId: s.owner, locationId: s.locationId, scanCode: c.scanCode })).winbackBonus).toBe(1);
     expect(await give(s, c)).toMatchObject({ winbackBonus: 1 });
+    // The rules line names the bonus without promising a Wallet reminder.
+    expect((await getCard(c.cardToken)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${winbackRule("stamp", 30, 1, false)}`);
+    expect(winbackRule("stamp", 30, 1, false)).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es 1 Stempel extra, wenn du innerhalb der folgenden 14 Tage wiederkommst. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
     expect(await queueWinbackMessages(T("2026-10-26T09:00:00Z"))).toBe(0);
   });
 
