@@ -43,6 +43,8 @@
   --display-num: clamp(2.5rem, 11vw, 3.5rem);
   /* The Übersicht board number: 64 px on a phone, 88 px on desktop. */
   --display-board: clamp(4rem, 7vw, 5.5rem);
+  /* The Übersicht tile numbers (40 px). */
+  --display-tile: 2.5rem;
   --leading-tight: 1.2;
   --leading-body: 1.5;
   --weight-body: 400;

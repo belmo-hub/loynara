@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { CircleCheck, CreditCard, Gift, Undo2, type LucideIcon } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
 import { nf } from "./owner-ui";
 
@@ -86,10 +87,33 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
   );
 }
 
-export type Tile = { n: string; label: string; note: string };
-/** Two good-news tiles: green numerals on white. */
+const TILE_ICONS = { bookings: CircleCheck, cards: CreditCard, back: Undo2, rewards: Gift } satisfies Record<string, LucideIcon>;
+export type Tile = { key: keyof typeof TILE_ICONS; label: string; value: string; note: ReactNode; help: string };
+/** The four tiles, always in this order, numbers in ink: no arrows, no colour coding (spec §1.3). */
 export function Tiles({ tiles }: { tiles: Tile[] }) {
-  return <div className="ow-tiles">{tiles.map(tile => <p className="ow-tile" key={tile.label}><span className="ow-tile-n">{tile.n}</span><span className="ow-tile-label">{tile.label}</span><span className="ow-tile-note">{tile.note}</span></p>)}</div>;
+  return (
+    <section className="ow-stack" aria-labelledby="ow-tiles-title" style={{ gap: 8 }}>
+      <h2 id="ow-tiles-title" className="ow-tiles-title">Letzte 30 Tage an diesem Standort</h2>
+      <div className="ow-tiles">{tiles.map(tile => <TileCard key={tile.key} tile={tile} />)}</div>
+    </section>
+  );
+}
+function TileCard({ tile }: { tile: Tile }) {
+  const [open, setOpen] = useState(false);
+  const helpId = useId();
+  const Icon = TILE_ICONS[tile.key];
+  return (
+    <div className="ow-tile">
+      <div className="ow-tile-head">
+        <Icon size={18} aria-hidden="true" focusable="false" />
+        <h3 className="ow-tile-label">{tile.label}</h3>
+        <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label}“</span></button>
+      </div>
+      <span className="ow-tile-n">{tile.value}</span>
+      <span className="ow-tile-note">{tile.note}</span>
+      <p id={helpId} className="ow-tile-help" hidden={!open}>{tile.help}</p>
+    </div>
+  );
 }
 
 /** A milestone, shown once: a quiet white card above the board, no confetti, no sound (spec §4.3). */
@@ -116,7 +140,7 @@ export function NextBar({ title, text, action }: { title: string; text?: string;
 }
 
 const pillOf = (entry: DiaryDay["entries"][number], unit: string) => entry.kind === "award" ? { mark: `+${nf.format(entry.amount)}`, text: "Buchung bestätigt", label: `${nf.format(entry.amount)} ${unit} gebucht` }
-  : entry.kind === "correction" ? { mark: `−${nf.format(entry.amount)}`, text: "Korrektur", label: `Korrektur, ${nf.format(entry.amount)} ${unit} zurückgenommen` }
+  : entry.kind === "correction" ? { mark: "", text: `Korrektur −${nf.format(entry.amount)}`, label: `Korrektur, ${nf.format(entry.amount)} ${unit} zurückgenommen` }
     : { mark: "", text: "Prämie eingelöst", label: "Prämie eingelöst" };
 
 /** „Die letzten Tage am Tresen“: one entry per local day, newest first, no timestamps; a quiet stretch shows as one grey gap. */
@@ -133,8 +157,11 @@ export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]
           <div className="ow-day-rail" aria-hidden="true"><i /><span /></div>
           <div>
             <h3>{title(day.date)}</h3>
-            <p className="ow-day-sum">{bookingsText(day.bookings)}{day.units > 0 && ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben`}</p>
-            <ul className="ow-pills">{day.entries.map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}><b aria-hidden="true">{pill.mark}</b><span aria-hidden="true">{pill.text}</span></li>; })}</ul>
+            {day.bookings > 0 && <p className="ow-day-sum">{bookingsText(day.bookings)}{day.units > 0 && ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben`}</p>}
+            <ul className="ow-pills">
+              {day.entries.map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
+              {day.more > 0 && <li className="ow-pill" data-kind="more">{nf.format(day.more)}{NBSP}weitere</li>}
+            </ul>
           </div>
         </div>
       ))}

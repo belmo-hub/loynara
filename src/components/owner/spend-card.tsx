@@ -52,5 +52,5 @@ const value = (f: SpendFigures, money: (minor: number) => string) => `${amount(f
 
 function Figure({ label, figures, money }: { label: string; figures: SpendFigures; money: (minor: number) => string }) {
   return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{amount(figures, money)}</strong>{estimateMark(figures) && <p className="ow-metric-note"><strong>{estimateMark(figures)}</strong></p>}
-    <p className="ow-metric-note">{figures.unpricedVisits > 0 && figures.averagePerVisitMinor !== null ? C.pricedBookings(figures.visits - figures.unpricedVisits) : C.bookings(figures.visits)}{figures.averagePerVisitMinor !== null && ` · ${C.average(money(figures.averagePerVisitMinor))}`}</p></div>;
+    <p className="ow-metric-note">{figures.averagePerVisitMinor === null ? C.bookings(figures.visits) : figures.unpricedVisits > 0 ? C.pricedBookings(figures.visits - figures.unpricedVisits, figures.visits, money(figures.averagePerVisitMinor)) : `${C.bookings(figures.visits)} · ${C.average(money(figures.averagePerVisitMinor))}`}</p></div>;
 }

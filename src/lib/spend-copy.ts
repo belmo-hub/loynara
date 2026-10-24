@@ -8,7 +8,7 @@ export const SPEND_COPY = {
   bookings: (n: number) => `${n.toLocaleString("de-DE")} ${n === 1 ? "Buchung" : "Buchungen"}`,
   average: (amount: string) => `Ø\u00a0${amount} pro\u00a0Buchung`,
   /** ENG-084: while some bookings have no amount, name the ones the euros and the average were computed from. */
-  pricedBookings: (n: number) => `${n.toLocaleString("de-DE")}\u00a0${n === 1 ? "Buchung" : "Buchungen"} mit Betrag`,
+  pricedBookings: (priced: number, total: number, average: string) => `${priced.toLocaleString("de-DE")} von ${total.toLocaleString("de-DE")}\u00a0Buchungen mit Betrag · Ø\u00a0${average}`,
   newAndReturning: (fresh: string, returning: string) => `Neue Karten (im Zeitraum angemeldet): ${fresh} · Wiederkommende Karten: ${returning}`,
   estimated: "geschätzt",
   partlyEstimated: "teilweise geschätzt",
