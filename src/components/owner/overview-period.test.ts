@@ -13,7 +13,9 @@ vi.mock("./use-load", () => ({
   },
 }));
 
-import { Overview } from "./overview";
+import { NextStep, Overview } from "./overview";
+import type { LaunchReadiness } from "@/lib/readiness";
+import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 
 const counts = { newCards: 4, qualifyingCheckouts: 12, repeatCards: 3 };
 const report = (previous: LocationAnalytics["previous"]): LocationAnalytics => ({ locationId: "loc-2", windowDays: 30, from: "2026-09-24T10:00:00.000Z", asOf: "2026-10-24T10:00:00.000Z", current: counts, previous, winback: null });
@@ -37,6 +39,7 @@ describe("one Übersicht for every owner and manager (L1, O7)", () => {
     expect(html).not.toContain("seit Programmstart");
     expect(html).not.toContain("kein Umsatz");
     expect(html).not.toContain("vorher");
+    expect(html).not.toContain('<p class="ow-eyebrow">Kassel Süd</p>'); // O6: the top bar already names the active location
   });
 
   it("gives a manager the same layout without the owner-only Ergebnisse link", () => {
@@ -56,5 +59,16 @@ describe("one Übersicht for every owner and manager (L1, O7)", () => {
     expect(html).toContain("bestätigt an deiner Kasse · vorher 9");
     expect(html).toContain("Karten mit 2+ Buchungen · vorher 3");
     expect(html.match(/<dl class="ow-metrics[\s\S]*?<\/dl>/)![0]).not.toContain("%");
+  });
+});
+
+describe("„Als Nächstes“ during set-up (N1, #129)", () => {
+  it("shows the open step's action sentence alone, without its title", () => {
+    const step = { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Buchung", evidence: "Lass an der Kasse eine Buchung auf deiner eigenen Karte bestätigen.", action: { label: "Kasse öffnen", href: "/cashier" } } as LaunchReadiness["steps"][number];
+    const summary = { asOf: "2026-10-24T10:00:00.000Z", inactiveDays: 30, locationId: null, openCards: 0, recent: 0, drifting: 0, never: 0, neverAfterWeek: 0, nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: null, nearRewardId: null, programCount: 1, rules: RETENTION_RULES } as unknown as RetentionSummary;
+    const html = renderToStaticMarkup(createElement(NextStep, { me: me("owner"), retention: { state: "ok", data: summary, at: 0 }, referrals: null, readiness: { state: "ok", data: { steps: [step] } as unknown as LaunchReadiness, at: 0 }, setup: step }));
+    expect(html).toContain('<p class="ow-next-text">Lass an der Kasse eine Buchung auf deiner eigenen Karte bestätigen.</p>');
+    expect(html).not.toContain("Erste Buchung");
+    expect(html).toContain('href="/cashier"');
   });
 });

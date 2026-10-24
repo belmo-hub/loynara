@@ -37,7 +37,7 @@ function NewBusiness({ me }: { me: MeResponse }) {
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">{me.locationName}</p><h1>Dein Treueprogramm einrichten</h1><p>Jeder Schritt zeigt, was bereits gespeichert oder an der Kasse belegt ist. Alles lässt sich später ändern.</p></div>
+        <div><h1>Dein Treueprogramm einrichten</h1><p>Jeder Schritt zeigt, was bereits gespeichert oder an der Kasse belegt ist. Alles lässt sich später ändern.</p></div>
       </header>
       <CancellationNotice me={me} />
       <div className="ow-two">
@@ -77,7 +77,6 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
     <div className="ow-page">
       <header className="ow-pagehead">
         <div>
-          <p className="ow-eyebrow">{me.locationName}</p>
           <h1>Übersicht</h1>
           <p>In den letzten 30 Tagen.{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{isOwner && <> <Link className="ow-link" href="/merchant/analytics">Alle Zahlen und Zeiträume</Link></>}</p>
         </div>
@@ -141,7 +140,8 @@ export function NextStep({ me, retention, referrals, readiness, setup, winback }
     return retention.state === "error" || readiness.state === "error" ? null : <Skeleton height={112} />;
   }
   const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
-  const next = setup ? { text: `${setup.title}: ${setup.evidence}`, action: setup.action }
+  // The step's evidence is its action sentence (#129); its title stays on the Startklar card.
+  const next = setup ? { text: setup.evidence, action: setup.action }
     : insight ? { text: `${insight.title}.${insight.next ? ` ${insight.next}` : ""}`, action: insight.actions.at(-1) }
       : { text: "Gerade nichts Dringendes. Dein Team bucht, die Zahlen oben zeigen, wie es läuft.", action: undefined };
   return (
