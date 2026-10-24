@@ -33,7 +33,8 @@ export default function MerchantBillingPage() {
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
   const o = data.data;
-  if (o.liveBilling) return <LiveBilling o={o} head={<>{head}<CancellationNotice me={me} /></>} />;
+  // „Diese Vorschau löst keine Zahlung aus.“ is true only for the fixture preview; live billing takes real payments (Head of Design).
+  if (o.liveBilling) return <LiveBilling o={o} head={<><PageHead eyebrow="Einstellungen · Abrechnung" title="Tarif und Abrechnung" lead="Preise und Nutzung pro Standort." /><CancellationNotice me={me} /></>} />;
 
   async function startFixture() {
     setBusy(true); setError("");
@@ -106,7 +107,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
           : <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>Tarif offen</strong><p className="ow-muted" style={{ marginTop: 4 }}>Dein Preis wird mit dir vereinbart.</p></div>}
       </section>
       <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standorte und Nutzung</h2>
-        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">{o.charge ? `${PLAN[o.charge.planCode]} · ${money(o.charge.unitMinor, o.currency)} / Monat` : "Tarif offen"}</small></span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
+        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong>{o.charge ? <><br /><small className="ow-muted">{PLAN[o.charge.planCode]} · {money(o.charge.unitMinor, o.currency)} / Monat</small></> : null}</span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
       <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Zahlung</h2>
         <p>Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe.</p>
         <div className="ow-row">
