@@ -7,12 +7,12 @@ import { DomainError } from "./loyalty";
  * error code, our internal message, a response that did not parse) goes to the server log only. The status code stays.
  */
 const OWNER_TEXT: Record<string, string> = {
-  UNAUTHENTICATED: "Bitte melde dich neu an.",
+  UNAUTHENTICATED: "Du bist abgemeldet. Bitte melde dich neu an.",
   FORBIDDEN: "Nur Inhaber:innen können Abrechnungsdaten sehen.",
-  NOT_FOUND: "Das gibt es nicht mehr. Bitte lade die Seite neu.",
+  NOT_FOUND: "Dieser Eintrag ist nicht mehr da. Bitte lade die Seite neu.",
   BILLING_STATE: "Der Stand hat sich gerade geändert. Bitte lade die Seite neu.",
   PLAN_UNAVAILABLE: "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen.",
-  BILLING_DISABLED: "Die Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal.",
+  BILLING_DISABLED: "Die Online-Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal.",
 };
 export const BILLING_FALLBACK_TEXT = "Das hat gerade nicht geklappt. Bitte versuch es in ein paar Minuten noch einmal.";
 // Expected answers, not failures: nothing to log.

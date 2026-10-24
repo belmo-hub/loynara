@@ -10,7 +10,7 @@ import { useLoad } from "@/components/owner/use-load";
 type Overview = {
   status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
   currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; graceUntil: string | null;
-  liveBilling: boolean; planCode: "founding" | "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
+  liveBilling: boolean; charge: { planCode: "founding" | "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "founding" | "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
   locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
   invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
 };
@@ -99,11 +99,14 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       {error && <ErrorNotice message={error} />}
       {o.status === "past_due" && <Notice tone="warn" role="alert">Die letzte Zahlung ist fehlgeschlagen. Bitte prüfe deine Zahlungsdaten.</Notice>}
       <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
-        <div><p className="ow-eyebrow">Status</p><h2>{LIVE_STATUS[o.status] ?? o.status}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.` : o.currentPeriodEnd ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : o.planCode ? PLAN[o.planCode] : "Dein Tarif wird noch festgelegt."}</p></div>
-        <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.monthlySubtotalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{o.locationCount} Standort{o.locationCount === 1 ? "" : "e"} · monatlich kündbar{o.guaranteeApplied ? " · Startgarantie: Gutschrift auf der Rechnung für Monat 2" : ""}</p></div>
+        <div><p className="ow-eyebrow">Status</p><h2>{LIVE_STATUS[o.status] ?? o.status}</h2>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Gekündigt zum {date(o.currentPeriodEnd)}.</p> : o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Nächste Abrechnung am {date(o.currentPeriodEnd)}.</p> : o.charge ? <p className="ow-muted" style={{ marginTop: 4 }}>{PLAN[o.charge.planCode]}</p> : null}</div>
+        {/* No amount before the operator has set the plan: a list total would be untrue for a price not yet agreed (Product, L10). */}
+        {o.charge
+          ? <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.charge.totalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{money(o.charge.unitMinor, o.currency)} pro Standort und Monat. {o.taxNote}</p><p className="ow-muted" style={{ marginTop: 4 }}>{o.charge.quantity} Standort{o.charge.quantity === 1 ? "" : "e"} · monatlich kündbar{o.guaranteeApplied ? " · Startgarantie: Gutschrift auf der Rechnung für Monat 2" : ""}</p></div>
+          : <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>Tarif offen</strong><p className="ow-muted" style={{ marginTop: 4 }}>Dein Preis wird mit dir vereinbart.</p></div>}
       </section>
       <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standorte und Nutzung</h2>
-        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">{o.planCode ? PLAN[o.planCode] : "Tarif offen"} · {money(location.priceMinor, o.currency)} / Monat</small></span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
+        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">{o.charge ? `${PLAN[o.charge.planCode]} · ${money(o.charge.unitMinor, o.currency)} / Monat` : "Tarif offen"}</small></span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
       <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Zahlung</h2>
         <p>Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe.</p>
         <div className="ow-row">

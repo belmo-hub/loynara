@@ -18,6 +18,16 @@ export const VAT_STANDARD_NOTE = "Zuzüglich 19 % Umsatzsteuer.";
 export const GUARANTEE_LINE = "Monat 2 kostenlos – Startgarantie";
 export const isPlanCode = (value: unknown): value is PlanCode => value === "founding" || value === "list";
 
+/**
+ * The one price the owner page shows and the Stripe checkout charges (Finance, 24 Oct): the operator's plan, one unit per
+ * location. Null until the operator has set a plan, so the page shows no amount and checkout refuses.
+ */
+export function planCharge(sub: { planCode: string | null; activeLocationCount: number; currency: string }) {
+  if (!isPlanCode(sub.planCode) || sub.currency !== "EUR") return null;
+  const unitMinor = PLANS[sub.planCode].priceMinor;
+  return { planCode: sub.planCode, unitMinor, quantity: sub.activeLocationCount, totalMinor: unitMinor * sub.activeLocationCount };
+}
+
 type Env = Record<string, string | undefined>;
 const price = /^price_[A-Za-z0-9]{8,}$/;
 const formats: Record<string, RegExp> = {

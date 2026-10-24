@@ -49,7 +49,7 @@ describe("owner billing errors are German; the detail stays in the log (ENG-072)
   it.each([
     ["BILLING_STATE", "A fixture checkout is unavailable in this state", 409, "Der Stand hat sich gerade geändert. Bitte lade die Seite neu."],
     ["PLAN_UNAVAILABLE", "No location plan available", 400, "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen."],
-    ["BILLING_DISABLED", "Live billing is unavailable", 400, "Die Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal."],
+    ["BILLING_DISABLED", "Live billing is unavailable", 400, "Die Online-Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal."],
     ["PLAN_MISCONFIGURED", "The Stripe price does not match the plan", 400, BILLING_FALLBACK_TEXT],
   ])("%s keeps its status and says it in German", async (code, internal, status, text) => {
     checkout.mockRejectedValue(new DomainError(code, internal));
@@ -75,7 +75,7 @@ describe("owner billing errors are German; the detail stays in the log (ENG-072)
     overview.mockRejectedValue(new DomainError("NOT_FOUND", "Subscription not found"));
     const response = await read(new Request("http://localhost:3000/api/merchant/billing"));
     expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ error: "Das gibt es nicht mehr. Bitte lade die Seite neu.", code: "NOT_FOUND" });
+    expect(await response.json()).toEqual({ error: "Dieser Eintrag ist nicht mehr da. Bitte lade die Seite neu.", code: "NOT_FOUND" });
     expect(logged()).toContain("NOT_FOUND: Subscription not found");
   });
 });
