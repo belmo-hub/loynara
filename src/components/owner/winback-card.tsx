@@ -24,6 +24,8 @@ export function WinbackCard({ slug, initial, reminders }: { slug: string; initia
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("winback", changed);
   const edit = (patch: Partial<Draft>) => { setDraft({ ...draft, ...patch }); if (state === "saved" || state === "error") setState("clean"); };
+  // A real example instead of a placeholder (Head of Design): the last day for a card that comes back today.
+  const [exampleDay] = useState(() => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(Date.now() + 14 * 86_400_000)));
 
   async function save() {
     setState("saving"); setError("");
@@ -57,10 +59,10 @@ export function WinbackCard({ slug, initial, reminders }: { slug: string; initia
         ? <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
         : <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus einmal. Er kommt beim Bestätigen an der Kasse automatisch dazu. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.</p>}
       {reminders
-        ? <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{winbackText(initial.type, bonusValid ? bonus : 0, "[Datum]")}</p></div>
+        ? <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{winbackText(initial.type, bonusValid ? bonus : 0, exampleDay)}</p></div>
         : bonusValid && bonus > 0 && <div className="ow-card" role="group" aria-label="Vorschau auf der Kundenkarte">
           {/* The card line of ENG-089 part B (customer-card-copy.tsx), with its „Bedingungen“ link shown as text here. */}
-          <p>Willkommen zurück! Bis zum [Datum] gibt&apos;s bei deinem nächsten Besuch {initial.type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. <u>Bedingungen</u></p>
+          <p>Willkommen zurück! Bis zum {exampleDay} gibt&apos;s bei deinem nächsten Besuch {initial.type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. <u>Bedingungen</u></p>
         </div>}
       {bonusValid && bonus > 0 && <p className="ow-hint">Steht auf der Karte: {winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus, reminders)}</p>}
       <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
