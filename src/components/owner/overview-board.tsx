@@ -104,17 +104,18 @@ function TileCard({ tile }: { tile: Tile }) {
   const helpId = useId();
   const Icon = TILE_ICONS[tile.key];
   const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
+  // The icon sits beside the number, as in Design's mock: the head keeps the whole width for the label and the „?“.
+  const number = <span className="ow-tile-row"><span className="ow-tile-n">{value}</span><Icon size={22} aria-hidden="true" focusable="false" /></span>;
   return (
     <div className="ow-tile">
       <div className="ow-tile-head">
-        <Icon size={18} aria-hidden="true" focusable="false" />
         <h3 className="ow-tile-label">{tile.label}</h3>
         <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label}“</span></button>
       </div>
       {/* The number and its note are the link; the „?“ stays its own button, outside it. */}
       {tile.href
-        ? <Link className="ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label}: </span><span className="ow-tile-n">{value}</span><span className="ow-tile-note">{tile.note}</span></Link>
-        : <><span className="ow-tile-n">{value}</span><span className="ow-tile-note">{tile.note}</span></>}
+        ? <Link className="ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label}: </span>{number}<span className="ow-tile-note">{tile.note}</span></Link>
+        : <>{number}<span className="ow-tile-note">{tile.note}</span></>}
       <p id={helpId} className="ow-tile-help" hidden={!open}>{tile.help}</p>
     </div>
   );

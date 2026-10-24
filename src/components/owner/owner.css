@@ -559,9 +559,12 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-tiles-title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-tile { display: flex; flex-direction: column; gap: 2px; }
 .ow-tile-head { display: flex; align-items: center; gap: var(--space-2); color: var(--color-ink-muted); }
-.ow-tile-head .ow-tile-label { flex: 1; margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); }
+/* Long German labels („Wiedergekommen“) break at a syllable rather than push the „?“ out of a phone-width tile. */
+.ow-tile-head .ow-tile-label { flex: 1; min-width: 0; margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); hyphens: auto; overflow-wrap: break-word; }
+.ow-tile-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
+.ow-tile-row svg { flex: none; margin-bottom: var(--space-1); color: var(--color-action); }
 /* A 24 px "?" with a 44 px target (spec §1.3). */
-.ow-tile-q { display: inline-grid; flex: none; place-items: center; width: var(--target); height: var(--target); margin: -10px -10px -10px 0; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
+.ow-tile-q { display: inline-grid; flex: none; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
 .ow-tile-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
 .ow-tile-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-tile-link { display: flex; flex-direction: column; gap: 2px; border-radius: var(--radius-sm); color: inherit; text-decoration: none; }

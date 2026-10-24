@@ -74,7 +74,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("vorher 10");
     const link = html.match(/<a class="ow-tile-link" href="([^"]+)">(.*?)<\/a>/);
     expect(link?.[1]).toBe("/merchant/customers?activity=recent&amp;days=30&amp;locationId=loc-1");
-    expect(link?.[2]).toBe(`<span class="ow-sr">Buchungen: </span><span class="ow-tile-n">9</span><span class="ow-tile-note">vorher 10</span>`);
+    expect(link?.[2]).toMatch(/^<span class="ow-sr">Buchungen: <\/span><span class="ow-tile-row"><span class="ow-tile-n">9<\/span><svg[^]*<\/svg><\/span><span class="ow-tile-note">vorher 10<\/span>$/);
     expect(html.match(/class="ow-tile-link"/g)).toHaveLength(1); // the other Kunden filters come with ENG-086
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
@@ -139,7 +139,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("Karten mit Buchung in den letzten 30 Tagen");
     expect(html).toContain("Karten an deinem Standort: 17 da · 0 länger nicht da · 2 noch nie an der Kasse");
     expect(html).toContain("Buchungen an diesem Standort · letzte 7 Tage");
-    expect(html).toContain('<span class="ow-tile-n">–</span><span class="ow-tile-note">Willkommen-zurück-Bonus ist aus</span>');
+    expect(html).toMatch(/<span class="ow-tile-n">–<\/span><svg[^>]*>(?:(?!<\/svg>).)*<\/svg><\/span><span class="ow-tile-note">Willkommen-zurück-Bonus ist aus<\/span>/);
     expect(html).not.toContain("€");
     expect(html).not.toContain("Umsatz");
   });
