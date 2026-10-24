@@ -109,11 +109,11 @@ test("points programme: the tap waits for the team, the cashier enters and revie
     await expect(amount).toBeVisible({ timeout: 15_000 });
     await expect(counter.getByRole("button", { name: "Stempel bestätigen" })).toHaveCount(0);
     await amount.fill("16,70");
-    await counter.getByRole("button", { name: "16 Punkte prüfen" }).click();
-    const dialog = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
-    await expect(dialog).toContainText(`16 Punkte für einen Kauf über 16,70 € für Karte ${guest.cardLocator}.`);
-    expect(await ledgerRowsFor(guest.cardToken)).toBe(0);   // the review step books nothing
-    await dialog.getByRole("button", { name: "Ja, vergeben" }).click();
+    // The preview shows what „Buchen“ books; typing books nothing, the one button does.
+    await expect(counter.getByText("+16 Punkte · Neuer Stand: 16")).toBeVisible();
+    expect(await ledgerRowsFor(guest.cardToken)).toBe(0);
+    await expect(counter.getByRole("dialog")).toHaveCount(0);
+    await counter.getByRole("button", { name: "Buchen", exact: true }).click();
     await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${guest.cardLocator} gebucht. Neuer Stand: 16.` })).toBeVisible();
 
     await expect(page.getByRole("heading", { name: "Punkte erhalten" })).toBeVisible({ timeout: 15_000 });

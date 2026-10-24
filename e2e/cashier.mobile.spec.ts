@@ -75,6 +75,45 @@ test.describe("cashier on phones", () => {
     expect(await booked.evaluate(el => { const cs = getComputedStyle(el); return [cs.transitionProperty, cs.transitionDuration, cs.transform]; })).toEqual(["opacity", "0.16s", "none"]);
   });
 
+  test("a card with a reward ready leads with redeeming, in thumb reach, and the status dot stays beside its label", async ({ page }) => {
+    await signIn(page);
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const joined = await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false }, headers: { Origin: origin } });
+    const { cardToken } = await joined.json() as { cardToken: string };
+    const { scanCode: code } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+    const { membershipId, rewards } = await (await page.request.get(`/api/cashier/lookup?code=${encodeURIComponent(code)}`)).json() as { membershipId: string; rewards: Array<{ cost: number }> };
+    const award = await page.request.post("/api/cashier/award", { data: { membershipId, quantity: Math.min(...rewards.map(reward => reward.cost)), idempotencyKey: crypto.randomUUID(), requestId: crypto.randomUUID() }, headers: { Origin: origin } });
+    expect(award.ok()).toBe(true);
+
+    await page.goto("/cashier");
+    // C4: on a phone the dot sits on the label's line, not on a line of its own.
+    const [dot, label] = await Promise.all([page.locator("[data-state] > span").first().boundingBox(), page.locator("[data-state] strong").first().boundingBox()]);
+    expect(dot!.y).toBeGreaterThanOrEqual(label!.y);
+    expect(dot!.y + dot!.height).toBeLessThanOrEqual(label!.y + label!.height);
+
+    await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    const redeem = page.locator(".cashier-redeem-now");
+    await expect(redeem).toHaveText("Prämie einlösen");
+    expect(await audit(page)).toEqual({ overflow: 0, smallText: [], smallControls: [] });
+    const [redeemBox, earnBox, viewport] = [await redeem.boundingBox(), await page.locator(".cashier-award-now").boundingBox(), page.viewportSize()!];
+    // Primary at the bottom, 64 px; earning steps back above it at 56 px.
+    expect(Math.round(redeemBox!.height)).toBeGreaterThanOrEqual(64);
+    expect(redeemBox!.y + redeemBox!.height).toBeGreaterThan(viewport.height - 120);
+    expect(earnBox!.y).toBeLessThan(redeemBox!.y);
+    expect(Math.round(earnBox!.height)).toBeGreaterThanOrEqual(56);
+    // The taller dock still leaves the end of the page above it.
+    await page.evaluate(() => new Promise(done => { window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }); requestAnimationFrame(() => requestAnimationFrame(done)); }));
+    const gap = await page.evaluate(() => {
+      const dock = document.querySelector("[data-dock]")!.getBoundingClientRect();
+      const last = [...document.querySelectorAll("main > *")].filter(el => el.getBoundingClientRect().height > 0).pop()!.getBoundingClientRect();
+      return Math.round(dock.top - last.bottom);
+    });
+    expect(gap).toBeGreaterThanOrEqual(0);
+    await redeem.click();
+    await expect(page.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText("Kaffee");
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);

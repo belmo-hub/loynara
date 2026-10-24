@@ -66,7 +66,7 @@ async function localOnly(context: BrowserContext) {
 }
 async function cardReady(page: Page, token = cardToken) {
   await page.goto(`/card/${encodeURIComponent(token)}`);
-  await expect(page.locator(".customer-card-business strong")).toHaveText("Synthetic Wallet Café");
+  await expect(page.locator(".customer-header-merchant")).toHaveText("Synthetic Wallet Café");
 }
 async function fits(page: Page, width: number) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth), "page must have no horizontal overflow").toBeLessThanOrEqual(width);
@@ -125,7 +125,7 @@ test("slow issuance disables both buttons, prevents duplicate calls and recovers
   await expect(page.locator(".wallet-error[role=alert]")).toContainText("Wallet ist gerade nicht erreichbar");
   await expect(page.locator(".wallet-error[role=alert]")).not.toContainText("private-key");
   await expect(apple).toBeEnabled();
-  await expect(page.locator(".customer-card-business strong")).toBeVisible();
+  await expect(page.locator(".customer-header-merchant")).toBeVisible();
 });
 
 test("status-check failure hides Wallet and leaves browser card usable", async ({ page }) => {
@@ -161,7 +161,7 @@ test("real disabled-provider download renders safe navigation HTML and Back rest
   await fits(page, 320);
   await page.screenshot({ path: testInfo.outputPath("wallet-download-error-320.png"), fullPage: true });
   await page.getByRole("button", { name: "Zurück zur Karte" }).click();
-  await expect(page.locator(".customer-card-business strong")).toHaveText("Synthetic Wallet Café");
+  await expect(page.locator(".customer-header-merchant")).toHaveText("Synthetic Wallet Café");
 });
 
 test("owner readiness states distinguish issuance and delayed updates across five widths", async ({ browser, baseURL }, testInfo) => {
@@ -276,6 +276,6 @@ test("actual providers-OFF card hides actions and direct issuance is unavailable
   await cardReady(page);await expect(page.locator(".customer-wallet-add")).toHaveCount(0);
   for(const provider of ["apple","google"]){const response=await guest.post(`/api/wallet/${provider}`,{data:{token:cardToken}});expect(response.status()).toBe(503);}
   const status=await guest.post("/api/wallet/status",{data:{token:cardToken}});expect(await status.json()).toMatchObject({apple:"unavailable",google:"unavailable",applePass:{status:"unavailable"}});
-  await page.goto(`/join/${encodeURIComponent(programSlug)}`);await expect(page.getByRole("heading",{name:"Willkommen zurück."})).toBeVisible();await expect(page.getByRole("button",{name:"Meine Karte erstellen"})).toHaveCount(0);await page.getByRole("link",{name:"Meine Karte öffnen"}).click();await page.waitForURL(/\/card\//);await expect(page.locator(".customer-card-business strong")).toHaveText("Synthetic Wallet Café");
-  await page.goto(`/join/${encodeURIComponent(programSlug)}`);await expect(page.getByRole("heading",{name:"Willkommen zurück."})).toBeVisible();await page.getByRole("link",{name:"Meine Karte öffnen"}).click();await page.waitForURL(/\/card\//);await expect(page.locator(".customer-card-business strong")).toHaveText("Synthetic Wallet Café");
+  await page.goto(`/join/${encodeURIComponent(programSlug)}`);await expect(page.getByRole("heading",{name:"Willkommen zurück."})).toBeVisible();await expect(page.getByRole("button",{name:"Meine Karte erstellen"})).toHaveCount(0);await page.getByRole("link",{name:"Meine Karte öffnen"}).click();await page.waitForURL(/\/card\//);await expect(page.locator(".customer-header-merchant")).toHaveText("Synthetic Wallet Café");
+  await page.goto(`/join/${encodeURIComponent(programSlug)}`);await expect(page.getByRole("heading",{name:"Willkommen zurück."})).toBeVisible();await page.getByRole("link",{name:"Meine Karte öffnen"}).click();await page.waitForURL(/\/card\//);await expect(page.locator(".customer-header-merchant")).toHaveText("Synthetic Wallet Café");
 });

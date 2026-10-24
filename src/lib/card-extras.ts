@@ -37,8 +37,15 @@ export const challengeBonusRange = (type: string, cheapestRewardCost: number) =>
 /** Price-bound goods that never earn a bonus or perk (Legal 22 Oct). Shown with the challenge, at the counter and to the owner. */
 export const EXCLUDED_GOODS = "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.";
 
-/** „Komm 3-mal im Oktober, dann gibt's 50 Punkte extra.“ and its conditions with the end date (Legal: each challenge shows both). */
-export function challengeSentence(target: number, bonus: number, type: string, month: string, endsOn: string) {
+/**
+ * „Komm 3-mal im Oktober, dann gibt's 50 Punkte extra.“ and its conditions with the end date (Legal: each challenge shows
+ * both), in the card's language: `month` and `endsOn` come formatted for that locale.
+ */
+export function challengeSentence(target: number, bonus: number, type: string, month: string, endsOn: string, locale = "de") {
+  if (locale === "fr") return {
+    text: `Venez ${target} fois en ${month} et recevez ${bonus} ${type === "stamp" ? bonus === 1 ? "tampon supplémentaire" : "tampons supplémentaires" : "points supplémentaires"}.`,
+    conditions: `Seules les visites confirmées en caisse comptent, une par jour au maximum. Valable jusqu’au ${endsOn}. Hors tabac, presse, livres, loterie et recharges téléphoniques.`,
+  };
   return {
     text: `Komm ${target}-mal im ${month}, dann gibt's ${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra.`,
     conditions: `Es zählen Besuche, die an der Kasse bestätigt werden, höchstens einer pro Tag. Gilt bis ${endsOn}. ${EXCLUDED_GOODS}`,

@@ -27,7 +27,7 @@ for (const width of [375, 1280]) {
           if (fail) await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic temporary service failure" }) });
           else await route.continue();
         });
-        const refresh = page.getByRole("button", { name: "Kontostand aktualisieren" });
+        const refresh = page.getByRole("button", { name: "Karte aktualisieren" });
         const feedback = page.locator(".customer-balance-panel").getByRole("alert");
         // The visible card re-reads itself after about 5 s; a failed automatic read stays silent and keeps the card.
         await expect.poll(() => reads, { timeout: 10_000 }).toBeGreaterThan(0);
@@ -38,7 +38,7 @@ for (const width of [375, 1280]) {
         const beforeClick = reads;
         await refresh.focus(); await page.keyboard.press("Enter");
         await expect.poll(() => reads).toBe(beforeClick + 1);
-        await expect(feedback).toContainText("zuletzt geladene Stand");
+        await expect(feedback).toContainText("zuletzt geladenen Stand");
         await expect(refresh).toBeEnabled();
         await expect(page.locator(".customer-card")).toContainText("Synthetic refresh Café");
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

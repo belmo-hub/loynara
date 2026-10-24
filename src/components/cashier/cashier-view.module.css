@@ -22,8 +22,7 @@
 /* Browsers without the popover attribute show the three controls in the header, as before. */
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; } }
 
-.intro h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
-.intro p { margin: var(--space-1) 0 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 .panel { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
 .ready, .stack { display: grid; gap: var(--space-3); }
@@ -42,6 +41,8 @@
 .balance { display: grid; gap: var(--space-1); }
 .balance > span { color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
 .balance strong { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+/* Compact stamp row: the progress reads at a glance and the reward list stays above the dock. */
+.stamps { max-width: 15rem; }
 .balance em { font-size: var(--text-22); font-style: normal; font-weight: var(--weight-strong); letter-spacing: 0; }
 .rewards { display: grid; gap: var(--space-2); }
 .rewards h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
@@ -61,6 +62,12 @@
 .reward:disabled .rewardAction { color: var(--color-ink-muted); }
 @media (hover: hover) and (pointer: fine) { .reward:hover:not(:disabled) { border-color: var(--color-ink); } }
 
+/* Amount sheet: the preview of what „Buchen“ books, large enough to check before the tap. */
+.preview { display: grid; gap: var(--space-1); min-height: 4.5rem; align-content: center; }
+.preview strong { font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; font-variant-numeric: tabular-nums; }
+.preview span { color: var(--color-ink-muted); font-size: var(--text-18); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.preview .previewProblem { color: var(--color-danger); font-size: var(--text-16); }
+
 /* Dock: stepper over the booking button. The value changes at once; only the press scales. */
 .stepper { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
 .stepper output { min-width: 3ch; font-size: var(--text-28); font-weight: var(--weight-heavy); text-align: center; font-variant-numeric: tabular-nums; }
@@ -68,28 +75,42 @@
 
 @media (prefers-reduced-motion: reduce) { .reward { transition: none; } .reward:active:not(:disabled) { transform: none; } }
 
-/* Outcomes. "Gebucht" fades in over 160 ms with no movement — shorter than --dur-reward (480 ms) on purpose:
-   cashiers see it dozens of times a shift, so it must never hold up the next scan. Reduced motion: no animation. */
-.outcome, .booked { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
+/* Outcomes. Reduced motion: no animation. */
+.outcome { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
 .outcomeIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-surface); color: var(--color-ink); }
 .outcomeText { display: grid; gap: var(--space-1); min-width: 0; overflow-wrap: anywhere; }
-.outcomeText strong, .outcomeText h2 { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.25; }
-.outcomeText > span, .outcomeText p { margin: 0; font-size: var(--text-16); line-height: var(--leading-body); }
-.outcome[data-tone="success"] .outcomeIcon, .booked[data-tone="success"] .outcomeIcon { background: var(--color-success); color: var(--color-bg); }
+.outcomeText strong { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.25; }
+.outcomeText > span { margin: 0; font-size: var(--text-16); line-height: var(--leading-body); }
+.outcome[data-tone="success"] .outcomeIcon { background: var(--color-success); color: var(--color-bg); }
 .outcome[data-tone="rejected"] { box-shadow: inset 0 0 0 1.5px var(--color-danger); }
 .outcome[data-tone="rejected"] .outcomeIcon { background: var(--color-danger); color: var(--color-bg); }
-.outcome[data-tone="pending"] .outcomeIcon, .outcome[data-tone="offline"] .outcomeIcon, .booked[data-tone="pending"] .outcomeIcon { background: var(--color-warning); color: var(--color-bg); }
-.booked { box-shadow: inset 0 0 0 1.5px var(--color-success); transition: opacity 160ms var(--ease-out); }
+.outcome[data-tone="pending"] .outcomeIcon, .outcome[data-tone="offline"] .outcomeIcon { background: var(--color-warning); color: var(--color-bg); }
+
+/* "Gebucht" owns the screen after a booking: centred, large, calm; the next-card action stays secondary.
+   It fades in over 160 ms with no movement (cashiers see it dozens of times a shift, it must never hold up the next
+   scan) and the tick draws once; that is the screen's only motion. */
+.booked {
+  display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4) var(--space-6); border-radius: var(--radius-lg);
+  background: var(--color-raised); box-shadow: inset 0 0 0 1.5px var(--color-success); text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
+}
 @starting-style { .booked { opacity: 0; } }
 .booked[data-tone="pending"] { box-shadow: inset 0 0 0 1.5px var(--color-warning); }
-.bookedHint { font-weight: var(--weight-strong); color: var(--color-ink); }
-.bookedAction { grid-column: 1 / -1; }
+.booked[data-tone="undone"] { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); }
+.bookedIcon { display: grid; place-items: center; width: 72px; height: 72px; margin-bottom: var(--space-2); border-radius: 50%; background: var(--color-success); color: var(--color-bg); }
+.booked[data-tone="pending"] .bookedIcon { background: var(--color-warning); }
+.booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
+.booked h2 { margin: 0; font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.01em; }
+.booked p { margin: 0; max-width: 32ch; }
+.bookedHeadline { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1.05; letter-spacing: -.02em; font-variant-numeric: tabular-nums; text-wrap: balance; }
+.bookedDetail { font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.bookedMeta { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
+.bookedHint { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
+.bookedError { color: var(--color-danger); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
+.bookedActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-3); }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
-.footnote svg { flex: none; margin-top: 3px; }
-/* The check draws itself once (220 ms after a 60 ms beat); the box itself still does not move. */
-.booked[data-tone="success"] .outcomeIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick 220ms var(--ease-out) 60ms both; }
+.booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick 220ms var(--ease-out) 60ms both; }
 @keyframes tick { from { stroke-dashoffset: 24; } }
-@media (prefers-reduced-motion: reduce) { .booked { transition: none; } .outcomeIcon path { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .booked { transition: none; } .bookedIcon path, .outcomeIcon path { animation: none; } }
 
 /* Loading and blocked access */
 .access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }
