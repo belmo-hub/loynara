@@ -28,6 +28,8 @@ const PREFIX = "loynara:board:";
 const MAX_AGE_MS = 7 * 86_400_000;
 
 export const boardCacheKey = (userId: string, locationId: string) => `${PREFIX}${userId}:${locationId}`;
+/** The „Neue Karten“ number this browser last showed (delight beat 1); under the same prefix, so sign-out clears it. */
+export const seenCardsKey = (userId: string, locationId: string) => `${PREFIX}cards-seen:${userId}:${locationId}`;
 
 export function readBoardCache(raw: string | null, now = Date.now()): BoardCache | null {
   if (!raw) return null;

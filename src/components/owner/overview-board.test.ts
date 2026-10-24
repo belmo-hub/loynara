@@ -21,6 +21,7 @@ vi.mock("./use-load", () => ({
 }));
 
 import { boardOf, milestoneToShow, Overview, quietOf, tilesOf } from "./overview";
+import { countUpFrom } from "./overview-board";
 
 const ok = (data: unknown): Load => ({ state: "ok", data, at: 0 });
 const NBSP = "\u00a0";
@@ -216,6 +217,20 @@ describe("the four tiles (spec §1.3, copy T1–T5)", () => {
     const shown = (stats: MeResponse["stats"]) => tilesOf(a, { owner: true, stats, bookingsHref: null, bonusHref: null }).map(tile => [tile.value, tile.note]);
     expect(shown({ members: 0, awards: 3, redemptions: 0 })).toEqual([["9", "an der Kasse bestätigt"], ["–", "erscheint mit der ersten Anmeldung"], ["0", "mit Willkommen-zurück-Bonus"], ["–", "erscheint nach der ersten Einlösung"]]);
     expect(shown({ members: 5, awards: 3, redemptions: 1 })).toEqual([["9", "an der Kasse bestätigt"], ["0", "erstmals angemeldet"], ["0", "mit Willkommen-zurück-Bonus"], ["0", "an der Kasse"]]);
+  });
+});
+
+describe("delight beat 1 (spec §6.1)", () => {
+  it("counts „Neue Karten“ up only from a lower number this browser showed, and never under reduced motion", () => {
+    expect(countUpFrom(3, 5, true)).toBe(3);
+    expect(countUpFrom(null, 5, true)).toBeNull(); // first visit
+    expect(countUpFrom(5, 5, true)).toBeNull();
+    expect(countUpFrom(7, 5, true)).toBeNull(); // the 30-day window moved on: no count-down
+    expect(countUpFrom(3, 5, false)).toBeNull();
+    expect(countUpFrom(Number.NaN, 5, true)).toBeNull();
+    const cards = tilesOf(analytics(), { owner: true, seenKey: "k", bookingsHref: null, bonusHref: null })[1];
+    expect(cards).toMatchObject({ value: "4", count: 4, seenKey: "k" });
+    expect(tilesOf(analytics(), { owner: true, stats: { members: 0, awards: 1, redemptions: 0 }, seenKey: "k", bookingsHref: null, bonusHref: null })[1].count).toBeUndefined();
   });
 });
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
-import { boardCacheKey, readBoardCache, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
+import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/overview-day";
 import type { LaunchReadiness } from "@/lib/readiness";
@@ -123,7 +123,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         </Board>}
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
-          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
+          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
         {next && <NextBar {...next} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
@@ -214,7 +214,7 @@ function useMilestone(locationId: string, cards: number): number | null {
  * „vorher N“ once there is a full previous period (O7), else what was counted. Only the Buchungen tile links to a Kunden
  * filter that exists today; the others come with ENG-086.
  */
-export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
+export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; seenKey?: string; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
   const sinceStart = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
   const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) =>
     sinceStart !== null && sinceStart < 7 ? "erste Woche" : sinceStart !== null && sinceStart < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
@@ -223,7 +223,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
     { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
-    { key: "cards", label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
+    { key: "cards", label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
     { key: "back", label: "Wiedergekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
     { key: "rewards", label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
