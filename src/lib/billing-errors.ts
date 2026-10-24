@@ -13,6 +13,8 @@ const OWNER_TEXT: Record<string, string> = {
   BILLING_STATE: "Der Stand hat sich gerade geändert. Bitte lade die Seite neu.",
   PLAN_UNAVAILABLE: "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen.",
   BILLING_DISABLED: "Die Online-Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal.",
+  // A Stripe price or tax rate that does not match the plan: only we can fix it, so no "try again".
+  PLAN_MISCONFIGURED: "Bei der Online-Zahlung stimmt auf unserer Seite etwas nicht. Bitte melde dich bei uns, wir kümmern uns darum.",
 };
 export const BILLING_FALLBACK_TEXT = "Das hat gerade nicht geklappt. Bitte versuch es in ein paar Minuten noch einmal.";
 // Expected answers, not failures: nothing to log.

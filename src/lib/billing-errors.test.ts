@@ -50,7 +50,7 @@ describe("owner billing errors are German; the detail stays in the log (ENG-072)
     ["BILLING_STATE", "A fixture checkout is unavailable in this state", 409, "Der Stand hat sich gerade geändert. Bitte lade die Seite neu."],
     ["PLAN_UNAVAILABLE", "No location plan available", 400, "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen."],
     ["BILLING_DISABLED", "Live billing is unavailable", 400, "Die Online-Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal."],
-    ["PLAN_MISCONFIGURED", "The Stripe price does not match the plan", 400, BILLING_FALLBACK_TEXT],
+    ["PLAN_MISCONFIGURED", "The Stripe price does not match the plan", 400, "Bei der Online-Zahlung stimmt auf unserer Seite etwas nicht. Bitte melde dich bei uns, wir kümmern uns darum."],
   ])("%s keeps its status and says it in German", async (code, internal, status, text) => {
     checkout.mockRejectedValue(new DomainError(code, internal));
     const response = await post();
