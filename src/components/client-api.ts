@@ -136,6 +136,7 @@ export type CardResponse = {
   reviewUrl?: string;
   /** End time (HH:MM, shop time) of the running happy hour; absent when none is running. */
   happyHourUntil?: string;
+  winback?: { bonus: number; until: string };
   /** The shop's points expiry rule, each batch's expiry date and, when points expire within 30 days, the notice; absent while expiry is off. */
   pointsExpiry?: { rule: string; batches: string[]; notice?: string };
   /** This month's challenge and the card's visit days so far; absent while the shop runs none. */

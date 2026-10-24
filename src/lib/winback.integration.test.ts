@@ -137,6 +137,20 @@ describe("win-back bonus at the counter", () => {
   });
 });
 
+describe("the window on the card page (ENG-089)", () => {
+  it("shows the bonus and the window's last day inside the window only, capped at a confirmed programme end", async () => {
+    const s = await shop(); const inside = await card(s, "none"); const before = await card(s, "none");
+    await stampAt(s, inside, berlinDaysAgo(31));
+    await stampAt(s, before, berlinDaysAgo(29));
+    const state = await winbackState(db, inside.id, new Date());
+    expect((await getCard(inside.cardToken)).winback).toEqual({ bonus: 1, until: state?.deadline });
+    expect((await getCard(before.cardToken)).winback).toBeUndefined();
+    const { rows: [{ end }] } = await pool.query("SELECT ((now() AT TIME ZONE 'Europe/Berlin')::date + 3)::text AS end");
+    await pool.query("UPDATE programs SET cancellation_end_date = $2, cancellation_confirmed_at = now(), cancellation_requested_at = now() WHERE id = $1", [s.programId, end]);
+    expect((await getCard(inside.cardToken)).winback).toEqual({ bonus: 1, until: end });
+  });
+});
+
 describe("owner set-up", () => {
   it("limits N to 14–90, stamps to none or 1, points to a quarter of the cheapest reward, owners only", async () => {
     const s = await shop("stamp", null);

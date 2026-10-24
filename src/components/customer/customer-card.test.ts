@@ -115,3 +115,15 @@ describe("round 2 (Impeccable batch 2, PR I)", () => {
     expect(out).not.toMatch(/Monats-Challenge|Dein Level|Das Level zählt|von 3 Besuchen|Außerdem/);
   });
 });
+
+describe("win-back window on the card (ENG-089)", () => {
+  it("names the bonus and the window's last day, right after a running happy hour", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, winback: { bonus: 1, until: "2026-11-05" } }));
+    expect(out).toContain(">Willkommen zurück! Komm bis 5. November vorbei: 1 Stempel extra.</p>");
+    const both = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", happyHourUntil: "17:00", winback: { bonus: 20, until: "2026-11-05" } }));
+    expect(both).toContain(">Doppelte Punkte bis 17:00</p>");
+    expect(both).toContain("<li>Willkommen zurück! Komm bis 5. November vorbei: 20 Punkte extra.</li>");
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, locale: "fr", winback: { bonus: 1, until: "2026-11-05" } }))).toContain("Bon retour ! Venez d’ici le 5 novembre : 1 tampon supplémentaire.");
+    expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("Willkommen zurück");
+  });
+});
