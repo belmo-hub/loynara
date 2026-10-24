@@ -62,6 +62,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [copied, setCopied] = useState("");
+  const [revoking, setRevoking] = useState<Awaiting | null>(null);
   const [codes, setCodes] = useState<Array<{ plateLabel: string; code: string }> | null>(null);
   const plate = plates.find(p => p.plateLabel === label);
   const withoutCode = plates.filter(p => p.status === "unlinked" && p.code === "none").map(p => p.plateLabel!);
@@ -153,7 +154,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
 
     <Card as="section" aria-labelledby="op-new">
       <CardHeader id="op-new" title="Neues Geschäft" description="Legt Geschäft und Standort an und erstellt eine Einladung für die Inhaberin oder den Inhaber. Sie gilt 7 Tage und nur einmal. Das Passwort wählt die Person selbst." />
-      <form onSubmit={createShop} style={{ display: "grid", gap: 8 }}>
+      <form onSubmit={createShop} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
         <TextField label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
         <TextField label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
         <TextField label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
@@ -161,14 +162,14 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
         <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
         <TextField label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
         {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
-        <Button type="submit" loading={busy}>Geschäft anlegen und einladen</Button>
+        <Button type="submit" block loading={busy}>Geschäft anlegen und einladen</Button>
       </form>
       {awaiting.length ? <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }} aria-label="Geschäfte ohne Programm">
         {awaiting.map(a => <li key={a.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
           <span><strong>{a.tenant}</strong> · {a.location} ({a.city})</span>
-          <span className="ow-muted">{INVITE_STATUS[a.status]} · {a.email}{a.status === "pending" ? ` · gültig bis ${date(a.expiresAt)}` : ""}</span>
-          {a.status === "pending" ? <Button variant="danger" loading={busy} onClick={() => void shop({ action: "revoke", inviteId: a.inviteId }, a.tenant)}>Einladung widerrufen</Button>
-            : a.status !== "accepted" ? <Button variant="secondary" loading={busy} onClick={() => void shop({ action: "reissue", tenantId: a.tenantId, ownerEmail: a.email }, a.tenant)}>Neue Einladung an {a.email}</Button> : null}
+          <span className="ow-muted" style={{ overflowWrap: "anywhere" }}>{INVITE_STATUS[a.status]} · {a.email}{a.status === "pending" ? ` · gültig bis ${date(a.expiresAt)}` : ""}</span>
+          {a.status === "pending" ? <div><Button variant="quiet" style={{ color: "var(--color-danger)" }} onClick={() => setRevoking(a)}>Einladung widerrufen</Button></div>
+            : a.status !== "accepted" ? <Button variant="secondary" block style={{ overflowWrap: "anywhere" }} loading={busy} onClick={() => void shop({ action: "reissue", tenantId: a.tenantId, ownerEmail: a.email }, a.tenant)}>Neue Einladung an {a.email}</Button> : null}
         </li>)}
       </ul> : null}
     </Card>
@@ -206,7 +207,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
 
     <Card as="section" aria-labelledby="op-plates">
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
-      {withoutCode.length ? <Button variant="secondary" loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
+      {withoutCode.length ? <Button variant="secondary" block loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
       <form onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
         <TextField label="Plattenname" placeholder="P-007" value={typed} onChange={event => setTyped(event.target.value)} autoCapitalize="characters" autoComplete="off" style={{ flex: 1 }} />
@@ -214,8 +215,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
       </form>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {plates.map(p => <li key={p.plateLabel}>
-          <button type="button" onClick={() => open(p.plateLabel!)} style={{ width: "100%", minHeight: 56, textAlign: "left", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", padding: "8px 12px", background: "transparent", border: "1px solid var(--color-line, currentColor)", borderRadius: "var(--radius-md)", color: "inherit", font: "inherit" }}>
-            <span><strong>{p.plateLabel}</strong><br /><span className="ow-muted">{p.programId ? shopText({ merchant: p.merchant!, location: p.location!, programme: p.programme! }) : "frei"}</span></span>
+          <button type="button" onClick={() => open(p.plateLabel!)} style={{ width: "100%", minHeight: 56, textAlign: "left", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, alignItems: "center", padding: "8px 12px", background: "transparent", border: "1px solid var(--color-line, currentColor)", borderRadius: "var(--radius-md)", color: "inherit", font: "inherit" }}>
+            <span style={{ minWidth: 0 }}><strong style={{ whiteSpace: "nowrap" }}>{p.plateLabel}</strong><br /><span className="ow-muted">{p.programId ? shopText({ merchant: p.merchant!, location: p.location!, programme: p.programme! }) : "frei"}</span></span>
             <span style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <Badge tone={p.status === "active" ? "success" : "neutral"}>{STATUS[p.status] ?? p.status}</Badge>
               <Badge>{p.everTapped ? "getippt" : "nie getippt"}</Badge>
@@ -242,6 +243,11 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
         </li>)}
       </ul>
     </Card>
+
+    <Sheet open={!!revoking} onClose={() => setRevoking(null)} title="Einladung widerrufen?"
+      footer={revoking ? <><Button variant="quiet" onClick={() => setRevoking(null)}>Abbrechen</Button><Button variant="danger" loading={busy} onClick={() => void shop({ action: "revoke", inviteId: revoking.inviteId }, revoking.tenant).then(() => setRevoking(null))}>Widerrufen</Button></> : null}>
+      {revoking ? <p>Der Link für <strong>{revoking.email}</strong> ({revoking.tenant}) funktioniert danach nicht mehr. Du kannst eine neue Einladung schicken.</p> : null}
+    </Sheet>
 
     <Sheet open={!!invitation} onClose={() => setInvitation(null)} title="Einladung">
       {invitation ? <div style={{ display: "grid", gap: 12 }}>

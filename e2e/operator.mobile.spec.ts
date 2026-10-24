@@ -23,6 +23,11 @@ test("the operator page fits a 375 px phone", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Platte scannen" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   expect(await smallTargets(page, {})).toEqual([]);
+  // ENG-071: the narrowest phone still has no sideways scroll, and a plate name stays on one line.
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  expect(await page.evaluate(() => [...document.querySelectorAll("li strong")].filter(e => /^P-\d+$/.test(e.textContent ?? "")).every(e => e.getBoundingClientRect().height < 30))).toBe(true);
+  await page.setViewportSize({ width: 375, height: 812 });
   const plate = page.getByRole("button", { name: /P-\d+/ }).first();
   if (await plate.count()) {
     await plate.click();
