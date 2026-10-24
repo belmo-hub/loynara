@@ -173,7 +173,7 @@ describe("PassFast Apple and historical managed Google lifecycle through isolate
     outage = false;
     rows.values().next().value!.dynamic_data.balance = 999;
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
-    expect(rows.values().next().value!.dynamic_data.balance).toBe(2);
+    expect(rows.values().next().value!.dynamic_data.balance).toBe("2");
     expect(await snapshot(f.member.id)).toEqual(before);
   });
   it("reissue voids old QR without assigning the replacement credential to its serial", async () => {
@@ -288,7 +288,7 @@ describe("PassFast Apple and historical managed Google lifecycle through isolate
     await reverseEntry({ userId: f.owner, locationId: f.merchant.locationId, entryId: entry.entryId, reason: "Synthetic correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect((await historicalGoogleFixture(post(f.member.cardToken))).status).toBe(200);
     expect(rows.size).toBe(1);
-    expect([...rows.values()][0].dynamic_data).toMatchObject({ balance: 0, rewardReady: "" });
+    expect([...rows.values()][0].dynamic_data).toMatchObject({ balance: "0", rewardReady: "" });
     expect(calls.filter(call => call.path.endsWith("generate-pass"))).toHaveLength(1);
   });
   it.each([{failed:[]},{failed:["apple"]},{failed:["google"]},{failed:["apple","google"]}])("attempts and tracks each platform independently when void fails for $failed", async ({failed}) => {
@@ -375,7 +375,7 @@ describe("PassFast Apple and historical managed Google lifecycle through isolate
     for(const row of rows.values()) {
       const prior=originals.find(old=>old.serial===row.serial_number&&old.platform===row.wallet_type)!;
       if(row.serial_number!==ownSerial) {expect(row.dynamic_data).toEqual(prior.data);continue;}
-      expect(row.dynamic_data).toMatchObject({merchantName:"Updated Café",locationName:"Updated Location",programName:"Updated Coffee",rewardTitle:"Updated Reward",rewardCost:3,rewardReady:"",balance:2,scanCode:prior.data.scanCode,cardLocator:prior.data.cardLocator});
+      expect(row.dynamic_data).toMatchObject({merchantName:"Updated Café",locationName:"Updated Location",programName:"Updated Coffee",rewardTitle:"Updated Reward",rewardCost:"3",rewardReady:"",balance:"2",scanCode:prior.data.scanCode,cardLocator:prior.data.cardLocator});
       expect(row.dynamic_data).not.toHaveProperty("brandColor");
     }
     expect((await ownerWalletReadiness({actorUserId:f.owner,programSlug:f.merchant.programSlug})).logo).toBe("needs_review");
@@ -451,7 +451,7 @@ describe("combined remembered browser and PassFast generation security", () => {
     const sync = async (balance: number) => {
       await refreshWalletForMembership(f.member.id, { expectedTenantId: f.merchant.tenantId });
       expect([...rows.values()].map(row => row.serial_number + row.wallet_type)).toEqual(originals);
-      for (const row of rows.values()) expect(row.dynamic_data.balance).toBe(balance);
+      for (const row of rows.values()) expect(row.dynamic_data.balance).toBe(String(balance));
       expect((await snapshot(f.member.id)).member.balance).toBe(balance);
     };
     await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() });

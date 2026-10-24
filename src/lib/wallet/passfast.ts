@@ -94,7 +94,7 @@ async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 /** Exact approved-template data contract; never includes bearer, contact, tenant/member IDs, ledger or referral history. */
 export type PassFastData = {
   merchantName: string; programName: string; locationName: string; locale: string; programType: string;
-  balance: number; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: number; rewardReady: string;
+  balance: string; cardLocator: string; scanCode: string; rewardTitle: string; rewardCost: string; rewardReady: string;
   /** Owner message (ENG-043): Back of Pass, lock-screen notification `%@`. The last message sent to this card, resent unchanged on every refresh so a refresh never clears it or raises a banner. */
   message?: string;
 };
@@ -106,11 +106,12 @@ export const withPassFastMessage = (message: string, env: Record<string, string 
 export function passFastData(pass: WalletPassData, env: Record<string, string | undefined> = process.env): PassFastData {
   const rewardReady = Boolean(pass.reward && pass.balance >= pass.reward.cost);
   return { merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName,
-    locale: pass.locale, programType: pass.programType, balance: pass.balance, cardLocator: pass.cardLocator,
-    scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: pass.reward?.cost ?? 0,
+    locale: pass.locale, programType: pass.programType, balance: String(pass.balance), cardLocator: pass.cardLocator,
+    scanCode: pass.scanCode, rewardTitle: pass.reward?.title ?? "", rewardCost: String(pass.reward?.cost ?? 0),
     rewardReady: rewardReady ? walletText(pass.locale).rewardReady : "", ...withPassFastMessage(pass.message ?? "", env) };
 }
-export const passFastVoidData = { scanCode: "", cardLocator: "", balance: 0, rewardTitle: "", rewardCost: 0, rewardReady: "" } as const satisfies Partial<PassFastData>;
+// Templates published since Oct 2026 type every data field as a string; v2 accepts both.
+export const passFastVoidData = { scanCode: "", cardLocator: "", balance: "0", rewardTitle: "", rewardCost: "0", rewardReady: "" } as const satisfies Partial<PassFastData>;
 /** What a retired pass is updated to before it is voided. */
 export function passFastVoidPayload(brand: Pick<WalletPassData, "merchantName" | "programName" | "locationName" | "locale"> & { programType?: string }, env: Record<string, string | undefined> = process.env) {
   return { merchantName: brand.merchantName, programName: brand.programName, locationName: brand.locationName, locale: brand.locale,
