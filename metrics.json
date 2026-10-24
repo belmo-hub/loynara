@@ -267,9 +267,7 @@
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 1,
-    "small": [
-      "Alle Zahlen und Zeiträume (22px)"
-    ],
+    "small": [],
     "h1": "Übersicht"
   },
   "after/cafe-inhaber-merchant-analytics-375-light": {
@@ -283,9 +281,7 @@
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 1,
-    "small": [
-      "Alle Zahlen und Zeiträume (22px)"
-    ],
+    "small": [],
     "h1": "Übersicht"
   },
   "after/cafe-inhaber-merchant-analytics-375-dark": {
@@ -299,9 +295,7 @@
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 1,
-    "small": [
-      "Alle Zahlen und Zeiträume (22px)"
-    ],
+    "small": [],
     "h1": "Übersicht"
   },
   "after/cafe-inhaber-merchant-analytics-1280-light": {
@@ -315,9 +309,7 @@
     "scroll": false,
     "nothingUrgent": 0,
     "besuch": 1,
-    "small": [
-      "Alle Zahlen und Zeiträume (22px)"
-    ],
+    "small": [],
     "h1": "Übersicht"
   },
   "after/cafe-inhaber-merchant-analytics-1280-dark": {
