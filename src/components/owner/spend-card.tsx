@@ -36,7 +36,7 @@ export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
           {multiLocation && <><h3 style={{ fontSize: "var(--text-16)" }}>{C.perLocation}</h3><ul className="ow-feed">
             {s.locations.map(row => <li key={row.locationId}><strong>{row.name}</strong><span className="ow-num">{C.recent}: {value(row.recent, money)} · {C.total}: {value(row.total, money)}</span></li>)}
           </ul></>}
-          {s.overall.total.unpricedVisits > 0 && <Notice actions={<Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>{C.missingAverageLink}</Link>}>{C.missingAverage}</Notice>}
+          {s.overall.total.unpricedVisits > 0 && <><Notice>{C.missingAverage}</Notice><div><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>{C.missingAverageLink}</Link></div></>}
         </>)}
       <details className="ow-muted"><summary>{C.howWeCountTitle}</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{C.howWeCount}</p></details>
     </section>

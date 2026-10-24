@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, programs, staffRoles } from "@/db/schema";
-import { award, reverseEntry } from "./loyalty";
+import { award, reverseEntry, winbackState } from "./loyalty";
 import { createMerchant, enroll } from "./product";
 import { getLocationAnalytics } from "./merchant-analytics";
 import { createAdditionalLocation } from "./locations";
@@ -93,6 +93,24 @@ describe("per-location Übersicht analytics (ENG-076)", () => {
     expect((await getLocationAnalytics(manager, { locationId: a.locationId, asOf })).winback).toBeNull();
     vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
     expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).winback).toBeNull();
+  });
+
+  it("counts exactly the cards the counter would give the win-back bonus: from day N to day N + 14, not a day earlier or later", async () => {
+    const owner = await user();
+    const a = await shop(owner, "Synthetic Location Winback Edges");
+    await db.update(programs).set({ winbackEnabled: true, winbackDays: 30 }).where(eq(programs.id, a.programId));
+    // 12:00 Berlin, and every stamp at 12:00 Berlin N days earlier (no clock change in between), so N is the local-day lapse.
+    const asOf = new Date("2026-10-20T10:00:00Z");
+    const lapses = [29, 30, 44, 45];
+    const cards = [];
+    for (const daysAgo of lapses) {
+      const card = await enroll({ slug: a.programSlug, acceptedTerms: true });
+      await stampAt({ tenantId: a.tenantId, locationId: a.locationId, actor: owner }, card.id, new Date(asOf.getTime() - daysAgo * day));
+      cards.push(card.id);
+    }
+    const atCounter = await Promise.all(cards.map(async id => (await winbackState(db, id, asOf)) !== null));
+    expect(atCounter).toEqual([false, true, true, false]);
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).winback).toEqual({ enabled: true, inWindow: atCounter.filter(Boolean).length });
   });
 
   it("lets owners read their own locations and managers only theirs; cashiers, strangers and other tenants are refused", async () => {

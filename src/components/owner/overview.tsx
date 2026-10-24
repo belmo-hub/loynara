@@ -78,7 +78,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <header className="ow-pagehead">
         <div>
           <h1>Übersicht</h1>
-          <p>In den letzten 30 Tagen.{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{isOwner && <> <Link className="ow-link" href="/merchant/analytics">Alle Zahlen und Zeiträume</Link></>}</p>
+          <p>In den letzten 30 Tagen.{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{isOwner && <> <Link className="ow-link ow-link--block" href="/merchant/analytics">Alle Zahlen und Zeiträume</Link></>}</p>
         </div>
       </header>
 

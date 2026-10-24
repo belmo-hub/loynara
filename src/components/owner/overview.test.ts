@@ -135,10 +135,10 @@ describe("buildInsights", () => {
     expect(drifting(null).next).toBeUndefined();
     expect(drifting({ enabled: false, inWindow: 0 }).actions.at(-1)).toEqual({ label: "Willkommen-zurück-Bonus einschalten", href: "/merchant/wallet-messages#winback-title" });
     const on = drifting({ enabled: true, inWindow: 3 });
-    expect(on.next).toBe("3 Karten sind gerade im Rückkehr-Fenster deines Willkommen-zurück-Bonus.");
+    expect(on.next).toBe("3 Karten bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen.");
     expect(on.why).toContain(on.next);
     expect(on.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
-    expect(drifting({ enabled: true, inWindow: 1 }).next).toBe("1 Karte ist gerade im Rückkehr-Fenster deines Willkommen-zurück-Bonus.");
+    expect(drifting({ enabled: true, inWindow: 1 }).next).toBe("1 Karte bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt.");
   });
 
   it("says „Gerade nichts Dringendes“ once: the Übersicht's insight card leaves it to „Als Nächstes“ (N5)", () => {

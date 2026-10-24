@@ -36,7 +36,7 @@ export function buildInsights(input: { summary: RetentionSummary; unit: string; 
   if (s.drifting > 0) {
     const trend = s.driftingWeekAgo === s.drifting ? "Gleich viele wie vor einer Woche." : s.driftingWeekAgo < s.drifting ? `Vor einer Woche waren es ${nf.format(s.driftingWeekAgo)}.` : `Vor einer Woche waren es noch ${nf.format(s.driftingWeekAgo)}.`;
     // Product (O8): drifting cards lead to the Wallet win-back where it is offered, never to an unreleased e-mail campaign.
-    const returning = winback?.enabled ? `${cards(winback.inWindow)} ${winback.inWindow === 1 ? "ist" : "sind"} gerade im Rückkehr-Fenster deines Willkommen-zurück-Bonus.` : undefined;
+    const returning = winback?.enabled ? `${cards(winback.inWindow)} ${winback.inWindow === 1 ? "bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt." : "bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen."}` : undefined;
     list.push({ id: "drifting", tone: "act", title: `${cards(s.drifting)} seit über ${days} Tagen ohne bestätigte Buchung`,
       why: `Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten ${days} Tagen. ${trend} Warum, wissen wir nicht.${returning ? ` ${returning}` : ""}`,
       next: returning,
