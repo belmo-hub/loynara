@@ -184,20 +184,30 @@ export function CustomersView() {
 
   // Corrections and reissues run against the active location (the server checks the same); elsewhere only explain.
   const canAct = !!detail && detail.member.locationId === me.locationId && !detail.member.closedAt;
+  const filtered = filters.activity !== "all" || filters.status !== "all";
+  const filterSummary = ["Filter", ...(filters.activity !== "all" ? [ACTIVITY.find(([value]) => value === filters.activity)![1]] : []),
+    ...(filters.activity === "recent" || filters.activity === "drifting" ? [`${filters.days} Tage`] : []),
+    ...(filters.activity === "all" && filters.status !== "all" ? [STATUS.find(([value]) => value === filters.status)![1]] : [])].join(" · ");
   const searchShort = filters.q.trim().length > 0 && filters.q.trim().length < 3 && parseCardLocator(filters.q) === null;
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
         <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. Namen und Kontaktdaten zeigt Loynara nicht.</p></div>
-        <div className="ow-row">{!(me.hiddenSurfaces ?? []).includes("audiences") && <Link className="ow-btn ow-btn--secondary" href="/merchant/audiences">Zielgruppen</Link>}{me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
+        {me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <div className="ow-row"><Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link></div>}
       </header>
 
       <form className="ow-card ow-filters" onSubmit={submit} role="search" aria-label="Karten filtern">
-        <div className="ow-field" style={{ flex: "1 1 240px" }}><label htmlFor="cu-q">Kartennummer suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="z. B. K-7QX2MA" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Vollständige Kartennummer oder mindestens 3 Zeichen der internen ID.</span>}</div>
-        <div className="ow-field"><label htmlFor="cu-a">Ansicht</label><select id="cu-a" className="ow-select" value={filters.activity} onChange={event => pick({ activity: event.target.value as Activity })}>{ACTIVITY.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-        {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-field"><label htmlFor="cu-d">Zeitraum</label><select id="cu-d" className="ow-select" value={filters.days} onChange={event => pick({ days: Number(event.target.value) as Days })}>{DAYS.map(days => <option key={days} value={days}>{days} Tage</option>)}</select></div>}
-        {filters.activity === "all" && <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>}
+        <div className="ow-field ow-filters-q"><label htmlFor="cu-q">Kartennummer suchen</label><input id="cu-q" className="ow-input" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="z. B. K-7QX2MA" autoComplete="off" aria-describedby={searchShort ? "cu-q-hint" : undefined} />{searchShort && <span id="cu-q-hint" className="ow-hint">Vollständige Kartennummer oder mindestens 3 Zeichen der internen ID.</span>}</div>
         <button type="submit" className="ow-btn ow-btn--primary" disabled={loading}>Suchen</button>
+        {/* One control for the filters, so the list comes first; open on arrival when a link or a pick set one. */}
+        <details className="ow-filters-more" open={filtered || undefined}>
+          <summary>{filterSummary}</summary>
+          <div className="ow-filters-fields">
+            <div className="ow-field"><label htmlFor="cu-a">Ansicht</label><select id="cu-a" className="ow-select" value={filters.activity} onChange={event => pick({ activity: event.target.value as Activity })}>{ACTIVITY.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-field"><label htmlFor="cu-d">Zeitraum</label><select id="cu-d" className="ow-select" value={filters.days} onChange={event => pick({ days: Number(event.target.value) as Days })}>{DAYS.map(days => <option key={days} value={days}>{days} Tage</option>)}</select></div>}
+            {filters.activity === "all" && <div className="ow-field"><span className="ow-label" id="cu-s">Kartenstatus</span><div className="ow-seg" role="group" aria-labelledby="cu-s">{STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => pick({ status: value })}>{label}</button>)}</div></div>}
+          </div>
+        </details>
       </form>
 
       {multi && (
@@ -208,7 +218,7 @@ export function CustomersView() {
       {error && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => void run(applied)}>Erneut laden</button>}>{error}</Notice>}
 
       {applied.activity !== "all" && (
-        <Notice tone="info" actions={applied.activity === "drifting" && !applied.q.trim() && !allLocations && scopeLocationId === me.locationId && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
+        <Notice tone="info" actions={applied.activity === "drifting" && !loading && visible.length > 0 && !applied.q.trim() && !allLocations && scopeLocationId === me.locationId && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
           ? <Link className="ow-btn ow-btn--sm ow-btn--primary" href={`/merchant/campaigns?goal=winback&days=${applied.days}`}>Rückhol-Aktion vorbereiten</Link> : undefined}>
           <strong>Warum diese Karten?</strong> {activityRule(applied.activity, applied.days, me.programType === "points" ? "Punkten" : "Stempeln")}{applied.minAgeDays === 7 && " Angezeigt werden nur Karten, die vor über sieben Tagen angelegt wurden."}
         </Notice>

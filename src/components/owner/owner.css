@@ -164,6 +164,8 @@
 }
 .ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 6%, var(--color-raised)); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+/* Controls on one line when one label wraps and the other doesn't; only for fields without a hint under the control. */
+.ow-grid-2--end { align-items: end; }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
 .ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
@@ -330,7 +332,12 @@
 .ow-bare .ow-topbar { padding-inline: var(--space-6); }
 
 /* Customers */
-.ow-filters { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; padding: var(--space-4) var(--space-6); }
+.ow-filters { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); align-items: flex-end; padding: var(--space-4) var(--space-6); }
+.ow-filters-q { flex: 1 1 160px; max-width: 32rem; }
+.ow-filters-more { flex: 1 1 100%; }
+.ow-filters-more > summary { font-weight: var(--weight-label); }
+.ow-filters-fields { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; padding-top: var(--space-2); }
+@media (max-width: 640px) { .ow-filters { padding: var(--space-3) var(--space-4); } }
 .ow-cust { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
 .ow-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); container-type: inline-size; }
 .ow-member { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); min-height: 56px; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-raised); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
