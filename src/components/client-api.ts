@@ -106,6 +106,8 @@ export type PublicProgram = {
   currency: "EUR" | "MAD";
   locale?: "de" | "fr";
   rulesText: string;
+  /** The owner's own rules text, without the bonus lines the system adds (the rule editor saves only this). */
+  ownerRulesText?: string;
   /** Shown before the card is created whenever the shop lets points expire. */
   pointsExpiryRule?: string;
   rewardTitle: string;

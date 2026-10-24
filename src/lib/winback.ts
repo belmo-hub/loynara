@@ -22,21 +22,17 @@ export async function bonusMax(program: { tenantId: string; id: string; type: st
   return winbackBonusMax(program.type as "stamp" | "points", costs.length ? Math.min(...costs) : 0);
 }
 
-const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
-
 async function winbackSettings(program: { tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number; almostEnabled: boolean }) {
   // `almost`: the owner switch of ENG-045 ("Fast geschafft"), shown on the same page.
   return { enabled: program.winbackEnabled, days: program.winbackDays, bonus: program.winbackBonus, bonusMax: await bonusMax(program), type: program.type, almost: program.almostEnabled };
 }
 
-/** The owner's set-up (owner only, withheld with the walletMessages surface). */
+/** The owner's set-up (owner only). The bonus is not withheld with the walletMessages surface (ENG-089); the reminders are. */
 export async function getWinback(input: { actorUserId: string; programSlug: string }) {
-  available();
   return winbackSettings(await ownerProgram(input.actorUserId, input.programSlug));
 }
 
 export async function updateWinback(input: { actorUserId: string; programSlug: string; settings: z.input<typeof settingsInput> }) {
-  available();
   const settings = settingsInput.parse(input.settings);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   if (settings.bonus > await bonusMax(program)) throw new DomainError("INVALID_WINBACK_BONUS", program.type === "stamp" ? "Bonus: kein Bonus oder 1 Stempel." : "Bonus: höchstens ein Viertel deiner günstigsten Prämie.");
