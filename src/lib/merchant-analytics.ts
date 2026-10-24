@@ -428,13 +428,15 @@ const DIARY_ENTRIES = 50;
  * card ids, no times below the day.
  */
 async function locationDays(client: PoolClient, tenantId: string, locationId: string, asOf: Date, effectiveAt: Date | null): Promise<Omit<LocationDays, "winbackSetting">> {
-  const [bounds] = (await client.query<{ timezone: string; today: string; stripFrom: Date; todayFrom: Date; diaryFrom: Date }>(`
+  const [bounds] = (await client.query<{ timezone: string; today: string; stripFrom: Date; todayFrom: Date; diaryFrom: Date; lastFrom: Date; startedOn: string | null }>(`
     SELECT l.timezone, ($3::timestamptz AT TIME ZONE l.timezone)::date::text AS today,
+      ((($3::timestamptz AT TIME ZONE l.timezone)::date - 90)::timestamp AT TIME ZONE l.timezone) AS "lastFrom",
+      ($4::timestamptz AT TIME ZONE l.timezone)::date::text AS "startedOn",
       ((($3::timestamptz AT TIME ZONE l.timezone)::date - 15)::timestamp AT TIME ZONE l.timezone) AS "stripFrom",
       (($3::timestamptz AT TIME ZONE l.timezone)::date::timestamp AT TIME ZONE l.timezone) AS "todayFrom",
       ((($3::timestamptz AT TIME ZONE l.timezone)::date - 29)::timestamp AT TIME ZONE l.timezone) AS "diaryFrom"
     FROM locations l WHERE l.tenant_id = $1 AND l.id = $2
-  `, [tenantId, locationId, asOf])).rows;
+  `, [tenantId, locationId, asOf, effectiveAt])).rows;
   const where = `e.tenant_id = $1 AND e.location_id = $2`;
   const [perDay, edges, diary] = await Promise.all([
     client.query<{ date: string; bookings: number }>(`
@@ -443,11 +445,12 @@ async function locationDays(client: PoolClient, tenantId: string, locationId: st
       WHERE ${where} AND ${STAFF_AWARD} AND e.created_at >= $4 AND e.created_at < $5 AND ${NOT_REVERSED("$6")}
       GROUP BY 1
     `, [tenantId, locationId, bounds.timezone, bounds.stripFrom, bounds.todayFrom, asOf]),
-    client.query<{ last: string | null; first: string | null }>(`
-      SELECT
-        (SELECT (e.created_at AT TIME ZONE $3)::date::text FROM ledger_entries e WHERE ${where} AND ${STAFF_AWARD} AND e.created_at < $4 AND ${NOT_REVERSED("$4")} ORDER BY e.created_at DESC LIMIT 1) AS last,
-        (SELECT (e.created_at AT TIME ZONE $3)::date::text FROM ledger_entries e WHERE ${where} AND ${STAFF_AWARD} AND e.created_at < $4 AND ${NOT_REVERSED("$4")} ORDER BY e.created_at ASC LIMIT 1) AS first
-    `, [tenantId, locationId, bounds.timezone, asOf]),
+    // Bounded to 90 local days (no index on location and time yet, ENG-088); beyond that the board says „vor über 90 Tagen“.
+    client.query<{ last: string | null }>(`
+      SELECT (e.created_at AT TIME ZONE $3)::date::text AS last FROM ledger_entries e
+      WHERE ${where} AND ${STAFF_AWARD} AND e.created_at >= $5 AND e.created_at < $4 AND ${NOT_REVERSED("$4")}
+      ORDER BY e.created_at DESC LIMIT 1
+    `, [tenantId, locationId, bounds.timezone, asOf, bounds.lastFrom]),
     // Staff awards, redemptions, and the corrections of either, each its own entry (never netted).
     client.query<{ date: string; bookings: number; units: number; entries: number; list: Array<{ kind: string; delta: number }> }>(`
       WITH ev AS (
@@ -479,8 +482,8 @@ async function locationDays(client: PoolClient, tenantId: string, locationId: st
     timezone: bounds.timezone,
     today: bounds.today,
     days,
-    lastBookingOn: edges.rows[0].last,
-    firstBookingOn: edges.rows[0].first,
+    lastBookingOn: edges.rows[0]?.last ?? null,
+    programStartedOn: bounds.startedOn,
     // The „bester Tag“ rule compares yesterday with the 14 days before: the programme must have run that whole stretch.
     fullTwoWeeks: effectiveAt !== null && effectiveAt.getTime() <= bounds.stripFrom.getTime(),
     diary: diary.rows.map(row => ({

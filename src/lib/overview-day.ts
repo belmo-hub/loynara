@@ -14,12 +14,14 @@ export type LocationDays = {
   today: string;
   /** Bookings per local day, the 15 days ending yesterday, oldest first. */
   days: DayCount[];
+  /** The last booking within the last 90 local days; null when none (older bookings are not looked up, CTO option B). */
   lastBookingOn: string | null;
   /** The programme ran the full 15 days the „bester Tag“ rule compares. */
   fullTwoWeeks: boolean;
   /** Up to 10 local days with entries in the last 30 local days, newest first, at most 50 entries each (`more` counts the rest). */
   diary: DiaryDay[];
-  firstBookingOn: string | null;
+  /** The local date the location's active programme started (the „erste/zweite Woche“ notes), no ledger scan. */
+  programStartedOn: string | null;
   /** The welcome-back bonus setting of the location's active programme (the „Wiedergekommen“ tile), for every role. */
   winbackSetting: { enabled: boolean; days: number } | null;
 };

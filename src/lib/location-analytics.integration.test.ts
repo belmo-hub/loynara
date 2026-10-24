@@ -165,13 +165,45 @@ describe("the board's days, diary and tiles (ENG-085)", () => {
     await entry(t, card, "2026-10-27T09:00:00Z"); // today: not in the strip, but the last booking
 
     const report = await getLocationAnalytics(owner, { locationId: a.locationId, asOf });
-    expect(report).toMatchObject({ timezone: "Europe/Berlin", today: "2026-10-27", lastBookingOn: "2026-10-27", firstBookingOn: "2026-09-20", fullTwoWeeks: true });
+    expect(report).toMatchObject({ timezone: "Europe/Berlin", today: "2026-10-27", lastBookingOn: "2026-10-27", programStartedOn: "2026-09-01", fullTwoWeeks: true });
     expect(report.days).toHaveLength(15);
     expect(report.days[0].date).toBe("2026-10-12");
     expect(report.days.slice(-3)).toEqual([{ date: "2026-10-24", bookings: 1 }, { date: "2026-10-25", bookings: 2 }, { date: "2026-10-26", bookings: 1 }]);
     await db.update(programs).set({ effectiveAt: new Date("2026-10-13T00:00:00Z") }).where(eq(programs.id, a.programId));
     expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).fullTwoWeeks).toBe(false); // younger than the 15 days the best-day rule compares
   });
+
+  it("looks for the last booking within 90 local days only: day 90 counts, day 91 does not", async () => {
+    const owner = await user();
+    const a = await shop(owner, "Synthetic Ninety");
+    const t = { tenantId: a.tenantId, locationId: a.locationId, actor: owner };
+    const card = (await enroll({ slug: a.programSlug, acceptedTerms: true })).id;
+    await entry(t, card, "2026-07-28T10:00:00Z"); // Tue 28 Jul: 91 local days before Tue 27 Oct
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).lastBookingOn).toBeNull();
+    await entry(t, card, "2026-07-28T22:00:00Z"); // 00:00 on Wed 29 Jul (summer time): day 90
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).lastBookingOn).toBe("2026-07-29");
+  });
+
+  it("gives up after the statement timeout and leaves the pool usable", async () => {
+    const owner = await user();
+    const a = await shop(owner, "Synthetic Timeout");
+    const connect = pool.connect.bind(pool);
+    const spy = vi.spyOn(pool, "connect").mockImplementationOnce((async () => {
+      const client = await connect();
+      const query = client.query.bind(client);
+      let slept = false;
+      // The first day-boundary query runs pg_sleep past the read's 5 s statement timeout.
+      // Every other call passes through with all its arguments (the pool's own queries use the callback form).
+      client.query = ((...args: unknown[]) => {
+        if (!slept && typeof args[0] === "string" && args[0].includes("AS \"lastFrom\"")) { slept = true; return query("SELECT pg_sleep(6)"); }
+        return (query as (...forwarded: unknown[]) => unknown)(...args);
+      }) as typeof client.query;
+      return client;
+    }) as never);
+    await expect(getLocationAnalytics(owner, { locationId: a.locationId, asOf })).rejects.toThrow(/statement timeout/);
+    spy.mockRestore();
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).today).toBe("2026-10-27");
+  }, 20_000);
 
   it("keeps the diary to 10 local days and 50 entries a day, corrections and redemptions as their own entries, no bonus rows, no ids or times", async () => {
     const owner = await user();
