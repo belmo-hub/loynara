@@ -98,7 +98,7 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
       </fieldset>
       <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>
         <legend>Kundenlevel</legend>
-        <label><input type="checkbox" role="switch" checked={draft.levelsEnabled} onChange={event => edit({ levelsEnabled: event.target.checked })} /> Level sind {draft.levelsEnabled ? "an" : "aus"}</label>
+        <label className="ow-check"><input type="checkbox" role="switch" checked={draft.levelsEnabled} onChange={event => edit({ levelsEnabled: event.target.checked })} /> Level sind {draft.levelsEnabled ? "an" : "aus"}</label>
         <span className="ow-hint">Bronze ab dem ersten Besuch, Silber und Gold nach Besuchstagen in den letzten 90 Tagen. Wähle beide selbst, zum Beispiel Friseur/Barber: 3 und 6 · Pizzeria/Imbiss: 5 und 10.</span>
         <span className="ow-hint">Der Vorteil ist ein Text, den dein Team an der Kasse sieht und einlöst; gebucht wird nichts. Er muss echt sein und eingehalten werden, nie auf Tabak, Presse, Bücher, Lotto oder Handyguthaben.</span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>

@@ -38,7 +38,7 @@ export default function WalletMessagesPage() {
 
   const edit = (value: string) => { setText(value); setReceipt(null); try { localStorage.setItem(DRAFT, value); } catch { /* optional */ } };
 
-  const head = <PageHead eyebrow={`Aktionen · ${me?.locationName ?? ""}`} title="Nachricht an deine Stammkunden" lead="Eine kurze Nachricht auf den Sperrbildschirm von Kundinnen und Kunden mit Apple-Wallet-Karte, die zugestimmt haben." />;
+  const head = <PageHead eyebrow="Aktionen" title="Nachricht an deine Stammkunden" lead="Eine kurze Nachricht auf den Sperrbildschirm von Kundinnen und Kunden mit Apple-Wallet-Karte, die zugestimmt haben." />;
   if (!me) return null;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Nachrichten senden.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;

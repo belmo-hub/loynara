@@ -110,7 +110,7 @@ test("login page carries no internal wording and offers registration only where 
   await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toBeEnabled();
 });
 
-const HIDDEN_ROUTES = ["/merchant/billing", "/merchant/billing/fixture/x", "/merchant/automations"];
+const HIDDEN_ROUTES = ["/merchant/billing", "/merchant/billing/fixture/x", "/merchant/campaigns", "/merchant/automations"];
 
 test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all available outside production"}`, async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
@@ -126,30 +126,22 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
       await page.goto("/merchant");
       await expect(page.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
       if (productionLike) {
-        await expect(nav.getByRole("link", { name: "Aktionen" })).toBeVisible();
-        await expect(nav.getByRole("link", { name: "Auswertung" })).toHaveCount(0);
+        // With campaigns, automations and owner messages withheld, the group holds only reports and is named after them.
+        await expect(nav.getByRole("link", { name: "Ergebnisse" })).toBeVisible();
+        await expect(nav.getByRole("link", { name: "Aktionen" })).toHaveCount(0);
         await expect(page.getByText("Was jetzt zählt")).toBeVisible();
         for (const path of HIDDEN_ROUTES) {
           await page.goto(path);
           await expect(page.getByRole("heading", { name: "Diese Seite gibt es nicht." }), path).toBeVisible();
           await expect(page.getByText(/Tarif|Abrechnung bestätigen|€|Automationen|Regel aktivieren/)).toHaveCount(0);
         }
-        // Campaigns and audiences are draft-only: usable, but no schedule control and no send wording while delivery is disabled.
+        // Audiences only count cards; campaigns are withheld above while e-mail is off (Product, 24 Oct).
         await page.goto("/merchant/audiences");
         await expect(page.getByRole("heading", { name: "Segmente prüfen" })).toBeVisible();
-        await page.goto("/merchant/campaigns");
-        await expect(page.getByRole("heading", { name: "Kampagnen", exact: true })).toBeVisible();
-        await expect(page.getByText("E-Mail-Versand ist noch nicht freigeschaltet.")).toBeVisible();
-        await page.getByRole("button", { name: /Kunden zurückholen/ }).click();
-        await page.getByRole("button", { name: "Weiter" }).click();
-        await page.getByRole("button", { name: "Weiter" }).click();
-        await expect(page.getByRole("button", { name: "Entwurf speichern" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Planen", exact: true })).toHaveCount(0);
-        await expect(page.getByLabel("Termin für den Versand")).toHaveCount(0);
         await page.goto("/merchant/settings");
         await expect(page.getByRole("link", { name: "Abrechnung" })).toHaveCount(0);
         await page.goto("/merchant/analytics");
-        await expect(page.getByRole("heading", { name: "Auswertung", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Ergebnisse", exact: true })).toBeVisible();
         await expect(page.getByText(/Zustellversuche|Kampagnenversuche|noch nicht/i)).toHaveCount(0);
         await page.goto("/merchant/program/card");
         await expect(page.getByText(/Apple Wallet|Google Wallet|Logo/)).toHaveCount(0);

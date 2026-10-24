@@ -15,7 +15,7 @@ export default function MerchantAdviserPage() {
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [report, reload] = useLoad<MerchantAdvice>(me?.role === "owner" ? `/api/merchant/adviser?window=${windowDays}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Ergebnisse" title="Beratung" lead="Prüfbare Hinweise aus den bestätigten Vorgängen deines Betriebs. Jede Änderung bleibt deine Entscheidung." />;
+  const head = <PageHead title="Beratung" lead="Hinweise aus deinen bestätigten Buchungen. Was du änderst, entscheidest du." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können diese Hinweise sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   return (
@@ -26,7 +26,7 @@ export default function MerchantAdviserPage() {
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <div className="ow-notice ow-notice--ok"><span><strong>Nach festen Regeln</strong></span><span>Diese Hinweise folgen festen, sichtbaren Regeln und beruhen nur auf deinen bestätigten Vorgängen.</span></div>
+        <div className="ow-notice ow-notice--ok"><span><strong>Nach festen Regeln</strong></span><span>Die Hinweise folgen festen Regeln und beruhen nur auf deinen bestätigten Buchungen.</span></div>
         <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
           <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Buchungen" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
         </dl>
@@ -41,7 +41,7 @@ export default function MerchantAdviserPage() {
             </article>
           ))}
         </section>
-        <Notice><div><strong>Datengrenzen</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{r.limitations.map(value => <li key={value}>{value}</li>)}</ul><p style={{ marginTop: 6 }}><Link className="ow-link" href="/merchant/analytics">Zählregeln in der Auswertung ansehen</Link> · <Link className="ow-link" href="/merchant/program">Programm manuell öffnen</Link></p></div></Notice>
+        <Notice><div><strong>Datengrenzen</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{r.limitations.map(value => <li key={value}>{value}</li>)}</ul><p style={{ marginTop: 6 }}><Link className="ow-link" href="/merchant/analytics">Zählregeln in den Ergebnissen ansehen</Link> · <Link className="ow-link" href="/merchant/program">Programm manuell öffnen</Link></p></div></Notice>
       </>}
     </div>
   );

@@ -18,9 +18,9 @@ afterEach(() => vi.unstubAllEnvs());
 const stub = (extra: Record<string, string> = {}) => { for (const [name, value] of Object.entries({ ...PRODUCTION, ...extra })) vi.stubEnv(name, value); };
 
 describe("draft-only campaigns in the pilot", () => {
-  it("shows campaigns and audiences but keeps automations hidden under the production configuration", () => {
+  it("shows audiences but keeps campaigns and automations hidden under the production configuration (e-mail is off)", () => {
     const hidden = hiddenSurfaces({ ...PRODUCTION });
-    expect(hidden).not.toContain("campaigns");
+    expect(hidden).toContain("campaigns");
     expect(hidden).not.toContain("audiences");
     expect(hidden).toContain("automations");
     expect(hidden).toContain("billing");

@@ -6,7 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
 import { HEX_COLOR as HEX, readableInk } from "./color";
 import { useDirtyGuard, useOwner } from "./owner-context";
-import { OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
+import { MoreInfo, OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
 import { SurfacePreview, type Surface } from "./wallet-previews";
 import { WalletReadiness } from "./wallet-readiness";
 import { brandingSaveFeedback } from "./branding-save-feedback";
@@ -150,7 +150,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
           <div className="ow-seg" role="group" aria-label="Beispielzustand">
             {DEMOS.map(item => <button key={item.id} type="button" aria-pressed={demo === item.id} onClick={() => setDemo(item.id)}>{item.label}</button>)}
           </div>
-          <p className="ow-hint">Wallet-Vorschauen sind Entwürfe. Darstellung auf dem Gerät kann abweichen; Logo und Farben werden vor der Wallet-Freigabe gesondert geprüft und übernommen.</p>
+          <MoreInfo><p>Wallet-Vorschauen sind Entwürfe. Darstellung auf dem Gerät kann abweichen; Logo und Farben werden vor der Wallet-Freigabe gesondert geprüft und übernommen.</p></MoreInfo>
         </div>
       </div>
       <SaveBar state={shownState} errorLabel={errorLabel} onSave={() => void save()} onDiscard={discard} canSave={colorValid && nameValid && changed} saveLabel="Kundenkarte speichern" detail={shownState === "error" ? `${error} Deine Änderungen sind noch da.` : shownState === "dirty" && !(colorValid && nameValid) ? "Bitte Eingaben prüfen." : undefined} />

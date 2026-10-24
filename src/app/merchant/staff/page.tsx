@@ -23,7 +23,7 @@ const PERMISSIONS: Array<[string, boolean, boolean]> = [
   ["Verlorene Karte neu ausstellen", false, true],
   ["Sammelregeln und Prämien ansehen", false, true],
   ["Programm und Prämien ändern", false, false],
-  ["Empfehlungen verwalten und Auswertungen ansehen", false, false],
+  ["Empfehlungen verwalten und Ergebnisse ansehen", false, false],
   ["Team einladen und sperren", false, false],
 ];
 const ROLE_HINT = { cashier: "Bucht an der Kasse. Bis 10 Stempel je Vorgang, sieht keine Kundenliste und keine Zahlen.", manager: "Alles von Kasse, dazu Kundenkarten, Korrekturen und Neuausstellung für diesen Standort." } as const;
@@ -138,7 +138,7 @@ export default function StaffPage() {
         </section>
       </div>
       <section className="ow-card ow-stack" aria-labelledby="st-invitations">
-        <div><h2 id="st-invitations">Einladungen</h2><p className="ow-muted">Offene Einladungen können widerrufen werden. Bereits angenommene Teamzugänge verwaltest du separat.</p></div>
+        <div><h2 id="st-invitations">Einladungen</h2><p className="ow-muted">Offene Einladungen kannst du widerrufen.</p></div>
         {staff.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {staff.state === "ok" && ((staff.data.invitations ?? []).length
           ? <ul className="ow-feed" aria-label="Einladungen">{staff.data.invitations!.map(item => <li key={item.id}>
@@ -147,14 +147,14 @@ export default function StaffPage() {
             </li>)}</ul> : <EmptyState level={3} size="compact" title="Noch keine Einladungen.">Lade Mitarbeitende mit ihrer E-Mail-Adresse ein. Jede Person bekommt ein eigenes Konto für die Kasse.</EmptyState>)}
       </section>
       <section className="ow-card ow-stack" aria-labelledby="st-perm">
-        <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kasse und Leitung arbeiten nur an ihrem Standort. Die Rechte prüft Loynara bei jeder Buchung auf dem Server.</p></div>
+        <div><h2 id="st-perm">Wer darf was?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kasse und Leitung arbeiten nur an ihrem Standort.</p></div>
         <div className="ow-table-wrap"><table className="ow-perm">
           <thead><tr><th scope="col">Aufgabe</th><th scope="col">Kasse</th><th scope="col">Leitung</th><th scope="col">Inhaber:in</th></tr></thead>
           <tbody>{PERMISSIONS.map(([task, cashier, manager]) => <tr key={task}><th scope="row">{task}</th>{[cashier, manager, true].map((allowed, index) => <td key={index}>{allowed ? <span className="ow-perm-yes" aria-label="erlaubt">✓</span> : <span className="ow-perm-no" aria-label="nicht erlaubt">–</span>}</td>)}</tr>)}</tbody>
         </table></div>
       </section>
       <section className="ow-card ow-stack" aria-labelledby="staff-audit-title">
-        <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Die letzten 50 Teamereignisse dieses Betriebs. Ältere Einträge stehen im Inhaberexport.</p></div>
+        <div><h2 id="staff-audit-title">Zugriffsverlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Die letzten 50 Ereignisse. Ältere stehen im Export.</p></div>
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length
