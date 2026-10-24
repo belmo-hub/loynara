@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiJson, ClientApiError } from "./client-api";
+import { apiJson } from "./client-api";
 import { Gift, Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
@@ -16,14 +16,11 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
   const { text: copiedText, live, announce } = useCardStatus("referral");
   useEffect(() => {
     let active = true;
-    void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(result => { if (active && (result as { enabled?: boolean }).enabled !== false) setShare(result); }).catch(cause => {
-      if (!active || cause instanceof ClientApiError && cause.code === "REFERRAL_DISABLED") return;
-      setError(cause instanceof Error ? cause.message : "Empfehlungslink nicht verfügbar.");
-    });
+    void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(result => { if (active && (result as { enabled?: boolean }).enabled !== false) setShare(result); }).catch(() => { /* optional block: when it cannot load (off, rate limit, offline) it stays hidden, never a raw error on the card */ });
     return () => { active = false; };
   }, [token]);
 
-  if (!share && !error) return null;
+  if (!share) return null;
   const french = locale === "fr";
   const unit = share?.programType === "points" ? french ? "points" : "Punkte" : french ? "tampons" : "Stempel";
   // Safe to read during render: the panel only renders after the client-side fetch, never during server rendering.

@@ -41,12 +41,12 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         const card = await (await phone.request.get(`/api/card/${token}`)).json();
         expect(card.cardLocator).toMatch(/^K-[A-Z2-9]{6}$/);
         await expect(page.locator(".customer-wallet-add")).toHaveCount(0);
-        await expect(page.getByRole("button", { name: "Kontostand aktualisieren", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Karte aktualisieren", exact: true })).toBeVisible();
         await capture(page, "card-wallet-off", viewport.width);
         const lookup = await (await owner.get(`/api/cashier/lookup?code=${card.scanCode}`)).json();
         expect((await owner.post("/api/cashier/award", { data: { membershipId: lookup.membershipId, quantity: 1, requestId: randomUUID(), idempotencyKey: randomUUID() } })).status()).toBe(200);
         await page.clock.fastForward(5100);
-        await page.getByRole("button", { name: "Kontostand aktualisieren", exact: true }).click();
+        await page.getByRole("button", { name: "Karte aktualisieren", exact: true }).click();
         await expect(page.locator(".customer-balance-line strong")).toContainText("1");
         await capture(page, "manual-refresh", viewport.width);
         await page.goto(`/join/${programSlug}`);
@@ -58,7 +58,7 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "available" } }));
         await page.reload();
         await expect(page.locator(".customer-wallet-add")).toBeVisible();
-        await expect(page.getByRole("button", { name: "Kontostand aktualisieren", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Karte aktualisieren", exact: true })).toBeVisible();
         await capture(page, "card-wallet-mocked-ready", viewport.width);
         const second = await owner.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, additionalCard: true } });
         expect(second.status()).toBe(201);
