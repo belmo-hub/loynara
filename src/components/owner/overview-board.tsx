@@ -9,6 +9,7 @@ import { nf } from "./owner-ui";
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
 const NBSP = "\u00a0";
+const SHY = "\u00ad";
 
 /** The one deep green panel: greeting, kicker, then the number area and the strip the caller passes in. */
 export function Board({ hello, kicker, busy = false, children }: { hello: string; kicker: string; busy?: boolean; children: ReactNode }) {
@@ -104,18 +105,17 @@ function TileCard({ tile }: { tile: Tile }) {
   const helpId = useId();
   const Icon = TILE_ICONS[tile.key];
   const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
-  // The icon sits beside the number, as in Design's mock: the head keeps the whole width for the label and the „?“.
-  const number = <span className="ow-tile-row"><span className="ow-tile-n">{value}</span><Icon size={22} aria-hidden="true" focusable="false" /></span>;
+  // The icon sits beside the number, as in Design's mock; the label has its row to itself.
+  const body = <><span className="ow-tile-row"><span className="ow-tile-n">{value}</span><Icon size={22} aria-hidden="true" focusable="false" /></span>
+    <span className="ow-tile-note">{tile.note}{tile.href && <span className="ow-tile-go" aria-hidden="true">›</span>}</span></>;
   return (
     <div className="ow-tile">
-      <div className="ow-tile-head">
-        <h3 className="ow-tile-label">{tile.label}</h3>
-        <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label}“</span></button>
-      </div>
-      {/* The number and its note are the link; the „?“ stays its own button, outside it. */}
+      <h3 className="ow-tile-label">{tile.label}</h3>
+      {/* A linked tile's whole body is the link; the „?“ stays its own button on the note row, outside it. */}
       {tile.href
-        ? <Link className="ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label}: </span>{number}<span className="ow-tile-note">{tile.note}</span></Link>
-        : <>{number}<span className="ow-tile-note">{tile.note}</span></>}
+        ? <Link className="ow-tile-body ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label.replace(SHY, "")}: </span>{body}</Link>
+        : <div className="ow-tile-body">{body}</div>}
+      <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label.replace(SHY, "")}“</span></button>
       <p id={helpId} className="ow-tile-help" hidden={!open}>{tile.help}</p>
     </div>
   );

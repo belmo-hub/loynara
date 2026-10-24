@@ -70,12 +70,15 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
     expect(html).toMatch(/role="img" aria-label="Buchungen an diesem Standort · letzte 7 Tage: [^"]*gestern 3/);
     expect(html).toContain("Letzte 30 Tage an diesem Standort");
-    expect([...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1])).toEqual(["Buchungen", "Neue Karten", "Wiedergekommen", "Prämien eingelöst"]);
+    expect([...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1])).toEqual(["Buchungen", "Neue Karten", "Wieder\u00adgekommen", "Prämien eingelöst"]); // breaks only at the soft hyphen
+    expect(html).toContain('<button type="button" class="ow-board-q" aria-expanded="false"'); // the board's „?“ ends the sub-line
+    expect(html).toMatch(/aus Kassenbeträgen an diesem Standort\u00a0<button/);
     expect(html).toContain("vorher 10");
-    const link = html.match(/<a class="ow-tile-link" href="([^"]+)">(.*?)<\/a>/);
+    const link = html.match(/<a class="ow-tile-body ow-tile-link" href="([^"]+)">(.*?)<\/a>/);
     expect(link?.[1]).toBe("/merchant/customers?activity=recent&amp;days=30&amp;locationId=loc-1");
-    expect(link?.[2]).toMatch(/^<span class="ow-sr">Buchungen: <\/span><span class="ow-tile-row"><span class="ow-tile-n">9<\/span><svg[^]*<\/svg><\/span><span class="ow-tile-note">vorher 10<\/span>$/);
-    expect(html.match(/class="ow-tile-link"/g)).toHaveLength(1); // the other Kunden filters come with ENG-086
+    expect(link?.[2]).toMatch(/^<span class="ow-sr">Buchungen: <\/span><span class="ow-tile-row"><span class="ow-tile-n">9<\/span><svg[^]*<\/svg><\/span><span class="ow-tile-note">vorher 10<span class="ow-tile-go" aria-hidden="true">›<\/span><\/span>$/);
+    expect(link?.[2]).not.toContain("<button"); // the „?“ stays outside the link
+    expect(html.match(/ow-tile-link/g)).toHaveLength(1); // the other Kunden filters come with ENG-086
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
@@ -170,7 +173,8 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toMatch(/role="status">Stand (heute, \d{1,2}:\d{2}|gestern)</);
     expect(html).not.toContain("Die Zahlen sind gerade nicht da.");
     expect(html).not.toContain("ow-tile-label");
-    expect(html.match(/Lädt, sobald die Verbindung wieder da ist\./g)).toHaveLength(2);
+    expect(html.match(/Lädt, sobald die Verbindung wieder da ist\./g)).toHaveLength(1); // once, beside the board
+    expect(html).not.toContain("Die letzten Tage am Tresen");
     expect(html).not.toContain("ow-nextbar"); // no next step beside stale numbers, though cards are away
     state.me = me({ userId: "someone-else" }); // another person on this device
     expect(render()).toContain("Die Zahlen sind gerade nicht da.");
@@ -269,6 +273,8 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     expect(html).not.toContain("NFC am Tresen");
     expect(html).not.toContain("Kundenkarte gestaltet");
     expect(html).not.toContain("Wenn du magst");
+    expect([...html.matchAll(/class="ow-day" data-state="(\w+)"><div class="ow-day-rail" aria-hidden="true"><i>(<svg)?/g)].map(match => `${match[1]}${match[2] ? "+check" : ""}`))
+      .toEqual(["done+check", "current", "open", "open"]); // done, current and open differ by shape
     expect(html).toContain("Kunden einladen");
     expect(html).toContain("Tresenschild laden");
   });

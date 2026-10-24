@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
@@ -127,9 +128,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {next && <NextBar {...next} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
-      <Diary diary={failed ? [] : a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={!failed && typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
-        {failed ? <p className="ow-muted">{OFFLINE_LINE}</p> : !a ? <p className="ow-muted" aria-busy="true">Lädt …</p> : null}
-      </Diary>
+      {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
+      {!failed && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
+        {!a && <p className="ow-muted" aria-busy="true">Lädt …</p>}
+      </Diary>}
       {/* Until ENG-086 moves them under Kunden, the invite link and the Tresenschild stay reachable here, below the diary
           (Einstellungen, where the owner also finds them, is owner-only). */}
       <div className="ow-dash-invite"><JoinCard me={me} /></div>
@@ -156,12 +158,15 @@ const boardEuros = (f: SpendFigures) => f.realMinor > 0 || (ESTIMATES_ON_BOARD &
 function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"]>; bookings: number }) {
   const f = spend.figures;
   const [askHidden, hideAsk] = useHiddenAsk();
+  const [why, setWhy] = useState(false);
+  const whyId = useId();
   if (boardEuros(f)) {
     const exact = f.estimatedMinor === 0;
     return <>
       <BigMoney text={formatMinor(f.spentMinor, spend.currency)} />
-      <p className="ow-board-sub">{exact ? "aus Kassenbeträgen an diesem Standort" : f.realMinor === 0 ? "geschätzt aus Buchungen × Durchschnittsbon" : "teilweise geschätzt"}</p>
-      <details className="ow-board-why"><summary aria-label="So zählen wir den Umsatz">?</summary><p>{exact ? "Summe der Kassenbeträge, die dein Team bei Loynara-Buchungen eingegeben hat. Bonuspunkte zählen nicht." : "Buchungen × dein Durchschnittsbon. Darum steht „geschätzt“ dabei."}</p></details>
+      {/* The „?“ ends the sub-line (no break before it); its sentence opens below. */}
+      <p className="ow-board-sub">{exact ? "aus Kassenbeträgen an diesem Standort" : f.realMinor === 0 ? "geschätzt aus Buchungen × Durchschnittsbon" : "teilweise geschätzt"}{NBSP}<button type="button" className="ow-board-q" aria-expanded={why} aria-controls={whyId} onClick={() => setWhy(open => !open)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir den Umsatz</span></button></p>
+      <p id={whyId} className="ow-board-help" hidden={!why}>{exact ? "Summe der Kassenbeträge, die dein Team bei Loynara-Buchungen eingegeben hat. Bonuspunkte zählen nicht." : "Buchungen × dein Durchschnittsbon. Darum steht „geschätzt“ dabei."}</p>
     </>;
   }
   return <>
@@ -224,7 +229,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   return [
     { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
     { key: "cards", label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
-    { key: "back", label: "Wiedergekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
+    { key: "back", label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
     { key: "rewards", label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
   ];
@@ -306,8 +311,8 @@ function EmptyShop({ me }: { me: MeResponse }) {
         {steps.map(step => {
           const copy = FIRST_STEPS[step.id](me);
           return (
-            <div className="ow-day" key={step.id} data-state={step.status === "done" ? undefined : step === current ? "current" : "open"}>
-              <div className="ow-day-rail" aria-hidden="true"><i /><span /></div>
+            <div className="ow-day" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
+              <div className="ow-day-rail" aria-hidden="true"><i>{step.status === "done" && <Check size={11} strokeWidth={3.5} />}</i><span /></div>
               <div>
                 <h3>{copy.title}{step.required && step.status !== "done" && <span className="ow-chip" style={{ marginLeft: 8 }}>Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
                 <p className="ow-day-sum">{step.status === "done" || !copy.text ? step.evidence : copy.text}</p>

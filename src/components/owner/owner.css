@@ -511,14 +511,14 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-btn--board:focus-visible, .ow-board-textbtn:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: 2px; }
 .ow-board-textbtn { min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-on-board); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; cursor: pointer; }
 
-/* Yesterday's column is at least as wide as „gestern“ at 14 px, so no label runs into its neighbour on a phone. */
-.ow-strip { margin-top: var(--space-5); display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(max-content, 1fr); gap: var(--space-2); height: 124px; align-items: end; }
+.ow-strip { margin-top: var(--space-5); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
 .ow-strip-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: var(--space-1); height: 100%; min-width: 0; }
 .ow-strip-n { font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--color-board-line); }
 .ow-strip-bar[data-lit] { background: var(--color-board-mark); }
 .ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-board-line); }
-.ow-strip-d { font-size: var(--text-14); color: var(--color-on-board-muted); }
+/* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
+.ow-strip-d { font-size: var(--text-14); color: var(--color-on-board-muted); white-space: nowrap; }
 .ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-on-board); }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
 
@@ -537,10 +537,10 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-tile-n { display: block; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); color: var(--color-ink); }
 .ow-tile-note { display: block; font-size: var(--text-14); color: var(--color-ink-muted); }
 
-.ow-nextbar { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); box-shadow: var(--shadow-raised); }
-.ow-nextbar p { flex: 1; margin: 0; font-size: var(--text-14); line-height: 1.35; }
+.ow-nextbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); box-shadow: var(--shadow-raised); }
+.ow-nextbar p { flex: 1 1 12rem; margin: 0; font-size: var(--text-14); line-height: 1.35; }
 .ow-nextbar b { display: block; font-size: var(--text-16); }
-.ow-nextbar .ow-btn { flex: none; }
+.ow-nextbar .ow-btn { flex: none; margin-left: auto; }
 @media (max-width: 1023px) {
   .ow-nextbar { position: fixed; left: var(--space-3); right: var(--space-3); bottom: calc(var(--ow-tabbar) + var(--space-3)); z-index: var(--z-sticky); }
   .ow-dash[data-next] { padding-bottom: 120px; }
@@ -553,6 +553,10 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-day-rail span { flex: 1; width: 2px; margin-top: 6px; background: var(--color-line); }
 .ow-day[data-gap] .ow-day-rail i, .ow-day[data-state="open"] .ow-day-rail i { background: none; border: 2px solid var(--color-line-strong); }
 .ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-action); }
+/* The first-steps rail tells done, current and open apart by shape, not only colour. */
+.ow-day[data-state] .ow-day-rail i { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 4px; color: var(--color-on-action); }
+.ow-day[data-state="current"] .ow-day-rail i { border-width: 4px; }
+.ow-day[data-state="open"] .ow-day-rail i { border-width: 1px; }
 .ow-day h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); }
 .ow-day[data-gap] h3 { color: var(--color-ink-muted); }
 .ow-day-sum { margin: 2px 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
@@ -564,24 +568,25 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-pill[data-kind="redemption"] { border-color: var(--color-stamp); }
 .ow-pill[data-kind="redemption"] b { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--color-stamp); }
 .ow-tiles-title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.ow-tile { display: flex; flex-direction: column; gap: 2px; }
-.ow-tile-head { display: flex; align-items: center; gap: var(--space-2); color: var(--color-ink-muted); }
-/* Long German labels („Wiedergekommen“) break at a syllable rather than push the „?“ out of a phone-width tile. */
-.ow-tile-head .ow-tile-label { flex: 1; min-width: 0; margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); hyphens: auto; overflow-wrap: break-word; }
+/* Label on its own row; the „?“ shares the note row (same grid cell as the body, end-aligned), outside the body's link. */
+.ow-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; }
+/* Only a soft hyphen in the label may break a word (hyphens: manual). */
+.ow-tile-label { grid-column: 1 / -1; margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); hyphens: manual; }
+.ow-tile-body { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; gap: 2px; }
+.ow-tile-body .ow-tile-note { padding-right: var(--space-8); }
 .ow-tile-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
 .ow-tile-row svg { flex: none; margin-bottom: var(--space-1); color: var(--color-action); }
 /* A 24 px "?" with a 44 px target (spec §1.3). */
-.ow-tile-q { display: inline-grid; flex: none; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
+.ow-tile-q { grid-column: 2; grid-row: 2; align-self: end; position: relative; display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
 .ow-tile-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
-.ow-tile-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-tile-link { display: flex; flex-direction: column; gap: 2px; border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
-.ow-tile-link .ow-tile-note { color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-tile-help { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-tile-link { border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
+.ow-tile-link:hover .ow-tile-note, .ow-tile-link:focus-visible .ow-tile-note { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-tile-go { margin-left: var(--space-1); }
 .ow-pill[data-kind="more"] { color: var(--color-ink-muted); }
 @media (min-width: 1024px) { .ow-dash > .ow-dash-invite { grid-column: 1; } }
-.ow-board-why { margin-top: var(--space-1); }
-.ow-board-why summary { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin-left: -10px; list-style: none; cursor: pointer; }
-.ow-board-why summary::-webkit-details-marker { display: none; }
-.ow-board-why summary::before { content: "?"; display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-board-line); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); color: var(--color-on-board); }
-.ow-board-why summary { color: transparent; }
-.ow-board-why summary:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: -4px; border-radius: var(--radius-pill); }
-.ow-board-why p { margin: 0 0 var(--space-2); font-size: var(--text-14); color: var(--color-on-board-muted); }
+/* The board's „?“ ends its sub-line: a 24 px circle with a 44 px target; the negative margins keep the line's height. */
+.ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-on-board); font: inherit; vertical-align: middle; cursor: pointer; }
+.ow-board-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-board-line); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
+.ow-board-q:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: -4px; border-radius: var(--radius-pill); }
+.ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-on-board-muted); }
