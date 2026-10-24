@@ -512,7 +512,7 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program), pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program), ownerRulesText: row.program.rulesText, pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

@@ -145,6 +145,8 @@ describe("win-back bonus at the counter", () => {
     expect(rule).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es 1 Stempel extra, wenn du innerhalb der folgenden 14 Tage wiederkommst. Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
     expect((await getCard(c.cardToken)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${rule}`);
     expect((await getPublicProgram(s.slug)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${rule}`);
+    // The owner's rule editor gets only the owner's text, so a save never stores the bonus line (ENG-089).
+    expect((await getPublicProgram(s.slug)).ownerRulesText).toBe("Ein Stempel pro Besuch.");
   });
 });
 

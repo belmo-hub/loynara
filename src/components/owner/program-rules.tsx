@@ -7,7 +7,7 @@ import { Notice, OwnerDialog, SaveBar, type SaveState } from "./owner-ui";
 import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, purchaseExample, unitName, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Draft = { name: string; type: ProgramKind; mode: EarningMode; rate: string; rulesText: string };
-const fromProgram = (program: PublicProgram): Draft => ({ name: program.programName, type: program.programType, mode: program.earningMode ?? "manual", rate: String(program.pointsPerCurrencyUnit ?? 1), rulesText: program.rulesText });
+const fromProgram = (program: PublicProgram): Draft => ({ name: program.programName, type: program.programType, mode: program.earningMode ?? "manual", rate: String(program.pointsPerCurrencyUnit ?? 1), rulesText: program.ownerRulesText ?? program.rulesText });
 
 export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: PublicProgram; onSaved: (program: PublicProgram) => void }) {
   const owner = useOwner();
