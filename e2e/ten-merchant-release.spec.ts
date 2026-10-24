@@ -66,7 +66,7 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
     // The card closes right after booking; the confirmation names the card number and the new balance.
     await expect(cashier.locator(".cashier-booked")).toContainText(`Neuer Stand: ${program.rewardCost} ${unit}`);
-    await expect(cashier.locator(".cashier-booked")).toContainText("Prämie verfügbar. Zum Einlösen die Karte erneut scannen.");
+    await expect(cashier.locator(".cashier-booked")).toContainText("Prämie bereit: zum Einlösen neu scannen.");
     await expect(cashier.locator(".cashier-award-now")).toHaveCount(0);
     await cashier.getByRole("button", { name: "Andere Karte" }).click();
     await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);

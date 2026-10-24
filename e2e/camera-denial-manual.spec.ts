@@ -81,7 +81,7 @@ for (const width of [375, 1280]) test(`actual denied camera preserves scoped man
       const open = page.getByRole("button", { name: "Karte öffnen", exact: true });
       await open.focus(); await page.keyboard.press("Enter");
       await expect(page.locator(".balance-display")).toContainText("0");
-      await expect(page.getByRole("note")).toContainText("Per Kartennummer geöffnet, ohne Scan");
+      await expect(page.getByRole("note")).toContainText("Ohne Scan geöffnet");
       expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE membership_id=$1", [member.id])).rows[0].n).toBe(0);
       const booking = page.waitForRequest(r => new URL(r.url()).pathname === "/api/cashier/award");
       const award = page.getByRole("button", { name: "1 Stempel vergeben", exact: true });
