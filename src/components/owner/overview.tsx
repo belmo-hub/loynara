@@ -1,189 +1,223 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
-import type { LocationAnalytics } from "@/lib/merchant-analytics";
+import type { LocationAnalytics, MerchantSpend } from "@/lib/merchant-analytics";
+import { greeting, headline, localNow, quietDays, type LocationDays } from "@/lib/overview-day";
 import type { LaunchReadiness } from "@/lib/readiness";
 import type { RetentionSummary } from "@/lib/retention";
-import { BrowserCardPreview } from "./card-preview";
+import { formatMinor } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
-import { JoinCard } from "./join-card";
-import { ReadinessCard } from "./readiness-card";
-import { buildInsights, RetentionInsights, type ReferralRow, type WinbackState } from "./retention-insights";
+import { downloadCounterSign, joinUrlOf } from "./join-card";
+import { BigMoney, Board, BoardPlaceholder, CardStock, Diary, EmptyStrip, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { buildInsights, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
-import { germanDate, nf, Skeleton, OwnerIcon } from "./owner-ui";
+import { nf } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
-import { EmptyState } from "@/components/ui/empty-state";
-import { buttonClassName } from "@/components/ui/button";
-import { NumberRoll } from "@/components/ui/number-roll";
 
-type Brand = { brandColor: string; logoData: string | null };
+/* The Übersicht, direction D (ENG-085, founder 24 Oct): one green board, two good-news tiles, the next step, the diary. */
+
+/** The per-location read; the day fields come with ENG-085's server part and are optional until then. */
+type Analytics = LocationAnalytics & Partial<LocationDays>;
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
+const AVERAGE_HREF = "/merchant/program";
+const ASK_KEY = "loynara:average-ask-hidden-until";
+const STRIP_CAPTION = "Buchungen an diesem Standort · letzte 7 Tage";
+// Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
+const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
 export function Overview() {
   const owner = useOwner();
   const me = owner.me as MeResponse;
-  const isNew = (me.stats?.members ?? 0) === 0 && (me.stats?.awards ?? 0) === 0;
-  return isNew ? <NewBusiness me={me} /> : <ActiveBusiness me={me} />;
-}
-
-/* ───────────── New business: setup first, no wall of zeros ───────────── */
-
-function NewBusiness({ me }: { me: MeResponse }) {
-  const isOwner = me.role === "owner";
-  const [brand] = useLoad<Brand>(isOwner ? `/api/merchant/program/brand?programSlug=${encodeURIComponent(me.programSlug)}` : null);
-  const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  return (
-    <div className="ow-page">
-      <header className="ow-pagehead">
-        <div><h1>Dein Treueprogramm einrichten</h1><p>Jeder Schritt zeigt, was bereits gespeichert oder an der Kasse belegt ist. Alles lässt sich später ändern.</p></div>
-      </header>
-      <CancellationNotice me={me} />
-      <div className="ow-two">
-        <div className="ow-stack">
-          <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} />
-        </div>
-        <aside className="ow-stack" aria-label="Vorschau und Einladung">
-          <section className="ow-card ow-stack" aria-labelledby="ow-prev-title">
-            <div><h2 id="ow-prev-title">So sieht die Karte aus</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Browserkarte deiner Kunden, Beispielstand.</p></div>
-            {brand.state === "loading" ? <Skeleton height={176} /> : <BrowserCardPreview showCode={false} businessName={me.businessName} locationName={me.locationName} brandColor={brand.state === "ok" ? brand.data.brandColor : "#1f4a3a"} programType={me.programType} rewardTitle={me.rewardTitle} rewardCost={me.rewardCost} balance={Math.min(2, Math.max(0, me.rewardCost - 1))} />}
-          </section>
-          <JoinCard me={me} exportUrl={undefined} />
-        </aside>
-      </div>
-    </div>
-  );
+  // Until the first booking at this location, the board guides the set-up (spec §2.4).
+  return (me.stats?.awards ?? 0) === 0 ? <EmptyShop me={me} /> : <ActiveBusiness me={me} />;
 }
 
 /* ───────────── Active business ───────────── */
 
 function ActiveBusiness({ me }: { me: MeResponse }) {
+  const { locations } = useOwner();
   const isOwner = me.role === "owner";
-  // One layout for every owner and manager (L1): this location's last 30 days. A true "this week" needs a 7-day window (follow-up).
-  const [analytics, reloadAnalytics] = useLoad<LocationAnalytics>(`/api/merchant/analytics/location?locationId=${encodeURIComponent(me.locationId)}`);
-  const winback: WinbackState = analytics.state === "ok" ? analytics.data.winback : null;
-  const slug = encodeURIComponent(me.programSlug);
-  // Retention insights need no campaign surface: they read recorded checkouts and link to real pages (customers,
-  // referrals; campaign drafts only where that surface is offered).
+  const [analytics, reloadAnalytics] = useLoad<Analytics>(`/api/merchant/analytics/location?locationId=${encodeURIComponent(me.locationId)}`);
+  // Euros are owner-only (the spend read refuses everyone else); the Leitung's board leads with their card stock.
+  const [spend, reloadSpend] = useLoad<MerchantSpend>(isOwner ? "/api/merchant/spend" : null);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
-  const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${slug}` : null);
-  const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
+  const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${encodeURIComponent(me.programSlug)}` : null);
+  const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
+  const [signError, setSignError] = useState("");
 
-  const asOf = analytics.state === "ok" ? analytics.data.asOf : undefined;
-  // While a required set-up step is open it leads "Als Nächstes"; otherwise the first insight does and leaves the list.
-  const setup = readiness.state === "ok" ? readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly)) : undefined;
+  const failed = [analytics, spend, retention].some(state => state.state === "error");
+  const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
+  const a = analytics.state === "ok" ? analytics.data : null;
+  const r = retention.state === "ok" ? retention.data : null;
+  const days = a?.days && a.today ? { ...a, days: a.days, today: a.today } : null;
+  const hour = localNow(new Date(), a?.timezone ?? "Europe/Berlin").hour;
+  const hello = `${greeting(hour)}, ${isOwner ? me.businessName : me.locationName}.`;
+  const news = days ? headline({ days: days.days, lastBookingOn: days.lastBookingOn ?? null, today: days.today, fullTwoWeeks: days.fullTwoWeeks ?? false }) : null;
+  const quiet = days ? quietDays(days.lastBookingOn ?? null, days.today) : null;
+  const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
+  const next = nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
+
   return (
-    <div className="ow-page">
-      <header className="ow-pagehead">
-        <div>
-          <h1>Übersicht</h1>
-          <p>In den letzten 30 Tagen.{asOf ? ` Stand ${germanDate(asOf, true)}.` : ""}{isOwner && <> <Link className="ow-link ow-link--block" href="/merchant/analytics">Alle Zahlen und Zeiträume</Link></>}</p>
-        </div>
-      </header>
-
-      <CancellationNotice me={me} />
-      <PeriodMetrics analytics={analytics} reload={reloadAnalytics} />
-      <NextStep me={me} retention={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} readiness={readiness} setup={setup} winback={winback} />
-
-      <div className="ow-two">
-        <div className="ow-stack">
-          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} winback={winback} reload={reloadRetention} skipFirst={!me.cancellationEndDate && !setup && readiness.state === "ok"} />
-          <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} compact />
-          <RecentActivity me={me} />
-        </div>
-        <aside className="ow-stack" aria-label="Programm und Einladung">
-          <ProgrammeCard me={me} />
-          <JoinCard me={me} exportUrl={isOwner ? "/api/merchant/export" : undefined} />
-        </aside>
+    <div className="ow-page ow-dash" data-next={next ? "" : undefined}>
+      <h1 className="ow-sr">Übersicht</h1>
+      <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
+      {failed ? <ErrorCard reload={reload} /> : isOwner
+        ? <OwnerBoard hello={hello} spend={spend} locationCount={locations.length} days={days?.days ?? null} news={news} />
+        : <Board hello={hello} kicker="Karten an deinem Standort · 30 Tage" busy={!r}>
+          {r ? <>
+            <p className="ow-board-big">{nf.format(r.recent)}{" "}<small>von {nf.format(r.openCards)}</small></p>
+            <p className="ow-board-sub">Karten waren in den letzten 30 Tagen da</p>
+            <CardStock recent={r.recent} drifting={r.drifting} never={r.never} />
+            {days && <Strip days={days.days} caption={STRIP_CAPTION} />}
+            {news && <p className="ow-board-news">{news}</p>}
+          </> : <BoardPlaceholder />}
+        </Board>}
+      <div className="ow-dash-side">
+        {!failed && a && r && <Tiles tiles={isOwner ? ownerTiles(a, r) : [
+          { n: nf.format(me.stats?.awards ?? 0), label: "Buchungen", note: "seit Programmstart" },
+          { n: nf.format(me.stats?.members ?? 0), label: "Karten", note: "seit Programmstart" },
+        ]} />}
+        {next && <NextBar {...next} />}
+        {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
+      <Diary diary={days?.diary ?? []} today={days?.today ?? ""} unit={unitOf(me)} gap={quiet && days?.lastBookingOn ? { from: nextDay(days.lastBookingOn), to: nextDay(days.today, -1) } : null}>
+        {failed ? <p className="ow-muted">Lädt, sobald die Verbindung wieder da ist.</p> : !days && analytics.state !== "ok" ? <p className="ow-muted" aria-busy="true">Lädt …</p> : null}
+      </Diary>
     </div>
   );
 }
 
-function Metric({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
-  return <div className="ow-metric"><dt>{label}</dt><dd>{children}</dd>{note && <dd className="ow-metric-note">{note}</dd>}</div>;
-}
-function value(state: Loadable<number>, reload?: () => void) {
-  if (state.state === "loading" || state.state === "idle") return <Skeleton height={32} width={72} />;
-  if (state.state === "error") return <><span className="ow-metric-value ow-metric-value--muted">Nicht verfügbar</span>{reload && <div><button type="button" className="ow-link" style={{ background: "none", border: 0, padding: 0, font: "inherit", cursor: "pointer", minHeight: 44 }} onClick={reload}>Erneut laden</button></div>}</>;
-  return <span className="ow-metric-value"><NumberRoll value={state.data}>{nf.format(state.data)}</NumberRoll></span>;
-}
-type Counts = LocationAnalytics["current"];
-const pick = (state: Loadable<LocationAnalytics>, key: keyof Counts): Loadable<number> => state.state === "ok" ? { state: "ok", data: state.data.current[key], at: state.at } : state.state === "error" ? state : { state: "loading" };
+const nextDay = (date: string, by = 1) => new Date(new Date(`${date}T12:00:00Z`).getTime() + by * 86_400_000).toISOString().slice(0, 10);
 
-/**
- * The three numbers that matter in a shop's first weeks (Product, 22 Oct) for this location; everything else lives on
- * Ergebnisse. The previous 30 days only once there is a full previous period, as a number, never a percentage (O7).
- */
-function PeriodMetrics({ analytics, reload }: { analytics: Loadable<LocationAnalytics>; reload: () => void }) {
-  const previous = analytics.state === "ok" ? analytics.data.previous : null;
-  const note = (text: string, key: keyof Counts) => previous ? `${text} · vorher ${nf.format(previous[key])}` : text;
+function OwnerBoard({ hello, spend, locationCount, days, news }: { hello: string; spend: Loadable<MerchantSpend>; locationCount: number; days: LocationDays["days"] | null; news: string | null }) {
+  const s = spend.state === "ok" ? spend.data : null;
+  const recent = s?.overall.recent;
+  const priced = recent ? recent.averagePerVisitMinor !== null : true;
+  const [askHidden, hideAsk] = useHiddenAsk();
+  const where = locationCount === 2 ? " · beide Standorte" : locationCount > 2 ? ` · alle ${locationCount} Standorte` : "";
   return (
-    <dl className="ow-metrics ow-metrics--three" aria-label="Kennzahlen, letzte 30 Tage" aria-busy={analytics.state === "loading"}>
-      <Metric label="Neue Karten" note={note("erstmals angemeldet", "newCards")}>{value(pick(analytics, "newCards"), reload)}</Metric>
-      <Metric label="Buchungen" note={note("bestätigt an deiner Kasse", "qualifyingCheckouts")}>{value(pick(analytics, "qualifyingCheckouts"), reload)}</Metric>
-      <Metric label="Stammkunden" note={note("Karten mit 2+ Buchungen", "repeatCards")}>{value(pick(analytics, "repeatCards"), reload)}</Metric>
-    </dl>
+    <Board hello={hello} kicker={priced ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen deiner Loynara-Kunden · 30 Tage"} busy={!recent}>
+      {!s || !recent ? <BoardPlaceholder /> : <>
+        {priced ? <>
+          <BigMoney text={formatMinor(recent.spentMinor, s.currency)} />
+          {/* ENG-084: name the bookings the euros were computed from, never the visits the app could not value. */}
+          <p className="ow-board-sub">{recent.estimatedMinor === 0 ? "nach Kassenbeträgen" : recent.realMinor === 0 ? "geschätzt" : "teilweise geschätzt"} aus {nf.format(recent.visits - recent.unpricedVisits)}{" "}{recent.visits - recent.unpricedVisits === 1 ? "Buchung" : "Buchungen"} mit Betrag{where}</p>
+        </> : <>
+          <p className="ow-board-big">{nf.format(recent.visits)}{" "}<small>{recent.visits === 1 ? "Buchung" : "Buchungen"}</small></p>
+          <p className="ow-board-sub">bestätigt an der Kasse{where}</p>
+          {!askHidden && <div className="ow-board-ask">
+            <p>Für den Umsatz in Euro fehlt nur dein Durchschnittsbon.</p>
+            <div className="ow-board-actions"><Link className="ow-btn ow-btn--board ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
+          </div>}
+        </>}
+        {days && <Strip days={days} caption={STRIP_CAPTION} />}
+        {news && <p className="ow-board-news">{news}</p>}
+      </>}
+    </Board>
   );
 }
 
+const readAskHidden = () => { try { return Number(window.localStorage.getItem(ASK_KEY) ?? 0) > Date.now(); } catch { return false; } };
+const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
+
+/** „Nicht jetzt“ hides the average ask for 30 days in this browser (spec §2.2); without storage the ask simply stays. */
+function useHiddenAsk(): [boolean, () => void] {
+  const stored = useSyncExternalStore(onStorage, readAskHidden, () => false);
+  const [dismissed, setDismissed] = useState(false);
+  return [stored || dismissed, () => {
+    setDismissed(true);
+    try { window.localStorage.setItem(ASK_KEY, String(Date.now() + 30 * 86_400_000)); } catch { /* storage blocked: hidden until reload */ }
+  }];
+}
+
+/** Two good-news tiles: new cards when there are some, else regulars; always who was there (spec §2.1, §2.3). */
+function ownerTiles(a: Analytics, r: RetentionSummary): Tile[] {
+  const regulars = a.current.repeatCards;
+  const there: Tile = { n: `${nf.format(r.recent)} von ${nf.format(r.openCards)}`, label: "Karten waren da", note: `in 30 Tagen${a.current.newCards > 0 && regulars > 0 ? ` · darunter ${nf.format(regulars)} Stammkunden` : ""}` };
+  return a.current.newCards > 0
+    ? [{ n: nf.format(a.current.newCards), label: a.current.newCards === 1 ? "neue Karte" : "neue Karten", note: `in 30 Tagen${a.previous ? ` · vorher ${nf.format(a.previous.newCards)}` : ""}` }, there]
+    : [there, { n: nf.format(regulars), label: "Stammkunden", note: "2+ Buchungen in 30 Tagen" }];
+}
+
 /**
- * One sentence and one next step. While a required set-up step is open, that step leads (a shop with all zeros needs
- * set-up, not insight); afterwards the most urgent observation from "Was jetzt zählt", with its main action.
+ * „Als Nächstes“: an open required set-up step first, then the most urgent observation, then a quiet week (7+ days
+ * without a booking). Nothing urgent: no bar at all. While the programme is ending, the end-date card leads instead.
  */
-export function NextStep({ me, retention, referrals, readiness, setup, winback }: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; setup?: LaunchReadiness["steps"][number]; winback?: WinbackState }) {
+export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | null; sign: () => void }): { title: string; text?: string; action?: NextAction } | null {
+  const { me, retention, referrals, readiness, winback, quiet, sign } = input;
   const isOwner = me.role === "owner";
-  // While the programme is ending, the end-date card above is the one leading card with one job.
-  if (me.cancellationEndDate) return null;
-  if (retention.state !== "ok" || readiness.state !== "ok") {
-    return retention.state === "error" || readiness.state === "error" ? null : <Skeleton height={112} />;
-  }
+  if (me.cancellationEndDate || retention.state !== "ok" || readiness.state !== "ok") return null;
+  // The step's evidence is its action sentence (#129); its title stays on the Startklar list.
+  const setup = readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly));
+  if (setup) return { title: setup.evidence, action: setup.action ?? undefined };
   const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
-  // The step's evidence is its action sentence (#129); its title stays on the Startklar card.
-  const next = setup ? { text: setup.evidence, action: setup.action }
-    : insight ? { text: `${insight.title}.${insight.next ? ` ${insight.next}` : ""}`, action: insight.actions.at(-1) }
-      : { text: "Gerade nichts Dringendes. Dein Team bucht, die Zahlen oben zeigen, wie es läuft.", action: undefined };
+  if (insight) return { title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
+  if (quiet !== null) return { title: `Seit ${quiet} Tagen keine Buchung.`, text: "Steht das Tresenschild noch gut sichtbar an der Kasse?", action: { label: "Tresenschild", onClick: sign } };
+  return null;
+}
+
+function ErrorCard({ reload }: { reload: () => void }) {
   return (
-    <section className="ow-card ow-next" aria-labelledby="ow-next-title">
-      <h2 id="ow-next-title" className="ow-eyebrow">Als Nächstes</h2>
-      <p className="ow-next-text">{next.text}</p>
-      {next.action && <div><Link className="ow-btn ow-btn--primary" href={next.action.href}>{next.action.label}</Link></div>}
+    <section className="ow-card ow-stack ow-dash-error" role="alert">
+      <h2>Die Zahlen sind gerade nicht da.</h2>
+      <p>Die Verbindung zu Loynara hat nicht geklappt. Buchen an der Kasse geht trotzdem.</p>
+      <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reload}>Erneut laden</button></div>
     </section>
   );
 }
 
-function RecentActivity({ me }: { me: MeResponse }) {
-  const unit = unitOf(me);
-  const items = (me.activity ?? []).slice(0, 8);
-  const label = (kind: string) => kind === "award" ? "Buchung" : kind === "reversal" ? "Korrektur" : "Prämie eingelöst";
-  return (
-    <section className="ow-card" aria-labelledby="ow-act-title">
-      <div className="ow-card-head"><div><h2 id="ow-act-title">Letzte Vorgänge</h2><p>Am Standort {me.locationName}</p></div></div>
-      {items.length === 0 ? <EmptyState level={3} icon={<OwnerIcon name="till" size={24} />} title="Noch keine Vorgänge." action={<Link href="/cashier" className={buttonClassName({ variant: "secondary", size: "sm" })}>Kasse öffnen</Link>}>Sobald dein Team an der Kasse den ersten Besuch bucht, steht er hier.</EmptyState> : (
-        <ul className="ow-feed">
-          {items.map(item => {
-            const when = item.createdAt;
-            const delta = item.delta ?? item.amount;
-            return <li key={item.id}><span><strong>{label(item.kind)}</strong>{item.kind === "award" && typeof delta === "number" && <span className="ow-muted ow-num"> · +{Math.abs(delta)} {unit}</span>}</span><time dateTime={when}>{item.occurredAt || germanDate(when || "", true)}</time></li>;
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
+/* ───────────── Empty shop: the board guides the first required step ───────────── */
 
-function ProgrammeCard({ me }: { me: MeResponse }) {
-  const tap = me.tapMode === "automatic_fixed" ? "Automatisch" : me.tapMode === "staff_confirmed" ? "Mit Bestätigung" : me.tapMode === "disabled" ? "Aus" : null;
+function EmptyShop({ me }: { me: MeResponse }) {
+  const isOwner = me.role === "owner";
+  const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
+  const [signError, setSignError] = useState("");
+  const today = localNow(new Date(), "Europe/Berlin").date;
+  const steps = readiness.state === "ok" ? readiness.data.steps : [];
+  const current = steps.find(step => step.required && step.status === "todo");
+  const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
+  const joinUrl = joinUrlOf(me);
+  const lead = !current ? null
+    : current.id === "enrolment" ? { title: "Melde die erste Karte selbst an.", text: "Mit deinem eigenen Handy. So siehst du, was deine Kundinnen und Kunden sehen.", action: joinUrl ? <a className="ow-btn ow-btn--board ow-btn--sm" href={joinUrl} target="_blank" rel="noopener noreferrer">Anmeldelink öffnen</a> : null }
+      : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: <Link className="ow-btn ow-btn--board ow-btn--sm" href="/cashier">Kasse öffnen</Link> }
+        : { title: current.evidence, text: undefined, action: current.action ? <Link className="ow-btn ow-btn--board ow-btn--sm" href={current.action.href}>{current.action.label}</Link> : null };
   return (
-    <section className="ow-card ow-card--flat ow-stack" aria-labelledby="ow-prog-title">
-      <div className="ow-card-head" style={{ marginBottom: 0 }}><h2 id="ow-prog-title">Programm</h2><span className="ow-chip ow-chip--ok"><span className="ow-dot" aria-hidden="true" />Aktiv</span></div>
-      <dl className="ow-dl">
-        <dt>Art</dt><dd>{me.programType === "stamp" ? "Stempelkarte" : "Punktekarte"}</dd>
-        <dt>Prämie</dt><dd>{me.rewardCost} {unitOf(me)} → {me.rewardTitle}</dd>
-        {tap && !(me.hiddenSurfaces ?? []).includes("nfc") && <><dt>NFC-Tap</dt><dd>{tap}</dd></>}
-      </dl>
-      <div><Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program">{me.role === "owner" ? "Programm bearbeiten" : "Programm ansehen"}</Link></div>
-    </section>
+    <div className="ow-page ow-dash ow-dash--single">
+      <h1 className="ow-sr">Dein Treueprogramm einrichten</h1>
+      <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
+      <Board hello={`Willkommen bei Loynara, ${me.businessName}.`} kicker={readiness.state === "ok" ? `Startklar · ${readiness.data.requiredDone} von ${readiness.data.requiredTotal} Pflichtschritten` : "Startklar"} busy={readiness.state !== "ok" && readiness.state !== "error"}>
+        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Schritte sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--board ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
+          : readiness.state !== "ok" ? <BoardPlaceholder />
+            : lead && <>
+              <p className="ow-board-title">{lead.title}</p>
+              {lead.text && <p className="ow-board-sub">{lead.text}</p>}
+              {lead.action && <div className="ow-board-actions" style={{ marginTop: 16 }}>{lead.action}</div>}
+            </>}
+        <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
+      </Board>
+      <section className="ow-diary" aria-labelledby="ow-steps-title">
+        <h2 id="ow-steps-title">Deine ersten Schritte</h2>
+        {steps.map(step => (
+          <div className="ow-day" key={step.id} data-state={step.status === "done" ? undefined : step === current ? "current" : "open"}>
+            <div className="ow-day-rail" aria-hidden="true"><i /><span /></div>
+            <div>
+              <h3>{step.title}{step.required && step.status !== "done" && <span className="ow-chip" style={{ marginLeft: 8 }}>Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
+              <p className="ow-day-sum">{step.evidence}</p>
+              {step.note && step.status !== "done" && <p className="ow-day-sum">{step.note}</p>}
+            </div>
+          </div>
+        ))}
+        <h2 style={{ marginTop: 32 }}>Wenn du magst</h2>
+        <div className="ow-row" style={{ marginTop: 8 }}>
+          {isOwner && <Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program/card">Karte gestalten</Link>}
+          {isOwner && <Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/staff">Team einladen</Link>}
+          <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={sign}>Tresenschild laden</button>
+        </div>
+        {signError && <p className="ow-error" role="alert">{signError}</p>}
+      </section>
+    </div>
   );
 }
