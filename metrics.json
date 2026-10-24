@@ -219,25 +219,25 @@
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 535
+    "newsBottom": 558
   },
   "after/normal-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 535
+    "newsBottom": 558
   },
   "after/normal-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 488
+    "newsBottom": 511
   },
   "after/normal-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 488
+    "newsBottom": 511
   },
   "after/loading-375-light": {
     "scroll": false,
@@ -291,25 +291,25 @@
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 535
+    "newsBottom": 558
   },
   "after/offline-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 535
+    "newsBottom": 558
   },
   "after/offline-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 488
+    "newsBottom": 511
   },
   "after/offline-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 488
+    "newsBottom": 511
   },
   "after/ergebnisse-375-light": {
     "scroll": false,
@@ -339,73 +339,73 @@
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": null
+    "newsBottom": 594
   },
   "after/leitung-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": null
+    "newsBottom": 594
   },
   "after/leitung-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": null
+    "newsBottom": 522
   },
   "after/leitung-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": null
+    "newsBottom": 522
   },
   "after/no-average-375-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 464
+    "newsBottom": 487
   },
   "after/no-average-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 464
+    "newsBottom": 487
   },
   "after/no-average-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 416
+    "newsBottom": 439
   },
   "after/no-average-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 416
+    "newsBottom": 439
   },
   "after/quiet-375-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 464
+    "newsBottom": 487
   },
   "after/quiet-375-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 464
+    "newsBottom": 487
   },
   "after/quiet-1280-light": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 440
+    "newsBottom": 463
   },
   "after/quiet-1280-dark": {
     "scroll": false,
     "besuch": 0,
     "small": [],
-    "newsBottom": 440
+    "newsBottom": 463
   },
   "after/empty-375-light": {
     "scroll": false,
