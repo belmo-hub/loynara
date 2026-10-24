@@ -43,8 +43,10 @@ export function WinbackCard({ slug, initial, reminders }: { slug: string; initia
       </div>
       {initial.type === "stamp"
         ? <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}><legend>Bonus</legend>
-          <label><input type="radio" name="winback-bonus" checked={bonus === 0} onChange={() => edit({ bonus: "0" })} /> Kein Bonus</label>
-          <label><input type="radio" name="winback-bonus" checked={bonus === 1} onChange={() => edit({ bonus: "1" })} /> +1 Stempel</label>
+          <div className="ow-radio-cards">
+            <label className="ow-radio-card"><input type="radio" name="winback-bonus" checked={bonus === 0} onChange={() => edit({ bonus: "0" })} /><strong>Kein Bonus</strong></label>
+            <label className="ow-radio-card"><input type="radio" name="winback-bonus" checked={bonus === 1} onChange={() => edit({ bonus: "1" })} /><strong>+1 Stempel</strong></label>
+          </div>
         </fieldset>
         : <div className="ow-field">
           <label htmlFor="winback-bonus">Bonus in Punkten (0 = kein Bonus)</label>

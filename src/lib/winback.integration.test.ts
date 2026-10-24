@@ -126,6 +126,8 @@ describe("win-back bonus at the counter", () => {
     const s = await shop("stamp", null); const c = await card(s, "consent"); const later = await card(s, "consent");
     await stampAt(s, c, berlinDaysAgo(31));
     await stampAt(s, later, T("2026-09-20T10:00:00Z"));
+    // The birthday bonus is on too: its rules line must stay hidden on production (it waits for Wallet messages).
+    await pool.query("UPDATE programs SET birthday_enabled = true, birthday_bonus = 1 WHERE id = $1", [s.programId]);
     vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
     expect(await getWinback({ actorUserId: s.owner, programSlug: s.slug })).toMatchObject({ enabled: false });
     expect(await updateWinback({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, days: 30, bonus: 1 } })).toMatchObject({ enabled: true });
