@@ -18,7 +18,7 @@ vi.mock("./use-load", () => ({
   },
 }));
 
-import { Overview } from "./overview";
+import { milestoneToShow, Overview } from "./overview";
 
 const ok = (data: unknown): Load => ({ state: "ok", data, at: 0 });
 const NBSP = " ";
@@ -127,6 +127,21 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain('data-kind="correction" aria-label="Korrektur, 2 Punkte zurückgenommen"');
     expect(html.match(/data-kind="redemption"/g)).toHaveLength(1);
     expect(html).not.toMatch(/\d{1,2}:\d{2}/);
+  });
+});
+
+describe("milestones (spec §4.3)", () => {
+  it("shows the highest card milestone reached, once per location, and never without storage", () => {
+    expect(milestoneToShow(0, "", "a")).toBeNull();
+    expect(milestoneToShow(1, "", "a")).toBe(1);
+    expect(milestoneToShow(9, "a:1", "a")).toBeNull();
+    expect(milestoneToShow(10, "a:1", "a")).toBe(10);
+    expect(milestoneToShow(37, "a:1,a:10", "a")).toBe(25);
+    expect(milestoneToShow(37, "a:25", "b")).toBe(25); // per location
+    expect(milestoneToShow(37, "-", "a")).toBeNull();
+  });
+  it("is not drawn in the server render (no storage there)", () => {
+    expect(render()).not.toContain("Meilenstein");
   });
 });
 

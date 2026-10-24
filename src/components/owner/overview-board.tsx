@@ -92,6 +92,16 @@ export function Tiles({ tiles }: { tiles: Tile[] }) {
   return <div className="ow-tiles">{tiles.map(tile => <p className="ow-tile" key={tile.label}><span className="ow-tile-n">{tile.n}</span><span className="ow-tile-label">{tile.label}</span><span className="ow-tile-note">{tile.note}</span></p>)}</div>;
 }
 
+/** A milestone, shown once: a quiet white card above the board, no confetti, no sound (spec §4.3). */
+export function Milestone({ cards, action }: { cards: number; action: () => void }) {
+  return (
+    <section className="ow-card ow-row" style={{ justifyContent: "space-between", alignItems: "center" }} aria-label="Meilenstein">
+      <h2>Deine {nf.format(cards)}. Karte.</h2>
+      <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={action}>Tresenschild laden</button>
+    </section>
+  );
+}
+
 export type NextAction = { label: string; href: string } | { label: string; onClick: () => void };
 /** „Als Nächstes“: a bar above the bottom navigation on phones, a card in the right column on desktop. */
 export function NextBar({ title, text, action }: { title: string; text?: string; action?: NextAction }) {

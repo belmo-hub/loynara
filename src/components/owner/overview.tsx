@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
 import type { LocationAnalytics, MerchantSpend } from "@/lib/merchant-analytics";
 import { greeting, headline, localNow, quietDays, type LocationDays } from "@/lib/overview-day";
@@ -10,7 +10,7 @@ import type { RetentionSummary } from "@/lib/retention";
 import { formatMinor } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, CardStock, Diary, EmptyStrip, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { BigMoney, Board, BoardPlaceholder, CardStock, Diary, EmptyStrip, Milestone, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
 import { buildInsights, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf } from "./owner-ui";
@@ -25,6 +25,8 @@ const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Ste
 const AVERAGE_HREF = "/merchant/program";
 const ASK_KEY = "loynara:average-ask-hidden-until";
 const STRIP_CAPTION = "Buchungen an diesem Standort · letzte 7 Tage";
+const MILESTONES = [100, 50, 25, 10, 1];
+const MILESTONE_KEY = "loynara:milestones-seen";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
@@ -59,11 +61,12 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const quiet = days ? quietDays(days.lastBookingOn ?? null, days.today) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
+  const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
 
   return (
     <div className="ow-page ow-dash" data-next={next ? "" : undefined}>
       <h1 className="ow-sr">Übersicht</h1>
-      <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
+      <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
       {failed ? <ErrorCard reload={reload} /> : isOwner
         ? <OwnerBoard hello={hello} spend={spend} locationCount={locations.length} days={days?.days ?? null} news={news} />
         : <Board hello={hello} kicker="Karten an deinem Standort · 30 Tage" busy={!r}>
@@ -118,6 +121,28 @@ function OwnerBoard({ hello, spend, locationCount, days, news }: { hello: string
       </>}
     </Board>
   );
+}
+
+const readMilestones = () => { try { return window.localStorage.getItem(MILESTONE_KEY) ?? ""; } catch { return "-"; } };
+
+/**
+ * The highest card milestone the location reached that this browser has not shown (`seen`: the stored list); null
+ * without storage ("-": server render or blocked storage), so the card can never repeat on every visit.
+ */
+export function milestoneToShow(cards: number, seen: string, locationId: string): number | null {
+  const reached = MILESTONES.find(milestone => cards >= milestone) ?? null;
+  return reached !== null && seen !== "-" && !seen.split(",").includes(`${locationId}:${reached}`) ? reached : null;
+}
+
+/** The milestone to show now, marked as shown once it is on screen (spec §4.3; v1 keeps it in this browser). */
+function useMilestone(locationId: string, cards: number): number | null {
+  const seen = useSyncExternalStore(onStorage, readMilestones, () => "-");
+  const show = milestoneToShow(cards, seen, locationId);
+  useEffect(() => {
+    if (show === null) return;
+    try { window.localStorage.setItem(MILESTONE_KEY, [...seen.split(",").filter(Boolean), `${locationId}:${show}`].join(",")); } catch { /* shown this once anyway */ }
+  }, [show, seen, locationId]);
+  return show;
 }
 
 const readAskHidden = () => { try { return Number(window.localStorage.getItem(ASK_KEY) ?? 0) > Date.now(); } catch { return false; } };
