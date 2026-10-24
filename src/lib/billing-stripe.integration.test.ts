@@ -2,14 +2,14 @@ import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { billingLocationPlans, billingWebhookEvents, programs, subscriptions } from "@/db/schema";
+import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, subscriptions } from "@/db/schema";
 import { createAdditionalLocation } from "./locations";
 import { DomainError } from "./loyalty";
 import { createMerchant } from "./product";
 import { getBillingOverview } from "./billing";
 import { operatorOverview } from "./operator";
 import { applyStripeWebhook, createStripeCheckout, createStripePortal, runBillingJob, setStripeClient, setTenantPlan, STRIPE_STATUS, verifyStripeSignature, type StripeClient } from "./billing-stripe";
-import { GUARANTEE_LINE, VAT_NOTE } from "./stripe-config";
+import { GUARANTEE_LINE, VAT_NOTE, VAT_STANDARD_NOTE } from "./stripe-config";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Stripe billing tests require looplocal_test");
 
@@ -189,6 +189,32 @@ describe("Stripe subscription state", () => {
 });
 
 describe("plans and checkout", () => {
+  it("shows no amount before the operator sets a plan, then exactly what checkout charges (one source, L10)", async () => {
+    const s = await shop();
+    await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
+    expect(await getBillingOverview(s.ownerId)).toMatchObject({ liveBilling: true, charge: null, planCode: null });
+    await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "PLAN_UNAVAILABLE" });
+    for (const [planCode, unitMinor, price] of [["founding", 3900, "price_founding0001"], ["list", 4900, "price_list00000001"]] as const) {
+      await setTenantPlan({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, planCode });
+      const page = await getBillingOverview(s.ownerId);
+      expect(page.charge).toEqual({ planCode, unitMinor, quantity: 2, totalMinor: unitMinor * 2 });
+      await createStripeCheckout(s.ownerId);
+      // The page's amount is what Stripe charges: the handoff total, the line quantity, and the verified Stripe unit price.
+      const [handoff] = await db.select().from(billingHandoffs).where(eq(billingHandoffs.tenantId, s.tenantId)).orderBy(billingHandoffs.createdAt).then(rows => rows.slice(-1));
+      expect(handoff.amountMinor).toBe(page.charge!.totalMinor);
+      const session = stripe.calls.filter(call => call.method === "POST" && call.path === "/checkout/sessions").at(-1)!;
+      expect(session.params).toMatchObject({ "line_items[0][price]": price, "line_items[0][quantity]": String(page.charge!.quantity) });
+      expect((stripe.prices[price] as { unit_amount: number }).unit_amount).toBe(page.charge!.unitMinor);
+    }
+  });
+
+  it("takes the VAT line from the VAT setting, never from the page", async () => {
+    const s = await shop();
+    expect((await getBillingOverview(s.ownerId)).taxNote).toBe(VAT_NOTE);
+    setEnv({ BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_test00000001" });
+    expect((await getBillingOverview(s.ownerId)).taxNote).toBe(VAT_STANDARD_NOTE);
+  });
+
   it("refuses checkout until the operator chose a plan, then charges that plan per location with the § 19 note on the customer", async () => {
     const s = await shop();
     await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
@@ -224,7 +250,7 @@ describe("plans and checkout", () => {
     await createStripeCheckout(s.ownerId);
     expect(stripe.calls.find(call => call.path === "/customers")!.params["invoice_settings[footer]"]).toBeUndefined();
     expect(stripe.calls.find(call => call.method === "POST" && call.path === "/checkout/sessions")!.params).toMatchObject({ "line_items[0][price]": "price_list00000001", "subscription_data[default_tax_rates][0]": "txr_test00000001" });
-    expect((await getBillingOverview(s.ownerId)).countingRule).toContain("Zuzüglich 19 % Umsatzsteuer.");
+    expect((await getBillingOverview(s.ownerId)).taxNote).toBe("Zuzüglich 19 % Umsatzsteuer.");
   });
 
   it("closes an open checkout when the operator changes the plan, so it can never complete at the old price", async () => {
