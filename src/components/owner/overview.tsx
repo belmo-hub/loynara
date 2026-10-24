@@ -5,6 +5,7 @@ import type { MeResponse } from "@/components/client-api";
 import type { LaunchReadiness } from "@/lib/readiness";
 import type { RetentionSummary } from "@/lib/retention";
 import { BrowserCardPreview } from "./card-preview";
+import { CancellationNotice } from "./cancellation-notice";
 import { JoinCard } from "./join-card";
 import { ReadinessCard } from "./readiness-card";
 import { buildInsights, RetentionInsights, type ReferralRow } from "./retention-insights";
@@ -38,6 +39,7 @@ function NewBusiness({ me }: { me: MeResponse }) {
       <header className="ow-pagehead">
         <div><p className="ow-eyebrow">{me.locationName}</p><h1>Dein Treueprogramm einrichten</h1><p>Jeder Schritt zeigt, was bereits gespeichert oder an der Kasse belegt ist. Alles lässt sich später ändern.</p></div>
       </header>
+      <CancellationNotice me={me} />
       <div className="ow-two">
         <div className="ow-stack">
           <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} />
@@ -82,12 +84,13 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         </div>
       </header>
 
+      <CancellationNotice me={me} />
       {periodMode ? <PeriodMetrics analytics={analytics} reload={reloadAnalytics} /> : <LifetimeMetrics me={me} />}
       <NextStep me={me} retention={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} readiness={readiness} setup={setup} />
 
       <div className="ow-two">
         <div className="ow-stack">
-          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} skipFirst={!setup && readiness.state === "ok"} />
+          <RetentionInsights me={me} summary={retention} referrals={referrals.state === "ok" ? referrals.data.referrals : null} reload={reloadRetention} skipFirst={!me.cancellationEndDate && !setup && readiness.state === "ok"} />
           <ReadinessCard readiness={readiness} reload={reloadReadiness} isOwner={isOwner} compact />
           <RecentActivity me={me} />
         </div>
@@ -125,8 +128,10 @@ function PeriodMetrics({ analytics, reload }: { analytics: Loadable<Analytics>; 
  * One sentence and one next step. While a required set-up step is open, that step leads (a shop with all zeros needs
  * set-up, not insight); afterwards the most urgent observation from "Was jetzt zählt", with its main action.
  */
-function NextStep({ me, retention, referrals, readiness, setup }: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; setup?: LaunchReadiness["steps"][number] }) {
+export function NextStep({ me, retention, referrals, readiness, setup }: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; setup?: LaunchReadiness["steps"][number] }) {
   const isOwner = me.role === "owner";
+  // While the programme is ending, the end-date card above is the one leading card with one job.
+  if (me.cancellationEndDate) return null;
   if (retention.state !== "ok" || readiness.state !== "ok") {
     return retention.state === "error" || readiness.state === "error" ? null : <Skeleton height={112} />;
   }
@@ -147,7 +152,7 @@ function LifetimeMetrics({ me }: { me: MeResponse }) {
   const stats = me.stats;
   const ok = (n: number | undefined): Loadable<number> => n === undefined ? { state: "error", message: "" } : { state: "ok", data: n, at: 0 };
   return (
-    <dl className="ow-metrics ow-metrics--auto" aria-label="Kennzahlen seit Programmstart">
+    <dl className="ow-metrics ow-metrics--three" aria-label="Kennzahlen seit Programmstart">
       <Metric label="Karten" note="Seit Programmstart">{value(ok(stats?.members))}</Metric>
       <Metric label="Buchungen" note="Stempel- oder Punktebuchungen, kein Umsatz.">{value(ok(stats?.awards))}</Metric>
       <Metric label="Eingelöste Prämien" note="Seit Programmstart">{value(ok(stats?.redemptions))}</Metric>

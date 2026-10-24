@@ -18,3 +18,19 @@ export function lastDayOfBerlinMonth(now: Date): string {
 
 /** "2026-10-31" → "31.10.2026". The day is a calendar day, so no zone conversion. */
 export const germanDate = (isoDay: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${isoDay}T00:00:00Z`));
+
+/** Days after the confirmed end date during which the owner can still log in and download the export (pilot agreement § 6 (3)). */
+export const EXPORT_DAYS_AFTER_END = 30;
+
+const dayNumber = (isoDay: string) => Date.parse(`${isoDay}T00:00:00Z`) / 86_400_000;
+export const addDays = (isoDay: string, days: number) => new Date(Date.parse(`${isoDay}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * Where a cancellation stands today (Berlin calendar): the end date is the last day the programme works, so on that day it
+ * still runs ("last-day"); after it the end job ends the programme ("past").
+ */
+export function cancellationTimeline(endDate: string, now = new Date()) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(now);
+  const daysLeft = dayNumber(endDate) - dayNumber(today);
+  return { daysLeft, phase: daysLeft > 0 ? "running" as const : daysLeft === 0 ? "last-day" as const : "past" as const, exportUntil: addDays(endDate, EXPORT_DAYS_AFTER_END) };
+}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { apiJson, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerDialog, SaveBar, type SaveState } from "./owner-ui";
-import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, NO_MIN_SPEND_LABEL, purchaseExample, unitName, type EarningMode, type ProgramKind } from "./program-helpers";
+import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, purchaseExample, unitName, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Draft = { name: string; type: ProgramKind; mode: EarningMode; rate: string; rulesText: string };
 const fromProgram = (program: PublicProgram): Draft => ({ name: program.programName, type: program.programType, mode: program.earningMode ?? "manual", rate: String(program.pointsPerCurrencyUnit ?? 1), rulesText: program.rulesText });
@@ -115,7 +115,7 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
           ) : (
             <p>Dein Team gibt die Punkte direkt ein. {cheapest ? `Ab ${cheapest.cost} Punkten ist „${cheapest.title}“ erreichbar.` : ""}</p>
           )}
-          <p className="ow-hint">{minSpend !== null && cheapest ? <>Günstigste Prämie „{cheapest.title}“: mindestens <strong>{euro(minSpend, currency)}</strong> Einkaufswert. {MIN_SPEND_LABEL}</> : NO_MIN_SPEND_LABEL + ". " + (draft.type === "stamp" || mode === "manual" ? "Die Menge legt das Team bei der Vergabe fest." : "")}</p>
+          <p className="ow-hint">{minSpend !== null && cheapest ? <>Günstigste Prämie „{cheapest.title}“: mindestens <strong>{euro(minSpend, currency)}</strong> Einkaufswert. {MIN_SPEND_LABEL}</> : [noMinSpendNote(draft.type) && `${noMinSpendNote(draft.type)}.`, draft.type === "stamp" || mode === "manual" ? "Die Menge legt das Team bei der Vergabe fest." : ""].filter(Boolean).join(" ")}</p>
         </aside>
       </div>
       {shown === "dirty" && <Notice tone="info">Die Änderung gilt ab dem Speichern als neue Regelversion für neue Buchungen. Bestehende Kartenstände werden nicht neu berechnet.</Notice>}

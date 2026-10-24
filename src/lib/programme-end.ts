@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { memberships, programmeCancellationEvents, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { cancellationEnd, germanDate } from "./programme-end-date";
+import { cancellationEnd, EXPORT_DAYS_AFTER_END, germanDate } from "./programme-end-date";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "./operator-date";
 
@@ -125,8 +125,7 @@ export async function endedCardShop(cardToken: string): Promise<string | null> {
   return row?.shop ?? null;
 }
 
-/** Days after the confirmed end date during which the owner can still log in and download the export (pilot agreement § 6 (3)). */
-export const EXPORT_DAYS_AFTER_END = 30;
+export { EXPORT_DAYS_AFTER_END };
 
 type Executor = Pick<Transaction, "execute">;
 

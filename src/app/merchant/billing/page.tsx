@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
+import { CancellationNotice } from "@/components/owner/cancellation-notice";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
@@ -31,7 +32,7 @@ export default function MerchantBillingPage() {
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
   const o = data.data;
-  if (o.liveBilling) return <LiveBilling o={o} head={head} />;
+  if (o.liveBilling) return <LiveBilling o={o} head={<>{head}<CancellationNotice me={me} /></>} />;
 
   async function startFixture() {
     setBusy(true); setError("");
@@ -52,6 +53,7 @@ export default function MerchantBillingPage() {
   return (
     <div className="ow-page">
       {head}
+      <CancellationNotice me={me} />
       <Notice tone="warn">Nur ein Tarifentwurf. Es gibt keine Live-Zahlung, keine geprüfte Steuerberechnung und keinen Rechnungsversand.</Notice>
       {error && <ErrorNotice message={error} />}
       <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>

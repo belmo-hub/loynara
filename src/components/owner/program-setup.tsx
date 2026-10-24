@@ -7,7 +7,7 @@ import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerIcon } from "./owner-ui";
-import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, NO_MIN_SPEND_LABEL, parseWholeNumber, purchaseExample, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
+import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Preset = { id: string; label: string; type: ProgramKind; mode: EarningMode; rate: number; reward: string; cost: number };
 // Editable starting points only. They are examples, not approved or recommended commercial programmes.
@@ -164,7 +164,7 @@ export function ProgramSetup() {
             <div><h2>Deine erste Prämie</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Name, dann Preis. Weitere Prämien und Bedingungen kannst du danach ergänzen.</p></div>
             <Field id="su-rewardName" label="Name der Prämie" error={err("rewardName")}><input id="su-rewardName" className="ow-input" value={f.rewardName} maxLength={180} onChange={event => set({ rewardName: event.target.value })} aria-invalid={Boolean(err("rewardName"))} placeholder="z. B. Kaffee aufs Haus" /></Field>
             <Field id="su-cost" label={`Preis in ${unitDative(f.type)}`} error={err("cost")} hint={f.preset && f.preset !== "other" ? "Beispielwert aus der Branchenauswahl. Bitte prüfe ihn für dein Geschäft." : undefined}><input id="su-cost" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={f.cost} onChange={event => set({ cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={Boolean(err("cost"))} /></Field>
-            <div className="ow-readonly" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${NO_MIN_SPEND_LABEL}.`}</div>
+            {(minSpend !== null || noMinSpendNote(f.type)) && <div className="ow-readonly" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${noMinSpendNote(f.type)}.`}</div>}
           </>}
           {step === 3 && <>
             <div><h2>Karte gestalten und prüfen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p></div>

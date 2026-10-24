@@ -39,6 +39,8 @@ export function minimumSpendMinor(cost: number, rate: number): number | null {
 
 export const MIN_SPEND_LABEL = "Nur reguläres Sammeln; zusätzliche Boni nicht berücksichtigt.";
 export const NO_MIN_SPEND_LABEL = "Mindestumsatz offen: kein €-Wert pro Punkt";
+/** The note exists for points only: a stamp card has no € value per point to leave open. */
+export const noMinSpendNote = (type: ProgramKind) => type === "points" ? NO_MIN_SPEND_LABEL : null;
 
 export type ExampleResult = { ok: true; amountMinor: number; points: number } | { ok: false; message: string };
 /** Worked example through the same functions the server uses. German decimal input ("12,90") is accepted. */
