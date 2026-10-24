@@ -414,16 +414,17 @@ function meChallenge(program: typeof programs.$inferSelect, timeZone: string) {
  * The card's line for the running month: the challenge and the visit days so far (absent while the shop has none). With a
  * confirmed programme end (`programmeEnd`, YYYY-MM-DD) a month that ends after it shows no challenge (Product, 24 Oct).
  */
-async function cardChallenge(tx: Parameters<typeof challengeProgress>[0], row: { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; location: typeof locations.$inferSelect }, programmeEnd?: string, now = new Date()) {
+async function cardChallenge(tx: Parameters<typeof challengeProgress>[0], row: { member: typeof memberships.$inferSelect; program: typeof programs.$inferSelect; location: typeof locations.$inferSelect; tenant: typeof tenants.$inferSelect }, programmeEnd?: string, now = new Date()) {
   const rule = challengeFor(row.program, monthOf(now, row.location.timezone));
   if (!rule.visits) return undefined;
   const [y, m] = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: row.location.timezone }).format(now).split("-").map(Number);
   if (programmeEnd && new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) > programmeEnd) return undefined;
   const progress = await challengeProgress(tx, { tenantId: row.member.tenantId, membershipId: row.member.id, locationId: row.program.locationId, at: now });
-  const month = new Intl.DateTimeFormat("de-DE", { month: "long", timeZone: row.location.timezone }).format(now);
+  const intl = row.tenant.locale === "fr" ? "fr-FR" : "de-DE";
+  const month = new Intl.DateTimeFormat(intl, { month: "long", timeZone: row.location.timezone }).format(now);
   const [year, monthNumber] = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: row.location.timezone }).format(now).split("-").map(Number);
-  const endsOn = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, monthNumber, 0)));
-  return { ...challengeSentence(rule.visits, rule.bonus, row.program.type, month, endsOn), visits: Math.min(progress.visits, rule.visits), target: rule.visits, done: progress.bonuses.length > 0 };
+  const endsOn = new Intl.DateTimeFormat(intl, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, monthNumber, 0)));
+  return { ...challengeSentence(rule.visits, rule.bonus, row.program.type, month, endsOn, row.tenant.locale), visits: Math.min(progress.visits, rule.visits), target: rule.visits, done: progress.bonuses.length > 0 };
 }
 
 /** The card's level from visit days in the last 90 days, its perk and the next step; absent while levels are off. */

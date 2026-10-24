@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardNewsProblem, reviewUrlValid } from "./card-extras";
+import { cardNewsProblem, challengeSentence, reviewUrlValid } from "./card-extras";
 
 describe("review link", () => {
   it("accepts https links on the three Google review hosts", () => {
@@ -24,5 +24,15 @@ describe("card news", () => {
   });
   it("refuses line breaks and control characters", () => {
     expect(cardNewsProblem("Zeile\nzwei")).toBe("CONTROL");
+  });
+});
+
+describe("challengeSentence in the card's language", () => {
+  it("keeps the German sentence and writes French on a French card", () => {
+    expect(challengeSentence(3, 50, "points", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 50 Punkte extra.");
+    const fr = challengeSentence(3, 20, "points", "octobre", "31/10/2026", "fr");
+    expect(fr.text).toBe("Venez 3 fois en octobre et recevez 20 points en plus.");
+    expect(fr.conditions).toBe("Seules les visites confirmées en caisse comptent, une par jour au maximum. Valable jusqu’au 31/10/2026. Hors tabac, presse, livres, loterie et recharges téléphoniques.");
+    expect(challengeSentence(3, 1, "stamp", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 1 tampon en plus.");
   });
 });
