@@ -331,7 +331,7 @@
 
 /* Customers */
 .ow-filters { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); align-items: flex-end; padding: var(--space-4) var(--space-6); }
-.ow-filters-q { flex: 1 1 160px; }
+.ow-filters-q { flex: 1 1 160px; max-width: 32rem; }
 .ow-filters-more { flex: 1 1 100%; }
 .ow-filters-more > summary { font-weight: var(--weight-label); }
 .ow-filters-fields { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; padding-top: var(--space-2); }

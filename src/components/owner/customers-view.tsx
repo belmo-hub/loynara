@@ -218,7 +218,7 @@ export function CustomersView() {
       {error && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => void run(applied)}>Erneut laden</button>}>{error}</Notice>}
 
       {applied.activity !== "all" && (
-        <Notice tone="info" actions={applied.activity === "drifting" && !applied.q.trim() && !allLocations && scopeLocationId === me.locationId && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
+        <Notice tone="info" actions={applied.activity === "drifting" && !loading && visible.length > 0 && !applied.q.trim() && !allLocations && scopeLocationId === me.locationId && me.role === "owner" && !(me.hiddenSurfaces ?? []).includes("campaigns")
           ? <Link className="ow-btn ow-btn--sm ow-btn--primary" href={`/merchant/campaigns?goal=winback&days=${applied.days}`}>Rückhol-Aktion vorbereiten</Link> : undefined}>
           <strong>Warum diese Karten?</strong> {activityRule(applied.activity, applied.days, me.programType === "points" ? "Punkten" : "Stempeln")}{applied.minAgeDays === 7 && " Angezeigt werden nur Karten, die vor über sieben Tagen angelegt wurden."}
         </Notice>
