@@ -39,8 +39,10 @@ const de = {
   challenge: "Monats-Challenge", challengeDone: "Geschafft! Der Bonus ist gutgeschrieben.", challengeDoneShort: "geschafft",
   challengeProgress: (visits: number, target: number) => `${visits} von ${target} Besuchen`,
   expiryList: "Deine Punkte verfallen:", more: "Außerdem",
-  // ENG-089, Product's draft until Marketing's final line: a card inside its win-back window.
-  winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Komm bis ${day} vorbei: ${points ? `${bonus} Punkte` : "1 Stempel"} extra.`,
+  // ENG-089 (Marketing v1.8 §9, Legal 24 Oct): a card inside its win-back window; [Datum] is the window's last day. The
+  // „Bedingungen“ link to the rules is Legal's condition for leaving the exclusions out of this line.
+  winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Bis zum ${day} gibt's bei deinem nächsten Besuch ${points ? `${bonus} Punkte` : "1 Stempel"} extra.`,
+  conditions: "Bedingungen",
   happyHour: (until: string) => `Doppelte Punkte bis ${until}`, rules: "Programmregeln", news: "Neuigkeiten", review: "Hat es dir gefallen? Hinterlass uns eine Bewertung.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
   closeCard: "Karte schließen", confirmClose: "Schließung verbindlich bestätigen", closing: "Wird geschlossen …",
   closeMessage: (wallet: boolean): string => wallet
@@ -88,7 +90,8 @@ const fr: Copy = {
   challenge: "Défi du mois", challengeDone: "Réussi ! Le bonus a été crédité.", challengeDoneShort: "réussi",
   challengeProgress: (visits, target) => `${visits} visite${visits === 1 ? "" : "s"} sur ${target}`,
   expiryList: "Vos points expirent :", more: "Également",
-  winback: (points, bonus, day) => `Bon retour ! Venez d’ici le ${day} : ${points ? `${bonus} points supplémentaires` : "1 tampon supplémentaire"}.`,
+  winback: (points, bonus, day) => `Bon retour ! Jusqu’au ${day}, votre prochaine visite vous rapporte ${points ? `${bonus} points supplémentaires` : "1 tampon supplémentaire"}.`,
+  conditions: "Conditions",
   happyHour: (until: string) => `Points doubles jusqu’à ${until}`, rules: "Règles du programme", news: "Actualités", review: "Ça vous a plu ? Laissez-nous un avis.", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",
   closeCard: "Fermer ma carte", confirmClose: "Confirmer la fermeture définitive", closing: "Fermeture …",
   closeMessage: (wallet) => wallet

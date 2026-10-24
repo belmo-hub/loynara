@@ -142,7 +142,7 @@ export function CustomerCard(props: CustomerCardProps) {
       {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
-    {rulesText || pointsExpiry || challenge || level ? <section className={styles.panel} aria-labelledby="customer-rules-title">
+    {rulesText || pointsExpiry || challenge || level ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
       {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
       {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
@@ -171,7 +171,7 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
   </div>;
 }
 
-type Extra = { key: string; line: string; block: ReactNode };
+type Extra = { key: string; line: ReactNode; block: ReactNode };
 
 /**
  * Time-bound extras, nearest deadline first (Head of Design, 23 Oct): a happy hour running now ends today, a win-back
@@ -183,7 +183,7 @@ function extras({ t, locale, programType, happyHourUntil, winback, pointsExpiry,
   if (happyHourUntil) items.push({ key: "happy", line: t.happyHour(happyHourUntil), block: <p className={styles.highlight}>{t.happyHour(happyHourUntil)}</p> });
   if (winback) {
     const day = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "de-DE", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${winback.until}T00:00:00Z`));
-    const line = t.winback(programType === "points", winback.bonus, day);
+    const line = <>{t.winback(programType === "points", winback.bonus, day)} <a href="#customer-rules" className={styles.inlineLink}>{t.conditions}</a></>;
     items.push({ key: "winback", line, block: <p className={styles.highlight}>{line}</p> });
   }
   if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
