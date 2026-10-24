@@ -8,7 +8,7 @@ import { nf } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
-const NBSP = " ";
+const NBSP = "\u00a0";
 
 /** The one deep green panel: greeting, kicker, then the number area and the strip the caller passes in. */
 export function Board({ hello, kicker, busy = false, children }: { hello: string; kicker: string; busy?: boolean; children: ReactNode }) {
@@ -88,7 +88,7 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
 }
 
 const TILE_ICONS = { bookings: CircleCheck, cards: CreditCard, back: Undo2, rewards: Gift } satisfies Record<string, LucideIcon>;
-export type Tile = { key: keyof typeof TILE_ICONS; label: string; value: string; note: ReactNode; help: string };
+export type Tile = { key: keyof typeof TILE_ICONS; label: string; value: string; note: ReactNode; help: string; href?: string };
 /** The four tiles, always in this order, numbers in ink: no arrows, no colour coding (spec §1.3). */
 export function Tiles({ tiles }: { tiles: Tile[] }) {
   return (
@@ -109,8 +109,10 @@ function TileCard({ tile }: { tile: Tile }) {
         <h3 className="ow-tile-label">{tile.label}</h3>
         <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label}“</span></button>
       </div>
-      <span className="ow-tile-n">{tile.value}</span>
-      <span className="ow-tile-note">{tile.note}</span>
+      {/* The number and its note are the link; the „?“ stays its own button, outside it. */}
+      {tile.href
+        ? <Link className="ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label}: </span><span className="ow-tile-n">{tile.value}</span><span className="ow-tile-note">{tile.note}</span></Link>
+        : <><span className="ow-tile-n">{tile.value}</span><span className="ow-tile-note">{tile.note}</span></>}
       <p id={helpId} className="ow-tile-help" hidden={!open}>{tile.help}</p>
     </div>
   );

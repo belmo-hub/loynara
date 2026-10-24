@@ -78,7 +78,7 @@ describe("„Als Nächstes“ steps aside while the programme is ending (the end
   const quiet: RetentionSummary = { asOf: "2026-11-10T00:00:00.000Z", inactiveDays: 30, locationId: null, openCards: 5, recent: 5, drifting: 0, never: 0, neverAfterWeek: 0,
     nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 0, nearRewardId: null, programCount: 1, rules: RETENTION_RULES };
   const readiness = { state: "ok" as const, at: 0, data: { locationId: "l", steps: [], next: null, requiredDone: 0, requiredTotal: 0 } };
-  const next = (me: Partial<MeResponse>, patch: { retention?: RetentionSummary; steps?: unknown[]; quiet?: number | null } = {}) =>
+  const next = (me: Partial<MeResponse>, patch: { retention?: RetentionSummary; steps?: unknown[]; quiet?: number | "over90" | null } = {}) =>
     nextStep({ me: { ...base, ...me }, retention: { state: "ok", at: 0, data: patch.retention ?? quiet }, referrals: null, readiness: { ...readiness, data: { ...readiness.data, steps: (patch.steps ?? []) as never } }, winback: null, quiet: patch.quiet ?? null, sign: () => undefined });
 
   it("shows no bar at all when nothing is urgent (direction D drops „Gerade nichts Dringendes“)", () => {
@@ -89,6 +89,7 @@ describe("„Als Nächstes“ steps aside while the programme is ending (the end
     const setup = { id: "first_award", group: "verify", title: "Erste Buchung", evidence: "Lass an der Kasse eine Buchung bestätigen.", status: "todo", required: true, action: { href: "/cashier", label: "Kasse öffnen" } };
     const due = { retention: { ...quiet, rewardReady: 2 }, steps: [setup], quiet: 9 };
     expect(next(cancellation, due)).toBeNull();
-    expect(next({}, due)).toMatchObject({ title: "Lass an der Kasse eine Buchung bestätigen.", action: { href: "/cashier" } });
+    expect(next({}, due)).toMatchObject({ title: "Seit 9 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?" }); // the quiet week first
+    expect(next({}, { ...due, quiet: null })).toMatchObject({ title: "Lass an der Kasse eine Buchung bestätigen.", action: { href: "/cashier" } });
   });
 });

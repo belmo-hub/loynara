@@ -54,9 +54,11 @@ export function greeting(hour: number): string {
  * The board's headline (spec §3, the first rule that matches wins). `days` are the local days before today, oldest first,
  * ending yesterday; `fullTwoWeeks` says the 14 days before yesterday are complete data (the programme ran 15 days).
  */
-export function headline(input: { days: DayCount[]; lastBookingOn: string | null; today: string; fullTwoWeeks: boolean }): string | null {
-  const { days, lastBookingOn, today, fullTwoWeeks } = input;
-  if (!lastBookingOn || days.length === 0) return null; // rule 5: never a booking (the empty-shop board)
+export function headline(input: { days: DayCount[]; lastBookingOn: string | null; today: string; fullTwoWeeks: boolean; everBooked?: boolean }): string | null {
+  const { days, lastBookingOn, today, fullTwoWeeks, everBooked = false } = input;
+  if (days.length === 0) return null;
+  // The read looks back 90 days for the last booking (CTO option B); older bookings are known only as „ever booked“.
+  if (!lastBookingOn) return everBooked ? "Seit über 90 Tagen keine Buchung." : null; // else rule 5: never a booking
   const yesterday = days[days.length - 1].bookings;
   const before = days.slice(-15, -1);
   if (fullTwoWeeks && before.length === 14 && yesterday >= 2 && before.every(day => day.bookings < yesterday)) {

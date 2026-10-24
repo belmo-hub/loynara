@@ -29,6 +29,9 @@ describe("Übersicht headline rules (spec §3)", () => {
     expect(text).toBe("Eine ruhige Woche. Die letzte Buchung war am Freitag, 23.10.");
     expect(text).not.toMatch(/weniger|nur noch|schlechter/);
   });
+  it("4b beyond the 90 days the read looks back: „Seit über 90 Tagen keine Buchung.“, but only for a location that has booked", () => {
+    expect(headline({ days: days([...quiet14, 0]), lastBookingOn: null, today, fullTwoWeeks: true, everBooked: true })).toBe("Seit über 90 Tagen keine Buchung.");
+  });
   it("5: never a booking, no headline; bookings only today, no headline yet", () => {
     expect(headline({ days: days([...quiet14, 0]), lastBookingOn: null, today, fullTwoWeeks: false })).toBeNull();
     expect(headline({ days: days([...quiet14, 0]), lastBookingOn: today, today, fullTwoWeeks: false })).toBeNull();

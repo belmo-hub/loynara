@@ -563,6 +563,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-tile-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px -10px -10px 0; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
 .ow-tile-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-12); font-weight: var(--weight-heavy); }
 .ow-tile-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-tile-link { display: flex; flex-direction: column; gap: 2px; border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
+.ow-tile-link .ow-tile-note { color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-pill[data-kind="more"] { color: var(--color-ink-muted); }
 @media (min-width: 1024px) { .ow-dash > .ow-dash-invite { grid-column: 1; } }
 .ow-board-why { margin-top: var(--space-1); }

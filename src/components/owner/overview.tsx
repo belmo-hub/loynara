@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
+import { boardCacheKey, readBoardCache, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/overview-day";
 import type { LaunchReadiness } from "@/lib/readiness";
 import type { RetentionSummary } from "@/lib/retention";
+import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, JoinCard, joinUrlOf } from "./join-card";
@@ -22,8 +24,9 @@ import { useLoad, type Loadable } from "./use-load";
  */
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
-const NBSP = " ";
+const NBSP = "\u00a0";
 const STRIP_CAPTION = "Buchungen an diesem Standort · letzte 7 Tage";
+const OFFLINE_LINE = "Lädt, sobald die Verbindung wieder da ist.";
 /** Q-81 (founder, open): false = a shop without till amounts leads with bookings; true = it shows the „geschätzt“ estimate or asks for the average. */
 const ESTIMATES_ON_BOARD = false;
 const AVERAGE_HREF = "/merchant/program";
@@ -40,11 +43,23 @@ function useFirstName(): string {
   return name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
 }
 
+const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
+const readStorage = (key: string) => () => { try { return window.localStorage.getItem(key); } catch { return null; } };
+
 export function Overview() {
   const owner = useOwner();
   const me = owner.me as MeResponse;
   // Until the first booking at this location, the board guides the set-up (spec §2.4).
   return (me.stats?.awards ?? 0) === 0 ? <EmptyShop me={me} /> : <ActiveBusiness me={me} />;
+}
+
+/**
+ * Days without a booking for the quiet-week rules (7+), or "over90" when the read's 90 days hold none although the
+ * programme ran longer (CTO option B). A programme younger than that with no booking left (say, one corrected) is not quiet.
+ */
+export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programStartedOn" | "today">): number | "over90" | null {
+  if (a.lastBookingOn) return quietDays(a.lastBookingOn, a.today);
+  return a.programStartedOn && daysBetween(a.programStartedOn, a.today) > 90 ? "over90" : null;
 }
 
 /* ───────────── Active business ───────────── */
@@ -65,43 +80,55 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
   const a = analytics.state === "ok" ? analytics.data : null;
   const r = retention.state === "ok" ? retention.data : null;
-  const timezone = a?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
+  const live = a && (isOwner ? spend.state === "ok" : r) ? boardOf(a, isOwner && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
+  const cacheKey = boardCacheKey(me.userId, me.locationId);
+  const liveJson = live ? JSON.stringify(live) : null;
+  useEffect(() => { if (liveJson) writeBoardCache(cacheKey, { at: new Date().toISOString(), board: JSON.parse(liveJson) as BoardData }); }, [cacheKey, liveJson]);
+  const cached = readBoardCache(useSyncExternalStore(onStorage, readStorage(cacheKey), () => null));
+  // A failed read retries on its own when the page comes back into view or the connection returns.
+  useEffect(() => {
+    if (!failed) return;
+    const retry = () => { if (document.visibilityState === "visible") reload(); };
+    document.addEventListener("visibilitychange", retry);
+    window.addEventListener("online", retry);
+    return () => { document.removeEventListener("visibilitychange", retry); window.removeEventListener("online", retry); };
+  });
+
+  // A failed read shows the last numbers this device loaded, with their „Stand …“; the error card only without them.
+  const board = failed ? cached?.board ?? null : live;
+  const timezone = board?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
   const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}.`;
-  const news = a ? headline({ days: a.days, lastBookingOn: a.lastBookingOn, today: a.today, fullTwoWeeks: a.fullTwoWeeks }) : null;
-  const quiet = a ? quietDays(a.lastBookingOn, a.today) : null;
+  const quiet = a ? quietOf(a) : null;
+  const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
-  const next = nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
+  const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
-  const busy = !a || (isOwner ? spend.state !== "ok" : !r);
 
   return (
     <div className="ow-page ow-dash" data-next={next ? "" : undefined}>
       <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
-      {failed ? <ErrorCard reload={reload} /> : isOwner
-        ? <Board hello={hello} kicker={!a || spend.state !== "ok" || boardEuros(spend.data, me.locationId) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={busy}>
-          {busy || !a || spend.state !== "ok" ? <BoardPlaceholder /> : <>
-            <OwnerNumber spend={spend.data} locationId={me.locationId} bookings={a.current.qualifyingCheckouts} />
-            <Strip days={a.days} caption={STRIP_CAPTION} />
+      {failed && !board ? <ErrorCard reload={reload} />
+        : <Board hello={hello} kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
+          {!board ? <BoardPlaceholder /> : <>
+            {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
+              <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
+              <p className="ow-board-sub">Karten mit Buchung in den letzten 30 Tagen</p>
+              <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+            </>}
+            <Strip days={board.days} caption={STRIP_CAPTION} />
             {news && <p className="ow-board-news">{news}</p>}
-          </>}
-        </Board>
-        : <Board hello={hello} kicker="Karten an deinem Standort · 30 Tage" busy={busy}>
-          {busy || !a || !r ? <BoardPlaceholder /> : <>
-            <p className="ow-board-big">{nf.format(r.recent)}{NBSP}<small>von {nf.format(r.openCards)}</small></p>
-            <p className="ow-board-sub">Karten mit Buchung in den letzten 30 Tagen</p>
-            <CardStock recent={r.recent} drifting={r.drifting} never={r.never} />
-            <Strip days={a.days} caption={STRIP_CAPTION} />
-            {news && <p className="ow-board-news">{news}</p>}
+            {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
           </>}
         </Board>}
       <div className="ow-dash-side">
-        {!failed && a && <Tiles tiles={tilesOf(a, { owner: isOwner, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
+        {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
+          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
         {next && <NextBar {...next} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
-      <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={quiet && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
-        {failed ? <p className="ow-muted">Lädt, sobald die Verbindung wieder da ist.</p> : !a ? <p className="ow-muted" aria-busy="true">Lädt …</p> : null}
+      <Diary diary={failed ? [] : a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={!failed && typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
+        {failed ? <p className="ow-muted">{OFFLINE_LINE}</p> : !a ? <p className="ow-muted" aria-busy="true">Lädt …</p> : null}
       </Diary>
       {/* Until ENG-086 moves them under Kunden, the invite link and the Tresenschild stay reachable here, below the diary
           (Einstellungen, where the owner also finds them, is owner-only). */}
@@ -110,17 +137,26 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   );
 }
 
+/** The board's numbers, the only part of the page kept on this device (board-cache.ts). */
+export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: RetentionSummary | null, locationId: string): BoardData {
+  return {
+    timezone: a.timezone, today: a.today, days: a.days, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
+    spend: spend ? { currency: spend.currency, figures: locationSpend(spend, locationId) } : undefined,
+    stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
+  };
+}
+
 const shiftDay = (date: string, by: number) => new Date(new Date(`${date}T12:00:00Z`).getTime() + by * 86_400_000).toISOString().slice(0, 10);
 
 /** The active location's 30 days in the spend read (the board is about this location, spec §1). */
 const locationSpend = (spend: MerchantSpend, locationId: string): SpendFigures => spend.locations.find(row => row.locationId === locationId)?.recent ?? spend.overall.recent;
 /** Euros lead when bookings carried till amounts; an average-only estimate leads only behind the Q-81 switch. */
-const boardEuros = (spend: MerchantSpend, locationId: string) => { const f = locationSpend(spend, locationId); return f.realMinor > 0 || (ESTIMATES_ON_BOARD && f.averagePerVisitMinor !== null); };
+const boardEuros = (f: SpendFigures) => f.realMinor > 0 || (ESTIMATES_ON_BOARD && f.averagePerVisitMinor !== null);
 
-function OwnerNumber({ spend, locationId, bookings }: { spend: MerchantSpend; locationId: string; bookings: number }) {
-  const f = locationSpend(spend, locationId);
+function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"]>; bookings: number }) {
+  const f = spend.figures;
   const [askHidden, hideAsk] = useHiddenAsk();
-  if (boardEuros(spend, locationId)) {
+  if (boardEuros(f)) {
     const exact = f.estimatedMinor === 0;
     return <>
       <BigMoney text={formatMinor(f.spentMinor, spend.currency)} />
@@ -140,7 +176,6 @@ function OwnerNumber({ spend, locationId, bookings }: { spend: MerchantSpend; lo
 
 const readAskHidden = () => { try { return Number(window.localStorage.getItem(ASK_KEY) ?? 0) > Date.now(); } catch { return false; } };
 const readMilestones = () => { try { return window.localStorage.getItem(MILESTONE_KEY) ?? ""; } catch { return "-"; } };
-const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
 
 /** „Nicht jetzt“ hides the average ask for 30 days in this browser (spec §2.2); without storage the ask simply stays. */
 function useHiddenAsk(): [boolean, () => void] {
@@ -173,34 +208,41 @@ function useMilestone(locationId: string, cards: number): number | null {
 }
 
 /**
- * The four tiles (spec §1.3, copy T0–T5, Q1–Q4). The note says „erste/zweite Woche“ in the first 14 days after the first
- * booking, „vorher N“ once there is a full previous period (O7), else what was counted.
+ * The four tiles (spec §1.3, copy T0–T6, Q1–Q4). A tile whose event never happened at this location shows „–“ and when it
+ * will appear (lifetime counts from /api/me); a real 0 after earlier activity stays 0. The page only shows after the first
+ * booking, so the Buchungen tile always has a number. Notes: „erste/zweite Woche“ in the programme's first 14 days,
+ * „vorher N“ once there is a full previous period (O7), else what was counted. Only the Buchungen tile links to a Kunden
+ * filter that exists today; the others come with ENG-086.
  */
-export function tilesOf(a: LocationAnalytics, options: { owner: boolean; bonusHref: string | null }): Tile[] {
-  const sinceFirst = a.firstBookingOn ? daysBetween(a.firstBookingOn, a.today) : null;
+export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
+  const sinceStart = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
   const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) =>
-    sinceFirst !== null && sinceFirst < 7 ? "erste Woche" : sinceFirst !== null && sinceFirst < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
+    sinceStart !== null && sinceStart < 7 ? "erste Woche" : sinceStart !== null && sinceStart < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
   const bonusOn = a.winbackSetting?.enabled ?? false;
   const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
+  const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
-    { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen." },
-    { key: "cards", label: "Neue Karten", value: nf.format(a.current.newCards), note: note("newCards", "erstmals angemeldet"), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
+    { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
+    { key: "cards", label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
     { key: "back", label: "Wiedergekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
-    { key: "rewards", label: "Prämien eingelöst", value: nf.format(a.current.redemptions), note: note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
+    { key: "rewards", label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
   ];
 }
 
 const cardsText = (n: number, one: string, many: string) => n === 1 ? `1${NBSP}Karte ${one}` : `${nf.format(n)}${NBSP}Karten ${many}`;
 
 /**
- * „Als Nächstes“: one line, one verb (copy N1–N3). An open required set-up step first, then the most urgent observation,
- * then a quiet week (7+ days without a booking). Nothing urgent: no bar. While the programme is ending, the end-date card leads.
+ * „Als Nächstes“: one line, one verb (copy N1–N3), status by exception. A quiet week (7+ days without a booking) first,
+ * then an open required set-up step, then the most urgent observation. Nothing urgent: no bar. While the programme is
+ * ending, the end-date card leads instead.
  */
-export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | null; sign: () => void }): { title: string; text?: string; action?: NextAction } | null {
+export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | "over90" | null; sign: () => void }): { title: string; text?: string; action?: NextAction } | null {
   const { me, retention, referrals, readiness, winback, quiet, sign } = input;
   const isOwner = me.role === "owner";
-  if (me.cancellationEndDate || retention.state !== "ok" || readiness.state !== "ok") return null;
+  if (me.cancellationEndDate) return null;
+  if (quiet !== null) return { title: `${quiet === "over90" ? "Seit über 90 Tagen" : `Seit ${quiet} Tagen`} keine Buchung. Steht das Tresenschild noch gut sichtbar?`, action: { label: "Tresenschild laden", onClick: sign } };
+  if (retention.state !== "ok" || readiness.state !== "ok") return null;
   // The step's evidence is its action sentence (#129); its title stays on the steps list.
   const setup = readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly));
   if (setup) return { title: setup.evidence, action: setup.action ?? undefined };
@@ -212,7 +254,6 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   }
   if (insight?.id === "reward-ready") return { title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
   if (insight) return { title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
-  if (quiet !== null) return { title: `Seit ${quiet} Tagen keine Buchung. Steht das Tresenschild gut sichtbar?`, action: { label: "Tresenschild laden", onClick: sign } };
   return null;
 }
 
@@ -228,22 +269,19 @@ function ErrorCard({ reload }: { reload: () => void }) {
 
 /* ───────────── Empty shop: the board guides the first required step ───────────── */
 
-/** The rail's steps and their sentences (copy E7); the card and team steps are under „Wenn du magst“. */
+/** The rail's steps and their sentences (copy E7). Karte gestalten and Team stay where they are today (Programm, Team). */
 const FIRST_STEPS: Record<string, (me: MeResponse) => { title: string; text?: string }> = {
   programme: () => ({ title: "Programm und Prämie" }),
   enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit dem Anmeldelink oder dem Tresenschild." }),
-  first_award: me => ({ title: "Erste Buchung an der Kasse", text: me.programType === "points" ? "Punkte auf deine eigene Karte." : "Ein Stempel auf deine eigene Karte." }),
+  first_award: me => ({ title: "Erste Buchung an der Kasse", text: me.programType === "points" ? "Ein paar Punkte auf deine eigene Karte." : "Ein Stempel auf deine eigene Karte." }),
   first_redemption: () => ({ title: "Einlösung einmal durchspielen", text: "Zeigt deinem Team die Bestätigung." }),
 };
 
 function EmptyShop({ me }: { me: MeResponse }) {
-  const isOwner = me.role === "owner";
   const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const [signError, setSignError] = useState("");
   const today = localNow(new Date(), "Europe/Berlin").date;
   const steps = readiness.state === "ok" ? readiness.data.steps.filter(step => step.id in FIRST_STEPS) : [];
   const current = steps.find(step => step.required && step.status === "todo");
-  const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const joinUrl = joinUrlOf(me);
   const lead = !current ? null
     : current.id === "enrolment" ? { title: "Melde die erste Karte selbst an.", text: "Mit deinem eigenen Handy. So siehst du, was deine Kundinnen und Kunden sehen.", action: joinUrl ? <a className="ow-btn ow-btn--board ow-btn--sm" href={joinUrl} target="_blank" rel="noopener noreferrer">Anmeldelink öffnen</a> : null }
@@ -277,14 +315,9 @@ function EmptyShop({ me }: { me: MeResponse }) {
             </div>
           );
         })}
-        <h2 style={{ marginTop: 32 }}>Wenn du magst</h2>
-        <div className="ow-row" style={{ marginTop: 8 }}>
-          {isOwner && <Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/program/card">Karte gestalten</Link>}
-          {isOwner && <Link className="ow-btn ow-btn--secondary ow-btn--sm" href="/merchant/staff">Team einladen</Link>}
-          <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={sign}>Tresenschild laden</button>
-        </div>
-        {signError && <p className="ow-error" role="alert">{signError}</p>}
       </section>
+      {/* The invite link and the Tresenschild, until ENG-086 moves them under Kunden. */}
+      <JoinCard me={me} />
     </div>
   );
 }

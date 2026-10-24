@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { boardCacheKey } from "@/lib/board-cache";
 import type { MeResponse } from "@/components/client-api";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import type { LaunchReadiness } from "@/lib/readiness";
@@ -9,6 +10,8 @@ import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 type Load = { state: "ok"; data: unknown; at: number } | { state: "loading" } | { state: "error"; message: string };
 const state = vi.hoisted(() => ({ me: null as MeResponse | null, locations: [] as Array<{ id: string }>, hidden: [] as string[], loads: {} as Record<string, Load>, urls: [] as string[] }));
 vi.mock("./owner-context", () => ({ useOwner: () => ({ me: state.me, locations: state.locations, hiddenSurfaces: state.hidden }) }));
+// The client snapshot, so this device's storage (stubbed per test) reaches a server render; without a window it is empty.
+vi.mock("react", async importOriginal => ({ ...await importOriginal<typeof import("react")>(), useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot() }));
 vi.mock("./use-load", () => ({
   useLoad: (url: string | null) => {
     if (url) state.urls.push(url);
@@ -17,10 +20,10 @@ vi.mock("./use-load", () => ({
   },
 }));
 
-import { milestoneToShow, Overview, tilesOf } from "./overview";
+import { boardOf, milestoneToShow, Overview, quietOf, tilesOf } from "./overview";
 
 const ok = (data: unknown): Load => ({ state: "ok", data, at: 0 });
-const NBSP = " ";
+const NBSP = "\u00a0";
 const me = (patch: Partial<MeResponse> = {}): MeResponse => ({
   userId: "u", tenantId: "t", locationId: "loc-1", role: "owner", businessName: "Café Lindenblatt", locationName: "Kassel Mitte", publicBaseUrl: "http://localhost:3000",
   programSlug: "cafe", programType: "points", rewardTitle: "Kaffee", rewardCost: 100, stats: { members: 9, awards: 30, redemptions: 2 }, activity: [], ...patch,
@@ -30,7 +33,7 @@ const days = (counts: number[]) => counts.map((bookings, index) => ({ date: new 
 const analytics = (patch: Partial<LocationAnalytics> = {}): LocationAnalytics => ({
   locationId: "loc-1", windowDays: 30, from: "", asOf: "", winback: null,
   current: { newCards: 4, qualifyingCheckouts: 9, repeatCards: 3, redemptions: 0, winbacks: 2 }, previous: { newCards: 0, qualifyingCheckouts: 10, repeatCards: 1, redemptions: 1, winbacks: 1 },
-  timezone: "Europe/Berlin", today: "2026-11-04", days: days([1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 3]), lastBookingOn: "2026-11-03", firstBookingOn: "2026-08-01", fullTwoWeeks: true,
+  timezone: "Europe/Berlin", today: "2026-11-04", days: days([1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 3]), lastBookingOn: "2026-11-03", programStartedOn: "2026-08-01", fullTwoWeeks: true,
   winbackSetting: { enabled: true, days: 30 },
   diary: [
     { date: "2026-11-03", bookings: 3, units: 21, more: 0, entries: [{ kind: "award", amount: 7 }, { kind: "award", amount: 7 }, { kind: "award", amount: 7 }] },
@@ -44,6 +47,7 @@ const retention: RetentionSummary = { asOf: "", inactiveDays: 30, locationId: "l
 const readiness = (steps: Array<Partial<LaunchReadiness["steps"][number]>> = []) => ({ locationId: "loc-1", steps, next: null, requiredDone: 1, requiredTotal: 3 });
 const render = () => renderToStaticMarkup(createElement(Overview));
 
+afterEach(() => { vi.unstubAllGlobals(); });
 beforeEach(() => {
   state.me = me(); state.locations = [{ id: "loc-1" }, { id: "loc-2" }]; state.hidden = []; state.urls = [];
   state.loads = {
@@ -67,6 +71,10 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("Letzte 30 Tage an diesem Standort");
     expect([...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1])).toEqual(["Buchungen", "Neue Karten", "Wiedergekommen", "Prämien eingelöst"]);
     expect(html).toContain("vorher 10");
+    const link = html.match(/<a class="ow-tile-link" href="([^"]+)">(.*?)<\/a>/);
+    expect(link?.[1]).toBe("/merchant/customers?activity=recent&amp;days=30&amp;locationId=loc-1");
+    expect(link?.[2]).toBe(`<span class="ow-sr">Buchungen: </span><span class="ow-tile-n">9</span><span class="ow-tile-note">vorher 10</span>`);
+    expect(html.match(/class="ow-tile-link"/g)).toHaveLength(1); // the other Kunden filters come with ENG-086
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
@@ -89,11 +97,26 @@ describe("Übersicht direction D (ENG-085)", () => {
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ days: days([1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), lastBookingOn: "2026-10-24", diary: [{ date: "2026-10-24", bookings: 1, units: 1, more: 0, entries: [{ kind: "award", amount: 1 }] }] }));
     const html = render();
     expect(html).toContain("Eine ruhige Woche. Die letzte Buchung war am Samstag, 24.10.");
-    expect(html).toContain("<b>Seit 11 Tagen keine Buchung. Steht das Tresenschild gut sichtbar?</b>");
+    expect(html).toContain("<b>Seit 11 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
     expect(html).toContain(">Tresenschild laden</button>");
     expect(html).toContain("25.10.–03.11.");
     expect(html).toContain(`1${NBSP}Punkt vergeben`);
     expect(html).not.toContain("Dringendes");
+    state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 }); // status by exception: the quiet week comes first
+    expect(render()).toContain("<b>Seit 11 Tagen keine Buchung.");
+  });
+
+  it("no booking in the read's 90 days: „Seit über 90 Tagen keine Buchung.“ and the quiet next step, no gap; a younger programme is not quiet", () => {
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ days: days(Array(15).fill(0)), lastBookingOn: null, programStartedOn: "2026-06-01", diary: [] }));
+    const html = render();
+    expect(html).toContain('<p class="ow-board-news">Seit über 90 Tagen keine Buchung.</p>');
+    expect(html).toContain("<b>Seit über 90 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
+    expect(html).not.toContain("keine Buchung</p>"); // no diary gap without a known last booking
+    expect(quietOf({ lastBookingOn: null, programStartedOn: "2026-08-05", today: "2026-11-04" })).toBe("over90"); // 91 days
+    expect(quietOf({ lastBookingOn: null, programStartedOn: "2026-08-06", today: "2026-11-04" })).toBeNull(); // 90 days: every booking would be in the read
+    expect(quietOf({ lastBookingOn: null, programStartedOn: null, today: "2026-11-04" })).toBeNull();
+    expect(quietOf({ lastBookingOn: "2026-10-28", programStartedOn: "2026-06-01", today: "2026-11-04" })).toBe(7);
+    expect(quietOf({ lastBookingOn: "2026-10-29", programStartedOn: "2026-06-01", today: "2026-11-04" })).toBeNull();
   });
 
   it("next step: cards away and rewards ready in one line with „Ansehen“", () => {
@@ -134,6 +157,27 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(failed).toContain("Lädt, sobald die Verbindung wieder da ist.");
   });
 
+  it("a failed read shows this device's last board with „Stand …“, the tiles and diary wait, and no error card", () => {
+    const board = boardOf(analytics(), spend(figures({ visits: 9, spentMinor: 12_810, realMinor: 12_810 })), null, "loc-1");
+    const stored = new Map([[boardCacheKey("u", "loc-1"), JSON.stringify({ at: new Date(Date.now() - 60_000).toISOString(), board })]]);
+    vi.stubGlobal("window", { localStorage: { getItem: (key: string) => stored.get(key) ?? null }, addEventListener() {}, removeEventListener() {} });
+    state.loads["/api/merchant/analytics/location"] = { state: "error", message: "x" };
+    state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
+    const html = render();
+    expect(html).toContain("128<small>,10");
+    expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
+    expect(html).toMatch(/role="status">Stand (heute, \d{1,2}:\d{2}|gestern)</);
+    expect(html).not.toContain("Die Zahlen sind gerade nicht da.");
+    expect(html).not.toContain("ow-tile-label");
+    expect(html.match(/Lädt, sobald die Verbindung wieder da ist\./g)).toHaveLength(2);
+    expect(html).not.toContain("ow-nextbar"); // no next step beside stale numbers, though cards are away
+    state.me = me({ userId: "someone-else" }); // another person on this device
+    expect(render()).toContain("Die Zahlen sind gerade nicht da.");
+    state.me = me();
+    stored.set(boardCacheKey("u", "loc-1"), JSON.stringify({ at: new Date(Date.now() - 8 * 86_400_000).toISOString(), board })); // older than 7 days
+    expect(render()).toContain("Die Zahlen sind gerade nicht da.");
+  });
+
   it("diary: one entry per day, „Korrektur −2“ as its own pill, the redeemed reward marked once, the rest counted, no times", () => {
     const html = render();
     expect(html).toContain("<h3>Gestern</h3>");
@@ -151,21 +195,27 @@ describe("Übersicht direction D (ENG-085)", () => {
 });
 
 describe("the four tiles (spec §1.3, copy T1–T5)", () => {
-  it("say „erste Woche“ and „zweite Woche“ after the first booking, „vorher N“ with a full previous period, else what was counted", () => {
-    const notes = (patch: Partial<LocationAnalytics>) => tilesOf(analytics(patch), { owner: true, bonusHref: "/merchant/wallet-messages#winback-title" }).map(tile => typeof tile.note === "string" ? tile.note : "link");
-    expect(notes({ firstBookingOn: "2026-10-30", previous: null })).toEqual(["erste Woche", "erste Woche", "erste Woche", "erste Woche"]);
-    expect(notes({ firstBookingOn: "2026-10-24", previous: null })).toEqual(["zweite Woche", "zweite Woche", "zweite Woche", "zweite Woche"]);
+  it("say „erste Woche“ and „zweite Woche“ after the programme start, „vorher N“ with a full previous period, else what was counted", () => {
+    const notes = (patch: Partial<LocationAnalytics>) => tilesOf(analytics(patch), { owner: true, bookingsHref: null, bonusHref: "/merchant/wallet-messages#winback-title" }).map(tile => typeof tile.note === "string" ? tile.note : "link");
+    expect(notes({ programStartedOn: "2026-10-29", previous: null })).toEqual(["erste Woche", "erste Woche", "erste Woche", "erste Woche"]);
+    expect(notes({ programStartedOn: "2026-10-22", previous: null })).toEqual(["zweite Woche", "zweite Woche", "zweite Woche", "zweite Woche"]);
     expect(notes({})).toEqual(["vorher 10", "vorher 0", "vorher 1", "vorher 1"]);
     expect(notes({ previous: null })).toEqual(["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"]);
   });
   it("show „–“ for a shop with the bonus off, linked to the setting for the owner where it is offered, and name the owner's days in „?“", () => {
     const off = analytics({ winbackSetting: { enabled: false, days: 45 } });
-    const owner = tilesOf(off, { owner: true, bonusHref: "/merchant/wallet-messages#winback-title" })[2];
+    const owner = tilesOf(off, { owner: true, bookingsHref: null, bonusHref: "/merchant/wallet-messages#winback-title" })[2];
     expect(owner.value).toBe("–");
     expect(renderToStaticMarkup(createElement("p", null, owner.note))).toContain('href="/merchant/wallet-messages#winback-title"');
-    expect(tilesOf(off, { owner: true, bonusHref: null })[2].note).toBe("Willkommen-zurück-Bonus ist aus"); // withheld page: no dead link
-    expect(tilesOf(off, { owner: false, bonusHref: "/x" })[2].note).toBe("Willkommen-zurück-Bonus ist aus");
+    expect(tilesOf(off, { owner: true, bookingsHref: null, bonusHref: null })[2].note).toBe("Willkommen-zurück-Bonus ist aus"); // withheld page: no dead link
+    expect(tilesOf(off, { owner: false, bookingsHref: null, bonusHref: "/x" })[2].note).toBe("Willkommen-zurück-Bonus ist aus");
     expect(owner.help).toBe("Karten, die nach über 45 Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.");
+  });
+  it("show „–“ and when it appears for a thing that never happened here, and a real 0 after earlier activity as 0 (T6)", () => {
+    const a = analytics({ current: { newCards: 0, qualifyingCheckouts: 9, repeatCards: 0, redemptions: 0, winbacks: 0 }, previous: null });
+    const shown = (stats: MeResponse["stats"]) => tilesOf(a, { owner: true, stats, bookingsHref: null, bonusHref: null }).map(tile => [tile.value, tile.note]);
+    expect(shown({ members: 0, awards: 3, redemptions: 0 })).toEqual([["9", "an der Kasse bestätigt"], ["–", "erscheint mit der ersten Anmeldung"], ["0", "mit Willkommen-zurück-Bonus"], ["–", "erscheint nach der ersten Einlösung"]]);
+    expect(shown({ members: 5, awards: 3, redemptions: 1 })).toEqual([["9", "an der Kasse bestätigt"], ["0", "erstmals angemeldet"], ["0", "mit Willkommen-zurück-Bonus"], ["0", "an der Kasse"]]);
   });
 });
 
@@ -203,7 +253,9 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit dem Anmeldelink oder dem Tresenschild.", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
     expect(html).not.toContain("NFC am Tresen");
     expect(html).not.toContain("Kundenkarte gestaltet");
-    expect(html).toContain("/merchant/staff");
+    expect(html).not.toContain("Wenn du magst");
+    expect(html).toContain("Kunden einladen");
+    expect(html).toContain("Tresenschild laden");
   });
 
   it("gives a manager no owner-only links", () => {
