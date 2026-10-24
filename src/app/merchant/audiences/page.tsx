@@ -49,7 +49,7 @@ export default function MerchantAudiencesPage() {
 
   return (
     <div className="ow-page">
-      <PageHead eyebrow={`Kunden · ${me.locationName}`} title="Segmente prüfen" lead="Sieh, wie viele pseudonyme Karten zu einer Regel passen. Das ist noch keine Liste versendbarer Kontakte." />
+      <PageHead eyebrow="Kunden" title="Segmente prüfen" lead="Sieh, wie viele Karten ohne Namen zu einer Regel passen. Das ist noch keine Liste versendbarer Kontakte." />
       {program.state === "error" && <ErrorNotice message={program.message} onRetry={reloadProgram} />}
       {program.state === "loading" && <LoadingBlock />}
       {program.state === "ok" && (

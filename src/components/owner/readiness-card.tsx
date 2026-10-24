@@ -7,8 +7,8 @@ import type { Loadable } from "./use-load";
 
 const GROUPS: Array<{ id: ReadinessStep["group"]; title: string; lead: string }> = [
   { id: "setup", title: "Einrichtung", lead: "Was gespeichert ist." },
-  { id: "verify", title: "Im Betrieb geprüft", lead: "Was ein echter Ablauf bereits belegt hat." },
-  { id: "external", title: "Außerhalb von Loynara", lead: "Bleibt offen, bis es dort geklärt ist. Loynara kann es nicht prüfen." },
+  { id: "verify", title: "Im Betrieb geprüft", lead: "Was an der Kasse schon geklappt hat." },
+  { id: "external", title: "Außerhalb von Loynara", lead: "Wird außerhalb von Loynara geklärt. Loynara kann es nicht prüfen." },
 ];
 const STATUS_TEXT: Record<ReadinessStep["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { apiJson, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
-import { ErrorNotice, LoadingBlock, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
+import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -26,7 +26,7 @@ export default function AutomationsPage() {
   const slug = me?.programSlug ?? "";
   const [data, reload] = useLoad<Data>(me?.role === "owner" && slug ? `/api/merchant/automations?programSlug=${encodeURIComponent(slug)}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow={`Aktionen · ${me.locationName}`} title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
+  const head = <PageHead eyebrow="Aktionen" title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;
@@ -45,8 +45,8 @@ export default function AutomationsPage() {
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
-          <p>Höchstens 20 Nachrichten pro Regel und UTC-Tag. Mindestens sieben Tage Abstand zwischen Automationsnachrichten je Karte. Zusätzlich gelten das konfigurierte Standortlimit und ein Kontaktabstand für alle Angebote. Ruhezeit: zwischen 21 und 9 Uhr Ortszeit des Standorts wird nichts versendet; fällige Nachrichten warten bis 9 Uhr und werden dann erneut geprüft.</p>
-          <p className="ow-muted">Der Kassenabschluss verschickt nie selbst eine Nachricht. Kanal: {d.deliveryMode === "mailgun_eu" ? "Mailgun EU freigeschaltet" : d.deliveryMode === "mailpit" ? "nur lokaler Mailpit-Test" : "promotionaler Versand deaktiviert"}.</p>
+          <MoreInfo summary="Alle Grenzen ansehen"><p>Höchstens 20 Nachrichten pro Regel und UTC-Tag. Mindestens sieben Tage Abstand zwischen Automationsnachrichten je Karte. Zusätzlich gelten das konfigurierte Standortlimit und ein Kontaktabstand für alle Angebote. Ruhezeit: zwischen 21 und 9 Uhr Ortszeit des Standorts wird nichts versendet; fällige Nachrichten warten bis 9 Uhr und werden dann erneut geprüft.</p>
+          <p>Der Kassenabschluss verschickt nie selbst eine Nachricht. Kanal: {d.deliveryMode === "mailgun_eu" ? "Mailgun EU freigeschaltet" : d.deliveryMode === "mailpit" ? "nur lokaler Mailpit-Test" : "promotionaler Versand deaktiviert"}.</p></MoreInfo>
         </aside>
       </div>
       <section className="ow-card ow-stack" aria-labelledby="au-runs">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOwner } from "@/components/owner/owner-context";
-import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
 import { ALL_LOCATIONS_NOTE, PeriodBar } from "@/components/owner/period-bar";
 import { useLoad } from "@/components/owner/use-load";
 import Link from "next/link";
@@ -23,8 +23,8 @@ export default function MerchantAnalyticsPage() {
   const [lapseDays, setLapseDays] = useState<RetentionDays>(30);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? `/api/merchant/retention?days=${lapseDays}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Ergebnisse" title="Auswertung" lead="Neue Karten, bestätigte Buchungen und Prämien im gewählten Zeitraum." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Auswertung sehen.</Notice></div>;
+  const head = <PageHead title="Ergebnisse" lead="Neue Karten, bestätigte Buchungen und Prämien im gewählten Zeitraum." />;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   const maxSeries = Math.max(1, ...(r?.series.map(bucket => Math.max(bucket.newCards, bucket.checkouts)) ?? []));
   return (
@@ -40,23 +40,23 @@ export default function MerchantAnalyticsPage() {
           <div className="ow-metrics">
             <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Alle Karten, die nicht geschlossen sind" />
             <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
-            <Metric label="Bestätigte Buchungen" value={r.qualifyingCheckouts} note="Vom Team bestätigte Vergaben, ohne vollständig rückgängig gemachte." />
-            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Vorgang hatten im Zeitraum mehrere bestätigte Buchungen.` : "Karten mit mindestens zwei bestätigten Vorgängen im Zeitraum."} />
+            <Metric label="Bestätigte Buchungen" value={r.qualifyingCheckouts} note="Vom Team bestätigt, Korrekturen abgezogen" />
+            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Buchung` : "Karten mit 2+ Buchungen im Zeitraum"} />
           </div>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-locations">
-          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Buchungen im gewählten Zeitraum, nach dem bei der Buchung erfassten Standort. Auch Vorgänge aus archivierten Programmen zählen.</p></div></div>
+          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Buchungen im Zeitraum, je Standort.</p></div></div>
           {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
             {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
-          <p className="ow-hint">Aktuelle Standortnamen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl.</p>
+          <MoreInfo><p>Gezählt am Standort der Buchung, mit dem heutigen Namen. Auch Buchungen aus archivierten Programmen zählen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl.</p></MoreInfo>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
-          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im gewählten Zeitraum, über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie.</p></div></div>
+          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im Zeitraum, je Person.</p></div></div>
           {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Buchungen in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
             {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
           </ul>}
-          <p className="ow-hint">Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p>
+          <MoreInfo><p>Über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p></MoreInfo>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-ret">
           <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Buchungen sind erfasst?</p></div>
@@ -67,8 +67,8 @@ export default function MerchantAnalyticsPage() {
             <CardBase summary={retention.data} />
             <div className="ow-metrics">
               <RetentionMetric label="Länger nicht da" value={retention.data.drifting} note={`Früher bestätigte Buchungen, seit ${retention.data.inactiveDays}+ Tagen keine mehr. Vor einer Woche: ${retention.data.driftingWeekAgo}.`} href={retentionCustomerHref(retention.data, "drifting")} />
-              <RetentionMetric label="Prämie jetzt einlösbar" value={retention.data.rewardReady} note="Ein Anlass, die Prämie beim nächsten Besuch anzubieten." href={retentionCustomerHref(retention.data, "reward_ready")} />
-              <RetentionMetric label="Kurz vor der Prämie" value={retention.data.nearReward} note="Höchstens ein Viertel fehlt bis zur günstigsten Prämie, auf ganze Einheiten aufgerundet." href={retentionCustomerHref(retention.data, "near_reward")} />
+              <RetentionMetric label="Prämie jetzt einlösbar" value={retention.data.rewardReady} note="Beim nächsten Mal an der Kasse anbieten." href={retentionCustomerHref(retention.data, "reward_ready")} />
+              <RetentionMetric label="Kurz vor der Prämie" value={retention.data.nearReward} note="Höchstens ¼ fehlt zur günstigsten Prämie" href={retentionCustomerHref(retention.data, "near_reward")} />
               <RetentionMetric label="Noch nie an der Kasse" value={retention.data.never} note={`${retention.data.neverAfterWeek} davon seit über einer Woche angemeldet.`} href={retentionCustomerHref(retention.data, "never")} />
             </div>
           </>}
@@ -81,8 +81,8 @@ export default function MerchantAnalyticsPage() {
         </div>
         {r.referrals.attributed + r.referrals.qualified + r.referrals.reversed > 0 && (
         <section className="ow-card ow-stack" aria-labelledby="an-ref"><h2 id="an-ref">Empfehlungen im Zeitraum</h2>
-          <dl className="ow-dl"><dt>Über Empfehlungslink angemeldet</dt><dd className="ow-num">{r.referrals.attributed}</dd><dt>Erster Einkauf bestätigt, Bonus gebucht</dt><dd className="ow-num">{r.referrals.qualified}</dd><dt>Nach Korrektur zurückgenommen</dt><dd className="ow-num">{r.referrals.reversed}</dd></dl>
-          <p className="ow-hint">Erst der bestätigte erste Einkauf macht aus einer Anmeldung eine gewonnene Kundin oder einen gewonnenen Kunden. <Link className="ow-link" href="/merchant/referrals">Empfehlungen ansehen</Link></p>
+          <dl className="ow-dl"><dt>Über Empfehlungslink angemeldet</dt><dd className="ow-num">{r.referrals.attributed}</dd><dt>Erste Buchung bestätigt, Bonus gebucht</dt><dd className="ow-num">{r.referrals.qualified}</dd><dt>Nach Korrektur zurückgenommen</dt><dd className="ow-num">{r.referrals.reversed}</dd></dl>
+          <p className="ow-hint">Gewonnen ist eine Empfehlung erst mit der ersten bestätigten Buchung. <Link className="ow-link" href="/merchant/referrals">Empfehlungen ansehen</Link></p>
 </section>
         )}
         {r.series.some(bucket => bucket.newCards + bucket.checkouts > 0) && (
@@ -96,7 +96,7 @@ export default function MerchantAnalyticsPage() {
           <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
           <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
         )}
-        <details className="ow-muted"><summary>So zählen wir</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{r.countingRule} {SPEND_COPY.bookingsNote}</p></details>
+        <MoreInfo summary="So zählen wir"><p>{r.countingRule} {SPEND_COPY.bookingsNote} „Kurz vor der Prämie“ rundet auf ganze Einheiten auf.</p></MoreInfo>
       </>}
     </div>
   );
