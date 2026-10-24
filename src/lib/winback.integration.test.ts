@@ -135,14 +135,14 @@ describe("win-back bonus at the counter", () => {
     expect(await give(s, c)).toMatchObject({ winbackBonus: 1 });
     // The rules line names the bonus without promising a Wallet reminder.
     expect((await getCard(c.cardToken)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${winbackRule("stamp", 30, 1, false)}`);
-    expect(winbackRule("stamp", 30, 1, false)).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es 1 Stempel extra, wenn du innerhalb der folgenden 14 Tage wiederkommst. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
+    expect(winbackRule("stamp", 30, 1, false)).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal 1 Stempel extra. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
     expect(await queueWinbackMessages(T("2026-10-26T09:00:00Z"))).toBe(0);
   });
 
   it("shows the bonus in the programme rules on the card and at sign-up while it is on", async () => {
     const s = await shop(); const c = await card(s);
     const rule = winbackRule("stamp", 30, 1);
-    expect(rule).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es 1 Stempel extra, wenn du innerhalb der folgenden 14 Tage wiederkommst. Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
+    expect(rule).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal 1 Stempel extra. Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
     expect((await getCard(c.cardToken)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${rule}`);
     expect((await getPublicProgram(s.slug)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${rule}`);
     // The owner's rule editor gets only the owner's text, so a save never stores the bonus line (ENG-089).
