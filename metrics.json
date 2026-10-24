@@ -1,0 +1,434 @@
+{
+  "before/normal-375-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/normal-375-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/normal-1280-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/normal-1280-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/loading-375-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/loading-375-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/loading-1280-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/loading-1280-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/error-375-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/error-375-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/error-1280-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/error-1280-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/offline-375-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/offline-375-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/offline-1280-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/offline-1280-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/ergebnisse-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/ergebnisse-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/ergebnisse-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/ergebnisse-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/leitung-375-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/leitung-375-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/leitung-1280-light": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/leitung-1280-dark": {
+    "scroll": false,
+    "besuch": 1,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/no-average-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/no-average-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/no-average-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/no-average-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/quiet-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/quiet-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/quiet-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/quiet-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/empty-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/empty-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/empty-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "before/empty-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/normal-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 535
+  },
+  "after/normal-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 535
+  },
+  "after/normal-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 488
+  },
+  "after/normal-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 488
+  },
+  "after/loading-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/loading-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/loading-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/loading-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/error-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/error-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/error-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/error-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/offline-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 535
+  },
+  "after/offline-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 535
+  },
+  "after/offline-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 488
+  },
+  "after/offline-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 488
+  },
+  "after/ergebnisse-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/ergebnisse-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/ergebnisse-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/ergebnisse-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/leitung-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/leitung-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/leitung-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/leitung-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/no-average-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 464
+  },
+  "after/no-average-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 464
+  },
+  "after/no-average-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 416
+  },
+  "after/no-average-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 416
+  },
+  "after/quiet-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 464
+  },
+  "after/quiet-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 464
+  },
+  "after/quiet-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 440
+  },
+  "after/quiet-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": 440
+  },
+  "after/empty-375-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/empty-375-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/empty-1280-light": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  },
+  "after/empty-1280-dark": {
+    "scroll": false,
+    "besuch": 0,
+    "small": [],
+    "newsBottom": null
+  }
+}
