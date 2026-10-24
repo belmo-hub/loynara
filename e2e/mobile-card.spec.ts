@@ -9,13 +9,13 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   test(`card checkout essentials fit ${viewport.width}×${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
-    await expect(page.locator(".customer-card-business strong")).toBeVisible();
+    await expect(page.locator(".customer-header-merchant")).toBeVisible();
     await expect(page.locator(".customer-balance-line strong")).toBeVisible();
     const qr = page.locator(".customer-qr img");
     await expect(qr).toBeVisible();
     await expect.poll(() => qr.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     const qrBox = await qr.boundingBox();
-    const merchantBox = await page.locator(".customer-card-business strong").boundingBox();
+    const merchantBox = await page.locator(".customer-header-merchant").boundingBox();
     const balanceBox = await page.locator(".customer-balance-line strong").boundingBox();
     expect(qrBox).not.toBeNull();
     expect(merchantBox).not.toBeNull();
@@ -41,7 +41,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   const reward = card.rewards[0];
   await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
   await expect(page.locator(".customer-header-merchant")).toHaveText(card.merchantName);
-  await expect(page.locator(".customer-card-business strong")).toHaveText(card.merchantName);
+  // The shop is named once, in the header; the card object shows the location (Impeccable batch 2).
   await expect(page.getByRole("link", { name: "Apple Wallet" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google Wallet" })).toHaveCount(0);
   if (reward && card.balance < reward.cost) {
@@ -57,7 +57,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   expect(new URL(copied).search).toBe("");
   const reopened = await context.newPage();
   await reopened.goto(copied);
-  await expect(reopened.locator(".customer-card-business strong")).toHaveText(card.merchantName);
+  await expect(reopened.locator(".customer-header-merchant")).toHaveText(card.merchantName);
   await expect(reopened.locator(".customer-balance-line strong")).toContainText(String(card.balance));
   await reopened.close();
 });

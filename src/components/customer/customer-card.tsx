@@ -94,7 +94,7 @@ export function CustomerCard(props: CustomerCardProps) {
     <Goal t={t} number={number} programType={programType} balance={balance} selected={selected} readyCount={readyCount} nextGoal={nextGoal} />
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
-    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false}>
+    <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false} business={false}>
       <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
         {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
         {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong>{cardLocator}</strong><small>{t.cardNumberHint}</small></p> : null}
@@ -110,7 +110,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     {notices}
 
-    <Extras items={extras({ t, happyHourUntil, pointsExpiry, challenge, level })} />
+    <Extras items={extras({ t, happyHourUntil, pointsExpiry, challenge, level })} label={t.more} />
 
     {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
       <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>
@@ -144,9 +144,9 @@ export function CustomerCard(props: CustomerCardProps) {
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
       {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
       {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
-      {pointsExpiry?.batches.length ? <><p className={styles.rules}>Deine Punkte verfallen:</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
-      {challenge ? <p className={styles.rules}>Monats-Challenge: {challenge.conditions}</p> : null}
-      {level ? <p className={styles.rules}>Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum beim Level sagt, bis wann es sicher gilt.</p> : null}
+      {pointsExpiry?.batches.length ? <><p className={styles.rules}>{t.expiryList}</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
+      {challenge ? <p className={styles.rules}>{t.challenge}: {challenge.conditions}</p> : null}
+      {level ? <p className={styles.rules}>{t.levelRule}</p> : null}
       <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
     </section> : null}
 
@@ -164,7 +164,7 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
     : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
   return <div className={styles.goal}>
     <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor
-      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={styles.rewardName}>{selected.title}</span></p>
+      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={`goal-reward ${styles.rewardName}`}>{selected.title}</span></p>
     {sub ? <p className={styles.goalSub}>{sub}</p> : null}
   </div>;
 }
@@ -181,31 +181,31 @@ function extras({ t, happyHourUntil, pointsExpiry, challenge, level }: Pick<Cust
   if (happyHourUntil) items.push({ key: "happy", line: t.happyHour(happyHourUntil), block: <p className={styles.highlight}>{t.happyHour(happyHourUntil)}</p> });
   if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
   if (challenge) {
-    const progress = challenge.done ? "Geschafft! Der Bonus ist gutgeschrieben." : `${challenge.visits} von ${challenge.target} Besuchen`;
-    items.push({ key: "challenge", line: `Monats-Challenge: ${challenge.done ? "geschafft" : progress}`, block: <section className={styles.panel} aria-labelledby="customer-challenge-title">
-      <h2 id="customer-challenge-title" className={styles.panelTitle}>Monats-Challenge</h2>
+    const progress = challenge.done ? t.challengeDone : t.challengeProgress(challenge.visits, challenge.target);
+    items.push({ key: "challenge", line: `${t.challenge}: ${challenge.done ? t.challengeDoneShort : progress}`, block: <section className={styles.panel} aria-labelledby="customer-challenge-title">
+      <h2 id="customer-challenge-title" className={styles.panelTitle}>{t.challenge}</h2>
       <p className={styles.rules}>{challenge.text}</p>
       <p className={styles.rules}><strong>{progress}</strong></p>
     </section> });
   }
   if (level) {
-    const title = level.name ? `Dein Level: ${level.name}` : "Noch kein Level";
+    const title = level.name ? t.levelTitle(level.name) : t.noLevel;
     items.push({ key: "level", line: level.perk ? `${title} · ${level.perk}` : title, block: <section className={styles.panel} aria-labelledby="customer-level-title">
       <h2 id="customer-level-title" className={styles.panelTitle}>{title}</h2>
-      {level.name && level.until ? <p className={styles.rules}><strong>{level.name} bis {level.until}</strong>, auch ohne weiteren Besuch.</p> : null}
-      {level.perk ? <p className={styles.rules}>Dein Vorteil: {level.perk}</p> : null}
-      <p className={styles.rules}>{level.next ? `Noch ${level.next.visits} ${level.next.visits === 1 ? "Besuch" : "Besuche"} in 90 Tagen bis ${level.next.name}.` : "Höchstes Level erreicht."}</p>
+      {level.name && level.until ? <p className={styles.rules}><strong>{t.levelUntil(level.name, level.until)}</strong>{t.levelUntilRest}</p> : null}
+      {level.perk ? <p className={styles.rules}>{t.perk(level.perk)}</p> : null}
+      <p className={styles.rules}>{level.next ? t.levelNext(level.next.visits, level.next.name) : t.levelTop}</p>
     </section> });
   }
   return items;
 }
 
-function Extras({ items }: { items: Extra[] }) {
+function Extras({ items, label }: { items: Extra[]; label: string }) {
   const [first, ...rest] = items;
   if (!first) return null;
   return <>
     {first.block}
-    {rest.length ? <ul className={styles.moreList} aria-label="Außerdem">{rest.map(item => <li key={item.key}>{item.line}</li>)}</ul> : null}
+    {rest.length ? <ul className={styles.moreList} aria-label={label}>{rest.map(item => <li key={item.key}>{item.line}</li>)}</ul> : null}
   </>;
 }
 

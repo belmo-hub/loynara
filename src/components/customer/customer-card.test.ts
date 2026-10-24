@@ -92,3 +92,26 @@ describe("extras: one in full, the rest folded (Impeccable L6)", () => {
     expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("Außerdem");
   });
 });
+
+describe("round 2 (Impeccable batch 2, PR I)", () => {
+  it("names the shop once: in the header; the card shows the location only when it differs", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, base));
+    expect(out.split(">Synthetic Café<").length - 1).toBe(1);
+    expect(out).toMatch(/customer-card-business[^"]*"><span>Kassel<\/span><\/p>/);
+    const same = renderToStaticMarkup(h(CustomerCard, { ...base, locationName: "Synthetic Café" }));
+    expect(same).toMatch(/customer-card-business[^"]*"><\/p>/);
+  });
+  it("puts the reward's name on its own line under the headline", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3 }))).toMatch(/bis zu deiner Prämie: <span class="goal-reward [^"]*">Kaffee<\/span>/);
+  });
+  it("speaks French for the level, the challenge and the rules on a French card", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, locale: "fr", level: { name: "Silber", perk: "10 %", until: "15.01.2027", visits: 4, next: { name: "Gold", visits: 2 } },
+      challenge: { text: "x", conditions: "y", visits: 2, target: 3, done: false } }));
+    expect(out).toContain("Défi du mois");
+    expect(out).toContain("2 visites sur 3");
+    expect(out).toContain("Votre niveau : Silber · 10 %");
+    expect(out).toContain('aria-label="Également"');
+    expect(out).toContain("Le niveau compte vos visites des 90 derniers jours.");
+    expect(out).not.toMatch(/Monats-Challenge|Dein Level|Das Level zählt|von 3 Besuchen|Außerdem/);
+  });
+});

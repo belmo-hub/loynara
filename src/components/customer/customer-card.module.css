@@ -9,7 +9,8 @@
 .goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 .goalNum { color: var(--merchant-text); font-size: 1.2em; font-variant-numeric: lining-nums; }
 /* The reward is a name: it wraps at spaces only (Head of Design), very long single words may still break. */
-.rewardName { hyphens: manual; overflow-wrap: anywhere; }
+/* The headline stays within two lines; the reward's name follows on its own line, a step smaller. */
+.rewardName { display: block; margin-top: var(--space-1); font-size: var(--text-22); line-height: 1.25; hyphens: manual; overflow-wrap: anywhere; }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
@@ -17,7 +18,8 @@
 .business { display: grid; margin: 0; min-width: 0; }
 .business strong { font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; overflow-wrap: anywhere; }
 .business span { font-size: var(--text-14); overflow-wrap: anywhere; }
-.readyTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: #FFFFFF; color: #143D2E; font-size: var(--text-14); font-weight: var(--weight-heavy); animation: press var(--dur-reward) var(--ease-out); }
+/* The reward moment is the stamp coral (design bar); --stamp-fill/--stamp-ink keep it readable on every shop colour. */
+.readyTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--stamp-fill); color: var(--stamp-ink); font-size: var(--text-14); font-weight: var(--weight-heavy); animation: press var(--dur-reward) var(--ease-out); }
 /* „Prämie bereit“ lands like a stamp: a little large and tilted, then pressed flat. Once, on arrival. */
 @keyframes press { from { transform: scale(1.35) rotate(-8deg); opacity: 0; } 60% { transform: scale(.96) rotate(1deg); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .readyTag { animation: none; } }

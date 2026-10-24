@@ -48,7 +48,7 @@ test("owner edits merchant identity with a live preview and customer card sees t
         await expect(customer.getByRole("heading", { name: "Willkommen zurück." })).toBeVisible();
         await customer.getByRole("link", { name: "Meine Karte öffnen" }).click();
         await expect(customer.locator(".customer-card")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-        await expect(customer.locator(".customer-card-business strong")).toHaveCSS("color", "rgb(0, 0, 0)");
+        await expect(customer.locator(".customer-card")).toHaveCSS("color", "rgb(0, 0, 0)");
         await expect(customer.locator(".customer-card")).toContainText("After Café");
         await expect(customer.getByText("Coffee", { exact: true }).first()).toBeVisible();
       } finally { await customerContext.close(); }

@@ -24,7 +24,6 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
   { file: "src/components/customer/customer-card.module.css", kind: "font size", selectors: [".goalLine"], value: "clamp(1.5rem, 6.6vw, var(--text-28))", reason: "the goal line shrinks on narrow phones so merchant, balance and QR fit 360 × 800" },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small", ".ticketNote"], reason: QR_TICKET },
-  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".readyTag"], reason: "the 'reward ready' tag sits on the merchant-coloured card: white with dark ink in both themes" },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
