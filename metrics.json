@@ -1,0 +1,514 @@
+{
+  "before/cafe-inhaber-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Ergebnisse (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/cafe-inhaber-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 11,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/cafe-inhaber-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Ergebnisse (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/cafe-inhaber-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 11,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/cafe-inhaber-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Ergebnisse (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/cafe-inhaber-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 11,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/cafe-inhaber-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Ergebnisse (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/cafe-inhaber-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 11,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/cafe-leitung-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "before/cafe-leitung-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "before/cafe-leitung-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "before/cafe-leitung-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "before/baeckerei-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/baeckerei-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 5,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/baeckerei-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/baeckerei-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 5,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/baeckerei-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/baeckerei-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 5,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/baeckerei-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/baeckerei-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 5,
+    "small": [
+      "Durchschnittsbon eintragen (21px)"
+    ],
+    "h1": "Auswertung"
+  },
+  "before/barbier-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/barbier-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 6,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/barbier-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/barbier-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 6,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/barbier-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/barbier-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 6,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/barbier-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 2,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "before/barbier-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 6,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/blumen-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/blumen-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/blumen-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "before/blumen-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/cafe-inhaber-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/cafe-inhaber-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/cafe-inhaber-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/cafe-inhaber-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/cafe-inhaber-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/cafe-inhaber-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/cafe-inhaber-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/cafe-inhaber-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/cafe-leitung-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "after/cafe-leitung-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "after/cafe-leitung-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "after/cafe-leitung-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [],
+    "h1": "Übersicht"
+  },
+  "after/baeckerei-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/baeckerei-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/baeckerei-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/baeckerei-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/baeckerei-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/baeckerei-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/baeckerei-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/baeckerei-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/barbier-merchant-375-light": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/barbier-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/barbier-merchant-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/barbier-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 1,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/barbier-merchant-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 1,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/barbier-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/barbier-merchant-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [
+      "Alle Zahlen und Zeiträume (22px)"
+    ],
+    "h1": "Übersicht"
+  },
+  "after/barbier-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/blumen-merchant-analytics-375-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/blumen-merchant-analytics-375-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/blumen-merchant-analytics-1280-light": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Auswertung"
+  },
+  "after/blumen-merchant-analytics-1280-dark": {
+    "scroll": false,
+    "nothingUrgent": 0,
+    "besuch": 0,
+    "small": [],
+    "h1": "Auswertung"
+  }
+}
