@@ -41,6 +41,7 @@ export function ReadinessCard({ readiness, reload, isOwner, compact = false }: {
           <p className="ow-eyebrow" style={{ margin: 0 }}>Nächster Schritt</p>
           <h3>{next.title}</h3>
           <p>{next.evidence} {data.next.reason}</p>
+          {next.note && <p className="ow-step-note">{next.note}</p>}
           {visibleAction(next) && <div><Link className="ow-btn ow-btn--sm ow-btn--primary" href={visibleAction(next)!.href}>{visibleAction(next)!.label}</Link></div>}
         </div>
       )}
@@ -59,6 +60,7 @@ export function ReadinessCard({ readiness, reload, isOwner, compact = false }: {
                     <div>
                       <div className="ow-step-title">{step.title}{step.required && step.status !== "done" && <span className="ow-chip ow-chip--warn" style={{ marginLeft: 8 }}>Pflicht</span>}<span className="ow-sr"> – {STATUS_TEXT[step.status]}</span></div>
                       <div className="ow-step-note">{step.evidence}</div>
+                      {step.note && step.status !== "done" && <div className="ow-step-note">{step.note}</div>}
                     </div>
                     {action && step.status !== "external" && next?.id !== step.id ? <Link className="ow-btn ow-btn--sm ow-btn--ghost" href={action.href}>{action.label}</Link> : <span />}
                   </li>

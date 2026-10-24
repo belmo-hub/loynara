@@ -22,6 +22,8 @@ export type ReadinessStep = {
   status: ReadinessStatus;
   title: string;
   evidence: string;
+  /** What does not count, shown muted under the step; kept out of `evidence` so the next-step line is the action alone. */
+  note?: string;
   action?: { label: string; href: string; ownerOnly?: boolean };
 };
 export type LaunchReadiness = {
@@ -86,7 +88,7 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
     : { id: "enrolment", group: "verify", required: true, status: "todo", title: "Erste Karte angemeldet", evidence: "Noch keine Karte. Melde dich mit dem Anmeldelink oder dem Tresenschild selbst an.", action: { label: "Anmeldelink öffnen", href: "/merchant/settings" } });
   steps.push(facts.first_award_at
     ? { id: "first_award", group: "verify", required: true, status: "done", title: "Erste Buchung an der Kasse bestätigt", evidence: `Erstmals am ${germanDate(facts.first_award_at, location.timezone)}; nicht korrigiert.` }
-    : { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Buchung an der Kasse bestätigt", evidence: "Lass an der Kasse eine Buchung auf deiner eigenen Karte bestätigen. Demo-Daten, Boni, bloßes Antippen und korrigierte Buchungen zählen hier nicht.", action: { label: "Kasse öffnen", href: "/cashier" } });
+    : { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Buchung an der Kasse bestätigt", evidence: "Lass an der Kasse eine Buchung auf deiner eigenen Karte bestätigen.", note: "Demo-Daten, Boni, bloßes Antippen und korrigierte Buchungen zählen hier nicht.", action: { label: "Kasse öffnen", href: "/cashier" } });
   steps.push(facts.first_redeem_at
     ? { id: "first_redemption", group: "verify", required: false, status: "done", title: "Einlösung einmal durchgespielt", evidence: `Erstmals am ${germanDate(facts.first_redeem_at, location.timezone)}.` }
     : { id: "first_redemption", group: "verify", required: false, status: "todo", title: "Einlösung einmal durchgespielt", evidence: "Löse an der Kasse einmal eine Prämie ein, damit dein Team den Ablauf kennt.", action: { label: "Kasse öffnen", href: "/cashier" } });
