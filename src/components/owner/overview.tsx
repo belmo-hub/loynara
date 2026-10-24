@@ -219,7 +219,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) =>
     sinceStart !== null && sinceStart < 7 ? "erste Woche" : sinceStart !== null && sinceStart < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
   const bonusOn = a.winbackSetting?.enabled ?? false;
-  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
+  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
     { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
