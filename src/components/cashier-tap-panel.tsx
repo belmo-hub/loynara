@@ -5,8 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
-import { Button, buttonClassName } from "./ui/button";
-import { Dialog } from "./ui/dialog";
+import { buttonClassName } from "./ui/button";
 import { TextField } from "./ui/field";
 
 export type TapPanelLocale = "de" | "fr";
@@ -53,14 +52,14 @@ const STRINGS: Record<TapPanelLocale, {
   confirmed: (cardLocator: string, balance: string) => string;
   rejected: string; alreadyProcessed: string;
   expired: string; cooldown: string; forbidden: string; notFound: string; rateLimited: string; network: string; failed: string;
-  introPoints: string; amount: (currency: string) => string; points: string; rate: (rate: number, currency: string) => string; review: (points?: number) => string;
-  reviewTitle: string; reviewText: (points: number, cardLocator: string, amount?: string) => string; cancel: string; yes: string;
+  introPoints: string; amount: (currency: string) => string; points: string; rate: (rate: number, currency: string) => string; book: string;
+  preview: (points: number, balance?: number) => string;
   confirmedPoints: (cardLocator: string, balance: string) => string; cooldownPoints: string; limit: string; staleRule: string; otherEntry: string;
 }> = {
   de: {
     title: "NFC-Anfragen",
     empty: "Keine offenen NFC-Anfragen",
-    intro: "Prüfe den Einkauf an der Kasse, bevor du einen Stempel bestätigst.",
+    intro: "Einkauf prüfen, dann bestätigen.",
     offline: "Keine Verbindung. Angezeigt wird der letzte bekannte Stand. Die Liste aktualisiert sich, sobald du wieder online bist.",
     loadError: "Anfragen konnten gerade nicht geladen werden. Es wird erneut versucht.",
     cardLabel: "Kartennummer",
@@ -82,15 +81,12 @@ const STRINGS: Record<TapPanelLocale, {
     rateLimited: "Zu viele Versuche. Bitte kurz warten und dann erneut versuchen.",
     network: "Keine Verbindung. Die Anfrage ist vielleicht noch offen. Prüfe die Liste, bevor du sie erneut bestätigst.",
     failed: "Das hat nicht geklappt. Bitte versuche es erneut.",
-    introPoints: "Trage den Einkauf ein und prüfe die Punkte, bevor du bestätigst.",
+    introPoints: "Betrag eintragen, Punkte prüfen, buchen.",
     amount: currency => `Kaufbetrag (${currency})`,
     points: "Punkte",
     rate: (rate, currency) => `${rate} ${rate === 1 ? "Punkt" : "Punkte"} pro 1 ${currency}, abgerundet.`,
-    review: points => points ? `${points} ${points === 1 ? "Punkt" : "Punkte"} prüfen` : "Punkte prüfen",
-    reviewTitle: "Vergabe bestätigen?",
-    reviewText: (points, cardLocator, amount) => `${points} ${points === 1 ? "Punkt" : "Punkte"}${amount ? ` für einen Kauf über ${amount}` : ""} für Karte ${cardLocator}.`,
-    cancel: "Abbrechen",
-    yes: "Ja, vergeben",
+    book: "Buchen",
+    preview: (points, balance) => `+${points} ${points === 1 ? "Punkt" : "Punkte"}${balance === undefined ? "" : ` · Neuer Stand: ${balance}`}`,
     confirmedPoints: (cardLocator, balance) => `Punkte für ${cardLocator} gebucht. Neuer Stand: ${balance}.`,
     cooldownPoints: "Auf dieser Karte wurden gerade erst Punkte gebucht. Bitte noch nicht bestätigen.",
     limit: "Kaufbetrag oder Punkte überschreiten das Limit dieser Rolle. Bitte die Inhaberin oder den Inhaber zur Prüfung hinzuziehen.",
@@ -100,7 +96,7 @@ const STRINGS: Record<TapPanelLocale, {
   fr: {
     title: "Demandes NFC",
     empty: "Aucune demande NFC en attente",
-    intro: "Vérifiez l’achat à la caisse avant de confirmer un tampon.",
+    intro: "Vérifiez l’achat, puis confirmez.",
     offline: "Pas de connexion. La liste affiche la dernière mise à jour et se rafraîchit dès que la connexion revient.",
     loadError: "Les demandes n’ont pas pu être chargées. Nouvelle tentative en cours.",
     cardLabel: "Numéro de carte",
@@ -122,15 +118,12 @@ const STRINGS: Record<TapPanelLocale, {
     rateLimited: "Trop de demandes. Patientez un instant, puis réessayez.",
     network: "Pas de connexion. La demande est peut-être encore ouverte. Vérifiez la liste avant de la confirmer à nouveau.",
     failed: "L’action a échoué. Veuillez réessayer.",
-    introPoints: "Saisissez l’achat et vérifiez les points avant de confirmer.",
+    introPoints: "Saisissez le montant, vérifiez les points, enregistrez.",
     amount: currency => `Montant de l’achat (${currency})`,
     points: "Points",
     rate: (rate, currency) => `${rate} point(s) par 1 ${currency}, arrondi vers le bas.`,
-    review: points => points ? `Vérifier ${points} point(s)` : "Vérifier les points",
-    reviewTitle: "Confirmer l’ajout ?",
-    reviewText: (points, cardLocator, amount) => `${points} point(s)${amount ? ` pour un achat de ${amount}` : ""} pour la carte ${cardLocator}.`,
-    cancel: "Annuler",
-    yes: "Oui, ajouter",
+    book: "Enregistrer",
+    preview: (points, balance) => `+${points} point(s)${balance === undefined ? "" : ` · Nouveau solde : ${balance}`}`,
     confirmedPoints: (cardLocator, balance) => `Points enregistrés pour ${cardLocator}. Nouveau solde : ${balance}.`,
     cooldownPoints: "Cette carte vient de recevoir des points. Ne confirmez pas encore.",
     limit: "Le montant ou les points dépassent la limite de ce rôle. Demandez à la personne propriétaire de vérifier cet achat.",
@@ -232,9 +225,8 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  // Points requests: what the cashier typed per request, and the one under review before it is booked.
+  // Points requests: what the cashier typed per request; the preview under it shows what „Buchen“ books.
   const [entries, setEntries] = useState<Record<string, string>>({});
-  const [review, setReview] = useState<{ item: PendingTapRequest; award: TapAward; points: number } | null>(null);
   // Requests the server just confirmed: the row stays for DONE_MS with its button swapped to a tick, then leaves.
   const [done, setDone] = useState<PendingTapRequest[]>([]);
 
@@ -381,7 +373,6 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   const open = items.filter(item => isOpenRequest(item, now));
   const openCount = open.length;
   const shown = [...open, ...done.filter(item => !open.some(other => other.id === item.id))];
-  const money = (amountMinor: number, currency = "EUR") => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", { style: "currency", currency }).format(amountMinor / 100);
 
   useEffect(() => { onCountRef.current?.(openCount); }, [openCount]);
 
@@ -416,9 +407,10 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
               {item.programType === "points" && <TextField id={`tap-entry-${item.id}`} label={purchase ? t.amount(item.currency ?? "EUR") : t.points}
                 hint={purchase ? t.rate(item.pointsPerCurrencyUnit ?? 1, item.currency ?? "EUR") : undefined} inputMode={purchase ? "decimal" : "numeric"} autoComplete="off"
                 placeholder={purchase ? "16,70" : "10"} value={entries[item.id] ?? ""} disabled={busy} onChange={event => { const value = event.target.value; setEntries(current => ({ ...current, [item.id]: value })); }} />}
+              {entry && !confirmed && <p className={styles.preview} aria-live="polite">{t.preview(entry.points, typeof item.balance === "number" ? item.balance + entry.points : undefined)}</p>}
               <div className={styles.actions}>
                 {item.programType === "points"
-                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (entry) setReview({ item, ...entry }); }}>{confirmed ? <Done label={t.done} /> : t.review(entry?.points)}</button>
+                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (entry) void act(item, "confirm", entry.award); }}>{confirmed ? <Done label={t.done} /> : t.book}</button>
                   : <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy} onClick={() => void act(item, "confirm")}>{confirmed ? <Done label={t.done} /> : t.confirm}</button>}
                 {!confirmed && <button type="button" className={`${buttonClassName({ variant: "secondary" })} ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>}
               </div>
@@ -426,12 +418,6 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
           })}
         </ul>
       </>}
-      {review && open.some(item => item.id === review.item.id) && <Dialog open onClose={() => setReview(null)} title={t.reviewTitle}
-        description={t.reviewText(review.points, review.item.cardLocator, "purchaseAmountMinor" in review.award ? money(review.award.purchaseAmountMinor, review.item.currency) : undefined)}
-        actions={<>
-          <Button variant="secondary" onClick={() => setReview(null)}>{t.cancel}</Button>
-          <Button variant="primary" onClick={() => { void act(review.item, "confirm", review.award); setReview(null); }}>{t.yes}</Button>
-        </>} />}
       {outcome && <p role="status" className={`${styles.outcome} ${outcome.tone === "success" ? styles.outcomeSuccess : outcome.tone === "error" ? styles.outcomeError : styles.outcomeNeutral}`}>{outcome.text}</p>}
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
     </section>

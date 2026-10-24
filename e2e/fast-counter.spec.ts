@@ -103,7 +103,8 @@ test("the camera stays on between customers and one tap books a stamp", async ({
     await expect(stamp).toBeEnabled({ timeout: 1_000 });
     await stamp.click();
     const booked = page.locator(".cashier-booked");
-    await expect(booked).toContainText(`1 Stempel für ${first.cardLocator} vergeben. Neuer Stand: 1 Stempel.`);
+    await expect(booked).toContainText("+1 Stempel");
+    await expect(booked).toContainText(`Neuer Stand: 1 Stempel.${first.cardLocator}`);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.unroute("**/api/cashier/offline/lease");
     expect(await balanceOf(url, first.cardToken)).toBe(1);
@@ -118,7 +119,8 @@ test("the camera stays on between customers and one tap books a stamp", async ({
     await expect(page.getByRole("heading", { name: second.cardLocator })).toBeVisible();
     await expect(booked).toHaveCount(0);
     await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
-    await expect(booked).toContainText(`für ${second.cardLocator} vergeben`);
+    await expect(booked).toContainText(`+1 Stempel`);
+    await expect(booked).toContainText(second.cardLocator);
     expect(await balanceOf(url, second.cardToken)).toBe(1);
 
     // A passing failure is retried while the code stays in view: the first lookup for guest 3 is answered 503.

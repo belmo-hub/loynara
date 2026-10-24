@@ -1,6 +1,11 @@
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { pool } from "@/db";
 import type { PoolClient } from "pg";
-import { DomainError } from "./loyalty";
+import { DomainError, lastConfirmedStamp } from "./loyalty";
+import { surfaceHidden } from "./pilot-surfaces";
+import { retentionScope, uuidPattern } from "./retention";
+import { WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 
 export type AnalyticsWindowDays = 30 | 90;
 /** W is 7 only for the weekly owner report's exact calendar week. */
@@ -359,4 +364,76 @@ function spendFigures(sum: SpendSums): SpendFigures {
     newCardMinor: sum.newCard === null ? null : Number(sum.newCard),
     returningCardMinor: sum.newCard === null ? null : Number(spent - sum.newCard),
   };
+}
+
+type LocationCounts = { newCards: number; qualifyingCheckouts: number; repeatCards: number };
+export type LocationAnalytics = {
+  locationId: string;
+  windowDays: 30;
+  from: string;
+  asOf: string;
+  /** The three Übersicht numbers for this location: cards of its programmes that joined, and checkouts booked at its till. */
+  current: LocationCounts;
+  /** The 30 days before, only once the location's programme has run a full previous period (60 days); else null. */
+  previous: LocationCounts | null;
+  /** Owner only, while the walletMessages surface is offered and the location runs a programme; else null. */
+  winback: { enabled: boolean; inWindow: number } | null;
+};
+
+const LOCATION_WINDOW_DAYS = 30;
+
+/**
+ * The Übersicht's 30-day figures for one location, for owners (any location of their business) and managers (their own
+ * location only), with the same counting rule and rolling window as getMerchantAnalytics. Cashiers get FORBIDDEN.
+ */
+export async function getLocationAnalytics(actorUserId: string, options: { locationId: string; asOf?: Date }): Promise<LocationAnalytics> {
+  if (!uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  return inSnapshot(undefined, async client => {
+    const asOf = options.asOf ?? (await client.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
+    if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");
+    const scope = await retentionScope(actorUserId, options.locationId, client);
+    const locationId = scope.locationId!;
+    const from = new Date(asOf.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
+    const before = new Date(from.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
+    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackEnabled: boolean }>(`
+      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AS "winbackEnabled"
+      FROM programs WHERE tenant_id = $1 AND location_id = $2 AND status = 'active'
+    `, [scope.tenantId, locationId, before])).rows;
+    const winback = scope.role === "owner" && program && !surfaceHidden("walletMessages")
+      ? { enabled: program.winbackEnabled, inWindow: program.winbackEnabled ? await cardsInWinbackWindow(client, scope.tenantId, program.id, asOf) : 0 }
+      : null;
+    return {
+      locationId, windowDays: LOCATION_WINDOW_DAYS, from: from.toISOString(), asOf: asOf.toISOString(),
+      current: await locationCounts(client, scope.tenantId, locationId, from, asOf),
+      previous: program?.fullPeriod ? await locationCounts(client, scope.tenantId, locationId, before, from) : null,
+      winback,
+    };
+  });
+}
+
+async function locationCounts(client: PoolClient, tenantId: string, locationId: string, from: Date, to: Date): Promise<LocationCounts> {
+  // Checkouts by the till they were booked at (as "Aktivität je Standort"); new cards by their programme's location.
+  return (await client.query<LocationCounts>(`${checkoutCte}, here AS (
+      SELECT membership_id, request_id FROM accepted_awards WHERE location_id = $4
+    ), per_card AS (
+      SELECT membership_id, count(DISTINCT request_id) AS checkouts FROM here GROUP BY membership_id
+    )
+    SELECT
+      (SELECT count(*) FROM memberships m JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
+        WHERE m.tenant_id = $1 AND p.location_id = $4 AND m.created_at >= $2 AND m.created_at < $3)::int AS "newCards",
+      (SELECT count(*) FROM (SELECT DISTINCT membership_id, request_id FROM here) requests)::int AS "qualifyingCheckouts",
+      (SELECT count(*) FROM per_card WHERE checkouts >= 2)::int AS "repeatCards"
+  `, [tenantId, from, to, locationId])).rows[0];
+}
+
+/** Open cards of the programme inside their win-back window at `at`: the same local-day rule as the bonus at the counter (winbackState). */
+async function cardsInWinbackWindow(client: PoolClient, tenantId: string, programId: string, at: Date): Promise<number> {
+  const result = await drizzle({ client }).execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n
+    FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
+      JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id
+      CROSS JOIN LATERAL (SELECT ${lastConfirmedStamp(at)} AS last) s
+    WHERE m.tenant_id = ${tenantId}::uuid AND p.id = ${programId}::uuid AND m.closed_at IS NULL AND s.last IS NOT NULL
+      AND (${at}::timestamptz AT TIME ZONE l.timezone)::date - (s.last AT TIME ZONE l.timezone)::date BETWEEN p.winback_days AND p.winback_days + ${WINBACK_WINDOW_DAYS}::int`);
+  return result.rows[0].n;
 }

@@ -112,7 +112,7 @@ export async function listMerchantLocations(actorUserId: string) {
     currency: tenant.currency,
     totals: { locations: rows.length, cards: rows.reduce((sum, row) => sum + row.cards, 0), awards: rows.reduce((sum, row) => sum + row.awards, 0), redemptions: rows.reduce((sum, row) => sum + row.redemptions, 0) },
     locations: rows,
-    countingRule: "Karten zählen alle Anmeldungen je Standort, auch aus archivierten Programmen. Gutschriften zählen vom Server bestätigte Online- und synchronisierte Offline-Vergabe-Einträge; ausstehende Offline-Vergaben zählen nicht. Einlösungen zählen Einlöse-Einträge seit Programmstart. Diese Rohzahlen bleiben nach einer späteren Korrektur unverändert. Die Summen umfassen alle Standorte dieses Betriebs.",
+    countingRule: "Karten: alle Anmeldungen je Standort, auch aus archivierten Programmen. Buchungen: vom Team bestätigt; offline gemachte zählen erst, wenn sie übertragen sind. Einlösungen: seit Programmstart. Spätere Korrekturen ändern diese Zahlen nicht. Die Summen gelten für alle Standorte.",
   };
 }
 

@@ -18,7 +18,7 @@ export function ReferralSummary({ enabled, referrerBonus, referredBonus, program
       <p><strong>Regel:</strong> {rule}</p>
       <dl className="ow-metrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {stat("1 · Über Link angemeldet", signedUp, "Erfasste Anmeldungen, unabhängig vom Bonusstatus")}
-        {stat("2 · Wartet auf ersten Einkauf", waiting, "Noch keine bestätigte Buchung")}
+        {stat("2 · Wartet auf erste Buchung", waiting, "Noch keine bestätigte Buchung")}
         {stat("3 · Bonus gutgeschrieben", qualified, "Bestätigte Empfehlungen mit gutgeschriebenem Bonus")}
         {review > 0 && stat("Braucht deine Prüfung", review, "Bonus oder Rücknahme wird geprüft, siehe unten")}
       </dl>

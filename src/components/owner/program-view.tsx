@@ -16,7 +16,7 @@ export function ProgramView({ me }: { me: MeResponse }) {
   const owner = useOwner();
   const [program, reloadProgram] = useLoad<PublicProgram>(`/api/program/${encodeURIComponent(me.programSlug)}`);
   const isOwner = me.role === "owner";
-  const head = <header className="ow-pagehead"><div><p className="ow-eyebrow">Treueprogramm · {me.locationName}</p><h1>Sammelregeln &amp; Prämien</h1><p>Wie Kunden sammeln, was sie bekommen und wer es bestätigt.</p></div>{isOwner && <GuardedLink className="ow-btn ow-btn--secondary" href="/merchant/program/card">Kundenkarte gestalten</GuardedLink>}</header>;
+  const head = <header className="ow-pagehead"><div><p className="ow-eyebrow">Treueprogramm</p><h1>Sammelregeln &amp; Prämien</h1><p>Wie Kunden sammeln, was sie bekommen und wer es bestätigt.</p></div>{isOwner && <GuardedLink className="ow-btn ow-btn--secondary" href="/merchant/program/card">Kundenkarte gestalten</GuardedLink>}</header>;
   if (program.state === "error") return <div className="ow-page">{head}<Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadProgram}>Erneut laden</button>}>{program.message}</Notice></div>;
   if (program.state !== "ok") return <div className="ow-page">{head}<Skeleton height={260} /><Skeleton height={200} /></div>;
   const data = program.data;

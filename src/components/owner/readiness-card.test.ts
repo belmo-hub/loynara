@@ -12,7 +12,7 @@ const data: LaunchReadiness = {
     { id: "card", group: "setup", required: false, status: "todo", title: "Kundenkarte gestaltet", evidence: "Standardfarbe", action: { label: "Karte gestalten", href: "/merchant/program/card", ownerOnly: true } },
     { id: "team", group: "setup", required: false, status: "todo", title: "Teamzugang für die Kasse", evidence: "Noch keiner", action: { label: "Person einladen", href: "/merchant/staff", ownerOnly: true } },
     { id: "enrolment", group: "verify", required: true, status: "todo", title: "Erste Karte angemeldet", evidence: "Noch keine Karte.", action: { label: "Anmeldelink öffnen", href: "/merchant/settings" } },
-    { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Gutschrift an der Kasse bestätigt", evidence: "Noch keine.", action: { label: "Kasse öffnen", href: "/cashier" } },
+    { id: "first_award", group: "verify", required: true, status: "todo", title: "Erste Buchung an der Kasse bestätigt", evidence: "Noch keine.", note: "Boni zählen nicht.", action: { label: "Kasse öffnen", href: "/cashier" } },
     { id: "nfc", group: "external", required: false, status: "external", title: "NFC am Tresen", evidence: "Keine Schlüsselverwaltung." }, // without NFC, the only step outside Loynara
   ],
 };
@@ -27,6 +27,12 @@ describe("readiness card", () => {
     expect(external).not.toContain('data-done="true"');
     expect(external).not.toContain("– erledigt");
     expect(html).toContain("1 von 3 Pflichtschritten belegt.");
+  });
+
+  it("shows what does not count as its own muted line, so the step text stays the action", () => {
+    const html = render(true);
+    expect(html).toContain('<div class="ow-step-note">Noch keine.</div><div class="ow-step-note">Boni zählen nicht.</div>');
+    expect(html).not.toContain("Noch keine. Boni zählen nicht.");
   });
 
   it("hides a group with no steps, heading and all", () => {

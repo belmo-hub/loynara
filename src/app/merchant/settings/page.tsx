@@ -55,7 +55,7 @@ function WeeklyReport() {
   return (
     <section className="ow-card ow-stack" aria-labelledby="ow-weekly-title">
       <h2 id="ow-weekly-title">Wochenbericht</h2>
-      <p>Jeden Montag um 7 Uhr eine E-Mail mit Besuchen, neuen Kunden, Stammkunden, zurückgewonnenen Kunden und eingelösten Prämien der Vorwoche.</p>
+      <p>Jeden Montag um 7 Uhr eine E-Mail mit Buchungen, neuen Karten, Stammkunden, zurückgewonnenen Kunden und eingelösten Prämien der Vorwoche.</p>
       {setting.state === "error" ? <ErrorNotice message={setting.message} onRetry={reload} />
         : <label className="ow-check"><input type="checkbox" role="switch" checked={enabled ?? false} disabled={enabled === null || saving} onChange={event => change(event.target.checked)} /> Wochenbericht per E-Mail senden</label>}
       {error && <Notice tone="danger">{error}</Notice>}

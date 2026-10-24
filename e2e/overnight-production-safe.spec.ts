@@ -29,20 +29,20 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
  const context=await browser.newContext({baseURL:url,viewport:{width,height:1000},storageState:await owner.storageState(),extraHTTPHeaders:{"cf-connecting-ip":"203.0.113.71"}});
  try{
   const me=await(await owner.get("/api/me")).json();
-  expect(me.hiddenSurfaces).toEqual(expect.arrayContaining(["automations","billing","nfc","walletPreviews"]));
-  expect(me.hiddenSurfaces).not.toContain("campaigns");expect(me.hiddenSurfaces).not.toContain("audiences");expect(me.tapAutomaticAllowed).toBe(false);
+  expect(me.hiddenSurfaces).toEqual(expect.arrayContaining(["automations","billing","campaigns","nfc","walletPreviews"]));
+  expect(me.hiddenSurfaces).not.toContain("audiences");expect(me.tapAutomaticAllowed).toBe(false);
   const registration=await owner.post("/api/auth/sign-up/email",{data:{name:"Must refuse",email:`refused-${randomUUID()}@example.test`,password:`Local!${randomUUID()}Aa`}});
   expect(registration.status()).toBe(403);
   const page=await context.newPage();
   mkdirSync("var/qa/overnight-independent",{recursive:true});
-  for(const [path,heading] of [["/merchant","Übersicht"],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Auswertung"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Das Team am Tresen."],["/merchant/campaigns","Kampagnen"],["/merchant/audiences","Segmente prüfen"]]){
+  for(const [path,heading] of [["/merchant","Übersicht"],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Das Team am Tresen."],["/merchant/audiences","Segmente prüfen"]]){
    await page.goto(path);await expect(page.getByRole("heading",{name:heading,exact:true,level:1})).toBeVisible();
    await expect(page.locator(".ow-skel")).toHaveCount(0);
    if(path==="/merchant")await expect(page.getByRole("heading",{name:"Was jetzt zählt"})).toBeVisible();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1);
    await page.screenshot({path:`var/qa/overnight-independent/${width}-${path.split("/").pop()||"overview"}.png`,fullPage:true});
   }
-  for(const path of ["/merchant/automations","/merchant/billing"]){await page.goto(path);await expect(page.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}
+  for(const path of ["/merchant/campaigns","/merchant/automations","/merchant/billing"]){await page.goto(path);await expect(page.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}
   await page.goto("/merchant/program");await expect(page.getByText("NFC-Tap (optional)")).toHaveCount(0);
   const policy=await owner.post("/api/merchant/tap",{data:{action:"policy",programId:f.programId,mode:"automatic_fixed",cooldownSeconds:60}});expect(policy.status()).toBe(400);expect((await policy.json()).code).toBe("TAP_AUTOMATIC_NOT_ALLOWED");
   // Even a stored staff-confirmed policy cannot display a disabled-capability panel.
@@ -64,21 +64,7 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   await page.goto(`/merchant/customers?activity=drifting&days=30&locationId=${f.locationId}&q=${encodeURIComponent(filteredCard)}`);
   await expect(page.getByText("Warum diese Karten?")).toBeVisible();await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
   const progress=await(await owner.get(`/api/card/${f.referrerToken}/referral`)).json();expect(JSON.stringify(progress)).not.toContain("@example.test");
-  await page.goto("/merchant");
-  const insight=page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"});await expect(insight).toBeVisible();await insight.click();
-  await expect(page.getByLabel("Inaktiv seit mindestens (Tage)")).toHaveValue("30");
-  await page.getByRole("button",{name:"Zielgruppe prüfen"}).click();await expect(page.getByText(/Karten, davon/)).toBeVisible();
-  await page.getByRole("button",{name:"Weiter",exact:true}).click();await page.getByLabel("Interner Titel").fill(`Review-only draft ${width}`);await page.getByRole("button",{name:"Weiter",exact:true}).click();
-  await expect(page.locator('input[type="datetime-local"]')).toHaveCount(0);await expect(page.getByRole("button",{name:/Planen|Senden/})).toHaveCount(0);
-  const before=await client.query("SELECT count(*)::int AS n FROM outbox_jobs");
-  await page.getByRole("button",{name:"Entwurf speichern"}).click();await expect(page.getByText("Entwurf gespeichert. Es wurde nichts versendet.")).toBeVisible();
-  expect((await client.query("SELECT count(*)::int AS n FROM outbox_jobs")).rows[0].n).toBe(before.rows[0].n);
-  const draft=(await client.query("SELECT id,status FROM campaigns WHERE title=$1 AND tenant_id=$2",[`Review-only draft ${width}`,f.tenantId])).rows[0];expect(draft.status).toBe("draft");
-  expect((await client.query("SELECT count(*)::int AS n FROM campaign_recipients WHERE campaign_id=$1",[draft.id])).rows[0].n).toBe(0);
-  const schedule=await owner.post("/api/merchant/campaigns",{data:{action:"schedule",campaignId:draft.id,scheduledAt:new Date(Date.now()+86400000).toISOString()}});expect(schedule.status()).toBe(400);expect((await schedule.json()).code).toBe("EMAIL_DISABLED");
-  expect((await manager.post("/api/merchant/campaigns",{data:{action:"edit",campaignId:draft.id,title:"Denied",subject:"Denied",body:"Must not edit",audienceDefinition:{kind:"all"}}})).status()).toBe(403);
-  await page.evaluate(()=>window.scrollTo(0,0));
-  await page.screenshot({path:`var/qa/overnight-independent/${width}-draft-saved.png`,fullPage:true});
+  await page.goto("/merchant");await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0); // Product, 24 Oct: no e-mail campaign is offered while e-mail is off
   await context.addInitScript(()=>{
    const state=window as unknown as {reviewShares:ShareData[];reviewCopies:string[];reviewAbort:boolean};state.reviewShares=[];state.reviewCopies=[];state.reviewAbort=false;
    Object.defineProperty(navigator,"share",{configurable:true,value:async(data:ShareData)=>{state.reviewShares.push(data);if(state.reviewAbort)throw new DOMException("Cancelled","AbortError");}});

@@ -6,7 +6,7 @@ import { postJson } from "@/components/client-api";
 import { clearFlash, peekFlash, setFlash } from "@/components/owner/flash";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { locationCreateMessage, locationSwitchMessage } from "@/components/owner/owner-errors";
-import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 
 type Location = {
@@ -30,7 +30,7 @@ export default function MerchantLocationsPage() {
   const dirty = JSON.stringify(draft) !== JSON.stringify(emptyDraft);
   useDirtyGuard("location-draft", dirty);
   if (!me) return null;
-  const head = <PageHead eyebrow="Einstellungen · Standorte" title="Standorte" lead="Jeder Standort hat sein eigenes Programm, seine eigenen Karten und seinen eigenen Kassenkontext." />;
+  const head = <PageHead eyebrow="Einstellungen · Standorte" title="Standorte" lead="Jeder Standort hat sein eigenes Programm und eigene Karten." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
   if (list.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
@@ -65,7 +65,7 @@ export default function MerchantLocationsPage() {
       {error && <ErrorNotice message={error} />}
       <section className="ow-card ow-stack" aria-labelledby="loc-overview"><h2 id="loc-overview">Gesamtübersicht</h2>
         <dl className="ow-metrics"><Stat label="Standorte" value={l.totals.locations} /><Stat label="Karten insgesamt" value={l.totals.cards} /><Stat label="Buchungen" value={l.totals.awards} /><Stat label="Einlösungen" value={l.totals.redemptions} /></dl>
-        <p className="ow-hint">{l.countingRule}</p></section>
+        <MoreInfo summary="So zählen wir"><p>{l.countingRule}</p></MoreInfo></section>
       <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
         <section aria-labelledby="loc-list" className="ow-stack"><h2 id="loc-list" style={{ fontSize: "var(--text-18)" }}>Deine Standorte</h2>
           {l.locations.map(location => (
@@ -78,7 +78,7 @@ export default function MerchantLocationsPage() {
           ))}
         </section>
         <section className="ow-card ow-stack" aria-labelledby="loc-create" style={{ alignSelf: "start" }}>
-          <div><h2 id="loc-create">Standort hinzufügen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ein neues Standortprogramm beginnt mit null Karten und null Guthaben. Währung und Land bleiben beim bestehenden Betrieb: {l.currency} · {l.currency === "EUR" ? "Deutschland" : "Marokko"}.</p></div>
+          <div><h2 id="loc-create">Standort hinzufügen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Der neue Standort startet ohne Karten. Währung und Land bleiben: {l.currency} · {l.currency === "EUR" ? "Deutschland" : "Marokko"}.</p></div>
           <form onSubmit={create} className="ow-stack">
             <Field id="lc-name" label="Standortname"><input id="lc-name" className="ow-input" value={draft.name} onChange={event => set({ name: event.target.value })} minLength={2} maxLength={180} required /></Field>
             <Field id="lc-city" label="Stadt"><input id="lc-city" className="ow-input" value={draft.city} onChange={event => set({ city: event.target.value })} minLength={2} maxLength={120} required /></Field>
