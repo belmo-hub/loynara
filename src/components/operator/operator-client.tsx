@@ -162,14 +162,14 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
         <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
         <TextField label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
         {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
-        <Button type="submit" loading={busy}>Geschäft anlegen und einladen</Button>
+        <Button type="submit" block loading={busy}>Geschäft anlegen und einladen</Button>
       </form>
       {awaiting.length ? <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }} aria-label="Geschäfte ohne Programm">
         {awaiting.map(a => <li key={a.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
           <span><strong>{a.tenant}</strong> · {a.location} ({a.city})</span>
-          <span className="ow-muted">{INVITE_STATUS[a.status]} · {a.email}{a.status === "pending" ? ` · gültig bis ${date(a.expiresAt)}` : ""}</span>
+          <span className="ow-muted" style={{ overflowWrap: "anywhere" }}>{INVITE_STATUS[a.status]} · {a.email}{a.status === "pending" ? ` · gültig bis ${date(a.expiresAt)}` : ""}</span>
           {a.status === "pending" ? <div><Button variant="quiet" style={{ color: "var(--color-danger)" }} onClick={() => setRevoking(a)}>Einladung widerrufen</Button></div>
-            : a.status !== "accepted" ? <Button variant="secondary" block loading={busy} onClick={() => void shop({ action: "reissue", tenantId: a.tenantId, ownerEmail: a.email }, a.tenant)}>Neue Einladung an {a.email}</Button> : null}
+            : a.status !== "accepted" ? <Button variant="secondary" block style={{ overflowWrap: "anywhere" }} loading={busy} onClick={() => void shop({ action: "reissue", tenantId: a.tenantId, ownerEmail: a.email }, a.tenant)}>Neue Einladung an {a.email}</Button> : null}
         </li>)}
       </ul> : null}
     </Card>
