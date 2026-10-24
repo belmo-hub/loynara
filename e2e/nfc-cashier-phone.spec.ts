@@ -327,7 +327,8 @@ test("h: the QR fallback books one stamp on the same cashier page where the NFC 
     const stamp = page.getByRole("button", { name: "1 Stempel vergeben" });
     await expect(stamp).toBeEnabled({ timeout: 5_000 });
     await stamp.click();
-    await expect(page.locator(".cashier-booked")).toContainText(`1 Stempel für ${card.cardLocator} vergeben. Neuer Stand: 1 Stempel.`);
+    await expect(page.locator(".cashier-booked")).toContainText("+1 Stempel");
+    await expect(page.locator(".cashier-booked")).toContainText(`Neuer Stand: 1 Stempel.${card.cardLocator}`);
     await expect(panel(page)).toBeVisible();
     expect(await balanceOf(url, card.cardToken)).toBe(1);
     expect(await ledgerRowsFor(card.cardToken)).toBe(1);

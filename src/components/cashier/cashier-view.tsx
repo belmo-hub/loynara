@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
-import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
-import { ArrowRight, Check, Clock, Menu, Minus, Plus, ScanLine, ShieldAlert, ShieldCheck, WifiOff, X } from "lucide-react";
+import { parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
+import { Check, Clock, Menu, Minus, Plus, ScanLine, ShieldAlert, Undo2, WifiOff, X } from "lucide-react";
 import type { ProgramType, UiLocale } from "@/components/loyalty-ui";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
@@ -22,6 +22,7 @@ import styles from "./cashier-view.module.css";
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
 export type CashierAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
 export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: win-back (ENG-044), birthday (ENG-049); 0 = none. */ winbackBonus?: number; birthdayBonus?: number; level?: { name: string; perk?: string } };
+export type CashierBooked = { tone: "success" | "pending" | "undone"; title: string; headline?: string; detail: string; meta?: string; hint?: string; undo?: "available" | "staff-only"; error?: string };
 export type CashierViewProps = {
   locationName: string;
   card?: CashierCard | null;
@@ -29,9 +30,12 @@ export type CashierViewProps = {
   preview?: { cardLocator: string; programName: string; issuedAt: string } | null;
   /**
    * Shown right after a booking, above the scan form: the card is already closed, so nothing on it can be tapped again,
-   * and the next card can be scanned at once.
+   * and the next card can be scanned at once. `undo` "available" offers „Rückgängig“ (owner and manager may correct);
+   * "staff-only" says who can.
    */
-  booked?: { tone: "success" | "pending"; title: string; detail: string; hint?: string } | null;
+  booked?: CashierBooked | null;
+  /** Reverses the booking just shown, through the same correction path as the owner dashboard. */
+  onUndo?: () => void;
   onConfirmPreview?: () => void;
   onCancelPreview?: () => void;
   busy?: boolean;
@@ -72,7 +76,7 @@ function previewMonth(isoMonth: string, locale: UiLocale) {
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale === "fr" ? "fr-FR" : "de-DE", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-export function CashierView({ locationName, card, preview, booked, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
+export function CashierView({ locationName, card, preview, booked, onUndo, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
   const [code, setCode] = useState("");
   const [quantity, setQuantity] = useState(1);
   const maxQuantity = quantityPickerMax(role);
@@ -90,25 +94,28 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
     if (card || preview) setCode("");
   }
   const t = locale === "fr" ? {
-    overview: "Vue d’ensemble", menu: "Menu : langue et déconnexion", found: "Carte trouvée.", scanTitle: "Scanner la carte. Puis décider.", foundIntro: "Vérifiez le solde et confirmez chaque opération.", scanIntro: "Le scan identifie seulement la carte. Aucune opération n’est enregistrée automatiquement.", success: "Enregistré", pending: "En attente", offline: "Hors connexion", rejected: "Impossible", ready: "Prêt pour la prochaine carte", scanHelp: "Présentez le QR code à la caméra ou saisissez le numéro de la carte.", camera: "Ouvrir la caméra", manual: "Numéro ou code de la carte", check: "Vérifier", cameraFallback: "Caméra indisponible ? Le numéro de carte fonctionne aussi sans caméra.", verified: "Carte vérifiée", other: "Autre carte", balance: "Solde actuel", stamps: "tampons", points: "points", awardHint: "Un tampon s’ajoute d’un seul geste. Pour davantage, augmentez la quantité ; vous confirmerez ensuite.", decrease: "Diminuer la quantité", increase: "Augmenter la quantité", reviewAward: "Vérifier l’ajout", enterAmount: "Saisir le montant", redeem: "Utiliser une récompense", review: "Vérifier →", unavailable: "Indisponible", noRewards: "Aucune récompense n’est configurée pour cette carte.", footnote: "Une connexion est nécessaire pour utiliser une récompense. Le serveur confirme les opérations.", confirmAward: "Confirmer l’ajout ?", confirmRedeem: "Confirmer la récompense ?", bookFor: "à ajouter à la carte", redeemFor: "à utiliser sur la carte", cancel: "Annuler", yesAward: "Oui, ajouter", yesRedeem: "Oui, utiliser", working: "Un instant …", cardOpen: "Carte ouverte", cardCheck: "Vérifier la carte", cardFound: "Carte trouvée",
+    overview: "Vue d’ensemble", menu: "Menu : langue et déconnexion", found: "Carte trouvée.", scanTitle: "Scanner la carte. Puis décider.", success: "Enregistré", pending: "En attente", offline: "Hors connexion", rejected: "Impossible", ready: "Prêt pour la prochaine carte", scanHelp: "Présentez le QR code à la caméra.", camera: "Ouvrir la caméra", manual: "Numéro ou code de la carte", codeHint: "Sous le QR code de la carte.", check: "Vérifier", cameraFallback: "Sans caméra : saisissez le numéro.", verified: "Carte vérifiée", other: "Autre carte", balance: "Solde actuel", stamps: "tampons", points: "points", decrease: "Diminuer la quantité", increase: "Augmenter la quantité", enterAmount: "Saisir le montant", book: "Enregistrer", newBalance: "Nouveau solde", amountInvalid: "Vérifiez le montant, p. ex. 16,70.", noPoints: "Trop faible pour un point.", redeem: "Utiliser une récompense", rewards: "Récompenses", redeemShort: "Utiliser", still: "encore", noRewards: "Aucune récompense pour cette carte.", undo: "Annuler l’opération", undoStaff: "Erreur ? La direction peut corriger.", locatorNote: "Ouverte sans scan : récompense seulement pour sa propre carte.", offlineNote: "Pas de connexion. En attente ne compte qu’après la synchronisation.", confirmAward: "Confirmer l’ajout ?", confirmRedeem: "Confirmer la récompense ?", bookFor: "à ajouter à la carte", redeemFor: "à utiliser sur la carte", cancel: "Annuler", yesAward: "Oui, ajouter", yesRedeem: "Oui, utiliser", working: "Un instant …", cardOpen: "Carte ouverte", cardCheck: "Vérifier la carte", cardFound: "Carte trouvée",
   } : {
-    overview: "Zur Übersicht", menu: "Menü: Sprache und Abmelden", found: "Karte gefunden.", scanTitle: "Karte scannen. Dann entscheiden.", foundIntro: "Prüfe den Kontostand und bestätige jeden Vorgang bewusst.", scanIntro: "Ein Scan identifiziert nur die Karte. Es wird nichts automatisch gebucht.", success: "Gebucht", pending: "Ausstehend", offline: "Keine Verbindung", rejected: "Nicht möglich", ready: "Bereit für die nächste Karte", scanHelp: "Halte den QR-Code in die Kamera oder gib die Kartennummer ein.", camera: "Kamera öffnen", manual: "Kartennummer oder Kartencode", check: "Prüfen", cameraFallback: "Kamera nicht verfügbar? Die Kartennummer funktioniert auch ohne Kamerafreigabe.", verified: "Geprüfte Karte", other: "Andere Karte", balance: "Aktueller Kontostand", stamps: "Stempel", points: "Punkte", awardHint: "Ein Stempel wird mit einem Tippen gebucht. Für mehr die Menge erhöhen; das bestätigst du dann.", decrease: "Menge verringern", increase: "Menge erhöhen", reviewAward: "Vergabe prüfen", enterAmount: "Kaufbetrag eingeben", redeem: "Prämie einlösen", review: "Prüfen →", unavailable: "Nicht verfügbar", noRewards: "Für diese Karte ist keine Prämie eingerichtet.", footnote: "Einlösungen brauchen eine Verbindung. Buchungen werden vom Server bestätigt.", confirmAward: "Vergabe bestätigen?", confirmRedeem: "Einlösung bestätigen?", bookFor: "für Karte", redeemFor: "auf Karte", cancel: "Abbrechen", yesAward: "Ja, vergeben", yesRedeem: "Ja, einlösen", working: "Einen Moment …", cardOpen: "Karte offen", cardCheck: "Karte prüfen", cardFound: "Karte gefunden",
+    overview: "Zur Übersicht", menu: "Menü: Sprache und Abmelden", found: "Karte gefunden.", scanTitle: "Karte scannen. Dann entscheiden.", success: "Gebucht", pending: "Ausstehend", offline: "Keine Verbindung", rejected: "Nicht möglich", ready: "Bereit für die nächste Karte", scanHelp: "QR-Code in die Kamera halten.", camera: "Kamera öffnen", manual: "Kartennummer oder Kartencode", codeHint: "Steht unter dem QR-Code.", check: "Prüfen", cameraFallback: "Ohne Kamera: Kartennummer eingeben.", verified: "Geprüfte Karte", other: "Andere Karte", balance: "Aktueller Kontostand", stamps: "Stempel", points: "Punkte", decrease: "Menge verringern", increase: "Menge erhöhen", enterAmount: "Kaufbetrag eingeben", book: "Buchen", newBalance: "Neuer Stand", amountInvalid: "Betrag prüfen, z. B. 16,70.", noPoints: "Zu klein für einen Punkt.", redeem: "Prämie einlösen", rewards: "Prämien", redeemShort: "Einlösen", still: "noch", noRewards: "Für diese Karte ist keine Prämie eingerichtet.", undo: "Rückgängig", undoStaff: "Falsch? Die Leitung kann es korrigieren.", locatorNote: "Ohne Scan geöffnet: Prämie nur für die eigene Karte.", offlineNote: "Keine Verbindung. Vorgemerkt zählt erst nach dem Abgleich.", confirmAward: "Vergabe bestätigen?", confirmRedeem: "Einlösung bestätigen?", bookFor: "für Karte", redeemFor: "auf Karte", cancel: "Abbrechen", yesAward: "Ja, vergeben", yesRedeem: "Ja, einlösen", working: "Einen Moment …", cardOpen: "Karte offen", cardCheck: "Karte prüfen", cardFound: "Karte gefunden",
   };
   const unit = card?.programType === "points" ? t.points : t.stamps;
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const purchaseMode = card?.programType === "points" && card.earningMode === "purchase";
+  // What „Buchen“ will book, shown before the tap: the points, any bonus booked with them, and the new balance.
   let purchasePreview: { amountMinor: number; points: number } | null = null;
-  if (purchaseMode) {
+  let amountProblem = "";
+  if (purchaseMode && purchaseAmount.trim()) {
     try {
       const amountMinor = parsePurchaseAmountMinor(purchaseAmount);
       purchasePreview = { amountMinor, points: purchasePoints(amountMinor, card.pointsPerCurrencyUnit) };
-    } catch { purchasePreview = null; }
+    } catch (error) { amountProblem = error instanceof PointsError && error.code === "NO_POINTS" ? t.noPoints : t.amountInvalid; }
   }
   const amountLabel = locale === "fr" ? `Montant de l’achat (${card?.currency ?? "EUR"})` : `Kaufbetrag (${card?.currency ?? "EUR"})`;
   // A handheld scanner types the QR content into the field; do not leave that code on screen after submitting it.
   function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
   // One stamp is booked with one tap: the scan identified the card and this button is the deliberate decision. More
-  // than one, or a choice between online and offline booking, still goes through the confirmation dialog.
+  // than one, or a choice between online and offline booking, still goes through the confirmation dialog. Points are
+  // booked from the amount sheet, whose „Buchen“ is that decision, after the preview of points and new balance.
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
@@ -123,9 +130,24 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
     if (awardCount === 1 && !offlineChoice) onAward(selected, award);
     else setConfirm({ kind: "award", award });
   }
+  const purchaseAward = purchaseMode && purchasePreview ? { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } : null;
+  // The sheet closes on the tap, so the outcome (or an error) shows on the counter; the amount stays for a retry.
+  function bookPurchase(offline: boolean) {
+    if (!card || !purchaseAward) return;
+    setAmountOpen(false);
+    if (offline) onQueueOffline?.(card, purchaseAward); else onAward(card, purchaseAward);
+  }
+  // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
+  const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
+  const rewardFirst = readyRewards.length > 0;
+  function redeemReady() {
+    if (readyRewards.length === 1) { setConfirm({ kind: "redeem", reward: readyRewards[0] }); return; }
+    const first = document.querySelector<HTMLButtonElement>(".reward-action-list button:not(:disabled)");
+    first?.scrollIntoView({ block: "center" }); first?.focus();
+  }
   function submitConfirmed() { if (!card || !confirm) return; if (confirm.kind === "award") onAward(card, confirm.award); else onRedeem(card, confirm.reward); setConfirm(null); }
 
-  const shellState: CashierState = booked ? booked.tone === "success" ? "done" : "busy"
+  const shellState: CashierState = booked ? booked.tone === "pending" ? "busy" : "done"
     : status === "rejected" || status === "offline" ? "error"
       : status === "pending" || busy ? "busy"
         : card || preview ? "open" : "ready";
@@ -149,46 +171,56 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
   // Progress towards the cheapest reward; long programmes (more than STAMP_GRID_MAX stamps) show the number only.
   const cheapest = card && card.programType !== "points" && card.rewards.length ? Math.min(...card.rewards.map(reward => reward.cost)) : 0;
   const stampGoal = cheapest > 0 && cheapest <= STAMP_GRID_MAX ? cheapest : 0;
-  const dock = card ? purchaseMode
-    ? <Button variant="go" size="xl" block icon={<ArrowRight size={20} />} disabled={busy}
-      // Opened and focused inside the tap, so phones raise the number keyboard at once.
-      onClick={() => { flushSync(() => setAmountOpen(true)); document.getElementById("purchase-amount")?.focus(); }}>{t.enterAmount}</Button>
-    : <>
-      <div className={cx("quantity-row", styles.stepper)}>
-        <Button variant="secondary" size="lg" className={styles.step} aria-label={t.decrease} onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1 || busy}><Minus size={22} aria-hidden="true" /></Button>
-        <output aria-live="polite">{quantity}</output>
-        <Button variant="secondary" size="lg" className={styles.step} aria-label={t.increase} onClick={() => setQuantity(q => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity || busy}><Plus size={22} aria-hidden="true" /></Button>
-      </div>
-      <Button variant="go" size="xl" block className="cashier-award-now" onClick={() => awardQuantity(card)} disabled={busy}>{awardLabel}</Button>
-    </> : undefined;
+  // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
+  const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "go" as const, size: "xl" as const };
+  const dock = card ? <>
+    {purchaseMode
+      ? <Button {...earnLook} block disabled={busy}
+        // Opened and focused inside the tap, so phones raise the number keyboard at once.
+        onClick={() => { flushSync(() => setAmountOpen(true)); document.getElementById("purchase-amount")?.focus(); }}>{t.enterAmount}</Button>
+      : <>
+        <div className={cx("quantity-row", styles.stepper)}>
+          <Button variant="secondary" size="lg" className={styles.step} aria-label={t.decrease} onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1 || busy}><Minus size={22} aria-hidden="true" /></Button>
+          <output aria-live="polite">{quantity}</output>
+          <Button variant="secondary" size="lg" className={styles.step} aria-label={t.increase} onClick={() => setQuantity(q => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity || busy}><Plus size={22} aria-hidden="true" /></Button>
+        </div>
+        <Button {...earnLook} block className="cashier-award-now" onClick={() => awardQuantity(card)} disabled={busy}>{awardLabel}</Button>
+      </>}
+    {rewardFirst && <Button variant="go" size="xl" block className="cashier-redeem-now" onClick={redeemReady} disabled={busy}>{t.redeem}</Button>}
+  </> : undefined;
 
   // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region.
   return <CashierShell lang={locale} live={false} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
     state={shellState} stateLabel={stateLabel} stateDetail={stateDetail} dock={dock}>
-    <div className={styles.intro}>
-      <h1>{card ? t.found : t.scanTitle}</h1>
-      <p>{card ? t.foundIntro : t.scanIntro}</p>
-    </div>
+    {/* The status strip says where the counter is; the heading stays for screen readers and page structure. */}
+    <h1 className={styles.srOnly}>{card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
         <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <span>{message}</span>}</span>
       </div>}
+      {/* After a booking the result owns the top of the screen, readable from arm's length: what was booked, the new balance. */}
       {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
-        <span className={styles.outcomeIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={24} /> : <Clock size={24} />}</span>
-        <div className={styles.outcomeText}>
-          <h2>{booked.title}</h2>
-          <p>{booked.detail}</p>
-          {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
-        </div>
-        {!camera && <Button variant="secondary" size="lg" block className={styles.bookedAction} onClick={onClear}>{t.other}</Button>}
+        <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={36} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={32} /> : <Clock size={32} />}</span>
+        {/* With an amount, the tick and the amount say it and the strip above carries the title; the heading stays for screen readers. */}
+        <h2 className={booked.headline ? styles.srOnly : undefined}>{booked.title}</h2>
+        {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
+        <p className={styles.bookedDetail}>{booked.detail}</p>
+        {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
+        {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
+        {booked.error && <p className={styles.bookedError} role="alert">{booked.error}</p>}
+        {booked.undo === "staff-only" && <p className={styles.bookedMeta}>{t.undoStaff}</p>}
+        {(booked.undo === "available" && onUndo || !camera) && <div className={styles.bookedActions}>
+          {booked.undo === "available" && onUndo && <Button variant="quiet" size="lg" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
+          {!camera && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
+        </div>}
       </section>}
     {camera}
     {!card && preview ? <section className={cx("cashier-preview", styles.panel)} aria-labelledby="cashier-preview-title">
       <span className={styles.eyebrow}>{t.cardFound}</span>
       <h2 id="cashier-preview-title" className={styles.locator}>{preview.cardLocator}</h2>
       <p className={styles.meta}>{preview.programName} · {locale === "fr" ? "émise" : "ausgestellt"} {previewMonth(preview.issuedAt, locale)}</p>
-      <p className={styles.help}>{locale === "fr" ? "Est-ce la carte devant vous ? Le solde n’est affiché qu’après l’ouverture." : "Ist das die Karte, die vor dir liegt? Der Kontostand erscheint erst nach dem Öffnen."}</p>
+      <p className={styles.help}>{locale === "fr" ? "Est-ce la carte devant vous ?" : "Liegt diese Karte vor dir?"}</p>
       <div className={cx("cashier-preview-actions", styles.stack)}>
         <Button variant="primary" size="lg" block onClick={onConfirmPreview} disabled={busy} data-autofocus>{locale === "fr" ? "Ouvrir la carte" : "Karte öffnen"}</Button>
         <Button variant="quiet" size="sm" onClick={onCancelPreview} disabled={busy}>{locale === "fr" ? "Autre numéro" : "Andere Nummer"}</Button>
@@ -196,7 +228,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
     </section> : !card ? <section className={styles.ready} aria-label={t.ready}>
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
       <form className={styles.stack} onSubmit={lookup}>
-        <TextField id="cashier-code" label={t.manual} hint={locale === "fr" ? "Le numéro figure sous le QR code de la carte client." : "Die Nummer steht unter dem QR-Code der Kundenkarte."}
+        <TextField id="cashier-code" label={t.manual} hint={t.codeHint}
           autoFocus={focusCodeInput} value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false}
           placeholder={locale === "fr" ? "p. ex. K-7QX2MA" : "z. B. K-7QX2MA"} required />
         <Button type="submit" variant={camera || onStartCamera ? "secondary" : "primary"} size="lg" block disabled={busy}>{t.check}</Button>
@@ -210,7 +242,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
         </div>
         <Button variant="quiet" size="sm" icon={<X size={18} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button>
       </div>
-      {card.matchedBy === "locator" && <p className={styles.note} role="note">{locale === "fr" ? "Ouverte par numéro, sans scan. Utilisez une récompense seulement si la personne présente sa propre carte." : "Per Kartennummer geöffnet, ohne Scan. Prämien nur einlösen, wenn die Person ihre eigene Karte zeigt."}</p>}
+      {card.matchedBy === "locator" && <p className={styles.note} role="note">{t.locatorNote}</p>}
       {winback + birthday > 0 && <p className={styles.winback} role="note">
         {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${winback} ${unit} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
         {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${birthday} ${unit} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
@@ -222,36 +254,36 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
       {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />
-        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} size="sm" />}
-      {purchaseMode ? <>
-        <p className={styles.help}>{locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}. Les fractions sont arrondies vers le bas. Le serveur confirme le calcul.` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}. Punktbruchteile werden abgerundet. Der Server bestätigt die Berechnung.`}</p>
-        <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
-          footer={<Button variant="go" size="xl" block icon={<ArrowRight size={20} />} disabled={busy || !purchasePreview}
-            onClick={() => { if (purchasePreview) { setAmountOpen(false); setConfirm({ kind: "award", award: { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } }); } }}>{t.reviewAward}</Button>}>
-          <div className={styles.stack}>
-            <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
-              onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
-            <p id="purchase-preview" className={styles.help} aria-live="polite">{purchasePreview
-              ? locale === "fr" ? `${number.format(purchasePreview.points)} point(s) prévus pour cet achat. Le serveur calcule le montant final.` : `${number.format(purchasePreview.points)} Punkte voraussichtlich für diesen Kauf. Der Server berechnet die endgültige Menge.`
-              : purchaseAmount
-                ? locale === "fr" ? "Saisissez un montant positif avec au plus deux décimales. Les achats sans point ne peuvent pas être enregistrés." : "Positiven Kaufbetrag mit höchstens zwei Nachkommastellen eingeben. Käufe ohne Punkt können nicht gebucht werden."
-                : locale === "fr" ? "Saisissez le montant payé; vérifiez les points avant de confirmer." : "Gezahlten Betrag eingeben und Punkte vor der Bestätigung prüfen."}</p>
-          </div>
-        </Sheet>
-      </> : <p className={styles.help}>{t.awardHint}</p>}
+        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} size="sm" className={styles.stamps} />}
+      {purchaseMode && <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
+        footer={<div className={styles.stack}>
+          {offlineChoice && <Button variant="secondary" size="lg" block disabled={busy || !purchaseAward} onClick={() => bookPurchase(true)}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
+          <Button variant="go" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
+        </div>}>
+        <div className={styles.stack}>
+          <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
+            onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
+          <div id="purchase-preview" className={styles.preview} aria-live="polite">{purchasePreview
+            ? <>
+              <strong>+{number.format(purchasePreview.points)} {t.points}{winback + birthday > 0 ? ` + ${winback + birthday} extra` : ""}</strong>
+              <span>{t.newBalance}: {number.format(card.balance + purchasePreview.points + winback + birthday)} {t.points}</span>
+            </>
+            : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
+          {offlineChoice && <p className={styles.note} role="note">{t.offlineNote}</p>}
+        </div>
+      </Sheet>}
       <div className={styles.rewards}>
-        <h3>{t.redeem}</h3>
+        <h3>{t.rewards}</h3>
         {card.rewards.length ? <div className={cx("reward-action-list", styles.rewardList)}>
           {card.rewards.map(reward => <button type="button" key={reward.id} className={styles.reward} disabled={!reward.eligible || busy} onClick={() => setConfirm({ kind: "redeem", reward })}>
             <span><strong>{reward.name}</strong><small>{reward.cost} {unit}</small></span>
-            <span className={styles.rewardAction}>{reward.eligible ? t.review : t.unavailable}</span>
+            <span className={styles.rewardAction}>{reward.eligible ? t.redeemShort : `${t.still} ${number.format(reward.cost - card.balance)}`}</span>
           </button>)}
         </div> : <p className={styles.help}>{t.noRewards}</p>}
       </div>
     </section>}
-      {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "Un ajout en attente ne change pas le solde." : "Eine vorgemerkte Vergabe ändert den Kontostand nicht."}</p>}
+      {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
-      <p className={styles.footnote}><ShieldCheck size={16} aria-hidden="true" /> {t.footnote}</p>
     {confirm && card && <Dialog open onClose={() => setConfirm(null)} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
       description={confirm.kind === "award" ? `${"quantity" in confirm.award ? `${confirm.award.quantity} ${unit}` : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${confirm.reward.cost} ${unit}) ${t.redeemFor} ${card.cardLocator}.`}
       actions={<>
@@ -259,7 +291,7 @@ export function CashierView({ locationName, card, preview, booked, onConfirmPrev
         {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
         <Button variant="primary" onClick={submitConfirmed} disabled={busy}>{confirm.kind === "award" ? t.yesAward : t.yesRedeem}</Button>
       </>}>
-      {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <p className={styles.note} role="note">{locale === "fr" ? "Connexion au serveur perturbée. « Oui, ajouter » tente l’enregistrement en ligne. La mise en attente hors ligne garde l’ajout seulement sur cet appareil ; il ne compte qu’après la synchronisation." : "Verbindung zum Server gestört. „Ja, vergeben“ versucht die Buchung online. „Offline-Vergabe vormerken“ speichert sie nur auf diesem Gerät; sie zählt erst nach der Synchronisierung."}</p>}
+      {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <p className={styles.note} role="note">{locale === "fr" ? "Connexion perturbée. « Oui, ajouter » essaie en ligne ; en attente ne compte qu’après la synchronisation." : "Verbindung gestört. „Ja, vergeben“ versucht es online; vorgemerkt zählt erst nach dem Abgleich."}</p>}
     </Dialog>}
   </CashierShell>;
 }

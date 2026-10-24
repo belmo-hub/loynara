@@ -6,7 +6,7 @@ import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, 
 import { ownerTenant } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
-import { GUARANTEE_LINE, guaranteeSettings, isPlanCode, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
+import { GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
 /**
  * Real billing through Stripe (ENG-055): hosted Checkout for the monthly subscription, the hosted customer portal for card
@@ -84,9 +84,10 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
     const tenantId = await ownerTenant(actorUserId, tx);
     const sub = await lockedSubscription(tx, tenantId);
     if (!CHECKOUT_OPEN.includes(sub.status)) throw new DomainError("BILLING_STATE", "Für dieses Geschäft läuft bereits ein Abo.");
-    if (!isPlanCode(sub.planCode) || sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Der Tarif wird noch festgelegt. Bitte wende dich an Loynara.");
-    const plan = PLANS[sub.planCode];
-    const amountMinor = plan.priceMinor * sub.activeLocationCount;
+    const charge = planCharge(sub);
+    if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Der Tarif wird noch festgelegt. Bitte wende dich an Loynara.");
+    const plan = PLANS[charge.planCode];
+    const amountMinor = charge.totalMinor;
     const [pending] = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, tenantId), eq(billingHandoffs.provider, "stripe"), eq(billingHandoffs.status, "pending")))
       .orderBy(desc(billingHandoffs.createdAt)).limit(1);
     if (pending?.providerRef) {
@@ -98,7 +99,7 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
       await tx.update(billingHandoffs).set({ status: "expired", completedAt: at }).where(eq(billingHandoffs.id, pending.id));
     }
     const price = stripePrice.parse(await client("GET", `/prices/${process.env[plan.priceEnv]}`));
-    if (!price.active || price.currency !== "eur" || price.unit_amount !== plan.priceMinor || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) {
+    if (!price.active || price.currency !== "eur" || price.unit_amount !== charge.unitMinor || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) {
       throw new DomainError("PLAN_MISCONFIGURED", "The Stripe price does not match the plan");
     }
     const standardVat = vatMode() === "standard";
@@ -122,7 +123,7 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
     const [handoff] = await tx.insert(billingHandoffs).values({ tenantId, provider: "stripe", currency: "EUR", amountMinor, createdAt: at }).returning();
     const session = checkoutSession.parse(await client("POST", "/checkout/sessions", {
       mode: "subscription", customer: customerId, client_reference_id: tenantId, locale: "de",
-      "line_items[0][price]": price.id, "line_items[0][quantity]": String(sub.activeLocationCount),
+      "line_items[0][price]": price.id, "line_items[0][quantity]": String(charge.quantity),
       "subscription_data[metadata][tenant_id]": tenantId, "metadata[handoff_id]": handoff.id,
       billing_address_collection: "required", "customer_update[address]": "auto", "customer_update[name]": "auto",
       ...(standardVat ? { "subscription_data[default_tax_rates][0]": process.env.STRIPE_TAX_RATE_ID! } : {}),

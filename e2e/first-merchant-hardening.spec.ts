@@ -188,14 +188,15 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     const booked = page.locator(".cashier-booked");
-    await expect(booked).toContainText(`1 Stempel für ${card.cardLocator} vergeben. Neuer Stand: 1 Stempel.`);
+    await expect(booked).toContainText("+1 Stempel");
+    await expect(booked).toContainText(`Neuer Stand: 1 Stempel.${card.cardLocator}`);
     // Nothing on the previous card is actionable any more.
     await expect(page.locator(".cashier-award-now")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Menge erhöhen" })).toHaveCount(0);
     await expect(page.locator(".balance-display")).toHaveCount(0);
     await expect(booked).not.toContainText("sc_");
     // The next card can be scanned at once; the confirmation hides on its own, keeping the last booking as a note.
-    await expect(page.getByRole("heading", { name: "Bereit für die nächste Karte" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Bereit für die nächste Karte" })).toBeVisible();
     await expect(booked).toHaveCount(0, { timeout: 8_000 });
     await expect(page.locator(".cashier-status")).toContainText(`für ${card.cardLocator} vergeben`);
     expect(await balanceOf(url, card.cardToken)).toBe(1);
@@ -271,7 +272,7 @@ test("after a booking the card closes, shows its number, and the counter returns
     const next = await guestCard(url, shop.programSlug);
     await openCard(page, card.scanCode);
     await page.getByRole("button", { name: "1 Stempel vergeben" }).click();
-    await expect(booked).toContainText(`für ${card.cardLocator} vergeben`);
+    await expect(booked).toContainText(card.cardLocator);
     await expect(page.getByLabel("Kartennummer oder Kartencode")).toBeFocused();
     await page.keyboard.type(next.scanCode);
     await page.keyboard.press("Enter");
@@ -309,7 +310,7 @@ test("the offline fallback appears only with real connection trouble and still q
     await expect(page.locator(".cashier-status")).toContainText("Es wurde nichts gesendet und nichts gebucht.");
     await expect(page.locator(".balance-display")).toBeVisible();
     await page.getByRole("button", { name: "1 Stempel prüfen" }).click();
-    await expect(page.getByText("Verbindung zum Server gestört.", { exact: false })).toBeVisible();
+    await expect(page.getByText("Verbindung gestört.", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();
     await expect(page.locator(".cashier-booked")).toContainText(`1 Stempel für ${card.cardLocator} offline vorgemerkt.`);
     await expect(page.locator(".cashier-award-now")).toHaveCount(0);
@@ -371,7 +372,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     // The guest can also ask for the current balance while the card stays open.
     await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
-    await page.getByRole("button", { name: "Kontostand aktualisieren" }).click();
+    await page.getByRole("button", { name: "Karte aktualisieren" }).click();
     await expect(page.locator(".customer-balance-line strong")).toHaveText("2 Stempel");
     expect(reads).toHaveLength(initial + 2);
 

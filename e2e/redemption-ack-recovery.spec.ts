@@ -62,7 +62,7 @@ for (const [width, missingBody] of [[375, ""], [1280, "{"]] as const) test(`comm
     const refreshed = f.customerPage.waitForResponse(r => new URL(r.url()).pathname === `/api/card/${f.cardToken}`);
     await f.customerPage.waitForTimeout(5100);
     await f.customerPage.bringToFront();
-    await f.customerPage.getByRole("button", { name: "Kontostand aktualisieren", exact: true }).click();
+    await f.customerPage.getByRole("button", { name: "Karte aktualisieren", exact: true }).click();
     expect(await (await refreshed).json()).toMatchObject({ balance: 6 });
     await expect(f.customerPage.locator(".customer-balance-line strong")).toHaveText(/6\s*Punkte/);
     const customerState = await (await f.customer.request.get(`/api/card/${f.cardToken}`)).json(); expect.soft(customerState.balance).toBe(6); expect.soft(customerState.activity.filter((r: { kind: string }) => r.kind === "redeem")).toHaveLength(1);

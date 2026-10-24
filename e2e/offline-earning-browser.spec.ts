@@ -35,7 +35,7 @@ test("cashier queues an explicit offline award without credit, reloads, and sync
       await context.setOffline(true);
       await expect(page.getByText("Offline-Puffer bereit", { exact: false })).toBeVisible();
       await page.locator(".cashier-award-now").click();
-      await expect(page.getByText("Verbindung zum Server gestört.", { exact: false })).toBeVisible();
+      await expect(page.getByText("Verbindung gestört.", { exact: false })).toBeVisible();
       await page.getByRole("button", { name: "Offline-Vergabe vormerken" }).click();
       await expect(page.getByText("1 ausstehend", { exact: false })).toBeVisible();
       await expect(page.locator(".cashier-booked")).toContainText("Vorgemerkt, noch nicht gebucht");

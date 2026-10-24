@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingInvoices, billingLocationPlans, billingWebhookEvents, locations, memberships, programs, staffRoles, subscriptions } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { stripeEnabled, vatNote } from "./stripe-config";
+import { planCharge, stripeEnabled, vatNote } from "./stripe-config";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const GRACE_MS = 7 * 86_400_000;
@@ -96,10 +96,11 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       locationCount: locationUsage.length, monthlySubtotalMinor: locationUsage.reduce((sum, plan) => sum + plan.priceMinor, 0),
       locations: locationUsage, invoices, provider: subscription.provider, currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, graceUntil: subscription.graceUntil,
-      liveBilling: stripeEnabled(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
+      // Live billing shows the amount Stripe will charge, from the same function as checkout; none before a plan is set.
+      liveBilling: stripeEnabled(), charge: planCharge(subscription), taxNote: vatNote(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
       fixtureAvailable: billingFixtureAvailable(),
       countingRule: stripeEnabled()
-        ? `Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist der Standortpreis mal die Zahl der Standorte. ${vatNote()}`
+        ? "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist der Standortpreis mal die Zahl der Standorte."
         : "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist die Summe der gespeicherten Standortpreise; Steuer ist nicht berechnet und es wird nichts abgebucht." + (billingFixtureAvailable() ? " Fixture-Belege sind keine Steuerrechnungen." : ""),
     };
   });

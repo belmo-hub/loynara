@@ -33,21 +33,42 @@ test("cashier browser confirms purchase points and selected reward before card r
       await cashier.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
       await expect(cashier.getByLabel("Kaufbetrag (EUR)")).toBeFocused();
       await cashier.getByLabel("Kaufbetrag (EUR)").fill("4,99");
-      await expect(cashier.locator("#purchase-preview")).toContainText("14 Punkte");
-      await cashier.getByRole("button", { name: "Vergabe prüfen" }).click();
-      await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("4,99 EUR");
-      await cashier.getByRole("button", { name: "Ja, vergeben" }).click();
-      await expect(cashier.locator(".cashier-booked")).toContainText("14 Punkte für K-");
+      // Amount → preview (points and new balance) → one „Buchen“; no second confirmation.
+      await expect(cashier.locator("#purchase-preview")).toContainText("+14 Punkte");
+      await expect(cashier.locator("#purchase-preview")).toContainText("Neuer Stand: 14 Punkte");
+      await cashier.getByRole("button", { name: "Buchen", exact: true }).click();
+      await expect(cashier.getByRole("dialog")).toHaveCount(0);
+      await expect(cashier.locator(".cashier-booked")).toContainText("+14 Punkte");
       await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 14 Punkte");
-      await cashier.getByRole("button", { name: "Andere Karte" }).click();
-      await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
-      await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
+      // „Rückgängig“ on the booked screen reverses it through the owner's correction path.
+      await cashier.locator(".cashier-booked").getByRole("button", { name: "Rückgängig" }).click();
+      await expect(cashier.locator(".cashier-booked")).toContainText("Rückgängig gemacht");
+      await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 0 Punkte");
+      expect((await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { balance: number }).balance).toBe(0);
+      async function reopen() {
+        await cashier.getByRole("button", { name: "Andere Karte" }).click();
+        await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+        await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();
+      }
+      await reopen();
+      await expect(cashier.locator(".balance-display strong")).toContainText("0 Punkte");
+      await cashier.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
+      await cashier.getByLabel("Kaufbetrag (EUR)").fill("4,99");
+      await cashier.getByRole("button", { name: "Buchen", exact: true }).click();
+      await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 14 Punkte");
+      await reopen();
       await expect(cashier.locator(".balance-display strong")).toContainText("14 Punkte");
       await expect(cashier.getByLabel("Kaufbetrag (EUR)")).toHaveValue("");
-      await cashier.locator(".reward-action-list button").filter({ hasText: "Kaffee" }).click();
+      // A reward is ready: redeeming is the primary action at the bottom of the dock; entering an amount steps back.
+      const dock = cashier.locator("[data-dock]");
+      await expect(dock.locator("button").last()).toHaveText("Prämie einlösen");
+      await expect(dock.getByRole("button", { name: "Kaufbetrag eingeben" })).toBeVisible();
+      await dock.getByRole("button", { name: "Prämie einlösen" }).click();
       await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText("Kaffee");
       await cashier.getByRole("button", { name: "Ja, einlösen" }).click();
       await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 0 Punkte");
+      // A redemption is never undone at the counter: the reward may already be handed over (the owner corrects it).
+      await expect(cashier.locator(".cashier-booked").getByRole("button", { name: "Rückgängig" })).toHaveCount(0);
 
       const card = await browserContext.newPage();
       await card.goto(`/card/${encodeURIComponent(cardToken)}`);
