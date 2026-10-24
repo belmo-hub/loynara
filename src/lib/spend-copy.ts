@@ -7,6 +7,8 @@ export const SPEND_COPY = {
   // Owner UI term rule (Marketing, 22 Oct): a booking is a „bestätigte Buchung“, never a „Besuch“.
   bookings: (n: number) => `${n.toLocaleString("de-DE")} ${n === 1 ? "Buchung" : "Buchungen"}`,
   average: (amount: string) => `Ø\u00a0${amount} pro\u00a0Buchung`,
+  /** While some bookings have no amount, the average covers only the ones that do. */
+  averagePriced: (amount: string) => `Ø\u00a0${amount} pro\u00a0Buchung mit Betrag`,
   newAndReturning: (fresh: string, returning: string) => `Neue Karten (im Zeitraum angemeldet): ${fresh} · Wiederkommende Karten: ${returning}`,
   estimated: "geschätzt",
   partlyEstimated: "teilweise geschätzt",

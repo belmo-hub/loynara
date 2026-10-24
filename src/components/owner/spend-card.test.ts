@@ -39,6 +39,7 @@ describe("euro card (item 7, L3, ENG-077)", () => {
     const recent = figures({ visits: 4, spentMinor: 3_000, estimatedMinor: 3_000, averagePerVisitMinor: 1_000, unpricedVisits: 1, newCardMinor: 0, returningCardMinor: 3_000 });
     const html = render(spend(recent, { ...recent, newCardMinor: null, returningCardMinor: null }));
     expect(html).toContain("geschätzt");
+    expect(html).toContain("4 Buchungen · Ø\u00a010,00\u00a0€ pro\u00a0Buchung mit Betrag"); // the average covers the priced bookings only
     expect(html).toMatch(/class="ow-btn ow-btn--secondary ow-btn--sm" href="\/merchant\/program">Durchschnittsbon eintragen/);
   });
 });
