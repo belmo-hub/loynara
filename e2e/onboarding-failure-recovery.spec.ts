@@ -31,10 +31,10 @@ async function snapshot(userId: string) {
   return { role, data };
 }
 async function completed(f: Awaited<ReturnType<typeof fixture>>) {
-  await expect(f.page).toHaveURL(/\/merchant$/); await expect(f.page.getByRole("region", { name: "Startklar", exact: true })).toBeVisible();
+  await expect(f.page).toHaveURL(/\/merchant$/); await expect(f.page.getByRole("region", { name: /^Startklar/ })).toBeVisible();
   const actual = await snapshot(f.userId); for (const rows of Object.values(actual.data)) expect(rows).toHaveLength(1);
   expect(actual.data.tenants[0]).toMatchObject({ name: f.name }); expect(actual.data.locations[0]).toMatchObject({ name: "Synthetic Mitte", city: "Kassel" }); expect(actual.data.programs[0]).toMatchObject({ name: "Synthetic persisted programme" });
-  await f.page.reload(); await expect(f.page.getByRole("region", { name: "Startklar", exact: true })).toBeVisible(); expect(await snapshot(f.userId)).toEqual(actual);
+  await f.page.reload(); await expect(f.page.getByRole("region", { name: /^Startklar/ })).toBeVisible(); expect(await snapshot(f.userId)).toEqual(actual);
   expect((await pool.query("SELECT count(*)::int AS n FROM memberships WHERE tenant_id=$1", [actual.role[0].tenant_id])).rows[0].n).toBe(0);
   expect((await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE tenant_id=$1", [actual.role[0].tenant_id])).rows[0].n).toBe(0);
   return actual;

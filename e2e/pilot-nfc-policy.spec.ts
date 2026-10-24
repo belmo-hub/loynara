@@ -59,17 +59,15 @@ test("manager sees an accurate read-only programme action while the owner keeps 
     const invite = await owner.post("/api/staff/invite", { data: { locationId: (await (await owner.get("/api/me")).json() as { locationId: string }).locationId, email, role: "manager" } });
     expect(invite.status()).toBe(201);
     expect((await manager.post("/api/staff/accept", { data: { token: (await invite.json() as { token: string }).token } })).status()).toBe(200);
-    // The overview shows the programme card only once a card exists (a brand-new merchant sees the setup view).
-    const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...(productionLike ? { "cf-connecting-ip": "203.0.113.9" } : {}) } });
-    try { expect((await guest.post("/api/enroll", { data: { slug: me.programSlug, acceptedTerms: true, marketingOptIn: false } })).status()).toBe(201); } finally { await guest.dispose(); }
-
-    for (const [name, api, expected, absent] of [["owner", owner, "Programm bearbeiten", "Programm ansehen"], ["manager", manager, "Programm ansehen", "Programm bearbeiten"]] as const) {
+    // The Übersicht no longer carries a programme card (ENG-085, direction D); the programme page itself tells the roles apart.
+    for (const [name, api] of [["owner", owner], ["manager", manager]] as const) {
       const ctx = await browser.newContext({ baseURL: url, storageState: await api.storageState() });
       try {
         const page = await ctx.newPage();
-        await page.goto("/merchant");
-        await expect(page.getByRole("link", { name: expected }), name).toBeVisible();
-        await expect(page.getByRole("link", { name: absent }), name).toHaveCount(0);
+        await page.goto("/merchant/program");
+        await expect(page.getByRole("heading", { name: "Sammelregeln & Prämien" }), name).toBeVisible();
+        await expect(page.getByText("Nur Inhaber:innen können Regeln und Prämien ändern."), name).toHaveCount(name === "manager" ? 1 : 0);
+        await expect(page.getByRole("link", { name: "Kundenkarte gestalten" }), name).toHaveCount(name === "owner" ? 1 : 0);
       } finally { await ctx.close(); }
     }
   } finally { await manager.dispose(); await owner.dispose(); }
@@ -118,18 +116,18 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
   const headers: Record<string, string> = productionLike ? { "cf-connecting-ip": "203.0.113.11" } : {};
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...headers } });
   try {
-    expect((await guest.post("/api/enroll", { data: { slug: me.programSlug, acceptedTerms: true, marketingOptIn: false } })).status()).toBe(201); // a first card, so the overview is the active-business view
+    expect((await guest.post("/api/enroll", { data: { slug: me.programSlug, acceptedTerms: true, marketingOptIn: false } })).status()).toBe(201); // a first card; the Übersicht stays the set-up view until the first booking (ENG-085)
     const ctx = await browser.newContext({ baseURL: url, storageState: await api.storageState(), extraHTTPHeaders: headers });
     try {
       const page = await ctx.newPage();
       const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
       await page.goto("/merchant");
-      await expect(page.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", exact: true })).toBeVisible();
       if (productionLike) {
         // With campaigns, automations and owner messages withheld, the group holds only reports and is named after them.
         await expect(nav.getByRole("link", { name: "Ergebnisse" })).toBeVisible();
         await expect(nav.getByRole("link", { name: "Aktionen" })).toHaveCount(0);
-        await expect(page.getByText("Was jetzt zählt")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Deine ersten Schritte" })).toBeVisible();
         for (const path of HIDDEN_ROUTES) {
           await page.goto(path);
           await expect(page.getByRole("heading", { name: "Diese Seite gibt es nicht." }), path).toBeVisible();
