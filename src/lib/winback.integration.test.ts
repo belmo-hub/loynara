@@ -110,7 +110,7 @@ describe("win-back bonus at the counter", () => {
     expect(await give(s, c)).toMatchObject({ winbackBonus: 1, balance: 3 });
   });
 
-  it("is off by default, books nothing with „kein Bonus“, and is withheld with the walletMessages surface on production", async () => {
+  it("is off by default and books nothing with „kein Bonus“", async () => {
     const off = await shop("stamp", null); const a = await card(off);
     await stampAt(off, a, berlinDaysAgo(31));
     expect(await give(off, a)).toMatchObject({ winbackBonus: 0 });
@@ -119,13 +119,21 @@ describe("win-back bonus at the counter", () => {
     expect((await lookupCard({ userId: none.owner, locationId: none.locationId, scanCode: b.scanCode })).winbackBonus).toBe(0);
     expect(await give(none, b)).toMatchObject({ winbackBonus: 0 });
     expect((await getCard(b.cardToken)).rulesText).toBe("Ein Stempel pro Besuch.");
-    const s = await shop(); const c = await card(s);
+  });
+
+  it("works on production while Wallet messages are withheld: the owner sets it, the counter books it, no reminder goes out (ENG-089)", async () => {
+    // Cards with message consent are set up first: the consent box itself stays withheld on production.
+    const s = await shop("stamp", null); const c = await card(s, "consent"); const later = await card(s, "consent");
     await stampAt(s, c, berlinDaysAgo(31));
+    await stampAt(s, later, T("2026-09-20T10:00:00Z"));
     vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
-    expect(await give(s, c)).toMatchObject({ winbackBonus: 0 });
-    expect((await getCard(c.cardToken)).rulesText).toBe("Ein Stempel pro Besuch.");
+    expect(await getWinback({ actorUserId: s.owner, programSlug: s.slug })).toMatchObject({ enabled: false });
+    expect(await updateWinback({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, days: 30, bonus: 1 } })).toMatchObject({ enabled: true });
+    await expect(updateWinback({ actorUserId: await user(), programSlug: s.slug, settings: { enabled: false, days: 30, bonus: 1 } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(updateWinback({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, days: 30, bonus: 2 } })).rejects.toMatchObject({ code: "INVALID_WINBACK_BONUS" });
+    expect((await lookupCard({ userId: s.owner, locationId: s.locationId, scanCode: c.scanCode })).winbackBonus).toBe(1);
+    expect(await give(s, c)).toMatchObject({ winbackBonus: 1 });
     expect(await queueWinbackMessages(T("2026-10-26T09:00:00Z"))).toBe(0);
-    await expect(getWinback({ actorUserId: s.owner, programSlug: s.slug })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("shows the bonus in the programme rules on the card and at sign-up while it is on", async () => {
