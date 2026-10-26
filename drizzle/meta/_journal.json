@@ -295,6 +295,13 @@
       "when": 1792706721960,
       "tag": "0041_average_visit_spend",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793056180191,
+      "tag": "0042_booking",
+      "breakpoints": true
     }
   ]
 }
