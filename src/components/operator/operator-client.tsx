@@ -10,6 +10,7 @@ import { ClientApiError, postJson } from "@/components/client-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TextField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
@@ -18,7 +19,7 @@ import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 
-type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
+type Row = { bookingEnabled: boolean; walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
@@ -112,6 +113,12 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   async function setPlan(tenantId: string, planCode: string) {
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-plan", { tenantId, planCode }); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  async function setBooking(row: Row, enabled: boolean) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/booking", { tenantId: row.tenantId, locationId: row.locationId, enabled }); router.refresh(); }
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
@@ -239,6 +246,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
           {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
+          <Checkbox checked={r.bookingEnabled} disabled={busy} onChange={event => void setBooking(r, event.target.checked)}>Termin + Treue (Online-Buchung für {r.location})</Checkbox>
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
         </li>)}
       </ul>

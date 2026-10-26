@@ -2,7 +2,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { billingHandoffs, billingInvoices, billingLocationPlans, billingWebhookEvents, locations, memberships, programs, staffRoles, subscriptions } from "@/db/schema";
+import { billingHandoffs, billingInvoices, billingLocationPlans, bookingSettings, billingWebhookEvents, locations, memberships, programs, staffRoles, subscriptions } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { planCharge, stripeEnabled, vatNote } from "./stripe-config";
 
@@ -80,8 +80,9 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
   return db.transaction(async tx => {
     const tenantId = await ownerTenant(actorUserId, tx);
     const subscription = await reconcileSubscription(tx, tenantId, at);
-    const plans = await tx.select({ locationId: billingLocationPlans.locationId, locationName: locations.name, planCode: billingLocationPlans.planCode, priceMinor: billingLocationPlans.priceMinor, currency: billingLocationPlans.currency, memberLimit: billingLocationPlans.memberLimit, guaranteeOutcome: billingLocationPlans.guaranteeOutcome })
+    const plans = await tx.select({ locationId: billingLocationPlans.locationId, locationName: locations.name, planCode: billingLocationPlans.planCode, priceMinor: billingLocationPlans.priceMinor, currency: billingLocationPlans.currency, memberLimit: billingLocationPlans.memberLimit, guaranteeOutcome: billingLocationPlans.guaranteeOutcome, bookingEnabled: sql<boolean>`coalesce(${bookingSettings.enabled}, false)` })
       .from(billingLocationPlans).innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
+      .leftJoin(bookingSettings, and(eq(bookingSettings.tenantId, billingLocationPlans.tenantId), eq(bookingSettings.locationId, billingLocationPlans.locationId)))
       .where(eq(billingLocationPlans.tenantId, tenantId)).orderBy(locations.createdAt, locations.id);
     const locationUsage = await Promise.all(plans.map(async plan => {
       const [usage] = await tx.select({ activeMembers: sql<number>`count(*)::int` }).from(memberships)

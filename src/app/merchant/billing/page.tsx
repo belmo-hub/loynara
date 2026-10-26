@@ -11,13 +11,15 @@ type Overview = {
   status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
   currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; graceUntil: string | null;
   liveBilling: boolean; charge: { planCode: "founding" | "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "founding" | "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
-  locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
+  locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number; bookingEnabled: boolean }>;
   invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
 };
 const money = (minor: number, currency: "EUR" | "MAD") => new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(minor / 100);
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
 const count = (value: number) => value.toLocaleString("de-DE");
 const LIVE_STATUS: Record<string, string> = { manual_pending: "Noch kein Abo", pending_checkout: "Zahlung noch nicht abgeschlossen", active: "Abo aktiv", past_due: "Zahlung fehlgeschlagen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
+// shortcut: shown by the plan gate while billing still charges the 49 € plan (no Stripe price for 69 € yet); drop when Stripe bills it.
+const bookingLine = (enabled: boolean) => enabled ? <><br /><small className="ow-muted">Plan: Termin + Treue (69 € pro Monat) – Online-Buchung ist freigeschaltet</small></> : null;
 const PLAN: Record<string, string> = { founding: "Gründungspreis", list: "Listenpreis" };
 const STATUS: Record<string, string> = { manual_pending: "Entwurf ohne Zahlung", pending_checkout: "Lokaler Testvorgang offen", active_fixture: "Lokale Testperiode aktiv", grace_fixture: "Lokale Test-Nachfrist", suspended_fixture: "Lokale Testperiode ausgesetzt", cancelled: "Lokale Testperiode beendet" };
 
@@ -63,7 +65,7 @@ export default function MerchantBillingPage() {
         <div><p className="ow-eyebrow">Monatlicher Entwurf</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.monthlySubtotalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{o.locationCount} Standort{o.locationCount === 1 ? "" : "e"} · zzgl. gegebenenfalls anfallender Steuer; keine Rechnung.</p></div>
       </section>
       <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standortpläne und Nutzung</h2>
-        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">Standard · {money(location.priceMinor, o.currency)} / Monat als Entwurf</small></span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul>
+        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">Standard · {money(location.priceMinor, o.currency)} / Monat als Entwurf</small>{bookingLine(location.bookingEnabled)}</span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul>
         <p className="ow-hint">Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></section>
       <section className="ow-card ow-stack" aria-labelledby="bi-inv"><h2 id="bi-inv">Belege</h2>
         {o.invoices.length ? <ul className="ow-feed">{o.invoices.map(invoice => <li key={invoice.id} style={{ display: "block" }}><strong>{money(invoice.amountMinor, invoice.currency)} · Testbuchung</strong><br /><span className="ow-muted">Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}</span><br /><small className="ow-muted">Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</small></li>)}</ul> : <p className="ow-muted">Keine Belege vorhanden. Es wurde keine Zahlung erfasst.</p>}</section>
@@ -107,7 +109,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
           : <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>Tarif offen</strong><p className="ow-muted" style={{ marginTop: 4 }}>Dein Preis wird mit dir vereinbart.</p></div>}
       </section>
       <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standorte und Nutzung</h2>
-        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong>{o.charge ? <><br /><small className="ow-muted">{PLAN[o.charge.planCode]} · {money(o.charge.unitMinor, o.currency)} / Monat</small></> : null}</span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
+        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong>{o.charge ? <><br /><small className="ow-muted">{PLAN[o.charge.planCode]} · {money(o.charge.unitMinor, o.currency)} / Monat</small></> : null}{bookingLine(location.bookingEnabled)}</span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
       <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Zahlung</h2>
         <p>Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe.</p>
         <div className="ow-row">

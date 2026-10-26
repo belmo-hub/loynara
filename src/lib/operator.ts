@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
-import { billingLocationPlans, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
+import { billingLocationPlans, bookingSettings, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
 import { shopsAwaitingOwner } from "./owner-invites";
+import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
 import { walletMessageStats } from "./wallet-messages";
@@ -25,10 +27,11 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       locationId: locations.id, location: locations.name, city: locations.city,
       programId: programs.id, programme: programs.name, status: programs.status, tapMode: programs.tapMode,
       endDate: programs.cancellationEndDate, requestedAt: programs.cancellationRequestedAt, confirmedAt: programs.cancellationConfirmedAt,
-      cards: sql<number>`coalesce(${cards.cards}, 0)`, lastAward: awards.last,
+      cards: sql<number>`coalesce(${cards.cards}, 0)`, lastAward: awards.last, bookingEnabled: sql<boolean>`coalesce(${bookingSettings.enabled}, false)`,
     }).from(programs)
       .innerJoin(tenants, eq(tenants.id, programs.tenantId))
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+      .leftJoin(bookingSettings, and(eq(bookingSettings.tenantId, programs.tenantId), eq(bookingSettings.locationId, programs.locationId)))
       .leftJoin(cards, eq(cards.programId, programs.id)).leftJoin(awards, eq(awards.programId, programs.id))
       .orderBy(asc(tenants.name), asc(locations.name), asc(programs.name));
     const plates = await tx.select({
@@ -57,5 +60,18 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
       .where(isNotNull(billingLocationPlans.guaranteeOutcome)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
     return { awaiting, billing, guarantees, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+  });
+}
+
+/** The plan gate: turns online booking on or off for one location. Writes only `enabled`; a missing row starts with the defaults. */
+export async function setBookingEnabled(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; enabled: boolean }) {
+  if (!z.uuid().safeParse(input.tenantId).success || !z.uuid().safeParse(input.locationId).success) throw new DomainError("NOT_FOUND", "Standort nicht gefunden");
+  return db.transaction(async tx => {
+    await assertPlateOperator(tx, input.actorUserId, input.env);
+    const [shop] = await tx.select({ id: locations.id }).from(locations).where(and(eq(locations.id, input.locationId), eq(locations.tenantId, input.tenantId)));
+    if (!shop) throw new DomainError("NOT_FOUND", "Standort nicht gefunden");
+    await tx.insert(bookingSettings).values({ tenantId: input.tenantId, locationId: input.locationId, enabled: input.enabled })
+      .onConflictDoUpdate({ target: [bookingSettings.tenantId, bookingSettings.locationId], set: { enabled: input.enabled, updatedAt: new Date() } });
+    return { tenantId: input.tenantId, locationId: input.locationId, enabled: input.enabled };
   });
 }
