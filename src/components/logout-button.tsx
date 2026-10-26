@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { authClient } from "@/lib/auth-client";
+import { clearBoardCache } from "@/lib/board-cache";
 
 export function LogoutButton({ className, onSignedOut }: { className?: string; onSignedOut?: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -20,6 +21,7 @@ export function LogoutButton({ className, onSignedOut }: { className?: string; o
     try {
       const result = await authClient.signOut();
       if (result.error) throw new Error("Sign-out failed");
+      clearBoardCache(); // the Übersicht's last numbers on this device belong to the person signing out
       // Clear merchant state and its unload guard before leaving the document.
       if (onSignedOut) flushSync(onSignedOut);
       window.location.replace("/login");

@@ -1,25 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
 
-for (const occurredAt of ["1.10.2026, 18:14:46", "13.10.2026, 18:14:46"]) {
-  test(`overview preserves the localized activity date ${occurredAt}`, async ({ page }) => {
-    await page.route("**/api/me", route => route.fulfill({ json: {
-      userId: "synthetic-owner", tenantId: "synthetic-tenant", locationId: "synthetic-location", role: "owner",
-      businessName: "Synthetic Date Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
-      programSlug: "synthetic-date-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
-      stats: { members: 1, awards: 1, redemptions: 0 },
-      activity: [{ id: "synthetic-entry", kind: "award", occurredAt, amount: 1 }],
-    } }));
-    await page.route("**/api/merchant/locations", route => route.fulfill({ json: { locations: [] } }));
-    await page.route("**/api/merchant/audiences/preview?**", route => route.fulfill({ json: { total: 0 } }));
-    await page.goto("/merchant");
-    await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeVisible();
-    const time = page.locator('[aria-labelledby="ow-act-title"] time');
-    await expect(time).toHaveText(occurredAt);
-    await expect(time).not.toHaveAttribute("datetime");
-  });
-}
-
 async function ownerWithProgramme(baseURL: string, businessName: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   expect((await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic dashboard owner", email: `dash-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
@@ -143,9 +124,9 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       const page = await ctx.newPage();
       await page.goto("/merchant");
       await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", level: 1 })).toBeVisible();
-      // Readiness is derived from saved state: only the programme exists, so the next step is the first card.
-      await expect(page.getByText("1 von 3 Pflichtschritten belegt.")).toBeVisible();
-      await expect(page.locator(".ow-action--lead")).toContainText("Erste Karte angemeldet");
+      // Readiness is derived from saved state: only the programme exists, so the board leads with the first card.
+      await expect(page.getByText("Startklar · 1 von 3 Pflichtschritten")).toBeVisible();
+      await expect(page.locator(".ow-board-title")).toHaveText("Melde die erste Karte selbst an.");
       await expect(page.getByText("Zugang wiederherstellen")).toHaveCount(0); // operator password reset is not a start step
       await expect(page.getByText("Rechtstexte freigegeben")).toHaveCount(0); // the legal texts are final; no open step for them
       await expect(page.getByText("Karten", { exact: true })).toHaveCount(0); // no wall of zero metrics
@@ -158,13 +139,14 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       expect((await owner.context.post("/api/cashier/award", { data: { membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() } })).status()).toBe(200);
 
       await page.reload();
+      // Direction D (ENG-085): the first booking switches to the board, the tiles and the diary; the checklist is gone.
       await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeVisible();
-      await expect(page.getByText("bestätigt an deiner Kasse")).toBeVisible();
-      await expect(page.getByText("Stammkunden")).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Als Nächstes" })).toBeVisible();
+      await expect(page.getByText("Buchungen · letzte 30 Tage")).toBeVisible(); // a stamp shop without till amounts leads with bookings
+      await expect(page.getByText("bestätigt an der Kasse", { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Letzte 30 Tage an diesem Standort" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Die letzten Tage am Tresen" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Aktualisieren" })).toHaveCount(0);
-      // The confirmed counter award completes the required evidence; the checklist collapses but stays reachable.
-      await expect(page.locator("details.ow-readiness summary")).toContainText("Alle 3 Pflichtschritte sind belegt");
+      await expect(page.getByText(/Startklar|Pflichtschritte/)).toHaveCount(0);
     } finally { await ctx.close(); }
   } finally { await Promise.all([owner.context.dispose(), guest.dispose()]); }
 });

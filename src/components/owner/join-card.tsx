@@ -5,11 +5,27 @@ import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
 
+/** The public programme address customers join at, not a private card link; "" while it is not configured. */
+export const joinUrlOf = (me: MeResponse) => me.publicBaseUrl ? new URL(`/join/${encodeURIComponent(me.programSlug)}`, me.publicBaseUrl).toString() : "";
+
+/** Downloads the printable counter sign (Tresenschild) for this programme; throws a German message on failure. */
+export async function downloadCounterSign(me: MeResponse) {
+  const joinUrl = joinUrlOf(me);
+  if (!joinUrl) throw new Error("Die öffentliche Adresse ist noch nicht konfiguriert.");
+  const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
+  if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
+  const html = counterSignHtml({ businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = "anmeldeschild.html"; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** Invite link and printable counter sign; the join URL is the public programme address, not a private card link. */
 export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string }) {
   const [copied, setCopied] = useState("");
   const [error, setError] = useState("");
-  const joinUrl = me.publicBaseUrl ? new URL(`/join/${encodeURIComponent(me.programSlug)}`, me.publicBaseUrl).toString() : "";
+  const joinUrl = joinUrlOf(me);
 
   async function copy() {
     setError("");
@@ -17,15 +33,7 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
   }
   async function downloadSign() {
     setError("");
-    try {
-      const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
-      if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
-      const html = counterSignHtml({ businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
-      const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
-      const link = document.createElement("a");
-      link.href = url; link.download = "anmeldeschild.html"; link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }
+    try { await downloadCounterSign(me); } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }
   }
 
   if (!joinUrl) return <div className="ow-card"><h2>Kunden einladen</h2><p className="ow-muted" style={{ marginTop: 8 }}>Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p></div>;

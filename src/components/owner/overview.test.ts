@@ -1,47 +1,7 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-import type { MeResponse } from "@/components/client-api";
-
-const state = vi.hoisted(() => ({ me: null as MeResponse | null }));
-vi.mock("./owner-context", () => ({ useOwner: () => ({ me: state.me, locations: [] }) }));
-
-import { Overview } from "./overview";
+import { describe, expect, it } from "vitest";
 import { germanDate } from "./owner-ui";
-import { buildInsights, RetentionInsights } from "./retention-insights";
+import { buildInsights } from "./retention-insights";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
-
-function renderActivity(activity: NonNullable<MeResponse["activity"]>) {
-  state.me = {
-    userId: "owner", tenantId: "tenant", locationId: "location", role: "owner",
-    businessName: "Test Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
-    programSlug: "test-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
-    stats: { members: 1, awards: 1, redemptions: 0 }, activity,
-  };
-  const html = renderToStaticMarkup(createElement(Overview));
-  return html.match(/<time(?: [^>]*)?>.*?<\/time>/g) ?? [];
-}
-
-describe("Overview activity date contract", () => {
-  it.each(["1.10.2026, 18:14:46", "13.10.2026, 18:14:46"])(
-    "renders the server's German display text %s without locale reparsing",
-    occurredAt => {
-      expect(renderActivity([{ id: "entry", kind: "award", occurredAt, amount: 1 }]))
-        .toEqual([`<time>${occurredAt}</time>`]);
-    },
-  );
-
-  it("keeps the merchant's displayed date/time even when its raw timestamp is on the previous UTC day", () => {
-    expect(renderActivity([{
-      id: "entry", kind: "award", occurredAt: "2.10.2026, 00:14:46", createdAt: "2026-10-01T22:14:46.000Z",
-    }])).toEqual(['<time dateTime="2026-10-01T22:14:46.000Z">2.10.2026, 00:14:46</time>']);
-  });
-
-  it("formats a raw timestamp when no display text is supplied", () => {
-    expect(renderActivity([{ id: "entry", kind: "award", createdAt: "2026-10-13T18:14:46" }]))
-      .toEqual(['<time dateTime="2026-10-13T18:14:46">13.10., 18:14</time>']);
-  });
-});
 
 describe("germanDate raw timestamp fallback", () => {
   it.each([
@@ -49,47 +9,6 @@ describe("germanDate raw timestamp fallback", () => {
     ["2026-10-13T18:14:46", "13.10., 18:14"],
   ])("formats %s", (timestamp, expected) => {
     expect(germanDate(timestamp, true)).toBe(expected);
-  });
-});
-
-describe("Overview programme call to action follows the role", () => {
-  const render = (role: "owner" | "manager" | "cashier") => {
-    state.me = {
-      userId: "u", tenantId: "tenant", locationId: "location", role,
-      businessName: "Test Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
-      programSlug: "test-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
-      stats: { members: 1, awards: 1, redemptions: 0 }, activity: [],
-    };
-    return renderToStaticMarkup(createElement(Overview));
-  };
-  it("offers the owner an edit action", () => {
-    const html = render("owner");
-    expect(html).toContain("Programm bearbeiten");
-    expect(html).not.toContain("Programm ansehen");
-  });
-  it("does not promise a manager an edit action on the read-only programme page", () => {
-    const html = render("manager");
-    expect(html).not.toContain("Programm bearbeiten");
-    expect(html).toContain("Programm ansehen");
-  });
-});
-
-describe("Overview retention card follows the withheld surfaces", () => {
-  const render = (hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences">) => {
-    state.me = {
-      userId: "u", tenantId: "tenant", locationId: "location", role: "owner",
-      businessName: "Test Café", locationName: "Berlin", publicBaseUrl: "http://localhost:3000",
-      programSlug: "test-cafe", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5,
-      stats: { members: 1, awards: 1, redemptions: 0 }, activity: [], hiddenSurfaces,
-    };
-    return renderToStaticMarkup(createElement(Overview));
-  };
-  it("is shown where campaigns exist", () => { expect(render()).toContain("Was jetzt zählt"); });
-  it("stays visible in pilot production, without campaign or audience links", () => {
-    const html = render(["billing", "campaigns", "automations", "audiences"]);
-    expect(html).toContain("Was jetzt zählt");
-    expect(html).not.toContain("/merchant/campaigns");
-    expect(html).not.toContain("/merchant/audiences");
   });
 });
 
@@ -139,15 +58,6 @@ describe("buildInsights", () => {
     expect(on.why).toContain(on.next);
     expect(on.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
     expect(drifting({ enabled: true, inWindow: 1 }).next).toBe("1 Karte bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt.");
-  });
-
-  it("says „Gerade nichts Dringendes“ once: the Übersicht's insight card leaves it to „Als Nächstes“ (N5)", () => {
-    const quiet = { ...summary, drifting: 0, neverAfterWeek: 0, nearReward: 0, rewardReady: 0 };
-    const me = { userId: "u", tenantId: "t", locationId: "l", role: "owner", businessName: "B", locationName: "L", publicBaseUrl: "http://localhost:3000", programSlug: "p", programType: "stamp", rewardTitle: "Kaffee", rewardCost: 5 } as MeResponse;
-    const render = (skipFirst: boolean) => renderToStaticMarkup(createElement(RetentionInsights, { me, summary: { state: "ok", data: quiet, at: 0 }, referrals: null, reload: () => {}, skipFirst }));
-    expect(render(true)).not.toContain("Gerade nichts Dringendes");
-    expect(render(true)).toContain("Geprüft:");
-    expect(render(false)).toContain("Gerade nichts Dringendes");
   });
 
   it("says nothing when the data shows nothing", () => {
