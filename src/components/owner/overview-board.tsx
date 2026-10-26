@@ -172,7 +172,9 @@ export function NextBar({ title, text, action }: { title: string; text?: string;
 }
 
 const pillOf = (entry: DiaryDay["entries"][number], unit: string) => entry.kind === "award" ? { mark: `+${nf.format(entry.amount)}`, text: "Buchung bestätigt", label: `${nf.format(entry.amount)} ${unit} gebucht` }
-  : entry.kind === "correction" ? { mark: "", text: `Korrektur −${nf.format(entry.amount)}`, label: `Korrektur, ${nf.format(entry.amount)} ${unit} zurückgenommen` }
+  : entry.kind === "correction" && entry.amount < 0 ? { mark: "", text: `Korrektur −${nf.format(-entry.amount)}`, label: `Korrektur, ${nf.format(-entry.amount)} ${unit} zurückgenommen` }
+    // An undone redemption gives the units back to the card (Reviewer N-1); wording pending Marketing.
+    : entry.kind === "correction" ? { mark: "", text: `Korrektur +${nf.format(entry.amount)}`, label: `Korrektur, ${nf.format(entry.amount)} ${unit} wieder gutgeschrieben` }
     : { mark: "", text: "Prämie eingelöst", label: "Prämie eingelöst" };
 
 /** „Die letzten Tage am Tresen“: one entry per local day, newest first, no timestamps; a quiet stretch shows as one grey gap. */

@@ -38,7 +38,7 @@ const analytics = (patch: Partial<LocationAnalytics> = {}): LocationAnalytics =>
   winbackSetting: { enabled: true, days: 30 },
   diary: [
     { date: "2026-11-03", bookings: 3, units: 21, more: 0, entries: [{ kind: "award", amount: 7 }, { kind: "award", amount: 7 }, { kind: "award", amount: 7 }] },
-    { date: "2026-11-01", bookings: 1, units: 15, more: 3, entries: [{ kind: "award", amount: 15 }, { kind: "correction", amount: 2 }, { kind: "redemption", amount: 0 }] },
+    { date: "2026-11-01", bookings: 1, units: 15, more: 3, entries: [{ kind: "award", amount: 15 }, { kind: "correction", amount: -2 }, { kind: "redemption", amount: 0 }, { kind: "correction", amount: 100 }] },
   ], ...patch,
 });
 const figures = (patch: Partial<SpendFigures>): SpendFigures => ({ visits: 0, spentMinor: 0, realMinor: 0, estimatedMinor: 0, unpricedVisits: 0, averagePerVisitMinor: null, newCardMinor: 0, returningCardMinor: 0, ...patch });
@@ -188,7 +188,8 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("<h3>Gestern</h3>");
     expect(html).toContain(`3${NBSP}Buchungen · 21${NBSP}Punkte vergeben`);
     expect(html).toContain("Sonntag, 01.11.");
-    expect(html).toContain("<span aria-hidden=\"true\">Korrektur −2</span>");
+    expect(html).toContain('aria-label="Korrektur, 2 Punkte zurückgenommen"><span aria-hidden="true">Korrektur −2</span>');
+    expect(html).toContain('aria-label="Korrektur, 100 Punkte wieder gutgeschrieben"><span aria-hidden="true">Korrektur +100</span>'); // an undone redemption gives them back
     expect(html.match(/data-kind="redemption"/g)).toHaveLength(1);
     expect(html).toContain(`3${NBSP}weitere`);
     expect(html).not.toMatch(/\d{1,2}:\d{2}/);

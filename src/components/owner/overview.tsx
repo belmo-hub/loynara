@@ -85,7 +85,11 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
   useEffect(() => { if (liveJson) writeBoardCache(cacheKey, { at: new Date().toISOString(), board: JSON.parse(liveJson) as BoardData }); }, [cacheKey, liveJson]);
-  const cached = readBoardCache(useSyncExternalStore(onStorage, readStorage(cacheKey), () => null));
+  const storedBoard = useSyncExternalStore(onStorage, readStorage(cacheKey), () => null);
+  const cached = readBoardCache(storedBoard);
+  // Numbers older than 7 days (or unreadable) leave the device as soon as the page finds them (Reviewer N-3).
+  const staleBoard = storedBoard !== null && cached === null;
+  useEffect(() => { if (staleBoard) try { window.localStorage.removeItem(cacheKey); } catch { /* storage blocked: nothing to remove */ } }, [staleBoard, cacheKey]);
   // A failed read retries on its own when the page comes back into view or the connection returns.
   useEffect(() => {
     if (!failed) return;
