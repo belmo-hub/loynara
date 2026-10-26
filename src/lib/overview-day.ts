@@ -5,7 +5,10 @@
  */
 
 export type DayCount = { date: string; bookings: number };
-/** One local day of the diary: its counted bookings, the units they awarded and every entry in order (never netted). */
+/**
+ * One local day of the diary: its counted bookings, the units they awarded and every entry in order (never netted).
+ * `amount`: an award's units; a correction's signed units (− taken off the card, + given back); 0 for a redemption.
+ */
 export type DiaryDay = { date: string; bookings: number; units: number; entries: Array<{ kind: "award" | "correction" | "redemption"; amount: number }>; more: number };
 /** The board's day data for one location (part of the per-location read). */
 export type LocationDays = {

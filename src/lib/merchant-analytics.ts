@@ -488,7 +488,8 @@ async function locationDays(client: PoolClient, tenantId: string, locationId: st
     fullTwoWeeks: effectiveAt !== null && effectiveAt.getTime() <= bounds.stripFrom.getTime(),
     diary: diary.rows.map(row => ({
       date: row.date, bookings: row.bookings, units: row.units, more: row.entries - row.list.length,
-      entries: row.list.map(entry => ({ kind: kindOf(entry.kind), amount: entry.kind === "redeem" ? 0 : Math.abs(entry.delta) })),
+      // A correction keeps its sign: an undone award takes units off the card (−), an undone redemption gives them back (+).
+      entries: row.list.map(entry => ({ kind: kindOf(entry.kind), amount: entry.kind === "redeem" ? 0 : entry.delta })),
     })),
   };
 }

@@ -214,7 +214,8 @@ describe("the board's days, diary and tiles (ENG-085)", () => {
     for (let n = 0; n < 52; n++) await entry(t, card, new Date(asOf.getTime() - 60_000 * (n + 1)).toISOString()); // 52 bookings today
     const [wrong] = await entry(t, card, "2026-10-26T09:00:00Z", { delta: 4 });
     await entry(t, card, "2026-10-26T09:05:00Z", { kind: "reversal", source: "staff_correction", delta: -4, reversalOfId: wrong.id, reason: "Synthetic correction" });
-    await entry(t, card, "2026-10-26T09:10:00Z", { kind: "redeem", delta: -10 });
+    const [redeemed] = await entry(t, card, "2026-10-26T09:10:00Z", { kind: "redeem", delta: -10 });
+    await entry(t, card, "2026-10-26T09:15:00Z", { kind: "reversal", source: "staff_correction", delta: 10, reversalOfId: redeemed.id, reason: "Synthetic redemption mistake" });
     await entry(t, card, "2026-10-26T09:20:00Z", { source: "welcome_bonus", delta: 3 });
     await entry(t, card, "2026-09-20T10:00:00Z"); // outside the 30 local days
 
@@ -222,7 +223,7 @@ describe("the board's days, diary and tiles (ENG-085)", () => {
     expect(report.diary.map(d => d.date)).toEqual(["2026-10-27", "2026-10-26", "2026-10-25", "2026-10-24", "2026-10-23", "2026-10-22", "2026-10-21", "2026-10-20", "2026-10-19", "2026-10-18"]);
     expect(report.diary[0]).toMatchObject({ bookings: 52, units: 52, more: 2 });
     expect(report.diary[0].entries).toHaveLength(50);
-    expect(report.diary[1]).toEqual({ date: "2026-10-26", bookings: 1, units: 1, more: 0, entries: [{ kind: "award", amount: 4 }, { kind: "correction", amount: 4 }, { kind: "redemption", amount: 0 }, { kind: "award", amount: 1 }] }); // in time order
+    expect(report.diary[1]).toEqual({ date: "2026-10-26", bookings: 1, units: 1, more: 0, entries: [{ kind: "award", amount: 4 }, { kind: "correction", amount: -4 }, { kind: "redemption", amount: 0 }, { kind: "correction", amount: 10 }, { kind: "award", amount: 1 }] }); // in time order; an undone redemption gives the units back
     const json = JSON.stringify({ days: report.days, diary: report.diary });
     expect(json).not.toContain(card);
     expect(json).not.toMatch(/T\d{2}:\d{2}/);
