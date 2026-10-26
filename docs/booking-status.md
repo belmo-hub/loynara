@@ -9,3 +9,36 @@ Dev server: `.claude/launch.json` entry `loynara-booking` (port 3090, database `
 - Not yet: no UI, no push/consent/export routes, `booking_settings.enabled` is only set by slice 7's operator toggle, the monthly reschedule limit is approximated from `updated_at` (shortcut comment in appointments.ts).
 - Run: see the command above; the full suite was not run in this slice.
 - Next: slices 2 (wizard), 3 (customer flow), 4 (day view + cashier fusion), 6 (dashboard + export) in parallel.
+
+## Slice 2 – owner setup wizard (88a28da)
+- Works: /merchant/termine/einrichten, five steps with presets, goal text, services, hours, team, rules with the cost line per choice; saves and reloads; nav group „Termine“ (Heute, Einrichten); 409 when a person with open appointments is removed.
+- Not yet: the stepper chips wrap to three rows at 390 px (existing component); shop hours are stored per person only.
+- Run: `npx vitest run src/components/owner/booking-setup-helpers.test.ts src/components/owner/nav.test.ts`; dev server via launch config `loynara-booking`, then Einrichten.
+- Next: slice 4 (day view) consumed the same nav group.
+
+## Slice 3 – customer booking flow (270001e)
+- Works: /card/<token>/termin, service → day → time → book in four taps at 390 px, name remembered on the device, terms and deadline before the button, SLOT_TAKEN offers the next free time, reschedule and cancel with honest late-cancel wording, „Nächster Termin“ on the card; e2e spec passes.
+- Not yet: slots window is 14 days (shop allows 42); no shop brand colour on the booking page; Impressum links shown twice (fixed in slice 5).
+- Run: start the dev server (`--webpack`, see launch config), then `E2E_BASE_URL=http://localhost:3090 npx playwright test e2e/booking-customer.spec.ts --project=desktop-chrome`.
+- Next: slice 5 adds the reminder toggle to the success screen.
+
+## Slice 4 – owner day view and cashier fusion (d0ae333)
+- Works: /merchant/termine with requests, blocks, rows in the shop's zone; sheet with confirm, done (amount prefilled for points shops), no-show, cancel with reason, move, block/unblock card; „Zeit blocken“ lists affected appointments and needs an explicit „Alle absagen“; a counter award or plate tap completes the matching appointment with that ledger entry, the owner's later Fertig is STALE; 147 tests green incl. cashier and NFC suites.
+- Not yet: the cashier line shows the phone's time zone (fixed in slice 5); move offers the same staff member only.
+- Run: `npx vitest run src/lib/booking src/components/owner/booking-day-model.test.ts`.
+- Next: slice 5 pushes shop cancellations and moves to the customer.
+
+## Slice 6 – dashboard figures and export (4187a1f)
+- Works: Ergebnisse euro section gains „Termine“ (heute, nächste 7 Tage, Ausfälle, Umsatz nach Listenpreis geschätzt, an der Kasse bestätigt, über Erinnerung neu gebucht); CSV „Termine für Excel“ on the settings page; the customer's own export lists their appointments.
+- Not yet: the 30-day window is fixed whatever period the page shows; the JSON merchant export has no appointments.
+- Run: `npx vitest run src/lib/booking/dashboard-export src/lib/merchant-analytics src/lib/merchant-csv-export`.
+
+## Slice 7 – plan gate (8e06162)
+- Works: operator console switch „Termin + Treue“ per location writes booking_settings.enabled; owner billing page shows the plan line when on; customer GET /booking flips accordingly.
+- Not yet: charging stays on the stored plan; the plan-code CHECK and Stripe are untouched (founder's decision); the marketing site's plan card and salon page are behind `bookingLive` (off) in marketing-site/src/claims.ts.
+- Run: `npx vitest run src/lib/operator-booking`.
+
+## Slice 8 – demo salon (a808494)
+- Works: `npm run seed:booking-demo` creates Nagelstudio Lumi with two staff, the preset, ~30 cards and a week of appointments in every status; prints owner login, a customer card with an upcoming appointment and the day-view URL; `docs/booking-pitch-addendum.md` holds the salon pitch text.
+- Not yet: re-running skips (fresh week needs a fresh database); seed after 10:00 on pitch day so this morning's done appointments lie in the past.
+- Run: with the dev DATABASE_URL, `npm run seed:booking-demo`, then open the printed URLs on the dev server.
