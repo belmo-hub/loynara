@@ -1,6 +1,7 @@
 import { respondError, sessionUser } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
 import { getMerchantAnalytics, type AnalyticsWindowDays } from "@/lib/merchant-analytics";
+import { selectedLocationFromRequest } from "@/lib/locations";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     await enforceRateLimit({ scope: "merchant_analytics_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const window = new URL(request.url).searchParams.get("window") ?? "30";
     if (window !== "30" && window !== "90") throw new DomainError("INVALID_WINDOW", "Choose a 30 or 90 day window");
-    const report = await getMerchantAnalytics(user.id, { windowDays: Number(window) as AnalyticsWindowDays });
+    const report = await getMerchantAnalytics(user.id, { windowDays: Number(window) as AnalyticsWindowDays, booking: { locationId: selectedLocationFromRequest(request, user.id) } });
     return Response.json(report, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   } catch (error) { return respondError(error); }
 }

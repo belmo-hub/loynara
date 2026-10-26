@@ -31,6 +31,25 @@ export type MerchantAnalytics<W extends number = AnalyticsWindowDays> = {
   series: Array<{ from: string; to: string; newCards: number; checkouts: number }>;
   countingRule: string;
   limits: { availableWindowsDays: [30, 90]; bucketDays: 7; topRewardTitles: 5 };
+  /** Termin figures of the selected location; null while booking is off there, absent when no location was asked for. */
+  booking?: BookingFigures | null;
+};
+
+/** By appointment start: today is the location's local day, the 30 days are today and the 29 local days before. */
+export type BookingFigures = {
+  locationName: string;
+  appointmentsToday: number;
+  done30: number;
+  noShow30: number;
+  /** done + no-show + late cancels: the appointments a no-show could have hit. */
+  total30: number;
+  /** Created in the 30 days from a rebook reminder (rebook_source_id). */
+  rebooked30: number;
+  /** Sum of the booked list prices of done appointments, an estimate, never cashed money. */
+  listPriceMinor30: number;
+  /** Purchase amounts the cashier typed for the uncorrected stamps of done appointments. */
+  confirmedMinor30: number;
+  upcoming7: number;
 };
 
 type MembershipCounts = { currentActiveCards: number; newCards: number };
@@ -61,7 +80,7 @@ const checkoutCte = `
 
 export async function getMerchantAnalytics(
   actorUserId: string,
-  options: { windowDays: AnalyticsWindowDays; asOf?: Date },
+  options: { windowDays: AnalyticsWindowDays; asOf?: Date; booking?: { locationId: string | null } },
   snapshot?: PoolClient,
 ): Promise<MerchantAnalytics> {
   if (options.windowDays !== 30 && options.windowDays !== 90) {
@@ -78,8 +97,41 @@ export async function getMerchantAnalytics(
       [actorUserId],
     )).rows;
     if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
-    return readAnalytics(client, owner.tenantId, new Date(asOf.getTime() - options.windowDays * 86_400_000), asOf, options.windowDays);
+    const report = await readAnalytics(client, owner.tenantId, new Date(asOf.getTime() - options.windowDays * 86_400_000), asOf, options.windowDays);
+    // The owner's selected location, else the oldest one, as in the rest of the owner area.
+    const locationId = options.booking?.locationId && uuidPattern.test(options.booking.locationId) ? options.booking.locationId : null;
+    return options.booking ? { ...report, booking: await bookingFigures(client, owner.tenantId, locationId, asOf) } : report;
   });
+}
+
+async function bookingFigures(client: PoolClient, tenantId: string, locationId: string | null, asOf: Date): Promise<BookingFigures | null> {
+  const [row] = (await client.query<BookingFigures & { listPriceMinor30: string; confirmedMinor30: string }>(`
+    WITH loc AS (
+      SELECT l.id, l.name,
+        ((($3::timestamptz AT TIME ZONE l.timezone)::date)::timestamp AT TIME ZONE l.timezone) AS today_from,
+        (((($3::timestamptz AT TIME ZONE l.timezone)::date + 1)::timestamp) AT TIME ZONE l.timezone) AS today_to,
+        (((($3::timestamptz AT TIME ZONE l.timezone)::date - ${SPEND_RECENT_DAYS - 1})::timestamp) AT TIME ZONE l.timezone) AS recent_from
+      FROM locations l JOIN booking_settings s ON s.tenant_id = l.tenant_id AND s.location_id = l.id AND s.enabled
+      WHERE l.tenant_id = $1 AND l.id = coalesce($2::uuid, (SELECT id FROM locations WHERE tenant_id = $1 ORDER BY created_at, id LIMIT 1))
+    ), a AS (
+      SELECT a.*, lower(a.during) AS start FROM booking_appointments a WHERE a.tenant_id = $1 AND a.location_id = (SELECT id FROM loc)
+    )
+    SELECT loc.name AS "locationName",
+      count(*) FILTER (WHERE a.status IN ('requested','confirmed','done') AND a.start >= loc.today_from AND a.start < loc.today_to)::int AS "appointmentsToday",
+      count(*) FILTER (WHERE a.status = 'done' AND a.start >= loc.recent_from AND a.start < $3)::int AS "done30",
+      count(*) FILTER (WHERE a.status = 'no_show' AND a.start >= loc.recent_from AND a.start < $3)::int AS "noShow30",
+      count(*) FILTER (WHERE (a.status IN ('done','no_show') OR (a.status = 'cancelled_by_customer' AND a.late_cancel)) AND a.start >= loc.recent_from AND a.start < $3)::int AS "total30",
+      count(*) FILTER (WHERE a.rebook_source_id IS NOT NULL AND a.created_at >= loc.recent_from AND a.created_at < $3)::int AS "rebooked30",
+      coalesce(sum(a.price_minor) FILTER (WHERE a.status = 'done' AND a.start >= loc.recent_from AND a.start < $3), 0)::bigint::text AS "listPriceMinor30",
+      coalesce(sum(pa.amount_minor) FILTER (WHERE a.status = 'done' AND a.start >= loc.recent_from AND a.start < $3 AND NOT EXISTS (
+        SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = a.tenant_id AND undo.reversal_of_id = a.done_ledger_entry_id AND undo.created_at < $3
+      )), 0)::bigint::text AS "confirmedMinor30",
+      count(*) FILTER (WHERE a.status IN ('requested','confirmed') AND a.start >= $3 AND a.start < $3::timestamptz + interval '7 days')::int AS "upcoming7"
+    FROM loc LEFT JOIN a ON true
+      LEFT JOIN purchase_awards pa ON pa.tenant_id = a.tenant_id AND pa.ledger_entry_id = a.done_ledger_entry_id
+    GROUP BY loc.id, loc.name, loc.today_from, loc.today_to, loc.recent_from
+  `, [tenantId, locationId, asOf])).rows;
+  return row ? { ...row, listPriceMinor30: Number(row.listPriceMinor30), confirmedMinor30: Number(row.confirmedMinor30) } : null;
 }
 
 /** The same figures for an exact [from, to) window, e.g. a Berlin calendar week. Callers check access themselves. */

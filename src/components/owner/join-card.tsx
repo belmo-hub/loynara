@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
+import { useLoad } from "./use-load";
 
 /** The public programme address customers join at, not a private card link; "" while it is not configured. */
 export const joinUrlOf = (me: MeResponse) => me.publicBaseUrl ? new URL(`/join/${encodeURIComponent(me.programSlug)}`, me.publicBaseUrl).toString() : "";
@@ -26,6 +27,8 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
   const [copied, setCopied] = useState("");
   const [error, setError] = useState("");
   const joinUrl = joinUrlOf(me);
+  // Only where the export links show: a location with booking settings has appointments worth exporting.
+  const [booking] = useLoad<{ settings: object | null }>(exportUrl ? "/api/merchant/booking/setup" : null);
 
   async function copy() {
     setError("");
@@ -49,6 +52,7 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
         <p>Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=buchungen`} download>Buchungen für Excel</a>: Jeder Stempel, jede Einlösung und jede Korrektur mit Datum und Standort.</p>
+        {booking.state === "ok" && booking.data.settings && <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=appointments`} download>Termine für Excel</a>: Jeder Termin von {me.locationName} mit Kunde, Telefon und Status.</p>}
         <p><a className="ow-link ow-link--block" href={exportUrl} download>Vollständiger Export (JSON)</a></p>
       </div>}
       <div role="status" aria-live="polite">{copied && <p className="ow-muted">{copied}</p>}</div>

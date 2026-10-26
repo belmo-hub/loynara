@@ -31,7 +31,7 @@ export default function MerchantAnalyticsPage() {
     <div className="ow-page">
       {head}
       {locations.length > 1 && <Notice>{ALL_LOCATIONS_NOTE}</Notice>}
-      <SpendCard multiLocation={locations.length > 1} />
+      <SpendCard multiLocation={locations.length > 1} booking={r?.booking} />
       <PeriodBar id="analytics-window" value={windowDays} onChange={setWindowDays} meta={r ? `${date(r.from)} bis ${date(r.asOf)}` : undefined} />
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}

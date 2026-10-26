@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ErrorNotice, LoadingBlock, Notice } from "./owner-ui";
+import { ErrorNotice, LoadingBlock, MoreInfo, Notice } from "./owner-ui";
 import { useLoad } from "./use-load";
-import type { MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
-import { formatMinor, SPEND_COPY as C } from "@/lib/spend-copy";
+import type { BookingFigures, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
+import { BOOKING_COPY as B, formatMinor, SPEND_COPY as C } from "@/lib/spend-copy";
 
 const AVERAGE_HREF = "/merchant/program";
 
@@ -13,7 +13,7 @@ const AVERAGE_HREF = "/merchant/program";
  * period and how sure it is; the method sits behind „So zählen wir den Umsatz“ (L3). While no booking has an amount the card
  * leads with entering the average, never with a count under a revenue title (top-10 item 7).
  */
-export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
+export function SpendCard({ multiLocation, booking }: { multiLocation: boolean; booking?: BookingFigures | null }) {
   const [spend, reload] = useLoad<MerchantSpend>("/api/merchant/spend");
   const s = spend.state === "ok" ? spend.data : null;
   const money = (minor: number) => formatMinor(minor, s?.currency ?? "EUR");
@@ -39,6 +39,7 @@ export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
           {s.overall.total.unpricedVisits > 0 && <><Notice>{C.missingAverage}</Notice><div><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>{C.missingAverageLink}</Link></div></>}
         </>)}
       <details className="ow-muted"><summary>{C.howWeCountTitle}</summary><p style={{ marginTop: 6, maxWidth: "80ch" }}>{C.howWeCount}</p></details>
+      {booking && <BookingLines booking={booking} money={money} multiLocation={multiLocation} />}
     </section>
   );
 }
@@ -53,4 +54,21 @@ const value = (f: SpendFigures, money: (minor: number) => string) => `${amount(f
 function Figure({ label, figures, money }: { label: string; figures: SpendFigures; money: (minor: number) => string }) {
   return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{amount(figures, money)}</strong>{estimateMark(figures) && <p className="ow-metric-note"><strong>{estimateMark(figures)}</strong></p>}
     <p className="ow-metric-note">{figures.averagePerVisitMinor === null ? C.bookings(figures.visits) : figures.unpricedVisits > 0 ? C.pricedBookings(figures.visits - figures.unpricedVisits, money(figures.averagePerVisitMinor)) : `${C.bookings(figures.visits)} · ${C.average(money(figures.averagePerVisitMinor))}`}</p></div>;
+}
+
+/** Loynara Termin: hidden while booking is off at the selected location (booking null). */
+function BookingLines({ booking: b, money, multiLocation }: { booking: BookingFigures; money: (minor: number) => string; multiLocation: boolean }) {
+  return <div className="ow-stack">
+    <h3 style={{ fontSize: "var(--text-16)" }}>{multiLocation ? `${B.title} · ${b.locationName}` : B.title}</h3>
+    <ul className="ow-feed">
+      <li>{B.today(b.appointmentsToday, b.upcoming7)}</li>
+      {b.done30 === 0 ? <li className="ow-muted">{B.empty}</li> : <>
+        <li>{B.noShow(b.noShow30, b.total30)}</li>
+        <li>{B.listPrice(money(b.listPriceMinor30))}</li>
+        {b.confirmedMinor30 > 0 && <li>{B.confirmed(money(b.confirmedMinor30))}</li>}
+      </>}
+      {b.rebooked30 > 0 && <li>{B.rebooked(b.rebooked30)}</li>}
+    </ul>
+    <MoreInfo summary="So zählen wir die Termine"><p>{B.howWeCount}</p></MoreInfo>
+  </div>;
 }
