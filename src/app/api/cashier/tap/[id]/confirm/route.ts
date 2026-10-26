@@ -6,6 +6,7 @@ import { jsonBody, sessionUser, respondError, requireSameOrigin } from "@/lib/ht
 import { DomainError } from "@/lib/loyalty";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { MAX_PURCHASE_AMOUNT_MINOR } from "@/lib/points";
+import { completeAfterAward } from "@/lib/booking/cashier";
 
 // A points request carries the cashier's entry, in the same shapes as a counter award; a stamp request has no body.
 const award = z.union([
@@ -23,6 +24,8 @@ export async function POST(request: Request, route: { params: Promise<{ id: stri
     const { id } = await route.params;
     if (!/^[a-f0-9-]{36}$/.test(id)) throw new DomainError("NOT_FOUND", "Pending tap not found");
     const entry = request.headers.get("content-type") ? award.parse(await jsonBody(request, 500)) : undefined;
-    return Response.json(await confirmTapRequest({ userId: user.id, locationId: context.locationId, requestId: id, award: entry }), { headers: { "Cache-Control": "no-store" } });
+    const result = await confirmTapRequest({ userId: user.id, locationId: context.locationId, requestId: id, award: entry });
+    await completeAfterAward(result.entryId);
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

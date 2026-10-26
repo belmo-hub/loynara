@@ -148,9 +148,10 @@ Example: `POST /api/card/K7q…/booking/appointments` `{ "serviceId": "…", "st
 |---|---|
 | `GET …/setup` | → `{ settings, services, staff, presets: { nagelstudio, barber, kosmetik } }` |
 | `PUT …/setup` | `{ settings, services: [{ id?, … }], staff: [{ id?, …, serviceIds }] }` → same as GET; `409 STAFF_HAS_APPOINTMENTS { staffId, count }` |
-| `GET …/day?date=YYYY-MM-DD` | → `{ date, appointments: [OwnerAppointment], blocks, staff, pendingRequests }` |
-| `POST …/appointments/[id]/transition` | `{ to: "confirmed" \| "done" \| "no_show" \| "cancelled_by_shop", expected, purchaseAmountMinor?, idempotencyKey }` → `OwnerAppointment` (+ `award` when done); `409 STALE` when `expected` no longer matches; `409 TOO_EARLY` for done/no_show before `start − 10 min` |
+| `GET …/day?date=YYYY-MM-DD` | → `{ date, appointments: [OwnerAppointment], blocks, staff, pendingRequests, timezone, blockedMembershipIds }` (last two: slice 4) |
+| `POST …/appointments/[id]/transition` | `{ to: "confirmed" \| "done" \| "no_show" \| "cancelled_by_shop", expected, purchaseAmountMinor?, reason? (cancel, slice 4), idempotencyKey }` → `OwnerAppointment` (+ `award` when done); `409 STALE` when `expected` no longer matches; `409 TOO_EARLY` for done/no_show before `start − 10 min` |
 | `POST …/appointments/[id]/move` | `{ start, staffId }` → `OwnerAppointment`; `409 SLOT_TAKEN` |
+| `GET …/appointments/[id]/slots?date=YYYY-MM-DD` (slice 4) | → `{ date, slots: [{ start, staffId }] }`: free starts for „Verschieben“, booked length, same staff, no lead time |
 | `POST …/blocks` | `{ staffId?, start, end, reason }` → `{ block, affected: [OwnerAppointment] }`; `DELETE …/blocks/[id]` → `204` |
 | `POST …/blocks/[id]/cancel-affected` | `{}` → `{ cancelled: n }` (sets `cancelled_by_shop`, reason „Geschäft geschlossen“, pushes in slice 5) |
 | `POST …/customers/[membershipId]/block` / `…/unblock` | `{ reason? }` → `204` |

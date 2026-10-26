@@ -5,6 +5,7 @@ import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/ht
 import { DomainError } from "@/lib/loyalty";
 import { MAX_PURCHASE_AMOUNT_MINOR } from "@/lib/points";
 import { selectedLocationFromRequest } from "@/lib/locations";
+import { completeAfterAward } from "@/lib/booking/cashier";
 
 const common = { membershipId: z.uuid(), idempotencyKey: z.string().min(8).max(100), requestId: z.uuid(), deviceAt: z.iso.datetime().optional() };
 const body = z.union([
@@ -18,6 +19,8 @@ export async function POST(request: Request) {
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
     if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
     const { deviceAt, ...input } = body.parse(await jsonBody(request, 2000));
-    return Response.json(await award({ ...input, userId: user.id, locationId: context.locationId, deviceAt: deviceAt ? new Date(deviceAt) : undefined }), { headers: { "Cache-Control": "no-store" } });
+    const result = await award({ ...input, userId: user.id, locationId: context.locationId, deviceAt: deviceAt ? new Date(deviceAt) : undefined });
+    await completeAfterAward(result.entryId);
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

@@ -295,7 +295,7 @@ async function ownerAppointment(tx: Tx, scope: Scope, appointmentId: string) {
   return row;
 }
 
-export type TransitionInput = Scope & { userId: string; appointmentId: string; to: Status; expected: Status; purchaseAmountMinor?: number };
+export type TransitionInput = Scope & { userId: string; appointmentId: string; to: Status; expected: Status; purchaseAmountMinor?: number; reason?: string };
 
 /** "Fertig" awards once, in the same transaction, keyed "booking:" + id; every transition is UPDATE … WHERE status = expected. */
 export async function transition(input: TransitionInput, now = new Date()) {
@@ -322,7 +322,7 @@ export async function transition(input: TransitionInput, now = new Date()) {
       await setStatus(tx, row, "done", { doneLedgerEntryId: award.entryId });
       doneAward = { balance: award.balance, creditedQuantity: award.creditedQuantity };
     } else {
-      await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: "Vom Geschäft abgesagt" } : {});
+      await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || "Vom Geschäft abgesagt" } : {});
     }
     if (input.to === "no_show") {
       const [settings, after] = [await settingsOf(tx, input, false), await ownerAppointment(tx, input, row.a.id)];
@@ -465,4 +465,13 @@ export async function cardBookingLimits(request: Request, token: string, write =
 export function pathId(id: string) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new DomainError("NOT_FOUND", "Not found");
   return id;
+}
+
+/** Free starts on `date` for the owner's "Verschieben": the booked length, the same staff member, no lead time (as move()). */
+export async function ownerSlots(input: Scope & { appointmentId: string; date: string }, now = new Date()) {
+  const row = await one(db, input.tenantId, input.appointmentId);
+  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Appointment not found");
+  const scope = { ...input, timezone: await timezoneOf(db, input) };
+  const [day] = await availability(db, scope, { service: bookedService(row), staffId: row.a.staffId, days: [input.date], excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
+  return { date: input.date, slots: day.slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
 }
