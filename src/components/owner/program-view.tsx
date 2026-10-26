@@ -8,6 +8,7 @@ import { confirmSentence, earningSentence, unitName } from "./program-helpers";
 import { RewardsCard } from "./program-rewards";
 import { RuleCard } from "./program-rules";
 import { HappyHourCard } from "./happy-hour-card";
+import { ProgramWinbackCard } from "./winback-card";
 import { ProgramExtrasCard } from "./program-extras";
 import { TapPolicyCard } from "./tap-policy";
 import { useLoad } from "./use-load";
@@ -29,6 +30,7 @@ export function ProgramView({ me }: { me: MeResponse }) {
           <RewardsCard me={me} program={data} onChanged={() => { reloadProgram(); }} />
           <ProgramExtrasCard me={owner.me ?? me} />
           <HappyHourCard me={owner.me ?? me} earningMode={data.earningMode} />
+          <ProgramWinbackCard slug={me.programSlug} />
           {!owner.hiddenSurfaces.includes("nfc") && <TapPolicyCard me={owner.me ?? me} />}
         </>
       ) : (

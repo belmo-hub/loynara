@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { postJson } from "@/components/client-api";
-import { useDirtyGuard } from "./owner-context";
-import { SaveBar, type SaveState } from "./owner-ui";
+import { useDirtyGuard, useOwner } from "./owner-context";
+import { Notice, SaveBar, type SaveState } from "./owner-ui";
+import { useLoad } from "./use-load";
 import { almostText, birthdayText, WINBACK_DAYS, winbackRule, winbackText } from "@/lib/wallet-message-rules";
 
 export type Winback = { enabled: boolean; days: number; bonus: number; bonusMax: number; type: "stamp" | "points"; almost: boolean };
@@ -11,7 +12,7 @@ type Draft = { enabled: boolean; days: string; bonus: string };
 const fromSaved = (w: Winback): Draft => ({ enabled: w.enabled, days: String(w.days), bonus: String(w.bonus) });
 
 /** „Kunden zurückholen“ (ENG-044): the owner picks N and the bonus; the text is fixed. The server checks every value again. */
-export function WinbackCard({ slug, initial }: { slug: string; initial: Winback }) {
+export function WinbackCard({ slug, initial, reminders }: { slug: string; initial: Winback; reminders: boolean }) {
   const [saved, setSaved] = useState<Draft>(() => fromSaved(initial));
   const [draft, setDraft] = useState<Draft>(saved);
   const [state, setState] = useState<SaveState>("clean");
@@ -23,39 +24,59 @@ export function WinbackCard({ slug, initial }: { slug: string; initial: Winback 
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("winback", changed);
   const edit = (patch: Partial<Draft>) => { setDraft({ ...draft, ...patch }); if (state === "saved" || state === "error") setState("clean"); };
+  // A real example instead of a placeholder (Head of Design): the last day for a card that comes back today.
+  const [exampleDay] = useState(() => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(Date.now() + 14 * 86_400_000)));
 
   async function save() {
     setState("saving"); setError("");
     try {
-      await postJson("/api/merchant/wallet-messages", { programSlug: slug, winback: { enabled: draft.enabled, days, bonus } });
+      await postJson("/api/merchant/program/winback", { programSlug: slug, winback: { enabled: draft.enabled, days, bonus } });
       setSaved(draft); setState("saved");
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
   }
 
   return (
     <section className="ow-card ow-stack" aria-labelledby="winback-title">
-      <h2 id="winback-title">Kunden zurückholen</h2>
+      <h2 id="winback-title">Willkommen-zurück-Bonus</h2>
       <label className="ow-check"><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Eingeschaltet</label>
       <div className="ow-field">
-        <label htmlFor="winback-days">Erinnerung nach … Tagen ohne Besuch ({WINBACK_DAYS.min}–{WINBACK_DAYS.max})</label>
+        <label htmlFor="winback-days">{reminders ? "Erinnerung nach … Tagen ohne Besuch" : "Bonus nach … Tagen ohne Buchung"} ({WINBACK_DAYS.min}–{WINBACK_DAYS.max})</label>
         <input id="winback-days" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.days} aria-invalid={!daysValid} onChange={event => edit({ days: event.target.value.replace(/[^0-9]/g, "") })} />
       </div>
       {initial.type === "stamp"
         ? <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}><legend>Bonus</legend>
-          <label><input type="radio" name="winback-bonus" checked={bonus === 0} onChange={() => edit({ bonus: "0" })} /> Kein Bonus</label>
-          <label><input type="radio" name="winback-bonus" checked={bonus === 1} onChange={() => edit({ bonus: "1" })} /> +1 Stempel</label>
+          <div className="ow-radio-cards">
+            <label className="ow-radio-card"><input type="radio" name="winback-bonus" checked={bonus === 0} onChange={() => edit({ bonus: "0" })} /><strong>Kein Bonus</strong></label>
+            <label className="ow-radio-card"><input type="radio" name="winback-bonus" checked={bonus === 1} onChange={() => edit({ bonus: "1" })} /><strong>+1 Stempel</strong></label>
+          </div>
         </fieldset>
         : <div className="ow-field">
           <label htmlFor="winback-bonus">Bonus in Punkten (0 = kein Bonus)</label>
           <input id="winback-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.bonus} aria-invalid={!bonusValid} aria-describedby="winback-bonus-hint" onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
           <p id="winback-bonus-hint" className="ow-hint">1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</p>
         </div>}
-      <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
-      <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{winbackText(initial.type, bonusValid ? bonus : 0, "[Datum]")}</p></div>
-      {bonusValid && bonus > 0 && <p className="ow-hint">Steht auf der Karte: {winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus)}</p>}
+      {reminders
+        ? <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
+        : <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus einmal. Er kommt beim Bestätigen an der Kasse automatisch dazu. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.</p>}
+      {reminders
+        ? <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{winbackText(initial.type, bonusValid ? bonus : 0, exampleDay)}</p></div>
+        : bonusValid && bonus > 0 && <div className="ow-card" role="group" aria-label="Vorschau auf der Kundenkarte">
+          {/* The card line of ENG-089 part B (customer-card-copy.tsx), with its „Bedingungen“ link shown as text here. */}
+          <p>Willkommen zurück! Bis zum {exampleDay} gibt&apos;s bei deinem nächsten Besuch {initial.type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. <u>Bedingungen</u></p>
+        </div>}
+      {bonusValid && bonus > 0 && <p className="ow-hint">Steht auf der Karte: {winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus, reminders)}</p>}
       <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
+}
+
+/** The win-back set-up on Programm (ENG-089): loads its own settings; the reminder parts show only while Wallet messages are offered. */
+export function ProgramWinbackCard({ slug }: { slug: string }) {
+  const owner = useOwner();
+  const [data, reload] = useLoad<Winback>(`/api/merchant/program/winback?programSlug=${encodeURIComponent(slug)}`);
+  if (data.state === "error") return <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reload}>Erneut laden</button>}>{data.message}</Notice>;
+  if (data.state !== "ok") return null;
+  return <WinbackCard slug={slug} initial={data.data} reminders={!owner.hiddenSurfaces.includes("walletMessages")} />;
 }
 
 /** „Fast geschafft“ (ENG-045): one switch; the text is fixed. Saved at once, like the card's consent box. */

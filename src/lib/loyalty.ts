@@ -241,7 +241,7 @@ async function bookHappyHour(tx: Transaction, input: { program: typeof programs.
 // Win-back (ENG-044): a card that comes back between day N and day N + 14 (calendar days in the location's timezone) after
 // its last confirmed stamp gets the programme's bonus as its own row next to the confirmed award, keyed by that award's id
 // like the welcome bonus. Independent of message consent (Art. 7 (4) DSGVO); not a visit. After the award the card's last
-// stamp is today, so the next award is outside the window: one bonus per lapse. Withheld with the walletMessages surface.
+// stamp is today, so the next award is outside the window: one bonus per lapse. Owners switch it on under Programm (ENG-089).
 const winbackKey = (awardEntryId: string) => `winback:${awardEntryId}`;
 
 /** A card's last confirmed stamp (alias `m` = memberships): a staff-confirmed award that was not corrected. Bonus rows never count. */
@@ -251,7 +251,6 @@ export const lastConfirmedStamp = (before: Date | SQL = sql`'infinity'::timestam
 
 /** Whether a card is in its win-back window at `at`, and the window's last day (YYYY-MM-DD). Null when off or no stamp yet. */
 export async function winbackState(tx: Pick<typeof db, "execute">, membershipId: string, at: Date, exceptEntryId: string | null = null) {
-  if (surfaceHidden("walletMessages")) return null;
   const [row] = (await tx.execute<{ bonus: number; days: number; lapsed: number; deadline: string }>(sql`
     SELECT p.winback_bonus AS bonus, p.winback_days AS days,
       (${at}::timestamptz AT TIME ZONE l.timezone)::date - (s.last AT TIME ZONE l.timezone)::date AS lapsed,
