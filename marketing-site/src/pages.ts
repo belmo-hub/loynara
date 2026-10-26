@@ -4,7 +4,7 @@
  * Claims follow the same boundary as the home page: the entry claim follows the NFC gate in claims.ts, Apple Wallet on request, messages only as outlook,
  * example data labelled as such, no proof, results or availability that the product cannot show.
  */
-import { ENTRY_COPY as E, RECOVERY_COPY as R } from './claims.js';
+import { GATES, ENTRY_COPY as E, RECOVERY_COPY as R, TERMIN_COPY as T } from './claims.js';
 import { SITE } from './site.js';
 import { initialBrand, type BrandState } from './brand.js';
 import { cardHtml, statusFor } from './final-parts.js';
@@ -48,6 +48,11 @@ const breakEven = (basket: number, what: string) => {
   return `<div class="price-card"><p class="price"><b>${price()}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks"><li>Bei rund ${basket} € pro ${what} entspricht das etwa ${n} zusätzlichen ${n === 1 ? 'Besuch' : 'Besuchen'} im Monat.</li><li>Ohne App für deine Kunden, ohne Kassenanbindung.</li><li>Prämie, Bonus und Regeln legst du selbst fest.</li></ul><p class="fine">Rechenbeispiel, keine Prognose. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt. <a href="/#rechner">Mit deinen eigenen Zahlen rechnen</a></p></div>`;
 };
 
+/** The 69 € plan card and the guarantee line; shared by the home page and the salon page. */
+export const terminCard = (reveal = false) =>
+  `<div class="price-card"${reveal ? ' data-reveal' : ''}><p class="price"><b>${SITE.terminPlan.amount} €</b><span>pro Monat und Standort</span></p><p class="price-note">${T.planNote}</p><ul class="checks">${T.included.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">${T.fine}</p></div>`;
+export const guaranteeLine = () => `<p class="fine">${SITE.guarantee}</p>`;
+
 // ── Barber ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 const barberBrand: BrandState = { ...initialBrand(), style: 'graphit' };
 export const barber: SubPage = {
@@ -81,6 +86,35 @@ export const barber: SubPage = {
     E.pageWalletFaq,
   ],
   close: { h2: ['Zeig mir das', 'an meinem Laden.'], lead: 'Wir richten die Demo mit deinem Namen und deiner Prämie ein. Zehn Minuten, gern direkt bei dir im Laden.', subject: 'Demo-Anfrage Barber' },
+};
+
+// ── Salons (Termin + Treue) ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+const salonBrand: BrandState = { ...initialBrand(), style: 'graphit' };
+export const salons: SubPage = {
+  path: '/fuer-salons/',
+  title: 'Online-Termine ohne Provision für Salons – Loynara',
+  description: 'Weniger Nichterscheinen, weniger WhatsApp-Chaos: Termine buchen auf der Kundenkarte, keine Provision, deine Kunden bleiben deine.',
+  eyebrow: 'Für Nagelstudios, Barber und Beauty-Salons',
+  h1: ['Weniger Nichterscheinen.', 'Kein WhatsApp-Chaos.'],
+  lead: 'Deine Kunden buchen auf ihrer Kundenkarte und werden erinnert. Keine Provision. Deine Kunden bleiben deine.',
+  hero: card(salonBrand, 'Nagelstudio Mira', 'eine Handpflege als Extra', 7),
+  sections: [
+    `<section class="sec" id="problem"><div class="wrap narrow"><div class="head"><p class="eyebrow">Dein Alltag</p><h2>Termine per Telefon und Chat. <em>Und dann kommt keiner.</em></h2><p class="lead">Du arbeitest und das Handy klingelt. Anfragen stapeln sich, Zeiten rutschen durch, ein Stuhl bleibt leer.</p><p class="lead">Loynara bündelt das auf einer Karte: Der Kunde sucht sich seinen Termin selbst aus. Du siehst den Tag auf einen Blick.</p></div></div></section>`,
+    `<section class="sec sec-white" id="ablauf"><div class="wrap narrow"><div class="head"><p class="eyebrow">So funktioniert’s</p><h2>Karte, Termin, Erinnerung, <em>Stempel.</em></h2></div>${steps([['Karte', E.pageSignup], ['Termin buchen', 'Leistung, Zeit, Name – ein paar Tipps auf der Karte, ohne Konto.'], ['Erinnerung', '24 Stunden und 2 Stunden vorher kommt eine Push-Erinnerung, wenn dein Kunde Mitteilungen erlaubt hat.'], ['Stempel beim Besuch', 'Ist der Termin erledigt, gibt es den Stempel. Beim Buchen allein gibt es keinen.']])}</div></section>`,
+    scene({ id: 'inhaber', eyebrow: 'Deine Kunden', h2: ['Deine Kundenliste gehört dir.', 'Auch zum Mitnehmen.'], lead: 'Pro Karte siehst du Stand, bestätigte Termine und den letzten Besuch. Die Kundenliste kannst du als CSV exportieren.',
+      visual: ownerToday('Stempel', [['Karte A', '7', 'letzter Besuch vor 3 Wochen'], ['Karte B', '1', 'neu, geworben'], ['Karte C', '4', 'letzter Besuch vor 9 Wochen']]) }),
+    `<section class="sec" id="grenzen"><div class="wrap narrow"><div class="head"><p class="eyebrow">Ehrlich gesagt</p><h2>Was Loynara <em>nicht</em> kann.</h2><p class="lead">${T.notIncluded}</p><p class="fine">Mehrere Standorte? Jeder Standort richtet seinen eigenen Kalender ein. Bezahlt wird wie bisher bei dir.</p></div></div></section>`,
+    `<section class="sec sec-white" id="angebot"><div class="wrap offer-grid"><div class="offer-copy"><p class="eyebrow">Was es kostet</p><h2>Ein Preis pro Standort. <em>Keine Provision, nie.</em></h2><p class="lead">Keine Gebühr pro Buchung. Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch.</p></div><div class="price-pair"><div class="price-card"><p class="price"><b>${price()}</b><span>pro Monat und Standort</span></p><p class="price-note">Treue: Stempelkarte ohne App für deine Kunden.</p><ul class="checks"><li>Digitale Treuekarte mit Stempeln oder Punkten</li><li>Prämien und Einlösung</li><li>Einstieg am Tresen: ${E.fact}</li><li>Bestätigung durch dein Team</li><li>Empfehlungen, Kundenübersicht und Auswertung</li></ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a></div>${terminCard()}${guaranteeLine()}</div></div></section>`,
+  ],
+  faq: [
+    ['Brauchen meine Kunden eine App?', E.pageAppAnswer],
+    ['Was, wenn jemand nicht kommt?', 'Du markierst den Termin als nicht erschienen. Wer wiederholt nicht kommt, kann für Online-Buchungen pausiert werden.'],
+    ['Kommt die Erinnerung bei jedem an?', 'Push-Erinnerungen gibt es, wenn dein Kunde Mitteilungen erlaubt. Auf dem iPhone braucht der Browser dafür die Karte auf dem Home-Bildschirm. Ohne Freigabe funktioniert die Buchung trotzdem, die Termine stehen auf der Karte.'],
+    ['Nehmt ihr Geld für Buchungen?', 'Nein. Keine Provision und keine Gebühr pro Buchung, nie. Du zahlst den Monatspreis pro Standort.'],
+    ['Gehören die Kundendaten mir?', 'Ja. Deine Kundenliste kannst du als CSV exportieren.'],
+    E.pageWalletFaq,
+  ],
+  close: { h2: ['Zeig mir das', 'in meinem Salon.'], lead: 'Wir richten die Demo mit deinem Namen und deinen Leistungen ein. Gern direkt bei dir im Salon.', subject: 'Demo-Anfrage Salon' },
 };
 
 // ── Pizzeria / Imbiss ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -142,7 +176,7 @@ export const referrals: SubPage = {
   close: { h2: ['Probier es', 'an deinem Geschäft aus.'], lead: 'In der Demo spielen wir eine Empfehlung einmal komplett durch – mit deinem Namen und deinem Bonus.', subject: 'Demo-Anfrage Empfehlungen' },
 };
 
-export const SUB_PAGES = [barber, pizzeria, referrals] as const;
+export const SUB_PAGES = GATES.bookingLive ? [barber, salons, pizzeria, referrals] : [barber, pizzeria, referrals] as const;
 
 /** Page body. The shell (head, header, footer) comes from template.ts so every page shares one chrome. */
 export function subPageBody(p: SubPage): string {

@@ -1,5 +1,5 @@
 /** Marketing page (Concept D): static HTML, German only. All interaction lives in src/d.ts; this file only renders the starting state. */
-import { ENTRY_COPY as E, RECOVERY_COPY as R } from './src/claims.js';
+import { GATES, ENTRY_COPY as E, RECOVERY_COPY as R } from './src/claims.js';
 import { SITE, industries, industryKeys } from './src/site.js';
 import { initialBrand } from './src/brand.js';
 import { EXAMPLE, compute, series, euro, signedEuro, ratioText, niceScale } from './src/calc.js';
@@ -8,7 +8,7 @@ import { calcField, stampbar, statusFor, studioControls } from './src/final-part
 import { standObj, phone, browserScreen, visitScreen, visitStep, VISIT_STEPS, refVisual, REF_STEPS_D, ownerViewsD } from './src/d-parts.js';
 import { initialDemo } from './src/demo.js';
 import { initialRef } from './src/ref.js';
-import { subPageBody, type SubPage } from './src/pages.js';
+import { subPageBody, terminCard, guaranteeLine, type SubPage } from './src/pages.js';
 
 const TITLE = 'Loynara – Digitale Kundenkarte für lokale Geschäfte';
 const DESCRIPTION = 'Digitale Kundenbindung für lokale Geschäfte: Kunden sammeln Prämien ohne App, dein Team bestätigt jeden Besuch – und Stammkunden können den nächsten Kunden mitbringen.';
@@ -26,7 +26,7 @@ export const header = (home: boolean) => {
   const base = home ? '' : '/';
   return `<a class="skip" href="#inhalt">Zum Inhalt springen</a><header class="top"><div class="wrap bar"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><nav class="mainnav" aria-label="Hauptnavigation"><a href="${base}#ablauf">Ablauf</a><a href="${base}#empfehlung">Empfehlungen</a><a href="${base}#gestaltung">Gestaltung</a><a href="${base}#inhaber">Inhaber</a><a href="${base}#rechner">Rechner</a><a href="${base}#angebot">Preis</a></nav><div class="bar-actions"><a class="login" href="${SITE.loginUrl}">Anmelden</a><a class="btn btn-small" href="${base}#anfrage">Demo anfragen</a></div></div></header>`;
 };
-export const footer = `<footer class="foot"><div class="wrap"><div class="foot-top"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><p>Wiederkommen belohnen. Weiterempfehlen leicht machen.</p></div><nav class="foot-links" aria-label="Branchen und Themen"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a></nav><nav class="foot-links" aria-label="Rechtliches und Kontakt"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><a href="mailto:${SITE.supportEmail}">${SITE.supportEmail}</a></nav><p class="foot-note">© Loynara</p></div></footer>`;
+export const footer = `<footer class="foot"><div class="wrap"><div class="foot-top"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><p>Wiederkommen belohnen. Weiterempfehlen leicht machen.</p></div><nav class="foot-links" aria-label="Branchen und Themen"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a>${GATES.bookingLive ? '<a href="/fuer-salons/">Für Salons</a>' : ''}<a href="/empfehlungen/">Kunden werben Kunden</a></nav><nav class="foot-links" aria-label="Rechtliches und Kontakt"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><a href="mailto:${SITE.supportEmail}">${SITE.supportEmail}</a></nav><p class="foot-note">© Loynara</p></div></footer>`;
 
 const faq: Array<[string, string]> = [
   ['Müssen meine Kunden eine App installieren?', E.appAnswer],
@@ -84,7 +84,7 @@ ${clip('inhaber', 'Beispieldaten: Der Überblick zählt wiederholte Besuche, Kar
 <div class="calc-cta"><button type="button" class="btn btn-ghost" data-calc-share>Diese Zahlen in meiner Anfrage übernehmen</button><a class="btn btn-primary" href="#anfrage">Demo anfragen</a></div><p class="sr-only" data-calc-live role="status"></p></div></div></section>
 
 <section class="sec sec-white" id="angebot"><div class="wrap offer-grid"><div class="offer-copy"><p class="eyebrow">Preis</p><h2>Ein Preis pro Standort. <em>Ohne App für deine Kunden.</em></h2><p class="lead">Nach deiner Anfrage zeigen wir dir den Ablauf und besprechen den Start.</p></div>
-<div class="price-card" data-reveal><p class="price"><b>${price}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks">${INCLUDED.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">Konditionen besprechen wir vor dem Start persönlich. ${E.priceOutlook} zeigen wir als Ausblick und vereinbaren sie gesondert.</p></div>
+${GATES.bookingLive ? '<div class="price-pair">' : ''}<div class="price-card" data-reveal><p class="price"><b>${price}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks">${INCLUDED.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">Konditionen besprechen wir vor dem Start persönlich. ${E.priceOutlook} zeigen wir als Ausblick und vereinbaren sie gesondert.</p></div>${GATES.bookingLive ? `${terminCard(true)}${guaranteeLine()}</div>` : ''}
 <div class="faq"><h3>Gut zu wissen</h3>${faq.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div></div></section>
 
 <section class="sec" id="anfrage"><div class="wrap contact-grid"><div class="contact-copy"><p class="eyebrow">Demo anfragen</p><h2>Gib dem nächsten Besuch einen Grund. <em>Und der nächsten Empfehlung einen Weg.</em></h2><p class="lead">Wir zeigen dir Loynara am Beispiel deines Geschäfts.</p>${callback}

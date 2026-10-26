@@ -6,14 +6,16 @@
  *              test has passed in production. Until then QR is the entry claim and NFC is "Ausblick".
  * rcDeployed:  flip to true only after the merchant-completion RC is deployed and its targeted production
  *              verification passed (card locator, owner/manager reissue keeping membership/balance/history/locator, corrections).
+ * bookingLive: flip to true only after Loynara Termin (online booking, reminders, no-show handling) is deployed to production.
+ *              While false, the Termin + Treue plan, the "Für Salons" link and the /fuer-salons/ page do not exist in the build.
  */
-export interface Gates { nfcAccepted: boolean; rcDeployed: boolean }
-export const RELEASED_GATES: Gates = { nfcAccepted: true, rcDeployed: true };
+export interface Gates { nfcAccepted: boolean; rcDeployed: boolean; bookingLive: boolean }
+export const RELEASED_GATES: Gates = { nfcAccepted: true, rcDeployed: true, bookingLive: false };
 
-/** Test-only override ("nfcAccepted,rcDeployed"). build.mts refuses to run while it is set. */
+/** Test-only override ("nfcAccepted,rcDeployed,bookingLive"). build.mts refuses to run while it is set. */
 const testOverride: string | undefined = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.LOYNARA_TEST_GATES;
 export const GATES: Gates = testOverride === undefined ? RELEASED_GATES
-  : { nfcAccepted: testOverride.split(',').includes('nfcAccepted'), rcDeployed: testOverride.split(',').includes('rcDeployed') };
+  : { nfcAccepted: testOverride.split(',').includes('nfcAccepted'), rcDeployed: testOverride.split(',').includes('rcDeployed'), bookingLive: testOverride.split(',').includes('bookingLive') };
 
 const ENTRY = {
   qr: {
@@ -74,3 +76,11 @@ const RECOVERY = {
 export const COPY_VARIANTS = { ENTRY, RECOVERY };
 export const ENTRY_COPY = GATES.nfcAccepted ? ENTRY.nfc : ENTRY.qr;
 export const RECOVERY_COPY = GATES.rcDeployed ? RECOVERY.rc : RECOVERY.live;
+
+/** Termin + Treue claims (docs/booking-design.md). Only what the booking slice does; out-of-scope items are listed as not included. */
+export const TERMIN_COPY = {
+  planNote: 'Termin + Treue: alles aus dem 49-€-Paket, dazu Online-Buchung.',
+  included: ['Alles aus dem Treue-Paket für 49 €', 'Online-Termine direkt von der Kundenkarte', 'Erinnerung 24 Stunden und 2 Stunden vorher per Push', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Keine Provision, nie', 'Deine Kundenliste gehört dir: CSV-Export'],
+  fine: 'Push-Erinnerungen kommen an, wenn dein Kunde Mitteilungen erlaubt. Zahlung oder Anzahlung online gehören nicht dazu.',
+  notIncluded: 'Keine Online-Zahlung und keine Anzahlung · keine Warteliste · keine Gruppenkurse · kein Abgleich mit Google Kalender, Treatwell oder Fresha · keine SMS und kein WhatsApp · keine Serientermine · kein Kundenkonto.',
+} as const;

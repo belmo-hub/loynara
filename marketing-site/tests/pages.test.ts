@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { subPage, homePage } from '../template.js';
-import { SUB_PAGES, barber, pizzeria, referrals, visitsToCoverFee } from '../src/pages.js';
+import { SUB_PAGES, barber, pizzeria, referrals, salons, visitsToCoverFee } from '../src/pages.js';
 import { SITE } from '../src/site.js';
 
 const visible = (html: string) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
@@ -37,7 +37,7 @@ test('price comes from the single source and the break-even line is plain arithm
   assert.match(visible(subPage(pizzeria)), new RegExp(`Bei rund 18 € pro Bestellung entspricht das etwa ${visitsToCoverFee(18)} zusätzlichen Besuchen im Monat\\.`));
   for (const { p, text } of pages) {
     assert.match(text, new RegExp(`${SITE.price.amount} € / Monat / Standort`), p.path);
-    if (p !== referrals) assert.match(text, /Rechenbeispiel, keine Prognose\. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt\./, p.path);
+    if (p !== referrals && p !== salons) assert.match(text, /Rechenbeispiel, keine Prognose\. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt\./, p.path);
   }
 });
 
@@ -76,6 +76,14 @@ test('accessible structure: example pictures are labelled, FAQ uses native discl
     assert.equal((html.match(/<details><summary>/g) ?? []).length, p.faq.length, p.path);
     for (const [, alt] of html.matchAll(/role="img" aria-label="([^"]*)"/g)) assert.ok(alt.length > 10, `${p.path}: ${alt}`);
   }
+});
+
+test('salon page: two plans from the price sources, the guarantee wording, booking limits stated', () => {
+  const t = visible(subPage(salons));
+  assert.match(t, new RegExp(`${SITE.terminPlan.amount} € pro Monat und Standort`)); assert.match(t, new RegExp(`${SITE.price.amount} € pro Monat und Standort`));
+  assert.ok(t.includes(SITE.guarantee));
+  assert.match(t, /Keine Provision, nie/); assert.match(t, /Keine Online-Zahlung und keine Anzahlung/); assert.match(t, /kein Abgleich mit Google Kalender, Treatwell oder Fresha/); assert.match(t, /keine SMS und kein WhatsApp/);
+  assert.doesNotMatch(t, /Garantie|garantiert|risikofrei/);
 });
 
 test('owner views are pseudonymous like the real customer list: no named customers, no named-list claim', () => {

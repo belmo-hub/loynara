@@ -16,7 +16,7 @@ process.stdout.write(JSON.stringify({ home: homePage(), pages: SUB_PAGES.map(p =
 const all = (r: { home: string; pages: string[] }) => [r.home, ...r.pages].map(visible).join(' ');
 
 test('released gates: the NFC tap is primary with QR as the fallback, and the verified production RC capabilities are live', () => {
-  assert.deepEqual(RELEASED_GATES, { nfcAccepted: true, rcDeployed: true });
+  assert.deepEqual(RELEASED_GATES, { nfcAccepted: true, rcDeployed: true, bookingLive: false });
   assert.deepEqual(GATES, RELEASED_GATES, 'tests run without a gate override');
 });
 
@@ -68,4 +68,16 @@ test('public home and industry FAQs explain live lookup, correction and secure m
     assert.doesNotMatch(text, /kommt mit dem nächsten Update|mit dem nächsten Update|comes with the next update/i);
     assert.doesNotMatch(html, /href="[^"\s]*\.invalid[^"\s]*"|href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i);
   }
+});
+
+test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', () => {
+  const r = render('nfcAccepted,rcDeployed'), t = visible(r.home);
+  assert.doesNotMatch(t, /Termin \+ Treue|69 €|Für Salons|Keine Provision, nie/); assert.ok(!r.home.includes('price-pair') && !r.home.includes('/fuer-salons/'));
+  assert.equal(r.pages.length, 3); assert.ok(r.pages.every(p => !p.includes('/fuer-salons/')));
+});
+
+test('booking gate on: the 69 € plan with the guarantee line, the Salons link and the salon page', () => {
+  const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
+  assert.match(t, /69 € pro Monat und Standort Termin \+ Treue/); assert.match(t, /Keine Provision, nie/); assert.match(t, /bekommst du dein Geld zurück/);
+  assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Weniger Nichterscheinen/);
 });

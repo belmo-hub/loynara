@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { homePage, legalPage, subPage, type LegalFragments } from './template.js';
 import { SUB_PAGES } from './src/pages.js';
 import { SITE } from './src/site.js';
+import { GATES } from './src/claims.js';
 
 if (process.env.LOYNARA_TEST_GATES !== undefined) throw new Error('LOYNARA_TEST_GATES is a test-only override; unset it before building. Release gates are set in src/claims.ts.');
 
@@ -38,7 +39,7 @@ await writeFile(resolve(root, '_headers'), `/*
   Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 `);
 const { brandCss: finalBrandCss } = await import('./src/final-parts.js');
-await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'design/d.css'), 'utf8')) + '\n' + finalBrandCss() + '\n');
+await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'design/d.css'), 'utf8')) + '\n' + finalBrandCss() + '\n' + (GATES.bookingLive ? await readFile(resolve(here, 'design/booking.css'), 'utf8') : ''));
 
 // Design-direction prototypes: only with MARKETING_CONCEPTS=true, never in a public build, never in the sitemap.
 for (const dir of ['concepts', 'concept-a', 'concept-b', 'concept-c']) await rm(resolve(root, dir), { recursive: true, force: true });

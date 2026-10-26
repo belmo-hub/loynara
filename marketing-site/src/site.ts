@@ -6,6 +6,10 @@ export const SITE = {
   supportEmail: 'support@getloynara.com',
   /** Provisional introductory offer. Shown with "details in a personal conversation"; no setup fee, discount or VAT statement is made. */
   price: { amount: 49, unit: 'Monat / Standort', note: 'Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch.' },
+  /** Termin + Treue: the 49 € plan plus online booking (docs/booking-design.md). Same founding-price rule as `price`. */
+  terminPlan: { amount: 69 },
+  /** Founder wording 24 Oct 2026. Legal must confirm the agreement carries the identical condition before this is published. */
+  guarantee: 'Und wenn deine Loynara-Kunden im ersten Monat weniger als 70 € bei dir ausgeben, bekommst du dein Geld zurück. Kündigen kannst du jeden Monat. Voraussetzung: Das Schild stand am Tresen und Einkäufe wurden normal erfasst.',
 } as const;
 
 export type IndustryKey = 'cafe' | 'barber' | 'friseur' | 'nagelstudio' | 'gastro' | 'autopflege' | 'fitness' | 'wellness';
