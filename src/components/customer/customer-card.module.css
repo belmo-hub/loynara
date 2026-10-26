@@ -105,3 +105,5 @@
 /* The one highlighted extra (expiry, happy hour) as a single strong line; the others fold into .moreList. */
 .highlight { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); font-weight: var(--weight-strong); }
 .moreList { display: grid; gap: var(--space-1); margin: 0; padding: 0 var(--space-1); list-style: none; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
+/* „Bedingungen“ after the win-back line: an inline link to the programme rules (Legal: the rules one tap away). */
+.inlineLink { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
