@@ -66,15 +66,15 @@ describe("colour helpers", () => {
 });
 
 describe("navigation", () => {
-  it("has five destinations for owners and hides owner-only areas from managers", () => {
-    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
-    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden"]);
+  it("has six destinations for owners and hides owner-only areas from managers", () => {
+    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Termine", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Termine"]);
   });
   it("maps every existing merchant URL to a destination", () => {
-    const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];
+    const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/termine", "/merchant/termine/einrichten", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];
     for (const url of urls) expect(activeGroup(url, "owner"), url).toBeDefined();
   });
   it("links each destination to a page its role can open", () => {
-    for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers"]).toContain(groupHref(group, "manager"));
+    for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/termine"]).toContain(groupHref(group, "manager"));
   });
 });
