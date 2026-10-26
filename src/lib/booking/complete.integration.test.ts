@@ -5,7 +5,7 @@ import { POST as transitionRoute } from "@/app/api/merchant/booking/appointments
 import { award, awardInTransaction } from "@/lib/loyalty";
 import { enroll } from "@/lib/product";
 import { acceptStaffInvite, createStaffInvite } from "@/lib/staff";
-import { book, completeAppointmentForAward, transition } from "./appointments";
+import { book, completeAppointmentForAward, reschedule, transition } from "./appointments";
 import { bookingShop, identity, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
@@ -59,6 +59,7 @@ it("refuses done before the start and blocks the card after the third no-show", 
   const shop = await bookingShop();
   const now = new Date("2026-11-02T06:00:00Z");
   const starts = ["2026-11-03T09:00:00Z", "2026-11-04T09:00:00Z", "2026-11-05T09:00:00Z"].map(s => new Date(s));
+  const kept = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-07T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, now)).appointment;
   for (const [i, start] of starts.entries()) {
     const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
     if (i === 0) expect(await code(transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" }, now))).toBe("TOO_EARLY");
@@ -67,6 +68,8 @@ it("refuses done before the start and blocks the card after the third no-show", 
   }
   expect((await pool.query("SELECT reason FROM booking_blocked_customers WHERE membership_id = $1", [shop.card.id])).rows).toEqual([{ reason: "Nicht erschienen" }]);
   expect(await code(book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-06T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("BLOCKED_CUSTOMER");
+  // The kept appointment stays, but a paused card cannot move it either.
+  expect(await code(reschedule({ token: shop.card.cardToken, appointmentId: kept.id, start: new Date("2026-11-07T10:00:00Z") }, now))).toBe("BLOCKED_CUSTOMER");
 });
 
 it("the tap path marks the matching appointment done without a second award; the owner's done is then STALE", async () => {

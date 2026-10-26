@@ -244,6 +244,9 @@ export async function reschedule(input: { token: string; appointmentId: string; 
     const settings = await settingsOf(tx, card);
     const row = await customerAppointment(tx, card, input.appointmentId);
     if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
+    // A paused card keeps its appointment but cannot move it: the same gate as book().
+    const [blocked] = await tx.select({ id: bookingBlockedCustomers.membershipId }).from(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, card.tenantId), eq(bookingBlockedCustomers.membershipId, card.membershipId)));
+    if (blocked) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
     if (row.start.getTime() === input.start.getTime() && (!input.staffId || input.staffId === row.a.staffId)) return customerView(row, now);
     if (isLateCancel(row.start, settings.cancelDeadlineHours, now)) throw new DomainError("TOO_LATE", "Too late to reschedule online");
     // shortcut: counts reschedules of this card's appointments last changed this month (Berlin); a reschedule log would be exact.
