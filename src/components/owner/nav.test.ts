@@ -10,11 +10,11 @@ const DRAFT_HREFS = ["/merchant/audiences"];
 describe("navigation with pilot-withheld surfaces", () => {
   it("owner: no entry for billing, campaigns or automations; audiences are present and the group keeps its name while owner messages are offered", () => {
     const groups = visibleGroups("owner", ALL);
-    expect(groups.map(group => groupLabel(group, ALL))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(groups.map(group => groupLabel(group, ALL))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Termine", "Aktionen", "Einstellungen"]);
     const hrefs = groups.flatMap(group => visibleItems(group, "owner", ALL).map(item => item.href));
     for (const hidden of HIDDEN_HREFS) expect(hrefs).not.toContain(hidden);
     expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
-    expect(visibleGroups("owner", FULL).length).toBe(5);
+    expect(visibleGroups("owner", FULL).length).toBe(6);
     expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/staff"]));
   });
   it("with every sending surface withheld the group is named after what is left: Ergebnisse", () => {
@@ -31,14 +31,20 @@ describe("navigation with pilot-withheld surfaces", () => {
       }
     }
   });
-  it("manager keeps overview, programme and customers (with audience counts) only", () => {
+  it("manager keeps overview, programme, customers (with audience counts) and today's appointments only", () => {
     const groups = visibleGroups("manager", ALL);
-    expect(groups.map(group => group.id)).toEqual(["overview", "program", "customers"]);
+    expect(groups.map(group => group.id)).toEqual(["overview", "program", "customers", "booking"]);
+    expect(visibleItems(groups[3], "manager", ALL).map(item => item.href)).toEqual(["/merchant/termine"]);
     // Audience counts are pseudonymous and location-scoped for managers on the server; no campaign access.
     expect(visibleItems(groups[2], "manager", ALL).map(item => item.href)).toEqual(["/merchant/customers", "/merchant/audiences"]);
   });
+  it("owner sees the booking day view and the set-up wizard under Termine", () => {
+    const booking = visibleGroups("owner").find(group => group.id === "booking")!;
+    expect(visibleItems(booking, "owner").map(item => item.href)).toEqual(["/merchant/termine", "/merchant/termine/einrichten"]);
+    expect(groupHref(booking, "owner")).toBe("/merchant/termine");
+  });
   it("without hidden surfaces nothing changes (development, preview, device test)", () => {
-    expect(visibleGroups("owner").map(group => groupLabel(group))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("owner").map(group => groupLabel(group))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Termine", "Aktionen", "Einstellungen"]);
     const hrefs = visibleGroups("owner").flatMap(group => visibleItems(group, "owner").map(item => item.href));
     for (const hidden of HIDDEN_HREFS) expect(hrefs).toContain(hidden);
   });

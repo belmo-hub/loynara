@@ -1,7 +1,7 @@
 import type { HappyHourWindow } from "@/lib/happy-hour";
 
 export class ClientApiError extends Error {
-  constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number) { super(message); }
+  constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number, public readonly body?: Record<string, unknown>) { super(message); }
 }
 
 export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -16,7 +16,7 @@ export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
     const retry = response.headers.get("retry-after");
     const delay = retry ? (/^\d+$/.test(retry.trim()) ? Number(retry) * 1000 : Date.parse(retry) - Date.now()) : NaN;
     const retryAfterMs = Number.isFinite(delay) && delay > 0 ? delay : undefined;
-    throw new ClientApiError(response.status, text, result?.code, retryAfterMs);
+    throw new ClientApiError(response.status, text, result?.code, retryAfterMs, result ?? undefined);
   }
   if (!result) throw new ClientApiError(response.status, "Die Antwort des Servers war leer.");
   return result;

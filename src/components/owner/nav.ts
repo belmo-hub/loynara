@@ -2,7 +2,7 @@ import type { MeResponse } from "@/components/client-api";
 import type { PilotSurface } from "@/lib/pilot-surfaces";
 
 export type OwnerRole = MeResponse["role"];
-export type NavIconName = "home" | "loyalty" | "users" | "megaphone" | "gear";
+export type NavIconName = "home" | "loyalty" | "users" | "megaphone" | "gear" | "calendar";
 export type SubItem = { label: string; href: string; roles: OwnerRole[]; exactMatch?: boolean; surface?: PilotSurface };
 export type NavGroup = { id: string; label: string; icon: NavIconName; roles: OwnerRole[]; prefixes: string[]; exact?: boolean; items: SubItem[]; /** Label once pilot-hidden items leave only reports (Ergebnisse, Beratung) behind. */ trimmedLabel?: string };
 /** Surfaces withheld on this deployment (from /api/me). Hidden items vanish from the navigation; a group with no visible item vanishes too. */
@@ -11,7 +11,7 @@ export type HiddenSurfaces = readonly PilotSurface[];
 const OWNER: OwnerRole[] = ["owner"];
 const BOTH: OwnerRole[] = ["owner", "manager"];
 
-// Five destinations, two levels. Every pre-existing URL stays reachable and unchanged.
+// Six destinations, two levels. Every pre-existing URL stays reachable and unchanged.
 export const NAV_GROUPS: NavGroup[] = [
   { id: "overview", label: "Übersicht", icon: "home", roles: BOTH, prefixes: ["/merchant"], exact: true, items: [{ label: "Übersicht", href: "/merchant", roles: BOTH }] },
   { id: "program", label: "Treueprogramm", icon: "loyalty", roles: BOTH, prefixes: ["/merchant/program", "/merchant/referrals"], items: [
@@ -22,6 +22,10 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: "customers", label: "Kunden", icon: "users", roles: BOTH, prefixes: ["/merchant/customers", "/merchant/audiences"], items: [
     { label: "Kundenkarten", href: "/merchant/customers", roles: BOTH },
     { label: "Zielgruppen", href: "/merchant/audiences", roles: BOTH, surface: "audiences" },
+  ] },
+  { id: "booking", label: "Termine", icon: "calendar", roles: BOTH, prefixes: ["/merchant/termine"], items: [
+    { label: "Heute", href: "/merchant/termine", roles: BOTH, exactMatch: true },
+    { label: "Einrichten", href: "/merchant/termine/einrichten", roles: OWNER },
   ] },
   { id: "actions", label: "Aktionen", trimmedLabel: "Ergebnisse", icon: "megaphone", roles: OWNER, prefixes: ["/merchant/campaigns", "/merchant/automations", "/merchant/wallet-messages", "/merchant/analytics", "/merchant/adviser"], items: [
     { label: "Kampagnen", href: "/merchant/campaigns", roles: OWNER, surface: "campaigns" },
