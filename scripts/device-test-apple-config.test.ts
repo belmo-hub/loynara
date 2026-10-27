@@ -41,6 +41,8 @@ describe("approved native Apple device test", () => {
     ["a short auth secret", { APPLE_WALLET_AUTH_SECRET: "c".repeat(40) }, /its own generated/],
     ["Google switched on as well", { GOOGLE_WALLET_ENABLED: "true" }, /Google Wallet must be off/],
     ["a missing key file", { APPLE_SIGNING_KEY_PATH: `${apple.config.keyPath}.missing` }, /owner-only certificate, key and WWDR/],
+    // Owner-only files outside the repository that the adapter itself rejects.
+    ["a malformed team the adapter refuses", { APPLE_TEAM_ID: "abc" }, /owner-only certificate, key and WWDR/],
   ])("refuses %s", (_name, override, pattern) => refused({ ...approved, ...override }, pattern));
 
   it("refuses a readable key or one inside the repository", () => {
