@@ -35,6 +35,22 @@ describe("bound Google Direct projection", () => {
       await expect(client.upsertClass(pass, config)).rejects.toThrow();
     } finally { fixture.cleanup(); }
   });
+  it("patches an existing class that only has the deprecated locations once with merchantLocations", async () => {
+    const fixture = googleFixture();
+    try {
+      const api = fakeGoogleApi();
+      const client = new GoogleWalletClient({ clientEmail: "issuer@example.test", privateKey: fixture.privateKey }, api.fetcher);
+      const located = { ...pass, latitude: 51.3127, longitude: 9.4797 };
+      await client.upsertClass(pass, config);
+      api.classes.set(binding.classId, { ...api.classes.get(binding.classId), locations: [{ latitude: 51.3127, longitude: 9.4797 }] });
+      await client.upsertClass(located, config);
+      expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { merchantLocations: [{ latitude: 51.3127, longitude: 9.4797 }], reviewStatus: "UNDER_REVIEW" } });
+      const before = api.calls.length;
+      await client.upsertClass(located, config);
+      expect(api.calls.slice(before).map(call => call.method)).toEqual(["GET"]);
+    } finally { fixture.cleanup(); }
+  });
+
   it("uses the approved class and freezes tenant/location/class into a stable per-generation object identity", () => {
     expect(googleObject(pass, serial, config).classId).toBe(`${issuerId}.loynara_demo`);
     const objectId = googleObjectId(serial, config);
