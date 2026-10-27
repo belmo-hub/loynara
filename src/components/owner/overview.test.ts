@@ -58,6 +58,11 @@ describe("buildInsights", () => {
     expect(on.why).toContain(on.next);
     expect(on.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
     expect(drifting({ enabled: true, inWindow: 1 }).next).toBe("1 Karte bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt.");
+    // ENG-111 (Marketing): no card in the window, no „0 Karten bekommen …“; the bar keeps its title and „Ansehen“.
+    const none = drifting({ enabled: true, inWindow: 0 });
+    expect(none.next).toBeUndefined();
+    expect(none.why).toBe("Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten 30 Tagen. Vor einer Woche waren es 4. Warum, wissen wir nicht.");
+    expect(none.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
   });
 
   it("says nothing when the data shows nothing", () => {
