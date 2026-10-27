@@ -13,7 +13,8 @@ import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
 type Row = { href: string; icon: LucideIcon; title: string; sub?: string; value?: string; big?: boolean; pair?: boolean; off?: boolean };
-export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; reviews: number; nfc: boolean; logo: boolean };
+/** `referrals` is the latest referrals read (empty when it failed); only those waiting for review count. */
+export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean };
 
 const ask = (question: Question) => ({ href: `/merchant/program/${question}`, title: QUESTIONS[question] });
 const off = (value: string) => ({ value, off: true });
@@ -29,8 +30,9 @@ export function quoteStart(text: string, max = 44) {
 }
 
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
-export function programSections({ me, program, winback, reviews, nfc, logo }: ListData) {
+export function programSections({ me, program, winback, referrals, nfc, logo }: ListData) {
   const type = program.programType, points = type === "points", referral = program.referral;
+  const reviews = referrals.filter(item => item.status === "review").length;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
@@ -106,7 +108,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
 
   const sections = program.state === "ok" && ready ? programSections({
     me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"),
-    reviews: referrals.state === "ok" ? referrals.data.referrals.filter(item => item.status === "review").length : 0,
+    referrals: referrals.state === "ok" ? referrals.data.referrals : [],
   }) : null;
   return (
     <div className="ow-page">

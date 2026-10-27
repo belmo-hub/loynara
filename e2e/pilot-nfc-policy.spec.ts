@@ -30,9 +30,14 @@ test(`NFC policy: server and UI follow the pilot policy (${productionLike ? "pro
       const page = await ctx.newPage();
       await page.goto("/merchant/program");
       await expect(page.getByRole("heading", { name: "Programm", exact: true })).toBeVisible();
+      // Pages that do not exist answer with the not-found page. The owner area's loading boundary streams first, so the
+      // HTTP status is 200 here, as for the other withheld routes below; the page is the check.
+      const notFound = page.getByRole("heading", { name: "Diese Seite gibt es nicht." });
       if (me.hiddenSurfaces?.includes("nfc")) {
-        // Without an NFC key provider configured: the NFC row is withheld (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
+        // Without an NFC key provider configured: the NFC row and its page are withheld (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
         await expect(page.getByRole("link", { name: /^NFC-Tap/ })).toHaveCount(0);
+        await page.goto("/merchant/program/nfc");
+        await expect(notFound).toBeVisible();
         if (productionLike) expect((await policy("automatic_fixed")).status()).toBe(400);
       } else {
         await page.getByRole("link", { name: /^NFC-Tap/ }).click();
@@ -41,6 +46,8 @@ test(`NFC policy: server and UI follow the pilot policy (${productionLike ? "pro
         await expect(page.getByRole("radio", { name: /Mit Bestätigung/ })).toBeVisible();
         await expect(page.getByRole("radio", { name: /Automatisch/ })).toBeEnabled();
       }
+      await page.goto("/merchant/program/unknown");
+      await expect(notFound).toBeVisible();
     } finally { await ctx.close(); }
 
     expect((await policy("staff_confirmed")).status()).toBe(200);
@@ -69,6 +76,12 @@ test("manager sees an accurate read-only programme action while the owner keeps 
         await expect(page.getByRole("heading", { name: "Programm", exact: true }), name).toBeVisible();
         await expect(page.getByText("Nur Inhaber:innen können Regeln und Prämien ändern."), name).toHaveCount(name === "manager" ? 1 : 0);
         await expect(page.getByRole("link", { name: /^Kundenkarte/ }), name).toHaveCount(name === "owner" ? 1 : 0);
+        // A setting's own page: the owner gets the field, a manager only the notice and nothing to save.
+        await page.goto("/merchant/program/news");
+        await expect(page.getByRole("heading", { name: "Neuigkeit", exact: true }), name).toBeVisible();
+        await expect(page.getByText("Nur Inhaber:innen können Regeln und Prämien ändern."), name).toHaveCount(name === "manager" ? 1 : 0);
+        await expect(page.getByLabel("Neuigkeit auf der Karte"), name).toHaveCount(name === "owner" ? 1 : 0);
+        await expect(page.getByRole("button", { name: "Speichern", exact: true }), name).toHaveCount(name === "owner" ? 1 : 0);
       } finally { await ctx.close(); }
     }
   } finally { await manager.dispose(); await owner.dispose(); }

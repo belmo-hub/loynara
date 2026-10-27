@@ -9,7 +9,7 @@ const program = {
   rewards: [{ id: "v1", rewardId: "r1", title: "Gratiskaffee", cost: 10, termsText: "", sortOrder: 0 }, { id: "v2", rewardId: "r2", title: "Keks", cost: 1, termsText: "", sortOrder: 1 }],
   referral: { enabled: false, referrerBonus: 0, referredBonus: 0 },
 } as unknown as PublicProgram;
-const base: ListData = { me, program, winback: null, reviews: 0, nfc: false, logo: true };
+const base: ListData = { me, program, winback: null, referrals: [], nfc: false, logo: true };
 const rows = (data: Partial<ListData>) => Object.fromEntries(programSections({ ...base, ...data }).flatMap(section => section.rows).map(row => [row.title, row]));
 
 describe("Programm list", () => {
@@ -31,6 +31,7 @@ describe("Programm list", () => {
     expect(all["Regel auf der Karte"].sub).toBe("„Ein Stempel pro Heißgetränk. Zehn Stempel …“");
     expect([all["Willkommen zurück"].sub, all["Willkommen zurück"].value]).toEqual([undefined, undefined]); // win-back read failed or pending
     expect(Object.keys(all)).not.toContain("Punkte verfallen");
+    expect(Object.keys(all)).not.toContain("Happy Hour"); // points shops only
     expect(Object.keys(all)).not.toContain("NFC-Tap");
   });
 
@@ -55,8 +56,10 @@ describe("Programm list", () => {
   });
 
   it("puts the count of referrals waiting for review in place of the bonus", () => {
-    const row = rows({ reviews: 3, program: { ...program, referral: { enabled: true, referrerBonus: 2, referredBonus: 1 } } }).Empfehlungen;
+    const referrals = [{ status: "review" }, { status: "qualified" }, { status: "review" }, { status: "pending" }, { status: "review" }, { status: "rejected" }];
+    const row = rows({ referrals, program: { ...program, referral: { enabled: true, referrerBonus: 2, referredBonus: 1 } } }).Empfehlungen;
     expect([row.sub, row.value, row.big]).toEqual(["Braucht deine Prüfung", "3", true]);
+    expect(rows({ referrals: [{ status: "qualified" }] }).Empfehlungen.sub).toBe("Bonus für die empfehlende und neue Karte");
   });
 
   it("gives points shops their units, the expiry and Happy Hour rows, and no average once the till has amounts", () => {
