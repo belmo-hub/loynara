@@ -3,7 +3,6 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { pool } from "@/db";
 import type { PoolClient } from "pg";
 import { DomainError, lastConfirmedStamp } from "./loyalty";
-import { surfaceHidden } from "./pilot-surfaces";
 import { retentionScope, uuidPattern } from "./retention";
 import type { DiaryDay, LocationDays } from "./overview-day";
 import { WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
@@ -453,7 +452,11 @@ export type LocationAnalytics = LocationDays & {
   current: LocationCounts;
   /** The 30 days before, only once the location's programme has run a full previous period (60 days); else null. */
   previous: LocationCounts | null;
-  /** Owner only, while the walletMessages surface is offered and the location runs a programme; else null. */
+  /**
+   * Whether the win-back bonus is on (switched on, with a bonus) and how many cards are inside its window, wherever the
+   * location runs a programme; else null. Counts only, for every reader of this read: the bonus has run without Wallet
+   * messages since ENG-089 (ENG-112).
+   */
   winback: { enabled: boolean; inWindow: number } | null;
 };
 
@@ -472,13 +475,14 @@ export async function getLocationAnalytics(actorUserId: string, options: { locat
     const locationId = scope.locationId!;
     const from = new Date(asOf.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
     const before = new Date(from.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
-    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackEnabled: boolean; winbackOn: boolean; winbackDays: number; effectiveAt: Date }>(`
-      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AS "winbackEnabled", winback_enabled AND winback_bonus > 0 AS "winbackOn",
+    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackOn: boolean; winbackDays: number; effectiveAt: Date }>(`
+      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AND winback_bonus > 0 AS "winbackOn",
         winback_days AS "winbackDays", effective_at AS "effectiveAt"
       FROM programs WHERE tenant_id = $1 AND location_id = $2 AND status = 'active'
     `, [scope.tenantId, locationId, before])).rows;
-    const winback = scope.role === "owner" && program && !surfaceHidden("walletMessages")
-      ? { enabled: program.winbackEnabled, inWindow: program.winbackEnabled ? await cardsInWinbackWindow(client, scope.tenantId, program.id, asOf) : 0 }
+    // "On" as at the counter: switched on without a bonus gives nothing, so it never reads as „bekommen den Bonus“.
+    const winback = program
+      ? { enabled: program.winbackOn, inWindow: program.winbackOn ? await cardsInWinbackWindow(client, scope.tenantId, program.id, asOf) : 0 }
       : null;
     return {
       locationId, windowDays: LOCATION_WINDOW_DAYS, from: from.toISOString(), asOf: asOf.toISOString(),

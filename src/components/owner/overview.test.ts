@@ -46,6 +46,9 @@ describe("buildInsights", () => {
   it("never links to campaigns where they are withheld or for managers", () => {
     expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: false, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
     expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: false, campaigns: true, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
+    // ENG-112: the Leitung reads the win-back counts too, but only the owner can switch the bonus on.
+    const forManager = buildInsights({ summary, unit: "Stempel", isOwner: false, campaigns: true, referrals: null, winback: { enabled: false, inWindow: 0 } }).find(item => item.id === "drifting")!;
+    expect(forManager.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
   });
 
   it("points drifting cards to the Wallet win-back where it is offered (O8)", () => {
