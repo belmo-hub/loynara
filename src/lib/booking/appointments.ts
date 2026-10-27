@@ -10,6 +10,7 @@ import { awardInTransaction, DomainError } from "@/lib/loyalty";
 import { getMerchantContext } from "@/lib/product";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { GRID_MIN, slots } from "./availability";
+import { notifyShopChange, pushState, scheduleReminders } from "./notify";
 import { getSetup } from "./setup";
 import { addDays, instantToWall, wallToInstant } from "./time";
 
@@ -66,7 +67,7 @@ export function assertInWindow(start: Date, settings: Pick<Settings, "leadTimeMi
 
 // ---- Reads --------------------------------------------------------------------------------------------------------------
 
-async function cardScope(reader: Reader, token: string) {
+export async function cardScope(reader: Reader, token: string) {
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
   const [card] = await reader.select({ tenantId: memberships.tenantId, membershipId: memberships.id, locationId: programs.locationId, timezone: locations.timezone, shopName: tenants.name })
     .from(memberships)
@@ -184,11 +185,13 @@ export async function cardView(token: string, now = new Date()) {
   const upcoming = sql`${bookingAppointments.status} in ('requested','confirmed') and upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`;
   return {
     enabled: true, blocked: Boolean(blocked),
-    shop: { name: card.shopName, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm },
+    shop: { name: card.shopName, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm,
+      noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard },
     services: setup.services.map(s => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceMinor: s.priceMinor, priceFrom: s.priceFrom })),
     staff: setup.staff.map(s => ({ id: s.id, name: s.name, serviceIds: s.serviceIds })),
     upcoming: (await appointmentRows(db, and(mine, upcoming))).map(row => customerView(row, now)),
     past: (await appointmentRows(db, and(mine, sql`not (${upcoming})`), desc(sql`lower(${bookingAppointments.during})`), 5)).map(row => customerView(row, now)),
+    push: await pushState(db, card),
   };
 }
 
@@ -200,7 +203,7 @@ export async function customerSlots(token: string, input: { serviceId: string; s
   return { days: (await availability(db, card, { service, staffId: input.staffId, days, settings, now })).map(d => ({ date: d.date, slots: d.slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) })) };
 }
 
-export type BookInput = { token: string; serviceId: string; staffId?: string; start: Date; customerName: string; customerPhone?: string; idempotencyKey: string };
+export type BookInput = { token: string; serviceId: string; staffId?: string; start: Date; customerName: string; customerPhone?: string; idempotencyKey: string; rebookSourceId?: string };
 
 export async function book(input: BookInput, now = new Date()) {
   return db.transaction(async tx => {
@@ -225,7 +228,10 @@ export async function book(input: BookInput, now = new Date()) {
       tenantId: card.tenantId, locationId: card.locationId, membershipId: card.membershipId, serviceId: service.id, staffId: slot.staffId,
       during: range(input.start, new Date(input.start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), durationMin: service.durationMin, priceMinor: service.priceMinor,
       status: settings.autoConfirm ? "confirmed" : "requested", customerName: input.customerName, customerPhone: input.customerPhone, idempotencyKey: input.idempotencyKey,
+      // Only this card's own appointment counts as the source, so a crafted link cannot inflate „über Erinnerung neu gebucht“.
+      rebookSourceId: input.rebookSourceId ? sql`(SELECT r.id FROM booking_appointments r WHERE r.tenant_id = ${card.tenantId}::uuid AND r.membership_id = ${card.membershipId}::uuid AND r.id = ${input.rebookSourceId}::uuid)` : null,
     }).returning({ id: bookingAppointments.id }).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.id, now);
     return { appointment: customerView(await one(tx, card.tenantId, row.id), now), duplicate: false };
   });
 }
@@ -258,6 +264,7 @@ export async function reschedule(input: { token: string; appointmentId: string; 
     const service = bookedService(row);
     const { slot, nextFree } = await findSlot(tx, card, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings, now });
     await moveRow(tx, row, slot.staffId, input.start, service, { rescheduleCount: row.a.rescheduleCount + 1, updatedAt: now }).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.a.id, now);
     return customerView(await one(tx, card.tenantId, row.a.id), now);
   });
 }
@@ -323,6 +330,8 @@ export async function transition(input: TransitionInput, now = new Date()) {
       doneAward = { balance: award.balance, creditedQuantity: award.creditedQuantity };
     } else {
       await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || "Vom Geschäft abgesagt" } : {});
+      if (input.to === "confirmed") await scheduleReminders(tx, row.a.id, now);
+      if (input.to === "cancelled_by_shop") await notifyShopChange(tx, row.a.id, "shop_cancel", now);
     }
     if (input.to === "no_show") {
       const [settings, after] = [await settingsOf(tx, input, false), await ownerAppointment(tx, input, row.a.id)];
@@ -345,6 +354,8 @@ export async function move(input: Scope & { appointmentId: string; start: Date; 
     const service = bookedService(row);
     const { slot, nextFree } = await findSlot(tx, scope, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
     await moveRow(tx, row, slot.staffId, input.start, service).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.a.id, now);
+    await notifyShopChange(tx, row.a.id, "moved", now);
     return ownerView(await ownerAppointment(tx, input, row.a.id), now);
   });
 }
@@ -380,6 +391,7 @@ export async function cancelAffected(input: Scope & { blockId: string }, now = n
     if (!block) throw new DomainError("NOT_FOUND", "Block not found");
     const cancelled = await tx.update(bookingAppointments).set({ status: "cancelled_by_shop", cancelledAt: now, cancelReason: "Geschäft geschlossen", updatedAt: now })
       .where(openInside(input, block)).returning({ id: bookingAppointments.id });
+    for (const { id } of cancelled) await notifyShopChange(tx, id, "shop_cancel", now);
     return { cancelled: cancelled.length };
   });
 }

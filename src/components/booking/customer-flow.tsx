@@ -14,6 +14,7 @@ import card from "../customer/customer-card.module.css";
 import notice from "../customer/customer-notice.module.css";
 import legal from "../customer/customer-state.module.css";
 import styles from "./customer-flow.module.css";
+import { BookingPush } from "./booking-push";
 import { attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
 
 type Step = "service" | "day" | "time" | "confirm" | "done";
@@ -43,7 +44,7 @@ function problemFor(cause: unknown, view: Enabled): Problem {
   if (code === "SLOT_TAKEN") return nextFree ? { text: `Der Termin ist gerade weg. Nächster freier: ${formatTime(nextFree, view.shop.timezone)}`, nextFree } : { text: "Der Termin ist gerade weg. Such dir eine andere Zeit aus.", pick: true };
   if (code === "BLOCKED" || code === "OUT_OF_WINDOW") return { text: "Diese Zeit geht nicht mehr. Such dir eine andere aus.", pick: true };
   if (code === "BLOCKED_CUSTOMER") return { text: PAUSED };
-  if (code === "TOO_MANY_OPEN") return { text: `Du hast schon ${COUNT[view.upcoming.length] ?? `${view.upcoming.length} offene Termine`}. Sag einen ab, dann geht ein neuer.` };
+  if (code === "TOO_MANY_OPEN") return { text: `Mehr als ${COUNT[view.shop.maxOpenPerCard] ?? `${view.shop.maxOpenPerCard} offene Termine`} gleichzeitig geht hier nicht. Sag einen ab, dann geht ein neuer.` };
   if (code === "RESCHEDULE_LIMIT") return { text: `Diesen Monat hast du schon ${view.shop.maxReschedulesPerMonth}-mal verschoben. Sag ab und buch neu.` };
   if (code === "TOO_LATE") return { text: "Die Frist zum Verschieben ist vorbei. Ruf kurz im Shop an." };
   if (code === "STALE") return { text: "Der Termin hat sich inzwischen geändert. Schau oben nach." };
@@ -53,6 +54,15 @@ function problemFor(cause: unknown, view: Enabled): Problem {
 }
 
 const passed = (instant: number) => Date.now() >= instant;
+
+function rebookArrival(view: Enabled) {
+  const query = new URLSearchParams(window.location.search);
+  const service = view.blocked ? undefined : view.services.find(s => s.id === query.get("service"));
+  if (!service) return null;
+  const staffId = view.staff.find(s => s.id === query.get("staff") && (!s.serviceIds.length || s.serviceIds.includes(service.id)))?.id ?? "";
+  const rebook = query.get("rebook") ?? "";
+  return { service, staffId, rebook: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rebook) ? rebook : undefined };
+}
 
 function readContact(): { name: string; phone: string } {
   try { return { name: "", phone: "", ...JSON.parse(localStorage.getItem(CONTACT) ?? "{}") }; } catch { return { name: "", phone: "" }; }
@@ -76,16 +86,17 @@ export function CustomerFlow({ token }: { token: string }) {
 
 function Flow({ token, base, view, reload }: { token: string; base: string; view: Enabled; reload: () => Promise<void> }) {
   const tz = view.shop.timezone;
-  const [step, setStep] = useState<Step>("service");
+  // Flow mounts only after the client read, so the URL and localStorage are there on first render.
+  const [arrival] = useState(() => rebookArrival(view));
+  const [step, setStep] = useState<Step>(arrival ? "day" : "service");
   const [moving, setMoving] = useState<Appointment | null>(null);
-  const [service, setService] = useState<Service | null>(null);
-  const [staffId, setStaffId] = useState("");
+  const [service, setService] = useState<Service | null>(arrival?.service ?? null);
+  const [staffId, setStaffId] = useState(arrival?.staffId ?? "");
   const [days, setDays] = useState<SlotDay[] | null>(null);
   const [slotsError, setSlotsError] = useState("");
   const [allDays, setAllDays] = useState(false);
   const [day, setDay] = useState<SlotDay | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
-  // Flow mounts only after the client read, so localStorage is there on first render.
   const [contact, setContact] = useState(readContact);
   const [showPhone, setShowPhone] = useState(() => Boolean(contact.phone));
   const [nameError, setNameError] = useState("");
@@ -94,8 +105,12 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [result, setResult] = useState<Appointment | null>(null);
+  const rebookSourceId = arrival?.rebook;
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
+
+  // The rebook push links here with ?service=&staff=&rebook=: the day step opens with both pre-selected.
+  useEffect(() => { if (arrival) void loadSlots(arrival.service, arrival.staffId); }, [arrival]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Each step change moves focus to its heading, so a screen reader announces the new step and the page scrolls to it.
   useEffect(() => { if (moved.current) heading.current?.focus(); }, [step, moving]);
@@ -134,7 +149,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     try {
       const appointment = moving
         ? await post<Appointment>(`${base}/appointments/${moving.id}/reschedule`, { start, staffId: staffId || undefined })
-        : await post<Appointment>(`${base}/appointments`, { serviceId: service.id, staffId: staffId || undefined, start, customerName: contact.name.trim(), customerPhone: contact.phone.trim() || undefined, idempotencyKey: attempt });
+        : await post<Appointment>(`${base}/appointments`, { serviceId: service.id, staffId: staffId || undefined, start, customerName: contact.name.trim(), customerPhone: contact.phone.trim() || undefined, idempotencyKey: attempt, rebookSourceId });
       if (!moving) { try { localStorage.setItem(CONTACT, JSON.stringify({ name: contact.name.trim(), phone: contact.phone.trim() })); } catch { /* prefill is a convenience */ } }
       setResult(appointment); go("done"); void reload();
     } catch (cause) {
@@ -159,15 +174,14 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   return <CustomerShell header={header} footer={<Legal />}>
     {view.blocked ? <p className={notice.notice} role="status">{PAUSED}</p> : null}
 
-    <Mine view={view} base={base} reload={reload} onMove={view.blocked ? undefined : startMove} />
+    <Mine view={view} base={base} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} />
 
     {view.blocked ? null : step === "done" && result ? <section className={card.panel} aria-labelledby="booking-step-title">
       <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={card.panelTitle}>{result.status === "requested"
         ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit" : "Angefragt: der Shop bestätigt dir den Termin")
         : `${moving ? "Verschoben" : "Dein Termin ist fix"}: ${formatWhen(result.start, tz)} bei ${result.staff.name}`}</h2>
       <p className={card.muted}>{result.service.name}. {result.canReschedule ? `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.` : "Absagen geht bis zum Termin, zählt dann als kurzfristig."}</p>
-      {/* Slice 5: the push toggle („Erinnerung per Mitteilung“) goes into this slot. */}
-      <div data-slot="booking-push" hidden />
+      <BookingPush base={base} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
       <Button variant="quiet" size="sm" onClick={reset}>Noch einen Termin buchen</Button>
     </section> : <section className={`booking-flow ${card.panel}`} aria-labelledby="booking-step-title">
@@ -215,9 +229,8 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
           <p className={card.rules}>{deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
           <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
           {view.shop.autoConfirm ? null : <p className={card.rules}>Der Shop bestätigt deinen Termin, dann ist er fix.</p>}
-          <p className={card.rules}>Wer öfter nicht erscheint, kann hier nicht mehr online buchen.</p>
+          {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {view.shop.noShowBlockAfter} nicht wahrgenommenen Terminen in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
         </div>
-        <Legal />
         <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>
       </> : null}
 
@@ -236,7 +249,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 }
 
 /** Upcoming appointments with move and cancel, then the last past ones. One line when there are none. */
-function Mine({ view, base, reload, onMove }: { view: Enabled; base: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void }) {
+function Mine({ view, base, reload, onMove, offerPush }: { view: Enabled; base: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean }) {
   const tz = view.shop.timezone;
   const [confirming, setConfirming] = useState<{ id: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -272,6 +285,7 @@ function Mine({ view, base, reload, onMove }: { view: Enabled; base: string; rel
       </li>;
     })}</ul> : null}
     {error ? <p className={card.alert} role="alert">{error}</p> : null}
+    {offerPush && view.upcoming.length && !view.push.subscribed ? <BookingPush base={base} push={view.push} reload={reload} /> : null}
     {view.past.length ? <>
       <h3 className={card.muted}>Zuletzt</h3>
       <ul className={styles.list}>{view.past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>

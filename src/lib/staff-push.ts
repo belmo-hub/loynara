@@ -42,11 +42,11 @@ export function validPushEndpoint(raw: string): boolean {
   } catch { return false; }
 }
 
-type PushEnv = { VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string; VAPID_SUBJECT?: string; [name: string]: string | undefined };
+export type PushEnv = { VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string; VAPID_SUBJECT?: string; [name: string]: string | undefined };
 type VapidDetails = { subject: string; publicKey: string; privateKey: string };
 
 /** Push is available only where VAPID keys are configured (not on production today); without them nothing is offered or sent. */
-function vapidDetails(env: PushEnv = process.env): VapidDetails | null {
+export function vapidDetails(env: PushEnv = process.env): VapidDetails | null {
   const publicKey = env.VAPID_PUBLIC_KEY ?? "", privateKey = env.VAPID_PRIVATE_KEY ?? "", subject = env.VAPID_SUBJECT ?? "";
   if (!/^[A-Za-z0-9_-]{87}$/.test(publicKey) || !/^[A-Za-z0-9_-]{43}$/.test(privateKey) || !/^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/.test(subject)) return null;
   return { subject, publicKey, privateKey };

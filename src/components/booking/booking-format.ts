@@ -57,6 +57,8 @@ export type Appointment = {
 export type Service = { id: string; name: string; durationMin: number; priceMinor: number; priceFrom: boolean };
 export type BookingView = { enabled: false } | {
   enabled: true; blocked: boolean;
-  shop: { name: string; timezone: string; termsText: string; cancelDeadlineHours: number; maxReschedulesPerMonth: number; autoConfirm: boolean };
+  shop: { name: string; timezone: string; termsText: string; cancelDeadlineHours: number; maxReschedulesPerMonth: number; autoConfirm: boolean; noShowBlockAfter: number; maxOpenPerCard: number };
   services: Service[]; staff: { id: string; name: string; serviceIds: string[] }[]; upcoming: Appointment[]; past: Appointment[];
+  push: PushView;
 };
+export type PushView = { publicKey?: string; subscribed: boolean; rebookConsent: boolean };

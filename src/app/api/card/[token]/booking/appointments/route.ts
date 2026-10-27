@@ -4,7 +4,7 @@ import { book, cardBookingLimits, NO_STORE } from "@/lib/booking/appointments";
 
 const body = z.object({
   serviceId: z.uuid(), staffId: z.uuid().optional(), start: z.iso.datetime(), customerName: z.string().trim().min(1).max(60),
-  customerPhone: z.string().trim().max(30).optional(), idempotencyKey: z.string().min(8).max(100),
+  customerPhone: z.string().trim().max(30).optional(), idempotencyKey: z.string().min(8).max(100), rebookSourceId: z.uuid().optional(),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {

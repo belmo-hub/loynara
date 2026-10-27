@@ -46,7 +46,7 @@ it("a confirmed plate tap shows the appointment in the pending list and complete
   const appointment = await bookAt(shop, quarterNow());
   const tapId = await pendingTap(shop);
   const pending = await pendingRoute(request("/api/cashier/tap/pending", { cookie: shop.ownerCookie }));
-  expect(await pending.json()).toMatchObject([{ id: tapId, appointment: { start: appointment.start, serviceName: "Haarschnitt" } }]);
+  expect(await pending.json()).toMatchObject([{ id: tapId, appointment: { start: appointment.start, startLabel: new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(appointment.start)), serviceName: "Haarschnitt" } }]);
 
   // A stamp tap is confirmed without a body (and so without a content type).
   const confirmed = await confirmRoute(new Request(`${origin}/api/cashier/tap/${tapId}/confirm`, { method: "POST", headers: { origin, cookie: shop.ownerCookie } }), { params: Promise.resolve({ id: tapId }) });
