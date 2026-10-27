@@ -19,7 +19,7 @@ function outside(parent: string, child: string) {
  */
 export function writeCredentialFile(target: string | undefined, bytes: Buffer, valueName: string, fileName: string) {
   const unwritable = `${valueName} could not be written to ${fileName}`;
-  if (!target || !path.isAbsolute(target)) throw new CredentialFileError(`${valueName} requires ${fileName} as an absolute path for the key file`);
+  if (!target || !path.isAbsolute(target)) throw new CredentialFileError(`${valueName} requires ${fileName} as an absolute path for the file`);
   const directory = path.dirname(target);
   const unsafeDirectory = new CredentialFileError(`${fileName} must be in a directory outside the application that only the runtime user can access (0700, no symlink)`);
   const application = realpathSync(process.cwd());

@@ -68,6 +68,8 @@ describe("Apple pass certificate, key and WWDR delivered as environment values",
     ["APPLE_SIGNING_KEY_BASE64", "raw PEM instead of base64", () => pkcs8("rsa", { modulusLength: 2048 }), /base64-encoded unencrypted PEM RSA/],
     ["APPLE_SIGNING_KEY_BASE64", "a short RSA key", () => encode(pkcs8("rsa", { modulusLength: 1024 })), /at least 2048 bits/],
     ["APPLE_SIGNING_KEY_BASE64", "an EC key", () => encode(pkcs8("ec", { namedCurve: "P-256" })), /RSA private key/],
+    // A DSA key has a 2048-bit modulus, so only the key-type check refuses it.
+    ["APPLE_SIGNING_KEY_BASE64", "a DSA 2048 key", () => encode(pkcs8("dsa" as "rsa", { modulusLength: 2048, divisorLength: 256 })), /RSA private key/],
     ["APPLE_SIGNING_KEY_BASE64", "an encrypted key", () => encode(generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "pem" }, privateKeyEncoding: { type: "pkcs8", format: "pem", cipher: "aes-256-cbc", passphrase: "synthetic" } }).privateKey), /unencrypted/],
     ["APPLE_SIGNING_KEY_BASE64", "a certificate in the key slot", () => encode(readFileSync(fixture().config.certPath)), /private key/],
     ["APPLE_SIGNING_CERT_BASE64", "a key in the certificate slot", () => encode(readFileSync(fixture().config.keyPath)), /PEM certificate/],
@@ -90,7 +92,7 @@ describe("Apple pass certificate, key and WWDR delivered as environment values",
     const { env } = delivered();
     for (const [name, { file }] of Object.entries(APPLE_CREDENTIAL_VALUES)) {
       const only = { [name]: env[name] };
-      for (const target of [undefined, "", "pass.pem"]) expect(appleCredentialStartupIssues({ ...only, [file]: target }), `${name} ${target}`).toEqual([`${name} requires ${file} as an absolute path for the key file`]);
+      for (const target of [undefined, "", "pass.pem"]) expect(appleCredentialStartupIssues({ ...only, [file]: target }), `${name} ${target}`).toEqual([`${name} requires ${file} as an absolute path for the file`]);
       const inside = path.join(process.cwd(), "var", "apple-credential-test", "file.pem");
       expect(appleCredentialStartupIssues({ ...only, [file]: inside })).toEqual([expect.stringMatching(new RegExp(`^${file} must be in a directory outside the application`))]);
       expect(existsSync(path.dirname(inside))).toBe(false);

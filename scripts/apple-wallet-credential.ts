@@ -33,8 +33,7 @@ export function inspectAppleCredentialValue(name: AppleCredentialValue, value: s
       if (!pem.includes("-----BEGIN CERTIFICATE-----")) return invalid;
       new X509Certificate(bytes);
     } else {
-      // The signer passes the key to `openssl cms` and `createPrivateKey` without a passphrase.
-      if (!/-----BEGIN (RSA )?PRIVATE KEY-----/.test(pem)) return invalid;
+      // Without a passphrase this throws for an encrypted, DER or non-key value, as the signer would.
       const key = createPrivateKey(bytes);
       if (key.asymmetricKeyType !== "rsa" || (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) return invalid;
     }
