@@ -1,0 +1,2 @@
+ALTER TABLE "booking_appointments" ADD COLUMN "rescheduled_at" timestamp with time zone[] DEFAULT '{}' NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "booking_appointments_done_entry_uq" ON "booking_appointments" USING btree ("tenant_id","done_ledger_entry_id") WHERE "booking_appointments"."done_ledger_entry_id" is not null;

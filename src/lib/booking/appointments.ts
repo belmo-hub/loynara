@@ -36,9 +36,9 @@ const lower = (column: typeof bookingAppointments.during | typeof bookingBlocks.
 const upper = (column: typeof bookingAppointments.during | typeof bookingBlocks.during) => sql<Date>`upper(${column})`.mapWith(value => new Date(value));
 const isOpen = (status: string) => (OPEN as string[]).includes(status);
 
-function databaseCode(error: unknown) {
+function databaseError(error: unknown): { code?: unknown; constraint?: unknown } {
   const cause = error instanceof Error && error.cause ? error.cause : error;
-  return cause && typeof cause === "object" && "code" in cause ? cause.code : undefined;
+  return cause && typeof cause === "object" ? cause as { code?: unknown; constraint?: unknown } : {};
 }
 
 // ---- Rules (pure) -----------------------------------------------------------------------------------------------------
@@ -133,7 +133,9 @@ async function findSlot(tx: Tx, scope: Scope & { timezone: string }, input: { se
 }
 
 const slotTaken = (nextFree?: string) => (error: unknown): never => {
-  if (databaseCode(error) === "23P01") throw new BookingError("SLOT_TAKEN", "This time was just taken", { nextFree });
+  const { code, constraint } = databaseError(error);
+  if (code === "23P01" && constraint === "booking_member_no_overlap") throw new DomainError("OWN_OVERLAP", "This card already has an appointment at this time");
+  if (code === "23P01") throw new BookingError("SLOT_TAKEN", "This time was just taken", { nextFree });
   throw error;
 };
 
@@ -143,7 +145,7 @@ const noShowCount = sql<number>`(SELECT count(*)::int FROM booking_appointments 
 async function appointmentRows(reader: Reader, where: SQL | undefined, order: SQL = asc(sql`lower(${bookingAppointments.during})`), limit = 500) {
   return reader.select({
     a: bookingAppointments, start: lower(bookingAppointments.during), end: upper(bookingAppointments.during), serviceName: bookingServices.name, staffName: bookingStaff.name,
-    cardLocator: memberships.cardLocator, noShowCount, deadlineHours: bookingSettings.cancelDeadlineHours,
+    cardLocator: memberships.cardLocator, noShowCount, deadlineHours: bookingSettings.cancelDeadlineHours, maxReschedules: bookingSettings.maxReschedulesPerMonth,
   }).from(bookingAppointments)
     .innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
     .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
@@ -160,7 +162,7 @@ function customerView(row: Row, now: Date) {
   return {
     id: a.id, status: a.status, start: start.toISOString(), durationMin: a.durationMin, priceMinor: a.priceMinor,
     service: { id: a.serviceId, name: row.serviceName }, staff: { id: a.staffId, name: row.staffName },
-    rescheduleCount: a.rescheduleCount, lateCancel: a.lateCancel, canCancel: open && start > now, canReschedule: open && now < deadline, cancelDeadline: deadline.toISOString(),
+    rescheduleCount: a.rescheduleCount, lateCancel: a.lateCancel, canCancel: open && start > now, canReschedule: open && now < deadline && row.maxReschedules > 0, cancelDeadline: deadline.toISOString(),
   };
 }
 
@@ -195,12 +197,14 @@ export async function cardView(token: string, now = new Date()) {
   };
 }
 
-export async function customerSlots(token: string, input: { serviceId: string; staffId?: string; from: string; days: number }, now = new Date()) {
+/** With `appointmentId` (a move): the booked length, and the appointment's own time counts as free. */
+export async function customerSlots(token: string, input: { serviceId: string; staffId?: string; from: string; days: number; appointmentId?: string }, now = new Date()) {
   const card = await cardScope(db, token);
   const settings = await settingsOf(db, card);
-  const service = await liveService(db, card, input.serviceId);
+  const moving = input.appointmentId ? await customerAppointment(db, card, input.appointmentId) : undefined;
+  const service = moving ? bookedService(moving) : await liveService(db, card, input.serviceId);
   const days = Array.from({ length: input.days }, (_, i) => addDays(input.from, i));
-  return { days: (await availability(db, card, { service, staffId: input.staffId, days, settings, now })).map(d => ({ date: d.date, slots: d.slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) })) };
+  return { days: (await availability(db, card, { service, staffId: input.staffId, days, excludeId: moving?.a.id, settings, now })).map(d => ({ date: d.date, slots: d.slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) })) };
 }
 
 export type BookInput = { token: string; serviceId: string; staffId?: string; start: Date; customerName: string; customerPhone?: string; idempotencyKey: string; rebookSourceId?: string };
@@ -236,8 +240,8 @@ export async function book(input: BookInput, now = new Date()) {
   });
 }
 
-async function customerAppointment(tx: Tx, card: Awaited<ReturnType<typeof cardScope>>, appointmentId: string) {
-  const [row] = await appointmentRows(tx, and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId), eq(bookingAppointments.id, appointmentId)));
+async function customerAppointment(reader: Reader, card: Awaited<ReturnType<typeof cardScope>>, appointmentId: string) {
+  const [row] = await appointmentRows(reader, and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId), eq(bookingAppointments.id, appointmentId)));
   if (!row) throw new DomainError("NOT_FOUND", "Appointment not found");
   return row;
 }
@@ -255,27 +259,26 @@ export async function reschedule(input: { token: string; appointmentId: string; 
     if (blocked) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
     if (row.start.getTime() === input.start.getTime() && (!input.staffId || input.staffId === row.a.staffId)) return customerView(row, now);
     if (isLateCancel(row.start, settings.cancelDeadlineHours, now)) throw new DomainError("TOO_LATE", "Too late to reschedule online");
-    // shortcut: counts reschedules of this card's appointments last changed this month (Berlin); a reschedule log would be exact.
-    const [month] = await tx.select({ count: sql<number>`coalesce(sum(${bookingAppointments.rescheduleCount}), 0)::int` }).from(bookingAppointments)
-      .where(and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId),
-        sql`to_char(${bookingAppointments.updatedAt} AT TIME ZONE ${card.timezone}, 'YYYY-MM') = ${instantToWall(now, card.timezone).date.slice(0, 7)}`));
+    // Every reschedule of the card is logged on its appointment; the month is the shop's calendar month.
+    const { rows: [month] } = await tx.execute<{ count: number }>(sql`SELECT count(*)::int AS count FROM booking_appointments a, unnest(a.rescheduled_at) AS t
+      WHERE a.tenant_id = ${card.tenantId}::uuid AND a.membership_id = ${card.membershipId}::uuid AND to_char(t AT TIME ZONE ${card.timezone}, 'YYYY-MM') = ${instantToWall(now, card.timezone).date.slice(0, 7)}`);
     if (!rescheduleAllowed(month.count, settings.maxReschedulesPerMonth)) throw new DomainError("RESCHEDULE_LIMIT", "Reschedule limit reached this month");
     assertInWindow(input.start, settings, now, card.timezone);
     const service = bookedService(row);
     const { slot, nextFree } = await findSlot(tx, card, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings, now });
-    await moveRow(tx, row, slot.staffId, input.start, service, { rescheduleCount: row.a.rescheduleCount + 1, updatedAt: now }).catch(slotTaken(nextFree));
+    await moveRow(tx, row, slot.staffId, input.start, service, { rescheduleCount: row.a.rescheduleCount + 1, rescheduledAt: sql`array_append(${bookingAppointments.rescheduledAt}, ${now.toISOString()}::timestamptz)`, updatedAt: now }).catch(slotTaken(nextFree));
     await scheduleReminders(tx, row.a.id, now);
     return customerView(await one(tx, card.tenantId, row.a.id), now);
   });
 }
 
-async function moveRow(tx: Tx, row: Row, staffId: string, start: Date, service: SlotService, extra: { rescheduleCount?: number; updatedAt?: Date } = {}) {
+async function moveRow(tx: Tx, row: Row, staffId: string, start: Date, service: SlotService, extra: { rescheduleCount?: number; rescheduledAt?: SQL; updatedAt?: Date } = {}) {
   const moved = await tx.update(bookingAppointments).set({ staffId, during: range(start, new Date(start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), updatedAt: new Date(), ...extra })
     .where(and(eq(bookingAppointments.tenantId, row.a.tenantId), eq(bookingAppointments.id, row.a.id), eq(bookingAppointments.status, row.a.status))).returning({ id: bookingAppointments.id });
   if (!moved.length) throw new DomainError("STALE", "The appointment has changed; reload");
 }
 
-/** Always allowed while open; inside the deadline it is flagged as a late cancellation. */
+/** Allowed while open and not yet started (after the start only the shop decides: done or no-show); inside the deadline it is flagged as late. */
 export async function cancelByCustomer(input: { token: string; appointmentId: string }, now = new Date()) {
   return db.transaction(async tx => {
     const card = await cardScope(tx, input.token);
@@ -283,6 +286,7 @@ export async function cancelByCustomer(input: { token: string; appointmentId: st
     const row = await customerAppointment(tx, card, input.appointmentId);
     if (row.a.status === "cancelled_by_customer") return customerView(row, now);
     if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
+    if (row.start <= now) throw new DomainError("TOO_LATE", "The appointment has already started");
     await setStatus(tx, row, "cancelled_by_customer", { cancelledAt: now, lateCancel: isLateCancel(row.start, row.deadlineHours, now) });
     return customerView(await one(tx, card.tenantId, row.a.id), now);
   });
@@ -322,12 +326,20 @@ export async function transition(input: TransitionInput, now = new Date()) {
       const [rule] = program.type === "points" && program.earningMode === "purchase"
         ? await tx.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, input.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1)
         : [];
-      const award = await awardInTransaction(tx, {
-        userId: input.userId, locationId: input.locationId, membershipId: row.a.membershipId, idempotencyKey: `booking:${row.a.id}`, requestId: randomUUID(),
-        ...(rule ? { purchaseAmountMinor: input.purchaseAmountMinor ?? row.a.priceMinor, ruleVersionId: rule.id } : { quantity: 1 }),
-      });
-      await setStatus(tx, row, "done", { doneLedgerEntryId: award.entryId });
-      doneAward = { balance: award.balance, creditedQuantity: award.creditedQuantity };
+      // A purchase programme credits only an amount the team typed: the list price is an estimate, never a confirmed purchase.
+      // No amount, or one too small for a point, completes the appointment without a credit.
+      let entryId: string | null = null;
+      if (!rule || (input.purchaseAmountMinor ?? 0) >= 1) {
+        try {
+          const award = await awardInTransaction(tx, {
+            userId: input.userId, locationId: input.locationId, membershipId: row.a.membershipId, idempotencyKey: `booking:${row.a.id}`, requestId: randomUUID(),
+            ...(rule ? { purchaseAmountMinor: input.purchaseAmountMinor, ruleVersionId: rule.id } : { quantity: 1 }),
+          });
+          entryId = award.entryId;
+          doneAward = { balance: award.balance, creditedQuantity: award.creditedQuantity };
+        } catch (error) { if (!(rule && error instanceof DomainError && error.code === "NO_POINTS")) throw error; }
+      }
+      await setStatus(tx, row, "done", { doneLedgerEntryId: entryId });
     } else {
       await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || "Vom Geschäft abgesagt" } : {});
       if (input.to === "confirmed") await scheduleReminders(tx, row.a.id, now);
@@ -413,9 +425,11 @@ export async function unblockCustomer(input: Scope & { membershipId: string }) {
   await db.delete(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, input.tenantId), eq(bookingBlockedCustomers.membershipId, input.membershipId)));
 }
 
-export async function dayView(input: Scope & { date: string }, now = new Date()) {
+/** Without `date`: the shop's today, so a client never guesses the day in its own time zone. */
+export async function dayView(input: Scope & { date?: string }, now = new Date()) {
   const timezone = await timezoneOf(db, input);
-  const from = wallToInstant(input.date, "00:00", timezone), to = wallToInstant(addDays(input.date, 1), "00:00", timezone);
+  const date = input.date ?? instantToWall(now, timezone).date;
+  const from = wallToInstant(date, "00:00", timezone), to = wallToInstant(addDays(date, 1), "00:00", timezone);
   if (!from || !to) throw new DomainError("INVALID_DATE", "Invalid date");
   const scope = and(eq(bookingAppointments.tenantId, input.tenantId), eq(bookingAppointments.locationId, input.locationId));
   const appointments = await appointmentRows(db, and(scope, sql`${bookingAppointments.during} && ${range(from, to)}`));
@@ -426,7 +440,7 @@ export async function dayView(input: Scope & { date: string }, now = new Date())
   const [pending] = await db.select({ count: sql<number>`count(*)::int` }).from(bookingAppointments)
     .where(and(scope, eq(bookingAppointments.status, "requested"), sql`upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`));
   return {
-    date: input.date, appointments: appointments.map(row => ownerView(row, now)),
+    date, appointments: appointments.map(row => ownerView(row, now)),
     blocks: blocks.map(b => ({ ...b, start: b.start.toISOString(), end: b.end.toISOString() })), staff, pendingRequests: pending.count,
   };
 }
@@ -434,8 +448,14 @@ export async function dayView(input: Scope & { date: string }, now = new Date())
 // ---- Cashier fusion (wired into the cashier routes in slice 4) ----------------------------------------------------------
 
 /**
- * After a staff award: the card's open appointment at that location within ±90 minutes of the award becomes done, linked to
- * that ledger entry, without a second award. Whichever runs first (this or the owner's "Fertig") wins. Returns the id or null.
+ * The award belongs to the appointment when it lands between 30 minutes before the start (early arrivals) and 90 minutes
+ * after the booked end (long services, paying afterwards); an earlier purchase on the same day is not the visit.
+ */
+export const awardWindow = (at: string, alias: string) => sql`lower(${sql.raw(alias)}.during) <= ${at}::timestamptz + interval '30 minutes' AND upper(${sql.raw(alias)}.during) >= ${at}::timestamptz - interval '90 minutes'`;
+
+/**
+ * After a staff award: the card's open appointment at that location inside `awardWindow` becomes done, linked to that
+ * ledger entry, without a second award. Whichever runs first (this or the owner's "Fertig") wins. Returns the id or null.
  */
 export async function completeAppointmentForAward(entryId: string, reader: Reader = db) {
   const [entry] = await reader.select({ tenantId: ledgerEntries.tenantId, locationId: ledgerEntries.locationId, membershipId: ledgerEntries.membershipId, createdAt: ledgerEntries.createdAt, kind: ledgerEntries.kind, source: ledgerEntries.source })
@@ -445,11 +465,11 @@ export async function completeAppointmentForAward(entryId: string, reader: Reade
   const { rows: [done] } = await reader.execute<{ id: string }>(sql`
     UPDATE booking_appointments SET status = 'done', done_ledger_entry_id = ${entryId}::uuid, updated_at = now()
     WHERE tenant_id = ${entry.tenantId}::uuid AND status IN ('requested','confirmed') AND id = (
-      SELECT id FROM booking_appointments
-      WHERE tenant_id = ${entry.tenantId}::uuid AND location_id = ${entry.locationId}::uuid AND membership_id = ${entry.membershipId}::uuid AND status IN ('requested','confirmed')
-        AND lower(during) BETWEEN ${at}::timestamptz - interval '90 minutes' AND ${at}::timestamptz + interval '90 minutes'
+      SELECT a.id FROM booking_appointments a
+      WHERE a.tenant_id = ${entry.tenantId}::uuid AND a.location_id = ${entry.locationId}::uuid AND a.membership_id = ${entry.membershipId}::uuid AND a.status IN ('requested','confirmed')
+        AND ${awardWindow(at, "a")}
         AND NOT EXISTS (SELECT 1 FROM booking_appointments d WHERE d.tenant_id = ${entry.tenantId}::uuid AND d.done_ledger_entry_id = ${entryId}::uuid)
-      ORDER BY abs(extract(epoch FROM lower(during) - ${at}::timestamptz)) LIMIT 1)
+      ORDER BY abs(extract(epoch FROM lower(a.during) - ${at}::timestamptz)) LIMIT 1)
     RETURNING id`);
   return done?.id ?? null;
 }
@@ -458,19 +478,21 @@ export async function completeAppointmentForAward(entryId: string, reader: Reade
 
 export const NO_STORE = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 
-/** Owner and manager at the selected location; cashiers and other shops get 403. `ownerOnly` for the set-up. */
+/** Owner and manager at the selected location; cashiers and other shops get 403. `ownerOnly` for the set-up. Limits as the neighbouring merchant routes. */
 export async function bookingStaffScope(request: Request, ownerOnly = false) {
+  await enforcePeerLimit(request, "booking_staff_peer", 240, 15 * 60);
   const user = await sessionUser(request);
+  await enforceRateLimit({ scope: "booking_staff_user", identity: user.id, max: 240, windowSeconds: 15 * 60 });
   const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
   if (!context || context.role === "cashier" || (ownerOnly && context.role !== "owner")) throw new DomainError("FORBIDDEN", "No booking access");
   return { userId: user.id, tenantId: context.tenantId, locationId: context.locationId };
 }
 
-/** Card-token routes: the card's read limits; writes also need the same origin and have their own, lower limits. */
+/** Card-token routes: their own buckets (browsing slots never uses up the card page's budget); writes also need the same origin and lower limits. */
 export async function cardBookingLimits(request: Request, token: string, write = false) {
   if (write) requireSameOrigin(request);
-  await enforcePeerLimit(request, write ? "booking_write_peer" : "card_read_peer", write ? 60 : 240, 15 * 60);
-  await enforceRateLimit({ scope: write ? "booking_write_token" : "card_read_token", identity: token, max: write ? 20 : 90, windowSeconds: 15 * 60 });
+  await enforcePeerLimit(request, write ? "booking_write_peer" : "booking_read_peer", write ? 60 : 240, 15 * 60);
+  await enforceRateLimit({ scope: write ? "booking_write_token" : "booking_read_token", identity: token, max: write ? 20 : 90, windowSeconds: 15 * 60 });
 }
 
 /** Path ids that are not uuids are simply not found. */

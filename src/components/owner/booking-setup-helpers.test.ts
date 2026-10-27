@@ -38,7 +38,7 @@ describe("booking set-up helpers", () => {
     expect(durationLabel(65)).toBe("1:05 Std.");
   });
   it("default terms name the deadline, the reschedule cap and the no-show pause", () => {
-    expect(defaultTerms({ cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, noShowBlockAfter: 3 })).toBe("Absagen oder verschieben bitte bis 24 Stunden vorher. Später geht auch, zählt dann aber als späte Absage. Verschieben geht bis zu 2-mal im Monat. Nach 3 verpassten Terminen ohne Absage pausieren wir die Online-Buchung für dich.");
+    expect(defaultTerms({ cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, noShowBlockAfter: 3 })).toBe("Absagen bitte bis 24 Stunden vorher; später zählt es als späte Absage. Verschieben geht online bis 24 Stunden vorher, bis zu 2-mal im Monat. Nach 3 verpassten Terminen ohne Absage pausieren wir die Online-Buchung für dich.");
     const lenient = defaultTerms({ cancelDeadlineHours: 0, maxReschedulesPerMonth: 0, noShowBlockAfter: 0 });
     expect(lenient).toMatch(/jederzeit/);
     expect(lenient).not.toMatch(/pausieren/);

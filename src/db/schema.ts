@@ -1197,6 +1197,8 @@ export const bookingAppointments = pgTable("booking_appointments", {
   customerPhone: varchar("customer_phone", { length: 30 }),
   idempotencyKey: varchar("idempotency_key", { length: 100 }).notNull(),
   rescheduleCount: integer("reschedule_count").notNull().default(0),
+  // One instant per customer reschedule: the monthly limit counts these, in the shop's calendar month.
+  rescheduledAt: timestamp("rescheduled_at", { withTimezone: true }).array().notNull().default(sql`'{}'`),
   lateCancel: boolean("late_cancel").notNull().default(false),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   cancelReason: varchar("cancel_reason", { length: 80 }),
@@ -1214,6 +1216,7 @@ export const bookingAppointments = pgTable("booking_appointments", {
   foreignKey({ columns: [t.tenantId, t.staffId], foreignColumns: [bookingStaff.tenantId, bookingStaff.id] }),
   foreignKey({ columns: [t.tenantId, t.doneLedgerEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
   index("booking_appointments_member_idx").on(t.tenantId, t.membershipId, t.createdAt),
+  uniqueIndex("booking_appointments_done_entry_uq").on(t.tenantId, t.doneLedgerEntryId).where(sql`${t.doneLedgerEntryId} is not null`),
   check("booking_appointment_status_valid", sql`${t.status} in ('requested','confirmed','done','no_show','cancelled_by_customer','cancelled_by_shop')`),
   check("booking_appointment_bounded", sql`lower_inc(${t.during}) and not upper_inc(${t.during}) and not lower_inf(${t.during}) and not upper_inf(${t.during})`),
   check("booking_appointment_done_entry", sql`(${t.status} = 'done') or ${t.doneLedgerEntryId} is null`),

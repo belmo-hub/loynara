@@ -46,13 +46,30 @@ it("done awards one stamp once; a second attempt is STALE; the cashier role cann
   expect((await pool.query("SELECT done_ledger_entry_id IS NOT NULL AS linked FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0].linked).toBe(true);
 });
 
-it("a points programme awards the service price at the newest rule version", async () => {
+it("a purchase programme credits only the amount the team typed at the newest rule version; none, or too little for a point, completes without a credit", async () => {
   const shop = await bookingShop({ programType: "points" });
-  const start = new Date("2026-11-03T09:00:00Z");
-  const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, new Date("2026-11-02T06:00:00Z"));
-  const done = await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" }, start);
-  expect(done).toMatchObject({ status: "done", doneAward: { creditedQuantity: 75 } });
+  const now = new Date("2026-11-02T06:00:00Z"), at = (s: string) => new Date(s);
+  const other = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
+  const booked = async (token: string, start: string) => (await book({ token, serviceId: shop.serviceId, start: at(start), customerName: "Mia", idempotencyKey: randomUUID() }, now)).appointment.id;
+  const [untyped, typed, tiny] = [await booked(shop.card.cardToken, "2026-11-03T09:00:00Z"), await booked(shop.card.cardToken, "2026-11-04T09:00:00Z"), await booked(other.cardToken, "2026-11-05T09:00:00Z")];
+  const done = (appointmentId: string, start: string, extra: { purchaseAmountMinor?: number } = {}) => transition({ ...shop.scope, userId: shop.owner.userId, appointmentId, to: "done", expected: "confirmed", ...extra }, at(start));
+  expect(await done(untyped, "2026-11-03T09:00:00Z")).not.toHaveProperty("doneAward");
+  expect(await done(typed, "2026-11-04T09:00:00Z", { purchaseAmountMinor: 2500 })).toMatchObject({ status: "done", doneAward: { creditedQuantity: 75 } });
+  expect(await done(tiny, "2026-11-05T09:00:00Z", { purchaseAmountMinor: 20 })).toMatchObject({ status: "done" });
+  expect((await pool.query("SELECT status, done_ledger_entry_id IS NOT NULL AS credited FROM booking_appointments ORDER BY lower(during)")).rows).toEqual([{ status: "done", credited: false }, { status: "done", credited: true }, { status: "done", credited: false }]);
   expect((await pool.query("SELECT amount_minor FROM purchase_awards WHERE tenant_id = $1", [shop.merchant.tenantId])).rows).toEqual([{ amount_minor: 2500 }]);
+  expect(await balance(shop.card.id)).toBe(75);
+});
+
+it("the cashier award completes the appointment from 30 minutes before the start to 90 minutes after the booked end, not outside", async () => {
+  const shop = await bookingShop();
+  // Offsets of the start from the current quarter hour; the booked length is 30 minutes.
+  for (const [offsetMin, completes] of [[15, true], [60, false], [-105, true], [-150, false]] as const) {
+    const card = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
+    const appointment = await bookAt(shop, card.cardToken, new Date(quarterNow().getTime() + offsetMin * 60_000));
+    const entry = await award({ userId: shop.owner.userId, locationId: shop.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect([offsetMin, await completeAppointmentForAward(entry.entryId)]).toEqual([offsetMin, completes ? appointment.id : null]);
+  }
 });
 
 it("refuses done before the start and blocks the card after the third no-show", async () => {

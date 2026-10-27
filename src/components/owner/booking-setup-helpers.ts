@@ -54,9 +54,10 @@ const hoursPhrase = (hours: number) => hours === 1 ? "1 Stunde" : hours % 24 ===
 
 /** The honest default customers read before booking; it names exactly the rules the server enforces. */
 export function defaultTerms(rules: { cancelDeadlineHours: number; maxReschedulesPerMonth: number; noShowBlockAfter: number }) {
+  const until = rules.cancelDeadlineHours ? `bis ${hoursPhrase(rules.cancelDeadlineHours)} vorher` : "bis zum Termin";
   const lines = [
-    rules.cancelDeadlineHours ? `Absagen oder verschieben bitte bis ${hoursPhrase(rules.cancelDeadlineHours)} vorher. Später geht auch, zählt dann aber als späte Absage.` : "Absagen oder verschieben geht jederzeit bis zum Termin.",
-    rules.maxReschedulesPerMonth ? `Verschieben geht bis zu ${rules.maxReschedulesPerMonth}-mal im Monat.` : "Verschieben geht online nicht: bitte absagen und neu buchen.",
+    rules.cancelDeadlineHours ? `Absagen bitte ${until}; später zählt es als späte Absage.` : "Absagen geht jederzeit bis zum Termin.",
+    rules.maxReschedulesPerMonth ? `Verschieben geht online ${until}, bis zu ${rules.maxReschedulesPerMonth}-mal im Monat.` : "Verschieben geht online nicht: bitte absagen und neu buchen.",
   ];
   if (rules.noShowBlockAfter) lines.push(`Nach ${rules.noShowBlockAfter} verpassten Terminen ohne Absage pausieren wir die Online-Buchung für dich.`);
   return lines.join(" ");

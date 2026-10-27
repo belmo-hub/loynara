@@ -54,6 +54,9 @@ export async function scheduleReminders(tx: Tx, appointmentId: string, now = new
     SELECT a.tenant_id, lower(a.during) AS start, l.timezone FROM booking_appointments a
     JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid AND a.status = 'confirmed'`);
   if (!a) return;
+  // Jobs of an earlier plan step aside, so a move never leaves two live jobs for one reminder.
+  await tx.execute(sql`UPDATE outbox_jobs SET status = 'suppressed', last_error = 'Replanned' WHERE tenant_id = ${a.tenant_id}::uuid AND kind = 'booking.reminder'
+    AND status IN ('pending','retry','processing','blocked') AND payload ->> 'appointmentId' = ${appointmentId}`);
   const start = new Date(a.start);
   for (const which of ["24h", "2h"] as const) {
     const due = reminderDue(start, which, a.timezone);
@@ -205,10 +208,10 @@ const candidates = (now: Date) => sql`
     AND ${rebookConsent(sql`a.tenant_id`, sql`a.membership_id`)}
     AND EXISTS (SELECT 1 FROM booking_push_subscriptions p WHERE p.tenant_id = a.tenant_id AND p.membership_id = a.membership_id)
     AND (SELECT count(DISTINCT r.message_id) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
-      AND r.status IN ('queued','sending','sent') AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS}))
+      AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain')) AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS}))
       + ${rebookPushesWithin(now, CAP_WINDOW_DAYS)} < ${CUSTOMER_WEEKLY_CAP}
     AND NOT EXISTS (SELECT 1 FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
-      AND r.status IN ('queued','sending','sent') AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - interval '1 day')
+      AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain')) AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - interval '1 day')
     AND ${rebookPushesWithin(now, 1)} = 0`;
 
 /** Called by the worker with the win-back scan. Idempotent: each appointment is claimed once under the Wallet-message tenant lock. */

@@ -17,14 +17,16 @@ const BROWSER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export function BookingDay() {
   const { me } = useOwner();
-  const [setup] = useLoad<Setup>("/api/merchant/booking/setup");
-  const [date, setDate] = useState(() => todayIn(BROWSER_ZONE));
-  const [day, reload] = useLoad<DayResponse>(`/api/merchant/booking/day?date=${date}`);
+  const [setup, reloadSetup] = useLoad<Setup>("/api/merchant/booking/setup");
+  // No date until the owner picks one: the server answers with the shop's today, never the device's.
+  const [picked, setDate] = useState<string | null>(null);
+  const [day, reload] = useLoad<DayResponse>(picked ? `/api/merchant/booking/day?date=${picked}` : "/api/merchant/booking/day");
   const [open, setOpen] = useState<OwnerAppointment | null>(null);
   const [blockOpen, setBlockOpen] = useState<DayBlock | "new" | null>(null);
   const [flash, setFlash] = useState<Flash>(null);
   const timezone = day.state === "ok" ? day.data.timezone : BROWSER_ZONE;
   const today = todayIn(timezone);
+  const date = picked ?? (day.state === "ok" ? day.data.date : today);
   const ready = setup.state === "ok" && setup.data.settings !== null;
 
   function done(text: string, tone: "ok" | "danger" | "info" = "ok") { setOpen(null); setBlockOpen(null); setFlash({ tone, text }); reload(); }
@@ -52,6 +54,7 @@ export function BookingDay() {
       {day.state === "ok" && day.data.pendingRequests > 0 && <Notice tone="warn">{day.data.pendingRequests === 1 ? "1 offene Anfrage, ab heute." : `${day.data.pendingRequests} offene Anfragen, ab heute.`}</Notice>}
 
       {day.state === "error" ? <ErrorNotice message={day.status === 403 ? "Nur Inhaber und Leitung sehen die Termine." : "Die Termine konnten nicht geladen werden."} onRetry={reload} />
+        : setup.state === "error" ? <ErrorNotice message="Die Einrichtung konnte nicht geladen werden." onRetry={reloadSetup} />
         : day.state !== "ok" || setup.state !== "ok" ? <LoadingBlock rows={3} height={56} />
         : ready && <DayList day={day.data} label={dayName(date, today)} onOpen={appointment => { setFlash(null); setOpen(appointment); }} onBlock={block => { setFlash(null); setBlockOpen(block); }} />}
 

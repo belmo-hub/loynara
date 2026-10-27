@@ -18,8 +18,8 @@ const money = (minor: number, currency: "EUR" | "MAD") => new Intl.NumberFormat(
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
 const count = (value: number) => value.toLocaleString("de-DE");
 const LIVE_STATUS: Record<string, string> = { manual_pending: "Noch kein Abo", pending_checkout: "Zahlung noch nicht abgeschlossen", active: "Abo aktiv", past_due: "Zahlung fehlgeschlagen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
-// shortcut: shown by the plan gate while billing still charges the 49 € plan (no Stripe price for 69 € yet); drop when Stripe bills it.
-const bookingLine = (enabled: boolean) => enabled ? <><br /><small className="ow-muted">Plan: Termin + Treue (69 € pro Monat) – Online-Buchung ist freigeschaltet</small></> : null;
+// shortcut: no price here while billing still charges the stored plan (no Stripe price for Termin + Treue yet); show it when Stripe bills it.
+const bookingLine = (enabled: boolean) => enabled ? <><br /><small className="ow-muted">Online-Buchung ist freigeschaltet (Termin + Treue). Der Preis dafür steht in deinem Vertrag.</small></> : null;
 const PLAN: Record<string, string> = { founding: "Gründungspreis", list: "Listenpreis" };
 const STATUS: Record<string, string> = { manual_pending: "Entwurf ohne Zahlung", pending_checkout: "Lokaler Testvorgang offen", active_fixture: "Lokale Testperiode aktiv", grace_fixture: "Lokale Test-Nachfrist", suspended_fixture: "Lokale Testperiode ausgesetzt", cancelled: "Lokale Testperiode beendet" };
 

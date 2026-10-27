@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { completeAppointmentForAward } from "./appointments";
+import { awardWindow, completeAppointmentForAward } from "./appointments";
 import { instantToWall } from "./time";
 
 /** After a staff award: marks the card's matching appointment done. Booking must never fail or slow down an award. */
@@ -9,7 +9,7 @@ export async function completeAfterAward(entryId: string | null | undefined) {
   await completeAppointmentForAward(entryId).catch(error => console.error("Booking completion after award failed", error instanceof Error ? error.name : "unknown"));
 }
 
-/** For each pending tap: the card's open appointment at that location within ±90 minutes of now (the window the award uses), its start as HH:MM in the location's timezone. */
+/** For each pending tap: the card's open appointment at that location inside the award window around now, its start as HH:MM in the location's timezone. */
 export async function appointmentsForTaps(locationId: string, tapIds: string[], now = new Date()) {
   const found = new Map<string, { start: string; startLabel: string; serviceName: string }>();
   if (!tapIds.length) return found;
@@ -20,7 +20,7 @@ export async function appointmentsForTaps(locationId: string, tapIds: string[], 
       CROSS JOIN LATERAL (
         SELECT b.tenant_id, b.service_id, lower(b.during) AS start FROM booking_appointments b
         WHERE b.tenant_id = t.tenant_id AND b.location_id = t.location_id AND b.membership_id = t.membership_id AND b.status IN ('requested','confirmed')
-          AND lower(b.during) BETWEEN ${at}::timestamptz - interval '90 minutes' AND ${at}::timestamptz + interval '90 minutes'
+          AND ${awardWindow(at, "b")}
         ORDER BY abs(extract(epoch FROM lower(b.during) - ${at}::timestamptz)) LIMIT 1) a
       JOIN booking_services s ON s.tenant_id = a.tenant_id AND s.id = a.service_id
       JOIN locations l ON l.tenant_id = t.tenant_id AND l.id = t.location_id

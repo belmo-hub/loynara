@@ -46,7 +46,8 @@ function problemFor(cause: unknown, view: Enabled): Problem {
   if (code === "BLOCKED_CUSTOMER") return { text: PAUSED };
   if (code === "TOO_MANY_OPEN") return { text: `Mehr als ${COUNT[view.shop.maxOpenPerCard] ?? `${view.shop.maxOpenPerCard} offene Termine`} gleichzeitig geht hier nicht. Sag einen ab, dann geht ein neuer.` };
   if (code === "RESCHEDULE_LIMIT") return { text: `Diesen Monat hast du schon ${view.shop.maxReschedulesPerMonth}-mal verschoben. Sag ab und buch neu.` };
-  if (code === "TOO_LATE") return { text: "Die Frist zum Verschieben ist vorbei. Ruf kurz im Shop an." };
+  if (code === "TOO_LATE") return { text: "Dafür ist es jetzt zu spät. Ruf kurz im Shop an." };
+  if (code === "OWN_OVERLAP") return { text: "Du hast zu dieser Zeit schon einen Termin. Such dir eine andere Zeit aus.", pick: true };
   if (code === "STALE") return { text: "Der Termin hat sich inzwischen geändert. Schau oben nach." };
   if (code === "RATE_LIMIT") return { text: "Zu viele Versuche. Warte kurz und versuch es dann noch mal.", retry: true };
   if (code === "NOT_FOUND") return { text: "Online-Buchung geht hier gerade nicht. Ruf kurz im Shop an." };
@@ -73,7 +74,7 @@ export function CustomerFlow({ token }: { token: string }) {
   const base = `/api/card/${encodeURIComponent(token)}/booking`;
   const [view, setView] = useState<BookingView | null>(null);
   const [loadError, setLoadError] = useState("");
-  const load = useCallback(() => apiJson<BookingView>(base).then(result => { setView(result); setLoadError(""); }, (cause: Error) => setLoadError(cause.message)), [base]);
+  const load = useCallback(() => apiJson<BookingView>(base).then(result => { setView(result); setLoadError(""); }, () => setLoadError("Lad die Seite gleich noch mal. Wenn es nicht geht, ruf kurz im Shop an.")), [base]);
   useEffect(() => { void load(); }, [load]);
 
   if (loadError && !view) return <CustomerState title="Termine nicht erreichbar." message={loadError} tone="error"><Button onClick={() => void load()}>Noch mal laden</Button></CustomerState>;
@@ -105,7 +106,8 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [result, setResult] = useState<Appointment | null>(null);
-  const rebookSourceId = arrival?.rebook;
+  // The rebook link counts for the first booking of this visit only.
+  const [rebookSourceId, setRebookSourceId] = useState(arrival?.rebook);
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
 
@@ -117,21 +119,23 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
   function go(next: Step) { moved.current = true; setProblem(null); setStep(next); }
 
-  async function loadSlots(target: Service, staff: string) {
+  async function loadSlots(target: Service, staff: string, moveId?: string) {
     setDays(null); setSlotsError(""); setAllDays(false);
     const query = new URLSearchParams({ serviceId: target.id, from: wallDate(new Date(), tz), days: "14" });
     if (staff) query.set("staffId", staff);
+    if (moveId) query.set("appointmentId", moveId);
     try { setDays(daysWithSlots((await apiJson<{ days: SlotDay[] }>(`${base}/slots?${query}`)).days)); }
-    catch (cause) { setSlotsError(cause instanceof Error ? cause.message : "Die freien Zeiten konnten nicht geladen werden."); }
+    catch { setSlotsError("Die freien Zeiten konnten nicht geladen werden."); }
   }
 
   function chooseService(target: Service) { setService(target); setStaffId(""); void loadSlots(target, ""); go("day"); }
-  function chooseStaff(id: string) { setStaffId(id); if (service) void loadSlots(service, id); }
+  function chooseStaff(id: string) { setStaffId(id); if (service) void loadSlots(service, id, moving?.id); }
   function chooseSlot(target: Slot) { setSlot(target); setKey(attemptKey()); setDeadlinePassed(passed(Date.parse(target.start) - view.shop.cancelDeadlineHours * 3_600_000)); go("confirm"); }
 
   function startMove(appointment: Appointment) {
     const target = view.services.find(s => s.id === appointment.service.id) ?? { ...appointment.service, durationMin: appointment.durationMin, priceMinor: appointment.priceMinor, priceFrom: false };
-    setMoving(appointment); setResult(null); setService(target); setStaffId(""); void loadSlots(target, ""); go("day");
+    // Moves keep the booked staff member unless the customer picks another; the appointment's own time stays free.
+    setMoving(appointment); setResult(null); setService(target); setStaffId(appointment.staff.id); void loadSlots(target, appointment.staff.id, appointment.id); go("day");
   }
 
   function reset() { moved.current = true; setMoving(null); setService(null); setSlot(null); setDay(null); setResult(null); setProblem(null); setStep("service"); }
@@ -151,7 +155,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         ? await post<Appointment>(`${base}/appointments/${moving.id}/reschedule`, { start, staffId: staffId || undefined })
         : await post<Appointment>(`${base}/appointments`, { serviceId: service.id, staffId: staffId || undefined, start, customerName: contact.name.trim(), customerPhone: contact.phone.trim() || undefined, idempotencyKey: attempt, rebookSourceId });
       if (!moving) { try { localStorage.setItem(CONTACT, JSON.stringify({ name: contact.name.trim(), phone: contact.phone.trim() })); } catch { /* prefill is a convenience */ } }
-      setResult(appointment); go("done"); void reload();
+      setResult(appointment); setRebookSourceId(undefined); go("done"); void reload();
     } catch (cause) {
       setProblem(problemFor(cause, view));
       if ((cause as Failure).code === "STALE") void reload();
@@ -159,7 +163,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   }
 
   function takeNextFree(start: string) { const next = attemptKey(); setSlot({ start, staffId: slot?.staffId ?? "" }); setKey(next); void submit(start, next); }
-  function pickAgain() { if (service) void loadSlots(service, staffId); go("day"); }
+  function pickAgain() { if (service) void loadSlots(service, staffId, moving?.id); go("day"); }
 
   const staffForService = service ? view.staff.filter(s => !s.serviceIds.length || s.serviceIds.includes(service.id)) : [];
   const staffName = (id: string) => view.staff.find(s => s.id === id)?.name;
@@ -226,7 +230,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         </>}
         <div className={styles.terms}>
           {view.shop.termsText ? <p className={card.rules}>{view.shop.termsText}</p> : null}
-          <p className={card.rules}>{deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
+          <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
           <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
           {view.shop.autoConfirm ? null : <p className={card.rules}>Der Shop bestätigt deinen Termin, dann ist er fix.</p>}
           {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {view.shop.noShowBlockAfter} nicht wahrgenommenen Terminen in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
@@ -258,7 +262,7 @@ function Mine({ view, base, reload, onMove, offerPush }: { view: Enabled; base: 
   async function cancel(id: string) {
     setBusy(true); setError("");
     try { await post(`${base}/appointments/${id}/cancel`, {}); setConfirming(null); await reload(); }
-    catch (cause) { setError(problemFor(cause, view).text); }
+    catch (cause) { setError(problemFor(cause, view).text); if (["STALE", "TOO_LATE"].includes((cause as Failure).code ?? "")) void reload(); }
     finally { setBusy(false); }
   }
 

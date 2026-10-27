@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { bookingAppointments, bookingServices, bookingSettings, bookingStaff, bookingStaffServices } from "@/db/schema";
+import { bookingAppointments, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, staffRoles } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { BookingError, lockLocation, type Reader, type Tx } from "./appointments";
 import { PRESETS } from "./presets";
@@ -76,6 +76,13 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
         staffIds.length ? notInArray(bookingAppointments.staffId, staffIds) : sql`true`, inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`))
       .groupBy(bookingAppointments.staffId).limit(1);
     if (leaving[0]) throw new BookingError("STAFF_HAS_APPOINTMENTS", "Staff member still has open appointments", { staffId: leaving[0].staffId, count: leaving[0].count });
+    // A staff row links only to a login of this shop: the owner, or a team member at this location.
+    const userIds = [...new Set(input.staff.flatMap(s => s.userId ? [s.userId] : []))];
+    if (userIds.length) {
+      const known = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, scope.tenantId), eq(staffRoles.active, true), inArray(staffRoles.userId, userIds),
+        or(eq(staffRoles.role, "owner"), eq(staffRoles.locationId, scope.locationId))));
+      if (known.length !== userIds.length) throw new DomainError("INVALID_STAFF_USER", "Unknown team member for this location");
+    }
     const staff = await upsert(tx, scope, bookingStaff, input.staff.map(s => ({ id: s.id, name: s.name, userId: s.userId, workingHours: s.workingHours })), "Staff member");
 
     const serviceIds = new Set(services);

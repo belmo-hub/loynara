@@ -105,6 +105,12 @@ it("the rebook scan respects consent, an open appointment and the cap shared wit
     [message.id, randomUUID(), shop.scope.tenantId, shop.card.id, new Date(scan.getTime() - 3_600_000)]);
   expect(await queueRebookPushes(scan)).toBe(0); // a Wallet message in the last 24 h
   await pool.query("UPDATE wallet_message_recipients SET created_at = $1", [new Date(scan.getTime() - 3 * 86_400_000)]);
+  // A Wallet send with an unknown outcome counts like a send, as Wallet's own cap counts it.
+  const { rows: [second] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text) VALUES ($1, $2, 'owner', 'Synthetic 2') RETURNING id", [shop.scope.tenantId, shop.merchant.programId]);
+  await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, reason, created_at) VALUES ($1, $2, $3, $4, 'failed', 'uncertain', $5)",
+    [second.id, randomUUID(), shop.scope.tenantId, shop.card.id, new Date(scan.getTime() - 2 * 86_400_000)]);
+  expect(await queueRebookPushes(scan)).toBe(0); // 2 of 2 this week, one of them uncertain
+  await pool.query("DELETE FROM wallet_message_recipients WHERE message_id = $1", [second.id]);
   expect(await queueRebookPushes(scan)).toBe(1); // 1 of 2 this week
   expect(await queueRebookPushes(scan)).toBe(0);
   expect((await pool.query("SELECT rebook_sent_at FROM booking_appointments WHERE id = $1", [first.id])).rows[0].rebook_sent_at.toISOString()).toBe(scan.toISOString());

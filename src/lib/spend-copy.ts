@@ -35,12 +35,12 @@ const termine = (n: number, dative = false) => `${n.toLocaleString("de-DE")}\u00
 export const BOOKING_COPY = {
   title: "Termine",
   today: (n: number, next7: number) => `Heute: ${termine(n)} · nächste 7 Tage: ${termine(next7)}`,
-  empty: "Nach deinem ersten erledigten Termin siehst du hier Ausfälle und den Umsatz aus Terminen.",
+  empty: "Nach deinem ersten erledigten Termin siehst du hier Ausfälle und die Listenpreise erledigter Termine.",
   noShow: (noShow: number, total: number) => `${noShow.toLocaleString("de-DE")} von ${termine(total, true)} nicht erschienen, letzte 30 Tage`,
   rebooked: (n: number) => `${termine(n)} über Erinnerung neu gebucht, letzte 30 Tage`,
-  listPrice: (amount: string) => `Umsatz aus Terminen deiner Loynara-Kunden: ${amount} · nach Listenpreis, geschätzt`,
+  listPrice: (amount: string) => `Listenpreise erledigter Termine: ${amount} · geschätzt, nicht kassiert`,
   confirmed: (amount: string) => `davon an der Kasse bestätigt: ${amount}`,
-  howWeCount: "Es zählen Termine nach ihrer Startzeit an deinem Standort. „Letzte 30 Tage“ heißt: heute und die 29 Tage davor. Nicht erschienen zählt gegen alle erledigten, nicht erschienenen und kurzfristig abgesagten Termine. Neu gebucht über Erinnerung heißt: über den Link aus der Erinnerung an den nächsten Termin. Der Umsatz aus Terminen ist die Summe der Listenpreise erledigter Termine, so wie sie beim Buchen galten. Das ist kein kassierter Betrag. „An der Kasse bestätigt“ ist der Betrag, den dein Team beim Abschluss des Termins eingegeben hat; korrigierte Buchungen fallen weg.",
+  howWeCount: "Es zählen Termine nach ihrer Startzeit an deinem Standort. „Letzte 30 Tage“ heißt: heute und die 29 Tage davor. Nicht erschienen zählt gegen alle erledigten, nicht erschienenen und kurzfristig abgesagten Termine. Neu gebucht über Erinnerung heißt: über den Link aus der Erinnerung an den nächsten Termin. „Listenpreise erledigter Termine“ ist die Summe der Preise, so wie sie beim Buchen galten. Das ist kein kassierter Betrag. „An der Kasse bestätigt“ ist der Betrag, den dein Team beim Abschluss des Termins eingegeben hat; korrigierte Buchungen fallen weg.",
 } as const;
 
 export const AVERAGE_VISIT_SPEND_MAX_MINOR = 100_000;

@@ -11,8 +11,10 @@ const SW_URL = "/card-sw.js", SW_SCOPE = "/card/";
 
 async function send(url: string, method: "POST" | "DELETE", body: unknown) {
   const response = await fetch(url, { method, credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(String(response.status));
+  if (!response.ok) throw Object.assign(new Error(String(response.status)), { code: (await response.json().catch(() => ({})))?.code });
 }
+
+const FAILED: Record<string, string> = { PUSH_DEVICE_IN_USE: "Dieses Gerät ist schon bei einer anderen Karte angemeldet. Schalte die Erinnerungen dort aus, dann geht es hier.", PUSH_UNAVAILABLE: "Mitteilungen sind hier nicht eingerichtet." };
 
 /**
  * „Erinnerungen aktivieren“ (service messages) and, separately and unticked, the rebook opt-in (marketing). Renders nothing
@@ -36,7 +38,7 @@ export function BookingPush({ base, push, reload }: { base: string; push: PushVi
   async function run(action: () => Promise<void>) {
     setBusy(true); setError("");
     try { await action(); await reload(); }
-    catch { setError("Das hat nicht geklappt. Versuch es noch mal."); }
+    catch (cause) { setError(FAILED[(cause as { code?: string }).code ?? ""] ?? "Das hat nicht geklappt. Versuch es noch mal."); }
     finally { setBusy(false); }
   }
 
@@ -58,12 +60,13 @@ export function BookingPush({ base, push, reload }: { base: string; push: PushVi
     setLocal(null);
   });
 
-  const on = push.subscribed;
+  // `on`: some device of the card is registered; `here`: this browser is one of them. Another device can always join.
+  const on = push.subscribed, here = on && Boolean(local);
   return <div data-slot="booking-push">
-    <p><strong>Erinnerungen: {on ? "aktiv" : "aus"}</strong></p>
-    <p className={card.muted}>{on ? "Du bekommst eine Mitteilung einen Tag und zwei Stunden vor dem Termin." : "Erinnerung nur mit Mitteilungen: einen Tag und zwei Stunden vor dem Termin."}</p>
-    {on ? local ? <Button variant="quiet" size="sm" loading={busy} onClick={() => void disable()}>Erinnerungen ausschalten</Button> : null
-      : <Button variant="secondary" size="sm" loading={busy} onClick={() => void enable()}>Erinnerungen aktivieren</Button>}
+    <p><strong>Erinnerungen: {here ? "aktiv" : on ? "aktiv auf einem anderen Gerät" : "aus"}</strong></p>
+    <p className={card.muted}>{here ? "Du bekommst eine Mitteilung einen Tag und zwei Stunden vor dem Termin." : on ? "Auf diesem Gerät noch nicht. Aktivier sie hier, dann kommt die Mitteilung auch hierhin." : "Erinnerung nur mit Mitteilungen: einen Tag und zwei Stunden vor dem Termin."}</p>
+    {here ? <Button variant="quiet" size="sm" loading={busy} onClick={() => void disable()}>Erinnerungen ausschalten</Button>
+      : <Button variant="secondary" size="sm" loading={busy} onClick={() => void enable()}>{on ? "Auch hier aktivieren" : "Erinnerungen aktivieren"}</Button>}
     <Checkbox checked={push.rebookConsent} disabled={busy} onChange={event => { const rebook = event.target.checked; void run(() => send(`${base}/consent`, "POST", { rebook })); }}
       description="Freiwillig. Du kannst es hier jederzeit wieder abschalten.">Erinnere mich, wenn der nächste Termin fällig ist</Checkbox>
     {error ? <p className={card.alert} role="alert">{error}</p> : null}

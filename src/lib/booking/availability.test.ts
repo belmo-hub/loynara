@@ -79,4 +79,17 @@ describe("slots", () => {
     expect(slots(base({ staff: [{ id: "a", sort: 0, workingHours: hours, serviceIds: ["other-service"] }] }))[0].slots).toEqual([]);
     expect(slots(base({ staff: [{ id: "a", sort: 0, workingHours: hours, serviceIds: ["svc"] }] }))[0].slots).toHaveLength(32);
   });
+
+  it("clock changes: the missing hour offers no slot, the repeated hour is offered once, nothing is doubled", () => {
+    const sunday = (date: string, now: string) => base({ days: [date], staff: [{ id: "a", sort: 0, workingHours: [{ weekday: 7, start: "00:00", end: "24:00", breaks: [] }], serviceIds: [] }], settings: { leadTimeMin: 0, maxDaysAhead: 42 }, now: new Date(now) });
+    const spring = starts(sunday("2026-03-29", "2026-03-28T08:00:00Z"));
+    expect(spring).toHaveLength(91); // 95 quarter hours minus the four of 02:00 CET that do not exist
+    expect(new Set(spring).size).toBe(91);
+    expect(spring.every((s, i) => i === 0 || s - spring[i - 1] === 15 * 60_000)).toBe(true); // contiguous in instant time
+    const autumn = starts(sunday("2026-10-25", "2026-10-24T08:00:00Z"));
+    expect(autumn).toHaveLength(95);
+    expect(new Set(autumn).size).toBe(95);
+    expect(autumn).toContain(Date.parse("2026-10-24T23:45:00Z")); // 01:45 CEST
+    expect(autumn).toContain(Date.parse("2026-10-25T02:00:00Z")); // 03:00 CET
+  });
 });

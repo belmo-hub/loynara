@@ -25,10 +25,10 @@ async function seed(shop: Shop, start: Date, status: string, extra: { priceMinor
 it("reports the Termin figures of the selected location, list prices apart from cashier-confirmed amounts", async () => {
   const shop = await bookingShop({ programType: "points" });
   const now = new Date(Math.floor(Date.now() / 900_000) * 900_000);
-  // Done through the real transition: the points award stores the 25 € service price as the cashier amount.
   const doneStart = new Date(now.getTime() - 2 * DAY);
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: doneStart, customerName: "Mia", idempotencyKey: randomUUID() }, new Date(doneStart.getTime() - DAY));
-  await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" }, doneStart);
+  // The confirmed figure is the amount the team typed, never the list price.
+  await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed", purchaseAmountMinor: 2500 }, doneStart);
   await seed(shop, new Date(now.getTime() - 2 * DAY - 3_600_000), "done", { priceMinor: 4000 });
   await seed(shop, new Date(now.getTime() - 3 * DAY), "no_show");
   await seed(shop, new Date(now.getTime() - 4 * DAY), "cancelled_by_customer", { lateCancel: true });
