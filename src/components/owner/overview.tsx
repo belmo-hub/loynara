@@ -298,7 +298,7 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href.startsWith("/merchant/wallet-messages") ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
   }
   if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
   if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };

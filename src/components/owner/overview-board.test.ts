@@ -127,6 +127,10 @@ describe("Übersicht direction D (ENG-085)", () => {
   it("next step: cards away and rewards ready in one line with „Ansehen“", () => {
     state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
     expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen.</b>`);
+    // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
+    expect(render()).toContain('class="ow-btn ow-btn--primary ow-btn--sm" href="/merchant/program#winback-title">Willkommen-zurück-Bonus einschalten</a>');
+    state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
     expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen.</b>`);
