@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { Check, CircleAlert, Eye, House, Info, Megaphone, Menu, Pencil, Plus, ScanLine, Settings, Smartphone, Stamp, Users, X, type LucideIcon } from "lucide-react";
+import { Check, CircleAlert, Eye, House, Info, Megaphone, Menu, Minus, Pencil, Plus, ScanLine, Settings, Smartphone, Stamp, Users, X, type LucideIcon } from "lucide-react";
 import type { NavIconName } from "./nav";
 
 // The dashboard draws the same lucide set as the guest, cashier and sign-in pages, at lucide's default stroke.
-type IconName = NavIconName | "menu" | "close" | "check" | "plus" | "till" | "alert" | "info" | "phone" | "eye" | "pencil";
+type IconName = NavIconName | "menu" | "close" | "check" | "plus" | "minus" | "till" | "alert" | "info" | "phone" | "eye" | "pencil";
 const ICONS: Record<IconName, LucideIcon> = {
   home: House, loyalty: Stamp, users: Users, megaphone: Megaphone, gear: Settings,
-  menu: Menu, close: X, check: Check, plus: Plus, till: ScanLine, alert: CircleAlert, info: Info, phone: Smartphone, eye: Eye, pencil: Pencil,
+  menu: Menu, close: X, check: Check, plus: Plus, minus: Minus, till: ScanLine, alert: CircleAlert, info: Info, phone: Smartphone, eye: Eye, pencil: Pencil,
 };
 
 export function OwnerIcon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -99,4 +99,58 @@ export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: (
 
 export function LoadingBlock({ rows = 2, height = 96 }: { rows?: number; height?: number }) {
   return <div className="ow-stack" role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
+}
+
+export type NumberUnit = { one: string; many: string };
+type NumberShape = { min: number; max: number; unit: NumberUnit; bonus?: boolean; offAtZero?: boolean };
+
+/** What the stepper shows for a typed draft: „30 Tage“, „+1 Stempel“, „Aus“. Null while the draft is not a whole number. */
+export function numberText(draft: string, { unit, bonus = false, offAtZero = false }: NumberShape) {
+  if (!/^\d+$/.test(draft)) return null;
+  const n = Number(draft);
+  if (offAtZero && n === 0) return { value: "Aus", unit: "", text: "Aus" };
+  const value = bonus && n > 0 ? `+${n}` : String(n), name = n === 1 ? unit.one : unit.many;
+  return { value, unit: name, text: `${value} ${name}` };
+}
+
+/** − value + (owner-fields spec §3): the value stays a typed field, the buttons step by one and stop at the limits. */
+export function NumberStepper({ id, value, onChange, describedBy, invalid = false, ...shape }: NumberShape & { id: string; value: string; onChange: (next: string) => void; describedBy?: string; invalid?: boolean }) {
+  const { min, max, unit } = shape;
+  const shown = numberText(value, shape);
+  const n = shown ? Number(value) : null;
+  const step = (by: number) => onChange(String(Math.min(max, Math.max(min, (n ?? min) + by))));
+  // The field keeps showing „+2“ or „Aus“ while it is typed in; only its digits count, so typing over either works.
+  const display = shown ? shown.value : value, unitShown = shown ? shown.unit : unit.many;
+  return (
+    <div className="ow-number" data-invalid={invalid || undefined}>
+      <button type="button" aria-label={`1 ${unit.one} weniger`} aria-controls={id} disabled={n !== null && n <= min} onClick={() => step(-1)}><OwnerIcon name="minus" /></button>
+      <span className="ow-number-value">
+        <input id={id} role="spinbutton" inputMode="numeric" autoComplete="off" value={display} style={{ "--ow-number-chars": Math.max(1, display.length) } as React.CSSProperties}
+          aria-valuemin={min} aria-valuemax={max} aria-valuenow={n ?? undefined} aria-valuetext={shown?.text} aria-invalid={invalid} aria-describedby={describedBy}
+          onFocus={event => event.currentTarget.select()}
+          onChange={event => onChange(event.target.value.replace(/[^0-9]/g, ""))}
+          onKeyDown={event => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); step(event.key === "ArrowUp" ? 1 : -1); } }} />
+        {unitShown && <span aria-hidden="true">{unitShown}</span>}
+      </span>
+      <button type="button" aria-label={`1 ${unit.one} mehr`} aria-controls={id} disabled={n !== null && n >= max} onClick={() => step(1)}><OwnerIcon name="plus" /></button>
+    </div>
+  );
+}
+
+/** „So steht es auf der Karte“ (owner-fields spec §6): the line as the customer sees it, on a mini card in a grey inset. */
+export function CardLinePreview({ label, shop, brandColor, children, rules }: { label: string; shop: string; brandColor?: string; children: ReactNode; rules?: string }) {
+  const labelId = useId();
+  return (
+    <div className="ow-cardline" role="group" aria-labelledby={labelId}>
+      <p id={labelId} className="ow-cardline-label">{label}</p>
+      <div className="ow-cardline-ground">
+        <div className="ow-cardline-card">
+          {/* The shop's own colour, as on the customer card: the one value here that is not a token. */}
+          <p className="ow-cardline-shop"><i aria-hidden="true" style={brandColor ? { backgroundColor: brandColor } : undefined} />{shop}</p>
+          <p className="ow-cardline-text">{children}</p>
+          {rules && <p className="ow-cardline-rules">{rules}</p>}
+        </div>
+      </div>
+    </div>
+  );
 }
