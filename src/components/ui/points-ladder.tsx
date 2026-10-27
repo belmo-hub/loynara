@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import type { CSSProperties } from "react";
+import { withUnit } from "@/lib/units";
 import { cx } from "./cx";
 import styles from "./points-ladder.module.css";
 
@@ -24,7 +25,7 @@ export function PointsLadder({ balance, rewards, locale = "de", className }: Pro
   const sorted = [...rewards].sort((a, b) => a.cost - b.cost);
   const max = Math.max(1, sorted.at(-1)?.cost ?? 1);
   const marks = ladderMarks(sorted, max, balance);
-  const label = locale === "fr" ? `${balance} points sur ${max}` : `${balance} von ${max} Punkten`;
+  const label = locale === "fr" ? `${withUnit(balance, "points", "fr")} sur ${max}` : `${balance} von ${withUnit(max, "points", "de", "dat")}`;
   return <div className={cx(styles.ladder, className)} role="img" aria-label={label}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
     {marks.map((m) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined}>

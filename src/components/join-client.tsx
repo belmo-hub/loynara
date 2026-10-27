@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { withUnit } from "@/lib/units";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { Gift } from "lucide-react";
 import { CustomerState } from "./customer/customer-state";
@@ -120,7 +121,7 @@ export function JoinClient({ slug }: { slug: string }) {
     finally { setBusy(false); }
   }
 
-  const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {program.rewardCost} {unit}</span></p>;
+  const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, locale)}</span></p>;
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
   if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
@@ -153,17 +154,17 @@ export function JoinClient({ slug }: { slug: string }) {
     </section> : <section className={styles.panel}>
       {existing ? <>
         <h2 className={styles.title}>{t.anotherTitle}</h2>
-        <p className={`join-another-warning ${styles.warning}`} role="note">{locale === "fr" ? `Une nouvelle carte commence à 0 ${unit}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei 0 ${unit}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p>
+        <p className={`join-another-warning ${styles.warning}`} role="note">{locale === "fr" ? `Une nouvelle carte commence à ${withUnit(0, program.programType, locale)}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei ${withUnit(0, program.programType, locale, "dat")}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p>
         <a className={buttonClassName({ variant: "secondary", block: true })} href={openHref}>{t.backToCard}</a>
       </> : <>
         <h2 className={styles.headline}>{t.headline}</h2>
         <p className={styles.lead}>{t.intro} {unit} {t.introEnd}</p>
       </>}
       {returning.state === "stale" && <p className={styles.muted} role="status">{t.staleNote}</p>}
-      {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{item.cost} {unit}</span></li>)}</ul>}
+      {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{withUnit(item.cost, program.programType, locale)}</span></li>)}</ul>}
       {program.programType === "points" && program.earningMode === "purchase" && <p className={styles.muted}>{earnRule(program.pointsPerCurrencyUnit, program.currency, locale)}</p>}
       {referralCode && <p className={styles.note}>{program.referral?.enabled && !referralUnavailable
-        ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${program.referral.referrerBonus} ${unit} et vous ${program.referral.referredBonus} ${unit}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${program.referral.referrerBonus} ${unit} und deine Karte ${program.referral.referredBonus} ${unit} erhalten. Das Öffnen des Links bringt keinen Bonus.`
+        ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${withUnit(program.referral.referrerBonus, program.programType, locale)} et vous ${withUnit(program.referral.referredBonus, program.programType, locale)}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${withUnit(program.referral.referrerBonus, program.programType, locale)} und deine Karte ${withUnit(program.referral.referredBonus, program.programType, locale)} erhalten. Das Öffnen des Links bringt keinen Bonus.`
         : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
       {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
       <div className={styles.rules}><h3>{t.rules}</h3><p>{program.rulesText}</p>{program.pointsExpiryRule && <p>{program.pointsExpiryRule}</p>}</div>
