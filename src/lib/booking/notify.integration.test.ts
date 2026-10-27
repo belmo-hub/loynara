@@ -50,6 +50,8 @@ it("delivers a reminder once with the fake sender, a retry is a no-op, and a can
   expect(await deliverReminder(day, { env, send: fakeSender(), now: day.next_attempt_at })).toEqual({ status: "complete", reason: "no subscription" });
   await subscribe(shop);
   const send = fakeSender();
+  // At night the reminder waits for 08:00 as well (then its lateness check decides).
+  expect(await deliverReminder(day, { env, send, now: new Date(day.next_attempt_at.getTime() - 12 * 3_600_000) })).toMatchObject({ status: "deferred", reason: "Quiet hours" });
   expect(await deliverReminder(day, { env, send, now: day.next_attempt_at })).toEqual({ status: "complete" });
   expect(await deliverReminder(day, { env, send, now: day.next_attempt_at })).toEqual({ status: "complete", reason: "already sent" });
   expect(send).toHaveBeenCalledTimes(1);
@@ -69,6 +71,10 @@ it("a move makes the old reminder jobs no-ops and notifies the customer; cancelA
   await subscribe(shop);
   const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
   const [old] = await jobs("booking.reminder", appointment.id);
+  // Confirming the current slot is a no-op: no push, the reminder jobs stay as they are.
+  await move({ ...shop.scope, appointmentId: appointment.id, start: new Date("2026-11-03T09:00:00Z"), staffId: shop.staffId }, now);
+  expect(await jobs("booking.change", appointment.id)).toEqual([]);
+  expect((await jobs("booking.reminder", appointment.id)).length).toBe(2);
   await move({ ...shop.scope, appointmentId: appointment.id, start: new Date("2026-11-03T13:00:00Z"), staffId: shop.staffId }, now);
   // The jobs of the old start step aside at once, not only when they come up.
   expect((await pool.query("SELECT status, last_error FROM outbox_jobs WHERE kind = 'booking.reminder' AND payload->>'appointmentId' = $1 AND payload->>'start' = '2026-11-03T09:00:00.000Z'", [appointment.id])).rows)
@@ -78,7 +84,7 @@ it("a move makes the old reminder jobs no-ops and notifies the customer; cancelA
   const [moved] = await jobs("booking.change", appointment.id);
   expect(moved.payload.kind).toBe("moved");
   // At night the push waits for 08:00 shop time; by day it goes out.
-  expect(await deliverShopChange(moved, { env, send, now: new Date("2026-11-02T21:30:00Z") })).toEqual({ status: "retry", reason: "Quiet hours", delaySeconds: 34_200 });
+  expect(await deliverShopChange(moved, { env, send, now: new Date("2026-11-02T21:30:00Z") })).toEqual({ status: "deferred", reason: "Quiet hours", until: new Date("2026-11-03T07:00:00Z") });
   expect(await deliverShopChange(moved, { env, send, now: daytime })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin ist jetzt Di 03.11. um 14:00 bei Lena.");
   expect((await jobs("booking.reminder", appointment.id)).length).toBe(4);
@@ -129,6 +135,10 @@ it("the rebook scan respects consent, an open appointment and the cap shared wit
   const [job] = await jobs("booking.rebook", first.id);
   expect(job.next_attempt_at.toISOString()).toBe(scan.toISOString()); // 10:00 Berlin: inside the send window
 
+  // Between the scan and the send the service may be gone: nothing goes out.
+  await pool.query("UPDATE booking_services SET archived_at = now() WHERE id = $1", [shop.serviceId]);
+  expect(await deliverRebook(job, { env, send: fakeSender(), now: scan })).toMatchObject({ status: "suppressed" });
+  await pool.query("UPDATE booking_services SET archived_at = NULL WHERE id = $1", [shop.serviceId]);
   const send = fakeSender();
   expect(await deliverRebook(job, { env, send, now: scan })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: "Synthetic Barber", body: "Zeit für Haarschnitt? Dein Slot bei Lena: Termin buchen.",

@@ -6,7 +6,7 @@ import { GET as dayRoute } from "@/app/api/merchant/booking/day/route";
 import { GET as slotsRoute } from "@/app/api/merchant/booking/appointments/[id]/slots/route";
 import { acceptStaffInvite, createStaffInvite } from "@/lib/staff";
 import { blockCustomer, book, transition } from "./appointments";
-import { bookingShop, identity, origin, request, withBookingDatabase } from "./test-fixture";
+import { bookingShop, dayOf, futureStart, identity, origin, request, withBookingDatabase } from "./test-fixture";
 import { instantToWall } from "./time";
 
 withBookingDatabase();
@@ -25,16 +25,17 @@ it("the day view defaults to the shop's today; cashiers get 403; a card write fr
 
 it("owner slots offer the appointment's own start and skip other bookings; the day view carries timezone and paused cards; a cancel keeps its reason", async () => {
   const shop = await bookingShop();
-  const now = new Date("2026-11-02T06:00:00Z");
-  const mine = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-03T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, now)).appointment;
-  const path = `/api/merchant/booking/appointments/${mine.id}/slots?date=2026-11-03`;
+  // The slots route reads the real clock, so the day must lie ahead.
+  const start = futureStart(), now = new Date(start.getTime() - 27 * 3_600_000);
+  const mine = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now)).appointment;
+  const path = `/api/merchant/booking/appointments/${mine.id}/slots?date=${dayOf(start)}`;
   const slots = await (await slotsRoute(request(path, { cookie: shop.ownerCookie }), { params: Promise.resolve({ id: mine.id }) })).json();
   const starts = slots.slots.map((s: { start: string }) => s.start);
-  expect(starts).toContain("2026-11-03T09:00:00.000Z");
-  expect(starts).toContain("2026-11-03T09:30:00.000Z");
+  expect(starts).toContain(start.toISOString());
+  expect(starts).toContain(new Date(start.getTime() + 1_800_000).toISOString());
 
   await blockCustomer({ ...shop.scope, membershipId: shop.card.id, userId: shop.owner.userId });
-  const day = await (await dayRoute(request("/api/merchant/booking/day?date=2026-11-03", { cookie: shop.ownerCookie }))).json();
+  const day = await (await dayRoute(request(`/api/merchant/booking/day?date=${dayOf(start)}`, { cookie: shop.ownerCookie }))).json();
   expect(day).toMatchObject({ timezone: "Europe/Berlin", blockedMembershipIds: [shop.card.id], appointments: [{ id: mine.id }] });
 
   await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: mine.id, to: "cancelled_by_shop", expected: "confirmed", reason: "Krank" }, now);

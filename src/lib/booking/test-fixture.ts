@@ -50,3 +50,7 @@ export async function bookingShop(options: { programType?: "stamp" | "points"; w
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   return { owner, merchant, scope, serviceId: setup.services[0].id, staffId: setup.staff[0].id, card, ownerCookie: `${owner.cookie}; ${selectionCookieName(owner.userId)}=${merchant.locationId}` };
 }
+
+/** A start seven days ahead at 09:00Z (10:00 or 11:00 Berlin): tests whose code path meets the database clock stay green on any day. */
+export const futureStart = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 7, 9)); };
+export const dayOf = (instant: Date) => instant.toISOString().slice(0, 10);

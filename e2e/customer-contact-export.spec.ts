@@ -33,7 +33,7 @@ test.beforeAll(async ({ baseURL }) => {
 test.afterAll(async () => { await pool.end(); });
 function checkArtifact(exported: unknown, index: number) {
   expect(exported).toMatchObject({ formatVersion: 1, scope: "card-activity-with-booking-contact-details", membership: { id: cards[index].id, balance: index + 2 }, ledger: [{ delta: index + 2 }], redemptions: [], consentEvents: [] });
-  expect(Object.keys(exported as object).sort()).toEqual(["formatVersion", "exportedAt", "scope", "membership", "program", "ledger", "redemptions", "consentEvents"].sort());
+  expect(Object.keys(exported as object).sort()).toEqual(["formatVersion", "exportedAt", "scope", "membership", "program", "ledger", "redemptions", "consentEvents", "birthday", "appointments"].sort());
   const text = JSON.stringify(exported);
   for (const canary of canaries) { expect(text).not.toContain(canary.email); expect(text).not.toContain(canary.hash); }
   for (const excluded of [cards[1 - index].id, ...cards.flatMap(card => [card.cardToken, card.scanCode])]) expect(text).not.toContain(excluded);

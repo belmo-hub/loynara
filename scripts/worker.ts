@@ -204,6 +204,8 @@ async function processJob(job: Job, claimedAt: number) {
     try {
       const { deliverBookingJob } = await import("../src/lib/booking/notify");
       const outcome = await deliverBookingJob(job);
+      // Quiet hours are a wait, not a failed attempt.
+      if (outcome.status === "deferred") return await defer(job, outcome.reason ?? "deferred", outcome.until ?? new Date());
       const status = outcome.status === "retry" && job.attempts >= maxAttempts ? "failed" : outcome.status;
       return await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 60 : 0);
     } catch (error) {

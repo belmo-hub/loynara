@@ -60,26 +60,29 @@ test("a guest books from the card in four taps, sees it on the card and cancels 
   await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).first().click();
 
   await expect(page.getByRole("heading", { name: "Termin prüfen" })).toBeVisible();
-  await expect(page.getByText(/Kostenlos absagen bis|Absagefrist ist für diese Zeit schon vorbei/)).toBeVisible();
+  await expect(page.getByText(/^Kostenlos absagen bis /)).toBeVisible();
   await page.getByLabel("Dein Name").fill("Mia");
   expect(await smallTargets(page, { scope: "main" })).toEqual([]);
   await shot(page, "05-confirm");
   await page.getByRole("button", { name: "Termin buchen" }).click();
 
   await expect(page.getByRole("heading", { name: /^Dein Termin ist fix: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
+  const booked = (await page.getByRole("heading", { name: /^Dein Termin ist fix/ }).textContent())!.match(/(\d{2}:\d{2}) bei (Lena|Tom)$/)!;
+  await expect(page.getByText(/^Haarschnitt\. Kostenlos absagen bis /)).toBeVisible();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06-done");
 
   // Move: the booked staff member stays selected, the own time counts as free, and the new time lands on the card.
   await page.getByRole("button", { name: "Verschieben" }).click();
   await expect(page.getByRole("heading", { name: "Neuen Tag wählen" })).toBeVisible();
-  await expect(page.locator(".booking-flow button[aria-pressed='true']").filter({ hasText: /^(Lena|Tom)$/ })).toHaveCount(1);
+  await expect(page.locator(".booking-flow button[aria-pressed='true']").filter({ hasText: booked[2] })).toHaveCount(1);
   await dayChips.nth(2).click();
   await expect(page.getByRole("heading", { name: "Uhrzeit wählen" })).toBeVisible();
+  await expect(page.locator(".booking-flow button").filter({ hasText: booked[1] })).toBeVisible(); // the own time stays on offer
   await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).nth(1).click();
   await expect(page.getByRole("heading", { name: "Verschieben prüfen" })).toBeVisible();
   await page.getByRole("button", { name: "Hierhin verschieben" }).click();
-  await expect(page.getByRole("heading", { name: /^Verschoben: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`^Verschoben: \\p{L}{2} \\d{2}\\.\\d{2}\\., \\d{2}:\\d{2} bei ${booked[2]}$`, "u") })).toBeVisible();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06b-moved");
 
@@ -92,8 +95,7 @@ test("a guest books from the card in four taps, sees it on the card and cancels 
 
   await page.getByRole("link", { name: "Termin buchen" }).click();
   await page.getByRole("button", { name: "Absagen" }).click();
-  // The first free slot may sit inside the 24 h deadline; either line is honest.
-  await expect(page.getByText(/Kostenlos, die Frist läuft bis|Absagefrist ist vorbei/)).toBeVisible();
+  await expect(page.getByText(/^Kostenlos, die Frist läuft bis /)).toBeVisible();
   await shot(page, "08-cancel-confirm");
   await page.getByRole("button", { name: "Ja, absagen" }).click();
   await expect(page.locator(".booking-mine")).toContainText("Haarschnitt: abgesagt");

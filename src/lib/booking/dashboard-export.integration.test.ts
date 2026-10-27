@@ -37,6 +37,7 @@ it("reports the Termin figures of the selected location, list prices apart from 
   await seed(shop, new Date(now.getTime() - 40 * DAY), "done");
   await seed(shop, now, "confirmed"); // earlier today: counts for today, no longer upcoming
   await seed(shop, new Date(now.getTime() + 3 * DAY), "confirmed", { rebookSourceId: appointment.id });
+  await seed(shop, new Date(now.getTime() - DAY), "cancelled_by_customer", { rebookSourceId: appointment.id }); // cancelled: not „neu gebucht“
   await seed(shop, new Date(now.getTime() + 8 * DAY), "requested");
 
   // The database clock after the rows were created (created_at is its now()); +1 ms because a JS Date drops the microseconds.

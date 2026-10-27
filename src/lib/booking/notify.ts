@@ -26,7 +26,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Sender = (subscription: PushSubscription, payload: string, options: RequestOptions) => Promise<SendResult>;
 export type Deps = { send?: Sender; env?: PushEnv; now?: Date };
-export type Outcome = { status: OutboxStatus; reason?: string; delaySeconds?: number };
+export type Outcome = { status: OutboxStatus | "deferred"; reason?: string; delaySeconds?: number; until?: Date };
 type Message = { title: string; body: string; url: string };
 
 /** When a reminder goes out: start − 24 h / − 2 h; inside quiet hours it moves to the next 08:00 while that is still before the start, else null. */
@@ -126,9 +126,10 @@ const page = (a: Loaded) => `/card/${encodeURIComponent(a.token)}/termin`;
  */
 async function deliver(a: Loaded, kind: string, at: unknown, message: Message, deps: Deps): Promise<Outcome> {
   if (!vapidDetails(deps.env)) return { status: "suppressed", reason: "Push not configured" };
-  // Quiet hours hold at send time too: a backlog or a retry never pushes at night. A reminder that late is dropped.
+  // Quiet hours hold at send time too: a backlog or a retry never pushes at night. The job waits for 08:00 without losing an
+  // attempt; a reminder that is useless by then is dropped by its own lateness check.
   const now = deps.now ?? new Date(), wake = quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS);
-  if (wake) return kind.startsWith("reminder") ? { status: "suppressed", reason: "Quiet hours" } : { status: "retry", reason: "Quiet hours", delaySeconds: Math.ceil((wake.getTime() - now.getTime()) / 1000) };
+  if (wake) return { status: "deferred", reason: "Quiet hours", until: wake };
   const since = typeof at === "string" && !Number.isNaN(Date.parse(at)) ? new Date(at) : new Date(0);
   const { rows: [logged] } = await db.execute(sql`SELECT 1 FROM booking_push_log WHERE appointment_id = ${a.id}::uuid AND kind = ${kind} AND sent_at >= ${since}::timestamptz`);
   if (logged) return { status: "complete", reason: "already sent" };
@@ -169,11 +170,12 @@ const rebookConsent = (tenantId: SQL, membershipId: SQL) => sql`(SELECT c.grante
   AND c.channel = 'push' AND c.purpose = 'booking_rebook' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) IS TRUE`;
 const noOpenAt = (now: Date) => sql`NOT EXISTS (SELECT 1 FROM booking_appointments o WHERE o.tenant_id = a.tenant_id AND o.location_id = a.location_id AND o.membership_id = a.membership_id
   AND o.status IN ('requested','confirmed') AND upper(o.during) > ${now}::timestamptz)`;
-/** The card can still book this service here: booking on, programme active, card open and not paused, service live. */
+/** The card can still book this here: booking on, programme active, card open and not paused, service and staff member live. */
 const bookable = sql`EXISTS (SELECT 1 FROM booking_settings bs WHERE bs.tenant_id = a.tenant_id AND bs.location_id = a.location_id AND bs.enabled)
   AND EXISTS (SELECT 1 FROM memberships m2 JOIN programs p ON p.tenant_id = m2.tenant_id AND p.id = m2.program_id AND p.status = 'active' WHERE m2.tenant_id = a.tenant_id AND m2.id = a.membership_id AND m2.closed_at IS NULL)
   AND NOT EXISTS (SELECT 1 FROM booking_blocked_customers bc WHERE bc.tenant_id = a.tenant_id AND bc.membership_id = a.membership_id)
-  AND EXISTS (SELECT 1 FROM booking_services s2 WHERE s2.tenant_id = a.tenant_id AND s2.id = a.service_id AND s2.archived_at IS NULL)`;
+  AND EXISTS (SELECT 1 FROM booking_services s2 WHERE s2.tenant_id = a.tenant_id AND s2.id = a.service_id AND s2.archived_at IS NULL)
+  AND EXISTS (SELECT 1 FROM booking_staff st2 WHERE st2.tenant_id = a.tenant_id AND st2.id = a.staff_id AND st2.archived_at IS NULL)`;
 
 export async function deliverRebook(job: Pick<OutboxJob, "payload">, deps: Deps = {}): Promise<Outcome> {
   const now = deps.now ?? new Date();

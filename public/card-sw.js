@@ -1,5 +1,5 @@
 /*
- * Loynara card service worker (scope: /card/). Shows booking reminders and shop notices sent by the server.
+ * Loynara card service worker, registered once per card (scope /card/<token>/). Shows booking reminders and shop notices sent by the server.
  * No fetch handler and no cache: card pages are never stored here. Clicks open only same-origin card pages.
  */
 

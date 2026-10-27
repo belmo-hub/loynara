@@ -5,11 +5,14 @@ import { PUT as setupRoute } from "@/app/api/merchant/booking/setup/route";
 import { GET as slotsRoute } from "@/app/api/card/[token]/booking/slots/route";
 import { closeCard } from "@/lib/card-lifecycle";
 import { book, cancelAffected, cancelByCustomer, cardView, createBlock, customerSlots, reschedule, transition } from "./appointments";
+import { acceptStaffInvite, createStaffInvite } from "@/lib/staff";
 import { saveSetup } from "./setup";
-import { allWeek, bookingShop, request, withBookingDatabase } from "./test-fixture";
+import { allWeek, bookingShop, dayOf, futureStart, identity, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
-const now = new Date("2026-11-02T06:00:00Z"), start = new Date("2026-11-03T09:00:00Z");
+// Seven days ahead: the set-up and closure paths compare with the database clock, so these dates must stay in the future.
+const start = futureStart(), now = new Date(start.getTime() - 27 * 3_600_000);
+const at = (hours: number) => new Date(start.getTime() + hours * 3_600_000);
 const code = (promise: Promise<unknown>) => promise.then(() => "OK", (error: { code?: string }) => error.code);
 
 it("reschedules inside the rules, keeps the status, and cancels late with the flag", async () => {
@@ -17,13 +20,13 @@ it("reschedules inside the rules, keeps the status, and cancels late with the fl
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
   expect(appointment.status).toBe("requested");
   const token = shop.card.cardToken, id = appointment.id;
-  const moved = await reschedule({ token, appointmentId: id, start: new Date("2026-11-03T10:00:00Z") }, now);
-  expect(moved).toMatchObject({ status: "requested", start: "2026-11-03T10:00:00.000Z", rescheduleCount: 1 });
-  expect(await reschedule({ token, appointmentId: id, start: new Date("2026-11-03T10:00:00Z") }, now)).toMatchObject({ rescheduleCount: 1 });
-  await reschedule({ token, appointmentId: id, start: new Date("2026-11-03T11:00:00Z") }, now);
-  expect(await code(reschedule({ token, appointmentId: id, start: new Date("2026-11-03T12:00:00Z") }, now))).toBe("RESCHEDULE_LIMIT");
-  expect(await code(reschedule({ token, appointmentId: id, start: new Date("2026-11-03T12:00:00Z") }, new Date("2026-11-02T12:00:00Z")))).toBe("TOO_LATE");
-  const cancelled = await cancelByCustomer({ token, appointmentId: id }, new Date("2026-11-02T12:00:00Z"));
+  const moved = await reschedule({ token, appointmentId: id, start: at(1) }, now);
+  expect(moved).toMatchObject({ status: "requested", start: at(1).toISOString(), rescheduleCount: 1 });
+  expect(await reschedule({ token, appointmentId: id, start: at(1) }, now)).toMatchObject({ rescheduleCount: 1 });
+  await reschedule({ token, appointmentId: id, start: at(2) }, now);
+  expect(await code(reschedule({ token, appointmentId: id, start: at(3) }, now))).toBe("RESCHEDULE_LIMIT");
+  expect(await code(reschedule({ token, appointmentId: id, start: at(3) }, at(-21)))).toBe("TOO_LATE");
+  const cancelled = await cancelByCustomer({ token, appointmentId: id }, at(-21));
   expect(cancelled).toMatchObject({ status: "cancelled_by_customer", lateCancel: true, canCancel: false });
   expect(await cardView(token, now)).toMatchObject({ enabled: true, blocked: false, upcoming: [], past: [{ id, status: "cancelled_by_customer" }] });
 });
@@ -31,7 +34,7 @@ it("reschedules inside the rules, keeps the status, and cancels late with the fl
 it("after the start only the shop decides: the customer's cancel is refused and the view hides the button", async () => {
   const shop = await bookingShop();
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
-  const later = new Date("2026-11-03T09:05:00Z");
+  const later = new Date(start.getTime() + 5 * 60_000);
   expect(await code(cancelByCustomer({ token: shop.card.cardToken, appointmentId: appointment.id }, later))).toBe("TOO_LATE");
   expect((await cardView(shop.card.cardToken, later)).upcoming).toMatchObject([{ id: appointment.id, status: "confirmed", canCancel: false }]);
 });
@@ -59,11 +62,11 @@ it("a move sees its own time as free; one card cannot hold two appointments at o
   const shop = await bookingShop();
   const token = shop.card.cardToken;
   const { appointment } = await book({ token, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
-  const starts = async (appointmentId?: string) => (await customerSlots(token, { serviceId: shop.serviceId, from: "2026-11-03", days: 1, appointmentId }, now)).days[0].slots.map(s => s.start);
-  expect(await starts()).not.toContain("2026-11-03T09:15:00.000Z");
-  expect(await starts(appointment.id)).toEqual(expect.arrayContaining(["2026-11-03T09:00:00.000Z", "2026-11-03T09:15:00.000Z"]));
+  const starts = async (appointmentId?: string) => (await customerSlots(token, { serviceId: shop.serviceId, from: dayOf(start), days: 1, appointmentId }, now)).days[0].slots.map(s => s.start);
+  expect(await starts()).not.toContain(at(0.25).toISOString());
+  expect(await starts(appointment.id)).toEqual(expect.arrayContaining([start.toISOString(), at(0.25).toISOString()]));
   // The route takes the appointment id and refuses anything that is not one.
-  const slotsPath = (appointmentId: string) => `/api/card/${token}/booking/slots?serviceId=${shop.serviceId}&from=2026-11-03&days=1&appointmentId=${appointmentId}`;
+  const slotsPath = (appointmentId: string) => `/api/card/${token}/booking/slots?serviceId=${shop.serviceId}&from=${dayOf(start)}&days=1&appointmentId=${appointmentId}`;
   expect((await slotsRoute(request(slotsPath(appointment.id)), { params: Promise.resolve({ token }) })).status).toBe(200);
   expect((await slotsRoute(request(slotsPath("nope")), { params: Promise.resolve({ token }) })).status).toBe(400);
   const settings = { shopType: "barber" as const, leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 };
@@ -94,9 +97,9 @@ it("closing the card forgets its devices, releases open appointments and erases 
 it("a block is never offered, lists the open appointments inside it, and cancels them only on request", async () => {
   const shop = await bookingShop();
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
-  const { block, affected } = await createBlock({ ...shop.scope, start: new Date("2026-11-03T08:00:00Z"), end: new Date("2026-11-03T12:00:00Z"), reason: "Früher zu" });
+  const { block, affected } = await createBlock({ ...shop.scope, start: at(-1), end: at(3), reason: "Früher zu" });
   expect(affected.map(a => a.id)).toEqual([appointment.id]);
-  expect(await code(book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-03T10:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("BLOCKED");
+  expect(await code(book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: at(1), customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("BLOCKED");
   expect(await cancelAffected({ ...shop.scope, blockId: block.id })).toEqual({ cancelled: 1 });
   expect((await pool.query("SELECT status, cancel_reason FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0]).toEqual({ status: "cancelled_by_shop", cancel_reason: "Geschäft geschlossen" });
 });
@@ -117,4 +120,10 @@ it("set-up upserts by id, archives the missing, and refuses to archive staff wit
   // A staff row links only to this shop's logins.
   expect((await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", userId: shop.owner.userId, workingHours: [] }] })).staff[0].userId).toBe(shop.owner.userId);
   expect(await code(saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", userId: randomUUID(), workingHours: [] }] }))).toBe("INVALID_STAFF_USER");
+  // A former team member keeps their link, so an old link never blocks a save.
+  const former = await identity();
+  const invite = await createStaffInvite({ actorUserId: shop.owner.userId, locationId: shop.merchant.locationId, email: former.email, role: "cashier" });
+  await acceptStaffInvite({ userId: former.userId, token: invite.token });
+  await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [former.userId]);
+  expect((await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", userId: former.userId, workingHours: [] }] })).staff[0].userId).toBe(former.userId);
 });
