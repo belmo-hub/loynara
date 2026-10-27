@@ -113,12 +113,16 @@ export function numberText(draft: string, { unit, bonus = false, offAtZero = fal
   return { value, unit: name, text: `${value} ${name}` };
 }
 
+/** One step from a typed draft, kept inside the limits; a draft that is not a number starts from the lower limit. */
+export const stepValue = (draft: string, by: number, { min, max }: { min: number; max: number }) =>
+  String(Math.min(max, Math.max(min, (/^\d+$/.test(draft) ? Number(draft) : min) + by)));
+
 /** − value + (owner-fields spec §3): the value stays a typed field, the buttons step by one and stop at the limits. */
 export function NumberStepper({ id, value, onChange, describedBy, invalid = false, ...shape }: NumberShape & { id: string; value: string; onChange: (next: string) => void; describedBy?: string; invalid?: boolean }) {
   const { min, max, unit } = shape;
   const shown = numberText(value, shape);
   const n = shown ? Number(value) : null;
-  const step = (by: number) => onChange(String(Math.min(max, Math.max(min, (n ?? min) + by))));
+  const step = (by: number) => onChange(stepValue(value, by, shape));
   // The field keeps showing „+2“ or „Aus“ while it is typed in; only its digits count, so typing over either works.
   const display = shown ? shown.value : value, unitShown = shown ? shown.unit : unit.many;
   return (

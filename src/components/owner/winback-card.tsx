@@ -80,9 +80,9 @@ export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; 
   );
 }
 
-/** The row's limit; out of range it becomes the error line, mounted afresh as an alert so screen readers announce it. */
+/** The row's limit; out of range it is the error line, and a polite live region says so once typing pauses. */
 function LimitLine({ id, valid, children }: { id: string; valid: boolean; children: React.ReactNode }) {
-  return valid ? <p key="hint" id={id} className="ow-hint">{children}</p> : <p key="error" id={id} className="ow-error" role="alert">{children}</p>;
+  return <><p id={id} className={valid ? "ow-hint" : "ow-error"}>{children}</p><span className="ow-sr" aria-live="polite">{valid ? "" : children}</span></>;
 }
 
 /** The win-back set-up on Programm (ENG-089): loads its own settings; the reminder parts show only while Wallet messages are offered. */

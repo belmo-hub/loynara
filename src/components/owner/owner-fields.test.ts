@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CardLinePreview, NumberStepper, numberText } from "./owner-ui";
+import { CardLinePreview, NumberStepper, numberText, stepValue } from "./owner-ui";
 
 const DAY = { one: "Tag", many: "Tage" }, POINT = { one: "Punkt", many: "Punkte" };
 type Preview = Parameters<typeof CardLinePreview>[0];
@@ -21,6 +21,24 @@ describe("numberText (Marketing B1)", () => {
   it("has no text while the draft is not a whole number", () => {
     expect(numberText("", { min: 14, max: 90, unit: DAY })).toBeNull();
     expect(numberText("1,5", { min: 14, max: 90, unit: DAY })).toBeNull();
+  });
+});
+
+describe("stepValue (buttons and arrow keys)", () => {
+  const days = { min: 14, max: 90 };
+  it("steps by one and stops at the limits", () => {
+    expect(stepValue("30", 1, days)).toBe("31");
+    expect(stepValue("30", -1, days)).toBe("29");
+    expect(stepValue("90", 1, days)).toBe("90");
+    expect(stepValue("14", -1, days)).toBe("14");
+  });
+  it("brings a typed value outside the limits back inside", () => {
+    expect(stepValue("9", 1, days)).toBe("14");
+    expect(stepValue("120", -1, days)).toBe("90");
+  });
+  it("starts from the lower limit when the draft is not a number", () => {
+    expect(stepValue("", 1, days)).toBe("15");
+    expect(stepValue("", -1, { min: 0, max: 5 })).toBe("0");
   });
 });
 
