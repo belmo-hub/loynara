@@ -21,13 +21,17 @@ export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; 
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
   const days = Number(draft.days), bonus = Number(draft.bonus);
-  const daysValid = /^\d+$/.test(draft.days) && days >= WINBACK_DAYS.min && days <= WINBACK_DAYS.max;
-  const bonusValid = /^\d+$/.test(draft.bonus) && bonus <= initial.bonusMax;
+  const daysOk = (value: string) => /^\d+$/.test(value) && Number(value) >= WINBACK_DAYS.min && Number(value) <= WINBACK_DAYS.max;
+  const bonusOk = (value: string) => /^\d+$/.test(value) && Number(value) <= initial.bonusMax;
+  const daysValid = daysOk(draft.days), bonusValid = bonusOk(draft.bonus);
+  // The texts below keep the last valid values while a field is out of range; only the field and its limit line show the error.
+  const [last, setLast] = useState({ days: initial.days, bonus: initial.bonus });
   const changed = JSON.stringify(draft) !== JSON.stringify(saved);
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
-  const rules = bonusValid && bonus > 0 ? winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus, reminders) : undefined;
+  const rules = last.bonus > 0 ? winbackRule(initial.type, last.days, last.bonus, reminders) : undefined;
   useDirtyGuard("winback", changed);
-  const edit = (patch: Partial<Draft>) => { setDraft({ ...draft, ...patch }); if (state === "saved" || state === "error") setState("clean"); };
+  const remember = (next: Draft) => setLast(prev => ({ days: daysOk(next.days) ? Number(next.days) : prev.days, bonus: bonusOk(next.bonus) ? Number(next.bonus) : prev.bonus }));
+  const edit = (patch: Partial<Draft>) => { const next = { ...draft, ...patch }; setDraft(next); remember(next); if (state === "saved" || state === "error") setState("clean"); };
   // A real example instead of a placeholder (Head of Design): the last day for a card that comes back today.
   const [exampleDay] = useState(() => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(Date.now() + 14 * 86_400_000)));
 
@@ -46,7 +50,7 @@ export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; 
       <div className="ow-field">
         <label htmlFor="winback-days">Tage ohne Buchung</label>
         <NumberStepper id="winback-days" value={draft.days} onChange={value => edit({ days: value })} min={WINBACK_DAYS.min} max={WINBACK_DAYS.max} unit={DAY} invalid={!daysValid} describedBy="winback-days-hint" />
-        <p id="winback-days-hint" className={daysValid ? "ow-hint" : "ow-error"}>{WINBACK_DAYS.min} bis {WINBACK_DAYS.max} Tage</p>
+        <LimitLine id="winback-days-hint" valid={daysValid}>{WINBACK_DAYS.min} bis {WINBACK_DAYS.max} Tage</LimitLine>
       </div>
       {initial.type === "stamp"
         ? <div className="ow-field"><span id="winback-bonus-label" className="ow-label">Bonus</span>
@@ -58,22 +62,27 @@ export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; 
         : <div className="ow-field">
           <label htmlFor="winback-bonus">Bonus</label>
           <NumberStepper id="winback-bonus" value={draft.bonus} onChange={value => edit({ bonus: value })} min={0} max={initial.bonusMax} unit={POINT} bonus offAtZero invalid={!bonusValid} describedBy="winback-bonus-hint" />
-          <p id="winback-bonus-hint" className={bonusValid ? "ow-hint" : "ow-error"}>1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</p>
+          <LimitLine id="winback-bonus-hint" valid={bonusValid}>1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</LimitLine>
         </div>}
       {reminders
-        ? <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
-        : <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus einmal. Er kommt beim Bestätigen an der Kasse automatisch dazu. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.</p>}
+        ? <p className="ow-hint">Wer {last.days} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
+        : <p className="ow-hint">Wer {last.days} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus einmal. Er kommt beim Bestätigen an der Kasse automatisch dazu. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.</p>}
       {reminders
-        ? <CardLinePreview label="So sieht die Erinnerung aus" shop={shop}>{winbackText(initial.type, bonusValid ? bonus : 0, exampleDay)}</CardLinePreview>
+        ? <CardLinePreview label="So sieht die Erinnerung aus" shop={shop}>{winbackText(initial.type, last.bonus, exampleDay)}</CardLinePreview>
         : rules && <CardLinePreview label="So steht es auf der Karte" shop={shop} rules={rules}>
           {/* The card line of ENG-089 part B, with its „Bedingungen“ link shown as text here. */}
-          {CARD.winback(initial.type === "points", bonus, exampleDay)} <u>{CARD.conditions}</u>
+          {CARD.winback(initial.type === "points", last.bonus, exampleDay)} <u>{CARD.conditions}</u>
         </CardLinePreview>}
       {/* The reminder is not the card, so with reminders the rules keep their own line. */}
       {reminders && rules && <p className="ow-hint">Steht auf der Karte: {rules}</p>}
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); remember(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
+}
+
+/** The row's limit; out of range it becomes the error line, mounted afresh as an alert so screen readers announce it. */
+function LimitLine({ id, valid, children }: { id: string; valid: boolean; children: React.ReactNode }) {
+  return valid ? <p key="hint" id={id} className="ow-hint">{children}</p> : <p key="error" id={id} className="ow-error" role="alert">{children}</p>;
 }
 
 /** The win-back set-up on Programm (ENG-089): loads its own settings; the reminder parts show only while Wallet messages are offered. */
