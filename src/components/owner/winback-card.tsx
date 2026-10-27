@@ -12,6 +12,10 @@ type Draft = { enabled: boolean; days: string; bonus: string };
 const fromSaved = (w: Winback): Draft => ({ enabled: w.enabled, days: String(w.days), bonus: String(w.bonus) });
 
 /** „Kunden zurückholen“ (ENG-044): the owner picks N and the bonus; the text is fixed. The server checks every value again. */
+const points = (n: number) => `${n} ${n === 1 ? "Punkt" : "Punkte"}`;
+/** The allowed bonus as owners read it: "1 Punkt" when one is the most, never "1 bis 1 Punkte". */
+export const bonusRange = (max: number) => max <= 1 ? points(1) : `1 bis ${points(max)}`;
+
 export function WinbackCard({ slug, initial, reminders }: { slug: string; initial: Winback; reminders: boolean }) {
   const [saved, setSaved] = useState<Draft>(() => fromSaved(initial));
   const [draft, setDraft] = useState<Draft>(saved);
@@ -53,7 +57,7 @@ export function WinbackCard({ slug, initial, reminders }: { slug: string; initia
         : <div className="ow-field">
           <label htmlFor="winback-bonus">Bonus in Punkten (0 = kein Bonus)</label>
           <input id="winback-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.bonus} aria-invalid={!bonusValid} aria-describedby="winback-bonus-hint" onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
-          <p id="winback-bonus-hint" className="ow-hint">1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</p>
+          <p id="winback-bonus-hint" className="ow-hint">{bonusRange(initial.bonusMax)}: höchstens ein Viertel deiner günstigsten Prämie.</p>
         </div>}
       {reminders
         ? <p className="ow-hint">Wer {daysValid ? days : "[N]"} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
@@ -62,7 +66,7 @@ export function WinbackCard({ slug, initial, reminders }: { slug: string; initia
         ? <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{winbackText(initial.type, bonusValid ? bonus : 0, exampleDay)}</p></div>
         : bonusValid && bonus > 0 && <div className="ow-card" role="group" aria-label="Vorschau auf der Kundenkarte">
           {/* The card line of ENG-089 part B (customer-card-copy.tsx), with its „Bedingungen“ link shown as text here. */}
-          <p>Willkommen zurück! Bis zum {exampleDay} gibt&apos;s bei deinem nächsten Besuch {initial.type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. <u>Bedingungen</u></p>
+          <p>Willkommen zurück! Bis zum {exampleDay} gibt&apos;s bei deinem nächsten Besuch {initial.type === "stamp" ? "1 Stempel" : points(bonus)} extra. <u>Bedingungen</u></p>
         </div>}
       {bonusValid && bonus > 0 && <p className="ow-hint">Steht auf der Karte: {winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus, reminders)}</p>}
       <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
@@ -132,7 +136,7 @@ export function BirthdayCard({ slug, type, initial }: { slug: string; type: "sta
         : <div className="ow-field">
           <label htmlFor="birthday-bonus">Bonus in Punkten (0 = kein Bonus)</label>
           <input id="birthday-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.bonus} aria-invalid={!bonusValid} onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
-          <p className="ow-hint">1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</p>
+          <p className="ow-hint">{bonusRange(initial.bonusMax)}: höchstens ein Viertel deiner günstigsten Prämie.</p>
         </div>}
       <p className="ow-hint">Kundinnen und Kunden können auf ihrer Karte Tag und Monat ihres Geburtstags eintragen. In ihrer Geburtstagswoche wird der Bonus beim Bestätigen eines Besuchs mitgebucht, einmal im Jahr. Mit Wallet-Nachrichten bekommen sie dazu eine Erinnerung. {initial.cards} {initial.cards === 1 ? "Karte hat" : "Karten haben"} einen Geburtstag eingetragen.</p>
       <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{birthdayText(type, bonusValid ? bonus : 0, "[Datum]")}</p></div>

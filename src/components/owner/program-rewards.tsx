@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerDialog, Skeleton } from "./owner-ui";
@@ -91,10 +92,10 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
                   {(spend !== null || noMinSpendNote(type)) && <span className="ow-hint">{spend !== null ? `Ab ${euro(spend, program.currency)} Einkaufswert erreichbar. ${MIN_SPEND_LABEL}` : noMinSpendNote(type)}</span>}
                 </div>
                 <div className="ow-reward-actions">
-                  <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}>↑</button>
-                  <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === active.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}>↓</button>
+                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-btn--icon" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={18} /></button>
+                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-btn--icon" disabled={busy || index === active.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={18} /></button>
                   <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy} onClick={() => { setForm({ id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" }); setError(""); setNotice(""); }}>Bearbeiten</button>
-                  <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || active.length <= 1} title={active.length <= 1 ? "Mindestens eine aktive Prämie ist nötig." : undefined} onClick={() => setArchiving(reward)}>Archivieren</button>
+                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy || active.length <= 1} title={active.length <= 1 ? "Mindestens eine aktive Prämie ist nötig." : undefined} onClick={() => setArchiving(reward)}>Archivieren</button>
                 </div>
               </li>
             );
