@@ -4,6 +4,7 @@
   "private": true,
   "engines": { "node": ">=26 <27" },
   "scripts": {
+    "postinstall": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath scripts/git-hooks || true",
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "tsx scripts/production-guard.ts && next start",
