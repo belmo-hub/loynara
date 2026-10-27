@@ -304,7 +304,8 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
   });
 }
 
-/** Active rewards in the merchant's order. The browser card and the Wallet pass both show the first as the target. */
+/** Active rewards in the merchant's order. The browser card and the Wallet pass both show the first as the target.
+ *  No conditions text: rewards carry none on any screen (ENG-115), so it does not travel to cards, join pages or the till. */
 export async function currentRewards(tenantId: string, programId: string, reader: Pick<typeof db, "select"> = db) {
   const rows = await reader.select({ reward: rewards, version: rewardVersions }).from(rewards)
     .innerJoin(rewardVersions, and(eq(rewardVersions.rewardId, rewards.id), eq(rewardVersions.tenantId, rewards.tenantId)))
@@ -313,7 +314,7 @@ export async function currentRewards(tenantId: string, programId: string, reader
   const seen = new Set<string>();
   return rows.filter(({ reward }) => { if (seen.has(reward.id)) return false; seen.add(reward.id); return true; })
     .sort((a, b) => a.reward.sortOrder - b.reward.sortOrder || a.reward.id.localeCompare(b.reward.id))
-    .map(({ reward, version }) => ({ id: version.id, rewardId: reward.id, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder }));
+    .map(({ reward, version }) => ({ id: version.id, rewardId: reward.id, title: version.title, cost: version.cost, sortOrder: reward.sortOrder }));
 }
 
 const rewardFields = z.object({ title: shortText, cost: z.number().int().min(1).max(100000), termsText: z.string().trim().max(3000).default("") });

@@ -17,7 +17,7 @@ export function ProgramView({ me }: { me: MeResponse }) {
       {head}
       <Notice>Nur Inhaber:innen können Regeln und Prämien ändern.</Notice>
       <section className="ow-card ow-stack"><h2>So sammeln Kunden</h2><p>{earningSentence(data.programType, data.earningMode ?? "manual", data.pointsPerCurrencyUnit ?? 1, data.currency)}</p><p className="ow-muted">{confirmSentence(data.programType, data.earningMode ?? "manual")}</p></section>
-      <section className="ow-card ow-stack"><h2>Aktive Prämien</h2><ul className="ow-feed">{data.rewards.map(reward => <li key={reward.id}><span><strong>{reward.title}</strong>{reward.termsText && <span className="ow-muted"> · {reward.termsText}</span>}</span><span className="ow-num">{reward.cost} {unitName(data.programType)}</span></li>)}</ul></section>
+      <section className="ow-card ow-stack"><h2>Aktive Prämien</h2><ul className="ow-feed">{data.rewards.map(reward => <li key={reward.id}><strong>{reward.title}</strong><span className="ow-num">{reward.cost} {unitName(data.programType)}</span></li>)}</ul></section>
     </div>
   );
 }

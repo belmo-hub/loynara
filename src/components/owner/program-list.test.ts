@@ -6,7 +6,7 @@ import { programSections, quoteStart, type ListData } from "./program-list";
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
 const program = {
   programType: "stamp", earningMode: "manual", currency: "EUR", rulesText: "Ein Stempel pro Heißgetränk. Zehn Stempel ergeben einen Gratiskaffee.",
-  rewards: [{ id: "v1", rewardId: "r1", title: "Gratiskaffee", cost: 10, termsText: "", sortOrder: 0 }, { id: "v2", rewardId: "r2", title: "Keks", cost: 1, termsText: "", sortOrder: 1 }],
+  rewards: [{ id: "v1", rewardId: "r1", title: "Gratiskaffee", cost: 10, sortOrder: 0 }, { id: "v2", rewardId: "r2", title: "Keks", cost: 1, sortOrder: 1 }],
   referral: { enabled: false, referrerBonus: 0, referredBonus: 0 },
 } as unknown as PublicProgram;
 const base: ListData = { me, program, winback: null, referrals: [], nfc: false, logo: true };

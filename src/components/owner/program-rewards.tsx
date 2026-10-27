@@ -10,7 +10,7 @@ import { useLoad } from "./use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type Reward = { rewardId: string; versionId: string; version: number; title: string; cost: number; termsText: string; sortOrder: number; active: boolean };
-type Form = { id: string; title: string; cost: string; terms: string; ownCost: string };
+type Form = { id: string; title: string; cost: string; ownCost: string };
 
 /** `open` (a reward id) opens that reward's form at once, for its Programm row's page; `onSaved` follows a saved form.
  *  New rewards have their own three steps (program-new-reward.tsx). */
@@ -19,7 +19,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
   const [list, reload] = useLoad<{ rewards: Reward[] }>(`/api/merchant/program/rewards?programSlug=${encodeURIComponent(me.programSlug)}`);
   const [form, setForm] = useState<Form | null>(() => {
     const reward = program.rewards.find(item => item.rewardId === open);
-    return reward ? { id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" } : null;
+    return reward ? { id: reward.rewardId, title: reward.title, cost: String(reward.cost), ownCost: "" } : null;
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -32,7 +32,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
   const active = list.state === "ok" ? list.data.rewards.filter(reward => reward.active) : [];
   const archived = list.state === "ok" ? list.data.rewards.filter(reward => !reward.active) : [];
   const original = form ? active.find(reward => reward.rewardId === form.id) : undefined;
-  const dirty = Boolean(form && original && (form.title !== original.title || form.cost !== String(original.cost) || form.terms !== original.termsText));
+  const dirty = Boolean(form && original && (form.title !== original.title || form.cost !== String(original.cost)));
   useDirtyGuard("program-rewards", dirty);
 
   const cost = form ? parseWholeNumber(form.cost) : null;
@@ -50,8 +50,9 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
     finally { setBusy(false); }
   }
   async function submit() {
-    if (!form || !valid || busy || cost === null) return;
-    const ok = await run({ action: "edit", rewardId: form.id, title: form.title.trim(), cost, termsText: form.terms.trim() }, "Neue Prämienversion gespeichert.");
+    if (!form || !original || !valid || busy || cost === null) return;
+    // Conditions are off the screens (ENG-115): the stored text goes back as it is, so an edit neither erases it nor counts it as a change.
+    const ok = await run({ action: "edit", rewardId: form.id, title: form.title.trim(), cost, termsText: original.termsText }, "Neue Prämienversion gespeichert.");
     if (ok) { setForm(null); onSaved?.(); }
   }
   async function move(index: number, direction: -1 | 1) {
@@ -67,7 +68,6 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
     if (cost < original.cost) effect.push(`Der Preis sinkt von ${original.cost} auf ${cost} ${unit}. Karten mit mindestens ${cost} ${unit} können die Prämie ab dem Speichern einlösen.`);
     if (cost > original.cost) effect.push(`Der Preis steigt von ${original.cost} auf ${cost} ${unit}. Kunden brauchen ab dem Speichern mehr; gesammelte Stände bleiben unverändert.`);
     if (form.title.trim() !== original.title) effect.push(`Der Name ändert sich von „${original.title}“ zu „${form.title.trim()}“.`);
-    if (form.terms.trim() !== original.termsText.trim()) effect.push("Die Bedingungen ändern sich.");
     if (effect.length) effect.push(`Speichern legt Version ${original.version + 1} an. Bereits eingelöste Prämien behalten ihre bisherige Version.`);
   }
   const min = purchase && cost !== null ? minimumSpendMinor(cost, rate) : null;
@@ -76,7 +76,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
   return (
     <section className="ow-card ow-stack" aria-labelledby="rew-title" style={{ gap: 16 }}>
       <div className="ow-card-head" style={{ marginBottom: 0 }}>
-        <div><h2 id="rew-title">Prämien</h2><p>Reihenfolge wie bei Anmeldung und Kasse. Jede Prämie: Name, Preis in {unitDative(type)}, Bedingungen.</p></div>
+        <div><h2 id="rew-title">Prämien</h2><p>Reihenfolge wie bei Anmeldung und Kasse. Jede Prämie: Name und Preis in {unitDative(type)}.</p></div>
       </div>
       {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
       {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
@@ -92,7 +92,6 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
                   <div className="ow-reward-main">
                     <strong>{reward.title}</strong>
                     <span className="ow-num">{reward.cost} {unit}</span>
-                    {reward.termsText && <span className="ow-muted">{reward.termsText}</span>}
                     {(spend !== null || noMinSpendNote(type)) && <span className="ow-hint">{spend !== null ? `Ab ${euro(spend, program.currency)} Einkaufswert erreichbar. ${MIN_SPEND_LABEL}` : noMinSpendNote(type)}</span>}
                   </div>
                   <div className="ow-reward-move">
@@ -101,7 +100,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
                   </div>
                 </div>
                 <div className="ow-reward-actions">
-                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy} onClick={() => { setForm({ id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" }); setError(""); setNotice(""); }}>Bearbeiten</button>
+                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy} onClick={() => { setForm({ id: reward.rewardId, title: reward.title, cost: String(reward.cost), ownCost: "" }); setError(""); setNotice(""); }}>Bearbeiten</button>
                   <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || active.length <= 1} title={active.length <= 1 ? "Mindestens eine aktive Prämie ist nötig." : undefined} onClick={() => setArchiving(reward)}>Archivieren</button>
                 </div>
               </li>
@@ -115,7 +114,6 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
           <h3 id="rew-form-title" style={{ fontSize: "var(--text-16)" }}>Prämie bearbeiten</h3>
           <div className="ow-field"><label htmlFor="rew-title-input">Name der Prämie</label><input id="rew-title-input" className="ow-input" value={form.title} maxLength={180} onChange={event => setForm({ ...form, title: event.target.value })} aria-invalid={form.title.length > 0 && !titleValid} placeholder="z. B. Kaffee aufs Haus" /></div>
           <div className="ow-field"><label htmlFor="rew-cost">Preis in {unitDative(type)}</label><input id="rew-cost" className="ow-input" inputMode="numeric" value={form.cost} onChange={event => setForm({ ...form, cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={form.cost.length > 0 && cost === null} aria-describedby="rew-cost-hint" style={{ maxWidth: 200 }} /><span id="rew-cost-hint" className="ow-hint">{type === "stamp" ? "So viele Stempel muss eine Karte sammeln." : purchase ? `So viele Punkte werden benötigt. Bei ${rate} ${unitName("points", rate)} pro 1 € entspricht das einem Mindestumsatz.` : "So viele Punkte werden benötigt."}</span></div>
-          <div className="ow-field"><label htmlFor="rew-terms">Bedingungen (optional)</label><textarea id="rew-terms" className="ow-textarea" style={{ minHeight: 72 }} value={form.terms} maxLength={3000} onChange={event => setForm({ ...form, terms: event.target.value })} placeholder="z. B. Gültig Mo–Fr bis 11 Uhr." /></div>
           {cost !== null && (min !== null || noMinSpendNote(type)) && (
             <div className="ow-readonly" role="status" aria-live="polite">
               {min !== null ? <>Mindestumsatz für diese Prämie: <strong>{euro(min, program.currency)}</strong>. {MIN_SPEND_LABEL}</> : noMinSpendNote(type) + "."}
