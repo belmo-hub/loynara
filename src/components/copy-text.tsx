@@ -39,3 +39,12 @@ export function useCopy() {
   }
   return { copied, copy };
 }
+
+/** Both labels share one grid cell, so a copy button keeps its width while it reads „Kopiert“ and nothing next to it moves. */
+export function CopyLabel({ copied, label, done = "Kopiert" }: { copied: boolean; label: string; done?: string }) {
+  const cell = (shown: boolean) => ({ gridArea: "1 / 1", visibility: shown ? undefined : "hidden" as const });
+  return <span style={{ display: "inline-grid", justifyItems: "center" }}>
+    <span style={cell(!copied)} aria-hidden={copied || undefined}>{label}</span>
+    <span style={cell(copied)} aria-hidden={!copied || undefined}>{done}</span>
+  </span>;
+}

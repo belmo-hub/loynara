@@ -163,11 +163,11 @@ export type NextAction = { label: string; href: string } | { label: string; onCl
 export function NextBar({ title, text, action, onClose }: { title: string; text?: string; action?: NextAction; onClose?: () => void }) {
   return (
     <section className="ow-nextbar" aria-label="Als Nächstes">
-      {onClose && <button type="button" className="ow-nextbar-close" aria-label="Hinweis schließen" onClick={onClose}><OwnerIcon name="close" /></button>}
       <p><b>{title}</b>{text}</p>
       {action && ("href" in action
         ? <Link className="ow-btn ow-btn--primary ow-btn--sm" href={action.href}>{action.label}</Link>
         : <button type="button" className="ow-btn ow-btn--primary ow-btn--sm" onClick={action.onClick}>{action.label}</button>)}
+      {onClose && <button type="button" className="ow-nextbar-close" aria-label="Hinweis schließen" onClick={onClose}><OwnerIcon name="close" /></button>}
     </section>
   );
 }

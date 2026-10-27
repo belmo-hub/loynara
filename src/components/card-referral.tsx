@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
 import styles from "./customer/panels.module.css";
 import { CardStatusLine, useCardStatus } from "./customer/card-status";
-import { useCopy } from "./copy-text";
+import { CopyLabel, useCopy } from "./copy-text";
 
 type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points"; progress?: { signedUp: number; qualified: number } };
 
@@ -56,7 +56,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
         : `${share.progress.signedUp} ${share.progress.signedUp === 1 ? "Anmeldung" : "Anmeldungen"} über deinen Link, davon ${share.progress.qualified} mit gutgeschriebenem Bonus.`}</p>}
       <div className={styles.actions}>
         {canShare && <Button size="sm" icon={<Share2 size={16} />} onClick={() => void nativeShare()}>{french ? "Partager" : "Teilen"}</Button>}
-        <Button variant="secondary" size="sm" onClick={() => void copy()}>{copied ? french ? "Copié" : "Kopiert" : french ? "Copier le lien" : "Link kopieren"}</Button>
+        <Button variant="secondary" size="sm" onClick={() => void copy()}><CopyLabel copied={copied} label={french ? "Copier le lien" : "Link kopieren"} done={french ? "Copié" : "Kopiert"} /></Button>
       </div>
       <TextField label={french ? "Lien à partager" : "Link zum Teilen"} readOnly value={share.shareUrl} onFocus={event => event.target.select()} />
       <CardStatusLine text={copiedText} live={live} className={styles.state} />
