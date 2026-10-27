@@ -684,9 +684,9 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
 .ow-qpanel { padding: 14px var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
 .ow-qpanel.ow-field > label { color: var(--color-ink-muted); }
-.ow-qpanel :is(.ow-input, .ow-textarea) { min-height: 52px; }
-/* One line to start, growing with the text where the browser can. */
-@supports (field-sizing: content) { .ow-qpanel .ow-textarea { field-sizing: content; resize: none; } }
+.ow-qpanel .ow-input { min-height: 52px; }
+/* The shop's colour keeps an edge on a card of the same tone, as the card studio's swatches do. */
+.ow-qpanel .ow-cardline-shop i { box-shadow: 0 0 0 1px var(--color-line-strong); }
 .ow-qcount { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-qcount span:last-child { flex: none; }
 .ow-qerror { display: flex; align-items: flex-start; gap: 6px; }
@@ -699,6 +699,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qnumber .ow-number-value { flex-direction: column; align-items: center; gap: var(--space-1); min-width: 7rem; font-size: var(--display-num); line-height: 1; letter-spacing: -.03em; }
 .ow-qnumber .ow-number-value input { height: auto; padding: 0; text-align: center; }
 .ow-qnumber .ow-number-value span { font-size: var(--text-16); font-weight: var(--weight-strong); color: var(--color-ink-muted); letter-spacing: 0; }
+/* Points move in tens, so their number wears the input outline: any other value is typed (the keypad opens on tap). */
+.ow-qnumber[data-typed] .ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-5)); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
 /* Below 360 px six digits still fit beside the buttons. */
 @media (max-width: 359px) { .ow-qnumber .ow-number { gap: var(--space-2); } .ow-qnumber .ow-number button { width: 56px; height: 56px; } }
 /* Save failed (screen 19): what failed in the danger colour, what is kept in ink. */

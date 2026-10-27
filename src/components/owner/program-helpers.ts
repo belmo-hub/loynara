@@ -37,6 +37,16 @@ export function minimumSpendMinor(cost: number, rate: number): number | null {
   } catch { return null; }
 }
 
+/** Under a new points reward's number where points come from the purchase amount (Marketing B): the total spend that
+ *  earns it, in whole cents rounded up, „500 €“ or „83,34 €“; MAD written as earningSentence writes it. */
+export function minimumSpendText(cost: number, rate: number, currency: string) {
+  const minor = minimumSpendMinor(cost, rate);
+  if (minor === null) return null;
+  const digits = minor % 100 === 0 ? 0 : 2;
+  const amount = new Intl.NumberFormat("de-DE", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(minor / 100);
+  return `Erreichbar ab insgesamt ${amount} ${currency === "EUR" ? "€" : currency} Einkaufswert.`;
+}
+
 export const MIN_SPEND_LABEL = "Nur reguläres Sammeln; zusätzliche Boni nicht berücksichtigt.";
 export const NO_MIN_SPEND_LABEL = "Mindestumsatz offen: kein €-Wert pro Punkt";
 /** The note exists for points only: a stamp card has no € value per point to leave open. */

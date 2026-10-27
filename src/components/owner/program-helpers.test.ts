@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { NO_MIN_SPEND_LABEL, noMinSpendNote, otherRewardsHint } from "./program-helpers";
+import { minimumSpendText, NO_MIN_SPEND_LABEL, noMinSpendNote, otherRewardsHint } from "./program-helpers";
+
+describe("the spend that earns a new points reward (Marketing B)", () => {
+  it("rounds up to the cent and shows cents only when there are any", () => {
+    expect(minimumSpendText(500, 1, "EUR")).toBe("Erreichbar ab insgesamt 500 € Einkaufswert.");
+    expect(minimumSpendText(250, 3, "EUR")).toBe("Erreichbar ab insgesamt 83,34 € Einkaufswert."); // 83,33 € earns only 249
+    expect(minimumSpendText(1500, 1, "EUR")).toBe("Erreichbar ab insgesamt 1.500 € Einkaufswert.");
+  });
+  it("writes dirham the way the earning sentence does", () => {
+    expect(minimumSpendText(100, 2, "MAD")).toBe("Erreichbar ab insgesamt 50 MAD Einkaufswert.");
+  });
+});
 
 describe("the other rewards under a new reward's number (W12)", () => {
   it("follows the count: none, one, two, three or more, lowest first", () => {
