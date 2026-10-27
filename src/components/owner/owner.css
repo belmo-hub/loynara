@@ -48,6 +48,9 @@
 .ow-topbar { display: none; }
 .ow-content { flex: 1; padding-bottom: var(--space-12); }
 .ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: color-mix(in srgb, var(--color-bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-line); }
+/* Next.js keeps the old scroll offset on navigation while the new page's top is "in view", and otherwise scrolls the page
+   top to the window top. Telling it the sticky bars cover the top makes every owner page open at the top, title visible. */
+html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-subnav-inner { max-width: 1120px; margin-inline: auto; padding-inline: var(--space-6); display: flex; align-items: center; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
 .ow-subnav-inner::-webkit-scrollbar { display: none; }
 /* Scroll hint: the side with more tabs behind it fades out (data-start / data-end are set by owner-shell). */
@@ -69,6 +72,8 @@
   .ow-topbar-loc strong { font-size: var(--text-14); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-topbar-loc span { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-subnav { top: 56px; }
+  html:has(.ow-topbar) { scroll-padding-top: 56px; }
+  html:has(.ow-subnav) { scroll-padding-top: 105px; }
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
