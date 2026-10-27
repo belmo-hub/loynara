@@ -127,4 +127,11 @@ describe("win-back window on the card (ENG-089)", () => {
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, locale: "fr", winback: { bonus: 1, until: "2026-11-05" } }))).toContain("Bon retour ! Jusqu’au 5 novembre, votre prochaine visite vous rapporte 1 tampon supplémentaire.");
     expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("Willkommen zurück");
   });
+  it("says a one-point bonus in the singular, in German and French (ENG-103)", () => {
+    const card = (locale: "de" | "fr", bonus: number) => renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", locale, winback: { bonus, until: "2026-11-05" } }));
+    expect(card("de", 1)).toContain("bei deinem nächsten Besuch 1 Punkt extra.");
+    expect(card("de", 2)).toContain("bei deinem nächsten Besuch 2 Punkte extra.");
+    expect(card("fr", 1)).toContain("votre prochaine visite vous rapporte 1 point supplémentaire.");
+    expect(card("fr", 2)).toContain("votre prochaine visite vous rapporte 2 points supplémentaires.");
+  });
 });
