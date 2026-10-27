@@ -64,7 +64,7 @@ describe("production security headers", () => {
   it("keeps the existing referrer policy and per-route bearer-link cache and robots headers", async () => {
     const rules = await rulesFor("production");
     expect(global(rules)["Referrer-Policy"]).toBe("no-referrer");
-    for (const source of ["/card/:token", "/invite/:token", "/tap/:ref"]) {
+    for (const source of ["/card/:token", "/card/:token/:path+", "/invite/:token", "/tap/:ref"]) {
       const headers = Object.fromEntries(rules.find(rule => rule.source === source)!.headers.map(h => [h.key, h.value]));
       expect(headers["Cache-Control"]).toBe("no-store");
       expect(headers["X-Robots-Tag"]).toBe("noindex, nofollow");
