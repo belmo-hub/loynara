@@ -43,7 +43,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
       ? <StampGrid earned={balance} total={selected.cost} landed={landed} locale={locale} className={styles.stamps} />
       : <PointsLadder balance={balance} rewards={rewards} locale={locale} className={styles.ladder} />}
     <div className={styles.balancePanel}>
-      <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong><NumberRoll value={balance}>{number.format(balance)}</NumberRoll> <em>{unit}</em></strong></p>
+      <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong><NumberRoll value={balance}>{number.format(balance)}</NumberRoll> <em>{balance === 1 && programType === "points" ? t.point : unit}</em></strong></p>
       {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), remaining === 1 && programType === "points" ? t.point : unit, selected.title)}</p> : null}
     </div>
     {children}

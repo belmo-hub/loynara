@@ -24,7 +24,7 @@ export function PointsLadder({ balance, rewards, locale = "de", className }: Pro
   const sorted = [...rewards].sort((a, b) => a.cost - b.cost);
   const max = Math.max(1, sorted.at(-1)?.cost ?? 1);
   const marks = ladderMarks(sorted, max, balance);
-  const label = locale === "fr" ? `${balance} points sur ${max}` : `${balance} von ${max} Punkten`;
+  const label = locale === "fr" ? `${balance} point${balance === 1 ? "" : "s"} sur ${max}` : `${balance} von ${max} Punkten`;
   return <div className={cx(styles.ladder, className)} role="img" aria-label={label}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
     {marks.map((m) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined}>

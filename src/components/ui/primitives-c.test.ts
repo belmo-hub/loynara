@@ -43,6 +43,11 @@ describe("PointsLadder", () => {
     expect(out).toContain('aria-label="64 von 150 Punkten"');
     expect(out.match(/data-reached="true"/g)).toHaveLength(1);
   });
+  it("counts one point in the singular in French (ENG-104)", () => {
+    expect(html(h(PointsLadder, { balance: 1, rewards, locale: "fr" }))).toContain('aria-label="1 point sur 150"');
+    expect(html(h(PointsLadder, { balance: 2, rewards, locale: "fr" }))).toContain('aria-label="2 points sur 150"');
+    expect(html(h(PointsLadder, { balance: 1, rewards }))).toContain('aria-label="1 von 150 Punkten"');
+  });
   it("draws nothing when the programme has no reward yet", () => {
     expect(html(h(PointsLadder, { balance: 64, rewards: [] }))).toBe("");
   });
