@@ -34,6 +34,7 @@ const AVERAGE_HREF = "/merchant/program";
 const ASK_KEY = "loynara:average-ask-hidden-until";
 const MILESTONES = [100, 50, 25, 10, 1];
 const MILESTONE_KEY = "loynara:milestones-seen";
+const NEXT_KEY = "loynara:next-hidden";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
@@ -108,9 +109,11 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
+  const [nextHidden, hideNext] = useHiddenNext(next ? nextHintKey({ locationId: me.locationId, quiet, lastBookingOn: a?.lastBookingOn, title: next.title }) : "");
+  const showNext = next && !nextHidden;
 
   return (
-    <div className="ow-page ow-dash" data-next={next ? "" : undefined}>
+    <div className="ow-page ow-dash" data-next={showNext ? "" : undefined}>
       <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
       {failed && !board ? <ErrorCard reload={reload} />
@@ -129,7 +132,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
-        {next && <NextBar {...next} />}
+        {showNext && <NextBar {...next} onClose={hideNext} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
@@ -181,6 +184,30 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
       <div className="ow-board-actions"><Link className="ow-btn ow-btn--board ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
     </div>}
   </>;
+}
+
+/**
+ * Which „Als Nächstes“ hint a close applies to. A quiet week is one gap however many days it grows; the next booking
+ * starts a new gap, so the hint can come back. Any other hint is its own text.
+ */
+export function nextHintKey(input: { locationId: string; quiet: number | "over90" | null; lastBookingOn: string | null | undefined; title: string }) {
+  return input.quiet !== null ? `${input.locationId}:quiet:${input.lastBookingOn ?? "none"}` : `${input.locationId}:${input.title}`;
+}
+/** Stored as "<until ms>|<hint key>": the closed hint stays away for 7 days in this browser. */
+export function isNextHidden(stored: string | null, key: string, now: number) {
+  const split = stored?.indexOf("|") ?? -1;
+  return split > 0 && stored!.slice(split + 1) === key && Number(stored!.slice(0, split)) > now;
+}
+const readNextHidden = (key: string) => () => { try { return isNextHidden(window.localStorage.getItem(NEXT_KEY), key, Date.now()); } catch { return false; } };
+
+/** The close (X) on „Als Nächstes“: on phones the bar is fixed over the page, so the owner must be able to put it away. */
+function useHiddenNext(key: string): [boolean, () => void] {
+  const stored = useSyncExternalStore(onStorage, readNextHidden(key), () => false);
+  const [dismissed, setDismissed] = useState("");
+  return [stored || dismissed === key, () => {
+    setDismissed(key);
+    try { window.localStorage.setItem(NEXT_KEY, `${Date.now() + 7 * 86_400_000}|${key}`); } catch { /* storage blocked: hidden until reload */ }
+  }];
 }
 
 const readAskHidden = () => { try { return Number(window.localStorage.getItem(ASK_KEY) ?? 0) > Date.now(); } catch { return false; } };

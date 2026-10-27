@@ -546,9 +546,13 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-nextbar p { flex: 1 1 12rem; margin: 0; font-size: var(--text-14); line-height: 1.35; }
 .ow-nextbar b { display: block; font-size: var(--text-16); }
 .ow-nextbar .ow-btn { flex: none; margin-left: auto; }
+/* The close sits in its own right-hand gutter, so it never covers the text or the action. */
+.ow-nextbar { position: relative; padding-right: 48px; }
+.ow-nextbar-close { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-lg); background: none; color: var(--color-ink-muted); cursor: pointer; }
+.ow-nextbar-close:hover { color: var(--color-ink); }
 @media (max-width: 1023px) {
   .ow-nextbar { position: fixed; left: var(--space-3); right: var(--space-3); bottom: calc(var(--ow-tabbar) + var(--space-3)); z-index: var(--z-sticky); }
-  .ow-dash[data-next] { padding-bottom: 120px; }
+  .ow-dash[data-next] { padding-bottom: 160px; } /* the fixed bar is 145 px at 320 px wide; room for one more line */
 }
 
 .ow-diary h2 { margin-bottom: var(--space-2); }

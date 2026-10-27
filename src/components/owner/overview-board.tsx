@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CircleCheck, CreditCard, Gift, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
-import { nf } from "./owner-ui";
+import { nf, OwnerIcon } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
@@ -160,9 +160,10 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
 
 export type NextAction = { label: string; href: string } | { label: string; onClick: () => void };
 /** „Als Nächstes“: a bar above the bottom navigation on phones, a card in the right column on desktop. */
-export function NextBar({ title, text, action }: { title: string; text?: string; action?: NextAction }) {
+export function NextBar({ title, text, action, onClose }: { title: string; text?: string; action?: NextAction; onClose?: () => void }) {
   return (
     <section className="ow-nextbar" aria-label="Als Nächstes">
+      {onClose && <button type="button" className="ow-nextbar-close" aria-label="Hinweis schließen" onClick={onClose}><OwnerIcon name="close" /></button>}
       <p><b>{title}</b>{text}</p>
       {action && ("href" in action
         ? <Link className="ow-btn ow-btn--primary ow-btn--sm" href={action.href}>{action.label}</Link>
