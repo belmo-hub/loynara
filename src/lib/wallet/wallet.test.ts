@@ -214,8 +214,9 @@ describe("Apple pass", () => {
     expect(appleVoidedPassJson({ ...revoked, reason: "closed" }, serial, appleConfig).storeCard.primaryFields[0].value).toBe("Geschlossen");
   });
 
-  it("includes merchant location coordinates only when supplied", () => {
-    expect(applePassJson({ ...pass, latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations).toMatchObject([{ latitude: 51.3127, longitude: 9.4797 }]);
+  it("includes the shop pin with the lock-screen line only when coordinates are supplied", () => {
+    expect(applePassJson({ ...pass, latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations).toEqual([{ latitude: 51.3127, longitude: 9.4797, relevantText: "Kasseler Kaffee: deine Karte" }]);
+    expect(applePassJson({ ...pass, locale: "fr", latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations?.[0].relevantText).toBe("Kasseler Kaffee\u00a0: votre carte");
     expect("locations" in applePassJson(pass, serial, appleConfig)).toBe(false);
   });
 

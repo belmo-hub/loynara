@@ -142,7 +142,7 @@ function common(pass: WalletPassData | WalletRevokedData, serial: string, config
 export function applePassJson(pass: WalletPassData, serial: string, config: ApplePassConfig) {
   const t = walletText(pass.locale);
   const progress = walletProgress(pass);
-  const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: pass.merchantName }] : undefined;
+  const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: t.nearby(pass.merchantName) }] : undefined;
   // One change message per update: on the progress line when there is a target reward, otherwise on the balance.
   const balanceField = { key: "balance", label: progress.unit.toUpperCase(), value: progress.balanceText, ...(progress.statusText ? {} : { changeMessage: "%@" }) };
   return {
