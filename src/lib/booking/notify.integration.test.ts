@@ -5,14 +5,14 @@ import { pool } from "@/db";
 import { GET as bookingRoute } from "@/app/api/card/[token]/booking/route";
 import { POST as consentRoute } from "@/app/api/card/[token]/booking/consent/route";
 import { POST as pushRoute } from "@/app/api/card/[token]/booking/push/route";
-import { book, cancelAffected, cancelByCustomer, createBlock, move } from "./appointments";
+import { blockCustomer, book, cancelAffected, cancelByCustomer, createBlock, move, unblockCustomer } from "./appointments";
 import { deliverRebook, deliverReminder, deliverShopChange, queueRebookPushes, setRebookConsent } from "./notify";
 import { bookingShop, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
 type Shop = Awaited<ReturnType<typeof bookingShop>>;
 const env = { VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "p".repeat(43), VAPID_SUBJECT: "mailto:ops@example.test" };
-const now = new Date("2026-11-02T06:00:00Z");
+const now = new Date("2026-11-02T06:00:00Z"), daytime = new Date("2026-11-02T09:00:00Z");
 const endpoint = () => `https://fcm.googleapis.com/fcm/send/${randomUUID().replaceAll("-", "")}`;
 const keys = { p256dh: "B" + "a".repeat(86), auth: "c".repeat(22) };
 afterEach(() => { vi.unstubAllEnvs(); });
@@ -70,19 +70,24 @@ it("a move makes the old reminder jobs no-ops and notifies the customer; cancelA
   const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
   const [old] = await jobs("booking.reminder", appointment.id);
   await move({ ...shop.scope, appointmentId: appointment.id, start: new Date("2026-11-03T13:00:00Z"), staffId: shop.staffId }, now);
+  // The jobs of the old start step aside at once, not only when they come up.
+  expect((await pool.query("SELECT status, last_error FROM outbox_jobs WHERE kind = 'booking.reminder' AND payload->>'appointmentId' = $1 AND payload->>'start' = '2026-11-03T09:00:00.000Z'", [appointment.id])).rows)
+    .toEqual([{ status: "suppressed", last_error: "Replanned" }, { status: "suppressed", last_error: "Replanned" }]);
   const send = fakeSender();
   expect(await deliverReminder(old, { env, send, now: old.next_attempt_at })).toMatchObject({ status: "suppressed" });
   const [moved] = await jobs("booking.change", appointment.id);
   expect(moved.payload.kind).toBe("moved");
-  expect(await deliverShopChange(moved, { env, send })).toEqual({ status: "complete" });
-  expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin ist jetzt Di 03.11. um 14:00.");
+  // At night the push waits for 08:00 shop time; by day it goes out.
+  expect(await deliverShopChange(moved, { env, send, now: new Date("2026-11-02T21:30:00Z") })).toEqual({ status: "retry", reason: "Quiet hours", delaySeconds: 34_200 });
+  expect(await deliverShopChange(moved, { env, send, now: daytime })).toEqual({ status: "complete" });
+  expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin ist jetzt Di 03.11. um 14:00 bei Lena.");
   expect((await jobs("booking.reminder", appointment.id)).length).toBe(4);
 
   const { block } = await createBlock({ ...shop.scope, start: new Date("2026-11-03T12:00:00Z"), end: new Date("2026-11-03T16:00:00Z"), reason: "Früher zu" }, now);
   await cancelAffected({ ...shop.scope, blockId: block.id }, now);
   const cancel = (await jobs("booking.change", appointment.id)).find(j => j.payload.kind === "shop_cancel")!;
   expect(cancel).toBeDefined();
-  expect(await deliverShopChange(cancel, { env, send })).toEqual({ status: "complete" });
+  expect(await deliverShopChange(cancel, { env, send, now: daytime })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[1][1]).body).toBe("Dein Termin Di 03.11. 14:00 wurde abgesagt. Neuen Termin wählen.");
 });
 
@@ -99,6 +104,13 @@ it("the rebook scan respects consent, an open appointment and the cap shared wit
   const open = await bookAt(shop, "2026-11-27T09:00:00Z", scan);
   expect(await queueRebookPushes(scan)).toBe(0);
   await cancelByCustomer({ token: shop.card.cardToken, appointmentId: open.id }, scan);
+  // Nothing goes out when the card cannot book here any more: a paused card, booking switched off.
+  await blockCustomer({ ...shop.scope, membershipId: shop.card.id, userId: shop.owner.userId });
+  expect(await queueRebookPushes(scan)).toBe(0);
+  await unblockCustomer({ ...shop.scope, membershipId: shop.card.id });
+  await pool.query("UPDATE booking_settings SET enabled = false WHERE tenant_id = $1", [shop.scope.tenantId]);
+  expect(await queueRebookPushes(scan)).toBe(0);
+  await pool.query("UPDATE booking_settings SET enabled = true WHERE tenant_id = $1", [shop.scope.tenantId]);
 
   const { rows: [message] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text) VALUES ($1, $2, 'owner', 'Synthetic') RETURNING id", [shop.scope.tenantId, shop.merchant.programId]);
   await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1, $2, $3, $4, 'queued', $5)",

@@ -48,11 +48,13 @@ test("a guest books from the card in four taps, sees it on the card and cancels 
 
   await page.getByRole("button", { name: /Haarschnitt/ }).click();
   await expect(page.getByRole("button", { name: "Egal wer" })).toHaveAttribute("aria-pressed", "true");
-  const firstDay = page.locator(".booking-flow button[aria-pressed]").filter({ hasText: /^\p{L}{2} \d{2}\.\d{2}\.$/u }).first();
+  const dayChips = page.locator(".booking-flow button[aria-pressed]").filter({ hasText: /^\p{L}{2} \d{2}\.\d{2}\.$/u });
+  const firstDay = dayChips.first();
   await expect(firstDay).toBeVisible();
   await shot(page, "03-day");
 
-  await firstDay.click();
+  // Two days further on, so the 24 h deadline is still open for the move and the free cancel below.
+  await dayChips.nth(2).click();
   await expect(page.getByRole("heading", { name: "Uhrzeit wählen" })).toBeVisible();
   await shot(page, "04-time");
   await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).first().click();
@@ -67,6 +69,19 @@ test("a guest books from the card in four taps, sees it on the card and cancels 
   await expect(page.getByRole("heading", { name: /^Dein Termin ist fix: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06-done");
+
+  // Move: the booked staff member stays selected, the own time counts as free, and the new time lands on the card.
+  await page.getByRole("button", { name: "Verschieben" }).click();
+  await expect(page.getByRole("heading", { name: "Neuen Tag wählen" })).toBeVisible();
+  await expect(page.locator(".booking-flow button[aria-pressed='true']").filter({ hasText: /^(Lena|Tom)$/ })).toHaveCount(1);
+  await dayChips.nth(2).click();
+  await expect(page.getByRole("heading", { name: "Uhrzeit wählen" })).toBeVisible();
+  await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).nth(1).click();
+  await expect(page.getByRole("heading", { name: "Verschieben prüfen" })).toBeVisible();
+  await page.getByRole("button", { name: "Hierhin verschieben" }).click();
+  await expect(page.getByRole("heading", { name: /^Verschoben: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
+  await expect(page.locator(".booking-mine li")).toHaveCount(1);
+  await shot(page, "06b-moved");
 
   await page.getByRole("link", { name: "Zur Karte", exact: true }).click();
   await expect(page.locator(".card-booking-next")).toContainText(/Nächster Termin: .*Haarschnitt bei (Lena|Tom)/);

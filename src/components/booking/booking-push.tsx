@@ -7,7 +7,7 @@ import { Checkbox } from "../ui/checkbox";
 import card from "../customer/customer-card.module.css";
 import type { PushView } from "./booking-format";
 
-const SW_URL = "/card-sw.js", SW_SCOPE = "/card/";
+const SW_URL = "/card-sw.js";
 
 async function send(url: string, method: "POST" | "DELETE", body: unknown) {
   const response = await fetch(url, { method, credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -20,7 +20,7 @@ const FAILED: Record<string, string> = { PUSH_DEVICE_IN_USE: "Dieses Gerät ist 
  * „Erinnerungen aktivieren“ (service messages) and, separately and unticked, the rebook opt-in (marketing). Renders nothing
  * where the server has no push keys; on an iPhone outside the Home Screen it explains the one way to get push.
  */
-export function BookingPush({ base, push, reload }: { base: string; push: PushView; reload: () => Promise<void> }) {
+export function BookingPush({ base, scope, push, reload }: { base: string; scope: string; push: PushView; reload: () => Promise<void> }) {
   const [local, setLocal] = useState<PushSubscription | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,8 +28,8 @@ export function BookingPush({ base, push, reload }: { base: string; push: PushVi
 
   useEffect(() => {
     if (!supported) return;
-    void navigator.serviceWorker.getRegistration(SW_SCOPE).then(registration => registration?.pushManager.getSubscription()).then(subscription => setLocal(subscription ?? null), () => undefined);
-  }, [supported, push.subscribed]);
+    void navigator.serviceWorker.getRegistration(scope).then(registration => registration?.scope.endsWith(scope) ? registration.pushManager.getSubscription() : null).then(subscription => setLocal(subscription ?? null), () => undefined);
+  }, [supported, scope, push.subscribed]);
 
   if (!push.publicKey) return null;
   if (!supported) return <p className={card.muted} data-slot="booking-push">Auf dem iPhone: Karte zum Home-Bildschirm hinzufügen, dann Mitteilungen erlauben.</p>;
@@ -46,8 +46,8 @@ export function BookingPush({ base, push, reload }: { base: string; push: PushVi
   const enable = () => run(async () => {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") { setError(permission === "denied" ? "Mitteilungen sind im Browser blockiert. Erlaube sie in den Einstellungen." : "Ohne Mitteilungen gibt es keine Erinnerung."); return; }
-    await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE, updateViaCache: "none" });
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigator.serviceWorker.register(SW_URL, { scope, updateViaCache: "none" });
+    await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToUint8Array(publicKey) });
     await send(`${base}/push`, "POST", { subscription: subscription.toJSON() });
     setLocal(subscription);

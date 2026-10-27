@@ -178,6 +178,6 @@ export async function getCustomerExport(cardToken: string) {
         .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
         .where(and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.id))).orderBy(asc(sql`lower(${bookingAppointments.during})`)).limit(MAX_ROWS + 1),
     ]);
-    return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "pseudonymous-card-activity-without-contact-records", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events"), birthday: birthday ?? null, appointments: checked(appointmentRows, "Card appointments") };
+    return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "card-activity-with-booking-contact-details", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events"), birthday: birthday ?? null, appointments: checked(appointmentRows, "Card appointments") };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }

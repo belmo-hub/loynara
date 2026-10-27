@@ -126,6 +126,9 @@ const page = (a: Loaded) => `/card/${encodeURIComponent(a.token)}/termin`;
  */
 async function deliver(a: Loaded, kind: string, at: unknown, message: Message, deps: Deps): Promise<Outcome> {
   if (!vapidDetails(deps.env)) return { status: "suppressed", reason: "Push not configured" };
+  // Quiet hours hold at send time too: a backlog or a retry never pushes at night. A reminder that late is dropped.
+  const now = deps.now ?? new Date(), wake = quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS);
+  if (wake) return kind.startsWith("reminder") ? { status: "suppressed", reason: "Quiet hours" } : { status: "retry", reason: "Quiet hours", delaySeconds: Math.ceil((wake.getTime() - now.getTime()) / 1000) };
   const since = typeof at === "string" && !Number.isNaN(Date.parse(at)) ? new Date(at) : new Date(0);
   const { rows: [logged] } = await db.execute(sql`SELECT 1 FROM booking_push_log WHERE appointment_id = ${a.id}::uuid AND kind = ${kind} AND sent_at >= ${since}::timestamptz`);
   if (logged) return { status: "complete", reason: "already sent" };
@@ -157,7 +160,7 @@ export async function deliverShopChange(job: Pick<OutboxJob, "payload">, deps: D
   if (kind !== "shop_cancel" && kind !== "moved") return { status: "failed", reason: "Invalid change payload" };
   const a = await load(job.payload.appointmentId);
   if (!a || (kind === "shop_cancel" ? a.status !== "cancelled_by_shop" : !["requested", "confirmed"].includes(a.status))) return { status: "suppressed", reason: "Appointment changed again" };
-  const body = kind === "shop_cancel" ? `Dein Termin ${day(a)} ${time(a)} wurde abgesagt. Neuen Termin wählen.` : `Dein Termin ist jetzt ${day(a)} um ${time(a)}.`;
+  const body = kind === "shop_cancel" ? `Dein Termin ${day(a)} ${time(a)} wurde abgesagt. Neuen Termin wählen.` : `Dein Termin ist jetzt ${day(a)} um ${time(a)} bei ${a.staff}.`;
   return deliver(a, kind, job.payload.at, { title: a.shop, body, url: page(a) }, deps);
 }
 
@@ -166,6 +169,11 @@ const rebookConsent = (tenantId: SQL, membershipId: SQL) => sql`(SELECT c.grante
   AND c.channel = 'push' AND c.purpose = 'booking_rebook' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) IS TRUE`;
 const noOpenAt = (now: Date) => sql`NOT EXISTS (SELECT 1 FROM booking_appointments o WHERE o.tenant_id = a.tenant_id AND o.location_id = a.location_id AND o.membership_id = a.membership_id
   AND o.status IN ('requested','confirmed') AND upper(o.during) > ${now}::timestamptz)`;
+/** The card can still book this service here: booking on, programme active, card open and not paused, service live. */
+const bookable = sql`EXISTS (SELECT 1 FROM booking_settings bs WHERE bs.tenant_id = a.tenant_id AND bs.location_id = a.location_id AND bs.enabled)
+  AND EXISTS (SELECT 1 FROM memberships m2 JOIN programs p ON p.tenant_id = m2.tenant_id AND p.id = m2.program_id AND p.status = 'active' WHERE m2.tenant_id = a.tenant_id AND m2.id = a.membership_id AND m2.closed_at IS NULL)
+  AND NOT EXISTS (SELECT 1 FROM booking_blocked_customers bc WHERE bc.tenant_id = a.tenant_id AND bc.membership_id = a.membership_id)
+  AND EXISTS (SELECT 1 FROM booking_services s2 WHERE s2.tenant_id = a.tenant_id AND s2.id = a.service_id AND s2.archived_at IS NULL)`;
 
 export async function deliverRebook(job: Pick<OutboxJob, "payload">, deps: Deps = {}): Promise<Outcome> {
   const now = deps.now ?? new Date();
@@ -173,7 +181,7 @@ export async function deliverRebook(job: Pick<OutboxJob, "payload">, deps: Deps 
   if (!a || a.status !== "done") return { status: "suppressed", reason: "Appointment not found" };
   // Consent can be withdrawn and a new booking made between the nightly scan and the send.
   const { rows: [still] } = await db.execute(sql`SELECT 1 FROM booking_appointments a WHERE a.id = ${a.id}::uuid
-    AND ${rebookConsent(sql`a.tenant_id`, sql`a.membership_id`)} AND ${noOpenAt(now)}`);
+    AND ${rebookConsent(sql`a.tenant_id`, sql`a.membership_id`)} AND ${noOpenAt(now)} AND ${bookable}`);
   if (!still) return { status: "suppressed", reason: "No consent or already booked" };
   const query = new URLSearchParams({ service: a.service_id, staff: a.staff_id, rebook: a.id });
   return deliver(a, "rebook", job.payload.at,
@@ -199,7 +207,7 @@ const candidates = (now: Date) => sql`
   JOIN booking_services s ON s.tenant_id = a.tenant_id AND s.id = a.service_id
   JOIN memberships m ON m.tenant_id = a.tenant_id AND m.id = a.membership_id AND m.closed_at IS NULL
   JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id
-  WHERE a.status = 'done' AND a.rebook_sent_at IS NULL AND s.rebook_after_days > 0
+  WHERE a.status = 'done' AND a.rebook_sent_at IS NULL AND s.rebook_after_days > 0 AND ${bookable}
     AND lower(a.during) <= ${now}::timestamptz - make_interval(days => s.rebook_after_days)
     AND lower(a.during) > ${now}::timestamptz - make_interval(days => s.rebook_after_days + ${REBOOK_WINDOW_DAYS})
     AND NOT EXISTS (SELECT 1 FROM booking_appointments n WHERE n.tenant_id = a.tenant_id AND n.membership_id = a.membership_id AND n.service_id = a.service_id

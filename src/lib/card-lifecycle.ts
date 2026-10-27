@@ -26,12 +26,13 @@ export async function closeCard(cardToken: string): Promise<{ closed: true; rete
     await tx.delete(contactVerificationChallenges).where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
     await tx.delete(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
     await tx.delete(cardBirthdays).where(and(eq(cardBirthdays.tenantId, member.tenantId), eq(cardBirthdays.membershipId, member.id)));
-    // Booking: devices are forgotten, open future appointments are released, and the name and phone typed when booking are
-    // erased; the appointment rows stay as pseudonymous history with the ledger. Their push jobs carry only the appointment id.
+    // Booking: devices are forgotten, appointments not yet started are released (one under way is the shop's to finish,
+    // without a credit), and the name and phone typed when booking are erased; the rows stay as pseudonymous history with
+    // the ledger. Their push jobs carry only the appointment id.
     const mine = and(eq(bookingAppointments.tenantId, member.tenantId), eq(bookingAppointments.membershipId, member.id));
     await tx.delete(bookingPushSubscriptions).where(and(eq(bookingPushSubscriptions.tenantId, member.tenantId), eq(bookingPushSubscriptions.membershipId, member.id)));
     await tx.update(bookingAppointments).set({ status: "cancelled_by_customer", cancelledAt: new Date(), updatedAt: new Date() })
-      .where(and(mine, inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`));
+      .where(and(mine, inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`lower(${bookingAppointments.during}) > now()`));
     await tx.update(bookingAppointments).set({ customerName: "Karte geschlossen", customerPhone: null, updatedAt: new Date() }).where(mine);
     await tx.update(outboxJobs).set({ status: "suppressed", lastError: "Card closed" })
       .where(and(eq(outboxJobs.tenantId, member.tenantId), inArray(outboxJobs.kind, ["booking.reminder", "booking.change", "booking.rebook"]), inArray(outboxJobs.status, ["pending", "retry", "processing", "blocked"]),

@@ -79,6 +79,9 @@ export async function cardScope(reader: Reader, token: string) {
   return card;
 }
 
+const isBlocked = async (reader: Reader, card: { tenantId: string; membershipId: string }) =>
+  (await reader.select({ id: bookingBlockedCustomers.membershipId }).from(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, card.tenantId), eq(bookingBlockedCustomers.membershipId, card.membershipId)))).length > 0;
+
 async function settingsOf(reader: Reader, scope: Scope, enabledOnly = true) {
   const [settings] = await reader.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
   if (!settings || (enabledOnly && !settings.enabled)) throw new DomainError("NOT_FOUND", "Online booking is not available here");
@@ -181,12 +184,11 @@ export async function cardView(token: string, now = new Date()) {
   const card = await cardScope(db, token);
   const [settings] = await db.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, card.tenantId), eq(bookingSettings.locationId, card.locationId)));
   if (!settings?.enabled) return { enabled: false };
-  const [blocked] = await db.select({ id: bookingBlockedCustomers.membershipId }).from(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, card.tenantId), eq(bookingBlockedCustomers.membershipId, card.membershipId)));
   const setup = await getSetup(card);
   const mine = and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId));
   const upcoming = sql`${bookingAppointments.status} in ('requested','confirmed') and upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`;
   return {
-    enabled: true, blocked: Boolean(blocked),
+    enabled: true, blocked: await isBlocked(db, card),
     shop: { name: card.shopName, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm,
       noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard },
     services: setup.services.map(s => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceMinor: s.priceMinor, priceFrom: s.priceFrom })),
@@ -220,8 +222,7 @@ export async function book(input: BookInput, now = new Date()) {
       return { appointment: customerView(await one(tx, card.tenantId, existing.id), now), duplicate: true };
     }
     const settings = await settingsOf(tx, card);
-    const [blocked] = await tx.select({ id: bookingBlockedCustomers.membershipId }).from(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, card.tenantId), eq(bookingBlockedCustomers.membershipId, card.membershipId)));
-    if (blocked) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
+    if (await isBlocked(tx, card)) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
     const [open] = await tx.select({ count: sql<number>`count(*)::int` }).from(bookingAppointments).where(and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId),
       inArray(bookingAppointments.status, OPEN), sql`upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`));
     if (open.count >= settings.maxOpenPerCard) throw new DomainError("TOO_MANY_OPEN", "Too many open appointments on this card");
@@ -255,8 +256,7 @@ export async function reschedule(input: { token: string; appointmentId: string; 
     const row = await customerAppointment(tx, card, input.appointmentId);
     if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
     // A paused card keeps its appointment but cannot move it: the same gate as book().
-    const [blocked] = await tx.select({ id: bookingBlockedCustomers.membershipId }).from(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, card.tenantId), eq(bookingBlockedCustomers.membershipId, card.membershipId)));
-    if (blocked) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
+    if (await isBlocked(tx, card)) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
     if (row.start.getTime() === input.start.getTime() && (!input.staffId || input.staffId === row.a.staffId)) return customerView(row, now);
     if (isLateCancel(row.start, settings.cancelDeadlineHours, now)) throw new DomainError("TOO_LATE", "Too late to reschedule online");
     // Every reschedule of the card is logged on its appointment; the month is the shop's calendar month.
@@ -320,16 +320,16 @@ export async function transition(input: TransitionInput, now = new Date()) {
     assertTransition(row.a.status, input.expected, input.to, row.start, now);
     let doneAward: { balance: number; creditedQuantity: number } | undefined;
     if (input.to === "done") {
-      const [program] = await tx.select({ id: programs.id, type: programs.type, earningMode: programs.earningMode }).from(memberships)
+      const [program] = await tx.select({ id: programs.id, type: programs.type, earningMode: programs.earningMode, closedAt: memberships.closedAt }).from(memberships)
         .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
         .where(and(eq(memberships.tenantId, input.tenantId), eq(memberships.id, row.a.membershipId)));
       const [rule] = program.type === "points" && program.earningMode === "purchase"
         ? await tx.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, input.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1)
         : [];
       // A purchase programme credits only an amount the team typed: the list price is an estimate, never a confirmed purchase.
-      // No amount, or one too small for a point, completes the appointment without a credit.
+      // No amount, one too small for a point, or a closed card (nothing left to credit) completes the appointment without a credit.
       let entryId: string | null = null;
-      if (!rule || (input.purchaseAmountMinor ?? 0) >= 1) {
+      if (!program.closedAt && (!rule || (input.purchaseAmountMinor ?? 0) >= 1)) {
         try {
           const award = await awardInTransaction(tx, {
             userId: input.userId, locationId: input.locationId, membershipId: row.a.membershipId, idempotencyKey: `booking:${row.a.id}`, requestId: randomUUID(),
@@ -362,6 +362,8 @@ export async function move(input: Scope & { appointmentId: string; start: Date; 
     await lockLocation(tx, input.locationId);
     const row = await ownerAppointment(tx, input, input.appointmentId);
     if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
+    // Confirming the offered current slot changes nothing and sends nothing.
+    if (row.start.getTime() === input.start.getTime() && row.a.staffId === input.staffId) return ownerView(row, now);
     const scope = { ...input, timezone: await timezoneOf(tx, input) };
     const service = bookedService(row);
     const { slot, nextFree } = await findSlot(tx, scope, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });

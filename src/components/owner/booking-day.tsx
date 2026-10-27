@@ -18,15 +18,17 @@ const BROWSER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 export function BookingDay() {
   const { me } = useOwner();
   const [setup, reloadSetup] = useLoad<Setup>("/api/merchant/booking/setup");
-  // No date until the owner picks one: the server answers with the shop's today, never the device's.
-  const [picked, setDate] = useState<string | null>(null);
-  const [day, reload] = useLoad<DayResponse>(picked ? `/api/merchant/booking/day?date=${picked}` : "/api/merchant/booking/day");
+  // No date until the owner picks one: the server answers with the shop's today, never the device's. A pick remembers the
+  // shop's zone, so the header keeps it while the next day loads.
+  const [picked, setPicked] = useState<{ date: string; zone: string } | null>(null);
+  const [day, reload] = useLoad<DayResponse>(picked ? `/api/merchant/booking/day?date=${picked.date}` : "/api/merchant/booking/day");
   const [open, setOpen] = useState<OwnerAppointment | null>(null);
   const [blockOpen, setBlockOpen] = useState<DayBlock | "new" | null>(null);
   const [flash, setFlash] = useState<Flash>(null);
-  const timezone = day.state === "ok" ? day.data.timezone : BROWSER_ZONE;
+  const timezone = day.state === "ok" ? day.data.timezone : picked?.zone ?? BROWSER_ZONE;
   const today = todayIn(timezone);
-  const date = picked ?? (day.state === "ok" ? day.data.date : today);
+  const date = picked?.date ?? (day.state === "ok" ? day.data.date : today);
+  const pick = (target: string) => setPicked({ date: target, zone: timezone });
   const ready = setup.state === "ok" && setup.data.settings !== null;
 
   function done(text: string, tone: "ok" | "danger" | "info" = "ok") { setOpen(null); setBlockOpen(null); setFlash({ tone, text }); reload(); }
@@ -40,11 +42,11 @@ export function BookingDay() {
       {ready && setup.data.settings?.goalText && <p className="ow-muted" style={{ marginTop: "calc(var(--space-4) * -1)" }}>Dein Ziel: {setup.data.settings.goalText}</p>}
 
       <nav className="ow-row" aria-label="Tag wählen" style={{ flexWrap: "nowrap", gap: "var(--space-1)" }}>
-        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Vorheriger Tag" onClick={() => setDate(shiftDate(date, -1))}>←</button>
+        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Vorheriger Tag" onClick={() => pick(shiftDate(date, -1))}>←</button>
         <div className="ow-seg" role="group" aria-label="Schnellwahl" style={{ flex: "1 1 auto", maxWidth: 360, justifyContent: "space-between" }}>
-          {[-1, 0, 1].map(offset => { const target = shiftDate(today, offset); return <button key={offset} type="button" style={{ flex: 1 }} aria-pressed={date === target} onClick={() => setDate(target)}>{dayName(target, today)}</button>; })}
+          {[-1, 0, 1].map(offset => { const target = shiftDate(today, offset); return <button key={offset} type="button" style={{ flex: 1 }} aria-pressed={date === target} onClick={() => pick(target)}>{dayName(target, today)}</button>; })}
         </div>
-        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Nächster Tag" onClick={() => setDate(shiftDate(date, 1))}>→</button>
+        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Nächster Tag" onClick={() => pick(shiftDate(date, 1))}>→</button>
       </nav>
 
       {setup.state === "ok" && !setup.data.settings && (
@@ -102,8 +104,11 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
   const blocked = day.blockedMembershipIds.includes(appointment.membershipId);
   const zone = day.timezone, time = wallTime(appointment.start, zone);
   const pointsAmount = programType === "points" && purchase;
+  // Empty or 0 € completes without a credit (a free service); only unreadable text blocks „Fertig“.
+  const noAmount = /^(?:0+(?:[,.]0{1,2})?)?$/.test(amount.trim());
   let amountMinor: number | null = null;
-  try { amountMinor = pointsAmount ? parsePurchaseAmountMinor(amount) : null; } catch { amountMinor = null; }
+  try { amountMinor = pointsAmount && !noAmount ? parsePurchaseAmountMinor(amount) : null; } catch { amountMinor = null; }
+  const amountInvalid = pointsAmount && !noAmount && amountMinor === null;
 
   useEffect(() => {
     if (mode !== "move") return;
@@ -165,17 +170,17 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
   return (
     <OwnerDialog title={title} onClose={onClose} actions={<>{close}
       {primary === "confirm" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void confirm()} disabled={busy} aria-busy={busy} data-autofocus>Bestätigen</button>}
-      {primary === "done" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void finish()} disabled={busy || (pointsAmount && !amountMinor)} aria-busy={busy} data-autofocus>Fertig</button>}
+      {primary === "done" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void finish()} disabled={busy || amountInvalid} aria-busy={busy} data-autofocus>Fertig</button>}
     </>}>
       <p>{appointment.customerName} · <span translate="no">{appointment.cardLocator}</span> · bei {appointment.staff.name}</p>
       <div className="ow-row"><span className={STATUS_CHIP[appointment.status]}>{STATUS_WORD[appointment.status]}</span>{appointment.customerPhone && <a className="ow-link ow-link--block" href={`tel:${appointment.customerPhone}`}>{appointment.customerPhone}</a>}</div>
       {actions.includes("done") && (pointsAmount
-        ? <div className="ow-field"><label htmlFor="bd-amount">Betrag in Euro</label><input id="bd-amount" className="ow-input ow-num" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={!amountMinor || undefined} aria-describedby="bd-amount-hint" /><span id="bd-amount-hint" className="ow-hint">Bei „Fertig“ werden Punkte für diesen Betrag gutgeschrieben.</span></div>
+        ? <div className="ow-field"><label htmlFor="bd-amount">Betrag in Euro</label><input id="bd-amount" className="ow-input ow-num" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={amountInvalid || undefined} aria-describedby="bd-amount-hint" /><span id="bd-amount-hint" className="ow-hint">Bei „Fertig“ werden Punkte für diesen Betrag gutgeschrieben. Ohne Betrag gibt es keine Punkte.</span></div>
         : <p className="ow-hint">Bei „Fertig“ wird 1 {programType === "stamp" ? "Stempel" : "Punkt"} gutgeschrieben.</p>)}
       {actions.length > 0 && !actions.includes("done") && <p className="ow-hint">„Fertig“ geht ab {wallTime(new Date(Date.parse(appointment.start) - 10 * 60_000).toISOString(), zone)} Uhr.</p>}
       {error && <p className="ow-error" role="alert">{error}</p>}
       {actions.length > 0 && <div className="ow-stack" style={{ gap: "var(--space-2)" }}>
-        {primary === "confirm" && actions.includes("done") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void finish()} disabled={busy || (pointsAmount && !amountMinor)}>Fertig</button>}
+        {primary === "confirm" && actions.includes("done") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void finish()} disabled={busy || amountInvalid}>Fertig</button>}
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setError(""); setMode("move"); }} disabled={busy}>Verschieben</button>
         {actions.includes("no_show") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void noShow()} disabled={busy}>Nicht erschienen</button>}
         <button type="button" className="ow-btn ow-btn--danger" onClick={() => { setError(""); setMode("cancel"); }} disabled={busy}>Absagen</button>

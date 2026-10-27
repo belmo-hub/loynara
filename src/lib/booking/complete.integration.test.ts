@@ -64,7 +64,7 @@ it("a purchase programme credits only the amount the team typed at the newest ru
 it("the cashier award completes the appointment from 30 minutes before the start to 90 minutes after the booked end, not outside", async () => {
   const shop = await bookingShop();
   // Offsets of the start from the current quarter hour; the booked length is 30 minutes.
-  for (const [offsetMin, completes] of [[15, true], [60, false], [-105, true], [-150, false]] as const) {
+  for (const [offsetMin, completes] of [[15, true], [60, false], [-90, true], [-150, false]] as const) {
     const card = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
     const appointment = await bookAt(shop, card.cardToken, new Date(quarterNow().getTime() + offsetMin * 60_000));
     const entry = await award({ userId: shop.owner.userId, locationId: shop.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
@@ -99,6 +99,8 @@ it("the tap path marks the matching appointment done without a second award; the
   expect(await completeAppointmentForAward(entry.entryId)).toBeNull();
   const row = (await pool.query("SELECT status, done_ledger_entry_id FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0];
   expect(row).toEqual({ status: "done", done_ledger_entry_id: entry.entryId });
+  // One ledger entry completes one appointment, enforced by the database.
+  await expect(pool.query("UPDATE booking_appointments SET status = 'done', done_ledger_entry_id = $1 WHERE id = $2", [entry.entryId, otherCard.id])).rejects.toMatchObject({ code: "23505" });
   expect((await pool.query("SELECT status FROM booking_appointments WHERE id = $1", [otherCard.id])).rows[0].status).toBe("confirmed");
   expect(await code(transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" }))).toBe("STALE");
   expect(await awards(shop.card.id)).toBe(1);

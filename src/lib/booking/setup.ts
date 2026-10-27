@@ -76,10 +76,11 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
         staffIds.length ? notInArray(bookingAppointments.staffId, staffIds) : sql`true`, inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`))
       .groupBy(bookingAppointments.staffId).limit(1);
     if (leaving[0]) throw new BookingError("STAFF_HAS_APPOINTMENTS", "Staff member still has open appointments", { staffId: leaving[0].staffId, count: leaving[0].count });
-    // A staff row links only to a login of this shop: the owner, or a team member at this location.
+    // A staff row links only to a login of this shop: the owner, or a team member at this location (a deactivated login keeps
+    // its row, so an old link never blocks a save).
     const userIds = [...new Set(input.staff.flatMap(s => s.userId ? [s.userId] : []))];
     if (userIds.length) {
-      const known = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, scope.tenantId), eq(staffRoles.active, true), inArray(staffRoles.userId, userIds),
+      const known = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, scope.tenantId), inArray(staffRoles.userId, userIds),
         or(eq(staffRoles.role, "owner"), eq(staffRoles.locationId, scope.locationId))));
       if (known.length !== userIds.length) throw new DomainError("INVALID_STAFF_USER", "Unknown team member for this location");
     }

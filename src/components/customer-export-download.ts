@@ -14,7 +14,7 @@ export async function readCustomerExport(url: string, signal: AbortSignal): Prom
     const data = JSON.parse(await blob.text());
     // This is the existing customer format, not the merchant export or an error
     // response. Retain the original bytes rather than reserializing private data.
-    if (data?.formatVersion !== 1 || data.scope !== "pseudonymous-card-activity-without-contact-records" ||
+    if (data?.formatVersion !== 1 || data.scope !== "card-activity-with-booking-contact-details" ||
         typeof data.membership?.id !== "string" || !Array.isArray(data.ledger) ||
         !Array.isArray(data.redemptions) || !Array.isArray(data.consentEvents)) throw new Error("Invalid export response");
     return blob;

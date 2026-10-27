@@ -121,7 +121,7 @@ async function bookingFigures(client: PoolClient, tenantId: string, locationId: 
       count(*) FILTER (WHERE a.status = 'done' AND a.start >= loc.recent_from AND a.start < $3)::int AS "done30",
       count(*) FILTER (WHERE a.status = 'no_show' AND a.start >= loc.recent_from AND a.start < $3)::int AS "noShow30",
       count(*) FILTER (WHERE (a.status IN ('done','no_show') OR (a.status = 'cancelled_by_customer' AND a.late_cancel)) AND a.start >= loc.recent_from AND a.start < $3)::int AS "total30",
-      count(*) FILTER (WHERE a.rebook_source_id IS NOT NULL AND a.created_at >= loc.recent_from AND a.created_at < $3)::int AS "rebooked30",
+      count(*) FILTER (WHERE a.rebook_source_id IS NOT NULL AND a.status NOT LIKE 'cancelled_%' AND a.created_at >= loc.recent_from AND a.created_at < $3)::int AS "rebooked30",
       coalesce(sum(a.price_minor) FILTER (WHERE a.status = 'done' AND a.start >= loc.recent_from AND a.start < $3), 0)::bigint::text AS "listPriceMinor30",
       coalesce(sum(pa.amount_minor) FILTER (WHERE a.status = 'done' AND a.start >= loc.recent_from AND a.start < $3 AND NOT EXISTS (
         SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = a.tenant_id AND undo.reversal_of_id = a.done_ledger_entry_id AND undo.created_at < $3

@@ -108,6 +108,8 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const [result, setResult] = useState<Appointment | null>(null);
   // The rebook link counts for the first booking of this visit only.
   const [rebookSourceId, setRebookSourceId] = useState(arrival?.rebook);
+  // One service-worker scope per card, so each card keeps its own push subscription on a shared phone.
+  const swScope = `/card/${encodeURIComponent(token)}/`;
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
 
@@ -128,7 +130,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     catch { setSlotsError("Die freien Zeiten konnten nicht geladen werden."); }
   }
 
-  function chooseService(target: Service) { setService(target); setStaffId(""); void loadSlots(target, ""); go("day"); }
+  function chooseService(target: Service) { if (target.id !== arrival?.service.id) setRebookSourceId(undefined); setService(target); setStaffId(""); void loadSlots(target, ""); go("day"); }
   function chooseStaff(id: string) { setStaffId(id); if (service) void loadSlots(service, id, moving?.id); }
   function chooseSlot(target: Slot) { setSlot(target); setKey(attemptKey()); setDeadlinePassed(passed(Date.parse(target.start) - view.shop.cancelDeadlineHours * 3_600_000)); go("confirm"); }
 
@@ -178,14 +180,14 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   return <CustomerShell header={header} footer={<Legal />}>
     {view.blocked ? <p className={notice.notice} role="status">{PAUSED}</p> : null}
 
-    <Mine view={view} base={base} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} />
+    <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} />
 
     {view.blocked ? null : step === "done" && result ? <section className={card.panel} aria-labelledby="booking-step-title">
       <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={card.panelTitle}>{result.status === "requested"
         ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit" : "Angefragt: der Shop bestätigt dir den Termin")
         : `${moving ? "Verschoben" : "Dein Termin ist fix"}: ${formatWhen(result.start, tz)} bei ${result.staff.name}`}</h2>
-      <p className={card.muted}>{result.service.name}. {result.canReschedule ? `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.` : "Absagen geht bis zum Termin, zählt dann als kurzfristig."}</p>
-      <BookingPush base={base} push={view.push} reload={reload} />
+      <p className={card.muted}>{result.service.name}. {!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
+      <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
       <Button variant="quiet" size="sm" onClick={reset}>Noch einen Termin buchen</Button>
     </section> : <section className={`booking-flow ${card.panel}`} aria-labelledby="booking-step-title">
@@ -207,9 +209,9 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         {staffForService.length > 1 ? <div className={styles.staff} role="group" aria-label="Bei wem?">
           {[{ id: "", name: "Egal wer" }, ...staffForService].map(s => <button key={s.id} type="button" className={styles.chip} aria-pressed={staffId === s.id} onClick={() => chooseStaff(s.id)}>{s.name}</button>)}
         </div> : null}
-        {slotsError ? <><p className={card.alert} role="alert">{slotsError}</p><Button variant="secondary" size="sm" onClick={() => service && void loadSlots(service, staffId)}>Noch mal laden</Button></>
+        {slotsError ? <><p className={card.alert} role="alert">{slotsError}</p><Button variant="secondary" size="sm" onClick={() => service && void loadSlots(service, staffId, moving?.id)}>Noch mal laden</Button></>
           : !days ? <div className={styles.chips} aria-busy="true" aria-label="Freie Tage werden geladen.">{[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} height={44} radius={12} />)}</div>
-          : !days.length ? <p className={card.muted}>{staffId ? `Bei ${staffName(staffId)} ist in den nächsten 14 Tagen nichts frei. Wähl „Egal wer“.` : "In den nächsten 14 Tagen ist online nichts frei. Ruf kurz im Shop an."}</p>
+          : !days.length ? <p className={card.muted}>{staffId && staffName(staffId) ? `Bei ${staffName(staffId)} ist in den nächsten 14 Tagen nichts frei. Wähl „Egal wer“.` : "In den nächsten 14 Tagen ist online nichts frei. Ruf kurz im Shop an."}</p>
           : <>
             <div className={styles.chips}>{shown.map(d => <button key={d.date} type="button" className={styles.chip} aria-pressed={day?.date === d.date} onClick={() => { setDay(d); go("time"); }}>{formatDay(d.date)}</button>)}</div>
             {!allDays && days.length > 7 ? <Button variant="quiet" size="sm" onClick={() => setAllDays(true)}>Weitere Tage</Button> : null}
@@ -231,9 +233,9 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         <div className={styles.terms}>
           {view.shop.termsText ? <p className={card.rules}>{view.shop.termsText}</p> : null}
           <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
-          <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
+          {view.shop.termsText ? null : <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>}
           {view.shop.autoConfirm ? null : <p className={card.rules}>Der Shop bestätigt deinen Termin, dann ist er fix.</p>}
-          {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {view.shop.noShowBlockAfter} nicht wahrgenommenen Terminen in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
+          {view.shop.termsText || !view.shop.noShowBlockAfter ? null : <p className={card.rules}>Nach {view.shop.noShowBlockAfter} nicht wahrgenommenen Terminen in 12 Monaten geht Online-Buchung hier nicht mehr.</p>}
         </div>
         <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>
       </> : null}
@@ -253,7 +255,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 }
 
 /** Upcoming appointments with move and cancel, then the last past ones. One line when there are none. */
-function Mine({ view, base, reload, onMove, offerPush }: { view: Enabled; base: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean }) {
+function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled; base: string; scope: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean }) {
   const tz = view.shop.timezone;
   const [confirming, setConfirming] = useState<{ id: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -280,7 +282,7 @@ function Mine({ view, base, reload, onMove, offerPush }: { view: Enabled; base: 
             <Button variant="secondary" size="sm" onClick={() => setConfirming(null)}>Behalten</Button>
           </div>
         </div> : <>
-          {!a.canReschedule && onMove ? <p className={card.muted}>Verschieben ging bis {formatWhen(a.cancelDeadline, tz)}. Ruf kurz im Shop an.</p> : null}
+          {onMove && !a.canReschedule && view.shop.maxReschedulesPerMonth > 0 && passed(Date.parse(a.cancelDeadline)) ? <p className={card.muted}>Verschieben ging bis {formatWhen(a.cancelDeadline, tz)}. Ruf kurz im Shop an.</p> : null}
           <div className={styles.actions}>
             {a.canReschedule && onMove ? <Button variant="secondary" size="sm" onClick={() => onMove(a)}>Verschieben</Button> : null}
             {a.canCancel ? <Button variant="quiet" size="sm" onClick={() => { setError(""); setConfirming({ id: a.id, late: Date.now() >= Date.parse(a.cancelDeadline) }); }}>Absagen</Button> : null}
@@ -289,7 +291,7 @@ function Mine({ view, base, reload, onMove, offerPush }: { view: Enabled; base: 
       </li>;
     })}</ul> : null}
     {error ? <p className={card.alert} role="alert">{error}</p> : null}
-    {offerPush && view.upcoming.length && !view.push.subscribed ? <BookingPush base={base} push={view.push} reload={reload} /> : null}
+    {offerPush && view.upcoming.length ? <BookingPush base={base} scope={scope} push={view.push} reload={reload} /> : null}
     {view.past.length ? <>
       <h3 className={card.muted}>Zuletzt</h3>
       <ul className={styles.list}>{view.past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>

@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { expect, it } from "vitest";
 import { pool } from "@/db";
 import { PUT as setupRoute } from "@/app/api/merchant/booking/setup/route";
+import { GET as slotsRoute } from "@/app/api/card/[token]/booking/slots/route";
 import { closeCard } from "@/lib/card-lifecycle";
-import { book, cancelAffected, cancelByCustomer, cardView, createBlock, customerSlots, reschedule } from "./appointments";
+import { book, cancelAffected, cancelByCustomer, cardView, createBlock, customerSlots, reschedule, transition } from "./appointments";
 import { saveSetup } from "./setup";
 import { allWeek, bookingShop, request, withBookingDatabase } from "./test-fixture";
 
@@ -38,16 +39,20 @@ it("after the start only the shop decides: the customer's cancel is refused and 
 it("the monthly move limit counts the moves of that month only; a shop without online moves hides the option", async () => {
   const shop = await bookingShop();
   const token = shop.card.cardToken;
-  const { appointment } = await book({ token, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
-  await reschedule({ token, appointmentId: appointment.id, start: new Date("2026-11-03T10:00:00Z") }, now);
-  await reschedule({ token, appointmentId: appointment.id, start: new Date("2026-11-03T11:00:00Z") }, now);
-  expect(await code(reschedule({ token, appointmentId: appointment.id, start: new Date("2026-11-03T12:00:00Z") }, now))).toBe("RESCHEDULE_LIMIT");
-  const december = new Date("2026-12-01T06:00:00Z");
-  const next = (await book({ token, serviceId: shop.serviceId, start: new Date("2026-12-03T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, december)).appointment;
-  expect(await reschedule({ token, appointmentId: next.id, start: new Date("2026-12-03T10:00:00Z") }, december)).toMatchObject({ rescheduleCount: 1 });
+  // Two moves last month, then a touch of that row this month (as a confirm or a shop move would): this month still has no move.
+  const real = new Date(), last = new Date(Date.UTC(real.getUTCFullYear(), real.getUTCMonth() - 1, 10, 6));
+  const at = (hour: number) => new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), 11, hour));
+  const { appointment } = await book({ token, serviceId: shop.serviceId, start: at(9), customerName: "Mia", idempotencyKey: randomUUID() }, last);
+  await reschedule({ token, appointmentId: appointment.id, start: at(10) }, last);
+  await reschedule({ token, appointmentId: appointment.id, start: at(11) }, last);
+  expect(await code(reschedule({ token, appointmentId: appointment.id, start: at(12) }, last))).toBe("RESCHEDULE_LIMIT");
+  await pool.query("UPDATE booking_appointments SET updated_at = now() WHERE id = $1", [appointment.id]);
+  const soon = new Date(Math.ceil((real.getTime() + 3 * 86_400_000) / 3_600_000) * 3_600_000);
+  const next = (await book({ token, serviceId: shop.serviceId, start: soon, customerName: "Mia", idempotencyKey: randomUUID() }, real)).appointment;
+  expect(await reschedule({ token, appointmentId: next.id, start: new Date(soon.getTime() + 3_600_000) }, real)).toMatchObject({ rescheduleCount: 1 });
   await pool.query("UPDATE booking_settings SET max_reschedules_per_month = 0 WHERE tenant_id = $1", [shop.scope.tenantId]);
-  expect((await cardView(token, december)).upcoming).toMatchObject([{ id: next.id, canReschedule: false }]);
-  expect(await code(reschedule({ token, appointmentId: next.id, start: new Date("2026-12-03T11:00:00Z") }, december))).toBe("RESCHEDULE_LIMIT");
+  expect((await cardView(token, real)).upcoming).toMatchObject([{ id: next.id, canReschedule: false }]);
+  expect(await code(reschedule({ token, appointmentId: next.id, start: new Date(soon.getTime() + 7_200_000) }, real))).toBe("RESCHEDULE_LIMIT");
 });
 
 it("a move sees its own time as free; one card cannot hold two appointments at once even with two staff members", async () => {
@@ -57,6 +62,10 @@ it("a move sees its own time as free; one card cannot hold two appointments at o
   const starts = async (appointmentId?: string) => (await customerSlots(token, { serviceId: shop.serviceId, from: "2026-11-03", days: 1, appointmentId }, now)).days[0].slots.map(s => s.start);
   expect(await starts()).not.toContain("2026-11-03T09:15:00.000Z");
   expect(await starts(appointment.id)).toEqual(expect.arrayContaining(["2026-11-03T09:00:00.000Z", "2026-11-03T09:15:00.000Z"]));
+  // The route takes the appointment id and refuses anything that is not one.
+  const slotsPath = (appointmentId: string) => `/api/card/${token}/booking/slots?serviceId=${shop.serviceId}&from=2026-11-03&days=1&appointmentId=${appointmentId}`;
+  expect((await slotsRoute(request(slotsPath(appointment.id)), { params: Promise.resolve({ token }) })).status).toBe(200);
+  expect((await slotsRoute(request(slotsPath("nope")), { params: Promise.resolve({ token }) })).status).toBe(400);
   const settings = { shopType: "barber" as const, leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 };
   const both = await saveSetup(shop.scope, { settings, services: [{ id: shop.serviceId, name: "Haarschnitt", durationMin: 30, priceMinor: 2500 }], staff: [{ id: shop.staffId, name: "Lena", workingHours: allWeek() }, { name: "Max", workingHours: allWeek() }] });
   const max = both.staff[1].id;
@@ -66,6 +75,9 @@ it("a move sees its own time as free; one card cannot hold two appointments at o
 it("closing the card forgets its devices, releases open appointments and erases the booking name and phone", async () => {
   const shop = await bookingShop();
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia Muster", customerPhone: "+49 170 0000000", idempotencyKey: randomUUID() }, now);
+  // One under way right now (15 minutes ago, on the grid): the shop finishes it, without a credit.
+  const quarter = Math.floor(Date.now() / 900_000) * 900_000;
+  const running = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date(quarter - 900_000), customerName: "Mia Muster", idempotencyKey: randomUUID() }, new Date(quarter - 86_400_000))).appointment;
   await pool.query("INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth) VALUES ($1, $2, 'https://push.example.test/device', 'synthetic-p256dh', 'synthetic-auth')", [shop.scope.tenantId, shop.card.id]);
   await closeCard(shop.card.cardToken);
   expect((await pool.query("SELECT status, customer_name, customer_phone FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0]).toEqual({ status: "cancelled_by_customer", customer_name: "Karte geschlossen", customer_phone: null });
@@ -73,6 +85,10 @@ it("closing the card forgets its devices, releases open appointments and erases 
   const reminders = (await pool.query("SELECT status FROM outbox_jobs WHERE kind = 'booking.reminder' AND payload ->> 'appointmentId' = $1", [appointment.id])).rows;
   expect(reminders.length).toBeGreaterThan(0);
   expect(reminders.every(job => job.status === "suppressed")).toBe(true);
+  expect((await pool.query("SELECT status, customer_name FROM booking_appointments WHERE id = $1", [running.id])).rows[0]).toEqual({ status: "confirmed", customer_name: "Karte geschlossen" });
+  const finished = await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: running.id, to: "done", expected: "confirmed" });
+  expect(finished).toMatchObject({ status: "done" });
+  expect(finished).not.toHaveProperty("doneAward");
 });
 
 it("a block is never offered, lists the open appointments inside it, and cancels them only on request", async () => {
@@ -98,4 +114,7 @@ it("set-up upserts by id, archives the missing, and refuses to archive staff wit
   const trimmed = await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", workingHours: [] }] });
   expect(trimmed.services.map(s => s.name)).toEqual(["Haarschnitt"]);
   expect(trimmed.staff.map(s => s.name)).toEqual(["Lena"]);
+  // A staff row links only to this shop's logins.
+  expect((await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", userId: shop.owner.userId, workingHours: [] }] })).staff[0].userId).toBe(shop.owner.userId);
+  expect(await code(saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", userId: randomUUID(), workingHours: [] }] }))).toBe("INVALID_STAFF_USER");
 });
