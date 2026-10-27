@@ -1,6 +1,5 @@
-import { createPrivateKey, randomBytes } from "node:crypto";
-import { closeSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { createPrivateKey } from "node:crypto";
+import { CredentialFileError, decodeBase64Value, writeCredentialFile } from "./credential-file";
 
 type Env = Record<string, string | undefined>;
 
@@ -16,21 +15,14 @@ export const GOOGLE_SERVICE_ACCOUNT_VALUE = "GOOGLE_WALLET_SERVICE_ACCOUNT_JSON_
 const placeholder = /replace|placeholder|example|changeme|test-secret/i;
 // The demo key belongs to loynara-wallet-demo@loynara-wallet-demo-20261009 (docs/operations/google-wallet-direct.md).
 const nonProductionIdentity = /(^|[@._-])(demo|preview|device[-_]?test|tests?|testing|synthetic|fixtures?|sandbox|staging|example)([@._\d-]|$)/i;
-const unwritable = `${GOOGLE_SERVICE_ACCOUNT_VALUE} could not be written to GOOGLE_WALLET_SERVICE_ACCOUNT_FILE`;
 const invalid = `${GOOGLE_SERVICE_ACCOUNT_VALUE} must be a base64-encoded Google service-account JSON key (RSA, at least 2048 bits)`;
-
-/** Messages name settings only; they never contain the value, the key or its identity. */
-export class GoogleServiceAccountError extends Error {
-  constructor(message: string) { super(message); this.name = "GoogleServiceAccountError"; }
-}
 
 /** Pure check of the delivered value, shared by the configuration gate and the startup write. */
 export function inspectGoogleServiceAccountValue(value: string): { bytes: Buffer; issue: null } | { bytes: null; issue: string } {
   const refuse = (issue: string) => ({ bytes: null, issue });
   if (placeholder.test(value)) return refuse(`${GOOGLE_SERVICE_ACCOUNT_VALUE} contains placeholder text`);
-  const compact = value.replace(/\s+/g, "");
-  if (!compact || compact.length > 16384 || compact.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(compact)) return refuse(invalid);
-  const bytes = Buffer.from(compact, "base64");
+  const bytes = decodeBase64Value(value, 16384);
+  if (!bytes) return refuse(invalid);
   let json: unknown;
   try { json = JSON.parse(bytes.toString("utf8")); } catch { return refuse(invalid); }
   if (!json || typeof json !== "object" || Array.isArray(json)) return refuse(invalid);
@@ -49,48 +41,16 @@ export function inspectGoogleServiceAccountValue(value: string): { bytes: Buffer
   return { bytes, issue: null };
 }
 
-function outside(parent: string, child: string) {
-  const relative = path.relative(parent, child);
-  return relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
-}
-
 /**
  * Writes the delivered key to GOOGLE_WALLET_SERVICE_ACCOUNT_FILE: owner-only (0600) in an owner-only directory outside the
- * application, replaced atomically, so a restart rewrites the same file. Nothing is logged. Throws GoogleServiceAccountError.
+ * application, replaced atomically, so a restart rewrites the same file. Nothing is logged. Throws CredentialFileError.
  */
 export function materializeGoogleServiceAccount(env: Env = process.env): "absent" | "written" {
   const value = env[GOOGLE_SERVICE_ACCOUNT_VALUE];
   if (!value) return "absent";
   const { bytes, issue } = inspectGoogleServiceAccountValue(value);
-  if (!bytes) throw new GoogleServiceAccountError(issue);
-  const target = env.GOOGLE_WALLET_SERVICE_ACCOUNT_FILE;
-  if (!target || !path.isAbsolute(target)) throw new GoogleServiceAccountError(`${GOOGLE_SERVICE_ACCOUNT_VALUE} requires GOOGLE_WALLET_SERVICE_ACCOUNT_FILE as an absolute path for the key file`);
-  const directory = path.dirname(target);
-  const unsafeDirectory = new GoogleServiceAccountError("GOOGLE_WALLET_SERVICE_ACCOUNT_FILE must be in a directory outside the application that only the runtime user can access (0700, no symlink)");
-  const application = realpathSync(process.cwd());
-  if (!outside(application, path.resolve(directory))) throw unsafeDirectory;
-  try {
-    mkdirSync(directory, { recursive: true, mode: 0o700 });
-  } catch { throw new GoogleServiceAccountError(unwritable); }
-  const folder = lstatSync(directory);
-  if (!folder.isDirectory() || (folder.mode & 0o077) !== 0 || (process.getuid && folder.uid !== process.getuid()) || !outside(application, realpathSync(directory))) throw unsafeDirectory;
-  const existing = lstatSync(target, { throwIfNoEntry: false });
-  if (existing && !existing.isFile()) throw new GoogleServiceAccountError("GOOGLE_WALLET_SERVICE_ACCOUNT_FILE exists and is not a regular file");
-  const temporary = path.join(directory, `.${path.basename(target)}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`);
-  let descriptor: number | undefined;
-  try {
-    descriptor = openSync(temporary, "wx", 0o600);
-    fchmodSync(descriptor, 0o600);
-    writeFileSync(descriptor, bytes);
-    fsyncSync(descriptor);
-    closeSync(descriptor);
-    descriptor = undefined;
-    renameSync(temporary, target);
-  } catch {
-    try { if (descriptor !== undefined) closeSync(descriptor); } catch { /* the write already failed */ }
-    try { rmSync(temporary, { force: true }); } catch { /* a leftover stays inside the owner-only directory */ }
-    throw new GoogleServiceAccountError(unwritable);
-  }
+  if (!bytes) throw new CredentialFileError(issue);
+  writeCredentialFile(env.GOOGLE_WALLET_SERVICE_ACCOUNT_FILE, bytes, GOOGLE_SERVICE_ACCOUNT_VALUE, "GOOGLE_WALLET_SERVICE_ACCOUNT_FILE");
   return "written";
 }
 
@@ -103,6 +63,6 @@ export function googleServiceAccountStartupIssues(env: Env = process.env): strin
     materializeGoogleServiceAccount(env);
     return [];
   } catch (error) {
-    return [error instanceof GoogleServiceAccountError ? error.message : unwritable];
+    return [error instanceof CredentialFileError ? error.message : `${GOOGLE_SERVICE_ACCOUNT_VALUE} could not be written to GOOGLE_WALLET_SERVICE_ACCOUNT_FILE`];
   }
 }

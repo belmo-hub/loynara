@@ -142,6 +142,16 @@ characters; the auth secret has ≥ 32 varied characters, is no placeholder and 
 and its logo/asset origins are public HTTPS. Messages name settings, never values. Changing `APPLE_WALLET_AUTH_SECRET`
 after issuance invalidates every installed pass's web-service token; keep it stable.
 
+Where the platform cannot mount files (Railway), deliver the three PEM files as values instead: `APPLE_SIGNING_CERT_BASE64`,
+`APPLE_SIGNING_KEY_BASE64` and `APPLE_WWDR_CERT_BASE64`, each the file base64-encoded on one line
+(`base64 -i pass.key.pem | tr -d '\n' | pbcopy`, pasted straight into the dashboard), with the matching `*_PATH` beside it
+pointing into one directory outside the application (`/tmp/loynara-apple-wallet/pass.cert.pem`, `pass.key.pem`, `wwdr.pem`), on
+web and worker. Once the configuration gate passes, the web start guard and the worker write each value there before anything
+reads it: 0600 files in a 0700 directory owned by the runtime user, replaced atomically on every start and gone with the
+container; the Wallet runtime check then verifies key, certificate and chain from those files as usual. The gate refuses a
+value while Apple is off, placeholder text, a certificate that is not PEM, or a key that is not an unencrypted RSA key of at
+least 2048 bits. Nothing is logged. Without the values, the path variables work exactly as before.
+
 ## Runtime image
 
 `openssl` and `zip` are required at runtime and are not in `node:26-bookworm-slim`. The runtime stage installs them.
