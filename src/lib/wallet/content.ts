@@ -20,6 +20,8 @@ const TEXT = {
       superseded: "Diese Wallet-Karte wurde durch eine neuere ersetzt. Öffne deinen Kartenlink und füge die Karte erneut zu Wallet hinzu.",
     } as Record<RevokeReason, string>,
     logoAlt: (merchant: string) => `${merchant} Logo`,
+    // Apple's lock-screen suggestion near the shop (Marketing, ENG-098). Service information only, never an offer (Product).
+    nearby: (shop: string) => `${shop}: deine Karte`,
   },
   fr: {
     stamps: "tampons", points: "points", nextReward: "Prochaine récompense", rewardReady: "Récompense disponible", status: "Statut",
@@ -35,6 +37,7 @@ const TEXT = {
       superseded: "Cette carte Wallet a été remplacée par une plus récente. Ouvrez votre lien de carte et ajoutez-la de nouveau à Wallet.",
     } as Record<RevokeReason, string>,
     logoAlt: (merchant: string) => `Logo ${merchant}`,
+    nearby: (shop: string) => `${shop}\u00a0: votre carte`,
   },
 } as const;
 

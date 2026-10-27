@@ -123,7 +123,8 @@ export function googleClass(pass: WalletBrand, config: GoogleConfig) {
     hexBackgroundColor: pass.brandColor,
     // A loyalty card belongs to one person; Google must not offer to hand it to another account.
     multipleDevicesAndHoldersAllowedStatus: "ONE_USER_ALL_DEVICES",
-    ...(pass.latitude !== undefined && pass.longitude !== undefined ? { locations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
+    // Google sets radius, dwell and text for the nearby notification; the deprecated `locations` triggers nothing.
+    ...(pass.latitude !== undefined && pass.longitude !== undefined ? { merchantLocations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
   };
 }
 
@@ -143,7 +144,6 @@ export function googleObject(pass: WalletPassData, passId: string, config: Pick<
       ...(progress.rewardTitle ? [{ id: "reward", header: progress.ready ? t.rewardReady : t.nextReward, body: `${progress.rewardTitle} · ${progress.statusText}` }] : []),
       { id: "note", header: t.note, body: t.noteBody },
     ],
-    ...(pass.latitude !== undefined && pass.longitude !== undefined ? { locations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
   };
 }
 
@@ -237,7 +237,7 @@ export class GoogleWalletClient {
       const current = await classGet.json() as Record<string, unknown>;
       assertClassEligibility(current, cls.id, config);
       const patch: Record<string, unknown> = {};
-      for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "locations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
+      for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "merchantLocations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
         const observed = key === "multipleDevicesAndHoldersAllowedStatus"
           ? ({ oneUserAllDevices: "ONE_USER_ALL_DEVICES", oneUserOneDevice: "ONE_USER_ONE_DEVICE", multipleHolders: "MULTIPLE_HOLDERS" } as Record<string, string>)[String(current[key])] ?? current[key] : current[key];
         if (comparableClassField(observed) !== comparableClassField(cls[key as keyof typeof cls])) {
