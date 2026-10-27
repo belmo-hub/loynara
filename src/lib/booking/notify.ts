@@ -249,9 +249,13 @@ export async function saveCustomerPushSubscription(token: string, raw: unknown) 
   const subscription = subscriptionInput.parse(raw);
   const card = await cardScope(db, token);
   await db.transaction(async tx => {
-    await tx.execute(sql`INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth)
+    // Another card may take an endpoint over only with the browser's own keys: knowing the URL alone proves nothing.
+    const saved = await tx.execute(sql`INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth)
       VALUES (${card.tenantId}::uuid, ${card.membershipId}::uuid, ${subscription.endpoint}, ${subscription.keys.p256dh}, ${subscription.keys.auth})
-      ON CONFLICT (endpoint) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, membership_id = EXCLUDED.membership_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, failure_count = 0, created_at = now()`);
+      ON CONFLICT (endpoint) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, membership_id = EXCLUDED.membership_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, failure_count = 0, created_at = now()
+      WHERE booking_push_subscriptions.membership_id = EXCLUDED.membership_id OR (booking_push_subscriptions.p256dh = EXCLUDED.p256dh AND booking_push_subscriptions.auth = EXCLUDED.auth)
+      RETURNING id`);
+    if (saved.rowCount !== 1) throw new DomainError("PUSH_DEVICE_IN_USE", "Dieses Gerät ist schon bei einer anderen Karte angemeldet.");
     await tx.execute(sql`DELETE FROM booking_push_subscriptions WHERE tenant_id = ${card.tenantId}::uuid AND membership_id = ${card.membershipId}::uuid AND id NOT IN (
       SELECT id FROM booking_push_subscriptions WHERE tenant_id = ${card.tenantId}::uuid AND membership_id = ${card.membershipId}::uuid ORDER BY created_at DESC, id DESC LIMIT ${MAX_DEVICES_PER_CARD})`);
   });

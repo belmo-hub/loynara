@@ -42,3 +42,9 @@ Dev server: `.claude/launch.json` entry `loynara-booking` (port 3090, database `
 - Works: `npm run seed:booking-demo` creates Nagelstudio Lumi with two staff, the preset, ~30 cards and a week of appointments in every status; prints owner login, a customer card with an upcoming appointment and the day-view URL; `docs/booking-pitch-addendum.md` holds the salon pitch text.
 - Not yet: re-running skips (fresh week needs a fresh database); seed after 10:00 on pitch day so this morning's done appointments lie in the past.
 - Run: with the dev DATABASE_URL, `npm run seed:booking-demo`, then open the printed URLs on the dev server.
+
+## Slice 5 – reminders and rebooking push (fcd09bd)
+- Works: two outbox jobs per confirmed appointment (24 h, 2 h) with quiet hours 21:00–08:00, no-ops after move or cancel; shop cancellations and moves push a notice; nightly rebook scan per service interval, only with the card's own opt-in, inside the 2-per-7-days cap shared with Wallet messages; service worker, „Erinnerungen aktivieren“ and the opt-in on the booking page; iPhone without Home-Screen install gets the hint; rebook link pre-selects service and staff.
+- Not yet: no Wallet pass field or Wallet message (PassFast blocked); the generic win-back is not suppressed after a rebook push (the cap limits it); a real device subscribe was not exercised (headless Chrome cannot).
+- Run: `npx vitest run src/lib/booking/notify.integration.test.ts`; the worker (`npm run worker`) needs the VAPID trio, otherwise jobs complete as suppressed.
+- Next: founder decisions (CHECK edits, Wallet kind), then merge.

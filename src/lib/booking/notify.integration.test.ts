@@ -1,3 +1,4 @@
+import { enroll } from "@/lib/product";
 import { randomUUID } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { pool } from "@/db";
@@ -126,9 +127,16 @@ it("GET …/booking reports the push state; the push and consent routes store a 
   expect(await read()).toEqual({ subscribed: false, rebookConsent: false });
   vi.stubEnv("VAPID_PUBLIC_KEY", env.VAPID_PUBLIC_KEY); vi.stubEnv("VAPID_PRIVATE_KEY", env.VAPID_PRIVATE_KEY); vi.stubEnv("VAPID_SUBJECT", env.VAPID_SUBJECT);
   expect((await pushRoute(request(`/api/card/${token}/booking/push`, { body: { subscription: { endpoint: "https://evil.example/x", keys } } }), params)).status).toBe(400);
-  expect((await pushRoute(request(`/api/card/${token}/booking/push`, { body: { subscription: { endpoint: endpoint(), expirationTime: null, keys } } }), params)).status).toBe(204);
+  const device = endpoint();
+  expect((await pushRoute(request(`/api/card/${token}/booking/push`, { body: { subscription: { endpoint: device, expirationTime: null, keys } } }), params)).status).toBe(204);
   expect((await consentRoute(request(`/api/card/${token}/booking/consent`, { body: { rebook: true } }), params)).status).toBe(204);
   expect(await read()).toEqual({ publicKey: env.VAPID_PUBLIC_KEY, subscribed: true, rebookConsent: true });
   expect((await pool.query("SELECT channel, purpose, granted, notice_version, source FROM consent_events WHERE membership_id = $1", [shop.card.id])).rows)
     .toEqual([{ channel: "push", purpose: "booking_rebook", granted: true, notice_version: "booking-rebook-v1", source: "card" }]);
+  // Another card may claim the same browser only with that browser's keys; the URL alone is refused.
+  const second = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
+  const other = { params: Promise.resolve({ token: second.cardToken }) };
+  expect((await pushRoute(request(`/api/card/${second.cardToken}/booking/push`, { body: { subscription: { endpoint: device, expirationTime: null, keys: { ...keys, auth: "d".repeat(22) } } } }), other)).status).toBe(409);
+  expect((await pushRoute(request(`/api/card/${second.cardToken}/booking/push`, { body: { subscription: { endpoint: device, expirationTime: null, keys } } }), other)).status).toBe(204);
+  expect(await read()).toEqual({ publicKey: env.VAPID_PUBLIC_KEY, subscribed: false, rebookConsent: true });
 });
