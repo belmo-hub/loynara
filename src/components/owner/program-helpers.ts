@@ -25,6 +25,15 @@ export function confirmSentence(type: ProgramKind, mode: EarningMode) {
   return base;
 }
 
+/**
+ * The setup's suggested rules text: how customers earn, nothing about rewards. The join page and the card list rewards
+ * live; a reward sentence stored here stays behind when the owner changes the reward (ENG-101).
+ */
+export function draftRules(type: ProgramKind, mode: EarningMode, rate: number) {
+  if (type === "stamp") return "Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse.";
+  return mode === "purchase" ? `Pro 1 € Einkaufswert gibt es ${rate} ${rate === 1 ? "Punkt" : "Punkte"}, abgerundet. Das Team bestätigt jede Buchung an der Kasse.` : "Das Team vergibt Punkte an der Kasse.";
+}
+
 /** Smallest purchase (in minor units) that earns at least `cost` points, using the server's own rounding. */
 export function minimumSpendMinor(cost: number, rate: number): number | null {
   if (!Number.isSafeInteger(cost) || cost < 1 || !Number.isSafeInteger(rate) || rate < 1) return null;

@@ -7,7 +7,7 @@ import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerIcon } from "./owner-ui";
-import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
+import { confirmSentence, draftRules, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Preset = { id: string; label: string; type: ProgramKind; mode: EarningMode; rate: number; reward: string; cost: number };
 // Editable starting points only. They are examples, not approved or recommended commercial programmes.
@@ -21,12 +21,6 @@ const PRESETS: Preset[] = [
 const SWATCHES = ["#1F4A3A", "#2F6B58", "#A8492C", "#2B4A66", "#6B3A6F", "#23282B"];
 const STEPS = ["Geschäft", "Sammeln", "Prämie", "Karte & prüfen"] as const;
 const HEX = /^#[0-9a-fA-F]{6}$/;
-
-function draftRules(type: ProgramKind, mode: EarningMode, rate: number, reward: string, cost: number) {
-  const target = reward.trim() && cost > 0 ? ` Ab ${cost} ${unitDative(type)} gibt es: ${reward.trim()}.` : "";
-  if (type === "stamp") return `Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse.${target}`;
-  return mode === "purchase" ? `Pro 1 € Einkaufswert gibt es ${rate} ${rate === 1 ? "Punkt" : "Punkte"}, abgerundet. Das Team bestätigt jede Buchung an der Kasse.${target}` : `Das Team vergibt Punkte an der Kasse.${target}`;
-}
 
 export function ProgramSetup() {
   const router = useRouter();
@@ -55,7 +49,7 @@ export function ProgramSetup() {
   const cost = parseWholeNumber(f.cost);
   const effectiveMode: EarningMode = f.type === "stamp" ? "manual" : f.mode;
   const rateValid = effectiveMode !== "purchase" || (Number.isInteger(rate) && rate >= 1 && rate <= MAX_POINTS_PER_CURRENCY_UNIT);
-  const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode, rateValid ? rate : 1, f.rewardName, cost ?? 0);
+  const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode, rateValid ? rate : 1);
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
   const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
 
