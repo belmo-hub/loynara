@@ -34,6 +34,7 @@ const AVERAGE_HREF = "/merchant/program";
 const ASK_KEY = "loynara:average-ask-hidden-until";
 const MILESTONES = [100, 50, 25, 10, 1];
 const MILESTONE_KEY = "loynara:milestones-seen";
+const NEXT_KEY = "loynara:next-hidden";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
@@ -108,9 +109,11 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
+  const [nextHidden, hideNext] = useHiddenNext(next ? nextHintKey({ locationId: me.locationId, quiet, lastBookingOn: a?.lastBookingOn, kind: next.kind }) : "");
+  const showNext = next && !nextHidden;
 
   return (
-    <div className="ow-page ow-dash" data-next={next ? "" : undefined}>
+    <div className="ow-page ow-dash" data-next={showNext ? "" : undefined}>
       <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
       {failed && !board ? <ErrorCard reload={reload} />
@@ -129,7 +132,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
-        {next && <NextBar {...next} />}
+        {showNext && <NextBar {...next} onClose={() => { hideNext(); document.getElementById("ow-main")?.focus({ preventScroll: true }); }} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
@@ -181,6 +184,30 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
       <div className="ow-board-actions"><Link className="ow-btn ow-btn--board ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
     </div>}
   </>;
+}
+
+/**
+ * Which „Als Nächstes“ hint a close applies to: its kind, never its text, whose counts change daily. A quiet week is
+ * one gap however many days it grows; the next booking starts a new gap, so the hint can come back.
+ */
+export function nextHintKey(input: { locationId: string; quiet: number | "over90" | null; lastBookingOn: string | null | undefined; kind: string }) {
+  return input.quiet !== null ? `${input.locationId}:quiet:${input.lastBookingOn ?? "none"}` : `${input.locationId}:${input.kind}`;
+}
+/** Stored as "<until ms>|<hint key>": the closed hint stays away for 7 days in this browser. */
+export function isNextHidden(stored: string | null, key: string, now: number) {
+  const split = stored?.indexOf("|") ?? -1;
+  return split > 0 && stored!.slice(split + 1) === key && Number(stored!.slice(0, split)) > now;
+}
+const readNextHidden = (key: string) => () => { try { return isNextHidden(window.localStorage.getItem(NEXT_KEY), key, Date.now()); } catch { return false; } };
+
+/** The close (X) on „Als Nächstes“: on phones the bar is fixed over the page, so the owner must be able to put it away. */
+function useHiddenNext(key: string): [boolean, () => void] {
+  const stored = useSyncExternalStore(onStorage, readNextHidden(key), () => false);
+  const [dismissed, setDismissed] = useState("");
+  return [stored || dismissed === key, () => {
+    setDismissed(key);
+    try { window.localStorage.setItem(NEXT_KEY, `${Date.now() + 7 * 86_400_000}|${key}`); } catch { /* storage blocked: hidden until reload */ }
+  }];
 }
 
 const readAskHidden = () => { try { return Number(window.localStorage.getItem(ASK_KEY) ?? 0) > Date.now(); } catch { return false; } };
@@ -246,23 +273,23 @@ const cardsText = (n: number, one: string, many: string) => n === 1 ? `1${NBSP}K
  * then an open required set-up step, then the most urgent observation. Nothing urgent: no bar. While the programme is
  * ending, the end-date card leads instead.
  */
-export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | "over90" | null; sign: () => void }): { title: string; text?: string; action?: NextAction } | null {
+export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | "over90" | null; sign: () => void }): { kind: string; title: string; text?: string; action?: NextAction } | null {
   const { me, retention, referrals, readiness, winback, quiet, sign } = input;
   const isOwner = me.role === "owner";
   if (me.cancellationEndDate) return null;
-  if (quiet !== null) return { title: `${quiet === "over90" ? "Seit über 90 Tagen" : `Seit ${quiet} Tagen`} keine Buchung. Steht das Tresenschild noch gut sichtbar?`, action: { label: "Tresenschild laden", onClick: sign } };
+  if (quiet !== null) return { kind: "quiet", title: `${quiet === "over90" ? "Seit über 90 Tagen" : `Seit ${quiet} Tagen`} keine Buchung. Steht das Tresenschild noch gut sichtbar?`, action: { label: "Tresenschild laden", onClick: sign } };
   if (retention.state !== "ok" || readiness.state !== "ok") return null;
   // The step's evidence is its action sentence (#129); its title stays on the steps list.
   const setup = readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly));
-  if (setup) return { title: setup.evidence, action: setup.action ?? undefined };
+  if (setup) return { kind: `setup:${setup.id}`, title: setup.evidence, action: setup.action ?? undefined };
   const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href.startsWith("/merchant/wallet-messages") ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href.startsWith("/merchant/wallet-messages") ? last : { label: "Ansehen", href: last.href } };
   }
-  if (insight?.id === "reward-ready") return { title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
-  if (insight) return { title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
+  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
+  if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
   return null;
 }
 

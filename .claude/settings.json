@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next typegen)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm test)",
+      "Bash(npm run db:generate)",
+      "Bash(npx vitest run src/:*)",
+      "Bash(npx vitest run scripts/:*)",
+      "Bash(git status:*)",
+      "Bash(git diff)",
+      "Bash(git diff --stat)",
+      "Bash(git diff --cached)",
+      "Bash(git diff HEAD)",
+      "Bash(git log --oneline -10)",
+      "Bash(git log --oneline -20)",
+      "Bash(git branch --show-current)",
+      "Bash(git branch -a)",
+      "Bash(git worktree list)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)"
+    ],
+    "deny": [
+      "Bash(npm run production:migrate:*)",
+      "Bash(npm run production:backup:*)",
+      "Bash(npm run production:restore-check:*)",
+      "Bash(railway up:*)",
+      "Bash(railway redeploy:*)",
+      "Bash(railway down:*)",
+      "Bash(railway variables:*)",
+      "Bash(railway run:*)",
+      "Bash(railway ssh:*)",
+      "Bash(npx drizzle-kit push:*)",
+      "Bash(npx drizzle-kit drop:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git stash:*)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -n:*)"
+    ]
+  }
+}

@@ -1,10 +1,12 @@
-# Wallet — PassFast is canonical
+# Wallet — native Apple, Google Direct, PassFast being retired
+
+Decision 2026-10-27: **Apple Wallet moves from PassFast to Loynara's own Apple Developer account** (Pass Type ID `pass.com.getloynara.card`). Once native Apple is configured, every new Apple pass is native; PassFast keeps updating the Apple passes it already issued until each customer re-adds the card (card-page prompt) and PassFast is turned off. Google runs through Google Direct. The 2026-10-07 text below is history.
 
 Product correction, 2026-10-07: **PassFast is Loynara's intended production Wallet provider. Managed signing by PassFast was explicitly confirmed by the owner.** The prior recommendation to deploy direct native Apple/Google integrations is superseded.
 
 Canonical flow: **Loynara ledger/membership -> generation-bound Wallet projection/outbox -> PassFast -> Apple Wallet + Google Wallet.** Provider state never determines loyalty balance, rewards, identity, referral qualification, K-locator or reissue/closure state.
 
-This branch now implements a narrow PassFast server adapter and routes issuance/downloads/refresh/revocation through it when enabled. Direct native adapters remain dormant nonproduction fallback/reference code; production startup rejects their enablement. Provider flags remain off. Local fake-provider tests are not account or physical-device acceptance evidence.
+This branch now implements a narrow PassFast server adapter and routes issuance/downloads/refresh/revocation through it when enabled. Direct native adapters were dormant until 2026-10-27; native Apple is now the production Apple path (see the decision above). Provider flags remain off. Local fake-provider tests are not account or physical-device acceptance evidence.
 
 PassFast's current official [getting-started documentation](https://passfa.st/docs) confirms generation for both wallets, opaque external references and `get_or_create`; its [API tool reference](https://passfa.st/docs/mcp) confirms update/void and serial-based operations. The official API Reference was read in the public documentation UI: every serial lookup/update/void explicitly selects `wallet_type`. Generation for both platforms can partially succeed; Loynara uses separately authorized platform requests with one opaque serial per credential generation. No real provider calls were made in this reconciliation.
 
@@ -142,6 +144,16 @@ characters; the auth secret has ≥ 32 varied characters, is no placeholder and 
 and its logo/asset origins are public HTTPS. Messages name settings, never values. Changing `APPLE_WALLET_AUTH_SECRET`
 after issuance invalidates every installed pass's web-service token; keep it stable.
 
+Where the platform cannot mount files (Railway), deliver the three PEM files as values instead: `APPLE_SIGNING_CERT_BASE64`,
+`APPLE_SIGNING_KEY_BASE64` and `APPLE_WWDR_CERT_BASE64`, each the file base64-encoded on one line
+(`base64 -i pass.key.pem | tr -d '\n' | pbcopy`, pasted straight into the dashboard), with the matching `*_PATH` beside it
+pointing into one directory outside the application (`/tmp/loynara-apple-wallet/pass.cert.pem`, `pass.key.pem`, `wwdr.pem`), on
+web and worker. Once the configuration gate passes, the web start guard and the worker write each value there before anything
+reads it: 0600 files in a 0700 directory owned by the runtime user, replaced atomically on every start and gone with the
+container; the Wallet runtime check then verifies key, certificate and chain from those files as usual. The gate refuses a
+value while Apple is off, placeholder text, a certificate that is not PEM, or a key that is not an unencrypted RSA key of at
+least 2048 bits. Nothing is logged. Without the values, the path variables work exactly as before.
+
 ## Runtime image
 
 `openssl` and `zip` are required at runtime and are not in `node:26-bookworm-slim`. The runtime stage installs them.
@@ -273,7 +285,22 @@ The default device-test configuration still disables both providers. After a **s
 
 The browser origin and Access checks remain mandatory. Approval covers only the selected programme PNG path and its optional sole `?v=<16 lowercase hexadecimal characters>` content-version query. The adapter now checks the **actual selected logo and programme before any OAuth/provider request**; another programme, origin, path or query is rejected. The approved asset ingress must deny every other path and retain the browser hostname's Access protection. Environment declarations record approval; they cannot prove owner permission, issuer authorization, Google tester registration or a working external route.
 
-Before provider enablement, save the synthetic merchant's PNG through the existing brand editor and check the exact asset locally. The seed has no uploaded logo. Google's current guidance recommends at least 660×660 with the required safe margin; use its supplied localized Add-to-Wallet artwork. Once the narrow route is separately approved and live, verify Google can fetch the merchant logo, then perform Save → Wallet QR scan → award → observed displayed update → redeem → observed displayed update. Record elapsed provider display times separately from the committed ledger time. Real provider and hardware results remain **NOT RUN**. Apple stays disabled in this launcher until its own certificate/callback/device setup is supplied and specifically reviewed.
+Before provider enablement, save the synthetic merchant's PNG through the existing brand editor and check the exact asset locally. The seed has no uploaded logo. Google's current guidance recommends at least 660×660 with the required safe margin; use its supplied localized Add-to-Wallet artwork. Once the narrow route is separately approved and live, verify Google can fetch the merchant logo, then perform Save → Wallet QR scan → award → observed displayed update → redeem → observed displayed update. Record elapsed provider display times separately from the committed ledger time. Real provider and hardware results remain **NOT RUN**. Native Apple has its own gate below.
+
+### Separate device-test native Apple gate
+
+For the real-iPhone check of native passes (ENG-097). It runs only with a **separate specific approval**, from a checkout under `~/Developer`, never the iCloud Desktop. Set the following in the restricted `var/device-test.env`. Google stays off for the run.
+
+| Setting | Required value after approval |
+| --- | --- |
+| `DEVICE_TEST_APPROVED_WALLET_PROVIDER` | `apple-native` |
+| `APPLE_WALLET_ENABLED` | `true` |
+| `APPLE_TEAM_ID`, `APPLE_PASS_TYPE_ID` | The real team and Pass Type ID |
+| `APPLE_SIGNING_CERT_PATH`, `APPLE_SIGNING_KEY_PATH`, `APPLE_WWDR_CERT_PATH` | Absolute regular owner-only files outside this repository; no symlink |
+| `APPLE_WALLET_AUTH_SECRET` | A fresh `openssl rand -hex 32` for this run, never production's |
+| `APPLE_WALLET_WEB_SERVICE_URL` | `<DEVICE_TEST_APPROVED_ORIGIN>/api/apple` |
+
+Wallet on the iPhone calls `/api/apple/v1/…` without an Access session. Every request authenticates with that pass's own token. So this one path prefix needs its own tunnel route without Access JWT validation, plus an Access Bypass for the same path. All other paths keep the whole-hostname Access app. That exception is the owner's decision; the 26 September approval excluded Wallet routes. Then: add the card to Apple Wallet from the card page → book a stamp at the cashier → the pass on the phone shows the new balance (APNs push, then the device fetches the pass). Record the time from booking to display. Remove the path route and Bypass afterwards.
 
 ## Owner messages (ENG-043)
 

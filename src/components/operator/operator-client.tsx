@@ -17,6 +17,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
+import { copyText } from "@/components/copy-text";
 
 type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
@@ -254,7 +255,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
         <p><strong>{invitation.tenant}</strong> · für {invitation.email} · gültig bis {date(invitation.expiresAt)}</p>
         <Image unoptimized src={invitation.qr} alt={`QR-Code der Einladung für ${invitation.tenant}`} width={240} height={240} style={{ justifySelf: "center" }} />
         <p style={{ wordBreak: "break-all" }}>{invitation.link}</p>
-        <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(invitation.link).then(() => setCopied("Link kopiert."), () => setCopied("Kopieren nicht möglich.")); }}>Link kopieren</Button>
+        <Button variant="secondary" onClick={() => { void copyText(invitation.link).then(ok => setCopied(ok ? "Link kopiert." : "Kopieren nicht möglich.")); }}>Link kopieren</Button>
         {copied ? <p role="status">{copied}</p> : null}
         <p className="ow-muted">Der Link wird nur jetzt angezeigt. Geht er verloren: widerrufen und neu einladen.</p>
       </div> : null}

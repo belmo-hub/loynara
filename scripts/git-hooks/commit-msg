@@ -1,0 +1,8 @@
+#!/bin/sh
+# Rejects a commit message that carries an attribution trailer or names a tool or vendor (CONTRIBUTING.md, "Pull requests").
+# Wired by `npm ci` through the postinstall script; by hand: git config core.hooksPath scripts/git-hooks
+msg="$(grep -v '^#' "$1" | sed -E 's#\.claude/##g; s#CLAUDE\.md##g')"
+if printf '%s\n' "$msg" | grep -Eiq 'co-authored-by:|generated with|(^|[^a-z])(claude|anthropic|codex|openai|chatgpt|copilot)([^a-z]|$)'; then
+  echo "commit-msg: the message carries an attribution trailer or names a tool or vendor; see CONTRIBUTING.md." >&2
+  exit 1
+fi

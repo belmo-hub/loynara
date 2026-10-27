@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, memberships, programRuleVersions, programs, purchaseAwards, staffRoles } from "@/db/schema";
+import { ledgerEntries, memberships, programRuleVersions, programs, purchaseAwards, referralCodes, referrals, staffRoles } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
 import { createMerchant, enroll, getMerchantContext, updateProgramExtras } from "./product";
 import { getMerchantSpend } from "./merchant-analytics";
 import { createAdditionalLocation } from "./locations";
+import { configureReferrals, getCardReferralShare } from "./referrals";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Spend tests require looplocal_test");
 
@@ -185,5 +186,98 @@ describe("owner spend figures (ENG-070)", () => {
     await expect(getMerchantSpend(await user())).rejects.toMatchObject({ code: "FORBIDDEN" });
     await db.update(staffRoles).set({ active: false }).where(and(eq(staffRoles.userId, ownerA), eq(staffRoles.tenantId, a.tenantId)));
     await expect(getMerchantSpend(ownerA)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("customers back with the bonus or new on a referral (ENG-095)", () => {
+  const day = 86_400_000;
+  /** One booking `daysAgo`: a staff award, its till amount when given, and a bonus entry in the same request when given. */
+  const booking = async (shop: { tenantId: string; locationId: string }, actor: string, membershipId: string, daysAgo: number, options: { amount?: number; rule?: string; bonus?: "winback_bonus" | "happy_hour" | "birthday_bonus" | "challenge_bonus" | "welcome_bonus"; staff?: boolean } = {}) => {
+    const at = new Date(Date.now() - daysAgo * day), requestId = randomUUID();
+    const base = { tenantId: shop.tenantId, locationId: shop.locationId, membershipId, actorUserId: actor, requestId, kind: "award", createdAt: at };
+    const [staff] = options.staff === false ? [] : await db.insert(ledgerEntries).values({ ...base, idempotencyKey: randomUUID(), source: "staff_online", delta: 5 }).returning();
+    if (staff && options.amount) await db.insert(purchaseAwards).values({ ledgerEntryId: staff.id, tenantId: shop.tenantId, ruleVersionId: options.rule!, amountMinor: options.amount, currency: "EUR", appliedRate: 1, pointsAwarded: 5 });
+    if (options.bonus) await db.insert(ledgerEntries).values({ ...base, idempotencyKey: randomUUID(), source: options.bonus, delta: 10 });
+    return staff;
+  };
+
+  it("counts each card once in its earliest line, every trigger booking with its till amount, and nothing else", async () => {
+    const owner = await user();
+    const shop = await pointsShop(owner, "Synthetic Brought Points");
+    await db.update(programs).set({ winbackEnabled: true, winbackDays: 30, winbackBonus: 10 }).where(eq(programs.id, shop.programId));
+    await configureReferrals({ actorUserId: owner, programSlug: shop.programSlug, enabled: true, referrerBonus: 5, referredBonus: 5 });
+    const rule = await ruleOf(shop.programId);
+    const card = () => enroll({ slug: shop.programSlug, acceptedTerms: true }).then(row => row.id);
+    const buy = (membershipId: string, purchaseAmountMinor: number) =>
+      award({ userId: owner, locationId: shop.locationId, membershipId, purchaseAmountMinor, ruleVersionId: rule, idempotencyKey: randomUUID(), requestId: randomUUID() });
+
+    // Back after 40 days through the real counter path (the bonus rides on this booking), and once more 10 days ago.
+    const back = await card();
+    await booking(shop, owner, back, 40, { amount: 500, rule });
+    await buy(back, 1250);
+    expect((await db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, back), eq(ledgerEntries.source, "winback_bonus"))))).toHaveLength(1);
+    await booking(shop, owner, back, 10, { amount: 800, rule, bonus: "winback_bonus" });
+    // A referred card's first booking through the real path; the referrer gets a bonus but never counts.
+    const referrer = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+    const referralCode = new URL((await getCardReferralShare(referrer.cardToken)).shareUrl).searchParams.get("ref")!;
+    const referred = (await enroll({ slug: shop.programSlug, acceptedTerms: true, referralCode })).id;
+    await buy(referred, 900);
+    await buy(referrer.id, 300);
+    // Both triggers: the referral 20 days ago comes first, the bonus booking without a till amount 5 days ago counts too.
+    const both = await card();
+    const [code] = await db.select().from(referralCodes).where(eq(referralCodes.membershipId, referrer.id));
+    const refer = async (membershipId: string, entryId: string, status: "qualified" | "reversed") => db.insert(referrals).values({ tenantId: shop.tenantId, programId: shop.programId, referrerMembershipId: referrer.id, referredMembershipId: membershipId, codeId: code.id, referrerBonus: 5, referredBonus: 5, status, qualifyingEntryId: entryId });
+    await refer(both, (await booking(shop, owner, both, 20, { amount: 400, rule })).id, "qualified");
+    await booking(shop, owner, both, 5, { bonus: "winback_bonus" });
+
+    // Not brought: a corrected win-back booking, a referral removed in review, other bonuses, a bonus row without a booking.
+    const undone = await card();
+    await booking(shop, owner, undone, 40, { amount: 500, rule });
+    const wrong = await buy(undone, 700);
+    await reverseEntry({ userId: owner, locationId: shop.locationId, entryId: wrong.entryId, reason: "Synthetic wrong card", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const dropped = await card();
+    await refer(dropped, (await booking(shop, owner, dropped, 2, { amount: 600, rule })).id, "reversed");
+    const regular = await card();
+    for (const bonus of ["happy_hour", "birthday_bonus", "challenge_bonus", "welcome_bonus"] as const) await booking(shop, owner, regular, 3, { amount: 1000, rule, bonus });
+    await booking(shop, owner, await card(), 4, { bonus: "winback_bonus", staff: false });
+    await booking(shop, owner, await card(), 40, { amount: 5000, rule, bonus: "winback_bonus" }); // before the 30 days
+
+    const [here] = (await getMerchantSpend(owner, { asOf: later() })).locations;
+    expect(here.brought).toEqual({ customers: 3, winback: 1, referral: 2, bookings: 5, revenue: { amountMinor: 1250 + 800 + 900 + 400, pricedBookings: 4 } });
+
+    // The correction of a trigger booking removes its amount, and the card once no trigger is left.
+    const [last] = await db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, referred), eq(ledgerEntries.source, "staff_online")));
+    await reverseEntry({ userId: owner, locationId: shop.locationId, entryId: last.id, reason: "Synthetic wrong card", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect((await getMerchantSpend(owner, { asOf: later() })).locations[0].brought).toEqual({ customers: 2, winback: 1, referral: 1, bookings: 4, revenue: { amountMinor: 1250 + 800 + 400, pricedBookings: 3 } });
+  });
+
+  it("stays hidden until a brought customer in the last 90 days, then shows a true 0; stamp shops get no euros", async () => {
+    const owner = await user();
+    const shop = await stampShop(owner, "Synthetic Brought Stamps");
+    const card = (await enroll({ slug: shop.programSlug, acceptedTerms: true })).id;
+    const brought = async () => (await getMerchantSpend(owner, { asOf: later() })).locations[0].brought;
+    expect(await brought()).toBeNull();
+    await booking(shop, owner, card, 95, { bonus: "winback_bonus" });
+    expect(await brought()).toBeNull();
+    await booking(shop, owner, card, 85, { bonus: "winback_bonus" });
+    expect(await brought()).toEqual({ customers: 0, winback: 0, referral: 0, bookings: 0, revenue: null });
+    await booking(shop, owner, card, 2, { bonus: "winback_bonus" });
+    expect(await brought()).toEqual({ customers: 1, winback: 1, referral: 0, bookings: 1, revenue: null });
+  });
+
+  it("counts each location's own trigger bookings only, and opens each location's gate on its own", async () => {
+    const owner = await user();
+    const a = await pointsShop(owner, "Synthetic Brought A");
+    const b = await createAdditionalLocation(owner, { name: "Zweiter Laden", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Zweite Karte", programType: "stamp", rulesText: "Ein Stempel pro Besuch.", rewardTitle: "Kaffee", rewardCost: 5 });
+    const c = await createAdditionalLocation(owner, { name: "Dritter Laden", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Dritte Karte", programType: "stamp", rulesText: "Ein Stempel pro Besuch.", rewardTitle: "Kaffee", rewardCost: 5 });
+    const at = (shop: { tenantId: string; locationId: string; programSlug: string }) => ({ tenantId: shop.tenantId, locationId: shop.locationId });
+    const join = async (slug: string) => (await enroll({ slug, acceptedTerms: true })).id;
+    await booking(at(a), owner, await join(a.programSlug), 2, { amount: 700, rule: await ruleOf(a.programId), bonus: "winback_bonus" });
+    for (const daysAgo of [3, 4]) await booking({ tenantId: a.tenantId, locationId: b.locationId }, owner, await join(b.programSlug), daysAgo, { bonus: "winback_bonus" });
+
+    const byLocation = new Map((await getMerchantSpend(owner, { asOf: later() })).locations.map(row => [row.locationId, row.brought]));
+    expect(byLocation.get(a.locationId)).toEqual({ customers: 1, winback: 1, referral: 0, bookings: 1, revenue: { amountMinor: 700, pricedBookings: 1 } });
+    expect(byLocation.get(b.locationId)).toEqual({ customers: 2, winback: 2, referral: 0, bookings: 2, revenue: null });
+    expect(byLocation.get(c.locationId)).toBeNull();
   });
 });

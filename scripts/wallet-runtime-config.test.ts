@@ -15,8 +15,8 @@ describe("shared web and worker production Wallet runtime gate", () => {
     const env = { ...safe, APPLE_WALLET_ENABLED: "true", APPLE_PASS_TYPE_ID: "pass.com.owned-domain.loyalty", APPLE_TEAM_ID: "ABCDE12345",
       APPLE_SIGNING_CERT_PATH: "/run/secrets/unavailable-apple-cert.pem", APPLE_SIGNING_KEY_PATH: "/run/secrets/unavailable-apple-key.pem", APPLE_WWDR_CERT_PATH: "/run/secrets/unavailable-apple-wwdr.pem",
       APPLE_WALLET_AUTH_SECRET: "synthetic-apple-auth-0123456789abcdef", APPLE_WALLET_WEB_SERVICE_URL: "https://app.owned-domain.org/api/apple" };
-    expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
-    expect(productionWalletRuntimeIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(/Apple Wallet enabled without working configuration/)]));
+    expect(productionConfigIssues(env)).toEqual([]);
+    expect(productionWalletRuntimeIssues(env)).toEqual([expect.stringMatching(/Apple Wallet enabled without working configuration/)]);
   });
 
   it("rejects unreadable Google credentials despite complete production declarations without echoing paths", () => {

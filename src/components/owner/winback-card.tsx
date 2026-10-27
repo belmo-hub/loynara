@@ -15,6 +15,10 @@ const CARD = copyFor("de");
 const fromSaved = (w: Winback): Draft => ({ enabled: w.enabled, days: String(w.days), bonus: String(w.bonus) });
 
 /** „Kunden zurückholen“ (ENG-044): the owner picks N and the bonus; the text is fixed. The server checks every value again. */
+const points = (n: number) => `${n} ${n === 1 ? "Punkt" : "Punkte"}`;
+/** The allowed bonus as owners read it: "1 Punkt" when one is the most, never "1 bis 1 Punkte". */
+export const bonusRange = (max: number) => max <= 1 ? points(1) : `1 bis ${points(max)}`;
+
 export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; shop: string; initial: Winback; reminders: boolean }) {
   const [saved, setSaved] = useState<Draft>(() => fromSaved(initial));
   const [draft, setDraft] = useState<Draft>(saved);
@@ -62,7 +66,7 @@ export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; 
         : <div className="ow-field">
           <label htmlFor="winback-bonus">Bonus</label>
           <NumberStepper id="winback-bonus" value={draft.bonus} onChange={value => edit({ bonus: value })} min={0} max={initial.bonusMax} unit={POINT} bonus offAtZero invalid={!bonusValid} describedBy="winback-bonus-hint" />
-          <LimitLine id="winback-bonus-hint" valid={bonusValid}>1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</LimitLine>
+          <LimitLine id="winback-bonus-hint" valid={bonusValid}>{bonusRange(initial.bonusMax)}: höchstens ein Viertel deiner günstigsten Prämie.</LimitLine>
         </div>}
       {reminders
         ? <p className="ow-hint">Wer {last.days} Tage nicht da war und in den 14 Tagen danach wiederkommt, bekommt den Bonus; er wird beim Bestätigen des Besuchs mitgebucht. Kundinnen und Kunden mit Wallet-Nachrichten bekommen dazu einmal eine Erinnerung, montags bis samstags zwischen 10 und 18 Uhr.</p>
@@ -75,7 +79,7 @@ export function WinbackCard({ slug, shop, initial, reminders }: { slug: string; 
         </CardLinePreview>}
       {/* The reminder is not the card, so with reminders the rules keep their own line. */}
       {reminders && rules && <p className="ow-hint">Steht auf der Karte: {rules}</p>}
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); remember(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar section="Willkommen-zurück-Bonus" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); remember(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }
@@ -147,11 +151,11 @@ export function BirthdayCard({ slug, type, initial }: { slug: string; type: "sta
         : <div className="ow-field">
           <label htmlFor="birthday-bonus">Bonus in Punkten (0 = kein Bonus)</label>
           <input id="birthday-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.bonus} aria-invalid={!bonusValid} onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
-          <p className="ow-hint">1 bis {initial.bonusMax} Punkte: höchstens ein Viertel deiner günstigsten Prämie.</p>
+          <p className="ow-hint">{bonusRange(initial.bonusMax)}: höchstens ein Viertel deiner günstigsten Prämie.</p>
         </div>}
       <p className="ow-hint">Kundinnen und Kunden können auf ihrer Karte Tag und Monat ihres Geburtstags eintragen. In ihrer Geburtstagswoche wird der Bonus beim Bestätigen eines Besuchs mitgebucht, einmal im Jahr. Mit Wallet-Nachrichten bekommen sie dazu eine Erinnerung. {initial.cards} {initial.cards === 1 ? "Karte hat" : "Karten haben"} einen Geburtstag eingetragen.</p>
       <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{birthdayText(type, bonusValid ? bonus : 0, "[Datum]")}</p></div>
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar section="Geburtstags-Bonus" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }
