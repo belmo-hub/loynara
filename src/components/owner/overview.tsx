@@ -67,7 +67,7 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
 /* ───────────── Active business ───────────── */
 
 function ActiveBusiness({ me }: { me: MeResponse }) {
-  const { locations, hiddenSurfaces } = useOwner();
+  const { locations } = useOwner();
   const isOwner = me.role === "owner";
   const [analytics, reloadAnalytics] = useLoad<LocationAnalytics>(`/api/merchant/analytics/location?locationId=${encodeURIComponent(me.locationId)}`);
   // Euros are owner-only (the spend read refuses everyone else); the Leitung's board leads with their card stock.
@@ -143,7 +143,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
-          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
+          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
         {showNext && <NextBar {...next} onClose={() => { hideNext(); document.getElementById("ow-main")?.focus({ preventScroll: true }); }} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>

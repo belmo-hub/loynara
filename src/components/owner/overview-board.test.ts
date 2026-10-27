@@ -269,6 +269,8 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     const off = showing([row("loc-1", null)]);
     expect(labels(off)).toContain("Wieder­gekommen");
     expect(off).toContain('href="/merchant/program#winback-title">Willkommen-zurück-Bonus ist aus</a>');
+    state.hidden = ["walletMessages"]; // the pilot: the setting is on Programm, so the tile links there too
+    expect(showing([row("loc-1", null)])).toContain('href="/merchant/program#winback-title">Willkommen-zurück-Bonus ist aus</a>');
   });
 
   it("follows the active location", () => {
