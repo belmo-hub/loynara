@@ -22,7 +22,7 @@ const PERMISSIONS: Array<[string, boolean, boolean]> = [
   ["Kundenkarten und ihren Verlauf ansehen", false, true],
   ["Fehlbuchungen korrigieren (bis 100 je Vorgang)", false, true],
   ["Verlorene Karte neu ausstellen", false, true],
-  ["Sammelregeln und Prämien ansehen", false, true],
+  ["Programm ansehen", false, true],
   ["Programm und Prämien ändern", false, false],
   ["Empfehlungen verwalten und Ergebnisse ansehen", false, false],
   ["Team einladen und sperren", false, false],

@@ -9,7 +9,7 @@ const program = {
   rewards: [{ id: "v1", rewardId: "r1", title: "Gratiskaffee", cost: 10, termsText: "", sortOrder: 0 }, { id: "v2", rewardId: "r2", title: "Keks", cost: 1, termsText: "", sortOrder: 1 }],
   referral: { enabled: false, referrerBonus: 0, referredBonus: 0 },
 } as unknown as PublicProgram;
-const base: ListData = { me, program, winback: null, reviews: 0, nfc: false };
+const base: ListData = { me, program, winback: null, reviews: 0, nfc: false, logo: true };
 const rows = (data: Partial<ListData>) => Object.fromEntries(programSections({ ...base, ...data }).flatMap(section => section.rows).map(row => [row.title, row]));
 
 describe("Programm list", () => {
@@ -32,6 +32,10 @@ describe("Programm list", () => {
     expect([all["Willkommen zurück"].sub, all["Willkommen zurück"].value]).toEqual([undefined, undefined]); // win-back read failed or pending
     expect(Object.keys(all)).not.toContain("Punkte verfallen");
     expect(Object.keys(all)).not.toContain("NFC-Tap");
+  });
+
+  it("promises the logo on the Kundenkarte row only where the logo upload is offered", () => {
+    expect([rows({}).Kundenkarte.sub, rows({ logo: false }).Kundenkarte.sub]).toEqual(["Logo und Farbe", "Farbe"]);
   });
 
   it("shows numbers big and set texts as sub-lines", () => {

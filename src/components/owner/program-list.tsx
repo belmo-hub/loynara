@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CalendarCheck, Check, Clock, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Sparkles, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { ArrowRight, BadgePlus, CalendarCheck, Check, Clock, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
@@ -13,7 +13,7 @@ import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
 type Row = { href: string; icon: LucideIcon; title: string; sub?: string; value?: string; big?: boolean; pair?: boolean; off?: boolean };
-export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; reviews: number; nfc: boolean };
+export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; reviews: number; nfc: boolean; logo: boolean };
 
 const ask = (question: Question) => ({ href: `/merchant/program/${question}`, title: QUESTIONS[question] });
 const off = (value: string) => ({ value, off: true });
@@ -29,7 +29,7 @@ export function quoteStart(text: string, max = 44) {
 }
 
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
-export function programSections({ me, program, winback, reviews, nfc }: ListData) {
+export function programSections({ me, program, winback, reviews, nfc, logo }: ListData) {
   const type = program.programType, points = type === "points", referral = program.referral;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
@@ -43,7 +43,7 @@ export function programSections({ me, program, winback, reviews, nfc }: ListData
       ...(nfc ? [{ ...ask("nfc"), icon: Nfc, ...(tap ? { sub: tap.label } : off("Aus")) }] : []),
     ] },
     { title: "Extras", note: EXCLUDED_GOODS, rows: [
-      { ...ask("welcome-bonus"), icon: Sparkles, sub: "Mit der ersten Buchung, einmal pro Karte", ...(me.welcomeBonus ? big(`+${me.welcomeBonus}`) : off("Aus")) },
+      { ...ask("welcome-bonus"), icon: BadgePlus, sub: "Mit der ersten Buchung, einmal pro Karte", ...(me.welcomeBonus ? big(`+${me.welcomeBonus}`) : off("Aus")) },
       { ...ask("winback"), icon: RefreshCw, ...(winback && { sub: `Nach ${winback.days} Tagen ohne Buchung`, ...(!winback.enabled ? off("Aus") : winback.bonus ? big(`+${winback.bonus}`) : off("Kein Bonus")) }) },
       { ...ask("challenge"), icon: CalendarCheck, sub: "Bonus für viele Buchungen in einem Monat", ...(me.challengeVisits ? big(`+${me.challengeBonus ?? 1}`) : off("Aus")) },
       { ...ask("levels"), icon: Medal, sub: "Bronze, Silber, Gold nach Buchungstagen", ...(me.levelsEnabled ? { value: "An" } : off("Aus")) },
@@ -52,7 +52,8 @@ export function programSections({ me, program, winback, reviews, nfc }: ListData
         ...(!referral?.enabled ? off("Aus") : referral.referrerBonus === referral.referredBonus ? big(`+${referral.referrerBonus}`) : { ...big(`+${referral.referrerBonus} · +${referral.referredBonus}`), pair: true }) }) },
       ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(me.happyHourEnabled ? { value: "An" } : off("Aus")) }] : []),
     ] },
-    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: "Logo und Farbe" }] },
+    // Where the logo upload is withheld (pilot surfaces), the card studio offers the colour only.
+    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Logo und Farbe" : "Farbe" }] },
     { title: "Infos auf der Karte", rows: [
       { ...ask("news"), icon: Megaphone, ...(me.cardNews ? { sub: quoteStart(me.cardNews) } : off("Keine")) },
       { ...ask("review-link"), icon: Star, ...(me.reviewUrl ? { sub: host(me.reviewUrl) } : off("Kein Link")) },
@@ -104,7 +105,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
   }, [ready, toast]);
 
   const sections = program.state === "ok" && ready ? programSections({
-    me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"),
+    me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"),
     reviews: referrals.state === "ok" ? referrals.data.referrals.filter(item => item.status === "review").length : 0,
   }) : null;
   return (

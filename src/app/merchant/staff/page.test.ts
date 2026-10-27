@@ -13,7 +13,7 @@ describe("team permission explanation", () => {
   it("distinguishes manager read access to rules and rewards from owner-only changes", () => {
     const html = renderToStaticMarkup(createElement(StaffPage));
     const rows = html.match(/<tr>.*?<\/tr>/g) ?? [];
-    const readRow = rows.find(row => row.includes("Sammelregeln und Prämien ansehen"));
+    const readRow = rows.find(row => row.includes("Programm ansehen"));
     const editRow = rows.find(row => row.includes("Programm und Prämien ändern"));
     expect(readRow).toBeDefined();
     expect(editRow).toBeDefined();
