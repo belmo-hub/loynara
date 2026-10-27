@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { birthdayWeek, checkMessageText, consentText, needsActionHint } from "./wallet-message-rules";
+import { almostText, birthdayCashierLine, birthdayRule, birthdayText, birthdayWeek, checkMessageText, consentText, needsActionHint, winbackCashierLine, winbackRule, winbackText } from "./wallet-message-rules";
 
 describe("message text rules", () => {
   it("accepts the founder's example and counts characters, not bytes", () => {
@@ -31,6 +31,42 @@ describe("texts and hints", () => {
   it("shows the action hint for Punkte, Stempel or doppelt in any case, never otherwise", () => {
     for (const text of ["Doppelte Punkte heute", "STEMPEL extra", "heute doppelt", "punkte"]) expect(needsActionHint(text), text).toBe(true);
     expect(needsActionHint("Heute ruhig: Kaffee gratis zum Croissant")).toBe(false);
+  });
+});
+
+describe("a one-point bonus in the singular (ENG-104)", () => {
+  // Legal's rules lines stay word for word: between 1 and 2 only the number may differ.
+  const onlyTheNumber = (one: string, two: string) => expect(one).toBe(two.replace("2 Punkte", "1 Punkt"));
+  it("win-back and birthday reminders", () => {
+    expect(winbackText("points", 1, "5. November")).toBe("Wir vermissen dich. Komm bis zum 5. November vorbei, dann gibt's 1 Punkt extra.");
+    expect(winbackText("points", 2, "5. November")).toBe("Wir vermissen dich. Komm bis zum 5. November vorbei, dann gibt's 2 Punkte extra.");
+    expect(birthdayText("points", 1, "8. November")).toBe("Alles Gute zum Geburtstag! Komm bis zum 8. November vorbei, dann gibt's 1 Punkt extra.");
+    expect(birthdayText("points", 2, "8. November")).toBe("Alles Gute zum Geburtstag! Komm bis zum 8. November vorbei, dann gibt's 2 Punkte extra.");
+    expect(winbackText("stamp", 1, "5. November")).toBe("Wir vermissen dich. Komm bis zum 5. November vorbei, dann gibt's einen Stempel extra.");
+  });
+  it("win-back and birthday rules on the card", () => {
+    expect(winbackRule("points", 30, 1)).toContain("einmal 1 Punkt extra. Mit Nachrichten");
+    expect(winbackRule("points", 30, 2)).toContain("einmal 2 Punkte extra. Mit Nachrichten");
+    onlyTheNumber(winbackRule("points", 30, 1), winbackRule("points", 30, 2));
+    onlyTheNumber(winbackRule("points", 30, 1, false), winbackRule("points", 30, 2, false));
+    expect(winbackRule("stamp", 30, 1)).toContain("einmal 1 Stempel extra.");
+    expect(birthdayRule("points", 1)).toContain("bei einem bestätigten Besuch 1 Punkt extra. Nicht auf Tabak");
+    expect(birthdayRule("points", 2)).toContain("bei einem bestätigten Besuch 2 Punkte extra. Nicht auf Tabak");
+    onlyTheNumber(birthdayRule("points", 1), birthdayRule("points", 2));
+    expect(birthdayRule("stamp", 1)).toContain("bei einem bestätigten Besuch 1 Stempel extra.");
+  });
+  it("„Fast geschafft“ with one point missing", () => {
+    expect(almostText("points", 1, "Pizza gratis")).toBe("Nur noch 1 Punkt bis zu deiner Prämie: Pizza gratis.");
+    expect(almostText("points", 2, "Pizza gratis")).toBe("Nur noch 2 Punkte bis zu deiner Prämie: Pizza gratis.");
+    expect(almostText("stamp", 1, "Pizza gratis")).toBe("Nur noch 1 Stempel bis zu deiner Prämie: Pizza gratis.");
+  });
+  it("the lines the cashier sees", () => {
+    expect(winbackCashierLine("points", 1)).toBe("Willkommen zurück: +1 Punkt extra");
+    expect(winbackCashierLine("points", 2)).toBe("Willkommen zurück: +2 Punkte extra");
+    expect(winbackCashierLine("stamp", 1)).toBe("Willkommen zurück: +1 Stempel extra");
+    expect(birthdayCashierLine("points", 1)).toBe("Geburtstag: +1 Punkt extra");
+    expect(birthdayCashierLine("points", 2)).toBe("Geburtstag: +2 Punkte extra");
+    expect(birthdayCashierLine("stamp", 1)).toBe("Geburtstag: +1 Stempel extra");
   });
 });
 

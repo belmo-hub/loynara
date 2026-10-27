@@ -140,7 +140,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     <section className={`customer-activity ${styles.panel}`} aria-labelledby="customer-activity-title">
       <h2 id="customer-activity-title" className={styles.panelTitle}><History size={18} aria-hidden="true" /> {t.activity}</h2>
-      {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
+      {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {Math.abs(item.change) === 1 && programType === "points" ? t.point : unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
     {rulesText || pointsExpiry || challenge || level ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">

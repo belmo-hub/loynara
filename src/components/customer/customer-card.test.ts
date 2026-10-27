@@ -50,6 +50,28 @@ describe("progress (Impeccable K1, K3)", () => {
   });
 });
 
+describe("one point in the singular on the card (ENG-104)", () => {
+  const card = (locale: "de" | "fr", balance: number, change: number, programType: "points" | "stamps" = "points") =>
+    renderToStaticMarkup(h(CustomerCard, { ...base, programType, locale, balance, activity: [{ id: "a", label: "x", date: "d", change }] }));
+  it("balance line, in German and French", () => {
+    expect(card("de", 1, 1)).toMatch(/>1<\/span> <em>Punkt<\/em>/);
+    expect(card("de", 2, 1)).toMatch(/>2<\/span> <em>Punkte<\/em>/);
+    expect(card("fr", 1, 1)).toMatch(/>1<\/span> <em>point<\/em>/);
+    expect(card("fr", 2, 1)).toMatch(/>2<\/span> <em>points<\/em>/);
+    expect(card("de", 1, 1, "stamps")).toMatch(/>1<\/span> <em>Stempel<\/em>/);
+  });
+  it("activity line, for a booking and a redemption, in German and French", () => {
+    expect(card("de", 5, 1)).toContain('<b data-sign="plus">+1 Punkt</b>');
+    expect(card("de", 5, 2)).toContain('<b data-sign="plus">+2 Punkte</b>');
+    expect(card("de", 5, -1)).toContain('<b data-sign="minus">-1 Punkt</b>');
+    expect(card("de", 5, -2)).toContain('<b data-sign="minus">-2 Punkte</b>');
+    expect(card("fr", 5, 1)).toContain('<b data-sign="plus">+1 point</b>');
+    expect(card("fr", 5, 2)).toContain('<b data-sign="plus">+2 points</b>');
+    expect(card("fr", 5, -1)).toContain('<b data-sign="minus">-1 point</b>');
+    expect(card("de", 5, 1, "stamps")).toContain('<b data-sign="plus">+1 Stempel</b>');
+  });
+});
+
 describe("ending programme (ENG-075, card half)", () => {
   it("opens the card with the end date and what still works until then", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, endsOn: "30. November 2026" }));

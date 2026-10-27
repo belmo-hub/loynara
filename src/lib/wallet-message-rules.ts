@@ -56,7 +56,9 @@ export const WINBACK_DAYS = { min: 14, max: 90, default: 30 } as const;
 /** Mon–Sat 10:00–18:00 in the location's timezone (ISO weekdays, as happy hour). */
 export const WINBACK_SEND_WINDOW = { days: [1, 2, 3, 4, 5, 6], start: "10:00", end: "18:00" };
 
-const extra = (type: "stamp" | "points", bonus: number) => type === "stamp" ? "einen Stempel extra" : `${bonus} Punkte extra`;
+/** „1 Punkt“, „2 Punkte“ (stamps read the same in both numbers). */
+const points = (n: number) => `${n} ${n === 1 ? "Punkt" : "Punkte"}`;
+const extra = (type: "stamp" | "points", bonus: number) => type === "stamp" ? "einen Stempel extra" : `${points(bonus)} extra`;
 /** „5. November“: the deadline is a calendar date (YYYY-MM-DD), so it is formatted without a timezone shift. */
 export const germanDay = (isoDate: string) => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${isoDate}T00:00:00Z`));
 
@@ -68,10 +70,10 @@ export function winbackText(type: "stamp" | "points", bonus: number, day: string
 /** The programme-rules line on the card while the bonus is on (Legal: the bonus must be in the rules customers see). */
 /** Legal's line (24 Oct, Marketing v1.8 §9); `reminders`: the Wallet sentence only while Wallet messages are offered (ENG-089). */
 export function winbackRule(type: "stamp" | "points", days: number, bonus: number, reminders = true) {
-  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""} Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""} Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
 }
 
-export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;
+export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
 export const WINBACK_EXCLUSIONS = "Nicht auf Tabak, Presse, Bücher, Lotto, Handyguthaben.";
 
 /** Points bonus: 1 up to a quarter of the cheapest reward (Product); stamps: none or 1. */
@@ -82,7 +84,7 @@ export const winbackBonusMax = (type: "stamp" | "points", cheapestReward: number
 /** A card this close to its next reward gets the reminder: 1 stamp, or up to about 10 points (founder brief). */
 export const almostGap = (type: "stamp" | "points") => type === "stamp" ? 1 : 10;
 export const almostText = (type: "stamp" | "points", missing: number, reward: string) =>
-  type === "stamp" ? `Nur noch 1 Stempel bis zu deiner Prämie: ${reward}.` : `Nur noch ${missing} Punkte bis zu deiner Prämie: ${reward}.`;
+  type === "stamp" ? `Nur noch 1 Stempel bis zu deiner Prämie: ${reward}.` : `Nur noch ${points(missing)} bis zu deiner Prämie: ${reward}.`;
 
 // ---- Birthday (ENG-049): Legal 22 Oct (field and rules line), Marketing 22 Oct section 8 (reminder and cashier). -----------
 
@@ -92,8 +94,8 @@ export function birthdayText(type: "stamp" | "points", bonus: number, day: strin
   return bonus > 0 ? `Alles Gute zum Geburtstag! Komm bis zum ${day} vorbei, dann gibt's ${extra(type, bonus)}.` : "Alles Gute zum Geburtstag! Wir freuen uns, dich bald wiederzusehen.";
 }
 export const birthdayRule = (type: "stamp" | "points", bonus: number) =>
-  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
-export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;
+  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : points(bonus)} extra. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /**
