@@ -151,7 +151,7 @@ export function ProgramSetup() {
             {f.type === "points" && effectiveMode === "purchase" && <Field id="su-rate" label={`Punkte pro 1 ${currency === "EUR" ? "€" : currency}`} error={err("rate")}><input id="su-rate" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={f.rate} onChange={event => set({ rate: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={Boolean(err("rate"))} /></Field>}
             <div className="ow-readonly"><strong style={{ display: "block", marginBottom: 2 }}>Wer bestätigt?</strong>{confirmSentence(f.type, effectiveMode)}</div>
             <Field id="su-rules" label="Regeltext für Kunden" error={err("rules")} hint="Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell.">
-              <textarea id="su-rules" className="ow-textarea" value={rulesText} maxLength={3000} onChange={event => set({ rules: event.target.value, rulesEdited: true })} aria-invalid={Boolean(err("rules"))} />
+              <textarea id="su-rules" className="ow-textarea" rows={4} value={rulesText} maxLength={3000} onChange={event => set({ rules: event.target.value, rulesEdited: true })} aria-invalid={Boolean(err("rules"))} />
             </Field>
           </>}
           {step === 2 && <>
