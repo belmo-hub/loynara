@@ -267,16 +267,31 @@ export type SpendFigures = {
   newCardMinor: number | null;
   returningCardMinor: number | null;
 };
+/**
+ * ENG-095: customers back with the win-back bonus or new on a referral, last 30 local days (rules: Product, 27 Oct). Each
+ * card counts once, in the line of its earliest trigger, so the lines add up to `customers`; every trigger booking counts
+ * in `bookings` and `revenue`. Revenue is the till amount of those bookings only, for points programmes; stamp
+ * programmes get null. Null for the whole block until the location has had a brought customer in the last 90 local days.
+ */
+export type BroughtCustomers = {
+  customers: number;
+  winback: number;
+  referral: number;
+  bookings: number;
+  revenue: { amountMinor: number; pricedBookings: number } | null;
+};
 export type MerchantSpend = {
   asOf: string;
   currency: string;
   overall: { recent: SpendFigures; total: SpendFigures };
-  locations: Array<{ locationId: string; name: string; recentFrom: string; recent: SpendFigures; total: SpendFigures }>;
+  locations: Array<{ locationId: string; name: string; recentFrom: string; recent: SpendFigures; total: SpendFigures; brought: BroughtCustomers | null }>;
 };
 type SpendRow = { locationId: string; name: string; recentFrom: Date; period: "recent" | "total"; visits: number; pricedVisits: number; estimatedVisits: number; realMinor: string; estimatedMinor: string; newCardMinor: string };
+type BroughtRow = { locationId: string; gate: number; points: boolean } & Omit<BroughtCustomers, "revenue"> & { pricedBookings: number; amountMinor: string };
 type SpendSums = { visits: number; priced: number; estimated: number; real: bigint; estimatedMinor: bigint; newCard: bigint | null };
 
 export const SPEND_RECENT_DAYS = 30;
+const BROUGHT_GATE_DAYS = 90;
 const ZERO = BigInt(0), TWO = BigInt(2);
 
 /**
@@ -333,6 +348,8 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
       ORDER BY l.name, l.id, w.period
     `, [owner.tenantId, asOf]);
 
+    const brought = await broughtCustomers(client, owner.tenantId, asOf);
+
     const sums = (list: SpendRow[], period: SpendRow["period"]): SpendSums => list.filter(row => row.period === period).reduce<SpendSums>((sum, row) => ({
       visits: sum.visits + row.visits, priced: sum.priced + row.pricedVisits, estimated: sum.estimated + row.estimatedVisits,
       real: sum.real + BigInt(row.realMinor), estimatedMinor: sum.estimatedMinor + BigInt(row.estimatedMinor),
@@ -345,10 +362,68 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
       overall: { recent: spendFigures(sums(rows, "recent")), total: spendFigures(sums(rows, "total")) },
       locations: ids.map(id => {
         const own = rows.filter(row => row.locationId === id);
-        return { locationId: id, name: own[0].name, recentFrom: own[0].recentFrom.toISOString(), recent: spendFigures(sums(own, "recent")), total: spendFigures(sums(own, "total")) };
+        const b = brought.get(id);
+        return {
+          locationId: id, name: own[0].name, recentFrom: own[0].recentFrom.toISOString(), recent: spendFigures(sums(own, "recent")), total: spendFigures(sums(own, "total")),
+          brought: b && b.gate > 0 ? { customers: b.customers, winback: b.winback, referral: b.referral, bookings: b.bookings, revenue: b.points ? { amountMinor: Number(b.amountMinor), pricedBookings: b.pricedBookings } : null } : null,
+        };
       }),
     };
   });
+}
+
+/**
+ * The ENG-095 triggers per location. A win-back trigger is a booking (card + request) that carries an uncorrected
+ * `winback_bonus` and a confirmed staff award; a referral trigger is the referred card's qualifying booking while the
+ * referral stands (a correction or the referral review sets it to reversed). The referrer never counts, and neither do
+ * the other bonus sources or bookings after a message. Same local-day window and correction rule as the spend above.
+ */
+async function broughtCustomers(client: PoolClient, tenantId: string, asOf: Date): Promise<Map<string, BroughtRow>> {
+  const { rows } = await client.query<BroughtRow>(`
+    WITH loc AS (
+      SELECT l.id,
+        (((($2::timestamptz AT TIME ZONE l.timezone)::date - ${SPEND_RECENT_DAYS - 1})::timestamp) AT TIME ZONE l.timezone) AS recent_from,
+        (((($2::timestamptz AT TIME ZONE l.timezone)::date - ${BROUGHT_GATE_DAYS - 1})::timestamp) AT TIME ZONE l.timezone) AS gate_from,
+        EXISTS (SELECT 1 FROM programs p WHERE p.tenant_id = l.tenant_id AND p.location_id = l.id AND p.status = 'active' AND p.type = 'points') AS points
+      FROM locations l WHERE l.tenant_id = $1
+    ), trig AS (
+      SELECT e.location_id, e.membership_id, e.request_id, e.created_at AS at, 'winback' AS line
+      FROM ledger_entries e
+      WHERE e.tenant_id = $1 AND e.created_at >= (SELECT min(gate_from) FROM loc) AND e.created_at < $2
+        AND e.kind = 'award' AND e.source = 'winback_bonus' AND ${NOT_REVERSED("$2")}
+      UNION ALL
+      SELECT e.location_id, e.membership_id, e.request_id, e.created_at, 'referral'
+      FROM referrals r JOIN ledger_entries e ON e.tenant_id = r.tenant_id AND e.id = r.qualifying_entry_id
+      WHERE r.tenant_id = $1 AND r.status = 'qualified' AND e.created_at >= (SELECT min(gate_from) FROM loc) AND e.created_at < $2
+        AND ${STAFF_AWARD} AND ${NOT_REVERSED("$2")}
+    ), visit AS (
+      -- The booking's confirmed staff awards: none left means the trigger is gone; their till amounts are its revenue.
+      SELECT t.location_id, t.membership_id, t.request_id, min(t.at) AS at, (array_agg(t.line ORDER BY t.at, t.line))[1] AS line, s.amount
+      FROM trig t JOIN loc l ON l.id = t.location_id
+      CROSS JOIN LATERAL (
+        SELECT count(*) AS awards, sum(pa.amount_minor)::bigint AS amount
+        FROM ledger_entries e LEFT JOIN purchase_awards pa ON pa.tenant_id = e.tenant_id AND pa.ledger_entry_id = e.id
+        WHERE e.tenant_id = $1 AND e.membership_id = t.membership_id AND e.request_id = t.request_id AND e.created_at < $2
+          AND ${STAFF_AWARD} AND ${NOT_REVERSED("$2")}
+      ) s
+      WHERE t.at >= l.gate_from AND s.awards > 0
+      GROUP BY t.location_id, t.membership_id, t.request_id, s.amount
+    ), recent AS (
+      SELECT v.* FROM visit v JOIN loc l ON l.id = v.location_id WHERE v.at >= l.recent_from
+    ), card AS (
+      SELECT location_id, membership_id, (array_agg(line ORDER BY at, line))[1] AS line FROM recent GROUP BY location_id, membership_id
+    )
+    SELECT l.id AS "locationId", l.points,
+      (SELECT count(*) FROM visit v WHERE v.location_id = l.id)::int AS gate,
+      (SELECT count(*) FROM card c WHERE c.location_id = l.id)::int AS customers,
+      (SELECT count(*) FROM card c WHERE c.location_id = l.id AND c.line = 'winback')::int AS winback,
+      (SELECT count(*) FROM card c WHERE c.location_id = l.id AND c.line = 'referral')::int AS referral,
+      (SELECT count(*) FROM recent r WHERE r.location_id = l.id)::int AS bookings,
+      (SELECT count(r.amount) FROM recent r WHERE r.location_id = l.id)::int AS "pricedBookings",
+      (SELECT coalesce(sum(r.amount), 0) FROM recent r WHERE r.location_id = l.id)::bigint::text AS "amountMinor"
+    FROM loc l
+  `, [tenantId, asOf]);
+  return new Map(rows.map(row => [row.locationId, row]));
 }
 
 function spendFigures(sum: SpendSums): SpendFigures {
