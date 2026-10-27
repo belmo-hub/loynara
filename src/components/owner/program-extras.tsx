@@ -113,7 +113,7 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         <input id="extras-average" className="ow-input" inputMode="decimal" style={{ maxWidth: 160 }} value={draft.averageSpend} placeholder="z. B. 12,50" onChange={event => edit({ averageSpend: event.target.value.replace(/[^0-9,.]/g, "") })} aria-invalid={!averageValid} aria-describedby="extras-average-hint" />
         <span id="extras-average-hint" className={averageValid ? "ow-hint" : "ow-error"}>{averageValid ? SPEND_COPY.averageHint : SPEND_COPY.averageError}</span>
       </div>}
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid && averageValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar section="Auf der Kundenkarte" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid && averageValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }

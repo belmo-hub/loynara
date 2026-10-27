@@ -85,17 +85,21 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
             const spend = purchase ? minimumSpendMinor(reward.cost, rate) : null;
             return (
               <li key={reward.rewardId} className="ow-reward">
-                <div className="ow-reward-main">
-                  <strong>{reward.title}</strong>
-                  <span className="ow-num">{reward.cost} {unit}</span>
-                  {reward.termsText && <span className="ow-muted">{reward.termsText}</span>}
-                  {(spend !== null || noMinSpendNote(type)) && <span className="ow-hint">{spend !== null ? `Ab ${euro(spend, program.currency)} Einkaufswert erreichbar. ${MIN_SPEND_LABEL}` : noMinSpendNote(type)}</span>}
+                <div className="ow-reward-head">
+                  <div className="ow-reward-main">
+                    <strong>{reward.title}</strong>
+                    <span className="ow-num">{reward.cost} {unit}</span>
+                    {reward.termsText && <span className="ow-muted">{reward.termsText}</span>}
+                    {(spend !== null || noMinSpendNote(type)) && <span className="ow-hint">{spend !== null ? `Ab ${euro(spend, program.currency)} Einkaufswert erreichbar. ${MIN_SPEND_LABEL}` : noMinSpendNote(type)}</span>}
+                  </div>
+                  <div className="ow-reward-move">
+                    <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={18} /></button>
+                    <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === active.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={18} /></button>
+                  </div>
                 </div>
                 <div className="ow-reward-actions">
-                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-btn--icon" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={18} /></button>
-                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-btn--icon" disabled={busy || index === active.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={18} /></button>
                   <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy} onClick={() => { setForm({ id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" }); setError(""); setNotice(""); }}>Bearbeiten</button>
-                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy || active.length <= 1} title={active.length <= 1 ? "Mindestens eine aktive Prämie ist nötig." : undefined} onClick={() => setArchiving(reward)}>Archivieren</button>
+                  <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || active.length <= 1} title={active.length <= 1 ? "Mindestens eine aktive Prämie ist nötig." : undefined} onClick={() => setArchiving(reward)}>Archivieren</button>
                 </div>
               </li>
             );

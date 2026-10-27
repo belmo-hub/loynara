@@ -321,10 +321,14 @@
 .ow-rewards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .ow-reward { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); flex-wrap: wrap; }
 .ow-reward:first-child { border-top: 0; }
-.ow-reward-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.ow-reward-head { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; flex: 1 1 260px; }
+.ow-reward-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .ow-reward-main > strong { font-size: var(--text-16); }
 .ow-reward-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
-.ow-reward-actions .ow-btn--icon { width: 44px; padding: 0; }
+/* Move arrows sit beside the name they move: quiet, borderless, and a disabled one only fades (no fill, no ring). */
+.ow-reward-move { display: flex; flex: none; }
+.ow-reward-move .ow-btn { width: 44px; padding: 0; }
+.ow-reward-move .ow-btn:disabled { border-color: transparent; opacity: .35; }
 .ow-savebar[data-idle] { position: static; box-shadow: none; border-top: 1px solid var(--color-line); background: transparent; margin-inline: 0; padding-inline: 0; }
 
 /* Stepper */

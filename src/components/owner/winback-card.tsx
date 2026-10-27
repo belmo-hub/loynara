@@ -69,7 +69,7 @@ export function WinbackCard({ slug, initial, reminders }: { slug: string; initia
           <p>Willkommen zurück! Bis zum {exampleDay} gibt&apos;s bei deinem nächsten Besuch {initial.type === "stamp" ? "1 Stempel" : points(bonus)} extra. <u>Bedingungen</u></p>
         </div>}
       {bonusValid && bonus > 0 && <p className="ow-hint">Steht auf der Karte: {winbackRule(initial.type, daysValid ? days : WINBACK_DAYS.default, bonus, reminders)}</p>}
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar section="Willkommen-zurück-Bonus" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && daysValid && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }
@@ -140,7 +140,7 @@ export function BirthdayCard({ slug, type, initial }: { slug: string; type: "sta
         </div>}
       <p className="ow-hint">Kundinnen und Kunden können auf ihrer Karte Tag und Monat ihres Geburtstags eintragen. In ihrer Geburtstagswoche wird der Bonus beim Bestätigen eines Besuchs mitgebucht, einmal im Jahr. Mit Wallet-Nachrichten bekommen sie dazu eine Erinnerung. {initial.cards} {initial.cards === 1 ? "Karte hat" : "Karten haben"} einen Geburtstag eingetragen.</p>
       <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{birthdayText(type, bonusValid ? bonus : 0, "[Datum]")}</p></div>
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar section="Geburtstags-Bonus" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }
