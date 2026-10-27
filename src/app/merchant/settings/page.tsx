@@ -8,6 +8,7 @@ import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 import { cancellationEnd, germanDate, MIN_NOTICE_DAYS } from "@/lib/programme-end-date";
+import { copyText } from "@/components/copy-text";
 
 
 export default function MerchantSettingsPage() {
@@ -83,7 +84,7 @@ function Cancellation() {
     finally { setSaving(false); }
   }
   async function copy() {
-    try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setError("Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell."); }
+    if (await copyText(text)) setCopied(true); else setError("Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell.");
   }
   return (
     <section className="ow-card ow-stack" aria-labelledby="ow-cancel-title">

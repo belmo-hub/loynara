@@ -7,12 +7,14 @@ import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
 import styles from "./customer/panels.module.css";
 import { CardStatusLine, useCardStatus } from "./customer/card-status";
+import { useCopy } from "./copy-text";
 
 type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points"; progress?: { signedUp: number; qualified: number } };
 
 export function CardReferral({ token, locale }: { token: string; locale: "de" | "fr" }) {
   const [share, setShare] = useState<ReferralShare | null>(null);
   const [error, setError] = useState("");
+  const { copied, copy: copyLink } = useCopy();
   const { text: copiedText, live, announce } = useCardStatus("referral");
   useEffect(() => {
     let active = true;
@@ -35,8 +37,8 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
 
   async function copy() {
     if (!share) return;
-    try { await navigator.clipboard.writeText(share.shareUrl); announce(french ? "Lien copié." : "Link kopiert."); setError(""); }
-    catch { setError(french ? "Copie impossible. Sélectionnez et copiez le lien ci-dessous." : "Kopieren fehlgeschlagen. Wähle den Link unten aus und kopiere ihn manuell."); }
+    if (await copyLink(share.shareUrl)) { announce(french ? "Lien copié." : "Link kopiert."); setError(""); }
+    else { setError(french ? "Copie impossible. Sélectionnez et copiez le lien ci-dessous." : "Kopieren fehlgeschlagen. Wähle den Link unten aus und kopiere ihn manuell."); }
   }
 
   return <section className={styles.panel} aria-label={french ? "Parrainage" : "Empfehlung"}>
@@ -54,7 +56,7 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
         : `${share.progress.signedUp} ${share.progress.signedUp === 1 ? "Anmeldung" : "Anmeldungen"} über deinen Link, davon ${share.progress.qualified} mit gutgeschriebenem Bonus.`}</p>}
       <div className={styles.actions}>
         {canShare && <Button size="sm" icon={<Share2 size={16} />} onClick={() => void nativeShare()}>{french ? "Partager" : "Teilen"}</Button>}
-        <Button variant="secondary" size="sm" onClick={() => void copy()}>{french ? "Copier le lien" : "Link kopieren"}</Button>
+        <Button variant="secondary" size="sm" onClick={() => void copy()}>{copied ? french ? "Copié" : "Kopiert" : french ? "Copier le lien" : "Link kopieren"}</Button>
       </div>
       <TextField label={french ? "Lien à partager" : "Link zum Teilen"} readOnly value={share.shareUrl} onFocus={event => event.target.select()} />
       <CardStatusLine text={copiedText} live={live} className={styles.state} />

@@ -7,6 +7,7 @@ import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, PageHead } 
 import { useLoad } from "@/components/owner/use-load";
 import { inviteCreateMessage, inviteRevokeMessage, staffRevokeMessage, unconfirmed } from "@/components/owner/owner-errors";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useCopy } from "@/components/copy-text";
 
 type StaffMember = { userId: string; email?: string; role: "owner" | "manager" | "cashier"; locationId: string | null; active: boolean };
 type InviteResult = { id: string; token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
@@ -44,6 +45,7 @@ export default function StaffPage() {
   const [cancellingTarget, setCancellingTarget] = useState<Invitation | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const { copied, copy: copyLink } = useCopy();
   useDirtyGuard("staff-invite", email.trim().length > 0);
   if (!me) return null;
   const head = <PageHead eyebrow="Einstellungen · Team" title="Das Team am Tresen." lead="Gib jeder Person einen eigenen Zugang und sperre ihn bei Bedarf." />;
@@ -103,8 +105,8 @@ export default function StaffPage() {
     } finally { reloadStaff(); reloadAudit(); setBusy(false); setCancellingTarget(null); }
   }
   async function copy() {
-    try { await navigator.clipboard.writeText(inviteUrl); setMessage("Link kopiert. Er wurde nicht versendet."); setError(""); }
-    catch { setError("Kopieren nicht möglich. Bitte markiere den Link manuell."); }
+    if (await copyLink(inviteUrl)) { setMessage("Link kopiert. Er wurde nicht versendet."); setError(""); }
+    else setError("Kopieren nicht möglich. Bitte markiere den Link manuell.");
   }
 
   return (
@@ -125,7 +127,7 @@ export default function StaffPage() {
               <p>Dieser Link gilt bis {new Date(invite.expiresAt).toLocaleDateString("de-DE")}. Teile ihn nur mit der eingeladenen Person.</p>
               {staff.state === "ok" && <p className="ow-hint">{staff.data.accountCreation === "operator" ? "Konten werden derzeit vom Loynara-Betreiber angelegt. Die Person nimmt die Einladung an, sobald ihr Konto für genau diese Adresse besteht." : staff.data.accountCreation === "invite" ? "Die Person legt über den Link ihr eigenes Konto für genau diese Adresse an und ist danach sofort an der Kasse." : "Die Person kann über den Link ein Konto erstellen und die Einladung annehmen."}</p>}
               <code style={{ overflowWrap: "anywhere", fontSize: "var(--text-14)" }}>{inviteUrl}</code>
-              <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void copy()}>Link kopieren</button></div></div>
+              <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void copy()}>{copied ? "Kopiert" : "Link kopieren"}</button></div></div>
           )}
         </section>
         <section className="ow-card ow-stack" aria-labelledby="st-list">
