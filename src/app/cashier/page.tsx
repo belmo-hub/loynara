@@ -2,6 +2,7 @@
 
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import type { StaffRole } from "@/lib/award-limits";
+import { unitWord } from "@/lib/units";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
@@ -443,8 +444,7 @@ export default function CashierPage() {
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {
-  if (card.programType === "points") return fr ? "points" : amount === 1 ? "Punkt" : "Punkte";
-  return fr ? amount === 1 ? "tampon" : "tampons" : "Stempel";
+  return unitWord(amount, card.programType, fr ? "fr" : "de");
 }
 
 /** What the cashier sees after a confirmed booking: what was booked, the new balance, the card number (never the scan code). */

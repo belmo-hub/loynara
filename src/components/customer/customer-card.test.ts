@@ -72,6 +72,36 @@ describe("one point in the singular on the card (ENG-104)", () => {
   });
 });
 
+describe("counts on the card, French zero and French stamps included (ENG-108)", () => {
+  const card = (locale: "de" | "fr", programType: "points" | "stamps", balance: number, extra: Partial<CustomerCardProps> = {}) =>
+    renderToStaticMarkup(h(CustomerCard, { ...base, locale, programType, balance, ...extra }));
+  it("balance line: French takes the singular for 0 and 1", () => {
+    expect(card("fr", "points", 0)).toMatch(/>0<\/span> <em>point<\/em>/);
+    expect(card("fr", "stamps", 0)).toMatch(/>0<\/span> <em>tampon<\/em>/);
+    expect(card("fr", "stamps", 1)).toMatch(/>1<\/span> <em>tampon<\/em>/);
+    expect(card("fr", "stamps", 2)).toMatch(/>2<\/span> <em>tampons<\/em>/);
+    expect(card("de", "points", 0)).toMatch(/>0<\/span> <em>Punkte<\/em>/);
+  });
+  it("progress line with one stamp missing, in French", () => {
+    expect(card("fr", "stamps", 4)).toMatch(/Encore <span[^>]*>1<\/span> tampon avant votre récompense :/);
+    expect(card("fr", "stamps", 3)).toMatch(/Encore <span[^>]*>2<\/span> tampons avant votre récompense :/);
+  });
+  it("rewards list, with a reward that costs exactly 1", () => {
+    const rewards = [{ id: "r1", title: "Kaffee", cost: 1 }, { id: "r2", title: "Kuchen", cost: 2 }];
+    expect(card("de", "points", 0, { rewards })).toContain("<small>1 Punkt</small>");
+    expect(card("de", "points", 0, { rewards })).toContain("<small>2 Punkte</small>");
+    expect(card("fr", "points", 0, { rewards })).toContain("<small>1 point</small>");
+    expect(card("fr", "points", 0, { rewards })).toContain("<small>2 points</small>");
+    expect(card("fr", "stamps", 0, { rewards })).toContain("<small>1 tampon</small>");
+    expect(card("fr", "stamps", 0, { rewards })).toContain("<small>2 tampons</small>");
+  });
+  it("activity line for French stamps", () => {
+    const activity = (change: number) => ({ activity: [{ id: "a", label: "x", date: "d", change }] });
+    expect(card("fr", "stamps", 5, activity(1))).toContain('<b data-sign="plus">+1 tampon</b>');
+    expect(card("fr", "stamps", 5, activity(2))).toContain('<b data-sign="plus">+2 tampons</b>');
+  });
+});
+
 describe("ending programme (ENG-075, card half)", () => {
   it("opens the card with the end date and what still works until then", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, endsOn: "30. November 2026" }));

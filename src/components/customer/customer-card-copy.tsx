@@ -1,7 +1,9 @@
+import { unitWord } from "@/lib/units";
+
 // Guest card copy in German (Du-form) and French. Texts that e2e specs read are kept word for word.
 const de = {
   yourCard: "Deine Treuekarte", cardLabel: "Deine Treuekarte", footer: "Mit Loynara",
-  stamps: "Stempel", points: "Punkte", point: "Punkt",
+  unit: (n: number, kind: "stamps" | "points") => unitWord(n, kind, "de"),
   still: "Noch",
   // The card's progress line says what the Wallet reminder says (Marketing, 23 Oct): the reward after a colon, no quotes.
   toReward: (unit: string) => `${unit} bis zu deiner Prämie:`,
@@ -54,7 +56,7 @@ export type Copy = typeof de;
 
 const fr: Copy = {
   yourCard: "Votre carte de fidélité", cardLabel: "Votre carte de fidélité", footer: "Avec Loynara",
-  stamps: "tampons", points: "points", point: "point",
+  unit: (n, kind) => unitWord(n, kind, "fr"),
   still: "Encore",
   toReward: (unit) => `${unit} avant votre récompense :`,
   readyFor: "Votre récompense est prête :",
