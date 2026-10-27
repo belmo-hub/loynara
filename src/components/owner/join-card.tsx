@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
+import { CopyLabel, useCopy } from "@/components/copy-text";
 
 /** The public programme address customers join at, not a private card link; "" while it is not configured. */
 export const joinUrlOf = (me: MeResponse) => me.publicBaseUrl ? new URL(`/join/${encodeURIComponent(me.programSlug)}`, me.publicBaseUrl).toString() : "";
@@ -23,13 +24,13 @@ export async function downloadCounterSign(me: MeResponse) {
 
 /** Invite link and printable counter sign; the join URL is the public programme address, not a private card link. */
 export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string }) {
-  const [copied, setCopied] = useState("");
+  const { copied, copy: copyLink } = useCopy();
   const [error, setError] = useState("");
   const joinUrl = joinUrlOf(me);
 
   async function copy() {
     setError("");
-    try { await navigator.clipboard.writeText(joinUrl); setCopied("Link kopiert."); } catch { setCopied(""); setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }
+    if (!await copyLink(joinUrl)) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell.");
   }
   async function downloadSign() {
     setError("");
@@ -42,17 +43,17 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
       <div><h2 id="ow-join-title">Kunden einladen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)", marginTop: 2 }}>Dieser Link führt zur Anmeldung für {me.locationName}.</p></div>
       <div className="ow-field"><label htmlFor="ow-join-url" className="ow-sr">Anmeldelink</label><input id="ow-join-url" className="ow-input" readOnly value={joinUrl} onFocus={event => event.currentTarget.select()} /></div>
       <div className="ow-row">
-        <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>Link kopieren</button>
+        <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}><CopyLabel copied={copied} label="Link kopieren" /></button>
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={18} />Tresenschild laden</button>
       </div>
+      <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
+      {error && <p className="ow-error" role="alert">{error}</p>}
       {exportUrl && <div className="ow-hint">
         <p>Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=buchungen`} download>Buchungen für Excel</a>: Jeder Stempel, jede Einlösung und jede Korrektur mit Datum und Standort.</p>
         <p><a className="ow-link ow-link--block" href={exportUrl} download>Vollständiger Export (JSON)</a></p>
       </div>}
-      <div role="status" aria-live="polite">{copied && <p className="ow-muted">{copied}</p>}</div>
-      {error && <p className="ow-error" role="alert">{error}</p>}
     </section>
   );
 }
