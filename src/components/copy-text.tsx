@@ -14,15 +14,16 @@ export async function copyText(text: string): Promise<boolean> {
 }
 
 function copyBySelection(text: string) {
+  const focused = document.activeElement as HTMLElement | null;
   const field = document.createElement("textarea");
   field.value = text;
   field.readOnly = true;
-  // 16 px keeps iOS from zooming in; fixed and transparent so nothing on the page moves.
-  field.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+  // 16 px (--text-16) keeps iOS from zooming in; fixed and transparent so nothing on the page moves.
+  field.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:var(--text-16)";
   document.body.append(field);
   field.select();
   field.setSelectionRange(0, text.length); // iOS selects nothing with select() alone
-  try { return document.execCommand("copy"); } catch { return false; } finally { field.remove(); }
+  try { return document.execCommand("copy"); } catch { return false; } finally { field.remove(); focused?.focus({ preventScroll: true }); }
 }
 
 /** A copy button's state: `copied` stays true for 2 s after a successful copy, so the button can read „Kopiert“. */

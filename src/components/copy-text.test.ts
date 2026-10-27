@@ -37,6 +37,15 @@ describe("copyText", () => {
     expect(field.remove).toHaveBeenCalledOnce();
   });
 
+  it("gives focus back to the copy button after the fallback, without scrolling", async () => {
+    vi.stubGlobal("navigator", {});
+    const { document } = fakeDocument(true);
+    const button = { focus: vi.fn() };
+    Object.assign(document, { activeElement: button });
+    expect(await copyText("abc")).toBe(true);
+    expect(button.focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
   it("falls back when the Clipboard API refuses, and reports failure instead of throwing", async () => {
     vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn(async () => { throw new Error("NotAllowedError"); }) } });
     const refused = fakeDocument(false);
