@@ -10,16 +10,16 @@ import { useLoad } from "./use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type Reward = { rewardId: string; versionId: string; version: number; title: string; cost: number; termsText: string; sortOrder: number; active: boolean };
-type Form = { id: string | null; title: string; cost: string; terms: string; ownCost: string };
-const EMPTY: Form = { id: null, title: "", cost: "", terms: "", ownCost: "" };
+type Form = { id: string; title: string; cost: string; terms: string; ownCost: string };
 
-/** `open` ("new" or a reward id) opens that form at once, for a Programm row's own page; `onSaved` follows a saved form. */
+/** `open` (a reward id) opens that reward's form at once, for its Programm row's page; `onSaved` follows a saved form.
+ *  New rewards have their own three steps (program-new-reward.tsx). */
 export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeResponse; program: PublicProgram; onChanged: () => void | Promise<void>; open?: string; onSaved?: () => void }) {
   const owner = useOwner();
   const [list, reload] = useLoad<{ rewards: Reward[] }>(`/api/merchant/program/rewards?programSlug=${encodeURIComponent(me.programSlug)}`);
   const [form, setForm] = useState<Form | null>(() => {
     const reward = program.rewards.find(item => item.rewardId === open);
-    return open === "new" ? { ...EMPTY } : reward ? { id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" } : null;
+    return reward ? { id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" } : null;
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -31,8 +31,8 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
   const rate = program.pointsPerCurrencyUnit ?? 1;
   const active = list.state === "ok" ? list.data.rewards.filter(reward => reward.active) : [];
   const archived = list.state === "ok" ? list.data.rewards.filter(reward => !reward.active) : [];
-  const original = form?.id ? active.find(reward => reward.rewardId === form.id) : undefined;
-  const dirty = Boolean(form && (form.id ? original && (form.title !== original.title || form.cost !== String(original.cost) || form.terms !== original.termsText) : form.title || form.cost || form.terms));
+  const original = form ? active.find(reward => reward.rewardId === form.id) : undefined;
+  const dirty = Boolean(form && original && (form.title !== original.title || form.cost !== String(original.cost) || form.terms !== original.termsText));
   useDirtyGuard("program-rewards", dirty);
 
   const cost = form ? parseWholeNumber(form.cost) : null;
@@ -51,7 +51,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
   }
   async function submit() {
     if (!form || !valid || busy || cost === null) return;
-    const ok = await run({ action: form.id ? "edit" : "create", ...(form.id ? { rewardId: form.id } : {}), title: form.title.trim(), cost, termsText: form.terms.trim() }, form.id ? "Neue Prämienversion gespeichert." : "Prämie hinzugefügt.");
+    const ok = await run({ action: "edit", rewardId: form.id, title: form.title.trim(), cost, termsText: form.terms.trim() }, "Neue Prämienversion gespeichert.");
     if (ok) { setForm(null); onSaved?.(); }
   }
   async function move(index: number, direction: -1 | 1) {
@@ -77,7 +77,6 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
     <section className="ow-card ow-stack" aria-labelledby="rew-title" style={{ gap: 16 }}>
       <div className="ow-card-head" style={{ marginBottom: 0 }}>
         <div><h2 id="rew-title">Prämien</h2><p>Reihenfolge wie bei Anmeldung und Kasse. Jede Prämie: Name, Preis in {unitDative(type)}, Bedingungen.</p></div>
-        {!form && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setForm({ ...EMPTY }); setError(""); setNotice(""); }}>Prämie hinzufügen</button>}
       </div>
       {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
       {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
@@ -113,7 +112,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
 
       {form && (
         <form className="ow-card ow-card--flat ow-stack" style={{ background: "var(--color-fill)" }} aria-labelledby="rew-form-title" onSubmit={event => { event.preventDefault(); void submit(); }}>
-          <h3 id="rew-form-title" style={{ fontSize: "var(--text-16)" }}>{form.id ? "Prämie bearbeiten" : "Neue Prämie"}</h3>
+          <h3 id="rew-form-title" style={{ fontSize: "var(--text-16)" }}>Prämie bearbeiten</h3>
           <div className="ow-field"><label htmlFor="rew-title-input">Name der Prämie</label><input id="rew-title-input" className="ow-input" value={form.title} maxLength={180} onChange={event => setForm({ ...form, title: event.target.value })} aria-invalid={form.title.length > 0 && !titleValid} placeholder="z. B. Kaffee aufs Haus" /></div>
           <div className="ow-field"><label htmlFor="rew-cost">Preis in {unitDative(type)}</label><input id="rew-cost" className="ow-input" inputMode="numeric" value={form.cost} onChange={event => setForm({ ...form, cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={form.cost.length > 0 && cost === null} aria-describedby="rew-cost-hint" style={{ maxWidth: 200 }} /><span id="rew-cost-hint" className="ow-hint">{type === "stamp" ? "So viele Stempel muss eine Karte sammeln." : purchase ? `So viele Punkte werden benötigt. Bei ${rate} ${unitName("points", rate)} pro 1 € entspricht das einem Mindestumsatz.` : "So viele Punkte werden benötigt."}</span></div>
           <div className="ow-field"><label htmlFor="rew-terms">Bedingungen (optional)</label><textarea id="rew-terms" className="ow-textarea" style={{ minHeight: 72 }} value={form.terms} maxLength={3000} onChange={event => setForm({ ...form, terms: event.target.value })} placeholder="z. B. Gültig Mo–Fr bis 11 Uhr." /></div>
@@ -131,7 +130,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
           )}
           {effect.length > 0 && <Notice tone="info"><strong>Das ändert sich beim Speichern</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{effect.map(line => <li key={line}>{line}</li>)}</ul></Notice>}
           {error && <p className="ow-error" role="alert">{error} Deine Eingaben sind noch da.</p>}
-          <div className="ow-row"><button type="submit" className="ow-btn ow-btn--primary" disabled={!valid || busy || (Boolean(form.id) && !dirty)} aria-busy={busy}>{busy ? "Speichern …" : form.id ? "Prämienversion speichern" : "Prämie hinzufügen"}</button><button type="button" className="ow-btn ow-btn--ghost" disabled={busy} onClick={() => { setForm(null); setError(""); }}>Abbrechen</button></div>
+          <div className="ow-row"><button type="submit" className="ow-btn ow-btn--primary" disabled={!valid || busy || !dirty} aria-busy={busy}>{busy ? "Speichern …" : "Prämienversion speichern"}</button><button type="button" className="ow-btn ow-btn--ghost" disabled={busy} onClick={() => { setForm(null); setError(""); }}>Abbrechen</button></div>
         </form>
       )}
       {error && !form && <p className="ow-error" role="alert">{error}</p>}

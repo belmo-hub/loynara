@@ -8,7 +8,7 @@ import { accountLoadMessage, locationSwitchMessage, SETUP_INCOMPLETE } from "./o
 import { OwnerDialog } from "./owner-ui";
 
 export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
-type NavigateEventLike = { navigationType: string; cancelable: boolean; destination: { key: string }; preventDefault: () => void };
+type NavigateEventLike = { navigationType: string; cancelable: boolean; destination: { key: string; url: string }; preventDefault: () => void };
 type NavigationLike = { addEventListener: (type: string, listener: EventListener) => void; removeEventListener?: (type: string, listener: EventListener) => void; traverseTo?: (key: string) => { committed?: Promise<unknown> } };
 type Status = "loading" | "ready" | "unprovisioned" | "ended" | "error";
 export type EndedInfo = EndedAccountResponse["programEnded"];
@@ -141,6 +141,9 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
     if (!nav?.addEventListener) return;
     const onNavigate = ((event: NavigateEventLike) => {
       if (traversalBypass.current || event.navigationType !== "traverse" || !event.cancelable) return;
+      // A step of the same page (the new-reward steps) keeps the edits on screen; only leaving the page asks.
+      const to = new URL(event.destination.url);
+      if (to.pathname === window.location.pathname && to.search === window.location.search) return;
       event.preventDefault();
       const key = event.destination.key;
       setPending(() => () => {

@@ -56,6 +56,15 @@ export function purchaseExample(raw: string, rate: number): ExampleResult {
   }
 }
 
+/** W12, under a new reward's number: the other rewards' thresholds, lowest first and each once; null when there are none. */
+export function otherRewardsHint(type: ProgramKind, costs: number[]) {
+  if (costs.length === 0) return null;
+  const numbers = [...new Set(costs)].sort((a, b) => a - b).map(cost => cost.toLocaleString("de-DE"));
+  const list = numbers.length === 1 ? numbers[0] : `${numbers.slice(0, -1).join(", ")} und ${numbers[numbers.length - 1]}`;
+  // The unit follows the last, highest number: „1 Punkt“, „1 und 5 Punkte“.
+  return `${costs.length === 1 ? "Deine andere Prämie" : "Deine anderen Prämien"}: ${list} ${unitName(type, Math.max(...costs))}.`;
+}
+
 /** Whole numbers only. Returns null when the text is not a positive integer. */
 export function parseWholeNumber(raw: string): number | null {
   const value = raw.trim();

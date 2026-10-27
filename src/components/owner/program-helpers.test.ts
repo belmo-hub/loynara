@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { NO_MIN_SPEND_LABEL, noMinSpendNote } from "./program-helpers";
+import { NO_MIN_SPEND_LABEL, noMinSpendNote, otherRewardsHint } from "./program-helpers";
+
+describe("the other rewards under a new reward's number (W12)", () => {
+  it("follows the count: none, one, two, three or more, lowest first", () => {
+    expect(otherRewardsHint("stamp", [])).toBeNull();
+    expect(otherRewardsHint("stamp", [10])).toBe("Deine andere Prämie: 10 Stempel.");
+    expect(otherRewardsHint("stamp", [14, 10])).toBe("Deine anderen Prämien: 10 und 14 Stempel.");
+    expect(otherRewardsHint("stamp", [20, 10, 14])).toBe("Deine anderen Prämien: 10, 14 und 20 Stempel.");
+    expect(otherRewardsHint("stamp", [20, 10, 20])).toBe("Deine anderen Prämien: 10 und 20 Stempel."); // each number once
+    expect(otherRewardsHint("stamp", [20, 20])).toBe("Deine anderen Prämien: 20 Stempel.");
+  });
+  it("says Punkte for points shops, „1 Punkt“ alone, and groups thousands", () => {
+    expect(otherRewardsHint("points", [1])).toBe("Deine andere Prämie: 1 Punkt.");
+    expect(otherRewardsHint("points", [1000, 250])).toBe("Deine anderen Prämien: 250 und 1.000 Punkte.");
+  });
+});
 
 describe("the open-minimum-spend note", () => {
   it("is shown for points programmes only, never for stamps", () => {

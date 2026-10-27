@@ -18,11 +18,13 @@ test("owner manages the saved reward catalogue in the merchant browser", async (
       const page = await browserContext.newPage();
       await page.goto("/merchant/program");
       await page.getByRole("link", { name: "Prämie hinzufügen" }).click();
-      await expect(page.getByRole("heading", { name: "Prämien", exact: true })).toBeVisible();
-      await expect(page.locator(".ow-reward")).toHaveCount(1);
+      await expect(page.getByRole("heading", { name: "Wie heißt die neue Prämie?" })).toBeVisible();
       await page.getByLabel("Name der Prämie").fill("Torte");
-      await page.getByLabel("Preis in Stempeln").fill("8");
-      await page.getByRole("button", { name: "Prämie hinzufügen", exact: true }).click();
+      await page.getByRole("button", { name: "Weiter" }).click();
+      await page.getByLabel("Einlösbar ab").fill("8");
+      await page.getByRole("button", { name: "Weiter" }).click();
+      await expect(page.locator(".ow-cardline-reward")).toHaveCount(2); // the card preview: Kaffee, then the new Torte
+      await page.getByRole("button", { name: "Prämie speichern" }).click();
       // Saved: back on the Programm list, where the new reward is a row of its own.
       await expect(page.getByRole("status").filter({ hasText: "Gespeichert" })).toBeVisible();
       await page.getByRole("link", { name: /^Torte/ }).click();
