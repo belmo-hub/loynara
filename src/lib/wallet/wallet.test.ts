@@ -318,6 +318,14 @@ describe("Google Wallet adapter", () => {
     expect(googleObject({ ...pass, programType: "points", reward: undefined }, serial, config).loyaltyPoints).toEqual({ label: "Punkte", balance: { int: 7 } });
   });
 
+  it("puts the shop pin on the class as merchantLocations, the field Google's nearby notification reads", () => {
+    const located = { ...pass, latitude: 51.3127, longitude: 9.4797 };
+    expect(googleClass(located, config)).toMatchObject({ merchantLocations: [{ latitude: 51.3127, longitude: 9.4797 }] });
+    expect("locations" in googleClass(located, config)).toBe(false);
+    expect("merchantLocations" in googleClass(pass, config)).toBe(false);
+    expect(JSON.stringify(googleObject(located, serial, config))).not.toContain("51.3127");
+  });
+
   it("deactivates a revoked object without barcode, balance or card number", () => {
     const object = googleRevokedObject(revoked, "123456.loynara_old", config);
     expect(object.state).toBe("INACTIVE");
