@@ -1,7 +1,7 @@
 import { chmodSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { walletAvailability } from "./capability";
-import { googleFixture } from "./test-support";
+import { appleFixture, googleFixture } from "./test-support";
 
 const tenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const location = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -20,6 +20,17 @@ describe("hybrid Wallet routing and Google Direct eligibility", () => {
       expect(walletAvailability(env, tenant, location, program)).toEqual({ apple: "available", google: "test_only" });
       expect(walletAvailability({ ...env, PASSFAST_ENABLED: "false" }, tenant, location, program)).toEqual({ apple: "unavailable", google: "test_only" });
     } finally { fixture.cleanup(); }
+  });
+
+  it("offers native Apple to every shop once configured, with or without a PassFast template", () => {
+    const native = appleFixture();
+    try {
+      const other = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+      expect(walletAvailability({ ...apple, ...native.env }, tenant, location, program).apple).toBe("available");
+      expect(walletAvailability({ ...apple, ...native.env }, other, other, program).apple).toBe("available");
+      expect(walletAvailability({ ...apple, ...native.env, NODE_ENV: "production" }).apple).toBe("unavailable");
+      expect(walletAvailability({ ...apple, APPLE_WALLET_ENABLED: "false" }, other, other, program).apple).toBe("unavailable");
+    } finally { native.cleanup(); }
   });
 
   it("never offers managed PassFast Google as a fallback", () => {

@@ -13,7 +13,7 @@ import { Button } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
 import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
 
-type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable" };
+type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable"; appleReAdd?: boolean };
 
 function walletPlatform(): "ios" | "android" | "other" {
   const agent = navigator.userAgent;
@@ -137,6 +137,8 @@ export function CardClient({ token }: { token: string }) {
     try {
       const url = await prepareAppleWallet(token, controller.signal);
       if (controller.signal.aborted) return;
+      // The new pass supersedes the previous provider's one, so the re-add prompt has done its job.
+      setWalletScope(scope => scope && { ...scope, availability: { ...scope.availability, appleReAdd: false } });
       window.location.assign(url);
       downloadReset.current = setTimeout(() => { walletOperation.current = null; setWalletBusy(null); }, 4000);
     } catch (cause) {
@@ -199,6 +201,7 @@ export function CardClient({ token }: { token: string }) {
     {authenticationRequired && <section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section>}
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
     {bindingError && <p role="alert" className={noticeClass}>{bindingError}</p>}
+    {wallet?.apple === "available" && wallet.appleReAdd && platform !== "android" && <section role="status" className={noticeClass}><p>{french ? "Votre carte Apple Wallet change de version. Ajoutez-la une nouvelle fois pour que votre solde y reste à jour. L’ancienne carte affichera ensuite « Remplacée » et pourra être supprimée." : "Deine Karte in Apple Wallet bekommt eine neue Version. Füge sie bitte einmal neu hinzu, damit dein Stand dort aktuell bleibt. Die alte Karte zeigt danach „Ersetzt“ und kann gelöscht werden."}</p><Button variant="secondary" size="sm" disabled={walletBusy !== null} onClick={() => void addToAppleWallet()}>{french ? "Ajouter de nouveau à Apple Wallet" : "Neu zu Apple Wallet hinzufügen"}</Button></section>}
   </>;
   return <CustomerCard notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} winback={card.winback} challenge={card.challenge} level={card.level} endsOn={card.endsOn ? new Intl.DateTimeFormat(french ? "fr-FR" : "de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${card.endsOn}T00:00:00Z`)) : undefined} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardWalletMessages token={token} /><CardBirthday token={token} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }

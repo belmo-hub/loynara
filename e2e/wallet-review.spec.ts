@@ -128,6 +128,30 @@ test("slow issuance disables both buttons, prevents duplicate calls and recovers
   await expect(page.locator(".customer-header-merchant")).toBeVisible();
 });
 
+test("a previous-provider Apple holder is asked to re-add on iPhone; one tap starts the new pass and clears the prompt", async ({ browser, baseURL }, testInfo) => {
+  const prompt = "Deine Karte in Apple Wallet bekommt eine neue Version.";
+  for (const agent of agents) {
+    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, userAgent: agent.ua });
+    try {
+      await localOnly(context);
+      const page = await context.newPage();
+      await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "unavailable", appleReAdd: true } }));
+      let calls = 0;
+      await page.route("**/api/wallet/apple", route => { calls++; return route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
+      await page.route("**/api/wallet/apple/download/*", route => route.fulfill({ status: 204 }));
+      await cardReady(page);
+      const notice = page.getByRole("status").filter({ hasText: prompt });
+      if (agent.name === "android") { await expect(page.locator(".customer-header-merchant")).toBeVisible(); await expect(notice).toHaveCount(0); continue; }
+      await expect(notice).toBeVisible();
+      await fits(page, 390);
+      await page.screenshot({ path: testInfo.outputPath(`wallet-readd-${agent.name}.png`), fullPage: true, mask: [page.locator(".customer-qr img")] });
+      await notice.getByRole("button", { name: "Neu zu Apple Wallet hinzufügen" }).click();
+      await expect(notice).toHaveCount(0);
+      expect(calls).toBe(1);
+    } finally { await context.close(); }
+  }
+});
+
 test("status-check failure hides Wallet and leaves browser card usable", async ({ page }) => {
   await page.route("**/api/wallet/status", route => route.fulfill({ status: 503, json: { error: "Synthetic status failure" } }));
   await cardReady(page);

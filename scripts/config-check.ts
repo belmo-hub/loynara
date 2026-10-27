@@ -124,7 +124,6 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const apple = env.APPLE_WALLET_ENABLED === "true";
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
-  if (apple) issues.push("Direct native Apple Wallet is dormant; Apple production uses PassFast");
   // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need PassFast and the event webhook
   // secret, or no removal would ever be recorded and the removal report would silently read 0.
   if (env.WALLET_MESSAGES_ENABLED === "true") {
