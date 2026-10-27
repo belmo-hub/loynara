@@ -119,7 +119,7 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
         </aside>
       </div>
       {shown === "dirty" && <Notice tone="info">Die Änderung gilt ab dem Speichern als neue Regelversion für neue Buchungen. Bestehende Kartenstände werden nicht neu berechnet.</Notice>}
-      <SaveBar state={shown} onSave={() => setReviewing(true)} onDiscard={() => { setDraft(baseline); setState("clean"); setError(""); setEditing(false); }} alwaysDiscard discardLabel={changed ? "Verwerfen" : "Schließen"} canSave={valid && changed} saveLabel="Änderungen prüfen" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "dirty" && !valid ? "Bitte Eingaben prüfen." : undefined} />
+      <SaveBar section="So sammeln Kunden" state={shown} onSave={() => setReviewing(true)} onDiscard={() => { setDraft(baseline); setState("clean"); setError(""); setEditing(false); }} alwaysDiscard discardLabel={changed ? "Verwerfen" : "Schließen"} canSave={valid && changed} saveLabel="Änderungen prüfen" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "dirty" && !valid ? "Bitte Eingaben prüfen." : undefined} />
       </>}
       {reviewing && (
         <OwnerDialog title="Regeländerung prüfen" onClose={() => setReviewing(false)} actions={<><button type="button" className="ow-btn ow-btn--secondary" onClick={() => setReviewing(false)} data-autofocus>Zurück</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()}>Neue Regelversion speichern</button></>}>
