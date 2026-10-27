@@ -412,6 +412,39 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-field:has(> .ow-seg), .ow-row:has(> .ow-seg) { width: 100%; }
 }
 
+/* Programm list (ENG-099, Wegweiser): section labels on the grey, one row per setting, the whole row one link. */
+.ow-prog { max-width: 40rem; }
+.ow-prog h2 { margin: var(--space-5) 2px 0; font-size: var(--text-14); font-weight: var(--weight-heavy); letter-spacing: 0; color: var(--color-ink-muted); }
+.ow-prog > div:first-child h2 { margin-top: 0; }
+.ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+/* 10 px gaps and 14 px side padding keep „Google-Bewertung“ and its value on one line at 375 px (Design). */
+.ow-prog-row { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: var(--space-3) 14px; border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
+.ow-prog-row:active { transform: scale(.985); }
+.ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-action); }
+.ow-prog-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
+/* A value sits beside the words while they fit unbroken, else on a line of its own: a word never splits around it. */
+.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 10px; }
+.ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
+.ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
+.ow-prog-text small { display: block; margin-top: 2px; color: var(--color-ink-muted); line-height: 1.4; }
+.ow-prog-value { flex: none; margin-left: auto; font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-prog-value[data-off] { color: var(--color-ink-muted); }
+.ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
+/* Two bonuses („+20 · +10“) one step smaller, so they stay beside „Empfehlungen“ at 375 px. */
+.ow-prog-value[data-pair] { font-size: var(--text-22); }
+.ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+@media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
+.ow-prog .ow-prog-note { margin: var(--space-2) var(--space-1) 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+/* Below 360 px the icons give their room to the words. */
+@media (max-width: 359px) { .ow-prog-icon { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
+.ow-back { display: inline-flex; align-items: center; gap: 2px; min-height: var(--target); margin-left: -6px; padding-right: var(--space-2); font-weight: var(--weight-strong); color: var(--color-action); }
+/* „Gespeichert“ after a row's page saved: one toast above the bottom bar; the region keeps role="status" so it is read out. */
+.ow-toast-region { position: fixed; inset: auto 0 calc(var(--ow-tabbar) + var(--space-6)); z-index: var(--z-toast); display: flex; justify-content: center; padding-inline: var(--space-4); pointer-events: none; }
+@media (min-width: 1024px) { .ow-toast-region { left: var(--ow-sidebar); bottom: var(--space-6); } }
+.ow-toast { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: 10px 18px 10px 14px; border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-bg); font-weight: var(--weight-strong); box-shadow: var(--shadow-overlay); animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
+.ow-toast svg { flex: none; color: color-mix(in oklab, var(--color-success), var(--color-bg) 55%); }
+
 /* Tables with an intentional mobile treatment: rows become labelled blocks */
 .ow-table { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
 .ow-table th { text-align: left; font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--color-line-strong); white-space: nowrap; }

@@ -2,12 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
-import { useDirtyGuard } from "./owner-context";
+import { useDirtyGuard, useOwner } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { tapModesFor, type TapMode as Mode } from "./tap-modes";
 
-const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
+export const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
   { id: "disabled", label: "Aus", text: "Nur QR-Scan oder Kartencode an der Kasse." },
   { id: "staff_confirmed", label: "Mit Bestätigung", text: "Ein NFC-Tag öffnet die Karte, das Team bestätigt die Vergabe." },
   { id: "automatic_fixed", label: "Automatisch", text: "Ein Tap vergibt automatisch die feste Menge, mit Wartezeit zwischen zwei Taps." },
@@ -55,6 +55,7 @@ function PlateActivation({ programId, onLinked }: { programId: string; onLinked:
 
 /** NFC policy for the programme. A physical tag still needs separate, secure provisioning. */
 export function TapPolicyCard({ me }: { me: MeResponse }) {
+  const owner = useOwner();
   const initial: Mode = me.tapMode ?? "disabled";
   const [saved, setSaved] = useState<{ mode: Mode; cooldown: string }>({ mode: initial, cooldown: me.tapCooldownSeconds ? String(me.tapCooldownSeconds) : "" });
   const [mode, setMode] = useState<Mode>(saved.mode);
@@ -79,7 +80,7 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
     setState("saving"); setError("");
     try {
       await postJson("/api/merchant/tap", { action: "policy", programId: me.programId, mode, cooldownSeconds: mode === "disabled" ? null : cooldownNumber });
-      setSaved({ mode, cooldown: mode === "disabled" ? "" : cooldown }); setState("saved"); reloadTags();
+      setSaved({ mode, cooldown: mode === "disabled" ? "" : cooldown }); setState("saved"); reloadTags(); void owner.refresh(); // the Programm list reads the mode from /api/me
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die NFC-Regel konnte nicht gespeichert werden."); }
   }
 

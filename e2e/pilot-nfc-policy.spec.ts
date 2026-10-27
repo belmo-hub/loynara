@@ -29,12 +29,13 @@ test(`NFC policy: server and UI follow the pilot policy (${productionLike ? "pro
     try {
       const page = await ctx.newPage();
       await page.goto("/merchant/program");
-      await expect(page.getByRole("heading", { name: "Sammelregeln & Prämien" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Programm", exact: true })).toBeVisible();
       if (me.hiddenSurfaces?.includes("nfc")) {
-        // Without an NFC key provider configured: the NFC card is withheld (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
-        await expect(page.getByText("NFC-Tap (optional)")).toHaveCount(0);
+        // Without an NFC key provider configured: the NFC row is withheld (nothing to choose, nothing that can fail), and the server still refuses automatic taps.
+        await expect(page.getByRole("link", { name: /^NFC-Tap/ })).toHaveCount(0);
         if (productionLike) expect((await policy("automatic_fixed")).status()).toBe(400);
       } else {
+        await page.getByRole("link", { name: /^NFC-Tap/ }).click();
         await page.getByText("NFC-Tap (optional)").click();
         await expect(page.getByRole("radio", { name: /Aus/ })).toBeVisible();
         await expect(page.getByRole("radio", { name: /Mit Bestätigung/ })).toBeVisible();
@@ -65,9 +66,9 @@ test("manager sees an accurate read-only programme action while the owner keeps 
       try {
         const page = await ctx.newPage();
         await page.goto("/merchant/program");
-        await expect(page.getByRole("heading", { name: "Sammelregeln & Prämien" }), name).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Programm", exact: true }), name).toBeVisible();
         await expect(page.getByText("Nur Inhaber:innen können Regeln und Prämien ändern."), name).toHaveCount(name === "manager" ? 1 : 0);
-        await expect(page.getByRole("link", { name: "Kundenkarte gestalten" }), name).toHaveCount(name === "owner" ? 1 : 0);
+        await expect(page.getByRole("link", { name: /^Kundenkarte/ }), name).toHaveCount(name === "owner" ? 1 : 0);
       } finally { await ctx.close(); }
     }
   } finally { await manager.dispose(); await owner.dispose(); }

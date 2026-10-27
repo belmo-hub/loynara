@@ -8,6 +8,10 @@ import { CARD_NEWS_MAX, CHALLENGE_VISITS, cardNewsProblem, EXCLUDED_GOODS, LEVEL
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { AVERAGE_VISIT_SPEND_MAX_MINOR, SPEND_COPY } from "@/lib/spend-copy";
+import type { Question } from "./program-helpers";
+
+/** The Programm rows this card edits, one at a time. */
+export type ExtrasField = Exclude<Question, "rule" | "nfc" | "winback" | "happy-hour">;
 
 type Draft = { welcomeBonus: string; cardNews: string; reviewUrl: string; expiryMonths: string; challengeVisits: string; challengeBonus: string; levelsEnabled: boolean; silver: string; gold: string; perkBronze: string; perkSilber: string; perkGold: string; averageSpend: string };
 const LEVELS = [["Bronze", "perkBronze"], ["Silber", "perkSilber"], ["Gold", "perkGold"]] as const;
@@ -16,8 +20,8 @@ const fromMe = (me: MeResponse): Draft => ({ welcomeBonus: String(me.welcomeBonu
 const averageMinor = (text: string) => { try { const minor = parsePurchaseAmountMinor(text); return minor <= AVERAGE_VISIT_SPEND_MAX_MINOR ? minor : undefined; } catch { return undefined; } };
 const NEWS_PROBLEM = { TOO_LONG: `Höchstens ${CARD_NEWS_MAX} Zeichen.`, LINK: "Bitte ohne Links oder Webadressen.", CONTROL: "Bitte in einer Zeile, ohne Zeilenumbruch." };
 
-/** Programme extras the owner sets outside the versioned earning rule. The server checks every value again. */
-export function ProgramExtrasCard({ me }: { me: MeResponse }) {
+/** Programme extras the owner sets outside the versioned earning rule, the fields of one Programm row. The server checks every value again. */
+export function ProgramExtrasCard({ me, only, onSaved }: { me: MeResponse; only: ExtrasField; onSaved?: () => void }) {
   const owner = useOwner();
   const [saved, setSaved] = useState<Draft>(() => fromMe(me));
   const [draft, setDraft] = useState<Draft>(saved);
@@ -52,29 +56,28 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
       await postJson("/api/merchant/program/extras", { programId: me.programId, welcomeBonus: bonus, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim(), ...(stamp ? {} : { pointsExpiryMonths: draft.expiryMonths ? Number(draft.expiryMonths) : null }), challengeVisits: draft.challengeVisits ? Number(draft.challengeVisits) : null, ...(draft.challengeVisits ? { challengeBonus } : {}),
         levelsEnabled: draft.levelsEnabled, ...(draft.silver ? { levelSilverVisits: silver } : {}), ...(draft.gold ? { levelGoldVisits: gold } : {}), levelBronzePerk: draft.perkBronze.trim(), levelSilverPerk: draft.perkSilber.trim(), levelGoldPerk: draft.perkGold.trim(), ...(unpriced ? { averageVisitSpendMinor: average } : {}) });
       const next = { ...draft, cardNews: draft.cardNews.trim(), reviewUrl: draft.reviewUrl.trim() };
-      setSaved(next); setDraft(next); setState("saved"); void owner.refresh();
+      setSaved(next); setDraft(next); setState("saved"); void owner.refresh(); onSaved?.();
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
   }
 
   return (
-    <section className="ow-card ow-stack" aria-labelledby="extras-title">
-      <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="extras-title">Auf der Kundenkarte</h2><p>Kleine Extras für neue und wiederkommende Gäste.</p></div></div>
-      <div className="ow-field">
+    <section className="ow-card ow-stack">
+      {only === "welcome-bonus" && <div className="ow-field">
         <label htmlFor="extras-bonus">Startbonus ({stamp ? "Stempel" : "Punkte"})</label>
         <input id="extras-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={draft.welcomeBonus} onChange={event => edit({ welcomeBonus: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={!bonusValid} aria-describedby="extras-bonus-hint" />
         <span id="extras-bonus-hint" className="ow-hint">Wird einmal pro Karte zusammen mit dem ersten bestätigten Besuch gutgeschrieben. 0 bis {maxBonus}, 0 = aus.</span>
-      </div>
-      <div className="ow-field">
+      </div>}
+      {only === "news" && <div className="ow-field">
         <label htmlFor="extras-news">Neuigkeit auf der Karte</label>
         <input id="extras-news" className="ow-input" value={draft.cardNews} maxLength={CARD_NEWS_MAX} placeholder="z. B. Ab Montag neue Öffnungszeiten: 8 bis 18 Uhr." onChange={event => edit({ cardNews: event.target.value })} aria-invalid={Boolean(newsProblem)} aria-describedby="extras-news-hint" />
         <span id="extras-news-hint" className={newsProblem ? "ow-error" : "ow-hint"}>{newsProblem ? NEWS_PROBLEM[newsProblem] : `Nur Text, keine Links, bis ${CARD_NEWS_MAX} Zeichen (${Array.from(draft.cardNews).length}/${CARD_NEWS_MAX}). Leer = nicht angezeigt.`}</span>
-      </div>
-      <div className="ow-field">
+      </div>}
+      {only === "review-link" && <div className="ow-field">
         <label htmlFor="extras-review">Google-Bewertungslink</label>
         <input id="extras-review" className="ow-input" type="url" inputMode="url" value={draft.reviewUrl} maxLength={REVIEW_URL_MAX} placeholder="https://g.page/r/…/review" onChange={event => edit({ reviewUrl: event.target.value })} aria-invalid={!reviewValid} aria-describedby="extras-review-hint" />
         <span id="extras-review-hint" className={reviewValid ? "ow-hint" : "ow-error"}>{reviewValid ? "Ab dem dritten bestätigten Besuch zeigt die Karte einen Link zur Bewertung, ohne Prämie. Leer = kein Link." : "Bitte einen https-Link von g.page, google.com/maps oder search.google.com/local/writereview."}</span>
-      </div>
-      {!stamp && <div className="ow-field">
+      </div>}
+      {!stamp && only === "points-expiry" && <div className="ow-field">
         <label htmlFor="extras-expiry">Punkte verfallen</label>
         <select id="extras-expiry" className="ow-input" style={{ maxWidth: 260 }} value={draft.expiryMonths} onChange={event => edit({ expiryMonths: event.target.value })} aria-describedby="extras-expiry-hint">
           <option value="">Nie</option>
@@ -82,7 +85,7 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         </select>
         <span id="extras-expiry-hint" className="ow-hint">{draft.expiryMonths ? `Auf jeder Karte steht: „${expiryRuleText(Number(draft.expiryMonths))}“ ` : ""}Eine neue Einstellung gilt nur für Punkte, die ab dem Speichern gesammelt werden. 30 Tage vorher sehen Kunden einen Hinweis auf der Karte.</span>
       </div>}
-      <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }} aria-describedby="extras-challenge-hint">
+      {only === "challenge" && <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }} aria-describedby="extras-challenge-hint">
         <legend>Monats-Challenge</legend>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
           <div className="ow-field"><label htmlFor="extras-challenge-visits">Besuche im Monat</label>
@@ -95,8 +98,8 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         </div>
         {me.challengeNext && <p className="ow-hint" role="status">Diesen Monat gilt noch: {me.challengeVisits}-mal, +{me.challengeBonus} {stamp ? "Stempel" : "Punkte"}. Gilt ab {Number(me.challengeNext.from.slice(8))}.{Number(me.challengeNext.from.slice(5, 7))}.: {me.challengeNext.visits ? `${me.challengeNext.visits}-mal, +${me.challengeNext.bonus} ${stamp ? "Stempel" : "Punkte"}` : "aus"}.</p>}
         <span id="extras-challenge-hint" className={challengeValid ? "ow-hint" : "ow-error"}>{challengeValid ? `${me.challengeVisits ? "Änderungen an der laufenden Challenge gelten ab dem 1. des nächsten Monats; dieser Monat bleibt, wie die Karte es zeigt. " : ""}Zählt Tage mit einem an der Kasse bestätigten Besuch im Kalendermonat. Der Bonus wird einmal pro Monat mit dem bestätigten Besuch gebucht, der das Ziel erreicht; die Kasse sieht ihn. ${stamp ? "1 bis 3 Stempel." : "Höchstens ein Viertel der günstigsten Prämie."} ${EXCLUDED_GOODS}` : stamp ? "Bonus: 1 bis 3 Stempel." : "Bonus: mindestens 1 Punkt."}</span>
-      </fieldset>
-      <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>
+      </fieldset>}
+      {only === "levels" && <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>
         <legend>Kundenlevel</legend>
         <label className="ow-check"><input type="checkbox" role="switch" checked={draft.levelsEnabled} onChange={event => edit({ levelsEnabled: event.target.checked })} /> Level sind {draft.levelsEnabled ? "an" : "aus"}</label>
         <span className="ow-hint">Bronze ab dem ersten Besuch, Silber und Gold nach Besuchstagen in den letzten 90 Tagen. Wähle beide selbst, zum Beispiel Friseur/Barber: 3 und 6 · Pizzeria/Imbiss: 5 und 10.</span>
@@ -107,13 +110,13 @@ export function ProgramExtrasCard({ me }: { me: MeResponse }) {
         </div>
         {LEVELS.map(([name, key]) => <div key={key} className="ow-field"><label htmlFor={`extras-${key}`}>Vorteil {name} (optional)</label><input id={`extras-${key}`} className="ow-input" value={draft[key]} maxLength={LEVEL_PERK_MAX} placeholder={name === "Gold" ? "z. B. Getränk aufs Haus" : ""} onChange={event => edit({ [key]: event.target.value } as Partial<Draft>)} aria-invalid={Boolean(levelPerkProblem(draft[key].trim()))} /></div>)}
         {!levelsValid && <p className="ow-error">{draft.levelsEnabled && (!draft.silver || !draft.gold) ? "Bitte lege fest, ab wie vielen Besuchen Silber und Gold gelten." : `Silber 2 bis 50 Besuche, Gold mehr als Silber und höchstens 90. Vorteile: nur Text, keine Links, bis ${LEVEL_PERK_MAX} Zeichen.`}</p>}
-      </fieldset>
-      {unpriced && <div className="ow-field">
+      </fieldset>}
+      {unpriced && only === "average-spend" && <div className="ow-field">
         <label htmlFor="extras-average">{SPEND_COPY.averageLabel}</label>
         <input id="extras-average" className="ow-input" inputMode="decimal" style={{ maxWidth: 160 }} value={draft.averageSpend} placeholder="z. B. 12,50" onChange={event => edit({ averageSpend: event.target.value.replace(/[^0-9,.]/g, "") })} aria-invalid={!averageValid} aria-describedby="extras-average-hint" />
         <span id="extras-average-hint" className={averageValid ? "ow-hint" : "ow-error"}>{averageValid ? SPEND_COPY.averageHint : SPEND_COPY.averageError}</span>
       </div>}
-      <SaveBar section="Auf der Kundenkarte" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid && averageValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid && !newsProblem && reviewValid && challengeValid && levelsValid && averageValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }

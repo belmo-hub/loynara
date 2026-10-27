@@ -70,3 +70,12 @@ export function parseGermanMoney(raw: string): number | null {
   const parsed = Number(value.replace(",", "."));
   return parsed > 0 ? parsed : null;
 }
+
+/** Programm rows that open a page of their own, /merchant/program/<question> (ENG-099), with the row's title. */
+export const QUESTIONS = {
+  rule: "Regel auf der Karte", "points-expiry": "Punkte verfallen", nfc: "NFC-Tap",
+  "welcome-bonus": "Startbonus", winback: "Willkommen zurück", challenge: "Monats-Challenge", levels: "Kundenlevel", "happy-hour": "Happy Hour",
+  news: "Neuigkeit", "review-link": "Google-Bewertung", "average-spend": "Durchschnittsbon",
+} as const;
+export type Question = keyof typeof QUESTIONS;
+export const isQuestion = (value: string): value is Question => Object.hasOwn(QUESTIONS, value);

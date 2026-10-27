@@ -12,7 +12,7 @@ const fromMe = (me: MeResponse): Draft => ({ enabled: me.happyHourEnabled ?? fal
 const PROBLEM = { COUNT: `Höchstens ${HAPPY_HOUR_MAX_WINDOWS} Zeitfenster.`, SHAPE: "Wähle für jedes Zeitfenster mindestens einen Wochentag.", TIME: "Bitte Beginn und Ende angeben.", MIDNIGHT: "Das Ende muss nach dem Beginn liegen. Über Mitternacht geht noch nicht: teile das Fenster auf zwei Tage auf." };
 
 /** Automatic double points at quiet times (points programmes with purchase amounts). The server checks every value again. */
-export function HappyHourCard({ me, earningMode }: { me: MeResponse; earningMode?: string }) {
+export function HappyHourCard({ me, earningMode, onSaved }: { me: MeResponse; earningMode?: string; onSaved?: () => void }) {
   const owner = useOwner();
   const [saved, setSaved] = useState<Draft>(() => fromMe(me));
   const [draft, setDraft] = useState<Draft>(saved);
@@ -33,7 +33,7 @@ export function HappyHourCard({ me, earningMode }: { me: MeResponse; earningMode
     setState("saving"); setError("");
     try {
       await postJson("/api/merchant/program/happy-hour", { programId: me.programId, happyHourEnabled: draft.enabled, happyHourWindows: draft.windows });
-      setSaved(draft); setState("saved"); void owner.refresh();
+      setSaved(draft); setState("saved"); void owner.refresh(); onSaved?.();
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
   }
 

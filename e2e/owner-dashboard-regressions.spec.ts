@@ -40,7 +40,7 @@ test("failed context refresh after location selection shows an error and retry r
 });
 
 for (const flow of [
-  { name: "rules to card studio", path: "/merchant/program", field: "Programmname", link: "Kundenkarte gestalten", target: "/merchant/program/card", editRules: true },
+  { name: "rule page back to the list", path: "/merchant/program/rule", field: "Programmname", link: "Programm", target: "/merchant/program", editRules: true },
   { name: "card studio to rules", path: "/merchant/program/card", field: "Geschäftsname", link: "Sammelregeln & Prämien", target: "/merchant/program" },
   { name: "location draft to programme", path: "/merchant/locations", field: "Standortname", link: "Programm ansehen", target: "/merchant/program" },
 ]) test(`page link guards unsaved edits: ${flow.name}`, async ({ baseURL, browser }) => {
@@ -103,7 +103,7 @@ test("NFC policy keeps its accessible group name without horizontal page overflo
   const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
   try {
     const page = await context.newPage();
-    await page.goto("/merchant/program");
+    await page.goto("/merchant/program/nfc");
     const group = page.getByRole("group", { name: "Vergabe nach NFC-Berührung", exact: true });
     await expect(group).toBeVisible();
     for (const width of [390, 320, 768, 1280, 1440]) {

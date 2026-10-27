@@ -13,10 +13,14 @@ type Reward = { rewardId: string; versionId: string; version: number; title: str
 type Form = { id: string | null; title: string; cost: string; terms: string; ownCost: string };
 const EMPTY: Form = { id: null, title: "", cost: "", terms: "", ownCost: "" };
 
-export function RewardsCard({ me, program, onChanged }: { me: MeResponse; program: PublicProgram; onChanged: () => void | Promise<void> }) {
+/** `open` ("new" or a reward id) opens that form at once, for a Programm row's own page; `onSaved` follows a saved form. */
+export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeResponse; program: PublicProgram; onChanged: () => void | Promise<void>; open?: string; onSaved?: () => void }) {
   const owner = useOwner();
   const [list, reload] = useLoad<{ rewards: Reward[] }>(`/api/merchant/program/rewards?programSlug=${encodeURIComponent(me.programSlug)}`);
-  const [form, setForm] = useState<Form | null>(null);
+  const [form, setForm] = useState<Form | null>(() => {
+    const reward = program.rewards.find(item => item.rewardId === open);
+    return open === "new" ? { ...EMPTY } : reward ? { id: reward.rewardId, title: reward.title, cost: String(reward.cost), terms: reward.termsText, ownCost: "" } : null;
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [archiving, setArchiving] = useState<Reward | null>(null);
@@ -48,7 +52,7 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
   async function submit() {
     if (!form || !valid || busy || cost === null) return;
     const ok = await run({ action: form.id ? "edit" : "create", ...(form.id ? { rewardId: form.id } : {}), title: form.title.trim(), cost, termsText: form.terms.trim() }, form.id ? "Neue Prämienversion gespeichert." : "Prämie hinzugefügt.");
-    if (ok) setForm(null);
+    if (ok) { setForm(null); onSaved?.(); }
   }
   async function move(index: number, direction: -1 | 1) {
     const next = [...active]; const target = index + direction;
@@ -133,7 +137,7 @@ export function RewardsCard({ me, program, onChanged }: { me: MeResponse; progra
       {error && !form && <p className="ow-error" role="alert">{error}</p>}
       {archived.length > 0 && <details className="ow-muted"><summary>Archivierte Prämien ({archived.length})</summary><ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{archived.map(reward => <li key={reward.rewardId}>{reward.title} · Version {reward.version}</li>)}</ul></details>}
       {archiving && (
-        <OwnerDialog title={`„${archiving.title}“ archivieren?`} tone="danger" onClose={() => setArchiving(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setArchiving(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => { const target = archiving; setArchiving(null); void run({ action: "archive", rewardId: target.rewardId }, `„${target.title}“ archiviert.`); }}>Archivieren</button></>}>
+        <OwnerDialog title={`„${archiving.title}“ archivieren?`} tone="danger" onClose={() => setArchiving(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setArchiving(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => { const target = archiving; setArchiving(null); setForm(current => current?.id === target.rewardId ? null : current); void run({ action: "archive", rewardId: target.rewardId }, `„${target.title}“ archiviert.`); }}>Archivieren</button></>}>
           <p>Kunden sehen die Prämie danach nicht mehr und können sie nicht mehr einlösen. Bereits eingelöste Prämien bleiben in der Historie.</p>
         </OwnerDialog>
       )}
