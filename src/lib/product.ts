@@ -229,7 +229,8 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     const challenge = current.visits === null || (challengeVisits === current.visits && challengeBonus === current.bonus)
       ? { challengeVisits, challengeBonus, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null }
       : { challengeVisits: current.visits, challengeBonus: current.bonus, challengeNextFrom: nextMonthStart(month), challengeNextVisits: challengeVisits, challengeNextBonus: challengeVisits === null ? null : challengeBonus };
-    if (challengeVisits !== null) {
+    // Only a request that sets the challenge checks it, so saving another setting never fails on it (ENG-099 N-3).
+    if (challengeVisits !== null && (input.challengeVisits !== undefined || input.challengeBonus !== undefined)) {
       // shortcut: checked when the owner saves; a cheaper reward added later does not re-check the bonus. Re-check on reward changes if owners hit it.
       const cheapest = Math.min(...(await currentRewards(program.tenantId, program.id, tx)).map(reward => reward.cost));
       const range = challengeBonusRange(program.type, cheapest);

@@ -719,3 +719,30 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
   .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 76px + var(--space-3)); }
 }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
+/* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
+.ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
+.ow-qchoice { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: var(--space-3) 14px; border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice:active { transform: scale(.985); }
+.ow-qchoice:has(:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
+/* The picked answer is filled with the action colour; its tile and sub-line take the text colour, the sub-line a step back. */
+.ow-qchoice:has(:checked) { background: var(--color-action); color: var(--color-on-action); }
+.ow-qchoice:has(:checked) .ow-prog-icon { background: color-mix(in oklab, var(--color-on-action), transparent 84%); color: inherit; }
+.ow-qchoice:has(:checked) small { color: color-mix(in oklab, var(--color-on-action), var(--color-action) 20%); }
+@media (hover: hover) { .ow-qchoice:not(:has(:checked)):hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
+@media (prefers-reduced-motion: reduce) { .ow-qchoice:active { transform: none; } }
+.ow-qswitch { justify-content: space-between; min-height: 64px; font-weight: var(--weight-body); }
+.ow-qcontrol { display: grid; gap: var(--space-2); }
+.ow-qcontrol > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+.ow-qcontrol :is(label, .ow-label) { font-size: var(--text-16); font-weight: var(--weight-strong); }
+/* „Bonus“ and its two answers share the line while they fit; each answer stays one line. */
+.ow-qcontrol .ow-seg { width: auto; }
+.ow-qcontrol .ow-seg button { flex: 1 1 auto; white-space: nowrap; }
+.ow-qpanel .ow-textarea { resize: none; }
+.ow-qmoney { position: relative; display: block; max-width: 12rem; }
+.ow-qmoney .ow-input { min-height: 56px; padding-right: var(--space-10); font-size: var(--text-22); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.ow-qmoney span { position: absolute; top: 50%; right: var(--space-4); transform: translateY(-50%); font-size: var(--text-22); font-weight: var(--weight-strong); pointer-events: none; }
+/* A text action under the answer: „Vorteile pro Level“ opens more fields, „Neuigkeit entfernen“ saves at once. */
+.ow-qlink { align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-action); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
+.ow-qlink[data-danger] { color: var(--color-danger); text-decoration: none; }
+.ow-qlink:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
