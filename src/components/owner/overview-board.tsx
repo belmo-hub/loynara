@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CircleCheck, CreditCard, Gift, Undo2, type LucideIcon } from "lucide-react";
+import { ArrowRight, CircleCheck, CreditCard, Gift, RefreshCw, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
+import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
+import { BROUGHT_COPY, formatMinor } from "@/lib/spend-copy";
 import { nf } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
@@ -146,6 +150,47 @@ function CountUp({ value, seenKey }: { value: number; seenKey: string }) {
     return () => cancelAnimationFrame(frame);
   }, [from, seenKey, value]);
   return <>{nf.format(shown)}</>;
+}
+
+/**
+ * ENG-095 (rules: Product, 27 Oct): customers back with the win-back bonus or new on a referral, last 30 days at this
+ * location. Exact counts and, for points shops, the till amounts of exactly those bookings; no share, no estimate, and no
+ * coral (nothing here is earned). `all` is the all-card total: euros for till amounts, else bookings.
+ */
+export function Brought({ brought, all, currency }: { brought: BroughtCustomers; all: string; currency: string }) {
+  const [help, setHelp] = useState(false);
+  const titleId = useId();
+  const { revenue, bookings } = brought;
+  const close = () => setHelp(false);
+  return (
+    <section className="ow-brought" aria-labelledby={titleId}>
+      <div className="ow-brought-head">
+        <h2 id={titleId} className="ow-tiles-title">{BROUGHT_COPY.title}</h2>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „Wieder da oder neu auf Empfehlung“</span></button>
+      </div>
+      <p className="ow-brought-n">{BROUGHT_COPY.customers(brought.customers)}</p>
+      <dl className="ow-brought-lines">
+        <div><dt>{BROUGHT_COPY.winback}</dt><dd>{nf.format(brought.winback)}</dd></div>
+        <div><dt>{BROUGHT_COPY.referral}</dt><dd>{nf.format(brought.referral)}</dd></div>
+        {revenue && bookings > 0 && <div><dt>{BROUGHT_COPY.revenue}</dt><dd>{revenue.pricedBookings > 0 ? formatMinor(revenue.amountMinor, currency) : "–"}</dd><dd>{BROUGHT_COPY.priced(revenue.pricedBookings, bookings)}</dd></div>}
+      </dl>
+      <p className="ow-brought-all">{BROUGHT_COPY.all} <b>{all}</b>. {BROUGHT_COPY.allNote}</p>
+      <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
+        <p>{BROUGHT_COPY.howWeCount}</p>
+      </Sheet>
+    </section>
+  );
+}
+
+/** ENG-095 §5: until the location has a brought customer, the block's place names the next step while the bonus is off, never a 0. */
+export function BonusOffBand({ href }: { href: string }) {
+  return (
+    <Link className="ow-brought-off" href={href}>
+      <span><RefreshCw size={22} aria-hidden="true" focusable="false" /></span>
+      <span><b>{BROUGHT_COPY.bonusOff}</b><small>{BROUGHT_COPY.bonusOffText}</small></span>
+      <ArrowRight size={22} aria-hidden="true" focusable="false" />
+    </Link>
+  );
 }
 
 /** A milestone, shown once: a quiet white card above the board, no confetti, no sound (spec §4.3). */

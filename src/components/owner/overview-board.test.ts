@@ -3,9 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { boardCacheKey } from "@/lib/board-cache";
 import type { MeResponse } from "@/components/client-api";
-import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
+import type { BroughtCustomers, LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import type { LaunchReadiness } from "@/lib/readiness";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
+import { BROUGHT_COPY, SPEND_COPY } from "@/lib/spend-copy";
 
 type Load = { state: "ok"; data: unknown; at: number } | { state: "loading" } | { state: "error"; message: string };
 const state = vi.hoisted(() => ({ me: null as MeResponse | null, locations: [] as Array<{ id: string }>, hidden: [] as string[], loads: {} as Record<string, Load>, urls: [] as string[] }));
@@ -200,6 +201,71 @@ describe("Übersicht direction D (ENG-085)", () => {
 
   it("keeps the invite link and Tresenschild reachable on the page until ENG-086 moves them", () => {
     expect(render()).toContain("Kunden einladen");
+  });
+});
+
+describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
+  const row = (locationId: string, brought: BroughtCustomers | null, here: Partial<SpendFigures> = {}) => ({ locationId, name: locationId, recentFrom: "", recent: figures(here), total: figures(here), brought });
+  const stamps: BroughtCustomers = { customers: 3, winback: 2, referral: 1, bookings: 3, revenue: null };
+  const showing = (rows: ReturnType<typeof row>[]) => { state.loads["/api/merchant/spend"] = ok({ ...spend(figures({})), locations: rows }); return render(); };
+  const block = (html: string) => { const at = html.indexOf('<section class="ow-brought"'); return at < 0 ? "" : html.slice(at, html.indexOf("</section>", at)); };
+
+  it("stamp shop: the two events with their counts under the board, the all-card bookings as on the board, no euro, ratio or cause", () => {
+    const html = showing([row("loc-1", stamps, { visits: 7 })]);
+    const shown = block(html);
+    expect(shown).toContain(`Wieder da oder neu auf Empfehlung${NBSP}· letzte${NBSP}30${NBSP}Tage`);
+    expect(shown).toContain(`<p class="ow-brought-n">3${NBSP}Kunden</p>`);
+    expect(shown).toContain("<dt>Nach längerer Pause wieder da, mit Bonus</dt><dd>2</dd>");
+    expect(shown).toContain("<dt>Neu auf Empfehlung</dt><dd>1</dd>");
+    expect(shown).toContain("Alle Kunden mit Karte: <b>9 Buchungen</b>. Manche wären auch ohne Karte gekommen."); // the board's 9, not the spend read's 7
+    expect(shown).toContain('aria-haspopup="dialog"');
+    expect(shown).toContain("Gezählt werden nur die Buchungen, bei denen der Willkommen-zurück-Bonus dazukam, und die erste Buchung nach einer Empfehlung.");
+    expect(shown).not.toMatch(/€|%|Umsatz|(über|durch|dank) Loynara/);
+    expect(html.indexOf("ow-brought")).toBeGreaterThan(html.indexOf("ow-board-kicker"));
+    expect(html.indexOf("ow-brought")).toBeLessThan(html.indexOf("ow-tiles-title"));
+    expect(SPEND_COPY.howWeCount.endsWith(BROUGHT_COPY.allNote)).toBe(true); // the caveat stays word for word
+  });
+
+  it("points shop: the till amounts of these bookings with how many had one, never an estimate; singular forms", () => {
+    const points = (revenue: BroughtCustomers["revenue"], patch: Partial<BroughtCustomers> = {}) => block(showing([row("loc-1", { ...stamps, revenue, ...patch }, { visits: 9, realMinor: 31_200, spentMinor: 35_000, estimatedMinor: 3_800 })]));
+    const some = points({ amountMinor: 4_150, pricedBookings: 2 });
+    expect(some).toContain(`<dt>Umsatz dieser Buchungen</dt><dd>41,50${NBSP}€</dd><dd>2 von 3 Buchungen mit Kassenbetrag</dd>`);
+    expect(some).toContain(`Alle Kunden mit Karte: <b>312,00${NBSP}€</b>.`); // till amounts only, without the board's estimate
+    expect(points({ amountMinor: 4_150, pricedBookings: 3 })).toContain("<dd>aus 3 Buchungen mit Kassenbetrag</dd>");
+    expect(points({ amountMinor: 0, pricedBookings: 0 })).toContain("<dd>–</dd><dd>0 von 3 Buchungen mit Kassenbetrag</dd>");
+    const one = points({ amountMinor: 900, pricedBookings: 1 }, { customers: 1, winback: 0, referral: 1, bookings: 1 });
+    expect(one).toContain(`1${NBSP}Kunde</p>`);
+    expect(one).toContain("aus 1 Buchung mit Kassenbetrag");
+  });
+
+  it("shows a true 0 once the gate is open, without a revenue line when there is no booking to sum", () => {
+    const shown = block(showing([row("loc-1", { customers: 0, winback: 0, referral: 0, bookings: 0, revenue: { amountMinor: 0, pricedBookings: 0 } }, { realMinor: 1_000 })]));
+    expect(shown).toContain(`0${NBSP}Kunden`);
+    expect(shown).toContain("<dd>0</dd>");
+    expect(shown).not.toContain("Umsatz dieser Buchungen");
+  });
+
+  it("before the first brought customer: the bonus band while the bonus is off, else nothing; never for the Leitung or beside a failed read", () => {
+    const off = () => { state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } })); };
+    off();
+    const band = showing([row("loc-1", null)]);
+    expect(band).toMatch(/<a class="ow-brought-off" href="\/merchant\/program#winback-title"><span><svg[^]*<\/svg><\/span><span><b>Willkommen-zurück-Bonus einschalten<\/b><small>Ein kleiner Bonus für Kunden, die länger nicht da waren.<\/small><\/span><svg/);
+    expect(band).not.toContain('<section class="ow-brought"');
+    state.loads["/api/merchant/analytics/location"] = ok(analytics());
+    expect(showing([row("loc-1", null)])).not.toContain("ow-brought");
+    off();
+    state.me = me({ role: "manager" });
+    expect(showing([row("loc-1", stamps)])).not.toContain("ow-brought");
+    state.me = me();
+    state.loads["/api/merchant/retention"] = { state: "error", message: "x" };
+    expect(showing([row("loc-1", stamps)])).not.toContain("ow-brought");
+  });
+
+  it("follows the active location", () => {
+    state.me = me({ locationId: "loc-2" });
+    const shown = block(showing([row("loc-1", stamps), row("loc-2", { ...stamps, customers: 5, winback: 5, referral: 0 })]));
+    expect(shown).toContain(`5${NBSP}Kunden`);
+    expect(shown).toContain("<dd>5</dd>");
   });
 });
 

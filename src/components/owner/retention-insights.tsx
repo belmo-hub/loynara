@@ -9,7 +9,8 @@ export type ReferralRow = { status: string };
 export type Insight = { id: string; tone: "act" | "watch"; title: string; why: string; next?: string; actions: Array<{ label: string; href: string }> };
 /** The owner's Wallet win-back (ENG-044), as the per-location read returns it: null where it is not offered or not the owner's. */
 export type WinbackState = { enabled: boolean; inWindow: number } | null;
-const WINBACK_HREF = "/merchant/wallet-messages#winback-title";
+/** The win-back setting: on Programm since ENG-089 (Wallet-Nachrichten no longer has it). */
+export const WINBACK_HREF = "/merchant/program#winback-title";
 
 const cards = (n: number) => `${nf.format(n)} ${n === 1 ? "Karte" : "Karten"}`;
 
