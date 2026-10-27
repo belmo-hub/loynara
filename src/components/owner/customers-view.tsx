@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { apiJson } from "@/components/client-api";
 import { parseCardLocator } from "@/lib/card-locator";
+import { unitWord, withUnit } from "@/lib/units";
 import type { MerchantMember, MerchantMemberDetail, MerchantMemberList } from "@/lib/merchant-members";
 import { useOwner } from "./owner-context";
 import { CorrectionDialog, correctable, ReissueDialog, sourceLabel } from "./card-actions";
@@ -48,7 +49,6 @@ function sinceLast(value: string | null) {
   return days <= 0 ? "Zuletzt heute" : days === 1 ? "Zuletzt gestern" : `Zuletzt vor ${days} Tagen`;
 }
 
-const unitOf = (m: Pick<MerchantMember, "programType">) => m.programType === "stamp" ? "Stempel" : "Punkte";
 const when = (value: string | null) => value ? germanDate(value, true) : "Noch kein bestätigter Vorgang";
 const reason = (cause: unknown) => cause instanceof Error ? cause.message : "Die Daten konnten nicht geladen werden.";
 
@@ -235,7 +235,7 @@ export function CustomersView() {
             : <ul className="ow-members">{visible.map(member => (
               <li key={member.id}><button type="button" className="ow-member" aria-current={selected === member.id ? "true" : undefined} onClick={() => void open(member.id)}>
                 <span className="ow-member-id"><strong>{member.pseudonym}</strong><small>{member.programName}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
-                <span className="ow-member-stat"><strong className="ow-num">{member.balance} {unitOf(member)}</strong><small>{member.closedAt ? "Geschlossen" : sinceLast(member.lastQualifyingAt)} · {member.qualifyingCheckouts} {member.qualifyingCheckouts === 1 ? "Vorgang" : "Vorgänge"}</small></span>
+                <span className="ow-member-stat"><strong className="ow-num">{withUnit(member.balance, member.programType)}</strong><small>{member.closedAt ? "Geschlossen" : sinceLast(member.lastQualifyingAt)} · {member.qualifyingCheckouts} {member.qualifyingCheckouts === 1 ? "Vorgang" : "Vorgänge"}</small></span>
               </button></li>))}</ul>}
           {next && !loading && <div style={{ marginTop: 12 }}><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void loadMore()} disabled={more} aria-busy={more}>{more ? "Wird geladen …" : "Weitere Karten laden"}</button></div>}
         </section>
@@ -250,7 +250,7 @@ export function CustomersView() {
               <div className="ow-stack" style={{ marginTop: 12 }}>
                 <div className="ow-row" style={{ justifyContent: "space-between" }}><strong style={{ fontSize: "var(--text-18)" }}>{detail.member.pseudonym}</strong><span className={`ow-chip ${detail.member.closedAt ? "" : "ow-chip--ok"}`}>{detail.member.closedAt ? "Geschlossen" : "Aktiv"}</span></div>
                 <p className="ow-muted">{detail.member.programName} · {detail.member.locationName}</p>
-                <div className="ow-readonly"><span className="ow-muted">Aktueller Stand</span><div style={{ fontSize: "var(--text-28)", fontWeight: 700 }} className="ow-num">{detail.member.balance} {unitOf(detail.member)}</div></div>
+                <div className="ow-readonly"><span className="ow-muted">Aktueller Stand</span><div style={{ fontSize: "var(--text-28)", fontWeight: 700 }} className="ow-num">{withUnit(detail.member.balance, detail.member.programType)}</div></div>
                 <dl className="ow-dl">
                   <dt>Bestätigte Vorgänge</dt><dd>{detail.member.qualifyingCheckouts}</dd>
                   <dt>Erster Vorgang</dt><dd>{when(detail.member.firstQualifyingAt)}</dd>
@@ -266,16 +266,16 @@ export function CustomersView() {
                 {!detail.member.closedAt && (canAct
                   ? <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => setReissuing(true)}>Karte neu ausstellen</button><span className="ow-hint">Neuer Link bei verlorenem Kartenlink; Stand bleibt.</span></div>
                   : <p className="ow-hint">Korrigieren und neu ausstellen ist am Standort {detail.member.locationName} möglich. Wechsle dazu den aktiven Standort.</p>)}
-                {detail.eligibleRewards.length > 0 && <div><h3 style={{ fontSize: "var(--text-16)" }}>Jetzt einlösbar</h3><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{detail.eligibleRewards.map(reward => <li key={reward.id}>{reward.title} · {reward.cost} {unitOf(detail.member)}</li>)}</ul></div>}
+                {detail.eligibleRewards.length > 0 && <div><h3 style={{ fontSize: "var(--text-16)" }}>Jetzt einlösbar</h3><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{detail.eligibleRewards.map(reward => <li key={reward.id}>{reward.title} · {withUnit(reward.cost, detail.member.programType)}</li>)}</ul></div>}
                 <div><h3 style={{ fontSize: "var(--text-16)" }}>Vorgänge</h3><p className="ow-hint">Jede bestätigte Buchung zählt einmal, egal wie viele Stempel oder Punkte. Sie ist kein Beweis für einen Besuch.</p>
-                  {detail.timeline.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Buchungen.">Buchungen und Einlösungen dieser Karte erscheinen hier.</EmptyState> : <ol className="ow-feed">{detail.timeline.map(entry => <li key={entry.id}><span><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : entry.kind === "expiry" ? "Verfallen" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong><span className="ow-muted ow-num"> · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitOf(detail.member)}</span>{entry.kind !== "reversal" && <small className="ow-muted"> · {sourceLabel(entry.source)}</small>}{entry.reversed && <small className="ow-muted"> · später korrigiert</small>}{entry.kind === "reversal" && entry.reversalOfId && (() => { const original = detail.timeline.find(item => item.id === entry.reversalOfId); return <small className="ow-muted"> · {original ? `hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, true)} auf` : "hebt einen älteren Vorgang auf"}</small>; })()}{entry.reason && <small className="ow-feed-reason">Grund: {entry.reason}</small>}</span><span className="ow-feed-side"><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time>{canAct && correctable(entry) && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCorrecting(entry)}>Korrigieren</button>}</span></li>)}</ol>}
+                  {detail.timeline.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Buchungen.">Buchungen und Einlösungen dieser Karte erscheinen hier.</EmptyState> : <ol className="ow-feed">{detail.timeline.map(entry => <li key={entry.id}><span><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : entry.kind === "expiry" ? "Verfallen" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong><span className="ow-muted ow-num"> · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitWord(entry.delta, detail.member.programType)}</span>{entry.kind !== "reversal" && <small className="ow-muted"> · {sourceLabel(entry.source)}</small>}{entry.reversed && <small className="ow-muted"> · später korrigiert</small>}{entry.kind === "reversal" && entry.reversalOfId && (() => { const original = detail.timeline.find(item => item.id === entry.reversalOfId); return <small className="ow-muted"> · {original ? `hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, true)} auf` : "hebt einen älteren Vorgang auf"}</small>; })()}{entry.reason && <small className="ow-feed-reason">Grund: {entry.reason}</small>}</span><span className="ow-feed-side"><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time>{canAct && correctable(entry) && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setCorrecting(entry)}>Korrigieren</button>}</span></li>)}</ol>}
                   {detail.nextCursor && <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void older()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button>}
                 </div>
               </div>
             ) : null}
         </section>
       </div>
-      {correcting && detail && <CorrectionDialog entry={correcting} unit={unitOf(detail.member)} locationId={me.locationId} balance={detail.member.balance} onClose={() => setCorrecting(null)} onDone={() => { const id = detail.member.id; setCorrecting(null); setActionNotice("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); void open(id, true); }} />}
+      {correcting && detail && <CorrectionDialog entry={correcting} kind={detail.member.programType} locationId={me.locationId} balance={detail.member.balance} onClose={() => setCorrecting(null)} onDone={() => { const id = detail.member.id; setCorrecting(null); setActionNotice("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); void open(id, true); }} />}
       {reissuing && detail && <ReissueDialog membershipId={detail.member.id} cardLocator={detail.member.cardLocator} onClose={() => { setReissuing(false); void open(detail.member.id, true); }} onDone={() => setActionNotice("Karte neu ausgestellt. Der alte Link ist ungültig.")} />}
     </div>
   );

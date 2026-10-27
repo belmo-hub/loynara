@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ClientApiError, imageToDataUrl, postJson } from "@/components/client-api";
+import { withUnit } from "@/lib/units";
 import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
@@ -112,7 +113,7 @@ export function ProgramSetup() {
   const summary = [
     ["Regel", earningSentence(f.type, effectiveMode, rate, currency)],
     ["Wer bestätigt", confirmSentence(f.type, effectiveMode)],
-    ["Prämie", cost !== null ? `${cost} ${f.type === "stamp" ? "Stempel" : "Punkte"} → ${f.rewardName.trim()}` : "–"],
+    ["Prämie", cost !== null ? `${withUnit(cost, f.type)} → ${f.rewardName.trim()}` : "–"],
     ["Karte", `${f.businessName.trim()} · ${f.locationName.trim()}`],
   ];
 
@@ -201,7 +202,7 @@ export function ProgramSetup() {
           {step === 1 && example && (
             <div className="ow-card ow-stack"><h2 style={{ fontSize: "var(--text-16)" }}>Beispiel durchspielen</h2>
               <Field id="su-amount" label={`Einkaufswert in ${currency === "EUR" ? "€" : currency}`}><input id="su-amount" className="ow-input" inputMode="decimal" placeholder="z. B. 12,90" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
-              <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{example.points} Punkte</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-muted">Rechnet mit der Formel des Servers.</p>}</div>
+              <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{withUnit(example.points, "points")}</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-muted">Rechnet mit der Formel des Servers.</p>}</div>
             </div>
           )}
         </aside>

@@ -1,10 +1,11 @@
 import { MAX_POINTS_PER_CURRENCY_UNIT, parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
+import { unitWord } from "@/lib/units";
 
 export type ProgramKind = "stamp" | "points";
 export type EarningMode = "manual" | "purchase";
-export const unitName = (type: ProgramKind, count = 2) => type === "points" ? (count === 1 ? "Punkt" : "Punkte") : (count === 1 ? "Stempel" : "Stempel");
+export const unitName = (type: ProgramKind, count = 2) => unitWord(count, type);
 /** Dative plural for "in …" / "mit …" sentences. */
-export const unitDative = (type: ProgramKind) => type === "points" ? "Punkten" : "Stempeln";
+export const unitDative = (type: ProgramKind) => unitWord(2, type, "de", "dat");
 export { MAX_POINTS_PER_CURRENCY_UNIT };
 
 export function euro(minor: number, currency: string) {
