@@ -27,6 +27,12 @@ describe("StampGrid", () => {
   it("speaks French when asked", () => {
     expect(html(h(StampGrid, { earned: 1, total: 5, locale: "fr" }))).toContain('aria-label="1 tampon sur 5"');
   });
+  it("says a one-stamp card in the singular, and French zero too (ENG-108)", () => {
+    expect(html(h(StampGrid, { earned: 0, total: 1 }))).toContain('aria-label="0 von 1 Stempel"');
+    expect(html(h(StampGrid, { earned: 0, total: 2 }))).toContain('aria-label="0 von 2 Stempeln"');
+    expect(html(h(StampGrid, { earned: 0, total: 5, locale: "fr" }))).toContain('aria-label="0 tampon sur 5"');
+    expect(html(h(StampGrid, { earned: 2, total: 5, locale: "fr" }))).toContain('aria-label="2 tampons sur 5"');
+  });
   it("draws one track instead of a mark per stamp above 30 stamps", () => {
     const long = html(h(StampGrid, { earned: 40, total: 1000 }));
     expect(long).not.toContain("<li");
@@ -47,6 +53,11 @@ describe("PointsLadder", () => {
     expect(html(h(PointsLadder, { balance: 1, rewards, locale: "fr" }))).toContain('aria-label="1 point sur 150"');
     expect(html(h(PointsLadder, { balance: 2, rewards, locale: "fr" }))).toContain('aria-label="2 points sur 150"');
     expect(html(h(PointsLadder, { balance: 1, rewards }))).toContain('aria-label="1 von 150 Punkten"');
+  });
+  it("says a one-point reward in the singular, and French zero too (ENG-108)", () => {
+    expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 1 }] }))).toContain('aria-label="0 von 1 Punkt"');
+    expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 2 }] }))).toContain('aria-label="0 von 2 Punkten"');
+    expect(html(h(PointsLadder, { balance: 0, rewards, locale: "fr" }))).toContain('aria-label="0 point sur 150"');
   });
   it("draws nothing when the programme has no reward yet", () => {
     expect(html(h(PointsLadder, { balance: 64, rewards: [] }))).toBe("");

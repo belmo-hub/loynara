@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { withUnit } from "@/lib/units";
 import { apiJson } from "./client-api";
 import { Gift, Share2 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -24,7 +25,6 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
 
   if (!share) return null;
   const french = locale === "fr";
-  const unit = share?.programType === "points" ? french ? "points" : "Punkte" : french ? "tampons" : "Stempel";
   // Safe to read during render: the panel only renders after the client-side fetch, never during server rendering.
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const local = share && ["localhost", "127.0.0.1"].includes(new URL(share.shareUrl).hostname);
@@ -48,8 +48,8 @@ export function CardReferral({ token, locale }: { token: string; locale: "de" | 
         <li>{french ? "Vous partagez votre lien." : "Du teilst deinen Link."}</li>
         <li>{french ? "Votre ami·e crée une carte et passe en caisse." : "Eine Freundin oder ein Freund meldet sich an und kauft hier ein."}</li>
         <li>{french
-          ? `Au premier passage confirmé en caisse : ${share.referrerBonus} ${unit} pour vous, ${share.referredBonus} ${unit} pour la nouvelle carte.`
-          : `Beim ersten bestätigten Einkauf: ${share.referrerBonus} ${unit} für dich, ${share.referredBonus} ${unit} für die neue Karte.`}</li>
+          ? `Au premier passage confirmé en caisse : ${withUnit(share.referrerBonus, share.programType, locale)} pour vous, ${withUnit(share.referredBonus, share.programType, locale)} pour la nouvelle carte.`
+          : `Beim ersten bestätigten Einkauf: ${withUnit(share.referrerBonus, share.programType, locale)} für dich, ${withUnit(share.referredBonus, share.programType, locale)} für die neue Karte.`}</li>
       </ol>
       {share.progress && share.progress.signedUp > 0 && <p className={styles.state}>{french
         ? `${share.progress.signedUp} carte(s) créée(s) avec votre lien, dont ${share.progress.qualified} avec un bonus crédité.`

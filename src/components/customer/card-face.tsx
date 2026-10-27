@@ -31,7 +31,6 @@ export function CardFace({ businessName, locationName, programType, balance, rew
 }) {
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
-  const unit = programType === "points" ? t.points : t.stamps;
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   const remaining = selected ? Math.max(0, selected.cost - balance) : 0;
   return <section className={cx("customer-card", styles.object, className)} aria-label={t.cardLabel} data-ready={readyCount > 0 || undefined}>
@@ -43,8 +42,8 @@ export function CardFace({ businessName, locationName, programType, balance, rew
       ? <StampGrid earned={balance} total={selected.cost} landed={landed} locale={locale} className={styles.stamps} />
       : <PointsLadder balance={balance} rewards={rewards} locale={locale} className={styles.ladder} />}
     <div className={styles.balancePanel}>
-      <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong><NumberRoll value={balance}>{number.format(balance)}</NumberRoll> <em>{balance === 1 && programType === "points" ? t.point : unit}</em></strong></p>
-      {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), remaining === 1 && programType === "points" ? t.point : unit, selected.title)}</p> : null}
+      <p className={`customer-balance-line ${styles.balanceLine}`}><span>{t.balance}</span><strong><NumberRoll value={balance}>{number.format(balance)}</NumberRoll> <em>{t.unit(balance, programType)}</em></strong></p>
+      {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), t.unit(remaining, programType), selected.title)}</p> : null}
     </div>
     {children}
   </section>;
