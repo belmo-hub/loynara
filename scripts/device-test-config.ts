@@ -1,6 +1,7 @@
 import { isIP } from "node:net";
 import { lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { appleWalletStatus } from "../src/lib/wallet/apple";
 import { googleDirectStatus } from "../src/lib/wallet/google-direct";
 
 type DeviceTestEnv = Record<string, string | undefined>;
@@ -42,7 +43,7 @@ export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
     issues.push("Device test requires its generated auth secret");
   }
   if (env.LOOPLOCAL_NEXT_DIST_DIR !== ".next-device-test") issues.push("Device test requires its separate compiled build directory");
-  for (const name of ["PUBLIC_REGISTRATION_ENABLED", "LIVE_BILLING_ENABLED", "APPLE_WALLET_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
+  for (const name of ["PUBLIC_REGISTRATION_ENABLED", "LIVE_BILLING_ENABLED", "TRUST_PROXY_CLIENT_IP"]) {
     if (env[name] !== "false") issues.push(`${name} must be false in the device test`);
   }
   const transactionalEmail = env.EXTERNAL_EMAIL_ENABLED === "true";
@@ -72,12 +73,18 @@ export function deviceTestPreparationIssues(env: DeviceTestEnv): string[] {
   } else if (env.DEVICE_TEST_APPROVED_PROMOTIONAL_EMAIL_TEST === "true" || env.MAILGUN_PROMOTIONAL_SEND_APPROVED === "true") {
     issues.push("Device-test promotional approval flags must be off when promotional sending is disabled");
   }
-  if (env.DEVICE_TEST_APPROVED_WALLET_PROVIDER === "google-demo") {
+  const provider = env.DEVICE_TEST_APPROVED_WALLET_PROVIDER;
+  if (provider !== "apple-native" && env.APPLE_WALLET_ENABLED !== "false") issues.push("APPLE_WALLET_ENABLED must be false in the device test");
+  if (provider === "google-demo") {
     // Approval values record a reviewed owner decision; they do not grant it.
     // Preparation can run the worker, so the browser gate applies here too.
     issues.push(...deviceTestAccessIssues(env), ...deviceTestGoogleIssues(env));
+  } else if (provider === "apple-native") {
+    // One provider per run: the native pass test leaves Google off.
+    issues.push(...deviceTestAccessIssues(env), ...deviceTestAppleIssues(env));
+    if (env.GOOGLE_WALLET_ENABLED !== "false" || env.GOOGLE_WALLET_ASSET_ENABLED === "true") issues.push("Google Wallet must be off in the native Apple device test");
   } else {
-    if (env.DEVICE_TEST_APPROVED_WALLET_PROVIDER) issues.push("Only an explicitly approved Google Demo provider test is supported");
+    if (provider) issues.push("Only an explicitly approved Google Demo or native Apple provider test is supported");
     if (env.GOOGLE_WALLET_ENABLED !== "false") issues.push("GOOGLE_WALLET_ENABLED must be false without Google Demo test approval");
     if (env.GOOGLE_WALLET_ASSET_ENABLED === "true") issues.push("Google provider assets require separate routing approval");
   }
@@ -133,18 +140,44 @@ function deviceTestGoogleIssues(env: DeviceTestEnv): string[] {
     issues.push("Google requires one exact approved merchant PNG URL on a separate provider-facing HTTPS origin");
   }
   try {
-    const filename = env.GOOGLE_WALLET_SERVICE_ACCOUNT_FILE ?? "";
-    const stat = lstatSync(filename);
-    const relative = path.relative(realpathSync(process.cwd()), realpathSync(filename));
-    if (!path.isAbsolute(filename) || !stat.isFile() || stat.isSymbolicLink()
-      || (stat.mode & 0o077) !== 0 || (stat.mode & 0o400) === 0
-      || (process.getuid && stat.uid !== process.getuid())
-      || (relative !== ".." && !relative.startsWith(`..${path.sep}`))) throw new Error("Unrestricted credential path");
+    ownerOnlyFileOutsideRepository(env.GOOGLE_WALLET_SERVICE_ACCOUNT_FILE);
     if (!googleDirectStatus(env).ready) throw new Error("Invalid local Google credential or Direct class approval");
   } catch {
     issues.push("Google requires a valid owner-only service-account file outside the repository (no symlink)");
   }
   return issues;
+}
+
+/**
+ * The real Pass Type certificate signs passes whose web service is the approved, Access-protected device-test origin. Apple
+ * devices call /api/apple there without an Access session, so that path needs an Access bypass; its requests authenticate
+ * with each pass's own token. The run has its own auth secret, never production's.
+ */
+function deviceTestAppleIssues(env: DeviceTestEnv): string[] {
+  const issues: string[] = [];
+  if (env.APPLE_WALLET_ENABLED !== "true") issues.push("Approved native Apple device tests require APPLE_WALLET_ENABLED=true");
+  if (!env.DEVICE_TEST_APPROVED_ORIGIN || env.APPLE_WALLET_WEB_SERVICE_URL !== `${env.DEVICE_TEST_APPROVED_ORIGIN}/api/apple`) {
+    issues.push("APPLE_WALLET_WEB_SERVICE_URL must be the approved device-test origin followed by /api/apple");
+  }
+  if (!/^[0-9a-f]{64}$/.test(env.APPLE_WALLET_AUTH_SECRET ?? "") || env.APPLE_WALLET_AUTH_SECRET === env.BETTER_AUTH_SECRET) {
+    issues.push("Native Apple device test requires its own generated 64-hex APPLE_WALLET_AUTH_SECRET");
+  }
+  try {
+    for (const name of ["APPLE_SIGNING_CERT_PATH", "APPLE_SIGNING_KEY_PATH", "APPLE_WWDR_CERT_PATH"]) ownerOnlyFileOutsideRepository(env[name]);
+    if (!appleWalletStatus(env).ready) throw new Error("Invalid local Apple credential");
+  } catch {
+    issues.push("Native Apple requires a valid owner-only certificate, key and WWDR file outside the repository (no symlink)");
+  }
+  return issues;
+}
+
+function ownerOnlyFileOutsideRepository(filename = "") {
+  const stat = lstatSync(filename);
+  const relative = path.relative(realpathSync(process.cwd()), realpathSync(filename));
+  if (!path.isAbsolute(filename) || !stat.isFile() || stat.isSymbolicLink()
+    || (stat.mode & 0o077) !== 0 || (stat.mode & 0o400) === 0
+    || (process.getuid && stat.uid !== process.getuid())
+    || (relative !== ".." && !relative.startsWith(`..${path.sep}`))) throw new Error("Unrestricted credential path");
 }
 
 export function deviceTestRuntimeIssues(env: DeviceTestEnv): string[] {
