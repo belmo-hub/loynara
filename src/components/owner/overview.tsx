@@ -10,11 +10,11 @@ import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/over
 import type { LaunchReadiness } from "@/lib/readiness";
 import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
-import { formatMinor } from "@/lib/spend-copy";
+import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, JoinCard, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, CardStock, Diary, EmptyStrip, Milestone, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
-import { buildInsights, type ReferralRow, type WinbackState } from "./retention-insights";
+import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
@@ -67,7 +67,7 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
 /* ───────────── Active business ───────────── */
 
 function ActiveBusiness({ me }: { me: MeResponse }) {
-  const { locations, hiddenSurfaces } = useOwner();
+  const { locations } = useOwner();
   const isOwner = me.role === "owner";
   const [analytics, reloadAnalytics] = useLoad<LocationAnalytics>(`/api/merchant/analytics/location?locationId=${encodeURIComponent(me.locationId)}`);
   // Euros are owner-only (the spend read refuses everyone else); the Leitung's board leads with their card stock.
@@ -111,27 +111,39 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   const [nextHidden, hideNext] = useHiddenNext(next ? nextHintKey({ locationId: me.locationId, quiet, lastBookingOn: a?.lastBookingOn, kind: next.kind }) : "");
   const showNext = next && !nextHidden;
+  // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
+  // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
+  // bookings are the board's and the Buchungen tile's number, so the screen shows one figure for one fact.
+  const owned = isOwner && !failed && spend.state === "ok" ? spend.data : null;
+  const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
+  const brought = !owned || !here || !a ? null
+    : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
+      : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
   return (
     <div className="ow-page ow-dash" data-next={showNext ? "" : undefined}>
       <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
-      {failed && !board ? <ErrorCard reload={reload} />
-        : <Board hello={hello} kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
-          {!board ? <BoardPlaceholder /> : <>
-            {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
-              <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
-              <p className="ow-board-sub">Karten mit Buchung in den letzten 30 Tagen</p>
-              <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+      <div className="ow-dash-lead ow-stack">
+        {failed && !board ? <ErrorCard reload={reload} />
+          : <Board hello={hello} kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
+            {!board ? <BoardPlaceholder /> : <>
+              {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
+                <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
+                <p className="ow-board-sub">Karten mit Buchung in den letzten 30 Tagen</p>
+                <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+              </>}
+              <Strip days={board.days} caption={STRIP_CAPTION} />
+              {news && <p className="ow-board-news">{news}</p>}
+              {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
-            <Strip days={board.days} caption={STRIP_CAPTION} />
-            {news && <p className="ow-board-news">{news}</p>}
-            {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
-          </>}
-        </Board>}
+          </Board>}
+        {brought}
+      </div>
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
-          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
+          // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
+          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
         {showNext && <NextBar {...next} onClose={() => { hideNext(); document.getElementById("ow-main")?.focus({ preventScroll: true }); }} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
@@ -286,7 +298,7 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href.startsWith("/merchant/wallet-messages") ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
   }
   if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
   if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
