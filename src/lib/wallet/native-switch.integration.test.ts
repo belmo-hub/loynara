@@ -56,6 +56,14 @@ describe("switching Apple Wallet from PassFast to native issuance", () => {
         // The worker pushes the voided pass through PassFast, which still serves the passes it issued.
         expect((await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'wallet.refresh' AND status = 'pending' AND payload ->> 'membershipId' = $1", [member.id])).rows[0].n).toBe(1);
         expect(await (await walletStatus(post("/api/wallet/status", member.cardToken))).json()).toMatchObject({ apple: "available", appleReAdd: false });
+        // Rollback: with native Apple off again, a PassFast holder is never sent round in a re-add loop.
+        await pool.query("UPDATE wallet_passes SET revoked_at = now(), revoke_reason = 'superseded', status = 'revoked' WHERE id = $1", [fresh.id]);
+        await pool.query("UPDATE wallet_passes SET revoked_at = NULL, revoke_reason = NULL, status = 'downloaded' WHERE id = $1", [old.id]);
+        await withEnv({ APPLE_WALLET_ENABLED: "false" }, async () => {
+          expect(await (await walletStatus(post("/api/wallet/status", member.cardToken))).json()).toMatchObject({ apple: "available", appleReAdd: false });
+        });
+        await pool.query("UPDATE wallet_passes SET revoked_at = now(), revoke_reason = 'superseded', status = 'revocation_pending' WHERE id = $1", [old.id]);
+        await pool.query("UPDATE wallet_passes SET revoked_at = NULL, revoke_reason = NULL, status = 'pending' WHERE id = $1", [fresh.id]);
 
         const ticket = url.split("/").at(-1);
         const download = await appleDownload(new Request(`${origin}${url}`), { params: Promise.resolve({ ticket }) });
@@ -63,6 +71,9 @@ describe("switching Apple Wallet from PassFast to native issuance", () => {
         const file = join(dir, "pass.pkpass");
         writeFileSync(file, Buffer.from(await download.arrayBuffer()));
         expect(JSON.parse(execFileSync("unzip", ["-p", file, "pass.json"], { encoding: "utf8" }))).toMatchObject({ passTypeIdentifier: apple.config.passTypeId, serialNumber: fresh.id });
+        // A downloaded native pass is never mistaken for one from the previous provider.
+        expect((await rows(member.id)).find(row => row.id === fresh.id)).toMatchObject({ status: "downloaded" });
+        expect(await (await walletStatus(post("/api/wallet/status", member.cardToken))).json()).toMatchObject({ appleReAdd: false });
       });
     } finally { apple.cleanup(); rmSync(dir, { recursive: true, force: true }); }
   });

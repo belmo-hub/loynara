@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       const eligibility = await walletCardEligibility(token,database);
       if (eligibility.availability.apple !== "available") return walletUnavailable();
       // New Apple passes are native once native Apple is configured. A customer's PassFast pass is then superseded here and
-      // PassFast voids it („Ersetzt“); until the customer re-adds, PassFast keeps updating it.
+      // PassFast voids it; until the customer re-adds, PassFast keeps updating it.
       await issueWalletPass(token,"apple",process.env.PASSFAST_ENABLED === "true" && !appleWalletStatus().ready ? passFastObjectId : id => id,database);
       const prepared = await applePreparation(eligibility,database);
       if (prepared.status === "ready") return Response.json({status:"ready",url:prepared.url},{headers:noStore});

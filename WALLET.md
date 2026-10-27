@@ -1,10 +1,12 @@
-# Wallet — PassFast is canonical
+# Wallet — native Apple, Google Direct, PassFast being retired
+
+Decision 2026-10-27: **Apple Wallet moves from PassFast to Loynara's own Apple Developer account** (Pass Type ID `pass.com.getloynara.card`). Once native Apple is configured, every new Apple pass is native; PassFast keeps updating the Apple passes it already issued until each customer re-adds the card (card-page prompt) and PassFast is turned off. Google runs through Google Direct. The 2026-10-07 text below is history.
 
 Product correction, 2026-10-07: **PassFast is Loynara's intended production Wallet provider. Managed signing by PassFast was explicitly confirmed by the owner.** The prior recommendation to deploy direct native Apple/Google integrations is superseded.
 
 Canonical flow: **Loynara ledger/membership -> generation-bound Wallet projection/outbox -> PassFast -> Apple Wallet + Google Wallet.** Provider state never determines loyalty balance, rewards, identity, referral qualification, K-locator or reissue/closure state.
 
-This branch now implements a narrow PassFast server adapter and routes issuance/downloads/refresh/revocation through it when enabled. Direct native adapters remain dormant nonproduction fallback/reference code; production startup rejects their enablement. Provider flags remain off. Local fake-provider tests are not account or physical-device acceptance evidence.
+This branch now implements a narrow PassFast server adapter and routes issuance/downloads/refresh/revocation through it when enabled. Direct native adapters were dormant until 2026-10-27; native Apple is now the production Apple path (see the decision above). Provider flags remain off. Local fake-provider tests are not account or physical-device acceptance evidence.
 
 PassFast's current official [getting-started documentation](https://passfa.st/docs) confirms generation for both wallets, opaque external references and `get_or_create`; its [API tool reference](https://passfa.st/docs/mcp) confirms update/void and serial-based operations. The official API Reference was read in the public documentation UI: every serial lookup/update/void explicitly selects `wallet_type`. Generation for both platforms can partially succeed; Loynara uses separately authorized platform requests with one opaque serial per credential generation. No real provider calls were made in this reconciliation.
 
