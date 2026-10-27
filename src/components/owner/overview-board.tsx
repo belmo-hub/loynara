@@ -174,7 +174,7 @@ export function Brought({ brought, all, currency }: { brought: BroughtCustomers;
         <div><dt>{BROUGHT_COPY.referral}</dt><dd>{nf.format(brought.referral)}</dd></div>
         {revenue && bookings > 0 && <div><dt>{BROUGHT_COPY.revenue}</dt><dd>{revenue.pricedBookings > 0 ? formatMinor(revenue.amountMinor, currency) : "–"}</dd><dd>{BROUGHT_COPY.priced(revenue.pricedBookings, bookings)}</dd></div>}
       </dl>
-      <p className="ow-brought-all">{BROUGHT_COPY.all} <b>{all}</b>. {BROUGHT_COPY.allNote}</p>
+      <p className="ow-brought-all">{BROUGHT_COPY.all} <span>{all}</span>. {BROUGHT_COPY.allNote}</p>
       <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
         <p>{BROUGHT_COPY.howWeCount}</p>
       </Sheet>

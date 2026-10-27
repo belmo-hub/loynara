@@ -217,7 +217,7 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     expect(shown).toContain(`<p class="ow-brought-n">3${NBSP}Kunden</p>`);
     expect(shown).toContain("<dt>Nach längerer Pause wieder da, mit Bonus</dt><dd>2</dd>");
     expect(shown).toContain("<dt>Neu auf Empfehlung</dt><dd>1</dd>");
-    expect(shown).toContain("Alle Kunden mit Karte: <b>9 Buchungen</b>. Manche wären auch ohne Karte gekommen."); // the board's 9, not the spend read's 7
+    expect(shown).toContain("Alle Kunden mit Karte: <span>9 Buchungen</span>. Manche wären auch ohne Karte gekommen."); // the board's 9, not the spend read's 7
     expect(shown).toContain('aria-haspopup="dialog"');
     expect(shown).toContain("Gezählt werden nur die Buchungen, bei denen der Willkommen-zurück-Bonus dazukam, und die erste Buchung nach einer Empfehlung.");
     expect(shown).not.toMatch(/€|%|Umsatz|(über|durch|dank) Loynara/);
@@ -230,7 +230,7 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     const points = (revenue: BroughtCustomers["revenue"], patch: Partial<BroughtCustomers> = {}) => block(showing([row("loc-1", { ...stamps, revenue, ...patch }, { visits: 9, realMinor: 31_200, spentMinor: 35_000, estimatedMinor: 3_800 })]));
     const some = points({ amountMinor: 4_150, pricedBookings: 2 });
     expect(some).toContain(`<dt>Umsatz dieser Buchungen</dt><dd>41,50${NBSP}€</dd><dd>2 von 3 Buchungen mit Kassenbetrag</dd>`);
-    expect(some).toContain(`Alle Kunden mit Karte: <b>312,00${NBSP}€</b>.`); // till amounts only, without the board's estimate
+    expect(some).toContain(`Alle Kunden mit Karte: <span>312,00${NBSP}€</span>.`); // till amounts only, without the board's estimate
     expect(points({ amountMinor: 4_150, pricedBookings: 3 })).toContain("<dd>aus 3 Buchungen mit Kassenbetrag</dd>");
     expect(points({ amountMinor: 0, pricedBookings: 0 })).toContain("<dd>–</dd><dd>0 von 3 Buchungen mit Kassenbetrag</dd>");
     const one = points({ amountMinor: 900, pricedBookings: 1 }, { customers: 1, winback: 0, referral: 1, bookings: 1 });
@@ -259,6 +259,16 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     state.me = me();
     state.loads["/api/merchant/retention"] = { state: "error", message: "x" };
     expect(showing([row("loc-1", stamps)])).not.toContain("ow-brought");
+  });
+
+  it("replaces the „Wiedergekommen“ tile while it shows; with the gate closed the four tiles stay as they were", () => {
+    const labels = (html: string) => [...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1]);
+    expect(labels(showing([row("loc-1", stamps)]))).toEqual(["Buchungen", "Neue Karten", "Prämien eingelöst"]);
+    expect(labels(showing([row("loc-1", null)]))).toEqual(["Buchungen", "Neue Karten", "Wieder­gekommen", "Prämien eingelöst"]);
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } }));
+    const off = showing([row("loc-1", null)]);
+    expect(labels(off)).toContain("Wieder­gekommen");
+    expect(off).toContain('href="/merchant/program#winback-title">Willkommen-zurück-Bonus ist aus</a>');
   });
 
   it("follows the active location", () => {

@@ -142,7 +142,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       </div>
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
-          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : WINBACK_HREF })} />}
+          // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
+          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
         {showNext && <NextBar {...next} onClose={() => { hideNext(); document.getElementById("ow-main")?.focus({ preventScroll: true }); }} />}
         {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>

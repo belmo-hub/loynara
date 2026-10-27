@@ -551,6 +551,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 @keyframes ow-pulse { 50% { opacity: .45; } }
 
 .ow-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+/* Three tiles (the ENG-095 block replaces „Wiedergekommen“): the last one takes the whole row. */
+.ow-tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .ow-tile { padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
 .ow-tile-n { display: block; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); color: var(--color-ink); }
 .ow-tile-note { display: block; font-size: var(--text-14); color: var(--color-ink-muted); }
@@ -620,7 +622,7 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-brought-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .ow-brought-head .ow-tile-q { flex: none; align-self: flex-start; }
 /* `.ow-brought p` beats `.owner-app p { margin: 0 }`. */
-.ow-brought .ow-brought-n { margin-top: var(--space-1); font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.ow-brought .ow-brought-n { margin-top: var(--space-1); font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
 .ow-brought-lines, .ow-brought .ow-brought-all { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
 /* Rows sit further apart than the lines of a wrapped label, so „mit Bonus“ never reads as a row of its own. */
 .ow-brought-lines { display: grid; gap: var(--space-2); }
@@ -630,7 +632,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 /* The till-amount sub-line takes its own row under „Umsatz dieser Buchungen“. */
 .ow-brought-lines dd + dd { flex-basis: 100%; font-weight: var(--weight-body); white-space: normal; }
 .ow-brought-lines dd + dd, .ow-brought-all { font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-brought-all b { color: var(--color-ink); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The all-card figure in regular weight, so it reads as context, not as the base of a ratio (Design). */
+.ow-brought-all span { color: var(--color-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ow-brought-off { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); color: var(--color-ink); text-decoration: none; transition: transform var(--dur-press) var(--ease-out); }
 .ow-brought-off:active { transform: scale(.97); }
 .ow-brought-off > span:first-child { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); }
