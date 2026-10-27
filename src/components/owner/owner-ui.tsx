@@ -57,7 +57,7 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
   return (
     <div className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
-        {state !== "clean" && <><span className="ow-dot" aria-hidden="true" />{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</>}
+        {state !== "clean" && <><span className="ow-dot" aria-hidden="true" /><span className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
         {state === "clean" && <span className="ow-muted">Keine Änderungen</span>}
         {detail && state !== "clean" && <span className="ow-muted" style={{ fontWeight: 500 }} role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>

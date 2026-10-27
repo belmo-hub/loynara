@@ -227,6 +227,9 @@
 .ow-savebar { position: sticky; bottom: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); margin-inline: calc(var(--space-6) * -1); background: var(--color-raised); border-top: 1px solid var(--color-line-strong); }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }
+/* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
+.ow-savestate-label { flex: 1 1 12rem; min-width: 0; }
+.ow-savestate > .ow-dot { align-self: flex-start; margin-top: calc((1lh - 8px) / 2); } /* on the first line, not between two */
 .ow-savestate[data-state="dirty"] { color: var(--color-warning); }
 .ow-savestate[data-state="saving"] { color: var(--color-ink-muted); }
 .ow-savestate[data-state="saved"] { color: var(--color-success); }
