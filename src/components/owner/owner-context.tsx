@@ -46,6 +46,9 @@ export function useOwner() {
   return value;
 }
 
+/** Back or Forward to the same path and query is a step of the page on screen (the new-reward steps): its edits stay, so the leave guard lets it through. */
+export const sameEntry = (destination: string, here: { pathname: string; search: string }) => { const to = new URL(destination); return to.pathname === here.pathname && to.search === here.search; };
+
 /** Registers unsaved edits for as long as `dirty` is true; leaving the page clears it. */
 export function useDirtyGuard(key: string, dirty: boolean) {
   const { setDirty } = useOwner();
@@ -140,10 +143,7 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
     const nav = (window as unknown as { navigation?: NavigationLike }).navigation;
     if (!nav?.addEventListener) return;
     const onNavigate = ((event: NavigateEventLike) => {
-      if (traversalBypass.current || event.navigationType !== "traverse" || !event.cancelable) return;
-      // A step of the same page (the new-reward steps) keeps the edits on screen; only leaving the page asks.
-      const to = new URL(event.destination.url);
-      if (to.pathname === window.location.pathname && to.search === window.location.search) return;
+      if (traversalBypass.current || event.navigationType !== "traverse" || !event.cancelable || sameEntry(event.destination.url, window.location)) return;
       event.preventDefault();
       const key = event.destination.key;
       setPending(() => () => {

@@ -12,6 +12,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 type Reward = { rewardId: string; versionId: string; version: number; title: string; cost: number; termsText: string; sortOrder: number; active: boolean };
 type Form = { id: string; title: string; cost: string; ownCost: string };
 
+/** An edit's request. Conditions are off the screens (ENG-115): the stored text goes back as it is, so an edit neither erases it nor counts it as a change. */
+export const editRequest = (stored: Pick<Reward, "rewardId" | "termsText">, title: string, cost: number) => ({ action: "edit", rewardId: stored.rewardId, title, cost, termsText: stored.termsText });
+
 /** `open` (a reward id) opens that reward's form at once, for its Programm row's page; `onSaved` follows a saved form.
  *  New rewards have their own three steps (program-new-reward.tsx). */
 export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeResponse; program: PublicProgram; onChanged: () => void | Promise<void>; open?: string; onSaved?: () => void }) {
@@ -51,8 +54,7 @@ export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeR
   }
   async function submit() {
     if (!form || !original || !valid || busy || cost === null) return;
-    // Conditions are off the screens (ENG-115): the stored text goes back as it is, so an edit neither erases it nor counts it as a change.
-    const ok = await run({ action: "edit", rewardId: form.id, title: form.title.trim(), cost, termsText: original.termsText }, "Neue Prämienversion gespeichert.");
+    const ok = await run(editRequest(original, form.title.trim(), cost), "Neue Prämienversion gespeichert.");
     if (ok) { setForm(null); onSaved?.(); }
   }
   async function move(index: number, direction: -1 | 1) {

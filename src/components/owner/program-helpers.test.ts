@@ -23,6 +23,7 @@ describe("the other rewards under a new reward's number (W12)", () => {
   });
   it("says Punkte for points shops, „1 Punkt“ alone, and groups thousands", () => {
     expect(otherRewardsHint("points", [1])).toBe("Deine andere Prämie: 1 Punkt.");
+    expect(otherRewardsHint("points", [1, 5])).toBe("Deine anderen Prämien: 1 und 5 Punkte."); // the unit follows the highest number
     expect(otherRewardsHint("points", [1000, 250])).toBe("Deine anderen Prämien: 250 und 1.000 Punkte.");
   });
 });
