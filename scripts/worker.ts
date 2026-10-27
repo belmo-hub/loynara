@@ -5,6 +5,7 @@ import { guardPoolErrors } from "../src/db/pool-errors";
 import { claimOutboxJob, completeWalletOutboxJob, deferOutboxJob, markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
+import { appleCredentialStartupIssues } from "./apple-wallet-credential";
 import { googleServiceAccountStartupIssues } from "./google-wallet-credential";
 import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
@@ -238,8 +239,8 @@ async function replay(jobId: string) {
 
 async function main() {
   const configurationIssues = productionConfigIssues(process.env);
-  // Same order as the web guard: a Google key delivered as a value is written only after the configuration passed.
-  if (!configurationIssues.length) configurationIssues.push(...googleServiceAccountStartupIssues(process.env));
+  // Same order as the web guard: Wallet keys delivered as values are written only after the configuration passed.
+  if (!configurationIssues.length) configurationIssues.push(...googleServiceAccountStartupIssues(process.env), ...appleCredentialStartupIssues(process.env));
   configurationIssues.push(...productionWalletRuntimeIssues(process.env));
   if (process.env.NODE_ENV === "production" && !validHeartbeatUrl(process.env.WORKER_HEARTBEAT_URL)) {
     configurationIssues.push("Production worker requires a reviewed HTTPS heartbeat monitor URL");
