@@ -5,8 +5,9 @@ import { PUT as setupRoute } from "@/app/api/merchant/booking/setup/route";
 import { GET as slotsRoute } from "@/app/api/card/[token]/booking/slots/route";
 import { closeCard } from "@/lib/card-lifecycle";
 import { book, cancelAffected, cancelByCustomer, cardView, createBlock, customerSlots, reschedule, transition } from "./appointments";
+import { enroll } from "@/lib/product";
 import { acceptStaffInvite, createStaffInvite } from "@/lib/staff";
-import { saveSetup } from "./setup";
+import { getSetup, saveSetup } from "./setup";
 import { allWeek, bookingShop, dayOf, futureStart, identity, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
@@ -75,7 +76,7 @@ it("a move sees its own time as free; one card cannot hold two appointments at o
   expect(await code(book({ token, serviceId: shop.serviceId, staffId: max, start, customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("OWN_OVERLAP");
 });
 
-it("closing the card forgets its devices, releases open appointments and erases the booking name and phone", async () => {
+it("closing the card forgets its devices, cancels open appointments by the shop without a push and erases the booking name and phone", async () => {
   const shop = await bookingShop();
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia Muster", customerPhone: "+49 170 0000000", idempotencyKey: randomUUID() }, now);
   // One under way right now (15 minutes ago, on the grid): the shop finishes it, without a credit.
@@ -83,7 +84,9 @@ it("closing the card forgets its devices, releases open appointments and erases 
   const running = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date(quarter - 900_000), customerName: "Mia Muster", idempotencyKey: randomUUID() }, new Date(quarter - 86_400_000))).appointment;
   await pool.query("INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth) VALUES ($1, $2, 'https://push.example.test/device', 'synthetic-p256dh', 'synthetic-auth')", [shop.scope.tenantId, shop.card.id]);
   await closeCard(shop.card.cardToken);
-  expect((await pool.query("SELECT status, customer_name, customer_phone FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0]).toEqual({ status: "cancelled_by_customer", customer_name: "Karte geschlossen", customer_phone: null });
+  expect((await pool.query("SELECT status, cancel_reason, customer_name, customer_phone FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0])
+    .toEqual({ status: "cancelled_by_shop", cancel_reason: "Karte geschlossen", customer_name: "Karte geschlossen", customer_phone: null });
+  expect((await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'booking.change' AND payload ->> 'appointmentId' = $1", [appointment.id])).rows[0].n).toBe(0);
   expect((await pool.query("SELECT count(*)::int AS n FROM booking_push_subscriptions WHERE membership_id = $1", [shop.card.id])).rows[0].n).toBe(0);
   const reminders = (await pool.query("SELECT status FROM outbox_jobs WHERE kind = 'booking.reminder' AND payload ->> 'appointmentId' = $1", [appointment.id])).rows;
   expect(reminders.length).toBeGreaterThan(0);
@@ -106,13 +109,16 @@ it("a block is never offered, lists the open appointments inside it, and cancels
 
 it("set-up upserts by id, archives the missing, and refuses to archive staff with open appointments", async () => {
   const shop = await bookingShop();
-  await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
-  const body = { settings: { shopType: "barber" as const, leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 }, services: [{ id: shop.serviceId, name: "Haarschnitt", durationMin: 30, priceMinor: 2800 }], staff: [{ name: "Tom", workingHours: [] }] };
+  const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
+  const body = { settings: { shopType: "barber" as const, leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 }, services: [{ id: shop.serviceId, name: "Haarschnitt", durationMin: 45, priceMinor: 2800 }], staff: [{ name: "Tom", workingHours: [] }] };
   const refused = await setupRoute(request("/api/merchant/booking/setup", { method: "PUT", body, cookie: shop.ownerCookie }));
   expect(refused.status).toBe(409);
-  expect(await refused.json()).toMatchObject({ code: "STAFF_HAS_APPOINTMENTS", staffId: shop.staffId, count: 1 });
+  expect(await refused.json()).toMatchObject({ code: "STAFF_HAS_APPOINTMENTS", staffId: shop.staffId, count: 1, all: [{ staffId: shop.staffId, count: 1 }] });
   const saved = await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", workingHours: [], serviceIds: [shop.serviceId] }, { name: "Tom", workingHours: [] }], services: [...body.services, { name: "Bart", durationMin: 15, priceMinor: 1200 }] });
   expect(saved.services.map(s => [s.name, s.priceMinor])).toEqual([["Haarschnitt", 2800], ["Bart", 1200]]);
+  // The booked appointment keeps the price and length it was booked with.
+  expect((await pool.query("SELECT price_minor, duration_min, upper(during) - lower(during) = interval '30 minutes' AS same FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0])
+    .toEqual({ price_minor: 2500, duration_min: 30, same: true });
   expect(saved.staff.map(s => [s.name, s.serviceIds])).toEqual([["Lena", [shop.serviceId]], ["Tom", []]]);
   const trimmed = await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", workingHours: [] }] });
   expect(trimmed.services.map(s => s.name)).toEqual(["Haarschnitt"]);
@@ -126,4 +132,49 @@ it("set-up upserts by id, archives the missing, and refuses to archive staff wit
   await acceptStaffInvite({ userId: former.userId, token: invite.token });
   await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [former.userId]);
   expect((await saveSetup(shop.scope, { ...body, staff: [{ id: shop.staffId, name: "Lena", userId: former.userId, workingHours: [] }] })).staff[0].userId).toBe(former.userId);
+});
+
+it("set-up refuses to archive a service with open appointments and names every leaving staff member", async () => {
+  const shop = await bookingShop();
+  const token = shop.card.cardToken;
+  const settings = { shopType: "barber" as const, leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 };
+  const both = await saveSetup(shop.scope, { settings, services: [{ id: shop.serviceId, name: "Haarschnitt", durationMin: 30, priceMinor: 2500 }], staff: [{ id: shop.staffId, name: "Lena", workingHours: allWeek() }, { name: "Max", workingHours: allWeek() }] });
+  const max = both.staff[1].id;
+  await book({ token, serviceId: shop.serviceId, staffId: shop.staffId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
+  await book({ token, serviceId: shop.serviceId, staffId: max, start: at(1), customerName: "Mia", idempotencyKey: randomUUID() }, now);
+  const service = await saveSetup(shop.scope, { settings, services: [{ name: "Bart", durationMin: 15, priceMinor: 1200 }], staff: [{ id: shop.staffId, name: "Lena", workingHours: allWeek() }, { id: max, name: "Max", workingHours: allWeek() }] }).catch(error => error);
+  expect(service).toMatchObject({ code: "SERVICE_HAS_APPOINTMENTS", details: { serviceId: shop.serviceId, count: 2 } });
+  const refused = await setupRoute(request("/api/merchant/booking/setup", { method: "PUT", cookie: shop.ownerCookie, body: { settings, services: [{ id: shop.serviceId, name: "Haarschnitt", durationMin: 30, priceMinor: 2500 }], staff: [{ name: "Tom", workingHours: [] }] } }));
+  expect(refused.status).toBe(409);
+  const all = [{ staffId: shop.staffId, count: 1 }, { staffId: max, count: 1 }].sort((a, b) => a.staffId.localeCompare(b.staffId));
+  expect(await refused.json()).toMatchObject({ code: "STAFF_HAS_APPOINTMENTS", staffId: all[0].staffId, count: 1, all });
+  const serviceRefused = await setupRoute(request("/api/merchant/booking/setup", { method: "PUT", cookie: shop.ownerCookie, body: { settings, services: [], staff: [{ id: shop.staffId, name: "Lena", workingHours: allWeek() }, { id: max, name: "Max", workingHours: allWeek() }] } }));
+  expect(serviceRefused.status).toBe(409);
+  expect(await serviceRefused.json()).toMatchObject({ code: "SERVICE_HAS_APPOINTMENTS", serviceId: shop.serviceId, count: 2 });
+});
+
+it("stores the shop's opening hours apart from the staff hours and returns them with the set-up", async () => {
+  const shop = await bookingShop();
+  expect((await getSetup(shop.scope)).settings?.openingHours).toBeNull();
+  const settings = { shopType: "barber" as const, leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 };
+  const openingHours = [{ weekday: 2, start: "09:00", end: "18:00", breaks: [{ start: "12:00", end: "12:30" }] }];
+  const staff = [{ id: shop.staffId, name: "Lena", workingHours: allWeek("10:00", "14:00") }];
+  const services = [{ id: shop.serviceId, name: "Haarschnitt", durationMin: 30, priceMinor: 2500 }];
+  expect((await saveSetup(shop.scope, { settings: { ...settings, openingHours }, services, staff })).settings?.openingHours).toEqual(openingHours);
+  expect((await getSetup(shop.scope)).settings?.openingHours).toEqual(openingHours);
+  expect((await getSetup(shop.scope)).staff[0].workingHours).toEqual(allWeek("10:00", "14:00"));
+  // A save without the field keeps them; null clears them.
+  expect((await saveSetup(shop.scope, { settings, services, staff })).settings?.openingHours).toEqual(openingHours);
+  expect((await saveSetup(shop.scope, { settings: { ...settings, openingHours: null }, services, staff })).settings?.openingHours).toBeNull();
+});
+
+it("refuses a third open appointment and a booking key reused by another card", async () => {
+  const shop = await bookingShop();
+  const token = shop.card.cardToken, key = randomUUID();
+  const first = await book({ token, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: key }, now);
+  expect(await book({ token, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: key }, now)).toMatchObject({ duplicate: true, appointment: { id: first.appointment.id } });
+  await book({ token, serviceId: shop.serviceId, start: at(1), customerName: "Mia", idempotencyKey: randomUUID() }, now);
+  expect(await code(book({ token, serviceId: shop.serviceId, start: at(2), customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("TOO_MANY_OPEN");
+  const other = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
+  expect(await code(book({ token: other.cardToken, serviceId: shop.serviceId, start: at(3), customerName: "Max", idempotencyKey: key }, now))).toBe("KEY_REUSED");
 });

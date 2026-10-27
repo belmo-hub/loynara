@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, parsePrice, priceText, sameHours, toDays } from "./booking-setup-helpers";
+import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, parsePrice, priceText, sameHours, toDays, withinHours } from "./booking-setup-helpers";
 
 const open = { open: true, start: "09:00", end: "18:00", breakStart: "", breakEnd: "" };
 
@@ -38,10 +38,17 @@ describe("booking set-up helpers", () => {
     expect(durationLabel(65)).toBe("1:05 Std.");
   });
   it("default terms name the deadline, the reschedule cap and the no-show pause", () => {
-    expect(defaultTerms({ cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, noShowBlockAfter: 3 })).toBe("Absagen bitte bis 24 Stunden vorher; später zählt es als späte Absage. Verschieben geht online bis 24 Stunden vorher, bis zu 2-mal im Monat. Nach 3 verpassten Terminen ohne Absage pausieren wir die Online-Buchung für dich.");
+    expect(defaultTerms({ cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, noShowBlockAfter: 3 })).toBe("Absagen bitte bis 24 Stunden vorher; später zählt es als kurzfristige Absage. Verschieben geht online bis 24 Stunden vorher, bis zu 2-mal im Monat. Nach 3 verpassten Terminen ohne Absage ist die Online-Buchung für dich pausiert; ruf dann kurz an.");
     const lenient = defaultTerms({ cancelDeadlineHours: 0, maxReschedulesPerMonth: 0, noShowBlockAfter: 0 });
     expect(lenient).toMatch(/jederzeit/);
-    expect(lenient).not.toMatch(/pausieren/);
+    expect(lenient).not.toMatch(/pausiert/);
     expect(defaultTerms({ cancelDeadlineHours: 48, maxReschedulesPerMonth: 1, noShowBlockAfter: 1 })).toMatch(/2 Tage vorher/);
+    expect(defaultTerms({ cancelDeadlineHours: 48, maxReschedulesPerMonth: 1, noShowBlockAfter: 1 })).toMatch(/Nach 1 verpassten Termin ohne/);
+  });
+  it("keeps a person's own hours inside the opening hours", () => {
+    const shop = toDays([{ weekday: 1, start: "09:00", end: "18:00", breaks: [] }]);
+    expect(withinHours(toDays([{ weekday: 1, start: "10:00", end: "14:00", breaks: [] }]), shop)).toBe("");
+    expect(withinHours(toDays([{ weekday: 1, start: "08:00", end: "14:00", breaks: [] }]), shop)).toBe("Montag: Die Zeiten müssen in den Öffnungszeiten liegen.");
+    expect(withinHours(toDays([{ weekday: 2, start: "10:00", end: "14:00", breaks: [] }]), shop)).toMatch(/^Dienstag:/);
   });
 });

@@ -31,7 +31,7 @@ async function bookingShop() {
   return { merchant, card: await enroll({ slug: merchant.programSlug, acceptedTerms: true }) };
 }
 
-test("a guest books from the card in four taps, sees it on the card and cancels it", async ({ page }) => {
+test("a guest books from the card in under a minute, moves it, sees it on the card and cancels it", async ({ page }) => {
   const { merchant, card } = await bookingShop();
   await page.goto(`/card/${card.cardToken}`);
   const entry = page.getByRole("link", { name: "Termin buchen" });
@@ -67,7 +67,7 @@ test("a guest books from the card in four taps, sees it on the card and cancels 
   await page.getByRole("button", { name: "Termin buchen" }).click();
 
   await expect(page.getByRole("heading", { name: /^Dein Termin ist fix: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
-  const booked = (await page.getByRole("heading", { name: /^Dein Termin ist fix/ }).textContent())!.match(/(\d{2}:\d{2}) bei (Lena|Tom)$/)!;
+  const booked = (await page.getByRole("heading", { name: /^Dein Termin ist fix/ }).textContent())!.match(/(\p{L}{2} \d{2}\.\d{2}\.), (\d{2}:\d{2}) bei (Lena|Tom)$/u)!;
   await expect(page.getByText(/^Haarschnitt\. Kostenlos absagen bis /)).toBeVisible();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06-done");
@@ -75,14 +75,15 @@ test("a guest books from the card in four taps, sees it on the card and cancels 
   // Move: the booked staff member stays selected, the own time counts as free, and the new time lands on the card.
   await page.getByRole("button", { name: "Verschieben" }).click();
   await expect(page.getByRole("heading", { name: "Neuen Tag wählen" })).toBeVisible();
-  await expect(page.locator(".booking-flow button[aria-pressed='true']").filter({ hasText: booked[2] })).toHaveCount(1);
-  await dayChips.nth(2).click();
+  await expect(page.locator(".booking-flow button[aria-pressed='true']").filter({ hasText: booked[3] })).toHaveCount(1);
+  // The booked day by its text, not its position: a day may drop off the front between the two slot loads.
+  await dayChips.filter({ hasText: booked[1] }).click();
   await expect(page.getByRole("heading", { name: "Uhrzeit wählen" })).toBeVisible();
-  await expect(page.locator(".booking-flow button").filter({ hasText: booked[1] })).toBeVisible(); // the own time stays on offer
+  await expect(page.locator(".booking-flow button").filter({ hasText: booked[2] })).toBeVisible(); // the own time stays on offer
   await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).nth(1).click();
   await expect(page.getByRole("heading", { name: "Verschieben prüfen" })).toBeVisible();
   await page.getByRole("button", { name: "Hierhin verschieben" }).click();
-  await expect(page.getByRole("heading", { name: new RegExp(`^Verschoben: \\p{L}{2} \\d{2}\\.\\d{2}\\., \\d{2}:\\d{2} bei ${booked[2]}$`, "u") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`^Verschoben: \\p{L}{2} \\d{2}\\.\\d{2}\\., \\d{2}:\\d{2} bei ${booked[3]}$`, "u") })).toBeVisible();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06b-moved");
 

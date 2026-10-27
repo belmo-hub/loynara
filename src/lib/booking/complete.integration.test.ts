@@ -6,7 +6,7 @@ import { award, awardInTransaction } from "@/lib/loyalty";
 import { enroll } from "@/lib/product";
 import { acceptStaffInvite, createStaffInvite } from "@/lib/staff";
 import { book, completeAppointmentForAward, reschedule, transition } from "./appointments";
-import { bookingShop, identity, request, withBookingDatabase } from "./test-fixture";
+import { bookingShop, futureStart, identity, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
 const code = (promise: Promise<unknown>) => promise.then(() => "OK", (error: { code?: string }) => error.code);
@@ -74,9 +74,10 @@ it("the cashier award completes the appointment from 30 minutes before the start
 
 it("refuses done before the start and blocks the card after the third no-show", async () => {
   const shop = await bookingShop();
-  const now = new Date("2026-11-02T06:00:00Z");
-  const starts = ["2026-11-03T09:00:00Z", "2026-11-04T09:00:00Z", "2026-11-05T09:00:00Z"].map(s => new Date(s));
-  const kept = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-07T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, now)).appointment;
+  // The no-show count compares with the database clock (12 months back), so the starts follow today.
+  const day = (n: number, hour = 0) => new Date(futureStart().getTime() + n * 86_400_000 + hour * 3_600_000);
+  const starts = [day(0), day(1), day(2)], now = new Date(starts[0].getTime() - 27 * 3_600_000);
+  const kept = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: day(4), customerName: "Mia", idempotencyKey: randomUUID() }, now)).appointment;
   for (const [i, start] of starts.entries()) {
     const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() }, now);
     if (i === 0) expect(await code(transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" }, now))).toBe("TOO_EARLY");
@@ -84,9 +85,9 @@ it("refuses done before the start and blocks the card after the third no-show", 
     await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "no_show", expected: "confirmed" }, start);
   }
   expect((await pool.query("SELECT reason FROM booking_blocked_customers WHERE membership_id = $1", [shop.card.id])).rows).toEqual([{ reason: "Nicht erschienen" }]);
-  expect(await code(book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-06T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("BLOCKED_CUSTOMER");
+  expect(await code(book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: day(3), customerName: "Mia", idempotencyKey: randomUUID() }, now))).toBe("BLOCKED_CUSTOMER");
   // The kept appointment stays, but a paused card cannot move it either.
-  expect(await code(reschedule({ token: shop.card.cardToken, appointmentId: kept.id, start: new Date("2026-11-07T10:00:00Z") }, now))).toBe("BLOCKED_CUSTOMER");
+  expect(await code(reschedule({ token: shop.card.cardToken, appointmentId: kept.id, start: day(4, 1) }, now))).toBe("BLOCKED_CUSTOMER");
 });
 
 it("the tap path marks the matching appointment done without a second award; the owner's done is then STALE", async () => {
@@ -104,4 +105,13 @@ it("the tap path marks the matching appointment done without a second award; the
   expect((await pool.query("SELECT status FROM booking_appointments WHERE id = $1", [otherCard.id])).rows[0].status).toBe("confirmed");
   expect(await code(transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" }))).toBe("STALE");
   expect(await awards(shop.card.id)).toBe(1);
+});
+
+it("the booking's „Fertig“ carries the welcome bonus like any staff award", async () => {
+  const shop = await bookingShop();
+  await pool.query("UPDATE programs SET welcome_bonus = 2 WHERE id = $1", [shop.merchant.programId]);
+  const appointment = await bookAt(shop, shop.card.cardToken, quarterNow());
+  await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "done", expected: "confirmed" });
+  expect((await pool.query("SELECT source, delta FROM ledger_entries WHERE membership_id = $1 ORDER BY source", [shop.card.id])).rows).toEqual([{ source: "staff_online", delta: 1 }, { source: "welcome_bonus", delta: 2 }]);
+  expect(await balance(shop.card.id)).toBe(3);
 });

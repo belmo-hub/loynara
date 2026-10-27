@@ -63,6 +63,14 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
   return a.programStartedOn && daysBetween(a.programStartedOn, a.today) > 90 ? "over90" : null;
 }
 
+/** One line on today's appointments, only where online booking is set up (the day read says so); links to the day view. */
+function TodayAppointments() {
+  const [day] = useLoad<{ appointments: { status: string }[]; pendingRequests: number; bookingEnabled: boolean | null }>("/api/merchant/booking/day");
+  if (day.state !== "ok" || day.data.bookingEnabled === null) return null;
+  const n = day.data.appointments.filter(a => !a.status.startsWith("cancelled")).length, m = day.data.pendingRequests;
+  return <p style={{ margin: 0 }}><Link className="ow-link ow-link--block" href="/merchant/termine">Heute {n === 1 ? "1 Termin" : `${n} Termine`} · {m === 1 ? "1 offene Anfrage" : `${m} offene Anfragen`}</Link></p>;
+}
+
 /* ───────────── Active business ───────────── */
 
 function ActiveBusiness({ me }: { me: MeResponse }) {
@@ -127,6 +135,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
           </>}
         </Board>}
       <div className="ow-dash-side">
+        <TodayAppointments />
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
         {next && <NextBar {...next} />}
@@ -310,6 +319,7 @@ function EmptyShop({ me }: { me: MeResponse }) {
             </>}
         <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
       </Board>
+      <TodayAppointments />
       <section className="ow-diary" aria-labelledby="ow-steps-title">
         <h2 id="ow-steps-title">Deine ersten Schritte</h2>
         {steps.map(step => {

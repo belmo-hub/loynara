@@ -21,7 +21,7 @@ import styles from "./cashier-view.module.css";
 
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
 export type CashierAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
-export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: win-back (ENG-044), birthday (ENG-049); 0 = none. */ winbackBonus?: number; birthdayBonus?: number; level?: { name: string; perk?: string } };
+export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: win-back (ENG-044), birthday (ENG-049); 0 = none. */ winbackBonus?: number; birthdayBonus?: number; level?: { name: string; perk?: string }; /** The card's booked appointment around now; done = already completed with its award. */ appointment?: { start: string; startLabel: string; serviceName: string; done: boolean } | null };
 export type CashierBooked = { tone: "success" | "pending" | "undone"; title: string; headline?: string; detail: string; meta?: string; hint?: string; undo?: "available" | "staff-only"; error?: string };
 export type CashierViewProps = {
   locationName: string;
@@ -251,6 +251,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         <span>{t.balance}</span>
         <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unit}</em></strong>
       </div>
+      {card.appointment && <p className={styles.note} role="note"><strong>{locale === "fr" ? "RDV" : "Termin"} {card.appointment.startLabel} · {card.appointment.serviceName}</strong>{card.appointment.done ? (locale === "fr" ? " · déjà terminé, tampons/points enregistrés" : " · schon erledigt, Stempel/Punkte sind gebucht") : ""}</p>}
       {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />

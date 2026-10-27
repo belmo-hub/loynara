@@ -26,7 +26,7 @@ Liegt das über 69 €, ist die Pauschale günstiger. Der Owner tippt die drei Z
 
 ### Demo (owner's hands)
 
-Owner holds their phone to the plate, opens „Termin buchen“, picks a service and a time, enters a name. Time it together; say „wir stoppen's“, never „unter 60 Sekunden“ (design target, not measured). You then confirm on the day view. Last, show the Ergebnisse page with demo data: euros labelled „nach Listenpreis, geschätzt“, no-shows as „3 von 41“-style counts. Say plainly that these are demo values, not results from other shops.
+Owner holds their phone to the plate, opens „Termin buchen“, picks a service, a day and a time, enters a name once and confirms. Time it together; say „wir stoppen's“, never „unter 60 Sekunden“ (design target, not measured). You then confirm on the day view. Last, show the Ergebnisse page with demo data: euros labelled „Listenpreise erledigter Termine: … · geschätzt, nicht kassiert“, no-shows as „3 von 41“-style counts. Say plainly that these are demo values, not results from other shops.
 
 ### Price and guarantee
 

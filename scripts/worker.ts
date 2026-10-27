@@ -199,13 +199,13 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
-  if (job.kind === "booking.reminder" || job.kind === "booking.change" || job.kind === "booking.rebook") {
-    // Customer Web Push for bookings; the push log makes a retry after a send a no-op.
+  if (job.kind === "booking.reminder" || job.kind === "booking.change" || job.kind === "booking.request" || job.kind === "booking.rebook") {
+    // Customer Web Push for bookings (and the staff warning for an unconfirmed request); the push log makes a retry after a send a no-op.
     try {
       const { deliverBookingJob } = await import("../src/lib/booking/notify");
       const outcome = await deliverBookingJob(job);
       // Quiet hours are a wait, not a failed attempt.
-      if (outcome.status === "deferred") return await defer(job, outcome.reason ?? "deferred", outcome.until ?? new Date());
+      if (outcome.status === "deferred") return await defer(job, outcome.reason, outcome.until);
       const status = outcome.status === "retry" && job.attempts >= maxAttempts ? "failed" : outcome.status;
       return await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 60 : 0);
     } catch (error) {

@@ -144,11 +144,7 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
     "SELECT tenant_id, location_id, created_at, expires_at, (status = 'pending_staff' AND expires_at > now()) AS waiting FROM tap_requests WHERE id = $1", [tapRequestId]);
   const request = requests[0];
   if (!request?.waiting) return { status: "suppressed", reason: "Request no longer waiting", sent: 0 };
-  const { rows: recipients } = await pool.query<Recipient>(`
-    SELECT s.id, s.endpoint, s.p256dh, s.auth, s.locale FROM staff_push_subscriptions s
-    JOIN staff_roles r ON r.user_id = s.user_id AND r.tenant_id = s.tenant_id AND r.active
-    JOIN "session" se ON se.id = s.session_id AND se."userId" = s.user_id AND se."expiresAt" > now()
-    WHERE s.tenant_id = $1 AND s.location_id = $2 AND (r.role = 'owner' OR r.location_id = $2)
+  const { rows: recipients } = await pool.query<Recipient>(`${LOCATION_DEVICES}
       -- A device woken since this request exists already shows it when opened: a retry does not ring it again.
       AND (s.last_success_at IS NULL OR s.last_success_at < $3)`, [request.tenant_id, request.location_id, request.created_at]);
   const send: Sender = deps.send ?? ((subscription, payload, options) => webpush.sendNotification(subscription, payload, options));
@@ -170,26 +166,59 @@ export async function deliverTapPush(job: Pick<OutboxJob, "payload">, deps: { se
         AND (s.last_success_at IS NULL OR s.last_success_at < $4)`,
       [recipient.id, request.tenant_id, request.location_id, request.created_at]);
     if (!authorized.length) continue;
-    if (!validPushEndpoint(recipient.endpoint)) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
     const payload = JSON.stringify({ v: 1, kind: "tap_pending", locale: recipient.locale === "fr" ? "fr" : "de" });
-    try {
-      await send({ endpoint: recipient.endpoint, keys: { p256dh: recipient.p256dh, auth: recipient.auth } }, payload,
-        { vapidDetails: details, TTL: Math.max(1, Math.min(PUSH_TTL_SECONDS, Math.floor((request.expires_at.getTime() - Date.now()) / 1000))), urgency: "high", topic: "loynara-tap", timeout: 5_000 });
-      sent += 1;
-      await pool.query("UPDATE staff_push_subscriptions SET failure_count = 0, last_success_at = now() WHERE id = $1", [recipient.id]);
-    } catch (error) {
-      const status = error instanceof WebPushError ? error.statusCode : 0;
-      if (status === 404 || status === 410) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); continue; }
-      // Only definitive refusals of this device count towards dropping it; an outage or rate limit at the push service
-      // (timeouts, 429, 5xx) is retried and never removes a location's phones.
-      const definitive = status >= 400 && status < 500 && status !== 429;
-      if (!definitive) { transient += 1; continue; }
-      await pool.query(`DELETE FROM staff_push_subscriptions WHERE id = $1 AND failure_count + 1 >= ${MAX_FAILURES}`, [recipient.id]);
-      await pool.query("UPDATE staff_push_subscriptions SET failure_count = failure_count + 1 WHERE id = $1", [recipient.id]);
-    }
+    const result = await sendToDevice(send, recipient, payload,
+      { vapidDetails: details, TTL: Math.max(1, Math.min(PUSH_TTL_SECONDS, Math.floor((request.expires_at.getTime() - Date.now()) / 1000))), urgency: "high", topic: "loynara-tap", timeout: 5_000 });
+    if (result === "sent") { sent += 1; await pool.query("UPDATE staff_push_subscriptions SET last_success_at = now() WHERE id = $1", [recipient.id]); }
+    if (result === "transient") transient += 1;
   }
   if (transient > 0) return { status: "retry", reason: `${transient} push send(s) failed temporarily`, delaySeconds: RETRY_DELAY_SECONDS, sent };
   return { status: "complete", sent };
+}
+
+/** Current staff devices of a location: active role covering it, the subscribing login still valid. $1 tenant, $2 location. */
+const LOCATION_DEVICES = `
+    SELECT s.id, s.endpoint, s.p256dh, s.auth, s.locale FROM staff_push_subscriptions s
+    JOIN staff_roles r ON r.user_id = s.user_id AND r.tenant_id = s.tenant_id AND r.active
+    JOIN "session" se ON se.id = s.session_id AND se."userId" = s.user_id AND se."expiresAt" > now()
+    WHERE s.tenant_id = $1 AND s.location_id = $2 AND (r.role = 'owner' OR r.location_id = $2)`;
+
+/** One send to one staff device. Gone endpoints are removed; definitive refusals drop it after MAX_FAILURES; outages are transient. */
+async function sendToDevice(send: Sender, recipient: Recipient, payload: string, options: RequestOptions): Promise<"sent" | "transient" | "refused"> {
+  if (!validPushEndpoint(recipient.endpoint)) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); return "refused"; }
+  try {
+    await send({ endpoint: recipient.endpoint, keys: { p256dh: recipient.p256dh, auth: recipient.auth } }, payload, options);
+    await pool.query("UPDATE staff_push_subscriptions SET failure_count = 0 WHERE id = $1", [recipient.id]);
+    return "sent";
+  } catch (error) {
+    const status = error instanceof WebPushError ? error.statusCode : 0;
+    if (status === 404 || status === 410) { await pool.query("DELETE FROM staff_push_subscriptions WHERE id = $1", [recipient.id]); return "refused"; }
+    // Only definitive refusals of this device count towards dropping it; an outage or rate limit at the push service
+    // (timeouts, 429, 5xx) is retried and never removes a location's phones.
+    if (!(status >= 400 && status < 500 && status !== 429)) return "transient";
+    await pool.query(`DELETE FROM staff_push_subscriptions WHERE id = $1 AND failure_count + 1 >= ${MAX_FAILURES}`, [recipient.id]);
+    await pool.query("UPDATE staff_push_subscriptions SET failure_count = failure_count + 1 WHERE id = $1", [recipient.id]);
+    return "refused";
+  }
+}
+
+/**
+ * A booking notice (title, body, link) to every current staff device of a location; the cashier service worker shows it.
+ * last_success_at stays the NFC wake-up's own marker, so this never stops a pending tap from ringing a device.
+ */
+export async function sendStaffMessage(tenantId: string, locationId: string, message: { title: string; body: string; url: string }, deps: { send?: Sender; env?: PushEnv } = {}) {
+  const result = { recipients: 0, sent: 0, transient: 0 };
+  const details = vapidDetails(deps.env);
+  if (!details) return result;
+  const { rows } = await pool.query<Recipient>(LOCATION_DEVICES, [tenantId, locationId]);
+  result.recipients = rows.length;
+  const send: Sender = deps.send ?? ((subscription, payload, options) => webpush.sendNotification(subscription, payload, options));
+  for (const recipient of rows) {
+    const sent = await sendToDevice(send, recipient, JSON.stringify({ v: 1, kind: "booking_request", ...message }), { vapidDetails: details, TTL: 3600, urgency: "high", timeout: 5_000 });
+    if (sent === "sent") result.sent += 1;
+    if (sent === "transient") result.transient += 1;
+  }
+  return result;
 }
 
 /**

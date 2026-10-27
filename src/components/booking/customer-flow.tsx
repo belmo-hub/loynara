@@ -15,6 +15,7 @@ import notice from "../customer/customer-notice.module.css";
 import legal from "../customer/customer-state.module.css";
 import styles from "./customer-flow.module.css";
 import { defaultTerms } from "../owner/booking-setup-helpers";
+import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
 import { attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
 
@@ -27,6 +28,8 @@ const CONTACT = "loynara_booking_contact";
 const PAUSED = "Online-Buchung bei diesem Shop ist pausiert. Ruf kurz an.";
 const IMPRESSUM = "https://getloynara.com/impressum/";
 const PAST: Record<string, string> = { done: "erledigt", no_show: "nicht erschienen", cancelled_by_customer: "abgesagt", cancelled_by_shop: "vom Shop abgesagt", requested: "vorbei", confirmed: "vorbei" };
+// The slots route serves at most 14 days per request; "Weitere Tage" asks for the next 14.
+const WINDOW = 14;
 const COUNT = ["keine", "einen offenen Termin", "zwei offene Termine", "drei offene Termine"];
 
 // apiJson drops the body's extra fields, and SLOT_TAKEN needs nextFree.
@@ -66,8 +69,11 @@ function rebookArrival(view: Enabled) {
   return { service, staffId, rebook: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rebook) ? rebook : undefined };
 }
 
-function readContact(): { name: string; phone: string } {
-  try { return { name: "", phone: "", ...JSON.parse(localStorage.getItem(CONTACT) ?? "{}") }; } catch { return { name: "", phone: "" }; }
+// Per card, so a shared phone does not prefill one card's booking with the last person's name.
+const contactKey = (token: string) => `${CONTACT}:${token}`;
+
+function readContact(token: string): { name: string; phone: string } {
+  try { return { name: "", phone: "", ...JSON.parse(localStorage.getItem(contactKey(token)) ?? "{}") }; } catch { return { name: "", phone: "" }; }
 }
 
 /** The customer's booking page: „Meine Termine“ first, then service → day → time → confirm, all in one component. */
@@ -97,9 +103,12 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const [days, setDays] = useState<SlotDay[] | null>(null);
   const [slotsError, setSlotsError] = useState("");
   const [allDays, setAllDays] = useState(false);
+  // The loaded window: first day, length in days, and whether the last "Weitere Tage" came back empty.
+  const [range, setRange] = useState<{ from: string; span: number; end: boolean } | null>(null);
+  const [moreBusy, setMoreBusy] = useState(false);
   const [day, setDay] = useState<SlotDay | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [contact, setContact] = useState(readContact);
+  const [contact, setContact] = useState(() => readContact(token));
   const [showPhone, setShowPhone] = useState(() => Boolean(contact.phone));
   const [nameError, setNameError] = useState("");
   const [key, setKey] = useState("");
@@ -125,15 +134,31 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
   function go(next: Step) { moved.current = true; setProblem(null); setStep(next); }
 
+  async function fetchDays(target: Service, staff: string, from: string, moveId?: string) {
+    const query = new URLSearchParams({ serviceId: target.id, from, days: String(WINDOW) });
+    if (staff) query.set("staffId", staff);
+    if (moveId) query.set("appointmentId", moveId);
+    return daysWithSlots((await apiJson<{ days: SlotDay[] }>(`${base}/slots?${query}`)).days);
+  }
+
   async function loadSlots(target: Service, staff: string, moveId?: string) {
     // Only the newest request may land: a slower answer for an earlier choice is dropped.
     const requestId = ++slotsRequest.current;
-    setDays(null); setSlotsError(""); setAllDays(false);
-    const query = new URLSearchParams({ serviceId: target.id, from: wallDate(new Date(), tz), days: "14" });
-    if (staff) query.set("staffId", staff);
-    if (moveId) query.set("appointmentId", moveId);
-    try { const result = await apiJson<{ days: SlotDay[] }>(`${base}/slots?${query}`); if (requestId === slotsRequest.current) setDays(daysWithSlots(result.days)); }
+    setDays(null); setSlotsError(""); setAllDays(false); setMoreBusy(false);
+    const from = wallDate(new Date(), tz);
+    try { const found = await fetchDays(target, staff, from, moveId); if (requestId === slotsRequest.current) { setDays(found); setRange({ from, span: WINDOW, end: WINDOW >= view.shop.maxDaysAhead }); } }
     catch { if (requestId === slotsRequest.current) setSlotsError("Die freien Zeiten konnten nicht geladen werden."); }
+  }
+
+  async function loadMore() {
+    if (!service || !days || !range) return;
+    const requestId = ++slotsRequest.current;
+    setMoreBusy(true);
+    try {
+      const found = await fetchDays(service, staffId, addDays(range.from, range.span), moving?.id);
+      if (requestId === slotsRequest.current) { setDays([...days, ...found]); setAllDays(true); setRange({ ...range, span: range.span + WINDOW, end: !found.length || range.span + WINDOW >= view.shop.maxDaysAhead }); }
+    } catch { if (requestId === slotsRequest.current) setSlotsError("Die freien Zeiten konnten nicht geladen werden."); }
+    finally { if (requestId === slotsRequest.current) setMoreBusy(false); }
   }
 
   function chooseService(target: Service) { if (target.id !== arrival?.service.id) setRebookSourceId(undefined); setService(target); setStaffId(""); void loadSlots(target, ""); go("day"); }
@@ -162,7 +187,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       const appointment = moving
         ? await post<Appointment>(`${base}/appointments/${moving.id}/reschedule`, { start, staffId: staffId || undefined })
         : await post<Appointment>(`${base}/appointments`, { serviceId: service.id, staffId: staffId || undefined, start, customerName: contact.name.trim(), customerPhone: contact.phone.trim() || undefined, idempotencyKey: attempt, rebookSourceId });
-      if (!moving) { try { localStorage.setItem(CONTACT, JSON.stringify({ name: contact.name.trim(), phone: contact.phone.trim() })); } catch { /* prefill is a convenience */ } }
+      if (!moving) { try { localStorage.setItem(contactKey(token), JSON.stringify({ name: contact.name.trim(), phone: contact.phone.trim() })); } catch { /* prefill is a convenience */ } }
       setResult(appointment); setRebookSourceId(undefined); go("done"); void reload();
     } catch (cause) {
       setProblem(problemFor(cause, view));
@@ -174,6 +199,9 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   function pickAgain() { if (service) void loadSlots(service, staffId, moving?.id); go("day"); }
 
   const staffForService = service ? view.staff.filter(s => !s.serviceIds.length || s.serviceIds.includes(service.id)) : [];
+  // A move keeps the booked staff member even when no longer linked to the service; then "Egal wer" must be on offer.
+  const showStaff = staffForService.length > 1 || Boolean(staffId && !staffForService.some(s => s.id === staffId));
+  const moreDays = range && !range.end ? <Button variant="quiet" size="sm" loading={moreBusy} onClick={() => void loadMore()}>Weitere Tage</Button> : null;
   const staffName = (id: string) => view.staff.find(s => s.id === id)?.name;
   const total = moving ? 3 : 4;
   const index = { service: 1, day: moving ? 1 : 2, time: moving ? 2 : 3, confirm: moving ? 3 : 4, done: total }[step];
@@ -190,7 +218,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
     {view.blocked ? null : step === "done" && result ? <section className={card.panel} aria-labelledby="booking-step-title">
       <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={card.panelTitle}>{result.status === "requested"
-        ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit" : "Angefragt: der Shop bestätigt dir den Termin")
+        ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit. Ohne Bestätigung bis zum Termin verfällt die Anfrage." : "Angefragt: der Shop bestätigt dir den Termin. Ohne Bestätigung bis zum Termin verfällt die Anfrage.")
         : `${moving ? "Verschoben" : "Dein Termin ist fix"}: ${formatWhen(result.start, tz)} bei ${result.staff.name}`}</h2>
       <p className={card.muted}>{result.service.name}. {!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
@@ -212,15 +240,19 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       </div> : <p className={card.muted}>Der Shop hat noch keine Leistungen online. Ruf kurz an.</p> : null}
 
       {step === "day" ? <>
-        {staffForService.length > 1 ? <div className={styles.staff} role="group" aria-label="Bei wem?">
+        {showStaff ? <div className={styles.staff} role="group" aria-label="Bei wem?">
           {[{ id: "", name: "Egal wer" }, ...staffForService].map(s => <button key={s.id} type="button" className={styles.chip} aria-pressed={staffId === s.id} onClick={() => chooseStaff(s.id)}>{s.name}</button>)}
         </div> : null}
         {slotsError ? <><p className={card.alert} role="alert">{slotsError}</p><Button variant="secondary" size="sm" onClick={() => service && void loadSlots(service, staffId, moving?.id)}>Noch mal laden</Button></>
           : !days ? <div className={styles.chips} aria-busy="true" aria-label="Freie Tage werden geladen.">{[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} height={44} radius={12} />)}</div>
-          : !days.length ? <p className={card.muted}>{staffId && staffName(staffId) ? `Bei ${staffName(staffId)} ist in den nächsten 14 Tagen nichts frei. Wähl „Egal wer“.` : "In den nächsten 14 Tagen ist online nichts frei. Ruf kurz im Shop an."}</p>
+          : !days.length ? <>
+            <p className={card.muted}>{showStaff && staffId && staffName(staffId) ? `Bei ${staffName(staffId)} ist in den nächsten ${range?.span ?? WINDOW} Tagen nichts frei. Wähl „Egal wer“.` : `In den nächsten ${range?.span ?? WINDOW} Tagen ist online nichts frei.${moreDays ? "" : " Ruf kurz im Shop an."}`}</p>
+            {moreDays}
+          </>
           : <>
             <div className={styles.chips}>{shown.map(d => <button key={d.date} type="button" className={styles.chip} aria-pressed={day?.date === d.date} onClick={() => { setDay(d); go("time"); }}>{formatDay(d.date)}</button>)}</div>
-            {!allDays && days.length > 7 ? <Button variant="quiet" size="sm" onClick={() => setAllDays(true)}>Weitere Tage</Button> : null}
+            {!allDays && days.length > 7 ? <Button variant="quiet" size="sm" onClick={() => setAllDays(true)}>Weitere Tage</Button>
+              : range?.end ? <p className={card.muted}>{range.span >= view.shop.maxDaysAhead ? `Online geht es bis ${view.shop.maxDaysAhead} Tage im Voraus.` : `In den ${WINDOW} Tagen danach ist online nichts frei.`}</p> : moreDays}
           </>}
       </> : null}
 

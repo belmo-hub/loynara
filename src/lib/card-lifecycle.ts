@@ -26,16 +26,16 @@ export async function closeCard(cardToken: string): Promise<{ closed: true; rete
     await tx.delete(contactVerificationChallenges).where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
     await tx.delete(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
     await tx.delete(cardBirthdays).where(and(eq(cardBirthdays.tenantId, member.tenantId), eq(cardBirthdays.membershipId, member.id)));
-    // Booking: devices are forgotten, appointments not yet started are released (one under way is the shop's to finish,
+    // Booking: devices are forgotten, appointments not yet started are cancelled by the shop without a push (one under way is the shop's to finish,
     // without a credit), and the name and phone typed when booking are erased; the rows stay as pseudonymous history with
     // the ledger. Their push jobs carry only the appointment id.
     const mine = and(eq(bookingAppointments.tenantId, member.tenantId), eq(bookingAppointments.membershipId, member.id));
     await tx.delete(bookingPushSubscriptions).where(and(eq(bookingPushSubscriptions.tenantId, member.tenantId), eq(bookingPushSubscriptions.membershipId, member.id)));
-    await tx.update(bookingAppointments).set({ status: "cancelled_by_customer", cancelledAt: new Date(), updatedAt: new Date() })
+    await tx.update(bookingAppointments).set({ status: "cancelled_by_shop", cancelledAt: new Date(), cancelReason: "Karte geschlossen", updatedAt: new Date() })
       .where(and(mine, inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`lower(${bookingAppointments.during}) > now()`));
     await tx.update(bookingAppointments).set({ customerName: "Karte geschlossen", customerPhone: null, updatedAt: new Date() }).where(mine);
     await tx.update(outboxJobs).set({ status: "suppressed", lastError: "Card closed" })
-      .where(and(eq(outboxJobs.tenantId, member.tenantId), inArray(outboxJobs.kind, ["booking.reminder", "booking.change", "booking.rebook"]), inArray(outboxJobs.status, ["pending", "retry", "processing", "blocked"]),
+      .where(and(eq(outboxJobs.tenantId, member.tenantId), inArray(outboxJobs.kind, ["booking.reminder", "booking.change", "booking.request", "booking.rebook"]), inArray(outboxJobs.status, ["pending", "retry", "processing", "blocked"]),
         sql`${outboxJobs.payload} ->> 'appointmentId' IN (SELECT id::text FROM booking_appointments WHERE tenant_id = ${member.tenantId}::uuid AND membership_id = ${member.id}::uuid)`));
     await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: false, noticeVersion: "2026-09", source: "card_closure" });
     // Queued local messages and wallet refreshes cannot run after closure (the

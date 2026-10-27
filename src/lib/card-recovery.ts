@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { cardRecoveryChallenges, cardSecurityEvents, membershipContacts, memberships, outboxJobs, programs, tenants } from "@/db/schema";
+import { bookingPushSubscriptions, cardRecoveryChallenges, cardSecurityEvents, membershipContacts, memberships, outboxJobs, programs, tenants } from "@/db/schema";
 import { recoveryTokenForChallenge, recoveryTokenHash } from "./contact-token";
 import { emailTransportMode } from "./transactional-email";
 import { DomainError } from "./loyalty";
@@ -70,6 +70,8 @@ export async function completeCardRecovery(token: string, membershipId: string) 
     if (!contact || !contact.emailVerified || contact.email !== current.email) throw invalid();
     const cardToken = `card_${randomBytes(32).toString("base64url")}`;
     await tx.update(memberships).set({ cardToken }).where(and(eq(memberships.id, member.id), eq(memberships.tenantId, member.tenantId), isNull(memberships.closedAt)));
+    // Booking pushes link to the card by its token: the lost browser's devices must not learn the new one.
+    await tx.delete(bookingPushSubscriptions).where(and(eq(bookingPushSubscriptions.tenantId, member.tenantId), eq(bookingPushSubscriptions.membershipId, member.id)));
     await tx.delete(cardRecoveryChallenges).where(eq(cardRecoveryChallenges.email, current.email));
     await tx.insert(cardSecurityEvents).values({ tenantId: member.tenantId, membershipId: member.id, action: "card_credential_rotated" });
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.recovery_notice", payload: { membershipId: member.id } });

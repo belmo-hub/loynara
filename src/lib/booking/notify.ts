@@ -7,7 +7,7 @@ import { formatDay, formatTime } from "@/components/booking/booking-format";
 import { DomainError } from "@/lib/loyalty";
 import type { OutboxJob, OutboxStatus } from "@/lib/outbox";
 import { quietHoursDeferral } from "@/lib/promotion-policy";
-import { pushCapability, subscriptionInput, vapidDetails, type PushEnv } from "@/lib/staff-push";
+import { pushCapability, sendStaffMessage, subscriptionInput, vapidDetails, type PushEnv } from "@/lib/staff-push";
 import { CAP_WINDOW_DAYS, CUSTOMER_WEEKLY_CAP, WALLET_QUIET_HOURS } from "@/lib/wallet-message-rules";
 import { lock, rebookPushesWithin } from "@/lib/wallet-messages";
 import { cardScope, type Reader, type Tx } from "./appointments";
@@ -26,7 +26,8 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Sender = (subscription: PushSubscription, payload: string, options: RequestOptions) => Promise<SendResult>;
 export type Deps = { send?: Sender; env?: PushEnv; now?: Date };
-export type Outcome = { status: OutboxStatus | "deferred"; reason?: string; delaySeconds?: number; until?: Date };
+// A deferral always names its wake time: the worker gives the attempt back, so one without a time would loop.
+export type Outcome = { status: OutboxStatus; reason?: string; delaySeconds?: number } | { status: "deferred"; reason: string; until: Date };
 type Message = { title: string; body: string; url: string };
 
 /** When a reminder goes out: start − 24 h / − 2 h; inside quiet hours it moves to the next 08:00 while that is still before the start, else null. */
@@ -46,18 +47,26 @@ export function rebookDue(now: Date, timeZone: string): Date {
 // ---- Scheduling (inside the booking transactions) -------------------------------------------------------------------------
 
 /**
- * Two reminder jobs for a confirmed appointment. Called again after a reschedule or move: the payload carries the start it
- * was planned for, so jobs of an older start deliver nothing.
+ * Two reminder jobs for a confirmed appointment; for a request, the staff warning 1 h before the start and the expiry at the
+ * start. Called again after a reschedule, move or confirm: the payload carries the start it was planned for, so jobs of an
+ * older start deliver nothing.
  */
 export async function scheduleReminders(tx: Tx, appointmentId: string, now = new Date()) {
-  const { rows: [a] } = await tx.execute<{ tenant_id: string; start: Date | string; timezone: string }>(sql`
-    SELECT a.tenant_id, lower(a.during) AS start, l.timezone FROM booking_appointments a
-    JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid AND a.status = 'confirmed'`);
+  const { rows: [a] } = await tx.execute<{ tenant_id: string; status: string; start: Date | string; timezone: string }>(sql`
+    SELECT a.tenant_id, a.status, lower(a.during) AS start, l.timezone FROM booking_appointments a
+    JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid AND a.status IN ('requested','confirmed')`);
   if (!a) return;
+  const kind = a.status === "requested" ? "booking.request" : "booking.reminder";
   // Jobs of an earlier plan step aside, so a move never leaves two live jobs for one reminder.
-  await tx.execute(sql`UPDATE outbox_jobs SET status = 'suppressed', last_error = 'Replanned' WHERE tenant_id = ${a.tenant_id}::uuid AND kind = 'booking.reminder'
+  await tx.execute(sql`UPDATE outbox_jobs SET status = 'suppressed', last_error = 'Replanned' WHERE tenant_id = ${a.tenant_id}::uuid AND kind = ${kind}
     AND status IN ('pending','retry','processing','blocked') AND payload ->> 'appointmentId' = ${appointmentId}`);
   const start = new Date(a.start);
+  if (kind === "booking.request") {
+    const warn = new Date(start.getTime() - HOUR);
+    if (warn > now) await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "warn", start: start.toISOString() }, nextAttemptAt: warn });
+    await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "expire", start: start.toISOString() }, nextAttemptAt: start });
+    return;
+  }
   for (const which of ["24h", "2h"] as const) {
     const due = reminderDue(start, which, a.timezone);
     if (!due || due <= now) continue;
@@ -65,12 +74,20 @@ export async function scheduleReminders(tx: Tx, appointmentId: string, now = new
   }
 }
 
-/** One push about a shop cancellation or move; immediate, or at 08:00 when it happens at night. */
-export async function notifyShopChange(tx: Tx, appointmentId: string, kind: "shop_cancel" | "moved", now = new Date()) {
-  const { rows: [a] } = await tx.execute<{ tenant_id: string; timezone: string }>(sql`
-    SELECT a.tenant_id, l.timezone FROM booking_appointments a JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid`);
+const CHANGE_KINDS = ["shop_cancel", "moved", "confirmed"];
+
+/** Quiet hours hold a change push until 08:00, unless the appointment starts before then: by 08:00 the notice is worthless. */
+const changeWake = (now: Date, start: Date, timeZone: string) => {
+  const wake = quietHoursDeferral(now, timeZone, WALLET_QUIET_HOURS);
+  return wake && wake <= start ? wake : null;
+};
+
+/** One push about a shop cancellation, move or confirmation; immediate, or at 08:00 when it happens at night. */
+export async function notifyShopChange(tx: Tx, appointmentId: string, kind: "shop_cancel" | "moved" | "confirmed", now = new Date()) {
+  const { rows: [a] } = await tx.execute<{ tenant_id: string; timezone: string; start: Date | string }>(sql`
+    SELECT a.tenant_id, l.timezone, lower(a.during) AS start FROM booking_appointments a JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid`);
   if (!a) return;
-  await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind: "booking.change", payload: { appointmentId, kind, at: now.toISOString() }, nextAttemptAt: quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS) ?? now });
+  await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind: "booking.change", payload: { appointmentId, kind, at: now.toISOString() }, nextAttemptAt: changeWake(now, new Date(a.start), a.timezone) ?? now });
 }
 
 // ---- Sending ---------------------------------------------------------------------------------------------------------------
@@ -100,12 +117,12 @@ export async function sendCustomerPush(tenantId: string, membershipId: string, m
   return result;
 }
 
-type Loaded = { id: string; tenant_id: string; membership_id: string; location_id: string; status: string; start: Date; service_id: string; staff_id: string; timezone: string; shop: string; service: string; staff: string; token: string };
+type Loaded = { id: string; tenant_id: string; membership_id: string; location_id: string; status: string; start: Date; service_id: string; staff_id: string; customer_name: string; cancel_reason: string | null; timezone: string; shop: string; service: string; staff: string; token: string };
 
 async function load(appointmentId: unknown): Promise<Loaded | null> {
   if (typeof appointmentId !== "string" || !uuid.test(appointmentId)) return null;
   const { rows: [a] } = await db.execute<Loaded>(sql`
-    SELECT a.id, a.tenant_id, a.membership_id, a.location_id, a.status, lower(a.during) AS start, a.service_id, a.staff_id, l.timezone, t.name AS shop, s.name AS service, st.name AS staff, m.card_token AS token
+    SELECT a.id, a.tenant_id, a.membership_id, a.location_id, a.status, lower(a.during) AS start, a.service_id, a.staff_id, a.customer_name, a.cancel_reason, l.timezone, t.name AS shop, s.name AS service, st.name AS staff, m.card_token AS token
     FROM booking_appointments a
     JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id
     JOIN tenants t ON t.id = a.tenant_id
@@ -128,7 +145,7 @@ async function deliver(a: Loaded, kind: string, at: unknown, message: Message, d
   if (!vapidDetails(deps.env)) return { status: "suppressed", reason: "Push not configured" };
   // Quiet hours hold at send time too: a backlog or a retry never pushes at night. The job waits for 08:00 without losing an
   // attempt; a reminder that is useless by then is dropped by its own lateness check.
-  const now = deps.now ?? new Date(), wake = quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS);
+  const now = deps.now ?? new Date(), wake = CHANGE_KINDS.includes(kind) ? changeWake(now, a.start, a.timezone) : quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS);
   if (wake) return { status: "deferred", reason: "Quiet hours", until: wake };
   const since = typeof at === "string" && !Number.isNaN(Date.parse(at)) ? new Date(at) : new Date(0);
   const { rows: [logged] } = await db.execute(sql`SELECT 1 FROM booking_push_log WHERE appointment_id = ${a.id}::uuid AND kind = ${kind} AND sent_at >= ${since}::timestamptz`);
@@ -156,13 +173,52 @@ export async function deliverReminder(job: Pick<OutboxJob, "payload">, deps: Dep
     { title: a.shop, body: `Dein Termin ${a.service} ist ${day(a)} um ${time(a)} bei ${a.staff}.`, url: page(a) }, deps);
 }
 
+const UNCONFIRMED = "Nicht bestätigt";
+
 export async function deliverShopChange(job: Pick<OutboxJob, "payload">, deps: Deps = {}): Promise<Outcome> {
   const kind = job.payload?.kind;
-  if (kind !== "shop_cancel" && kind !== "moved") return { status: "failed", reason: "Invalid change payload" };
+  if (kind !== "shop_cancel" && kind !== "moved" && kind !== "confirmed") return { status: "failed", reason: "Invalid change payload" };
   const a = await load(job.payload.appointmentId);
-  if (!a || (kind === "shop_cancel" ? a.status !== "cancelled_by_shop" : !["requested", "confirmed"].includes(a.status))) return { status: "suppressed", reason: "Appointment changed again" };
-  const body = kind === "shop_cancel" ? `Dein Termin ${day(a)} ${time(a)} wurde abgesagt. Neuen Termin wählen.` : `Dein Termin ist jetzt ${day(a)} um ${time(a)} bei ${a.staff}.`;
+  const current = kind === "shop_cancel" ? a?.status === "cancelled_by_shop" : kind === "confirmed" ? a?.status === "confirmed" : ["requested", "confirmed"].includes(a?.status ?? "");
+  if (!a || !current) return { status: "suppressed", reason: "Appointment changed again" };
+  // A cancellation stays news after the start; a new time or a confirmation does not.
+  if (kind !== "shop_cancel" && (deps.now ?? new Date()) >= a.start) return { status: "suppressed", reason: "Appointment already started" };
+  const body = kind === "confirmed" ? `Dein Termin ${day(a)} um ${time(a)} bei ${a.staff} ist bestätigt.`
+    : kind === "moved" ? `Dein Termin ist jetzt ${day(a)} um ${time(a)} bei ${a.staff}.`
+    : a.cancel_reason === UNCONFIRMED ? `Dein Termin ${day(a)} um ${time(a)} konnte nicht bestätigt werden. Buch gern einen neuen.`
+    : `Dein Termin ${day(a)} ${time(a)} wurde abgesagt. Neuen Termin wählen.`;
   return deliver(a, kind, job.payload.at, { title: a.shop, body, url: page(a) }, deps);
+}
+
+/**
+ * A request nobody confirmed: 1 h before the start the location's staff devices are warned; at the start it is cancelled by
+ * the shop and the customer is told. A job whose appointment moved later waits for the new time.
+ */
+export async function deliverRequest(job: Pick<OutboxJob, "payload">, deps: Deps = {}): Promise<Outcome> {
+  const now = deps.now ?? new Date(), phase = job.payload?.phase;
+  if (phase !== "warn" && phase !== "expire") return { status: "failed", reason: "Invalid request payload" };
+  const a = await load(job.payload.appointmentId);
+  if (!a || a.status !== "requested") return { status: "suppressed", reason: "Request no longer open" };
+  const due = phase === "warn" ? new Date(a.start.getTime() - HOUR) : a.start;
+  if (due > now) return { status: "deferred", reason: "Request moved", until: due };
+  if (phase === "expire") {
+    const cancelled = await db.transaction(async tx => {
+      const { rows } = await tx.execute(sql`UPDATE booking_appointments SET status = 'cancelled_by_shop', cancelled_at = ${now}::timestamptz, cancel_reason = ${UNCONFIRMED}, updated_at = ${now}::timestamptz
+        WHERE id = ${a.id}::uuid AND status = 'requested' RETURNING id`);
+      if (rows.length) await notifyShopChange(tx, a.id, "shop_cancel", now);
+      return rows.length > 0;
+    });
+    return cancelled ? { status: "complete" } : { status: "suppressed", reason: "Request no longer open" };
+  }
+  if (now >= a.start) return { status: "suppressed", reason: "Request already started" };
+  if (!vapidDetails(deps.env)) return { status: "suppressed", reason: "Push not configured" };
+  const result = await sendStaffMessage(a.tenant_id, a.location_id, {
+    title: a.shop, body: `Anfrage ${time(a)} · ${a.service} ist noch nicht bestätigt.`, url: `/merchant/termine?date=${instantToWall(a.start, a.timezone).date}`,
+  }, deps);
+  if (!result.recipients) return { status: "complete", reason: "no staff device" };
+  // Retry only when no device got it, so a retry never rings a phone twice.
+  if (!result.sent && result.transient) return { status: "retry", reason: `${result.transient} push send(s) failed temporarily`, delaySeconds: 60 };
+  return result.sent ? { status: "complete" } : { status: "complete", reason: "not delivered" };
 }
 
 /** Newest consent event of the card for the rebook push; no event means no consent. */
@@ -190,10 +246,11 @@ export async function deliverRebook(job: Pick<OutboxJob, "payload">, deps: Deps 
     { title: a.shop, body: `Zeit für ${a.service}? Dein Slot bei ${a.staff}: Termin buchen.`, url: `${page(a)}?${query}` }, deps);
 }
 
-/** The worker's entry for booking.reminder, booking.change and booking.rebook. */
+/** The worker's entry for booking.reminder, booking.change, booking.request and booking.rebook. */
 export function deliverBookingJob(job: Pick<OutboxJob, "kind" | "payload">, deps: Deps = {}): Promise<Outcome> {
   if (job.kind === "booking.reminder") return deliverReminder(job, deps);
   if (job.kind === "booking.change") return deliverShopChange(job, deps);
+  if (job.kind === "booking.request") return deliverRequest(job, deps);
   return deliverRebook(job, deps);
 }
 

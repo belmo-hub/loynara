@@ -190,7 +190,7 @@ export async function cardView(token: string, now = new Date()) {
   return {
     enabled: true, blocked: await isBlocked(db, card),
     shop: { name: card.shopName, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm,
-      noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard },
+      noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard, maxDaysAhead: settings.maxDaysAhead },
     services: setup.services.map(s => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceMinor: s.priceMinor, priceFrom: s.priceFrom })),
     staff: setup.staff.map(s => ({ id: s.id, name: s.name, serviceIds: s.serviceIds })),
     upcoming: (await appointmentRows(db, and(mine, upcoming))).map(row => customerView(row, now)),
@@ -233,8 +233,10 @@ export async function book(input: BookInput, now = new Date()) {
       tenantId: card.tenantId, locationId: card.locationId, membershipId: card.membershipId, serviceId: service.id, staffId: slot.staffId,
       during: range(input.start, new Date(input.start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), durationMin: service.durationMin, priceMinor: service.priceMinor,
       status: settings.autoConfirm ? "confirmed" : "requested", customerName: input.customerName, customerPhone: input.customerPhone, idempotencyKey: input.idempotencyKey,
-      // Only this card's own appointment counts as the source, so a crafted link cannot inflate „über Erinnerung neu gebucht“.
-      rebookSourceId: input.rebookSourceId ? sql`(SELECT r.id FROM booking_appointments r WHERE r.tenant_id = ${card.tenantId}::uuid AND r.membership_id = ${card.membershipId}::uuid AND r.id = ${input.rebookSourceId}::uuid)` : null,
+      // Only this card's own appointment of the same service with a rebook push in the last 14 days counts as the source, so a
+      // crafted or stale link cannot inflate „über Erinnerung neu gebucht“; anything else books without a source.
+      rebookSourceId: input.rebookSourceId ? sql`(SELECT r.id FROM booking_appointments r WHERE r.tenant_id = ${card.tenantId}::uuid AND r.membership_id = ${card.membershipId}::uuid AND r.id = ${input.rebookSourceId}::uuid
+        AND r.service_id = ${service.id}::uuid AND r.rebook_sent_at > ${now.toISOString()}::timestamptz - interval '14 days')` : null,
     }).returning({ id: bookingAppointments.id }).catch(slotTaken(nextFree));
     await scheduleReminders(tx, row.id, now);
     return { appointment: customerView(await one(tx, card.tenantId, row.id), now), duplicate: false };
@@ -342,7 +344,7 @@ export async function transition(input: TransitionInput, now = new Date()) {
       await setStatus(tx, row, "done", { doneLedgerEntryId: entryId });
     } else {
       await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || "Vom Geschäft abgesagt" } : {});
-      if (input.to === "confirmed") await scheduleReminders(tx, row.a.id, now);
+      if (input.to === "confirmed") { await scheduleReminders(tx, row.a.id, now); await notifyShopChange(tx, row.a.id, "confirmed", now); }
       if (input.to === "cancelled_by_shop") await notifyShopChange(tx, row.a.id, "shop_cancel", now);
     }
     if (input.to === "no_show") {
@@ -503,11 +505,19 @@ export function pathId(id: string) {
   return id;
 }
 
-/** Free starts on `date` for the owner's "Verschieben": the booked length, the same staff member, no lead time (as move()). */
+/**
+ * Free starts on `date` for the owner's "Verschieben": the booked length, no lead time (as move()), for every live staff
+ * member who offers the service (and the booked one), so the owner can hand the appointment to someone else.
+ */
 export async function ownerSlots(input: Scope & { appointmentId: string; date: string }, now = new Date()) {
   const row = await one(db, input.tenantId, input.appointmentId);
   if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Appointment not found");
   const scope = { ...input, timezone: await timezoneOf(db, input) };
-  const [day] = await availability(db, scope, { service: bookedService(row), staffId: row.a.staffId, days: [input.date], excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
-  return { date: input.date, slots: day.slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
+  const staffRows = await db.select({ id: bookingStaff.id, name: bookingStaff.name }).from(bookingStaff)
+    .where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort));
+  const links = staffRows.length ? await db.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, input.tenantId), inArray(bookingStaffServices.staffId, staffRows.map(s => s.id)))) : [];
+  const staff = staffRows.filter(s => { const own = links.filter(l => l.staffId === s.id); return s.id === row.a.staffId || !own.length || own.some(l => l.serviceId === row.a.serviceId); });
+  const days = await Promise.all(staff.map(s => availability(db, scope, { service: bookedService(row), staffId: s.id, days: [input.date], excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now })));
+  const slots = days.flatMap(([day]) => day.slots).sort((a, b) => a.start.getTime() - b.start.getTime());
+  return { date: input.date, staff, slots: slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
 }

@@ -1114,6 +1114,8 @@ export const bookingSettings = pgTable("booking_settings", {
   noShowBlockAfter: integer("no_show_block_after").notNull().default(3),
   maxOpenPerCard: integer("max_open_per_card").notNull().default(2),
   termsText: varchar("terms_text", { length: 600 }).notNull().default(""),
+  // The shop's own opening hours (the wizard's default for staff who follow them); null until set. Availability reads staff hours.
+  openingHours: jsonb("opening_hours").$type<WorkingDay[]>(),
   setupDoneAt: timestamp("setup_done_at", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1261,5 +1263,5 @@ export const bookingPushLog = pgTable("booking_push_log", {
   foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
   unique("booking_push_log_appointment_kind_uq").on(t.appointmentId, t.kind),
   index("booking_push_log_member_idx").on(t.tenantId, t.membershipId, t.sentAt),
-  check("booking_push_kind_valid", sql`${t.kind} in ('reminder_24h','reminder_2h','rebook','shop_cancel','moved')`),
+  check("booking_push_kind_valid", sql`${t.kind} in ('reminder_24h','reminder_2h','rebook','shop_cancel','moved','confirmed')`),
 ]);

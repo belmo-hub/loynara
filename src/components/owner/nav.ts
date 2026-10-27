@@ -24,7 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "Zielgruppen", href: "/merchant/audiences", roles: BOTH, surface: "audiences" },
   ] },
   { id: "booking", label: "Termine", icon: "calendar", roles: BOTH, prefixes: ["/merchant/termine"], items: [
-    { label: "Heute", href: "/merchant/termine", roles: BOTH, exactMatch: true },
+    { label: "Tag", href: "/merchant/termine", roles: BOTH, exactMatch: true },
     { label: "Einrichten", href: "/merchant/termine/einrichten", roles: OWNER },
   ] },
   { id: "actions", label: "Aktionen", trimmedLabel: "Ergebnisse", icon: "megaphone", roles: OWNER, prefixes: ["/merchant/campaigns", "/merchant/automations", "/merchant/wallet-messages", "/merchant/analytics", "/merchant/adviser"], items: [

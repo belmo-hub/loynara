@@ -192,7 +192,7 @@ export function CustomersView() {
   return (
     <div className="ow-page">
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. Namen und Kontaktdaten zeigt Loynara nicht.</p></div>
+        <div><p className="ow-eyebrow">Kunden</p><h1>Kundenkarten</h1><p>Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. Namen und Kontaktdaten zeigt Loynara hier nicht; für Termine stehen sie in der Tagesansicht.</p></div>
         {me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <div className="ow-row"><Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link></div>}
       </header>
 

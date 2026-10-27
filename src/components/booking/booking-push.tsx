@@ -31,16 +31,24 @@ export function BookingPush({ base, scope, push, reload }: { base: string; scope
     void navigator.serviceWorker.getRegistration(scope).then(registration => registration?.scope.endsWith(scope) ? registration.pushManager.getSubscription() : null).then(subscription => setLocal(subscription ?? null), () => undefined);
   }, [supported, scope, push.subscribed]);
 
-  if (!push.publicKey) return null;
-  if (!supported) return <p className={card.muted} data-slot="booking-push">Auf dem iPhone: Karte zum Home-Bildschirm hinzufügen, dann Mitteilungen erlauben.</p>;
-  const publicKey = push.publicKey;
-
   async function run(action: () => Promise<void>) {
     setBusy(true); setError("");
     try { await action(); await reload(); }
     catch (cause) { setError(FAILED[(cause as { code?: string }).code ?? ""] ?? "Das hat nicht geklappt. Versuch es noch mal."); }
     finally { setBusy(false); }
   }
+
+  const consent = <Checkbox checked={push.rebookConsent} disabled={busy} onChange={event => { const rebook = event.target.checked; void run(() => send(`${base}/consent`, "POST", { rebook })); }}
+    description="Freiwillig. Du kannst es hier jederzeit wieder abschalten.">Erinnere mich, wenn der nächste Termin fällig ist</Checkbox>;
+  const failed = error ? <p className={card.alert} role="alert">{error}</p> : null;
+
+  // A yes given in the home-screen app must stay withdrawable from any browser, with or without push here.
+  if (!push.publicKey || !supported) return push.publicKey || push.rebookConsent ? <div data-slot="booking-push">
+    {push.publicKey ? <p className={card.muted}>Auf dem iPhone: Karte zum Home-Bildschirm hinzufügen, dann Mitteilungen erlauben.</p> : null}
+    {push.rebookConsent ? consent : null}
+    {failed}
+  </div> : null;
+  const publicKey = push.publicKey;
 
   // The permission prompt comes first, before any other await, so the browser still sees the tap.
   const enable = () => run(async () => {
@@ -67,8 +75,7 @@ export function BookingPush({ base, scope, push, reload }: { base: string; scope
     <p className={card.muted}>{here ? "Du bekommst eine Mitteilung einen Tag und zwei Stunden vor dem Termin." : on ? "Auf diesem Gerät noch nicht. Aktivier sie hier, dann kommt die Mitteilung auch hierhin." : "Erinnerung nur mit Mitteilungen: einen Tag und zwei Stunden vor dem Termin."}</p>
     {here ? <Button variant="quiet" size="sm" loading={busy} onClick={() => void disable()}>Erinnerungen ausschalten</Button>
       : <Button variant="secondary" size="sm" loading={busy} onClick={() => void enable()}>{on ? "Auch hier aktivieren" : "Erinnerungen aktivieren"}</Button>}
-    <Checkbox checked={push.rebookConsent} disabled={busy} onChange={event => { const rebook = event.target.checked; void run(() => send(`${base}/consent`, "POST", { rebook })); }}
-      description="Freiwillig. Du kannst es hier jederzeit wieder abschalten.">Erinnere mich, wenn der nächste Termin fällig ist</Checkbox>
-    {error ? <p className={card.alert} role="alert">{error}</p> : null}
+    {consent}
+    {failed}
   </div>;
 }

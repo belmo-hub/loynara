@@ -32,6 +32,15 @@ export function hoursProblem(days: Day[]): string {
   return index < 0 ? "" : `${WEEKDAYS[index]}: ${dayProblem(days[index])}`;
 }
 
+/** A person's own hours must lie inside the shop's opening hours (only those are bookable); "" when they do. */
+export function withinHours(own: Day[], shop: Day[]): string {
+  const index = own.findIndex((day, i) => day.open && (!shop[i].open || day.start < shop[i].start || day.end > shop[i].end));
+  return index < 0 ? "" : `${WEEKDAYS[index]}: Die Zeiten müssen in den Öffnungszeiten liegen.`;
+}
+
+/** "nach 1 verpassten Termin", "nach 3 verpassten Terminen". */
+export const missedPhrase = (n: number) => n === 1 ? "1 verpassten Termin" : `${n} verpassten Terminen`;
+
 export const sameHours = (a: WorkingDay[], b: WorkingDay[]) => JSON.stringify(fromDays(toDays(a))) === JSON.stringify(fromDays(toDays(b)));
 
 /** "12,50" for 1250; whole euros without decimals. */
@@ -56,9 +65,9 @@ const hoursPhrase = (hours: number) => hours === 1 ? "1 Stunde" : hours % 24 ===
 export function defaultTerms(rules: { cancelDeadlineHours: number; maxReschedulesPerMonth: number; noShowBlockAfter: number }) {
   const until = rules.cancelDeadlineHours ? `bis ${hoursPhrase(rules.cancelDeadlineHours)} vorher` : "bis zum Termin";
   const lines = [
-    rules.cancelDeadlineHours ? `Absagen bitte ${until}; später zählt es als späte Absage.` : "Absagen geht jederzeit bis zum Termin.",
+    rules.cancelDeadlineHours ? `Absagen bitte ${until}; später zählt es als kurzfristige Absage.` : "Absagen geht jederzeit bis zum Termin.",
     rules.maxReschedulesPerMonth ? `Verschieben geht online ${until}, bis zu ${rules.maxReschedulesPerMonth}-mal im Monat.` : "Verschieben geht online nicht: bitte absagen und neu buchen.",
   ];
-  if (rules.noShowBlockAfter) lines.push(`Nach ${rules.noShowBlockAfter} verpassten Terminen ohne Absage pausieren wir die Online-Buchung für dich.`);
+  if (rules.noShowBlockAfter) lines.push(`Nach ${missedPhrase(rules.noShowBlockAfter)} ohne Absage ist die Online-Buchung für dich pausiert; ruf dann kurz an.`);
   return lines.join(" ");
 }

@@ -32,3 +32,26 @@ export async function appointmentsForTaps(locationId: string, tapIds: string[], 
   }
   return found;
 }
+
+/**
+ * For a scanned card: its appointment at that location inside the award window, as on the tap list. An open one wins;
+ * else one already done with a ledger entry (the owner's "Fertig" ran first), flagged so the cashier does not stamp twice.
+ */
+export async function appointmentForCard(locationId: string, membershipId: string, now = new Date()) {
+  try {
+    const at = now.toISOString();
+    const { rows: [row] } = await db.execute<{ start: Date | string; service_name: string; timezone: string; done: boolean }>(sql`
+      SELECT lower(b.during) AS start, s.name AS service_name, l.timezone, b.status = 'done' AS done FROM booking_appointments b
+      JOIN booking_services s ON s.tenant_id = b.tenant_id AND s.id = b.service_id
+      JOIN locations l ON l.tenant_id = b.tenant_id AND l.id = b.location_id
+      WHERE b.location_id = ${locationId}::uuid AND b.membership_id = ${membershipId}::uuid
+        AND (b.status IN ('requested','confirmed') OR (b.status = 'done' AND b.done_ledger_entry_id IS NOT NULL))
+        AND ${awardWindow(at, "b")}
+      ORDER BY b.status = 'done', abs(extract(epoch FROM lower(b.during) - ${at}::timestamptz)) LIMIT 1`);
+    return row ? { start: new Date(row.start).toISOString(), startLabel: instantToWall(new Date(row.start), row.timezone).time, serviceName: row.service_name, done: row.done } : null;
+  } catch (error) {
+    // The lookup opens the card; without the appointment line the award still works.
+    console.error("Booking lookup for a scanned card failed", error instanceof Error ? error.name : "unknown");
+    return null;
+  }
+}

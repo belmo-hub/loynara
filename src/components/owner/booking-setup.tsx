@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError } from "@/components/client-api";
 import type { WorkingDay } from "@/db/schema";
-import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, parsePrice, priceText, sameHours, toDays, WEEKDAYS, type Day } from "./booking-setup-helpers";
+import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, missedPhrase, parsePrice, priceText, sameHours, toDays, WEEKDAYS, withinHours, type Day } from "./booking-setup-helpers";
 import { useDirtyGuard } from "./owner-context";
 import { ErrorNotice, LoadingBlock, MoreInfo, Notice, OwnerIcon, PageHead, SaveBar } from "./owner-ui";
 import { useLoad } from "./use-load";
@@ -13,7 +13,7 @@ type Service = { id: string; name: string; durationMin: number; bufferMin: numbe
 type Preset = { autoConfirm: boolean; workingHours: WorkingDay[]; services: Omit<Service, "id">[] };
 type Rules = { leadTimeMin: number; maxDaysAhead: number; cancelDeadlineHours: number; maxReschedulesPerMonth: number; autoConfirm: boolean; noShowBlockAfter: number; maxOpenPerCard: number };
 type Setup = {
-  settings: (Rules & { enabled: boolean; shopType: ShopType; goalText: string; termsText: string }) | null;
+  settings: (Rules & { enabled: boolean; shopType: ShopType; goalText: string; termsText: string; openingHours: WorkingDay[] | null }) | null;
   services: Service[];
   staff: { id: string; name: string; userId: string | null; workingHours: WorkingDay[]; serviceIds: string[] }[];
   presets: Record<ShopType, Preset>;
@@ -37,7 +37,9 @@ const LEAD: [number, string][] = [[0, "sofort"], [30, "30 Min. vorher"], [60, "1
 const AHEAD: [number, string][] = [[7, "1 Woche im Voraus"], [14, "2 Wochen im Voraus"], [28, "4 Wochen im Voraus"], [42, "6 Wochen im Voraus"], [90, "3 Monate im Voraus"], [180, "6 Monate im Voraus"]];
 const DEADLINE: [number, string][] = [[0, "jederzeit"], [2, "bis 2 Std. vorher"], [12, "bis 12 Std. vorher"], [24, "bis 24 Std. vorher"], [48, "bis 2 Tage vorher"], [168, "bis 1 Woche vorher"]];
 const RESCHEDULE: [number, string][] = [[0, "online nicht"], ...[1, 2, 3, 4, 5].map(n => [n, `${n}-mal im Monat`] as [number, string])];
-const NO_SHOW: [number, string][] = [[0, "nie"], ...[1, 2, 3, 4, 5].map(n => [n, `nach ${n} verpassten Terminen`] as [number, string])];
+const NO_SHOW: [number, string][] = [[0, "nie"], ...[1, 2, 3, 4, 5].map(n => [n, `nach ${missedPhrase(n)}`] as [number, string])];
+const OPEN_PER_CARD: [number, string][] = [1, 2, 3].map(n => [n, n === 1 ? "1 Termin" : `${n} Termine`]);
+const REBOOK: [number, string][] = [[0, "Aus"], [14, "nach 2 Wochen"], [21, "nach 3 Wochen"], [28, "nach 4 Wochen"], [42, "nach 6 Wochen"], [56, "nach 8 Wochen"]];
 
 let seq = 0;
 const newKey = () => `n${++seq}`;
@@ -48,8 +50,8 @@ const emptyStaff = (): StaffRow => ({ key: newKey(), name: "", userId: null, hou
 function fromSetup(data: Setup): Form {
   const s = data.settings;
   const rules: Rules = s ? { leadTimeMin: s.leadTimeMin, maxDaysAhead: s.maxDaysAhead, cancelDeadlineHours: s.cancelDeadlineHours, maxReschedulesPerMonth: s.maxReschedulesPerMonth, autoConfirm: s.autoConfirm, noShowBlockAfter: s.noShowBlockAfter, maxOpenPerCard: s.maxOpenPerCard } : DEFAULT_RULES;
-  // The API stores hours per person only; the shop hours are the first person's.
-  const shopHours = data.staff[0]?.workingHours ?? (s ? data.presets[s.shopType].workingHours : []);
+  // Opening hours are stored with the settings; before the first save with them, the first person's hours stand in.
+  const shopHours = s?.openingHours ?? data.staff[0]?.workingHours ?? (s ? data.presets[s.shopType].workingHours : []);
   return {
     shopType: s?.shopType ?? null, goalText: s?.goalText ?? "", rules,
     termsText: s?.termsText || defaultTerms(rules), termsEdited: Boolean(s?.termsText && s.termsText !== defaultTerms(rules)),
@@ -63,7 +65,8 @@ function fromSetup(data: Setup): Form {
 function payload(form: Form) {
   const ids = new Map(form.services.flatMap(service => service.id ? [[service.key, service.id]] : []));
   return {
-    settings: { shopType: form.shopType, goalText: form.goalText.trim(), ...form.rules, termsText: (form.termsEdited ? form.termsText : defaultTerms(form.rules)).trim() },
+    // Unedited terms are saved empty, so cards always show the current default wording.
+    settings: { shopType: form.shopType, goalText: form.goalText.trim(), ...form.rules, termsText: form.termsEdited ? form.termsText.trim() : "", openingHours: fromDays(form.hours) },
     services: form.services.map(service => ({ id: service.id, name: service.name.trim(), durationMin: service.durationMin, bufferMin: service.bufferMin, priceMinor: parsePrice(service.price) ?? 0, priceFrom: service.priceFrom, rebookAfterDays: service.rebookAfterDays })),
     staff: form.staff.map(member => ({ id: member.id, name: member.name.trim(), userId: member.userId, workingHours: fromDays(member.hours ?? form.hours), serviceIds: (member.serviceKeys ?? []).flatMap(key => ids.has(key) ? [ids.get(key)!] : []) })),
   };
@@ -78,13 +81,12 @@ function problems(form: Form): Record<string, string>[] {
   form.services.forEach(service => {
     if (!service.name.trim()) services[`bs-sname-${service.key}`] = "Bitte einen Namen eingeben.";
     if (parsePrice(service.price) === null) services[`bs-price-${service.key}`] = "Preis wie 25 oder 12,50 eingeben, höchstens 1.000 €.";
-    if (!Number.isInteger(service.rebookAfterDays) || service.rebookAfterDays < 0 || service.rebookAfterDays > 365) services[`bs-rebook-${service.key}`] = "0 bis 365 Tage.";
   });
   const staff: Record<string, string> = {};
   if (!form.staff.length) staff["bs-add-staff"] = "Mindestens eine Person muss Termine annehmen.";
   form.staff.forEach(member => {
     if (!member.name.trim()) staff[`bs-pname-${member.key}`] = "Bitte einen Namen eingeben.";
-    if (member.hours && hoursProblem(member.hours)) staff[`bs-phours-${member.key}`] = hoursProblem(member.hours);
+    if (member.hours && (hoursProblem(member.hours) || withinHours(member.hours, form.hours))) staff[`bs-phours-${member.key}`] = hoursProblem(member.hours) || withinHours(member.hours, form.hours);
     if (member.serviceKeys && !member.serviceKeys.length) staff[`bs-pserv-${member.key}`] = "Wähle mindestens eine Leistung.";
   });
   return [
@@ -114,6 +116,7 @@ export function BookingSetup() {
 
 function Wizard({ initial }: { initial: Setup }) {
   const heading = useRef<HTMLHeadingElement>(null);
+  const focusedStep = useRef(0);
   const [data, setData] = useState(initial);
   const [form, setForm] = useState(() => fromSetup(initial));
   const [baseline, setBaseline] = useState(() => initial.settings ? JSON.stringify(payload(fromSetup(initial))) : "");
@@ -123,11 +126,13 @@ function Wizard({ initial }: { initial: Setup }) {
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<{ staffId: string; name: string; count: number } | null>(null);
+  const [busy, setBusy] = useState<{ staffId: string; name: string; count: number }[] | null>(null);
+  const [serviceBusy, setServiceBusy] = useState<{ serviceId: string; name: string; count: number } | null>(null);
   const [savedOnce, setSavedOnce] = useState(false);
   const dirty = JSON.stringify(payload(form)) !== baseline;
   useDirtyGuard("booking-setup", dirty && !saving);
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [step]);
+  // The heading takes focus when the step changes, not when the page opens.
+  useEffect(() => { if (focusedStep.current === step) return; focusedStep.current = step; heading.current?.focus({ preventScroll: true }); }, [step]);
 
   const all = problems(form);
   const err = (id: string) => tried ? all[step][id] ?? "" : "";
@@ -155,7 +160,7 @@ function Wizard({ initial }: { initial: Setup }) {
   async function save(next: Form = form) {
     const failing = problems(next).findIndex(group => Object.keys(group).length);
     if (failing >= 0) { setTried(true); setStep(failing); focusFirst(problems(next)[failing]); return; }
-    setSaving(true); setError(""); setBusy(null);
+    setSaving(true); setError(""); setBusy(null); setServiceBusy(null);
     try {
       let result = await put(payload(next));
       // New services get their ids from the first save; staff limited to some of them need a second one.
@@ -165,22 +170,35 @@ function Wizard({ initial }: { initial: Setup }) {
     } catch (cause) {
       const body = cause instanceof ClientApiError ? cause.body : undefined;
       if (cause instanceof ClientApiError && cause.code === "STAFF_HAS_APPOINTMENTS" && typeof body?.staffId === "string") {
-        const staffId = body.staffId;
-        setBusy({ staffId, name: data.staff.find(member => member.id === staffId)?.name ?? "Diese Person", count: Number(body.count) || 1 });
+        const all: unknown[] = Array.isArray(body.all) ? body.all : [{ staffId: body.staffId, count: body.count }];
+        setBusy(all.flatMap(item => {
+          const { staffId, count } = (item ?? {}) as { staffId?: unknown; count?: unknown };
+          return typeof staffId === "string" ? [{ staffId, name: data.staff.find(member => member.id === staffId)?.name ?? "Diese Person", count: Number(count) || 1 }] : [];
+        }));
         setStep(3);
+      } else if (cause instanceof ClientApiError && cause.code === "SERVICE_HAS_APPOINTMENTS" && typeof body?.serviceId === "string") {
+        const serviceId = body.serviceId;
+        setServiceBusy({ serviceId, name: data.services.find(service => service.id === serviceId)?.name ?? "Diese Leistung", count: Number(body.count) || 1 });
+        setStep(1);
       } else setError(saveMessage(cause));
     } finally { setSaving(false); }
   }
   function keep() {
-    const member = data.staff.find(item => item.id === busy?.staffId);
-    if (!member) return;
     const shopHours = fromDays(form.hours);
-    const next = { ...form, staff: [...form.staff, { key: member.id, id: member.id, name: member.name, userId: member.userId, hours: sameHours(member.workingHours, shopHours) ? null : toDays(member.workingHours), serviceKeys: member.serviceIds.length ? member.serviceIds.filter(id => form.services.some(service => service.id === id)) : null }] };
+    const back = data.staff.filter(member => busy?.some(item => item.staffId === member.id) && !form.staff.some(row => row.id === member.id));
+    const next = { ...form, staff: [...form.staff, ...back.map(member => ({ key: member.id, id: member.id, name: member.name, userId: member.userId, hours: sameHours(member.workingHours, shopHours) ? null : toDays(member.workingHours), serviceKeys: member.serviceIds.length ? member.serviceIds.filter(id => form.services.some(service => service.id === id)) : null }))] };
+    setForm(next); void save(next);
+  }
+  function keepService() {
+    const service = data.services.find(item => item.id === serviceBusy?.serviceId);
+    if (!service || form.services.some(row => row.id === service.id)) return;
+    // People who offered it before offer it again.
+    const next = { ...form, services: [...form.services, serviceRow(service)], staff: form.staff.map(member => member.serviceKeys && data.staff.find(item => item.id === member.id)?.serviceIds.includes(service.id) ? { ...member, serviceKeys: [...member.serviceKeys, service.id] } : member) };
     setForm(next); void save(next);
   }
 
   const last = step === STEPS.length - 1;
-  const saveState = saving ? "saving" : error || busy ? "error" : dirty ? "dirty" : savedOnce ? "saved" : "clean";
+  const saveState = saving ? "saving" : error || busy || serviceBusy ? "error" : dirty ? "dirty" : savedOnce ? "saved" : "clean";
   const showSave = returning || last;
   const r = form.rules;
 
@@ -204,13 +222,16 @@ function Wizard({ initial }: { initial: Setup }) {
             {SHOP_TYPES.map(([type, title, text]) => <label key={type} className="ow-radio-card"><input id={`bs-type-${type}`} type="radio" name="bs-type" checked={form.shopType === type} onChange={() => choosePreset(type)} /><div><strong>{title}</strong><span>{text}</span></div></label>)}
           </div>
           {err("bs-type-nagelstudio") && <span id="bs-type-error" className="ow-error" role="alert">{err("bs-type-nagelstudio")}</span>}
-          <Field id="bs-goal" label="Was soll in vier Wochen hier stehen?" hint="In deinen Worten. Du siehst es später in „Heute“.">
+          <Field id="bs-goal" label="Dein Ziel für die ersten vier Wochen" hint="In deinen Worten. Es steht oben in der Tagesansicht.">
             <input id="bs-goal" className="ow-input" value={form.goalText} maxLength={140} placeholder="z. B. 20 Online-Termine pro Woche" onChange={event => set({ goalText: event.target.value })} />
           </Field>
         </>}
 
         {step === 1 && <>
           <div><h2 ref={heading} tabIndex={-1}>Deine Leistungen</h2><p className="ow-hint">Kunden sehen Name, Dauer und Preis.</p></div>
+          {serviceBusy && <Notice tone="warn" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={keepService} disabled={saving}>{serviceBusy.name} behalten</button>}>
+            {serviceBusy.name} hat noch {serviceBusy.count === 1 ? "1 offenen Termin" : `${serviceBusy.count} offene Termine`}. Nichts wurde gespeichert. {serviceBusy.count === 1 ? "Sag ihn erst in „Tag“ ab" : "Sag sie erst in „Tag“ ab"} oder lass die Leistung bis dahin drin.
+          </Notice>}
           {form.services.length === 0 && <p className="ow-muted">Noch keine Leistung. Füge mindestens eine hinzu.</p>}
           <ul className="ow-rewards">
             {form.services.map(service => (
@@ -240,9 +261,7 @@ function Wizard({ initial }: { initial: Setup }) {
                         {BUFFERS.map(minutes => <option key={minutes} value={minutes}>{minutes ? durationLabel(minutes) : "kein Puffer"}</option>)}
                       </select>
                     </Field>
-                    <Field id={`bs-rebook-${service.key}`} label="Erinnerung nach (Tagen)" hint="Lädt zum nächsten Termin ein, wenn der Kunde zugestimmt hat. 0 = aus." error={err(`bs-rebook-${service.key}`)}>
-                      <input id={`bs-rebook-${service.key}`} className="ow-input" inputMode="numeric" value={service.rebookAfterDays} aria-invalid={Boolean(err(`bs-rebook-${service.key}`))} onChange={event => setService(service.key, { rebookAfterDays: Number(event.target.value.replace(/\D/g, "").slice(0, 3)) })} />
-                    </Field>
+                    <Choice id={`bs-rebook-${service.key}`} label="Zum nächsten Termin einladen" hint="Nur Kunden, die Erinnerungen angeschaltet haben." value={service.rebookAfterDays} options={withValue(REBOOK, service.rebookAfterDays, n => `nach ${n} Tagen`)} onChange={rebookAfterDays => setService(service.key, { rebookAfterDays })} />
                   </div>
                 </MoreInfo>
               </li>
@@ -259,8 +278,10 @@ function Wizard({ initial }: { initial: Setup }) {
 
         {step === 3 && <>
           <div><h2 ref={heading} tabIndex={-1}>Wer nimmt Termine an?</h2><p className="ow-hint">Kunden wählen eine Person oder „egal wer“.</p></div>
-          {busy && <Notice tone="warn" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={keep} disabled={saving}>{busy.name} behalten</button>}>
-            {busy.name} hat noch {busy.count === 1 ? "1 offenen Termin" : `${busy.count} offene Termine`}. Nichts wurde gespeichert. {busy.count === 1 ? "Sag ihn erst in „Heute“ ab oder verschiebe ihn." : "Sag sie erst in „Heute“ ab oder verschiebe sie."}
+          {busy && busy.length > 0 && <Notice tone="warn" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={keep} disabled={saving}>{busy.length === 1 ? `${busy[0].name} behalten` : "Alle behalten"}</button>}>
+            {busy.length === 1
+              ? `${busy[0].name} hat noch ${busy[0].count === 1 ? "1 offenen Termin" : `${busy[0].count} offene Termine`}.`
+              : `${busy.map(item => `${item.name} (${item.count})`).join(", ").replace(/, ([^,]*)$/, " und $1")} haben noch offene Termine.`} Nichts wurde gespeichert. {busy.length === 1 && busy[0].count === 1 ? "Sag ihn erst in „Tag“ ab oder verschiebe ihn." : "Sag sie erst in „Tag“ ab oder verschiebe sie."}
           </Notice>}
           <ul className="ow-rewards">
             {form.staff.map((member, index) => (
@@ -286,16 +307,17 @@ function Wizard({ initial }: { initial: Setup }) {
         {step === 4 && <>
           <div><h2 ref={heading} tabIndex={-1}>Deine Regeln</h2><p className="ow-hint">Kunden lesen sie vor dem Buchen.</p></div>
           <div className="ow-radio-cards" role="radiogroup" aria-label="Neue Termine">
-            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={r.autoConfirm} onChange={() => setRules({ autoConfirm: true })} /><div><strong>Sofort fix</strong><span>Termine sind sofort fix, du siehst sie in „Heute“.</span></div></label>
-            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={!r.autoConfirm} onChange={() => setRules({ autoConfirm: false })} /><div><strong>Ich bestätige selbst</strong><span>Du bestätigst jede Anfrage selbst; bis dahin ist der Termin nicht fix.</span></div></label>
+            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={r.autoConfirm} onChange={() => setRules({ autoConfirm: true })} /><div><strong>Sofort fix</strong><span>Termine sind sofort fix, du siehst sie in der Tagesansicht. Jeder freie Slot ist sofort weg, du prüfst nichts vorher.</span></div></label>
+            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={!r.autoConfirm} onChange={() => setRules({ autoConfirm: false })} /><div><strong>Ich bestätige selbst</strong><span>Du bestätigst jede Anfrage selbst; bis dahin ist der Termin nicht fix. Anfragen, die du bis zum Termin nicht bestätigst, verfallen; der Kunde wird informiert.</span></div></label>
           </div>
           <div className="ow-grid-2">
             <Choice id="bs-lead" label="Buchbar frühestens" value={r.leadTimeMin} options={withValue(LEAD, r.leadTimeMin, n => `${n} Min. vorher`)} onChange={leadTimeMin => setRules({ leadTimeMin })} />
             <Choice id="bs-ahead" label="Buchbar bis" value={r.maxDaysAhead} options={withValue(AHEAD, r.maxDaysAhead, n => `${n} Tage im Voraus`)} onChange={maxDaysAhead => setRules({ maxDaysAhead })} />
-            <Choice id="bs-deadline" label="Kostenlos absagen" hint="Später geht auch, zählt dann als späte Absage." value={r.cancelDeadlineHours} options={withValue(DEADLINE, r.cancelDeadlineHours, n => `bis ${n} Std. vorher`)} onChange={cancelDeadlineHours => setRules({ cancelDeadlineHours })} />
+            <Choice id="bs-deadline" label="Kostenlos absagen" hint="Später geht auch, zählt dann als kurzfristig abgesagt." value={r.cancelDeadlineHours} options={withValue(DEADLINE, r.cancelDeadlineHours, n => `bis ${n} Std. vorher`)} onChange={cancelDeadlineHours => setRules({ cancelDeadlineHours })} />
             <Choice id="bs-reschedule" label="Verschieben" value={r.maxReschedulesPerMonth} options={withValue(RESCHEDULE, r.maxReschedulesPerMonth, n => `${n}-mal im Monat`)} onChange={maxReschedulesPerMonth => setRules({ maxReschedulesPerMonth })} />
           </div>
-          <Choice id="bs-noshow" label="Online-Buchung pausieren" value={r.noShowBlockAfter} options={withValue(NO_SHOW, r.noShowBlockAfter, n => `nach ${n} verpassten Terminen`)} onChange={noShowBlockAfter => setRules({ noShowBlockAfter })}
+          <Choice id="bs-open" label="Offene Termine pro Kunde" hint="So viele Termine kann ein Kunde gleichzeitig gebucht haben." value={r.maxOpenPerCard} options={withValue(OPEN_PER_CARD, r.maxOpenPerCard, n => `${n} Termine`)} onChange={maxOpenPerCard => setRules({ maxOpenPerCard })} />
+          <Choice id="bs-noshow" label="Online-Buchung pausieren" value={r.noShowBlockAfter} options={withValue(NO_SHOW, r.noShowBlockAfter, n => `nach ${missedPhrase(n)}`)} onChange={noShowBlockAfter => setRules({ noShowBlockAfter })}
             hint={r.noShowBlockAfter ? `Wer ${r.noShowBlockAfter}-mal in 12 Monaten ohne Absage fehlt, kann nur noch anrufen. Du hebst das mit einem Tipp auf.` : "Niemand wird pausiert, auch nach vielen verpassten Terminen nicht."} />
           <Field id="bs-terms" label="Text für deine Kunden" hint={form.termsEdited ? "Dein eigener Text. Prüfe ihn, wenn du die Regeln änderst." : "Folgt deinen Regeln. Du kannst ihn frei ändern."}>
             <textarea id="bs-terms" className="ow-textarea" rows={5} maxLength={600} value={form.termsEdited ? form.termsText : defaultTerms(r)} onChange={event => set({ termsText: event.target.value, termsEdited: true })} />
@@ -305,11 +327,12 @@ function Wizard({ initial }: { initial: Setup }) {
 
         {error && <Notice tone="danger" role="alert">{error} Deine Eingaben sind noch da.</Notice>}
         <div className="ow-row" style={{ justifyContent: "space-between" }}>
-          <button type="button" className="ow-btn ow-btn--ghost" onClick={() => go(step - 1)} disabled={step === 0 || saving}>Zurück</button>
+          {step > 0 ? <button type="button" className="ow-btn ow-btn--ghost" onClick={() => go(step - 1)} disabled={saving}>Zurück</button> : <span />}
           {!last && <button type="submit" className="ow-btn ow-btn--primary">Weiter</button>}
         </div>
       </form>
-      {showSave && <SaveBar state={saveState} onSave={() => void save()} canSave={!saving} errorLabel={busy ? "Nicht gespeichert" : undefined} detail={saveState === "dirty" && !returning ? "Erst mit Speichern ist alles übernommen." : undefined} />}
+      {returning && <p className="ow-hint"><a className="ow-link ow-link--block" href="/api/merchant/export?format=appointments" download>Termine für Excel</a> Jeder Termin dieses Standorts mit Kunde, Telefon und Status.</p>}
+      {showSave && <SaveBar state={saveState} onSave={() => void save()} canSave={!saving} errorLabel={busy || serviceBusy ? "Nicht gespeichert" : undefined} detail={saveState === "dirty" && !returning ? "Erst mit Speichern ist alles übernommen." : undefined} />}
     </div>
   );
 }

@@ -22,6 +22,8 @@ export const setupInput = z.object({
     noShowBlockAfter: z.number().int().min(0).max(10),
     maxOpenPerCard: z.number().int().min(1).max(5),
     termsText: z.string().trim().max(600).default(""),
+    // The shop's hours, stored for the wizard (staff who follow them get a copy); availability reads staff hours only.
+    openingHours: z.array(workingDay).max(14).nullable().optional(),
   }),
   services: z.array(z.object({
     id: z.uuid().optional(),
@@ -59,7 +61,7 @@ export async function getSetup(scope: Scope, reader: Reader = db) {
   };
 }
 
-/** Upserts by id and archives what the owner removed; `enabled` is left to the plan gate. Archiving staff with open appointments is refused. */
+/** Upserts by id and archives what the owner removed; `enabled` is left to the plan gate. Archiving staff or a service with open appointments is refused. */
 export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
   const input = setupInput.parse(raw);
   return db.transaction(async tx => {
@@ -68,14 +70,23 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
     await tx.insert(bookingSettings).values({ ...scope, ...input.settings, setupDoneAt: now })
       .onConflictDoUpdate({ target: [bookingSettings.tenantId, bookingSettings.locationId], set: { ...input.settings, updatedAt: now } });
 
+    const open = and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId),
+      inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`);
+    // Before the upsert archives them: a live service left out of the payload that still has open appointments.
+    const keptServices = input.services.flatMap(s => s.id ? [s.id] : []);
+    const [dropped] = await tx.select({ serviceId: bookingAppointments.serviceId, count: sql<number>`count(*)::int` }).from(bookingAppointments)
+      .innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+      .where(and(open, isNull(bookingServices.archivedAt), keptServices.length ? notInArray(bookingAppointments.serviceId, keptServices) : sql`true`))
+      .groupBy(bookingAppointments.serviceId).limit(1);
+    if (dropped) throw new BookingError("SERVICE_HAS_APPOINTMENTS", "Service still has open appointments", { serviceId: dropped.serviceId, count: dropped.count });
     const services = await upsert(tx, scope, bookingServices, input.services, "Service");
     const staffIds = input.staff.flatMap(s => s.id ? [s.id] : []);
     const leaving = await tx.select({ staffId: bookingAppointments.staffId, count: sql<number>`count(*)::int` }).from(bookingAppointments)
       .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
-      .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), isNull(bookingStaff.archivedAt),
-        staffIds.length ? notInArray(bookingAppointments.staffId, staffIds) : sql`true`, inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`))
-      .groupBy(bookingAppointments.staffId).limit(1);
-    if (leaving[0]) throw new BookingError("STAFF_HAS_APPOINTMENTS", "Staff member still has open appointments", { staffId: leaving[0].staffId, count: leaving[0].count });
+      .where(and(open, isNull(bookingStaff.archivedAt), staffIds.length ? notInArray(bookingAppointments.staffId, staffIds) : sql`true`))
+      .groupBy(bookingAppointments.staffId).orderBy(asc(bookingAppointments.staffId));
+    // staffId and count name the first for the existing client; `all` lists everyone who still has appointments.
+    if (leaving[0]) throw new BookingError("STAFF_HAS_APPOINTMENTS", "Staff member still has open appointments", { staffId: leaving[0].staffId, count: leaving[0].count, all: leaving });
     // A staff row links only to a login of this shop: the owner, or a team member at this location (a deactivated login keeps
     // its row, so an old link never blocks a save).
     const userIds = [...new Set(input.staff.flatMap(s => s.userId ? [s.userId] : []))];

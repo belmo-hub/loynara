@@ -8,6 +8,7 @@ import { credentialHash } from "./wallet/data";
 import { deliverWalletMessage, setWalletConsent, type WalletMessageSend } from "./wallet-messages";
 import { winbackRule } from "./wallet-message-rules";
 import { getWinback, queueWinbackMessages, updateWinback } from "./winback";
+import { saveSetup } from "./booking/setup";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -263,6 +264,19 @@ describe("win-back reminder (Wallet)", () => {
     await stampAt(s, c, T("2026-11-01T10:00:00Z"));
     expect(await queueWinbackMessages(T("2026-11-30T10:00:00Z"))).toBe(0);
     expect(await queueWinbackMessages(T("2026-12-01T10:00:00Z"))).toBe(1);
+  });
+
+  it("a booking rebook push in the last 14 days stands in for the win-back reminder", async () => {
+    const s = await shop(); const c = await card(s);
+    await stampAt(s, c, T("2026-09-20T10:00:00Z"));
+    const setup = await saveSetup(s, { settings: { shopType: "barber", leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 },
+      services: [{ name: "Haarschnitt", durationMin: 30, priceMinor: 2500 }], staff: [{ name: "Lena", workingHours: [] }] });
+    const { rows: [a] } = await pool.query(`INSERT INTO booking_appointments (tenant_id, location_id, membership_id, service_id, staff_id, during, duration_min, price_minor, status, customer_name, idempotency_key, rebook_sent_at)
+      VALUES ($1, $2, $3, $4, $5, tstzrange('2026-08-20T09:00:00Z', '2026-08-20T09:30:00Z'), 30, 2500, 'done', 'Mia', $6, $7) RETURNING id`,
+      [s.tenantId, s.locationId, c.id, setup.services[0].id, setup.staff[0].id, randomUUID(), T("2026-10-13T09:00:00Z")]);
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(0); // pushed 13 days ago
+    await pool.query("UPDATE booking_appointments SET rebook_sent_at = $1 WHERE id = $2", [T("2026-10-11T09:00:00Z"), a.id]);
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(1); // 15 days ago
   });
 
   it("a withdrawn consent gets no reminder, but the bonus at the counter stays", async () => {

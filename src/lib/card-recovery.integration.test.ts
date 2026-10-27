@@ -86,8 +86,11 @@ describe("lost browser-card recovery", () => {
     const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recover"));
     expect(await deliverRecoveryEmail({ id: job.id, tenantId: job.tenantId, payload: job.payload }, sent)).toMatchObject({ status: "complete" });
     expect(sent.mock.calls.length).toBe(1);
+    // A booking push device of the lost browser would get links with the new token: it is forgotten.
+    await pool.query("INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth) VALUES ($1, $2, 'https://push.example.test/lost', 'synthetic-p256dh', 'synthetic-auth')", [f.merchant.tenantId, f.card.id]);
     const restored = await completeCardRecovery(token, f.card.id);
     expect(restored.membershipId).toBe(f.card.id);
+    expect((await pool.query("SELECT count(*)::int AS n FROM booking_push_subscriptions WHERE membership_id = $1", [f.card.id])).rows[0].n).toBe(0);
     await expect(getCard(f.card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await getCard(restored.cardToken)).balance).toBe(2);
     const [stored] = await db.select().from(memberships).where(eq(memberships.id, f.card.id));

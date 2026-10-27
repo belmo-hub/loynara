@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../src/db";
-import { locations, programs, staffRoles } from "../src/db/schema";
+import { consentEvents, locations, programs, staffRoles } from "../src/db/schema";
 import { book, cancelByCustomer, createBlock, transition } from "../src/lib/booking/appointments";
 import { PRESETS } from "../src/lib/booking/presets";
 import { getSetup, saveSetup } from "../src/lib/booking/setup";
@@ -52,6 +52,34 @@ async function ensureUser(email: string, name: string, password: string) {
 
 const wall = (date: string, time: string) => wallToInstant(date, time, tz)!;
 const isoWeekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay() || 7;
+const open = (date: string) => isoWeekday(date) <= 6;
+const openDay = (date: string, step: number) => { while (!open(date)) date = addDays(date, step); return date; };
+
+/**
+ * The rebook story for "über Erinnerung neu gebucht": a card with the rebook opt-in, a Maniküre about 25 days back, its
+ * push sent about 3 days ago, and a new confirmed Maniküre from that link. Runs on an already seeded salon too; skips once present.
+ */
+async function seedRebookStory(tenantId: string, ownerId: string) {
+  if ((await pool.query("SELECT 1 FROM booking_appointments WHERE tenant_id = $1 AND rebook_source_id IS NOT NULL LIMIT 1", [tenantId])).rows[0]) return;
+  const { rows: [shop] } = await pool.query<{ location_id: string; slug: string }>("SELECT location_id, slug FROM programs WHERE tenant_id = $1 ORDER BY created_at LIMIT 1", [tenantId]);
+  const scope = { tenantId, locationId: shop.location_id };
+  const setup = await getSetup(scope);
+  const serviceId = setup.services.find(s => s.name === "Maniküre")!.id, staffId = setup.staff.find(s => s.name === "Lena")!.id;
+  const card = await enroll({ slug: shop.slug, acceptedTerms: true, marketingOptIn: false });
+  const today = instantToWall(new Date(), tz).date;
+  const sourceStart = wall(openDay(addDays(today, -25), -1), "10:00");
+  await db.insert(consentEvents).values({ tenantId, membershipId: card.id, channel: "push", purpose: "booking_rebook", granted: true, noticeVersion: "booking-rebook-v1", source: "card", createdAt: new Date(sourceStart.getTime() - DAY) });
+  // 16:00 at Lena is never part of the generated week, so the new appointment cannot collide with it.
+  const visit = async (start: Date, key: string, rebookSourceId?: string) => {
+    const booked = await book({ token: card.cardToken, serviceId, staffId, start, customerName: "Lotta", customerPhone: "0151-0000099", idempotencyKey: `demo-salon:rebook:${key}`, rebookSourceId }, new Date(start.getTime() - 2 * DAY));
+    if (booked.appointment.status === "requested") await transition({ ...scope, userId: ownerId, appointmentId: booked.appointment.id, to: "confirmed", expected: "requested" }, new Date(start.getTime() - DAY));
+    return booked.appointment;
+  };
+  const source = await visit(sourceStart, "source");
+  await transition({ ...scope, userId: ownerId, appointmentId: source.id, to: "done", expected: "confirmed" }, new Date(sourceStart.getTime() + source.durationMin * MIN));
+  await pool.query("UPDATE booking_appointments SET rebook_sent_at = now() - interval '3 days' WHERE tenant_id = $1 AND id = $2", [tenantId, source.id]);
+  await visit(wall(openDay(addDays(today, 2), 1), "16:00"), "next", source.id);
+}
 
 async function printAccess(access: Access, tenantId: string) {
   const { rows: [card] } = await pool.query<{ card_token: string }>(`SELECT m.card_token FROM booking_appointments a JOIN memberships m ON m.id = a.membership_id
@@ -75,7 +103,8 @@ async function main() {
     // shortcut: skips instead of replacing, so the week stays dated to the first run; reset the database for a fresh week.
     const seeded = await pool.query("SELECT 1 FROM booking_appointments WHERE tenant_id = $1 LIMIT 1", [existing.tenantId]);
     if (seeded.rows[0]) {
-      console.log("Demo salon already seeded; nothing changed.");
+      await seedRebookStory(existing.tenantId, ownerId);
+      console.log("Demo salon already seeded; only missing story parts were added.");
       return printAccess(access, existing.tenantId);
     }
     // An earlier run stopped before any appointment: finish it on the same merchant (tenants cannot be deleted, as scripts/seed.ts).
@@ -96,7 +125,7 @@ async function main() {
   // Lena also works Mondays so a Monday pitch still has a "today"; lunch is a visible "Mittag" block instead of a break.
   const lena = [1, ...preset.workingHours.map(d => d.weekday)].map(weekday => ({ weekday, start: "09:00", end: "18:00", breaks: [] }));
   await saveSetup(scope, {
-    settings: { shopType: "nagelstudio", leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: preset.autoConfirm, noShowBlockAfter: 2, maxOpenPerCard: 2 },
+    settings: { shopType: "nagelstudio", leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: preset.autoConfirm, noShowBlockAfter: 3, maxOpenPerCard: 2, openingHours: lena },
     services: preset.services,
     staff: [{ name: "Lena", workingHours: lena }, { name: "Sara", workingHours: lena.filter(d => d.weekday >= 2 && d.weekday <= 5) }],
   });
@@ -109,20 +138,19 @@ async function main() {
   for (const name of NAMES) cards.push({ name, token: (await enroll({ slug: programSlug, acceptedTerms: true, marketingOptIn: false })).cardToken });
 
   const today = instantToWall(new Date(), tz).date;
-  const open = (date: string) => isoWeekday(date) <= 6;
   const walk = (step: number) => { const out: string[] = []; for (let d = addDays(today, step); out.length < 5; d = addDays(d, step)) if (open(d)) out.push(d); return out; };
   const plan = [...walk(-1).reverse().map((date, i) => ({ date, kind: "past", n: [7, 8, 6, 7, 6][i] })),
     ...(open(today) ? [{ date: today, kind: "today", n: 6 }] : []),
     ...walk(1).map((date, i) => ({ date, kind: "next", n: [4, 3, 5, 4, 3][i] }))];
 
-  let pastIndex = 0, nextIndex = 0, rotate = 0;
+  let pastIndex = 0, nextIndex = 0, rotate = 0, todayDoneUntil = 0;
   for (const { date, kind, n } of plan) {
     await createBlock({ ...scope, start: wall(date, "13:00"), end: wall(date, "13:30"), reason: "Mittag" });
     const slots = [...LENA.map(s => [...s, "Lena"]), ...(isoWeekday(date) <= 5 && isoWeekday(date) >= 2 ? SARA.map(s => [...s, "Sara"]) : [])].sort((a, b) => a[0].localeCompare(b[0])).slice(0, n);
     for (const [index, [time, service, staff]] of slots.entries()) {
       const start = wall(date, time);
       const past = kind === "past" ? pastIndex++ : -1, next = kind === "next" ? nextIndex++ : -1;
-      const noShow = past === 3 || past === 15; // the same card twice, so noShowBlockAfter = 2 pauses it
+      const noShow = past === 3 || past === 15 || past === 27; // the same card three times, so noShowBlockAfter = 3 pauses it
       const card = noShow ? cards[0] : cards[1 + (rotate++ % (cards.length - 1))];
       const booked = await book({ token: card.token, serviceId: serviceId(service), staffId: staffId(staff), start, customerName: card.name, customerPhone: `0151-0000${String(cards.indexOf(card)).padStart(3, "0")}`,
         idempotencyKey: `demo-salon:${date}:${time}:${staff}` }, new Date(start.getTime() - 2 * DAY));
@@ -132,10 +160,16 @@ async function main() {
       if (past === 9) await cancelByCustomer({ token: card.token, appointmentId: booked.appointment.id }, new Date(start.getTime() - 3 * 3_600_000));
       else if (past === 20) await step("cancelled_by_shop", "requested", new Date(start.getTime() - DAY), "Mitarbeiterin krank");
       else if (noShow) await step("no_show", "requested", after);
-      else if (kind === "past" || (kind === "today" && index < 2)) await step("done", "requested", after);
+      else if (kind === "past" || (kind === "today" && index < 2)) {
+        await step("done", "requested", after);
+        if (kind === "today") todayDoneUntil = Math.max(todayDoneUntil, after.getTime());
+      }
       else if (next !== 1 && next !== 6) await step("confirmed", "requested", new Date(start.getTime() - DAY));
     }
   }
+  await seedRebookStory(scope.tenantId, ownerId);
+  // Today's first two appointments are seeded as done; before they end (11:30 on a Monday or Saturday) they would show done ahead of time.
+  if (todayDoneUntil > Date.now()) console.log(`Note: today's done appointments end at ${instantToWall(new Date(todayDoneUntil), tz).time}. Seed after that time on the pitch day (reset the database first).`);
   await printAccess(access, scope.tenantId);
 }
 

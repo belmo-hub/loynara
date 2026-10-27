@@ -1,45 +1,63 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
-import { actionError, actionsFor, awardLine, dayName, dayRows, euroInput, longDate, shiftDate, STATUS_CHIP, STATUS_WORD, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { actionError, actionsFor, awardLine, dayName, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
 import { useOwner } from "./owner-context";
-import { ErrorNotice, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
+import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
 import { useLoad } from "./use-load";
 
-type Setup = { settings: { goalText: string } | null };
-type Flash = { tone: "ok" | "danger" | "info"; text: string } | null;
+type Setup = { settings: { goalText: string; enabled: boolean; noShowBlockAfter: number } | null };
+type Flash = { date: string; tone: "ok" | "danger" | "info"; text: string } | null;
+type Blocked = { membershipId: string; name: string; cardLocator: string; blockedAt: string; reason: string };
+type Done = (text: string, tone?: "ok" | "danger" | "info", row?: OwnerAppointment) => void;
 const failure = (cause: unknown) => cause instanceof ClientApiError ? { code: cause.code, status: cause.status, message: cause.message } : {};
 const BROWSER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export function BookingDay() {
   const { me } = useOwner();
+  const router = useRouter();
+  const asked = useSearchParams().get("date");
+  // No date until the owner picks one: the server answers with the shop's today, never the device's. The pick lives in the
+  // URL (reload and the back button keep the day); the shop's zone is remembered so the header keeps it while the day loads.
+  const urlDate = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : null;
   const [setup, reloadSetup] = useLoad<Setup>("/api/merchant/booking/setup");
-  // No date until the owner picks one: the server answers with the shop's today, never the device's. A pick remembers the
-  // shop's zone, so the header keeps it while the next day loads.
-  const [picked, setPicked] = useState<{ date: string; zone: string } | null>(null);
-  const [day, reload] = useLoad<DayResponse>(picked ? `/api/merchant/booking/day?date=${picked.date}` : "/api/merchant/booking/day");
+  const [zone, setZone] = useState<string | null>(null);
+  const [day, reload] = useLoad<DayResponse>(urlDate ? `/api/merchant/booking/day?date=${urlDate}` : "/api/merchant/booking/day");
+  const [blocked, reloadBlocked] = useLoad<{ customers: Blocked[] }>("/api/merchant/booking/customers/blocked");
+  // Rows changed here show at once, until the reload that follows every action arrives (a new `at`).
+  const [patch, setPatch] = useState<{ at: number; rows: Record<string, OwnerAppointment> } | null>(null);
   const [open, setOpen] = useState<OwnerAppointment | null>(null);
   const [blockOpen, setBlockOpen] = useState<DayBlock | "new" | null>(null);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const [flash, setFlash] = useState<Flash>(null);
-  const timezone = day.state === "ok" ? day.data.timezone : picked?.zone ?? BROWSER_ZONE;
+  const shown = day.state === "ok" ? (patch?.at === day.at ? patchDay(day.data, patch.rows) : day.data) : null;
+  const timezone = shown?.timezone ?? zone ?? BROWSER_ZONE;
   const today = todayIn(timezone);
-  const date = picked?.date ?? (day.state === "ok" ? day.data.date : today);
-  const pick = (target: string) => setPicked({ date: target, zone: timezone });
+  const date = urlDate ?? shown?.date ?? today;
+  const pick = (target: string) => { setFlash(null); setZone(timezone); router.push(`/merchant/termine?date=${target}`, { scroll: false }); };
   const ready = setup.state === "ok" && setup.data.settings !== null;
+  const blockedCount = blocked.state === "ok" ? blocked.data.customers.length : 0;
 
-  function done(text: string, tone: "ok" | "danger" | "info" = "ok") { setOpen(null); setBlockOpen(null); setFlash({ tone, text }); reload(); }
+  const done: Done = (text, tone = "ok", row) => {
+    setOpen(null); setBlockOpen(null); setBlockedOpen(false); setFlash({ date, tone, text });
+    if (row && day.state === "ok") { const at = day.at; setPatch(current => ({ at, rows: { ...(current?.at === at ? current.rows : {}), [row.id]: row } })); }
+    reload(); reloadBlocked();
+  };
 
   return (
-    <div className="ow-page">
+    <div className="ow-page" style={{ maxWidth: 720 }}>
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">Termine</p><h1>{dayName(date, today)}</h1><p>{longDate(date)}</p></div>
-        {ready && day.state === "ok" && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
+        <div><p className="ow-eyebrow">Termine</p><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
+        {ready && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted" style={{ marginTop: "calc(var(--space-4) * -1)" }}>Dein Ziel: {setup.data.settings.goalText}</p>}
+      {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
+        Gesperrt: {blockedCount === 1 ? "1 Kunde" : `${blockedCount} Kunden`}</button></div>}
 
       <nav className="ow-row" aria-label="Tag wählen" style={{ flexWrap: "nowrap", gap: "var(--space-1)" }}>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Vorheriger Tag" onClick={() => pick(shiftDate(date, -1))}>←</button>
@@ -52,19 +70,26 @@ export function BookingDay() {
       {setup.state === "ok" && !setup.data.settings && (
         <Notice tone="info" actions={<Link className="ow-btn ow-btn--sm ow-btn--primary" href="/merchant/termine/einrichten">Jetzt einrichten</Link>}>Richte zuerst Leistungen und Zeiten ein.</Notice>
       )}
-      {flash && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
-      {day.state === "ok" && day.data.pendingRequests > 0 && <Notice tone="warn">{day.data.pendingRequests === 1 ? "1 offene Anfrage, ab heute." : `${day.data.pendingRequests} offene Anfragen, ab heute.`}</Notice>}
+      {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
+        <Notice tone="warn" actions={<Link className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/termine/einrichten">Zur Einrichtung</Link>}>Online-Buchung ist aus. Kunden können gerade nicht buchen.</Notice>
+      )}
+      {ready && shown && <p className="ow-num" style={{ fontWeight: 700, margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
+      {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
+      {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
+        ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
+        {requestsLine(shown.pendingRequests, shown.nextRequestDate, today)}</Notice>}
 
       {day.state === "error" ? <ErrorNotice message={day.status === 403 ? "Nur Inhaber und Leitung sehen die Termine." : "Die Termine konnten nicht geladen werden."} onRetry={reload} />
         : setup.state === "error" ? <ErrorNotice message="Die Einrichtung konnte nicht geladen werden." onRetry={reloadSetup} />
-        : day.state !== "ok" || setup.state !== "ok" ? <LoadingBlock rows={3} height={56} />
-        : ready && <DayList day={day.data} label={dayName(date, today)} onOpen={appointment => { setFlash(null); setOpen(appointment); }} onBlock={block => { setFlash(null); setBlockOpen(block); }} />}
+        : !shown || setup.state !== "ok" ? <LoadingBlock rows={3} height={56} />
+        : ready && <DayList day={shown} label={dayName(date, today)} onOpen={appointment => { setFlash(null); setOpen(appointment); }} onBlock={block => { setFlash(null); setBlockOpen(block); }} />}
 
-      {open && day.state === "ok" && <AppointmentSheet appointment={open} day={day.data} programType={me?.programType ?? "stamp"} purchase={me?.earningMode === "purchase"} onClose={() => setOpen(null)} onDone={done}
-        onAward={text => { done(text); window.setTimeout(() => setFlash(current => current?.text === text ? null : current), 2000); }} />}
-      {blockOpen && day.state === "ok" && (blockOpen === "new"
-        ? <BlockDialog day={day.data} onClose={() => setBlockOpen(null)} onDone={done} />
+      {open && shown && <AppointmentSheet appointment={open} day={shown} programType={me?.programType ?? "stamp"} purchase={me?.earningMode === "purchase"} noShowBlockAfter={setup.state === "ok" ? setup.data.settings?.noShowBlockAfter ?? 0 : 0} onClose={() => setOpen(null)} onDone={done}
+        onAward={(text, row) => { done(text, "ok", row); window.setTimeout(() => setFlash(current => current?.text === text ? null : current), 2000); }} />}
+      {blockOpen && shown && (blockOpen === "new"
+        ? <BlockDialog day={shown} onClose={() => setBlockOpen(null)} onDone={done} />
         : <ReleaseDialog block={blockOpen} onClose={() => setBlockOpen(null)} onDone={done} />)}
+      {blockedOpen && blocked.state === "ok" && <BlockedDialog customers={blocked.data.customers} onClose={() => setBlockedOpen(false)} onDone={done} />}
     </div>
   );
 }
@@ -80,26 +105,29 @@ function DayList({ day, label, onOpen, onBlock }: { day: DayResponse; label: str
             <span className="ow-member-id"><strong className="ow-num">{wallTime(row.block.start, day.timezone)}–{wallTime(row.block.end, day.timezone)} · Geblockt</strong><small>{[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ")}</small></span>
           </button></li>
         : <li key={row.appointment.id}><button type="button" className="ow-member" onClick={() => onOpen(row.appointment)}>
-            <span className="ow-member-id"><strong><span className="ow-num">{wallTime(row.appointment.start, day.timezone)}</span> · {row.appointment.service.name}</strong><small>{row.appointment.customerName} · <span translate="no">{row.appointment.cardLocator}</span> · {row.appointment.staff.name}</small></span>
-            <span className="ow-member-stat"><span className={STATUS_CHIP[row.appointment.status]} style={{ alignSelf: "flex-start" }}>{STATUS_WORD[row.appointment.status]}</span></span>
+            <span className="ow-member-id"><strong><span className="ow-num">{wallTime(row.appointment.start, day.timezone)}</span> · {row.appointment.service.name}</strong><small>{row.appointment.customerName} · {row.appointment.staff.name}</small>
+              {row.inBlock && <small style={{ color: "var(--color-warning)", fontWeight: 700 }}>liegt in geblockter Zeit</small>}</span>
+            <span className="ow-member-stat"><span className={STATUS_CHIP[row.appointment.status]} style={{ alignSelf: "flex-start" }}>{statusWord(row.appointment)}</span></span>
           </button></li>)}
       </ul>
     </section>
   );
 }
 
-type Mode = "main" | "cancel" | "move";
+type Mode = "main" | "cancel" | "move" | "no_show" | "block";
+type Slot = { start: string; staffId: string };
 
-function AppointmentSheet({ appointment, day, programType, purchase, onClose, onDone, onAward }: { appointment: OwnerAppointment; day: DayResponse; programType: "stamp" | "points"; purchase: boolean; onClose: () => void; onDone: (text: string, tone?: "ok" | "danger" | "info") => void; onAward: (text: string) => void }) {
+function AppointmentSheet({ appointment, day, programType, purchase, noShowBlockAfter, onClose, onDone, onAward }: { appointment: OwnerAppointment; day: DayResponse; programType: "stamp" | "points"; purchase: boolean; noShowBlockAfter: number; onClose: () => void; onDone: Done; onAward: (text: string, row: OwnerAppointment) => void }) {
   const [mode, setMode] = useState<Mode>("main");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [amount, setAmount] = useState(euroInput(appointment.priceMinor));
   const [reason, setReason] = useState("");
   const [moveDate, setMoveDate] = useState(day.date);
-  const [slots, setSlots] = useState<Array<{ start: string; staffId: string }> | null>(null);
+  const [moveStaff, setMoveStaff] = useState(appointment.staff.id);
+  const [slots, setSlots] = useState<{ staff: Array<{ id: string; name: string }>; slots: Slot[] } | null>(null);
   const [slotError, setSlotError] = useState(false);
-  const [picked, setPicked] = useState<{ start: string; staffId: string } | null>(null);
+  const [picked, setPicked] = useState<Slot | null>(null);
   const actions = actionsFor(appointment.status, appointment.start);
   const blocked = day.blockedMembershipIds.includes(appointment.membershipId);
   const zone = day.timezone, time = wallTime(appointment.start, zone);
@@ -109,12 +137,15 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
   let amountMinor: number | null = null;
   try { amountMinor = pointsAmount && !noAmount ? parsePurchaseAmountMinor(amount) : null; } catch { amountMinor = null; }
   const amountInvalid = pointsAmount && !noAmount && amountMinor === null;
+  // The booked slot itself is no move: the server would change nothing.
+  const free = slots?.slots.filter(slot => slot.staffId === moveStaff && !(slot.start === appointment.start && slot.staffId === appointment.staff.id)) ?? null;
+  const staffName = (id: string) => slots?.staff.find(s => s.id === id)?.name ?? day.staff.find(s => s.id === id)?.name ?? "";
 
   useEffect(() => {
     if (mode !== "move") return;
     let live = true;
-    void apiJson<{ slots: Array<{ start: string; staffId: string }> }>(`/api/merchant/booking/appointments/${appointment.id}/slots?date=${moveDate}`)
-      .then(result => { if (live) { setSlots(result.slots); setSlotError(false); } }).catch(() => { if (live) setSlotError(true); });
+    void apiJson<{ staff: Array<{ id: string; name: string }>; slots: Slot[] }>(`/api/merchant/booking/appointments/${appointment.id}/slots?date=${moveDate}`)
+      .then(result => { if (live) { setSlots(result); setSlotError(false); } }).catch(() => { if (live) setSlotError(true); });
     return () => { live = false; setSlots(null); setPicked(null); };
   }, [mode, moveDate, appointment.id]);
 
@@ -131,12 +162,13 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
   const transition = (to: "confirmed" | "done" | "no_show" | "cancelled_by_shop", extra: object = {}) =>
     postJson<OwnerAppointment>(`/api/merchant/booking/appointments/${appointment.id}/transition`, { to, expected: appointment.status, idempotencyKey: newRequestId(), ...extra });
 
-  const confirm = () => run(() => transition("confirmed"), () => onDone(`Termin ${time} bestätigt.`));
+  const confirm = () => run(() => transition("confirmed"), (row: OwnerAppointment) => onDone(`Termin ${time} bestätigt.`, "ok", row));
   const finish = () => run(() => transition("done", pointsAmount && amountMinor ? { purchaseAmountMinor: amountMinor } : {}),
-    (result: OwnerAppointment) => onAward(result.doneAward ? awardLine(programType, result.doneAward.creditedQuantity) : "Termin erledigt."));
-  const noShow = () => run(() => transition("no_show"), () => onDone(`${appointment.customerName}: nicht erschienen.`));
-  const cancel = () => run(() => transition("cancelled_by_shop", reason.trim() ? { reason: reason.trim() } : {}), () => onDone(`Termin ${time} abgesagt.`));
-  const move = () => picked && run(() => postJson(`/api/merchant/booking/appointments/${appointment.id}/move`, picked), () => onDone(`Termin verschoben auf ${dayName(moveDate, todayIn(zone))}, ${wallTime(picked.start, zone)} Uhr.`));
+    (row: OwnerAppointment) => onAward(row.doneAward ? awardLine(programType, row.doneAward.creditedQuantity) : "Termin erledigt.", row));
+  const noShow = () => run(() => transition("no_show"), (row: OwnerAppointment) => onDone(`${appointment.customerName}: nicht erschienen.`, "ok", row));
+  const cancel = () => run(() => transition("cancelled_by_shop", reason.trim() ? { reason: reason.trim() } : {}), (row: OwnerAppointment) => onDone(`Termin ${time} abgesagt.`, "ok", row));
+  const move = () => picked && run(() => postJson<OwnerAppointment>(`/api/merchant/booking/appointments/${appointment.id}/move`, picked),
+    (row: OwnerAppointment) => onDone(`Termin verschoben auf ${dayName(moveDate, todayIn(zone))}, ${wallTime(picked.start, zone)} Uhr${picked.staffId !== appointment.staff.id ? ` bei ${staffName(picked.staffId)}` : ""}.`, "ok", row));
   const toggleBlock = () => run(() => postJson(`/api/merchant/booking/customers/${appointment.membershipId}/${blocked ? "unblock" : "block"}`, {}).catch(cause => {
     // The routes answer 204 without a body, which apiJson reads as an empty answer.
     if (cause instanceof ClientApiError && cause.status === 204) return; throw cause;
@@ -147,8 +179,22 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
 
   if (mode === "cancel") return (
     <OwnerDialog title="Termin absagen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>Absagen</button></>}>
-      <p>{title} · {appointment.customerName}. Der Kunde sieht den Termin als abgesagt.</p>
+      <p>{title} · {appointment.customerName}. Der Kunde bekommt eine Mitteilung, wenn er Erinnerungen an hat; sonst sieht er es auf seiner Karte.</p>
       <div className="ow-field"><label htmlFor="bd-reason">Grund (optional)</label><input id="bd-reason" className="ow-input" maxLength={80} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Krankheit" data-autofocus /></div>
+      {error && <p className="ow-error" role="alert">{error}</p>}
+    </OwnerDialog>
+  );
+
+  if (mode === "no_show") return (
+    <OwnerDialog title="Nicht erschienen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void noShow()} disabled={busy} aria-busy={busy}>Nicht erschienen</button></>}>
+      <p>{title} · {appointment.customerName}. Zählt als verpasster Termin.{noShowBlockAfter > 0 && ` Nach ${noShowBlockAfter === 1 ? "1 verpassten Termin" : `${noShowBlockAfter} verpassten Terminen`} in 12 Monaten kann der Kunde nicht mehr online buchen.`}</p>
+      {error && <p className="ow-error" role="alert">{error}</p>}
+    </OwnerDialog>
+  );
+
+  if (mode === "block") return (
+    <OwnerDialog title="Kunde sperren?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void toggleBlock()} disabled={busy} aria-busy={busy}>Sperren</button></>}>
+      <p>{appointment.customerName} kann danach nicht mehr online buchen, nur noch anrufen. Gebuchte Termine bleiben. Du hebst das unter „Gesperrt“ mit einem Tipp auf.</p>
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>
   );
@@ -157,11 +203,13 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
     <OwnerDialog title="Termin verschieben" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void move()} disabled={busy || !picked} aria-busy={busy}>{picked ? `Auf ${wallTime(picked.start, zone)} Uhr verschieben` : "Verschieben"}</button></>}>
       <p>{title} · bei {appointment.staff.name}</p>
       <div className="ow-field"><label htmlFor="bd-move-date">Tag</label><input id="bd-move-date" type="date" className="ow-input" value={moveDate} min={todayIn(zone)} onChange={event => { if (event.target.value) setMoveDate(event.target.value); }} /></div>
+      {slots && slots.staff.length > 1 && <div className="ow-field"><span className="ow-label" id="bd-staff">Bei</span>
+        <div className="ow-seg" role="group" aria-labelledby="bd-staff">{slots.staff.map(member => <button key={member.id} type="button" aria-pressed={moveStaff === member.id} onClick={() => { setMoveStaff(member.id); setPicked(null); }}>{member.name}</button>)}</div></div>}
       <span className="ow-label" id="bd-slots">Freie Zeiten</span>
       {slotError ? <p className="ow-error" role="alert">Freie Zeiten nicht geladen. Wähle den Tag neu.</p>
-        : slots === null ? <LoadingBlock rows={1} height={44} />
-        : slots.length === 0 ? <p className="ow-muted">An diesem Tag ist nichts frei.</p>
-        : <div className="ow-row" role="group" aria-labelledby="bd-slots" style={{ gap: "var(--space-2)" }}>{slots.map(slot => <button key={slot.start} type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-num" aria-pressed={picked?.start === slot.start} style={picked?.start === slot.start ? { borderColor: "var(--color-action)", background: "var(--color-action-soft)" } : undefined} onClick={() => setPicked(slot)}>{wallTime(slot.start, zone)}</button>)}</div>}
+        : free === null ? <LoadingBlock rows={1} height={44} />
+        : free.length === 0 ? <p className="ow-muted">{slots && slots.staff.length > 1 ? `Bei ${staffName(moveStaff)} ist an diesem Tag nichts frei.` : "An diesem Tag ist nichts frei."}</p>
+        : <div className="ow-row" role="group" aria-labelledby="bd-slots" style={{ gap: "var(--space-2)" }}>{free.map(slot => <button key={slot.start} type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-num" aria-pressed={picked?.start === slot.start} style={picked?.start === slot.start ? { borderColor: "var(--color-action)", background: "var(--color-action-soft)" } : undefined} onClick={() => setPicked(slot)}>{wallTime(slot.start, zone)}</button>)}</div>}
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>
   );
@@ -173,27 +221,34 @@ function AppointmentSheet({ appointment, day, programType, purchase, onClose, on
       {primary === "done" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void finish()} disabled={busy || amountInvalid} aria-busy={busy} data-autofocus>Fertig</button>}
     </>}>
       <p>{appointment.customerName} · <span translate="no">{appointment.cardLocator}</span> · bei {appointment.staff.name}</p>
-      <div className="ow-row"><span className={STATUS_CHIP[appointment.status]}>{STATUS_WORD[appointment.status]}</span>{appointment.customerPhone && <a className="ow-link ow-link--block" href={`tel:${appointment.customerPhone}`}>{appointment.customerPhone}</a>}</div>
+      <div className="ow-row"><span className={STATUS_CHIP[appointment.status]}>{statusWord(appointment)}</span>{appointment.customerPhone && <a className="ow-link ow-link--block" href={`tel:${appointment.customerPhone}`}>{appointment.customerPhone}</a>}</div>
       {actions.includes("done") && (pointsAmount
         ? <div className="ow-field"><label htmlFor="bd-amount">Betrag in Euro</label><input id="bd-amount" className="ow-input ow-num" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={amountInvalid || undefined} aria-describedby="bd-amount-hint" /><span id="bd-amount-hint" className="ow-hint">Bei „Fertig“ werden Punkte für diesen Betrag gutgeschrieben. Ohne Betrag gibt es keine Punkte.</span></div>
         : <p className="ow-hint">Bei „Fertig“ wird 1 {programType === "stamp" ? "Stempel" : "Punkt"} gutgeschrieben.</p>)}
-      {actions.length > 0 && !actions.includes("done") && <p className="ow-hint">„Fertig“ geht ab {wallTime(new Date(Date.parse(appointment.start) - 10 * 60_000).toISOString(), zone)} Uhr.</p>}
+      {appointment.status === "confirmed" && !actions.includes("done") && <p className="ow-hint">„Fertig“ geht ab {wallTime(new Date(Date.parse(appointment.start) - 10 * 60_000).toISOString(), zone)} Uhr.</p>}
       {error && <p className="ow-error" role="alert">{error}</p>}
       {actions.length > 0 && <div className="ow-stack" style={{ gap: "var(--space-2)" }}>
         {primary === "confirm" && actions.includes("done") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void finish()} disabled={busy || amountInvalid}>Fertig</button>}
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setError(""); setMode("move"); }} disabled={busy}>Verschieben</button>
-        {actions.includes("no_show") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void noShow()} disabled={busy}>Nicht erschienen</button>}
+        {actions.includes("no_show") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setError(""); setMode("no_show"); }} disabled={busy}>Nicht erschienen</button>}
         <button type="button" className="ow-btn ow-btn--danger" onClick={() => { setError(""); setMode("cancel"); }} disabled={busy}>Absagen</button>
       </div>}
       <div className="ow-row" style={{ justifyContent: "space-between" }}>
         <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen." : `${appointment.noShowCount}× nicht erschienen, 12 Monate.`}{blocked && " Online-Buchung gesperrt."}</span>
-        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => void toggleBlock()} disabled={busy}>{blocked ? "Kunde entsperren" : "Kunde sperren"}</button>
+        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { setError(""); if (blocked) void toggleBlock(); else setMode("block"); }} disabled={busy}>{blocked ? "Kunde entsperren" : "Kunde sperren"}</button>
       </div>
     </OwnerDialog>
   );
 }
 
-function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () => void; onDone: (text: string, tone?: "ok" | "danger" | "info") => void }) {
+/** "HH:MM" now in the shop's zone, rounded up to the next quarter hour (at most 23:45). */
+function nextQuarter(zone: string) {
+  const [h, m] = wallTime(new Date().toISOString(), zone).split(":").map(Number);
+  const minutes = Math.min(Math.ceil((h * 60 + m) / 15) * 15, 23 * 60 + 45);
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () => void; onDone: Done }) {
   const [staffId, setStaffId] = useState("");
   const [from, setFrom] = useState("12:00");
   const [to, setTo] = useState("13:00");
@@ -201,14 +256,17 @@ function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{ block: { id: string }; affected: OwnerAppointment[] } | null>(null);
-  const start = wallToIso(day.date, from, day.timezone), end = to === "24:00" ? wallToIso(shiftDate(day.date, 1), "00:00", day.timezone) : wallToIso(day.date, to, day.timezone);
+  // „Bis 00:00“ is the end of the day (the time field cannot show 24:00).
+  const endOfDay = to === "00:00" || to === "24:00";
+  const start = wallToIso(day.date, from, day.timezone), end = endOfDay ? wallToIso(shiftDate(day.date, 1), "00:00", day.timezone) : wallToIso(day.date, to, day.timezone);
   const valid = Boolean(start && end && end > start);
+  const span = `${from}–${endOfDay ? "24:00" : to} Uhr`;
 
   async function save() {
     setBusy(true); setError("");
     try {
       const result = await postJson<{ block: { id: string }; affected: OwnerAppointment[] }>("/api/merchant/booking/blocks", { staffId: staffId || undefined, start, end, reason: reason.trim() });
-      if (result.affected.length) setCreated(result); else onDone(`${from}–${to} Uhr geblockt.`);
+      if (result.affected.length) setCreated(result); else onDone(`${span} geblockt.`);
     } catch (cause) { setError(actionError(failure(cause))); }
     finally { setBusy(false); }
   }
@@ -223,8 +281,8 @@ function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () =
   }
 
   if (created) return (
-    <OwnerDialog title={created.affected.length === 1 ? "1 Termin liegt in der Zeit" : `${created.affected.length} Termine liegen in der Zeit`} tone="danger" onClose={() => onDone(`${from}–${to} Uhr geblockt. Termine bleiben.`)}
-      actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={() => onDone(`${from}–${to} Uhr geblockt. Termine bleiben.`)} disabled={busy} data-autofocus>Termine behalten</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancelAll()} disabled={busy} aria-busy={busy}>Alle absagen</button></>}>
+    <OwnerDialog title={created.affected.length === 1 ? "1 Termin liegt in der Zeit" : `${created.affected.length} Termine liegen in der Zeit`} tone="danger" onClose={() => onDone(`${span} geblockt. Termine bleiben.`)}
+      actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={() => onDone(`${span} geblockt. Termine bleiben.`)} disabled={busy} data-autofocus>Termine behalten</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancelAll()} disabled={busy} aria-busy={busy}>Alle absagen</button></>}>
       <p>Die Zeit ist geblockt. Diese Kunden haben noch einen Termin:</p>
       <ul className="ow-feed">{created.affected.map(a => <li key={a.id}><span><strong className="ow-num">{wallTime(a.start, day.timezone)}</strong> · {a.service.name} · {a.customerName}</span></li>)}</ul>
       {error && <p className="ow-error" role="alert">{error}</p>}
@@ -237,7 +295,11 @@ function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () =
       <div className="ow-field"><label htmlFor="bd-who">Für wen</label><select id="bd-who" className="ow-select" value={staffId} onChange={event => setStaffId(event.target.value)} data-autofocus><option value="">Ganzer Laden</option>{day.staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
       <div className="ow-grid-2 ow-grid-2--end" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
         <div className="ow-field"><label htmlFor="bd-from">Von</label><input id="bd-from" type="time" step={900} className="ow-input" value={from} onChange={event => setFrom(event.target.value)} /></div>
-        <div className="ow-field"><label htmlFor="bd-to">Bis</label><input id="bd-to" type="time" step={900} className="ow-input" value={to} onChange={event => setTo(event.target.value)} aria-invalid={!valid || undefined} /></div>
+        <div className="ow-field"><label htmlFor="bd-to">Bis</label><input id="bd-to" type="time" step={900} className="ow-input" value={endOfDay ? "00:00" : to} onChange={event => setTo(event.target.value)} aria-invalid={!valid || undefined} aria-describedby={endOfDay ? "bd-to-hint" : undefined} />{endOfDay && <span id="bd-to-hint" className="ow-hint">Tagesende</span>}</div>
+      </div>
+      <div className="ow-row" style={{ gap: "var(--space-2)" }}>
+        <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { if (day.date === todayIn(day.timezone)) setFrom(nextQuarter(day.timezone)); setTo("00:00"); }}>Rest des Tages</button>
+        <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { setFrom("00:00"); setTo("00:00"); }}>Ganzer Tag</button>
       </div>
       {!valid && <p className="ow-error">„Bis“ muss nach „Von“ liegen.</p>}
       <div className="ow-field"><label htmlFor="bd-why">Grund (optional)</label><input id="bd-why" className="ow-input" maxLength={80} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Arzttermin" /></div>
@@ -260,6 +322,32 @@ function ReleaseDialog({ block, onClose, onDone }: { block: DayBlock; onClose: (
   return (
     <OwnerDialog title="Zeit freigeben?" onClose={onClose} actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={busy}>Abbrechen</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void release()} disabled={busy} aria-busy={busy} data-autofocus>Freigeben</button></>}>
       <p>{block.reason || "Geblockte Zeit"}. Danach können Kunden hier wieder buchen.</p>
+      {error && <p className="ow-error" role="alert">{error}</p>}
+    </OwnerDialog>
+  );
+}
+
+function BlockedDialog({ customers, onClose, onDone }: { customers: Blocked[]; onClose: () => void; onDone: Done }) {
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  async function unblock(customer: Blocked) {
+    setBusy(customer.membershipId); setError("");
+    try {
+      await postJson(`/api/merchant/booking/customers/${customer.membershipId}/unblock`, {}).catch(cause => {
+        // The route answers 204 without a body, which apiJson reads as an empty answer.
+        if (cause instanceof ClientApiError && cause.status === 204) return; throw cause;
+      });
+      onDone(`${customer.name} kann wieder online buchen.`);
+    } catch (cause) { setError(actionError(failure(cause))); setBusy(""); }
+  }
+  return (
+    <OwnerDialog title="Gesperrte Kunden" onClose={onClose} actions={<button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={Boolean(busy)}>Schließen</button>}>
+      <p>Sie können nicht online buchen, nur anrufen.</p>
+      {customers.length === 0 ? <p className="ow-muted">Niemand ist gesperrt.</p> : <ul className="ow-feed">{customers.map(customer => (
+        <li key={customer.membershipId}>
+          <span><strong>{customer.name}</strong> · <span translate="no">{customer.cardLocator}</span><small className="ow-muted" style={{ display: "block" }}>seit {germanDate(customer.blockedAt)}{customer.reason && ` · ${customer.reason}`}</small></span>
+          <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void unblock(customer)} disabled={Boolean(busy)} aria-busy={busy === customer.membershipId}>Entsperren</button>
+        </li>))}</ul>}
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>
   );

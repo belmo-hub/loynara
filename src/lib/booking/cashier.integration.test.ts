@@ -3,6 +3,7 @@ import { expect, it } from "vitest";
 import { pool } from "@/db";
 import { POST as awardRoute } from "@/app/api/cashier/award/route";
 import { POST as confirmRoute } from "@/app/api/cashier/tap/[id]/confirm/route";
+import { GET as lookupRoute } from "@/app/api/cashier/lookup/route";
 import { GET as pendingRoute } from "@/app/api/cashier/tap/pending/route";
 import { POST as transitionRoute } from "@/app/api/merchant/booking/appointments/[id]/transition/route";
 import { book } from "./appointments";
@@ -66,4 +67,30 @@ it("an award or a tap without a matching appointment changes nothing in booking"
   const response = await awardRoute(request("/api/cashier/award", { body: { membershipId: shop.card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() }, cookie: shop.ownerCookie }));
   expect(response.status).toBe(200);
   expect(await row(later.id)).toEqual({ status: "confirmed", done_ledger_entry_id: null });
+});
+
+const wallTime = (iso: string) => new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+const scan = async (shop: Shop) => (await lookupRoute(request(`/api/cashier/lookup?code=${shop.card.scanCode}`, { cookie: shop.ownerCookie }))).json();
+
+it("a scanned card shows its appointment before the award, and the award completes it", async () => {
+  const shop = await bookingShop();
+  const appointment = await bookAt(shop, quarterNow());
+  expect(await scan(shop)).toMatchObject({ stage: "open", appointment: { start: appointment.start, startLabel: wallTime(appointment.start), serviceName: "Haarschnitt", done: false } });
+  const response = await awardRoute(request("/api/cashier/award", { body: { membershipId: shop.card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() }, cookie: shop.ownerCookie }));
+  const { entryId } = await response.json();
+  expect(await row(appointment.id)).toEqual({ status: "done", done_ledger_entry_id: entryId });
+});
+
+it("a scanned card whose appointment the owner already finished says so, so the cashier does not stamp twice", async () => {
+  const shop = await bookingShop();
+  const appointment = await bookAt(shop, quarterNow());
+  expect((await ownerDone(shop, appointment.id)).status).toBe(200);
+  expect(await scan(shop)).toMatchObject({ appointment: { startLabel: wallTime(appointment.start), serviceName: "Haarschnitt", done: true } });
+  expect(await awards(shop.card.id)).toBe(1);
+});
+
+it("a scanned card without an appointment in the window carries none", async () => {
+  const shop = await bookingShop();
+  await bookAt(shop, new Date(quarterNow().getTime() + 3 * 3_600_000));
+  expect(await scan(shop)).toMatchObject({ stage: "open", appointment: null });
 });
