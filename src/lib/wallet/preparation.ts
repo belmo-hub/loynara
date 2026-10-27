@@ -7,6 +7,7 @@ import { assertPassFastBinding, isPassFastObjectId, passFastConfig, passFastStat
 import { createDownloadTicket } from "./ticket";
 import { passFastEnv } from "./template-bindings";
 import { googleDirectStatus } from "./google-direct";
+import { appleWalletStatus } from "./apple";
 
 export type ApplePreparation = { status: "unavailable" | "not_requested" | "pending" | "ready" | "failed"; url?: string; retryAfterSeconds?: number };
 /** Server startup/early OFF gate only. Customer availability always resolves an authenticated card scope. */
@@ -16,9 +17,20 @@ export function walletDeploymentAvailability(): WalletAvailability {
   if (process.env.PASSFAST_ENABLED === "true") {
     const ready = passFastStatus().ready;
     const platforms = ready ? passFastConfig().platforms : [];
-    return { apple: platforms.includes("apple") ? "available" : "unavailable", google: googleAvailability };
+    return { apple: appleWalletStatus().ready || platforms.includes("apple") ? "available" : "unavailable", google: googleAvailability };
   }
   return { ...walletAvailability(), google: googleAvailability };
+}
+
+/**
+ * True when native Apple issues new passes but this card's live Apple pass came from PassFast: that pass carries PassFast's
+ * pass type, which our certificate cannot update, so the card page asks the customer to add the card once more.
+ */
+export async function appleReAddRequested(eligibility: WalletCardEligibility, reader: Pick<typeof db, "select"> = db): Promise<boolean> {
+  if (eligibility.availability.apple !== "available" || !appleWalletStatus().ready) return false;
+  const [pass] = await reader.select({ providerObjectId: walletPasses.providerObjectId, status: walletPasses.status }).from(walletPasses)
+    .where(and(eq(walletPasses.tenantId,eligibility.tenantId),eq(walletPasses.membershipId,eligibility.membershipId),eq(walletPasses.provider,"apple"),isNull(walletPasses.revokedAt))).limit(1);
+  return Boolean(pass && isPassFastObjectId(pass.providerObjectId) && ["created","downloaded","registered"].includes(pass.status));
 }
 
 /** Read-only projection/job reconciliation. This never queues work, contacts a provider, or accepts a pass ID. */

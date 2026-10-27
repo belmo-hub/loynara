@@ -11,7 +11,7 @@ import { walletAvailability } from "./capability";
 import { passInk, walletProgress } from "./content";
 import { GoogleWalletClient, googleClass, googleObject, googleObjectId, googleRevokedObject, googleSaveUrl, googleWalletStatus } from "./google";
 import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl, pngDimensions } from "./logo";
-import { appleFixture, fakeGoogleApi, googleFixture } from "./test-support";
+import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 import { createDownloadTicket, readDownloadTicket } from "./ticket";
 import type { WalletPassData, WalletRevokedData } from "./types";
 
@@ -122,6 +122,20 @@ describe("Apple Wallet configuration status (operator diagnostics)", () => {
       expect(appleWalletStatus({ ...apple.env, APPLE_PASS_TYPE_ID: "loyalty" }).ready).toBe(false);
       expect(appleWalletStatus({ ...apple.env, APPLE_TEAM_ID: "abc" }).ready).toBe(false);
       expect(appleWalletStatus({ ...apple.env, APPLE_WALLET_WEB_SERVICE_URL: "http://wallet.example.test/api/apple" }).ready).toBe(false);
+    } finally { apple.cleanup(); }
+  });
+
+  it("serves per-location copies of the environment from the status cache, but never a copy with other Apple inputs", async () => {
+    const apple = appleFixture();
+    try {
+      await withEnv(apple.env, () => {
+        expect(appleWalletStatus({ ...process.env, PASSFAST_TENANT_TEMPLATES: "[]" }).ready).toBe(true);
+        rmSync(apple.config.keyPath);
+        // The file is gone, yet the copy hits the five-minute cache the way process.env does: no openssl/zip per request.
+        expect(appleWalletStatus({ ...process.env, PASSFAST_TENANT_TEMPLATES: "[]" }).ready).toBe(true);
+        expect(appleWalletStatus({ ...process.env, APPLE_TEAM_ID: "abc" }).ready).toBe(false);
+        expect(appleWalletStatus({ ...process.env, APPLE_SIGNING_KEY_PATH: `${apple.config.keyPath}.other` }).ready).toBe(false);
+      });
     } finally { apple.cleanup(); }
   });
 });
