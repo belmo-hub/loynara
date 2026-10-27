@@ -264,4 +264,20 @@ describe("customers back with the bonus or new on a referral (ENG-095)", () => {
     await booking(shop, owner, card, 2, { bonus: "winback_bonus" });
     expect(await brought()).toEqual({ customers: 1, winback: 1, referral: 0, bookings: 1, revenue: null });
   });
+
+  it("counts each location's own trigger bookings only, and opens each location's gate on its own", async () => {
+    const owner = await user();
+    const a = await pointsShop(owner, "Synthetic Brought A");
+    const b = await createAdditionalLocation(owner, { name: "Zweiter Laden", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Zweite Karte", programType: "stamp", rulesText: "Ein Stempel pro Besuch.", rewardTitle: "Kaffee", rewardCost: 5 });
+    const c = await createAdditionalLocation(owner, { name: "Dritter Laden", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Dritte Karte", programType: "stamp", rulesText: "Ein Stempel pro Besuch.", rewardTitle: "Kaffee", rewardCost: 5 });
+    const at = (shop: { tenantId: string; locationId: string; programSlug: string }) => ({ tenantId: shop.tenantId, locationId: shop.locationId });
+    const join = async (slug: string) => (await enroll({ slug, acceptedTerms: true })).id;
+    await booking(at(a), owner, await join(a.programSlug), 2, { amount: 700, rule: await ruleOf(a.programId), bonus: "winback_bonus" });
+    for (const daysAgo of [3, 4]) await booking({ tenantId: a.tenantId, locationId: b.locationId }, owner, await join(b.programSlug), daysAgo, { bonus: "winback_bonus" });
+
+    const byLocation = new Map((await getMerchantSpend(owner, { asOf: later() })).locations.map(row => [row.locationId, row.brought]));
+    expect(byLocation.get(a.locationId)).toEqual({ customers: 1, winback: 1, referral: 0, bookings: 1, revenue: { amountMinor: 700, pricedBookings: 1 } });
+    expect(byLocation.get(b.locationId)).toEqual({ customers: 2, winback: 2, referral: 0, bookings: 2, revenue: null });
+    expect(byLocation.get(c.locationId)).toBeNull();
+  });
 });
