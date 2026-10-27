@@ -3,6 +3,7 @@ import { db, pool } from "@/db";
 import { locations, programs, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { nfcCapability } from "./nfc-keys";
+import { withUnit } from "./units";
 
 /**
  * "Ready to start" for one location, derived only from persisted state — never from browser checkboxes.
@@ -71,10 +72,9 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
       (SELECT count(*)::int FROM tap_requests q WHERE q.tenant_id = $1 AND q.location_id = $2 AND q.status IN ('confirmed','awarded')) AS confirmed_taps
   `, [staff.tenantId, location.id, program?.id ?? null])).rows[0];
 
-  const unit = program?.type === "points" ? "Punkte" : "Stempel";
   const steps: ReadinessStep[] = [];
   steps.push(program && facts.rewards > 0
-    ? { id: "programme", group: "setup", required: true, status: "done", title: "Programm und Prämie", evidence: `${program.type === "stamp" ? "Stempelkarte" : "Punktekarte"} · ${facts.reward_cost} ${unit} → ${facts.reward_title}`, action: { label: "Ansehen", href: "/merchant/program" } }
+    ? { id: "programme", group: "setup", required: true, status: "done", title: "Programm und Prämie", evidence: `${program.type === "stamp" ? "Stempelkarte" : "Punktekarte"} · ${withUnit(facts.reward_cost ?? 0, program.type as "stamp" | "points")} → ${facts.reward_title}`, action: { label: "Ansehen", href: "/merchant/program" } }
     : { id: "programme", group: "setup", required: true, status: "todo", title: "Programm und Prämie", evidence: program ? "Es gibt keine aktive Prämie. Kunden wüssten nicht, wofür sie sammeln." : "Für diesen Standort ist kein aktives Programm eingerichtet.", action: { label: "Prämie anlegen", href: "/merchant/program", ownerOnly: true } });
   const customised = location.brandColor.toLowerCase() !== DEFAULT_BRAND_COLOR || Boolean(location.logoData);
   steps.push({ id: "card", group: "setup", required: false, status: customised ? "done" : "todo", title: "Kundenkarte gestaltet", evidence: customised ? "Eigene Markenfarbe ist gespeichert." : "Die Karte nutzt noch die Standardfarbe von Loynara.", action: { label: customised ? "Ändern" : "Karte gestalten", href: "/merchant/program/card", ownerOnly: true } });

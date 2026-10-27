@@ -19,6 +19,7 @@ import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
+import { withUnit } from "./units";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -233,7 +234,7 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
       // shortcut: checked when the owner saves; a cheaper reward added later does not re-check the bonus. Re-check on reward changes if owners hit it.
       const cheapest = Math.min(...(await currentRewards(program.tenantId, program.id, tx)).map(reward => reward.cost));
       const range = challengeBonusRange(program.type, cheapest);
-      if (challengeBonus < range.min || challengeBonus > range.max) throw new DomainError("INVALID_CHALLENGE", range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : `Bonus: ${range.min} bis ${range.max} ${program.type === "stamp" ? "Stempel" : "Punkte"} (bei Punkten höchstens ein Viertel der günstigsten Prämie).`);
+      if (challengeBonus < range.min || challengeBonus > range.max) throw new DomainError("INVALID_CHALLENGE", range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : `Bonus: ${range.min} bis ${withUnit(range.max, program.type as "stamp" | "points")} (bei Punkten höchstens ein Viertel der günstigsten Prämie).`);
     }
     const levels = {
       levelsEnabled: input.levelsEnabled ?? program.levelsEnabled,
