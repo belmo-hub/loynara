@@ -65,7 +65,7 @@ export async function scheduleReminders(tx: Tx, appointmentId: string, now = new
   if (kind === "booking.request") {
     const warn = new Date(start.getTime() - HOUR);
     if (warn > now) await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "warn", start: start.toISOString() }, nextAttemptAt: warn });
-    await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "expire", start: start.toISOString() }, nextAttemptAt: new Date(a.ends_at) });
+    await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "expire", start: start.toISOString() }, nextAttemptAt: new Date(new Date(a.ends_at).getTime() + EXPIRE_GRACE) });
     return;
   }
   for (const which of ["24h", "2h"] as const) {
@@ -76,11 +76,13 @@ export async function scheduleReminders(tx: Tx, appointmentId: string, now = new
 }
 
 const CHANGE_KINDS = ["shop_cancel", "moved", "confirmed"];
+/** A request stays open as long as the counter can still link the visit: the cashier award window's tail after the booked end. */
+const EXPIRE_GRACE = 90 * 60_000;
 
-/** Quiet hours hold a change push until 08:00, unless the appointment starts by then: at 08:00 the notice is worthless. */
+/** Quiet hours hold a change push until 08:00, unless the appointment is still ahead and starts by then: at 08:00 that notice is worthless. */
 const changeWake = (now: Date, start: Date, timeZone: string) => {
   const wake = quietHoursDeferral(now, timeZone, WALLET_QUIET_HOURS);
-  return wake && wake < start ? wake : null;
+  return wake && (wake < start || start <= now) ? wake : null;
 };
 
 /** One push about a shop cancellation, move or confirmation; immediate, or at 08:00 when it happens at night. */
@@ -192,20 +194,21 @@ export async function deliverShopChange(job: Pick<OutboxJob, "payload">, deps: D
 }
 
 /**
- * A request nobody confirmed: 1 h before the start the owner and manager devices of the location are warned; at its booked
- * end it is cancelled by the shop and the customer is told. A job whose appointment moved later waits for the new time.
+ * A request nobody confirmed: 1 h before the start the owner and manager devices of the location are warned; 90 min after its
+ * booked end it is cancelled by the shop and the customer is told. A move replans the jobs, so a job of an older start steps aside.
  */
 export async function deliverRequest(job: Pick<OutboxJob, "payload">, deps: Deps = {}): Promise<Outcome> {
   const now = deps.now ?? new Date(), phase = job.payload?.phase;
   if (phase !== "warn" && phase !== "expire") return { status: "failed", reason: "Invalid request payload" };
   const a = await load(job.payload.appointmentId);
   if (!a || a.status !== "requested") return { status: "suppressed", reason: "Request no longer open" };
-  const due = phase === "warn" ? new Date(a.start.getTime() - HOUR) : a.ends_at;
-  if (due > now) return { status: "deferred", reason: "Request moved", until: due };
+  if (job.payload.start !== a.start.toISOString()) return { status: "suppressed", reason: "Replanned" };
+  const due = phase === "warn" ? new Date(a.start.getTime() - HOUR) : new Date(a.ends_at.getTime() + EXPIRE_GRACE);
+  if (due > now) return { status: "deferred", reason: "Not due yet", until: due };
   if (phase === "expire") {
     const cancelled = await db.transaction(async tx => {
       const { rows } = await tx.execute(sql`UPDATE booking_appointments SET status = 'cancelled_by_shop', cancelled_at = ${now}::timestamptz, cancel_reason = ${UNCONFIRMED}, updated_at = ${now}::timestamptz
-        WHERE id = ${a.id}::uuid AND status = 'requested' AND upper(during) <= ${now}::timestamptz RETURNING id`);
+        WHERE id = ${a.id}::uuid AND status = 'requested' AND upper(during) <= ${new Date(now.getTime() - EXPIRE_GRACE)}::timestamptz RETURNING id`);
       if (rows.length) await notifyShopChange(tx, a.id, "shop_cancel", now);
       return rows.length > 0;
     });

@@ -182,9 +182,9 @@ it("an unconfirmed request warns the owner devices 1 h before and is cancelled a
   await staffDevice(shop, cashier.userId);
   const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
   const [warn, expire] = await jobs("booking.request", appointment.id);
-  expect([warn, expire].map(j => [j.payload.phase, j.next_attempt_at.toISOString()])).toEqual([["warn", "2026-11-03T08:00:00.000Z"], ["expire", "2026-11-03T09:30:00.000Z"]]);
-  // A customer who came on time keeps the request until it ends: at the start nothing expires yet.
-  expect(await deliverRequest(expire, { env, now: new Date("2026-11-03T09:00:00Z") })).toEqual({ status: "deferred", reason: "Request moved", until: new Date("2026-11-03T09:30:00Z") });
+  expect([warn, expire].map(j => [j.payload.phase, j.next_attempt_at.toISOString()])).toEqual([["warn", "2026-11-03T08:00:00.000Z"], ["expire", "2026-11-03T11:00:00.000Z"]]);
+  // A customer who came on time keeps the request while the counter can still link the visit: at the start nothing expires yet.
+  expect(await deliverRequest(expire, { env, now: new Date("2026-11-03T09:00:00Z") })).toEqual({ status: "deferred", reason: "Not due yet", until: new Date("2026-11-03T11:00:00Z") });
   const staffSend = fakeSender();
   // The worker's entry routes the kind.
   expect(await deliverBookingJob({ kind: "booking.request", payload: warn.payload }, { env, send: staffSend, now: warn.next_attempt_at })).toEqual({ status: "complete" });
@@ -195,7 +195,7 @@ it("an unconfirmed request warns the owner devices 1 h before and is cancelled a
   expect(await deliverRequest(expire, { env, send: staffSend, now: expire.next_attempt_at })).toEqual({ status: "complete" });
   expect((await pool.query("SELECT status, cancel_reason FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0]).toEqual({ status: "cancelled_by_shop", cancel_reason: "Nicht bestätigt" });
   const [cancel] = await jobs("booking.change", appointment.id);
-  expect([cancel.payload.kind, cancel.next_attempt_at.toISOString()]).toEqual(["shop_cancel", "2026-11-03T09:30:00.000Z"]);
+  expect([cancel.payload.kind, cancel.next_attempt_at.toISOString()]).toEqual(["shop_cancel", "2026-11-03T11:00:00.000Z"]);
   const send = fakeSender();
   expect(await deliverShopChange(cancel, { env, send, now: expire.next_attempt_at })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin Di 03.11. um 10:00 konnte nicht bestätigt werden. Buch gern einen neuen.");
@@ -222,15 +222,15 @@ it("a confirmed request suppresses both request jobs and gets one confirmation p
   expect((await jobs("booking.change", appointment.id)).length).toBe(1);
 });
 
-it("a request moved later waits for its new time", async () => {
+it("a request moved later gets fresh jobs and the old one steps aside", async () => {
   const shop = await bookingShop({ autoConfirm: false });
   const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
   const [warn] = await jobs("booking.request", appointment.id);
   await move({ ...shop.scope, appointmentId: appointment.id, start: new Date("2026-11-03T13:00:00Z"), staffId: shop.staffId }, now);
-  expect(await deliverRequest(warn, { env, send: fakeSender(), now: warn.next_attempt_at })).toEqual({ status: "deferred", reason: "Request moved", until: new Date("2026-11-03T12:00:00Z") });
+  expect(await deliverRequest(warn, { env, send: fakeSender(), now: warn.next_attempt_at })).toEqual({ status: "suppressed", reason: "Replanned" });
   // The move replanned the jobs as well.
   expect((await pool.query("SELECT payload->>'phase' AS phase, next_attempt_at FROM outbox_jobs WHERE kind = 'booking.request' AND status = 'pending' AND payload->>'appointmentId' = $1 ORDER BY next_attempt_at", [appointment.id])).rows)
-    .toEqual([{ phase: "warn", next_attempt_at: new Date("2026-11-03T12:00:00Z") }, { phase: "expire", next_attempt_at: new Date("2026-11-03T13:30:00Z") }]);
+    .toEqual([{ phase: "warn", next_attempt_at: new Date("2026-11-03T12:00:00Z") }, { phase: "expire", next_attempt_at: new Date("2026-11-03T15:00:00Z") }]);
 });
 
 it("a replan leaves a job that is mid-send with its worker; the moved request gets fresh jobs", async () => {
@@ -252,7 +252,7 @@ it("an expiry that waited on a move's row lock leaves the moved request open", a
     await mover.query("UPDATE booking_appointments SET during = tstzrange('2026-11-03T13:00:00Z', '2026-11-03T13:30:00Z') WHERE id = $1", [appointment.id]);
     // The job reads the old end, then its UPDATE waits for the move's lock.
     const expiring = deliverRequest(expire, { env, now: expire.next_attempt_at });
-    await vi.waitFor(async () => expect((await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'UPDATE booking_appointments SET status%'")).rows[0].n).toBe(1), { timeout: 5_000 });
+    await vi.waitFor(async () => expect((await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE 'UPDATE booking_appointments SET status%'")).rows[0].n).toBe(1), { timeout: 5_000 });
     await mover.query("COMMIT");
     expect(await expiring).toEqual({ status: "suppressed", reason: "Request no longer open" });
   } finally {
@@ -273,6 +273,17 @@ it("a change at night for an appointment before 08:00 goes out at once; a move o
   expect(await deliverShopChange(moved, { env, send, now: new Date("2026-11-03T06:31:00Z") })).toEqual({ status: "suppressed", reason: "Appointment already started" });
   expect(await deliverShopChange(moved, { env, send, now: night })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin ist jetzt Di 03.11. um 07:30 bei Lena.");
+});
+
+it("an expiry at night is told at 08:00: the appointment is over, nothing is urgent", async () => {
+  const shop = await bookingShop({ autoConfirm: false });
+  await subscribe(shop);
+  const appointment = await bookAt(shop, "2026-11-03T19:30:00Z"); // 20:30 Berlin, ends 21:00, expires 22:30
+  const [, expire] = await jobs("booking.request", appointment.id);
+  expect(expire.next_attempt_at.toISOString()).toBe("2026-11-03T21:30:00.000Z");
+  expect(await deliverRequest(expire, { env, now: expire.next_attempt_at })).toEqual({ status: "complete" });
+  const [cancel] = await jobs("booking.change", appointment.id);
+  expect(cancel.next_attempt_at.toISOString()).toBe("2026-11-04T07:00:00.000Z"); // 08:00 Berlin
 });
 
 it("a confirmation at night for an appointment at 08:00 sharp goes out at once", async () => {
