@@ -233,10 +233,11 @@ export async function book(input: BookInput, now = new Date()) {
       tenantId: card.tenantId, locationId: card.locationId, membershipId: card.membershipId, serviceId: service.id, staffId: slot.staffId,
       during: range(input.start, new Date(input.start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), durationMin: service.durationMin, priceMinor: service.priceMinor,
       status: settings.autoConfirm ? "confirmed" : "requested", customerName: input.customerName, customerPhone: input.customerPhone, idempotencyKey: input.idempotencyKey,
-      // Only this card's own appointment of the same service with a rebook push in the last 14 days counts as the source, so a
-      // crafted or stale link cannot inflate „über Erinnerung neu gebucht“; anything else books without a source.
+      // Only this card's own appointment of the same service with a rebook push sent (push log, not the queue) in the last 14
+      // days counts as the source, so a crafted, stale or never-sent link cannot inflate „über Erinnerung neu gebucht“.
       rebookSourceId: input.rebookSourceId ? sql`(SELECT r.id FROM booking_appointments r WHERE r.tenant_id = ${card.tenantId}::uuid AND r.membership_id = ${card.membershipId}::uuid AND r.id = ${input.rebookSourceId}::uuid
-        AND r.service_id = ${service.id}::uuid AND r.rebook_sent_at > ${now.toISOString()}::timestamptz - interval '14 days')` : null,
+        AND r.service_id = ${service.id}::uuid AND EXISTS (SELECT 1 FROM booking_push_log l WHERE l.tenant_id = r.tenant_id AND l.appointment_id = r.id AND l.kind = 'rebook'
+          AND l.sent_at > ${now.toISOString()}::timestamptz - interval '14 days'))` : null,
     }).returning({ id: bookingAppointments.id }).catch(slotTaken(nextFree));
     await scheduleReminders(tx, row.id, now);
     return { appointment: customerView(await one(tx, card.tenantId, row.id), now), duplicate: false };

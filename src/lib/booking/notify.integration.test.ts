@@ -8,7 +8,7 @@ import { POST as consentRoute } from "@/app/api/card/[token]/booking/consent/rou
 import { POST as pushRoute } from "@/app/api/card/[token]/booking/push/route";
 import { blockCustomer, book, cancelAffected, cancelByCustomer, createBlock, move, transition, unblockCustomer } from "./appointments";
 import { deliverBookingJob, deliverRebook, deliverReminder, deliverRequest, deliverShopChange, queueRebookPushes, sendCustomerPush, setRebookConsent } from "./notify";
-import { bookingShop, request, withBookingDatabase } from "./test-fixture";
+import { bookingShop, identity, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
 type Shop = Awaited<ReturnType<typeof bookingShop>>;
@@ -145,6 +145,10 @@ it("the rebook scan respects consent, an open appointment and the cap shared wit
   await pool.query("UPDATE booking_staff SET archived_at = now() WHERE id = $1", [shop.staffId]);
   expect(await deliverRebook(job, { env, send: fakeSender(), now: scan })).toEqual({ status: "suppressed", reason: "No consent or already booked" });
   await pool.query("UPDATE booking_staff SET archived_at = NULL WHERE id = $1", [shop.staffId]);
+  // Queued but not sent yet: a booking from the link has no source.
+  const early = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-30T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID(), rebookSourceId: first.id }, scan);
+  expect((await pool.query("SELECT rebook_source_id FROM booking_appointments WHERE id = $1", [early.appointment.id])).rows[0].rebook_source_id).toBeNull();
+  await cancelByCustomer({ token: shop.card.cardToken, appointmentId: early.appointment.id }, scan);
   const send = fakeSender();
   expect(await deliverRebook(job, { env, send, now: scan })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: "Synthetic Barber", body: "Zeit für Haarschnitt? Dein Slot bei Lena: Termin buchen.",
@@ -160,29 +164,38 @@ it("the rebook scan respects consent, an open appointment and the cap shared wit
   expect(await sourceOf(shop.serviceId, "2026-12-11T09:00:00Z", new Date(scan.getTime() + 15 * 86_400_000))).toBeNull();
 });
 
-const staffDevice = async (shop: Shop) => {
-  const { rows: [session] } = await pool.query(`SELECT id FROM "session" WHERE "userId" = $1 LIMIT 1`, [shop.owner.userId]);
+const staffDevice = async (shop: Shop, userId = shop.owner.userId) => {
+  const { rows: [session] } = await pool.query(`SELECT id FROM "session" WHERE "userId" = $1 LIMIT 1`, [userId]);
+  const device = endpoint();
   await pool.query("INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-    [shop.scope.tenantId, shop.scope.locationId, shop.owner.userId, session.id, endpoint(), keys.p256dh, keys.auth]);
+    [shop.scope.tenantId, shop.scope.locationId, userId, session.id, device, keys.p256dh, keys.auth]);
+  return device;
 };
 
-it("an unconfirmed request warns the staff devices 1 h before and is cancelled at the start with a customer push", async () => {
+it("an unconfirmed request warns the owner devices 1 h before and is cancelled at its end with a customer push", async () => {
   const shop = await bookingShop({ autoConfirm: false });
   await subscribe(shop);
-  await staffDevice(shop);
+  const ownerDevice = await staffDevice(shop);
+  // A cashier cannot open the day view, so the warning skips the cashier's phone.
+  const cashier = await identity();
+  await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, 'cashier', $3)", [shop.scope.tenantId, cashier.userId, shop.scope.locationId]);
+  await staffDevice(shop, cashier.userId);
   const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
   const [warn, expire] = await jobs("booking.request", appointment.id);
-  expect([warn, expire].map(j => [j.payload.phase, j.next_attempt_at.toISOString()])).toEqual([["warn", "2026-11-03T08:00:00.000Z"], ["expire", "2026-11-03T09:00:00.000Z"]]);
+  expect([warn, expire].map(j => [j.payload.phase, j.next_attempt_at.toISOString()])).toEqual([["warn", "2026-11-03T08:00:00.000Z"], ["expire", "2026-11-03T09:30:00.000Z"]]);
+  // A customer who came on time keeps the request until it ends: at the start nothing expires yet.
+  expect(await deliverRequest(expire, { env, now: new Date("2026-11-03T09:00:00Z") })).toEqual({ status: "deferred", reason: "Request moved", until: new Date("2026-11-03T09:30:00Z") });
   const staffSend = fakeSender();
   // The worker's entry routes the kind.
   expect(await deliverBookingJob({ kind: "booking.request", payload: warn.payload }, { env, send: staffSend, now: warn.next_attempt_at })).toEqual({ status: "complete" });
   expect(staffSend).toHaveBeenCalledTimes(1);
-  expect(JSON.parse(staffSend.mock.calls[0][1])).toEqual({ v: 1, kind: "booking_request", title: "Synthetic Barber", body: "Anfrage 10:00 · Haarschnitt ist noch nicht bestätigt.", url: "/merchant/termine?date=2026-11-03" });
+  expect(staffSend.mock.calls[0][0]).toMatchObject({ endpoint: ownerDevice });
+  expect(JSON.parse(staffSend.mock.calls[0][1])).toEqual({ v: 1, kind: "booking_request", title: "Synthetic Barber", body: "Anfrage 10:00 · Haarschnitt ist noch nicht bestätigt.", url: "/merchant/termine?date=2026-11-03", tag: appointment.id });
 
   expect(await deliverRequest(expire, { env, send: staffSend, now: expire.next_attempt_at })).toEqual({ status: "complete" });
   expect((await pool.query("SELECT status, cancel_reason FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0]).toEqual({ status: "cancelled_by_shop", cancel_reason: "Nicht bestätigt" });
   const [cancel] = await jobs("booking.change", appointment.id);
-  expect([cancel.payload.kind, cancel.next_attempt_at.toISOString()]).toEqual(["shop_cancel", "2026-11-03T09:00:00.000Z"]);
+  expect([cancel.payload.kind, cancel.next_attempt_at.toISOString()]).toEqual(["shop_cancel", "2026-11-03T09:30:00.000Z"]);
   const send = fakeSender();
   expect(await deliverShopChange(cancel, { env, send, now: expire.next_attempt_at })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin Di 03.11. um 10:00 konnte nicht bestätigt werden. Buch gern einen neuen.");
@@ -217,7 +230,35 @@ it("a request moved later waits for its new time", async () => {
   expect(await deliverRequest(warn, { env, send: fakeSender(), now: warn.next_attempt_at })).toEqual({ status: "deferred", reason: "Request moved", until: new Date("2026-11-03T12:00:00Z") });
   // The move replanned the jobs as well.
   expect((await pool.query("SELECT payload->>'phase' AS phase, next_attempt_at FROM outbox_jobs WHERE kind = 'booking.request' AND status = 'pending' AND payload->>'appointmentId' = $1 ORDER BY next_attempt_at", [appointment.id])).rows)
-    .toEqual([{ phase: "warn", next_attempt_at: new Date("2026-11-03T12:00:00Z") }, { phase: "expire", next_attempt_at: new Date("2026-11-03T13:00:00Z") }]);
+    .toEqual([{ phase: "warn", next_attempt_at: new Date("2026-11-03T12:00:00Z") }, { phase: "expire", next_attempt_at: new Date("2026-11-03T13:30:00Z") }]);
+});
+
+it("a replan leaves a job that is mid-send with its worker; the moved request gets fresh jobs", async () => {
+  const shop = await bookingShop({ autoConfirm: false });
+  const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
+  await pool.query("UPDATE outbox_jobs SET status = 'processing' WHERE kind = 'booking.request' AND payload->>'phase' = 'warn' AND payload->>'appointmentId' = $1", [appointment.id]);
+  await move({ ...shop.scope, appointmentId: appointment.id, start: new Date("2026-11-03T13:00:00Z"), staffId: shop.staffId }, now);
+  expect((await pool.query("SELECT payload->>'phase' AS phase, status FROM outbox_jobs WHERE kind = 'booking.request' AND payload->>'appointmentId' = $1 ORDER BY status, next_attempt_at", [appointment.id])).rows)
+    .toEqual([{ phase: "warn", status: "pending" }, { phase: "expire", status: "pending" }, { phase: "warn", status: "processing" }, { phase: "expire", status: "suppressed" }]);
+});
+
+it("an expiry that waited on a move's row lock leaves the moved request open", async () => {
+  const shop = await bookingShop({ autoConfirm: false });
+  const appointment = await bookAt(shop, "2026-11-03T09:00:00Z");
+  const [, expire] = await jobs("booking.request", appointment.id);
+  const mover = await pool.connect();
+  try {
+    await mover.query("BEGIN");
+    await mover.query("UPDATE booking_appointments SET during = tstzrange('2026-11-03T13:00:00Z', '2026-11-03T13:30:00Z') WHERE id = $1", [appointment.id]);
+    // The job reads the old end, then its UPDATE waits for the move's lock.
+    const expiring = deliverRequest(expire, { env, now: expire.next_attempt_at });
+    await vi.waitFor(async () => expect((await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'UPDATE booking_appointments SET status%'")).rows[0].n).toBe(1), { timeout: 5_000 });
+    await mover.query("COMMIT");
+    expect(await expiring).toEqual({ status: "suppressed", reason: "Request no longer open" });
+  } finally {
+    mover.release();
+  }
+  expect((await pool.query("SELECT status FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0].status).toBe("requested");
 });
 
 it("a change at night for an appointment before 08:00 goes out at once; a move or confirmation after the start says nothing", async () => {
@@ -232,6 +273,19 @@ it("a change at night for an appointment before 08:00 goes out at once; a move o
   expect(await deliverShopChange(moved, { env, send, now: new Date("2026-11-03T06:31:00Z") })).toEqual({ status: "suppressed", reason: "Appointment already started" });
   expect(await deliverShopChange(moved, { env, send, now: night })).toEqual({ status: "complete" });
   expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin ist jetzt Di 03.11. um 07:30 bei Lena.");
+});
+
+it("a confirmation at night for an appointment at 08:00 sharp goes out at once", async () => {
+  const shop = await bookingShop({ autoConfirm: false });
+  await subscribe(shop);
+  const appointment = await bookAt(shop, "2026-11-03T07:00:00Z"); // 08:00 Berlin, the end of quiet hours
+  const night = new Date("2026-11-02T21:00:00Z"); // 22:00 Berlin
+  await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "confirmed", expected: "requested" }, night);
+  const [confirmed] = await jobs("booking.change", appointment.id);
+  expect(confirmed.next_attempt_at.toISOString()).toBe(night.toISOString());
+  const send = fakeSender();
+  expect(await deliverShopChange(confirmed, { env, send, now: night })).toEqual({ status: "complete" });
+  expect(send).toHaveBeenCalledTimes(1);
 });
 
 it("a device is dropped after its third definitive refusal", async () => {

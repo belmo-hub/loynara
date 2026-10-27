@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
-import { actionError, actionsFor, awardLine, dayName, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { actionError, actionsFor, awardLine, dayName, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, shortDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { missedPhrase } from "./booking-setup-helpers";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
 import { useLoad } from "./use-load";
@@ -167,8 +168,10 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
     (row: OwnerAppointment) => onAward(row.doneAward ? awardLine(programType, row.doneAward.creditedQuantity) : "Termin erledigt.", row));
   const noShow = () => run(() => transition("no_show"), (row: OwnerAppointment) => onDone(`${appointment.customerName}: nicht erschienen.`, "ok", row));
   const cancel = () => run(() => transition("cancelled_by_shop", reason.trim() ? { reason: reason.trim() } : {}), (row: OwnerAppointment) => onDone(`Termin ${time} abgesagt.`, "ok", row));
+  const moveName = dayName(moveDate, todayIn(zone));
+  const moveDayName = /^(Heute|Morgen)$/.test(moveName) ? moveName.toLowerCase() : `${moveName}, ${shortDate(moveDate)}`;
   const move = () => picked && run(() => postJson<OwnerAppointment>(`/api/merchant/booking/appointments/${appointment.id}/move`, picked),
-    (row: OwnerAppointment) => onDone(`Termin verschoben auf ${dayName(moveDate, todayIn(zone))}, ${wallTime(picked.start, zone)} Uhr${picked.staffId !== appointment.staff.id ? ` bei ${staffName(picked.staffId)}` : ""}.`, "ok", row));
+    (row: OwnerAppointment) => onDone(`Termin verschoben auf ${moveDayName}, ${wallTime(picked.start, zone)} Uhr${picked.staffId !== appointment.staff.id ? ` bei ${staffName(picked.staffId)}` : ""}.`, "ok", row));
   const toggleBlock = () => run(() => postJson(`/api/merchant/booking/customers/${appointment.membershipId}/${blocked ? "unblock" : "block"}`, {}).catch(cause => {
     // The routes answer 204 without a body, which apiJson reads as an empty answer.
     if (cause instanceof ClientApiError && cause.status === 204) return; throw cause;
@@ -178,7 +181,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   const title = `${time} · ${appointment.service.name}`;
 
   if (mode === "cancel") return (
-    <OwnerDialog title="Termin absagen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>Absagen</button></>}>
+    <OwnerDialog key="cancel" title="Termin absagen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>Absagen</button></>}>
       <p>{title} · {appointment.customerName}. Der Kunde bekommt eine Mitteilung, wenn er Erinnerungen an hat; sonst sieht er es auf seiner Karte.</p>
       <div className="ow-field"><label htmlFor="bd-reason">Grund (optional)</label><input id="bd-reason" className="ow-input" maxLength={80} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Krankheit" data-autofocus /></div>
       {error && <p className="ow-error" role="alert">{error}</p>}
@@ -186,21 +189,21 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   );
 
   if (mode === "no_show") return (
-    <OwnerDialog title="Nicht erschienen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void noShow()} disabled={busy} aria-busy={busy}>Nicht erschienen</button></>}>
-      <p>{title} · {appointment.customerName}. Zählt als verpasster Termin.{noShowBlockAfter > 0 && ` Nach ${noShowBlockAfter === 1 ? "1 verpassten Termin" : `${noShowBlockAfter} verpassten Terminen`} in 12 Monaten kann der Kunde nicht mehr online buchen.`}</p>
+    <OwnerDialog key="no_show" title="Nicht erschienen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void noShow()} disabled={busy} aria-busy={busy}>Nicht erschienen</button></>}>
+      <p>{title} · {appointment.customerName}. Zählt als verpasster Termin.{noShowBlockAfter > 0 && ` Nach ${missedPhrase(noShowBlockAfter)} in 12 Monaten kann der Kunde nicht mehr online buchen.`}</p>
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>
   );
 
   if (mode === "block") return (
-    <OwnerDialog title="Kunde sperren?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void toggleBlock()} disabled={busy} aria-busy={busy}>Sperren</button></>}>
+    <OwnerDialog key="block" title="Kunde sperren?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void toggleBlock()} disabled={busy} aria-busy={busy}>Sperren</button></>}>
       <p>{appointment.customerName} kann danach nicht mehr online buchen, nur noch anrufen. Gebuchte Termine bleiben. Du hebst das unter „Gesperrt“ mit einem Tipp auf.</p>
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>
   );
 
   if (mode === "move") return (
-    <OwnerDialog title="Termin verschieben" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void move()} disabled={busy || !picked} aria-busy={busy}>{picked ? `Auf ${wallTime(picked.start, zone)} Uhr verschieben` : "Verschieben"}</button></>}>
+    <OwnerDialog key="move" title="Termin verschieben" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void move()} disabled={busy || !picked} aria-busy={busy}>{picked ? `Auf ${wallTime(picked.start, zone)} Uhr verschieben` : "Verschieben"}</button></>}>
       <p>{title} · bei {appointment.staff.name}</p>
       <div className="ow-field"><label htmlFor="bd-move-date">Tag</label><input id="bd-move-date" type="date" className="ow-input" value={moveDate} min={todayIn(zone)} onChange={event => { if (event.target.value) setMoveDate(event.target.value); }} /></div>
       {slots && slots.staff.length > 1 && <div className="ow-field"><span className="ow-label" id="bd-staff">Bei</span>
@@ -216,7 +219,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
 
   const primary = actions.includes("confirm") ? "confirm" : actions.includes("done") ? "done" : null;
   return (
-    <OwnerDialog title={title} onClose={onClose} actions={<>{close}
+    <OwnerDialog key="main" title={title} onClose={onClose} actions={<>{close}
       {primary === "confirm" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void confirm()} disabled={busy} aria-busy={busy} data-autofocus>Bestätigen</button>}
       {primary === "done" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void finish()} disabled={busy || amountInvalid} aria-busy={busy} data-autofocus>Fertig</button>}
     </>}>

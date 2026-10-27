@@ -27,7 +27,13 @@ it("seeds one convincing salon week, idempotently, without overlaps", async () =
   expect(await one(`SELECT count(*)::int AS n FROM booking_appointments n JOIN booking_appointments s ON s.id = n.rebook_source_id
     WHERE n.status = 'confirmed' AND lower(n.during) > now() AND s.status = 'done' AND s.rebook_sent_at < now() - interval '2 days'
       AND lower(s.during) < now() - interval '20 days'
-      AND EXISTS (SELECT 1 FROM consent_events c WHERE c.membership_id = s.membership_id AND c.channel = 'push' AND c.purpose = 'booking_rebook' AND c.granted)`)).toBe(1);
+      AND EXISTS (SELECT 1 FROM consent_events c WHERE c.membership_id = s.membership_id AND c.channel = 'push' AND c.purpose = 'booking_rebook' AND c.granted)
+      AND EXISTS (SELECT 1 FROM booking_push_log l WHERE l.appointment_id = s.id AND l.kind = 'rebook' AND l.sent_at < now() - interval '2 days')`)).toBe(1);
+  // The seeded open requests never warn the owner's phone nor expire before the pitch.
+  expect(await one(`SELECT count(*)::int AS n FROM outbox_jobs j JOIN booking_appointments a ON a.id::text = j.payload->>'appointmentId'
+    WHERE j.kind = 'booking.request' AND a.status = 'requested' AND j.status <> 'suppressed'`)).toBe(0);
+  expect(await one(`SELECT count(*)::int AS n FROM outbox_jobs j JOIN booking_appointments a ON a.id::text = j.payload->>'appointmentId'
+    WHERE j.kind = 'booking.request' AND a.status = 'requested' AND j.last_error = 'Demo'`)).toBeGreaterThanOrEqual(2);
   expect(await one("SELECT count(*)::int AS n FROM booking_appointments WHERE status = 'done' AND done_ledger_entry_id IS NULL")).toBe(0);
   expect(await one("SELECT count(*)::int AS n FROM booking_appointments WHERE status = 'cancelled_by_customer' AND late_cancel")).toBe(1);
   const before = await counts();
@@ -35,6 +41,10 @@ it("seeds one convincing salon week, idempotently, without overlaps", async () =
   expect(before.done).toBeGreaterThanOrEqual(25);
   expect(before.confirmed).toBeGreaterThanOrEqual(12);
 
+  expect(seed()).toMatch(/already seeded/);
+  expect(await counts()).toEqual(before);
+  // A next visit booked without a source (an older seed) does not make the story re-run into a reused key.
+  await pool.query("UPDATE booking_appointments SET rebook_source_id = NULL WHERE idempotency_key = 'demo-salon:rebook:next'");
   expect(seed()).toMatch(/already seeded/);
   expect(await counts()).toEqual(before);
 

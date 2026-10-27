@@ -7,6 +7,7 @@ import { GET as lookupRoute } from "@/app/api/cashier/lookup/route";
 import { GET as pendingRoute } from "@/app/api/cashier/tap/pending/route";
 import { POST as transitionRoute } from "@/app/api/merchant/booking/appointments/[id]/transition/route";
 import { book } from "./appointments";
+import { appointmentForCard } from "./cashier";
 import { bookingShop, origin, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
@@ -93,4 +94,17 @@ it("a scanned card without an appointment in the window carries none", async () 
   const shop = await bookingShop();
   await bookAt(shop, new Date(quarterNow().getTime() + 3 * 3_600_000));
   expect(await scan(shop)).toMatchObject({ stage: "open", appointment: null });
+});
+
+it("the scan lookup stays inside its location and card, and never returns a cancelled or no-show appointment", async () => {
+  const shop = await bookingShop(), other = await bookingShop();
+  const appointment = await bookAt(shop, quarterNow());
+  expect(await appointmentForCard(shop.scope.locationId, shop.card.id)).toMatchObject({ start: appointment.start, done: false });
+  // The same card id asked at another shop's location, or another card at this location, finds nothing.
+  expect(await appointmentForCard(other.scope.locationId, shop.card.id)).toBeNull();
+  expect(await appointmentForCard(shop.scope.locationId, other.card.id)).toBeNull();
+  for (const status of ["cancelled_by_customer", "cancelled_by_shop", "no_show"]) {
+    await pool.query("UPDATE booking_appointments SET status = $2::text, cancelled_at = CASE WHEN $2::text LIKE 'cancelled%' THEN now() END WHERE id = $1", [appointment.id, status]);
+    expect(await appointmentForCard(shop.scope.locationId, shop.card.id)).toBeNull();
+  }
 });

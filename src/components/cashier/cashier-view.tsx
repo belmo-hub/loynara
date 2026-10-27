@@ -251,7 +251,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         <span>{t.balance}</span>
         <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unit}</em></strong>
       </div>
-      {card.appointment && <p className={styles.note} role="note"><strong>{locale === "fr" ? "RDV" : "Termin"} {card.appointment.startLabel} · {card.appointment.serviceName}</strong>{card.appointment.done ? (locale === "fr" ? " · déjà terminé, tampons/points enregistrés" : " · schon erledigt, Stempel/Punkte sind gebucht") : ""}</p>}
+      {card.appointment && <p className={styles.note} role="note"><strong>{locale === "fr" ? "RDV" : "Termin"} {card.appointment.startLabel} · {card.appointment.serviceName}</strong>{card.appointment.done ? (locale === "fr" ? ` · déjà terminé, ${unit} enregistrés` : ` · schon erledigt, ${unit} sind gebucht`) : ""}</p>}
       {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />

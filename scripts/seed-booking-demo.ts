@@ -60,7 +60,7 @@ const openDay = (date: string, step: number) => { while (!open(date)) date = add
  * push sent about 3 days ago, and a new confirmed Maniküre from that link. Runs on an already seeded salon too; skips once present.
  */
 async function seedRebookStory(tenantId: string, ownerId: string) {
-  if ((await pool.query("SELECT 1 FROM booking_appointments WHERE tenant_id = $1 AND rebook_source_id IS NOT NULL LIMIT 1", [tenantId])).rows[0]) return;
+  if ((await pool.query("SELECT 1 FROM booking_appointments WHERE tenant_id = $1 AND idempotency_key = 'demo-salon:rebook:next'", [tenantId])).rows[0]) return;
   const { rows: [shop] } = await pool.query<{ location_id: string; slug: string }>("SELECT location_id, slug FROM programs WHERE tenant_id = $1 ORDER BY created_at LIMIT 1", [tenantId]);
   const scope = { tenantId, locationId: shop.location_id };
   const setup = await getSetup(scope);
@@ -78,7 +78,15 @@ async function seedRebookStory(tenantId: string, ownerId: string) {
   const source = await visit(sourceStart, "source");
   await transition({ ...scope, userId: ownerId, appointmentId: source.id, to: "done", expected: "confirmed" }, new Date(sourceStart.getTime() + source.durationMin * MIN));
   await pool.query("UPDATE booking_appointments SET rebook_sent_at = now() - interval '3 days' WHERE tenant_id = $1 AND id = $2", [tenantId, source.id]);
+  // Attribution counts a push that went out, as deliverRebook logs it.
+  await pool.query("INSERT INTO booking_push_log (tenant_id, membership_id, appointment_id, kind, sent_at) VALUES ($1, $2, $3, 'rebook', now() - interval '3 days') ON CONFLICT DO NOTHING", [tenantId, card.id, source.id]);
   await visit(wall(openDay(addDays(today, 2), 1), "16:00"), "next", source.id);
+}
+
+/** The seeded requests stay open Anfragen on the pitch day and never ping the owner's phone; a request booked live during the pitch gets real jobs. */
+async function silenceDemoRequests(tenantId: string) {
+  await pool.query(`UPDATE outbox_jobs SET status = 'suppressed', last_error = 'Demo' WHERE tenant_id = $1 AND kind = 'booking.request' AND status IN ('pending','retry')
+    AND payload->>'appointmentId' IN (SELECT id::text FROM booking_appointments WHERE tenant_id = $1 AND idempotency_key LIKE 'demo-salon:%')`, [tenantId]);
 }
 
 async function printAccess(access: Access, tenantId: string) {
@@ -104,6 +112,7 @@ async function main() {
     const seeded = await pool.query("SELECT 1 FROM booking_appointments WHERE tenant_id = $1 LIMIT 1", [existing.tenantId]);
     if (seeded.rows[0]) {
       await seedRebookStory(existing.tenantId, ownerId);
+      await silenceDemoRequests(existing.tenantId);
       console.log("Demo salon already seeded; only missing story parts were added.");
       return printAccess(access, existing.tenantId);
     }
@@ -168,6 +177,7 @@ async function main() {
     }
   }
   await seedRebookStory(scope.tenantId, ownerId);
+  await silenceDemoRequests(scope.tenantId);
   // Today's first two appointments are seeded as done; before they end (11:30 on a Monday or Saturday) they would show done ahead of time.
   if (todayDoneUntil > Date.now()) console.log(`Note: today's done appointments end at ${instantToWall(new Date(todayDoneUntil), tz).time}. Seed after that time on the pitch day (reset the database first).`);
   await printAccess(access, scope.tenantId);

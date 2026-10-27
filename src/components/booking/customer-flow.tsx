@@ -14,7 +14,7 @@ import card from "../customer/customer-card.module.css";
 import notice from "../customer/customer-notice.module.css";
 import legal from "../customer/customer-state.module.css";
 import styles from "./customer-flow.module.css";
-import { defaultTerms } from "../owner/booking-setup-helpers";
+import { defaultTerms, missedPhrase } from "../owner/booking-setup-helpers";
 import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
 import { attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
@@ -73,6 +73,8 @@ function rebookArrival(view: Enabled) {
 const contactKey = (token: string) => `${CONTACT}:${token}`;
 
 function readContact(token: string): { name: string; phone: string } {
+  // The old key held the last person's details for every card on this phone.
+  try { localStorage.removeItem(CONTACT); } catch {}
   try { return { name: "", phone: "", ...JSON.parse(localStorage.getItem(contactKey(token)) ?? "{}") }; } catch { return { name: "", phone: "" }; }
 }
 
@@ -146,7 +148,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     const requestId = ++slotsRequest.current;
     setDays(null); setSlotsError(""); setAllDays(false); setMoreBusy(false);
     const from = wallDate(new Date(), tz);
-    try { const found = await fetchDays(target, staff, from, moveId); if (requestId === slotsRequest.current) { setDays(found); setRange({ from, span: WINDOW, end: WINDOW >= view.shop.maxDaysAhead }); } }
+    try { const found = await fetchDays(target, staff, from, moveId); if (requestId === slotsRequest.current) { setDays(found); setRange({ from, span: WINDOW, end: WINDOW > view.shop.maxDaysAhead }); } }
     catch { if (requestId === slotsRequest.current) setSlotsError("Die freien Zeiten konnten nicht geladen werden."); }
   }
 
@@ -156,7 +158,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     setMoreBusy(true);
     try {
       const found = await fetchDays(service, staffId, addDays(range.from, range.span), moving?.id);
-      if (requestId === slotsRequest.current) { setDays([...days, ...found]); setAllDays(true); setRange({ ...range, span: range.span + WINDOW, end: !found.length || range.span + WINDOW >= view.shop.maxDaysAhead }); }
+      if (requestId === slotsRequest.current) { setDays([...days, ...found]); setAllDays(true); setRange({ ...range, span: range.span + WINDOW, end: !found.length || range.span + WINDOW > view.shop.maxDaysAhead }); }
     } catch { if (requestId === slotsRequest.current) setSlotsError("Die freien Zeiten konnten nicht geladen werden."); }
     finally { if (requestId === slotsRequest.current) setMoreBusy(false); }
   }
@@ -218,7 +220,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
     {view.blocked ? null : step === "done" && result ? <section className={card.panel} aria-labelledby="booking-step-title">
       <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={card.panelTitle}>{result.status === "requested"
-        ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit. Ohne Bestätigung bis zum Termin verfällt die Anfrage." : "Angefragt: der Shop bestätigt dir den Termin. Ohne Bestätigung bis zum Termin verfällt die Anfrage.")
+        ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit. Ohne Bestätigung verfällt die Anfrage nach dem Termin." : "Angefragt: der Shop bestätigt dir den Termin. Ohne Bestätigung verfällt die Anfrage nach dem Termin.")
         : `${moving ? "Verschoben" : "Dein Termin ist fix"}: ${formatWhen(result.start, tz)} bei ${result.staff.name}`}</h2>
       <p className={card.muted}>{result.service.name}. {!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
@@ -252,7 +254,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
           : <>
             <div className={styles.chips}>{shown.map(d => <button key={d.date} type="button" className={styles.chip} aria-pressed={day?.date === d.date} onClick={() => { setDay(d); go("time"); }}>{formatDay(d.date)}</button>)}</div>
             {!allDays && days.length > 7 ? <Button variant="quiet" size="sm" onClick={() => setAllDays(true)}>Weitere Tage</Button>
-              : range?.end ? <p className={card.muted}>{range.span >= view.shop.maxDaysAhead ? `Online geht es bis ${view.shop.maxDaysAhead} Tage im Voraus.` : `In den ${WINDOW} Tagen danach ist online nichts frei.`}</p> : moreDays}
+              : range?.end ? <p className={card.muted}>{range.span > view.shop.maxDaysAhead ? `Online geht es bis ${view.shop.maxDaysAhead} Tage im Voraus.` : `In den ${WINDOW} Tagen danach ist online nichts frei.`}</p> : moreDays}
           </>}
       </> : null}
 
@@ -273,7 +275,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
           <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
           <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
           {view.shop.autoConfirm ? null : <p className={card.rules}>Der Shop bestätigt deinen Termin, dann ist er fix.</p>}
-          {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {view.shop.noShowBlockAfter} nicht wahrgenommenen Terminen in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
+          {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
         </div>
         <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>
       </> : null}

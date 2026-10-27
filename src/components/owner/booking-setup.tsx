@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError } from "@/components/client-api";
 import type { WorkingDay } from "@/db/schema";
-import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, missedPhrase, parsePrice, priceText, sameHours, toDays, WEEKDAYS, withinHours, type Day } from "./booking-setup-helpers";
+import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, missedPhrase, parsePrice, priceText, sameHours, toDays, unionHours, WEEKDAYS, withinHours, type Day } from "./booking-setup-helpers";
 import { useDirtyGuard } from "./owner-context";
 import { ErrorNotice, LoadingBlock, MoreInfo, Notice, OwnerIcon, PageHead, SaveBar } from "./owner-ui";
 import { useLoad } from "./use-load";
@@ -50,8 +50,8 @@ const emptyStaff = (): StaffRow => ({ key: newKey(), name: "", userId: null, hou
 function fromSetup(data: Setup): Form {
   const s = data.settings;
   const rules: Rules = s ? { leadTimeMin: s.leadTimeMin, maxDaysAhead: s.maxDaysAhead, cancelDeadlineHours: s.cancelDeadlineHours, maxReschedulesPerMonth: s.maxReschedulesPerMonth, autoConfirm: s.autoConfirm, noShowBlockAfter: s.noShowBlockAfter, maxOpenPerCard: s.maxOpenPerCard } : DEFAULT_RULES;
-  // Opening hours are stored with the settings; before the first save with them, the first person's hours stand in.
-  const shopHours = s?.openingHours ?? data.staff[0]?.workingHours ?? (s ? data.presets[s.shopType].workingHours : []);
+  // Opening hours are stored with the settings; before the first save with them, everyone's hours together stand in.
+  const shopHours = s?.openingHours ?? (data.staff.length ? unionHours(data.staff.map(member => member.workingHours)) : null) ?? (s ? data.presets[s.shopType].workingHours : []);
   return {
     shopType: s?.shopType ?? null, goalText: s?.goalText ?? "", rules,
     termsText: s?.termsText || defaultTerms(rules), termsEdited: Boolean(s?.termsText && s.termsText !== defaultTerms(rules)),
@@ -272,7 +272,7 @@ function Wizard({ initial }: { initial: Setup }) {
         </>}
 
         {step === 2 && <>
-          <div><h2 ref={heading} tabIndex={-1}>Öffnungszeiten</h2><p className="ow-hint">Nur in diesen Zeiten sind Termine buchbar.</p></div>
+          <div><h2 ref={heading} tabIndex={-1}>Öffnungszeiten</h2><p className="ow-hint">Wer zu den Öffnungszeiten arbeitet, ist in diesen Zeiten buchbar. Eigene Zeiten im Team müssen darin liegen, Pausen dürfen abweichen.</p></div>
           <HoursEditor id="bs-hours" days={form.hours} onChange={hours => set({ hours })} error={err("bs-hours")} />
         </>}
 
@@ -308,7 +308,7 @@ function Wizard({ initial }: { initial: Setup }) {
           <div><h2 ref={heading} tabIndex={-1}>Deine Regeln</h2><p className="ow-hint">Kunden lesen sie vor dem Buchen.</p></div>
           <div className="ow-radio-cards" role="radiogroup" aria-label="Neue Termine">
             <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={r.autoConfirm} onChange={() => setRules({ autoConfirm: true })} /><div><strong>Sofort fix</strong><span>Termine sind sofort fix, du siehst sie in der Tagesansicht. Jeder freie Slot ist sofort weg, du prüfst nichts vorher.</span></div></label>
-            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={!r.autoConfirm} onChange={() => setRules({ autoConfirm: false })} /><div><strong>Ich bestätige selbst</strong><span>Du bestätigst jede Anfrage selbst; bis dahin ist der Termin nicht fix. Anfragen, die du bis zum Termin nicht bestätigst, verfallen; der Kunde wird informiert.</span></div></label>
+            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={!r.autoConfirm} onChange={() => setRules({ autoConfirm: false })} /><div><strong>Ich bestätige selbst</strong><span>Du bestätigst jede Anfrage selbst; bis dahin ist der Termin nicht fix. Anfragen, die du nicht bestätigst, verfallen nach dem Termin; der Kunde bekommt eine Mitteilung, wenn er Erinnerungen an hat, sonst sieht er es auf seiner Karte.</span></div></label>
           </div>
           <div className="ow-grid-2">
             <Choice id="bs-lead" label="Buchbar frühestens" value={r.leadTimeMin} options={withValue(LEAD, r.leadTimeMin, n => `${n} Min. vorher`)} onChange={leadTimeMin => setRules({ leadTimeMin })} />

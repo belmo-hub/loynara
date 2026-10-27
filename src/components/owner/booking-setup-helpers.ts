@@ -38,6 +38,16 @@ export function withinHours(own: Day[], shop: Day[]): string {
   return index < 0 ? "" : `${WEEKDAYS[index]}: Die Zeiten müssen in den Öffnungszeiten liegen.`;
 }
 
+/** Per weekday the earliest start and latest end of anyone's hours, without breaks: the stand-in for shop hours saved before they were stored. */
+export function unionHours(lists: WorkingDay[][]): WorkingDay[] {
+  const byDay = new Map<number, WorkingDay>();
+  for (const day of lists.flat()) {
+    const seen = byDay.get(day.weekday);
+    byDay.set(day.weekday, { weekday: day.weekday, start: seen && seen.start < day.start ? seen.start : day.start, end: seen && seen.end > day.end ? seen.end : day.end, breaks: [] });
+  }
+  return [...byDay.values()].sort((a, b) => a.weekday - b.weekday);
+}
+
 /** "nach 1 verpassten Termin", "nach 3 verpassten Terminen". */
 export const missedPhrase = (n: number) => n === 1 ? "1 verpassten Termin" : `${n} verpassten Terminen`;
 

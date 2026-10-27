@@ -48,23 +48,24 @@ export function rebookDue(now: Date, timeZone: string): Date {
 
 /**
  * Two reminder jobs for a confirmed appointment; for a request, the staff warning 1 h before the start and the expiry at the
- * start. Called again after a reschedule, move or confirm: the payload carries the start it was planned for, so jobs of an
+ * booked end (the owner can still finish a request the customer kept while it runs). Called again after a reschedule, move or confirm: the payload carries the start it was planned for, so jobs of an
  * older start deliver nothing.
  */
 export async function scheduleReminders(tx: Tx, appointmentId: string, now = new Date()) {
-  const { rows: [a] } = await tx.execute<{ tenant_id: string; status: string; start: Date | string; timezone: string }>(sql`
-    SELECT a.tenant_id, a.status, lower(a.during) AS start, l.timezone FROM booking_appointments a
+  const { rows: [a] } = await tx.execute<{ tenant_id: string; status: string; start: Date | string; ends_at: Date | string; timezone: string }>(sql`
+    SELECT a.tenant_id, a.status, lower(a.during) AS start, upper(a.during) AS ends_at, l.timezone FROM booking_appointments a
     JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid AND a.status IN ('requested','confirmed')`);
   if (!a) return;
   const kind = a.status === "requested" ? "booking.request" : "booking.reminder";
-  // Jobs of an earlier plan step aside, so a move never leaves two live jobs for one reminder.
+  // Jobs of an earlier plan step aside, so a move never leaves two live jobs for one reminder. A job mid-send stays with the
+  // worker that holds it (taking it away reads as a lost lease); its own delivery checks make it a no-op.
   await tx.execute(sql`UPDATE outbox_jobs SET status = 'suppressed', last_error = 'Replanned' WHERE tenant_id = ${a.tenant_id}::uuid AND kind = ${kind}
-    AND status IN ('pending','retry','processing','blocked') AND payload ->> 'appointmentId' = ${appointmentId}`);
+    AND status IN ('pending','retry','blocked') AND payload ->> 'appointmentId' = ${appointmentId}`);
   const start = new Date(a.start);
   if (kind === "booking.request") {
     const warn = new Date(start.getTime() - HOUR);
     if (warn > now) await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "warn", start: start.toISOString() }, nextAttemptAt: warn });
-    await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "expire", start: start.toISOString() }, nextAttemptAt: start });
+    await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind, payload: { appointmentId, phase: "expire", start: start.toISOString() }, nextAttemptAt: new Date(a.ends_at) });
     return;
   }
   for (const which of ["24h", "2h"] as const) {
@@ -76,10 +77,10 @@ export async function scheduleReminders(tx: Tx, appointmentId: string, now = new
 
 const CHANGE_KINDS = ["shop_cancel", "moved", "confirmed"];
 
-/** Quiet hours hold a change push until 08:00, unless the appointment starts before then: by 08:00 the notice is worthless. */
+/** Quiet hours hold a change push until 08:00, unless the appointment starts by then: at 08:00 the notice is worthless. */
 const changeWake = (now: Date, start: Date, timeZone: string) => {
   const wake = quietHoursDeferral(now, timeZone, WALLET_QUIET_HOURS);
-  return wake && wake <= start ? wake : null;
+  return wake && wake < start ? wake : null;
 };
 
 /** One push about a shop cancellation, move or confirmation; immediate, or at 08:00 when it happens at night. */
@@ -117,12 +118,12 @@ export async function sendCustomerPush(tenantId: string, membershipId: string, m
   return result;
 }
 
-type Loaded = { id: string; tenant_id: string; membership_id: string; location_id: string; status: string; start: Date; service_id: string; staff_id: string; customer_name: string; cancel_reason: string | null; timezone: string; shop: string; service: string; staff: string; token: string };
+type Loaded = { id: string; tenant_id: string; membership_id: string; location_id: string; status: string; start: Date; ends_at: Date; service_id: string; staff_id: string; customer_name: string; cancel_reason: string | null; timezone: string; shop: string; service: string; staff: string; token: string };
 
 async function load(appointmentId: unknown): Promise<Loaded | null> {
   if (typeof appointmentId !== "string" || !uuid.test(appointmentId)) return null;
   const { rows: [a] } = await db.execute<Loaded>(sql`
-    SELECT a.id, a.tenant_id, a.membership_id, a.location_id, a.status, lower(a.during) AS start, a.service_id, a.staff_id, a.customer_name, a.cancel_reason, l.timezone, t.name AS shop, s.name AS service, st.name AS staff, m.card_token AS token
+    SELECT a.id, a.tenant_id, a.membership_id, a.location_id, a.status, lower(a.during) AS start, upper(a.during) AS ends_at, a.service_id, a.staff_id, a.customer_name, a.cancel_reason, l.timezone, t.name AS shop, s.name AS service, st.name AS staff, m.card_token AS token
     FROM booking_appointments a
     JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id
     JOIN tenants t ON t.id = a.tenant_id
@@ -130,7 +131,7 @@ async function load(appointmentId: unknown): Promise<Loaded | null> {
     JOIN booking_staff st ON st.tenant_id = a.tenant_id AND st.id = a.staff_id
     JOIN memberships m ON m.tenant_id = a.tenant_id AND m.id = a.membership_id AND m.closed_at IS NULL
     WHERE a.id = ${appointmentId}::uuid`);
-  return a ? { ...a, start: new Date(a.start) } : null;
+  return a ? { ...a, start: new Date(a.start), ends_at: new Date(a.ends_at) } : null;
 }
 
 const day = (a: Loaded) => formatDay(instantToWall(a.start, a.timezone).date);
@@ -191,29 +192,30 @@ export async function deliverShopChange(job: Pick<OutboxJob, "payload">, deps: D
 }
 
 /**
- * A request nobody confirmed: 1 h before the start the location's staff devices are warned; at the start it is cancelled by
- * the shop and the customer is told. A job whose appointment moved later waits for the new time.
+ * A request nobody confirmed: 1 h before the start the owner and manager devices of the location are warned; at its booked
+ * end it is cancelled by the shop and the customer is told. A job whose appointment moved later waits for the new time.
  */
 export async function deliverRequest(job: Pick<OutboxJob, "payload">, deps: Deps = {}): Promise<Outcome> {
   const now = deps.now ?? new Date(), phase = job.payload?.phase;
   if (phase !== "warn" && phase !== "expire") return { status: "failed", reason: "Invalid request payload" };
   const a = await load(job.payload.appointmentId);
   if (!a || a.status !== "requested") return { status: "suppressed", reason: "Request no longer open" };
-  const due = phase === "warn" ? new Date(a.start.getTime() - HOUR) : a.start;
+  const due = phase === "warn" ? new Date(a.start.getTime() - HOUR) : a.ends_at;
   if (due > now) return { status: "deferred", reason: "Request moved", until: due };
   if (phase === "expire") {
     const cancelled = await db.transaction(async tx => {
       const { rows } = await tx.execute(sql`UPDATE booking_appointments SET status = 'cancelled_by_shop', cancelled_at = ${now}::timestamptz, cancel_reason = ${UNCONFIRMED}, updated_at = ${now}::timestamptz
-        WHERE id = ${a.id}::uuid AND status = 'requested' RETURNING id`);
+        WHERE id = ${a.id}::uuid AND status = 'requested' AND upper(during) <= ${now}::timestamptz RETURNING id`);
       if (rows.length) await notifyShopChange(tx, a.id, "shop_cancel", now);
       return rows.length > 0;
     });
+    // Nothing updated: confirmed, finished or moved meanwhile (a move planned its own expiry job).
     return cancelled ? { status: "complete" } : { status: "suppressed", reason: "Request no longer open" };
   }
   if (now >= a.start) return { status: "suppressed", reason: "Request already started" };
   if (!vapidDetails(deps.env)) return { status: "suppressed", reason: "Push not configured" };
   const result = await sendStaffMessage(a.tenant_id, a.location_id, {
-    title: a.shop, body: `Anfrage ${time(a)} · ${a.service} ist noch nicht bestätigt.`, url: `/merchant/termine?date=${instantToWall(a.start, a.timezone).date}`,
+    title: a.shop, body: `Anfrage ${time(a)} · ${a.service} ist noch nicht bestätigt.`, url: `/merchant/termine?date=${instantToWall(a.start, a.timezone).date}`, tag: a.id,
   }, deps);
   if (!result.recipients) return { status: "complete", reason: "no staff device" };
   // Retry only when no device got it, so a retry never rings a phone twice.

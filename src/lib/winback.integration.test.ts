@@ -274,8 +274,13 @@ describe("win-back reminder (Wallet)", () => {
     const { rows: [a] } = await pool.query(`INSERT INTO booking_appointments (tenant_id, location_id, membership_id, service_id, staff_id, during, duration_min, price_minor, status, customer_name, idempotency_key, rebook_sent_at)
       VALUES ($1, $2, $3, $4, $5, tstzrange('2026-08-20T09:00:00Z', '2026-08-20T09:30:00Z'), 30, 2500, 'done', 'Mia', $6, $7) RETURNING id`,
       [s.tenantId, s.locationId, c.id, setup.services[0].id, setup.staff[0].id, randomUUID(), T("2026-10-13T09:00:00Z")]);
-    expect(await queueWinbackMessages(MONDAY_10)).toBe(0); // pushed 13 days ago
-    await pool.query("UPDATE booking_appointments SET rebook_sent_at = $1 WHERE id = $2", [T("2026-10-11T09:00:00Z"), a.id]);
+    // Queued 13 days ago but never sent (suppressed or no device): the win-back still goes out.
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(1);
+    await pool.query("DELETE FROM wallet_message_recipients WHERE membership_id = $1", [c.id]);
+    // Sent 13 days ago, logged the way deliverRebook logs it: it stands in for the win-back.
+    await pool.query("INSERT INTO booking_push_log (tenant_id, membership_id, appointment_id, kind, sent_at) VALUES ($1, $2, $3, 'rebook', $4)", [s.tenantId, c.id, a.id, T("2026-10-13T09:00:00Z")]);
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(0);
+    await pool.query("UPDATE booking_push_log SET sent_at = $1 WHERE appointment_id = $2", [T("2026-10-11T09:00:00Z"), a.id]);
     expect(await queueWinbackMessages(MONDAY_10)).toBe(1); // 15 days ago
   });
 

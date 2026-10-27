@@ -203,14 +203,15 @@ async function sendToDevice(send: Sender, recipient: Recipient, payload: string,
 }
 
 /**
- * A booking notice (title, body, link) to every current staff device of a location; the cashier service worker shows it.
+ * A booking notice (title, body, link; tag keeps one notification per appointment) to the owner and manager devices of a
+ * location, the roles that can open the day view; the cashier service worker shows it.
  * last_success_at stays the NFC wake-up's own marker, so this never stops a pending tap from ringing a device.
  */
-export async function sendStaffMessage(tenantId: string, locationId: string, message: { title: string; body: string; url: string }, deps: { send?: Sender; env?: PushEnv } = {}) {
+export async function sendStaffMessage(tenantId: string, locationId: string, message: { title: string; body: string; url: string; tag?: string }, deps: { send?: Sender; env?: PushEnv } = {}) {
   const result = { recipients: 0, sent: 0, transient: 0 };
   const details = vapidDetails(deps.env);
   if (!details) return result;
-  const { rows } = await pool.query<Recipient>(LOCATION_DEVICES, [tenantId, locationId]);
+  const { rows } = await pool.query<Recipient>(`${LOCATION_DEVICES} AND r.role IN ('owner','manager')`, [tenantId, locationId]);
   result.recipients = rows.length;
   const send: Sender = deps.send ?? ((subscription, payload, options) => webpush.sendNotification(subscription, payload, options));
   for (const recipient of rows) {

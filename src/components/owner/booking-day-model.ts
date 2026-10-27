@@ -94,7 +94,7 @@ export function dayTotals(appointments: OwnerAppointment[]) {
   const requests = live.filter(a => a.status === "requested").length;
   const done = live.filter(a => a.status === "done");
   const parts = [live.length === 1 ? "1 Termin" : `${live.length} Termine`, requests === 1 ? "1 Anfrage" : `${requests} Anfragen`];
-  if (done.length) parts.push(`${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} nach Listenpreis, geschätzt`);
+  if (done.length) parts.push(`${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} nach Listenpreis, geschätzt, nicht kassiert`);
   return parts.join(" · ");
 }
 

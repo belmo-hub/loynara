@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, parsePrice, priceText, sameHours, toDays, withinHours } from "./booking-setup-helpers";
+import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, parsePrice, priceText, sameHours, toDays, unionHours, withinHours } from "./booking-setup-helpers";
 
 const open = { open: true, start: "09:00", end: "18:00", breakStart: "", breakEnd: "" };
 
@@ -20,6 +20,17 @@ describe("booking set-up helpers", () => {
     expect(dayProblem({ ...open, open: false, end: "01:00" })).toBe("");
     expect(hoursProblem(toDays([]))).toMatch(/Mindestens ein Tag/);
     expect(hoursProblem([open, { ...open, end: "08:00" }])).toMatch(/^Dienstag:/);
+  });
+  it("joins everyone's hours per weekday without breaks", () => {
+    const lena = [1, 2, 3, 4, 5].map(weekday => ({ weekday, start: "09:00", end: "18:00", breaks: [{ start: "13:00", end: "13:30" }] }));
+    const sara = [{ weekday: 5, start: "08:00", end: "14:00", breaks: [] }, { weekday: 6, start: "10:00", end: "16:00", breaks: [] }];
+    const union = unionHours([lena, sara]);
+    expect(union.map(day => day.weekday)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(union[4]).toEqual({ weekday: 5, start: "08:00", end: "18:00", breaks: [] });
+    expect(union[5]).toEqual({ weekday: 6, start: "10:00", end: "16:00", breaks: [] });
+    expect(withinHours(toDays(sara), toDays(union))).toBe("");
+    expect(withinHours(toDays(lena), toDays(union))).toBe("");
+    expect(unionHours([])).toEqual([]);
   });
   it("parses and prints euro prices", () => {
     expect(parsePrice("25")).toBe(2500);

@@ -28,7 +28,9 @@ function textForPayload(event) {
   if (payload === null || typeof payload !== "object" || payload.v !== 1) return TEXT.de;
   if (payload.kind === "booking_request" && typeof payload.title === "string" && typeof payload.body === "string"
     && typeof payload.url === "string" && isSameOriginPath(payload.url, BOOKING_PATH)) {
-    return { title: payload.title.slice(0, 80), body: payload.body.slice(0, 160), tag: BOOKING_TAG, url: payload.url };
+    // One notification per appointment, so a second request's warning does not replace the first.
+    const tag = typeof payload.tag === "string" && payload.tag ? BOOKING_TAG + ":" + payload.tag.slice(0, 64) : BOOKING_TAG;
+    return { title: payload.title.slice(0, 80), body: payload.body.slice(0, 160), tag, url: payload.url };
   }
   const valid = payload.kind === "tap_pending" && Object.prototype.hasOwnProperty.call(TEXT, payload.locale);
   return valid ? TEXT[payload.locale] : TEXT.de;
