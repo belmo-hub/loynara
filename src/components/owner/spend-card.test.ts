@@ -25,7 +25,7 @@ describe("euro card (item 7, L3, ENG-077)", () => {
   it("names bookings „Buchungen“, never „Besuche“, keeps the method behind one summary and does not repeat a location's count", () => {
     const recent = figures({ visits: 10, spentMinor: 18_220, realMinor: 18_220, averagePerVisitMinor: 1_822, newCardMinor: 13_290, returningCardMinor: 4_930 });
     const total = figures({ visits: 29, spentMinor: 47_970, realMinor: 47_970, averagePerVisitMinor: 1_654 });
-    const html = render(spend(recent, total, [{ locationId: "a", name: "Kassel Süd", recentFrom: "2026-09-25T22:00:00.000Z", recent, total }]), true);
+    const html = render(spend(recent, total, [{ locationId: "a", name: "Kassel Süd", recentFrom: "2026-09-25T22:00:00.000Z", recent, total, brought: null }]), true);
     expect(html).toContain("10 Buchungen");
     expect(html).toContain("pro Buchung");
     expect(html).not.toContain("Besuch");

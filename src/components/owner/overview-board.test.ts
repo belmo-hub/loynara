@@ -43,7 +43,7 @@ const analytics = (patch: Partial<LocationAnalytics> = {}): LocationAnalytics =>
 });
 const figures = (patch: Partial<SpendFigures>): SpendFigures => ({ visits: 0, spentMinor: 0, realMinor: 0, estimatedMinor: 0, unpricedVisits: 0, averagePerVisitMinor: null, newCardMinor: 0, returningCardMinor: 0, ...patch });
 const spend = (here: SpendFigures, overall: SpendFigures = figures({ visits: 40, spentMinor: 99_900, realMinor: 99_900, averagePerVisitMinor: 2_497 })): MerchantSpend =>
-  ({ asOf: "", currency: "EUR", overall: { recent: overall, total: overall }, locations: [{ locationId: "loc-1", name: "Kassel Mitte", recentFrom: "", recent: here, total: here }] });
+  ({ asOf: "", currency: "EUR", overall: { recent: overall, total: overall }, locations: [{ locationId: "loc-1", name: "Kassel Mitte", recentFrom: "", recent: here, total: here, brought: null }] });
 const retention: RetentionSummary = { asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 17, drifting: 0, never: 2, neverAfterWeek: 0, nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 0, nearRewardId: null, programCount: 1, rules: RETENTION_RULES };
 const readiness = (steps: Array<Partial<LaunchReadiness["steps"][number]>> = []) => ({ locationId: "loc-1", steps, next: null, requiredDone: 1, requiredTotal: 3 });
 const render = () => renderToStaticMarkup(createElement(Overview));
