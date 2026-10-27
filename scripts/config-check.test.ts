@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { productionConfigIssues } from "./config-check";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE } from "./google-wallet-credential";
+import { appleFixture } from "../src/lib/wallet/test-support";
 
 // A freshly generated stand-in for a production Google service-account key file, never a Google-issued key.
 const googleKeyJson = (identity: Record<string, string> = {}) => JSON.stringify({
@@ -247,9 +248,11 @@ describe("production configuration gate", () => {
     };
     const refused = (env: NodeJS.ProcessEnv, pattern: RegExp) => expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));
 
-    it("accepts Wallet OFF and approved Direct Google while native Apple remains dormant", () => {
+    it("accepts Wallet OFF, approved native Apple (alone or beside PassFast) and approved Direct Google", () => {
       expect(productionConfigIssues({ ...safe, APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false" })).toEqual([]);
-      expect(productionConfigIssues(apple)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues(apple)).toEqual([]);
+      expect(productionConfigIssues({ ...apple, PASSFAST_ENABLED: "true", PASSFAST_WALLET_TYPES: "apple", PASSFAST_API_KEY: "sk_live_" + "abcdef0123456789".repeat(4), PASSFAST_APP_ID: "11111111-1111-4111-8111-111111111111",
+        PASSFAST_TENANT_TEMPLATES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", templateId: "22222222-2222-4222-8222-222222222222" }]) })).toEqual([]);
       expect(productionConfigIssues(google)).toEqual([]);
       expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual([]);
     });
@@ -337,6 +340,39 @@ describe("production configuration gate", () => {
         const issues = [...productionConfigIssues({ ...safe, [GOOGLE_SERVICE_ACCOUNT_VALUE]: key }), ...productionConfigIssues({ ...google, [GOOGLE_SERVICE_ACCOUNT_VALUE]: raw })].join(" ");
         expect(issues).not.toContain(key.slice(0, 24));
         expect(issues).not.toMatch(/PRIVATE KEY|gserviceaccount/);
+      });
+    });
+
+    describe("Apple certificate, key and WWDR delivered as values", () => {
+      const fixture = appleFixture();
+      afterAll(() => fixture.cleanup());
+      const values = {
+        APPLE_SIGNING_CERT_BASE64: readFileSync(fixture.config.certPath).toString("base64"),
+        APPLE_SIGNING_KEY_BASE64: readFileSync(fixture.config.keyPath).toString("base64"),
+        APPLE_WWDR_CERT_BASE64: readFileSync(fixture.config.wwdrPath).toString("base64"),
+      };
+
+      it("adds no issue to the Apple group, and changes nothing when absent or empty", () => {
+        expect(productionConfigIssues({ ...apple, ...values })).toEqual(productionConfigIssues(apple));
+        expect(productionConfigIssues({ ...safe, APPLE_SIGNING_KEY_BASE64: "" })).toEqual([]);
+      });
+
+      it.each(Object.keys(values))("refuses %s without Apple Wallet, with the wrong content, or with placeholder text", name => {
+        refused({ ...safe, [name]: values[name as keyof typeof values] }, new RegExp(`${name} is set while Apple Wallet is not enabled`));
+        const swapped = name === "APPLE_SIGNING_KEY_BASE64" ? values.APPLE_SIGNING_CERT_BASE64 : values.APPLE_SIGNING_KEY_BASE64;
+        refused({ ...apple, [name]: swapped }, new RegExp(`${name} must be a base64-encoded`));
+        refused({ ...apple, [name]: readFileSync(fixture.config.keyPath, "utf8") }, new RegExp(`${name} must be a base64-encoded`));
+        refused({ ...apple, [name]: "replace-with-base64" }, new RegExp(`${name} contains placeholder text`));
+      });
+
+      it("requires each file path beside its value", () => {
+        refused({ ...apple, ...values, APPLE_SIGNING_KEY_PATH: undefined }, /APPLE_SIGNING_KEY_PATH must be an absolute path/);
+      });
+
+      it("never echoes a delivered value or the key in its messages", () => {
+        const issues = [...productionConfigIssues({ ...safe, ...values }), ...productionConfigIssues({ ...apple, APPLE_SIGNING_CERT_BASE64: values.APPLE_SIGNING_KEY_BASE64 })].join(" ");
+        for (const value of Object.values(values)) expect(issues).not.toContain(value.slice(0, 24));
+        expect(issues).not.toMatch(/BEGIN|PRIVATE KEY/);
       });
     });
 

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { passFastStatus } from "../src/lib/wallet/passfast";
 import { googleLocationClasses } from "../src/lib/wallet/google-direct";
+import { APPLE_CREDENTIAL_VALUES, type AppleCredentialValue, inspectAppleCredentialValue } from "./apple-wallet-credential";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "./google-wallet-credential";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 import { stripeConfigIssues } from "../src/lib/stripe-config";
@@ -124,7 +125,6 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const apple = env.APPLE_WALLET_ENABLED === "true";
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
-  if (apple) issues.push("Direct native Apple Wallet is dormant; Apple production uses PassFast");
   // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need PassFast and the event webhook
   // secret, or no removal would ever be recorded and the removal report would silently read 0.
   if (env.WALLET_MESSAGES_ENABLED === "true") {
@@ -164,6 +164,14 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   if (deliveredKey) {
     if (!google) issues.push(`${GOOGLE_SERVICE_ACCOUNT_VALUE} is set while Google Wallet is not enabled`);
     const { issue } = inspectGoogleServiceAccountValue(deliveredKey);
+    if (issue) issues.push(issue);
+  }
+  // Same for the Apple certificate, key and WWDR intermediate: each belongs to the Apple group and is written to its *_PATH.
+  for (const name of Object.keys(APPLE_CREDENTIAL_VALUES) as AppleCredentialValue[]) {
+    const value = env[name];
+    if (!value) continue;
+    if (!apple) issues.push(`${name} is set while Apple Wallet is not enabled`);
+    const { issue } = inspectAppleCredentialValue(name, value);
     if (issue) issues.push(issue);
   }
   for (const name of ["GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) if (env[name] === "true" && !google) issues.push(`${name} requires Google Wallet (GOOGLE_WALLET_ENABLED=true)`);

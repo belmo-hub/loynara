@@ -8,7 +8,7 @@ import { Sheet } from "@/components/ui/sheet";
 import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
 import { BROUGHT_COPY, formatMinor } from "@/lib/spend-copy";
-import { nf } from "./owner-ui";
+import { nf, OwnerIcon } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
@@ -205,13 +205,14 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
 
 export type NextAction = { label: string; href: string } | { label: string; onClick: () => void };
 /** „Als Nächstes“: a bar above the bottom navigation on phones, a card in the right column on desktop. */
-export function NextBar({ title, text, action }: { title: string; text?: string; action?: NextAction }) {
+export function NextBar({ title, text, action, onClose }: { title: string; text?: string; action?: NextAction; onClose?: () => void }) {
   return (
     <section className="ow-nextbar" aria-label="Als Nächstes">
       <p><b>{title}</b>{text}</p>
       {action && ("href" in action
         ? <Link className="ow-btn ow-btn--primary ow-btn--sm" href={action.href}>{action.label}</Link>
         : <button type="button" className="ow-btn ow-btn--primary ow-btn--sm" onClick={action.onClick}>{action.label}</button>)}
+      {onClose && <button type="button" className="ow-nextbar-close" aria-label="Hinweis schließen" onClick={onClose}><OwnerIcon name="close" /></button>}
     </section>
   );
 }

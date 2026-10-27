@@ -136,8 +136,8 @@ describe("Google service-account key delivered as an environment value", () => {
   });
 });
 
-// Both processes that read the key (web via `npm start`, worker via `npm run worker`) write it in the same place in their
-// startup order: after the configuration gate, before the Wallet runtime check.
+// Both processes that read the keys (web via `npm start`, worker via `npm run worker`) write the Google and Apple ones in the same
+// place in their startup order: after the configuration gate, before the Wallet runtime check.
 describe("startup order invariants", () => {
   it.each(["production-guard.ts", "worker.ts"])("%s writes the delivered key between the two gates", file => {
     const source = readFileSync(path.join(__dirname, file), "utf8");
@@ -147,6 +147,6 @@ describe("startup order invariants", () => {
     expect(config).toBeGreaterThan(-1);
     expect(write).toBeGreaterThan(config);
     expect(runtime).toBeGreaterThan(write);
-    expect(source.slice(config, runtime)).toMatch(/if \(!\w+\.length\) \w+\.push\(\.\.\.googleServiceAccountStartupIssues\(/);
+    expect(source.slice(config, runtime)).toMatch(/if \(!\w+\.length\) \w+\.push\(\.\.\.googleServiceAccountStartupIssues\([^)]*\), \.\.\.appleCredentialStartupIssues\(/);
   });
 });

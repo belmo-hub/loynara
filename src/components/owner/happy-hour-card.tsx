@@ -58,7 +58,7 @@ export function HappyHourCard({ me, earningMode }: { me: MeResponse; earningMode
       ))}
       {draft.windows.length < HAPPY_HOUR_MAX_WINDOWS && <div><button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => edit({ ...draft, windows: [...draft.windows, { days: [1, 2, 3, 4, 5], start: "14:00", end: "17:00" }] })}>Zeitfenster hinzufügen</button></div>}
       {problem && <p className="ow-error">{PROBLEM[problem]}</p>}
-      <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && !problem} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+      <SaveBar section="Happy Hour" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && !problem} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
     </section>
   );
 }

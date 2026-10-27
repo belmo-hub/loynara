@@ -12,6 +12,7 @@ import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status
 import { CardFace, nearestReward, type CardReward } from "./card-face";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
+import { copyText } from "@/components/copy-text";
 
 type Reward = CardReward;
 export type CardActivity = { id: string; label: string; date: string; change: number };
@@ -236,10 +237,7 @@ function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOn
 function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
   const { text: status, live, announce: setStatus } = useCardStatus("return");
   async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(new URL(window.location.pathname, window.location.origin).href);
-      setStatus(t.copied);
-    } catch { setStatus(t.copyFailed); }
+    setStatus(await copyText(new URL(window.location.pathname, window.location.origin).href) ? t.copied : t.copyFailed);
   }
   return <section className={`customer-wallet ${styles.panel}`} aria-labelledby="customer-return-title">
     <h2 id="customer-return-title" className={styles.panelTitle}>{t.save}</h2>

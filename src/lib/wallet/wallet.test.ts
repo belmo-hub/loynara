@@ -11,7 +11,7 @@ import { walletAvailability } from "./capability";
 import { passInk, walletProgress } from "./content";
 import { GoogleWalletClient, googleClass, googleObject, googleObjectId, googleRevokedObject, googleSaveUrl, googleWalletStatus } from "./google";
 import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl, pngDimensions } from "./logo";
-import { appleFixture, fakeGoogleApi, googleFixture } from "./test-support";
+import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 import { createDownloadTicket, readDownloadTicket } from "./ticket";
 import type { WalletPassData, WalletRevokedData } from "./types";
 
@@ -124,6 +124,20 @@ describe("Apple Wallet configuration status (operator diagnostics)", () => {
       expect(appleWalletStatus({ ...apple.env, APPLE_WALLET_WEB_SERVICE_URL: "http://wallet.example.test/api/apple" }).ready).toBe(false);
     } finally { apple.cleanup(); }
   });
+
+  it("serves per-location copies of the environment from the status cache, but never a copy with other Apple inputs", async () => {
+    const apple = appleFixture();
+    try {
+      await withEnv(apple.env, () => {
+        expect(appleWalletStatus({ ...process.env, PASSFAST_TENANT_TEMPLATES: "[]" }).ready).toBe(true);
+        rmSync(apple.config.keyPath);
+        // The file is gone, yet the copy hits the five-minute cache the way process.env does: no openssl/zip per request.
+        expect(appleWalletStatus({ ...process.env, PASSFAST_TENANT_TEMPLATES: "[]" }).ready).toBe(true);
+        expect(appleWalletStatus({ ...process.env, APPLE_TEAM_ID: "abc" }).ready).toBe(false);
+        expect(appleWalletStatus({ ...process.env, APPLE_SIGNING_KEY_PATH: `${apple.config.keyPath}.other` }).ready).toBe(false);
+      });
+    } finally { apple.cleanup(); }
+  });
 });
 
 describe("public Wallet availability never leaks diagnostics", () => {
@@ -200,8 +214,9 @@ describe("Apple pass", () => {
     expect(appleVoidedPassJson({ ...revoked, reason: "closed" }, serial, appleConfig).storeCard.primaryFields[0].value).toBe("Geschlossen");
   });
 
-  it("includes merchant location coordinates only when supplied", () => {
-    expect(applePassJson({ ...pass, latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations).toMatchObject([{ latitude: 51.3127, longitude: 9.4797 }]);
+  it("includes the shop pin with the lock-screen line only when coordinates are supplied", () => {
+    expect(applePassJson({ ...pass, latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations).toEqual([{ latitude: 51.3127, longitude: 9.4797, relevantText: "Kasseler Kaffee: deine Karte" }]);
+    expect(applePassJson({ ...pass, locale: "fr", latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations?.[0].relevantText).toBe("Kasseler Kaffee\u00a0: votre carte");
     expect("locations" in applePassJson(pass, serial, appleConfig)).toBe(false);
   });
 
@@ -302,6 +317,14 @@ describe("Google Wallet adapter", () => {
     expect(object).toMatchObject({ classId: cls.id, state: "ACTIVE", accountId: "K-7QX2MA", barcode: { type: "QR_CODE", value: pass.scanCode, alternateText: "K-7QX2MA" }, loyaltyPoints: { label: "Stempel", balance: { string: "7 / 10" } } });
     expect(object.textModulesData[0]).toEqual({ id: "reward", header: "Nächste Prämie", body: "Kaffee nach Wahl · Noch 3 Stempel" });
     expect(googleObject({ ...pass, programType: "points", reward: undefined }, serial, config).loyaltyPoints).toEqual({ label: "Punkte", balance: { int: 7 } });
+  });
+
+  it("puts the shop pin on the class as merchantLocations, the field Google's nearby notification reads", () => {
+    const located = { ...pass, latitude: 51.3127, longitude: 9.4797 };
+    expect(googleClass(located, config)).toMatchObject({ merchantLocations: [{ latitude: 51.3127, longitude: 9.4797 }] });
+    expect("locations" in googleClass(located, config)).toBe(false);
+    expect("merchantLocations" in googleClass(pass, config)).toBe(false);
+    expect(JSON.stringify(googleObject(located, serial, config))).not.toContain("51.3127");
   });
 
   it("deactivates a revoked object without barcode, balance or card number", () => {

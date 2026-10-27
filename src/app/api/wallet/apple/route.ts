@@ -1,4 +1,5 @@
 import { requireSameOrigin } from "@/lib/http";
+import { appleWalletStatus } from "@/lib/wallet/apple";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { walletJsonBody } from "@/lib/wallet/body";
 import { WALLET_HTTP_MS, withWalletDatabase } from "@/lib/wallet/database";
@@ -20,7 +21,9 @@ export async function POST(request: Request) {
       await enforceRateLimit({scope:"wallet_apple_token",identity:token,max:10,windowSeconds:15*60},client);
       const eligibility = await walletCardEligibility(token,database);
       if (eligibility.availability.apple !== "available") return walletUnavailable();
-      await issueWalletPass(token,"apple",process.env.PASSFAST_ENABLED === "true" ? passFastObjectId : id => id,database);
+      // New Apple passes are native once native Apple is configured. A customer's PassFast pass is then superseded here and
+      // PassFast voids it; until the customer re-adds, PassFast keeps updating it.
+      await issueWalletPass(token,"apple",process.env.PASSFAST_ENABLED === "true" && !appleWalletStatus().ready ? passFastObjectId : id => id,database);
       const prepared = await applePreparation(eligibility,database);
       if (prepared.status === "ready") return Response.json({status:"ready",url:prepared.url},{headers:noStore});
       if (prepared.status !== "pending") return walletUnavailable();

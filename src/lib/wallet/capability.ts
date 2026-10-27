@@ -15,7 +15,8 @@ export function walletAvailability(env: Record<string, string | undefined> = pro
   if (env.NODE_ENV === "production" || env.PASSFAST_ENABLED === "true") {
     const ready = Boolean(tenantId && locationId) && passFastStatus(env, tenantId, locationId).ready;
     const platforms = ready ? passFastConfig(env, tenantId, locationId).platforms : [];
-    return { apple: platforms.includes("apple") ? "available" : "unavailable", google: googleAvailability };
+    // Native Apple, once configured, issues every new Apple pass; PassFast keeps serving the Apple passes it issued.
+    return { apple: appleWalletStatus(env).ready || platforms.includes("apple") ? "available" : "unavailable", google: googleAvailability };
   }
   return {
     apple: appleWalletStatus(env).ready ? "available" : "unavailable",

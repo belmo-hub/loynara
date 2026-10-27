@@ -23,15 +23,18 @@ export type AppleSigningConfig = ApplePassConfig & {
 };
 
 const required = ["APPLE_PASS_TYPE_ID", "APPLE_TEAM_ID", "APPLE_SIGNING_CERT_PATH", "APPLE_SIGNING_KEY_PATH", "APPLE_WWDR_CERT_PATH", "APPLE_WALLET_AUTH_SECRET", "APPLE_WALLET_WEB_SERVICE_URL"] as const;
+const cacheInputs = [...required, "APPLE_WALLET_ENABLED", "NODE_ENV", "PATH"] as const;
 
 /** Operator diagnostics (npm run diagnose, production guard). Never returned to a browser: see capability.ts. */
 export type AppleWalletStatus = WalletStatus & { certificateExpiresAt?: string; certificateDaysRemaining?: number; opensslVersion?: string; zipVersion?: string };
 let cachedStatus: { value: AppleWalletStatus; until: number } | undefined;
 
 export function appleWalletStatus(env: Record<string, string | undefined> = process.env): AppleWalletStatus {
-  if (env === process.env && cachedStatus && cachedStatus.until > Date.now()) return cachedStatus.value;
+  // Per-location copies of process.env (template bindings) share the cache: they never change an Apple input.
+  const cacheable = env === process.env || cacheInputs.every(key => env[key] === process.env[key]);
+  if (cacheable && cachedStatus && cachedStatus.until > Date.now()) return cachedStatus.value;
   const value = inspectAppleWallet(env);
-  if (env === process.env) cachedStatus = { value, until: Date.now() + 300_000 };
+  if (cacheable) cachedStatus = { value, until: Date.now() + 300_000 };
   return value;
 }
 
@@ -139,7 +142,7 @@ function common(pass: WalletPassData | WalletRevokedData, serial: string, config
 export function applePassJson(pass: WalletPassData, serial: string, config: ApplePassConfig) {
   const t = walletText(pass.locale);
   const progress = walletProgress(pass);
-  const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: pass.merchantName }] : undefined;
+  const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: t.nearby(pass.merchantName) }] : undefined;
   // One change message per update: on the progress line when there is a target reward, otherwise on the balance.
   const balanceField = { key: "balance", label: progress.unit.toUpperCase(), value: progress.balanceText, ...(progress.statusText ? {} : { changeMessage: "%@" }) };
   return {
