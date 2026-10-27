@@ -285,7 +285,22 @@ The default device-test configuration still disables both providers. After a **s
 
 The browser origin and Access checks remain mandatory. Approval covers only the selected programme PNG path and its optional sole `?v=<16 lowercase hexadecimal characters>` content-version query. The adapter now checks the **actual selected logo and programme before any OAuth/provider request**; another programme, origin, path or query is rejected. The approved asset ingress must deny every other path and retain the browser hostname's Access protection. Environment declarations record approval; they cannot prove owner permission, issuer authorization, Google tester registration or a working external route.
 
-Before provider enablement, save the synthetic merchant's PNG through the existing brand editor and check the exact asset locally. The seed has no uploaded logo. Google's current guidance recommends at least 660×660 with the required safe margin; use its supplied localized Add-to-Wallet artwork. Once the narrow route is separately approved and live, verify Google can fetch the merchant logo, then perform Save → Wallet QR scan → award → observed displayed update → redeem → observed displayed update. Record elapsed provider display times separately from the committed ledger time. Real provider and hardware results remain **NOT RUN**. Apple stays disabled in this launcher until its own certificate/callback/device setup is supplied and specifically reviewed.
+Before provider enablement, save the synthetic merchant's PNG through the existing brand editor and check the exact asset locally. The seed has no uploaded logo. Google's current guidance recommends at least 660×660 with the required safe margin; use its supplied localized Add-to-Wallet artwork. Once the narrow route is separately approved and live, verify Google can fetch the merchant logo, then perform Save → Wallet QR scan → award → observed displayed update → redeem → observed displayed update. Record elapsed provider display times separately from the committed ledger time. Real provider and hardware results remain **NOT RUN**. Native Apple has its own gate below.
+
+### Separate device-test native Apple gate
+
+For the real-iPhone check of native passes (ENG-097). It runs only with a **separate specific approval**, from a checkout under `~/Developer`, never the iCloud Desktop. Set the following in the restricted `var/device-test.env`. Google stays off for the run.
+
+| Setting | Required value after approval |
+| --- | --- |
+| `DEVICE_TEST_APPROVED_WALLET_PROVIDER` | `apple-native` |
+| `APPLE_WALLET_ENABLED` | `true` |
+| `APPLE_TEAM_ID`, `APPLE_PASS_TYPE_ID` | The real team and Pass Type ID |
+| `APPLE_SIGNING_CERT_PATH`, `APPLE_SIGNING_KEY_PATH`, `APPLE_WWDR_CERT_PATH` | Absolute regular owner-only files outside this repository; no symlink |
+| `APPLE_WALLET_AUTH_SECRET` | A fresh `openssl rand -hex 32` for this run, never production's |
+| `APPLE_WALLET_WEB_SERVICE_URL` | `<DEVICE_TEST_APPROVED_ORIGIN>/api/apple` |
+
+Wallet on the iPhone calls `/api/apple/v1/…` without an Access session. Every request authenticates with that pass's own token. So this one path prefix needs its own tunnel route without Access JWT validation, plus an Access Bypass for the same path. All other paths keep the whole-hostname Access app. That exception is the owner's decision; the 26 September approval excluded Wallet routes. Then: add the card to Apple Wallet from the card page → book a stamp at the cashier → the pass on the phone shows the new balance (APNs push, then the device fetches the pass). Record the time from booking to display. Remove the path route and Bypass afterwards.
 
 ## Owner messages (ENG-043)
 
