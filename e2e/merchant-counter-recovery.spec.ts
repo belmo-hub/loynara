@@ -76,8 +76,8 @@ test("the counter finds a card by its random number, a mistake is corrected, and
     page.on("request", request => { if (request.method() === "POST" && request.url().includes("/api/")) writes.push({ url: new URL(request.url()).pathname, body: request.postDataJSON() as Record<string, unknown> }); });
     await page.goto("/merchant/customers");
     await page.getByLabel("Kartennummer suchen").fill(cardLocator.toLowerCase());
-    await page.getByRole("button", { name: "Suchen" }).click();
-    await page.getByRole("button", { name: new RegExp(`Karte ${cardLocator}`) }).click();
+    await page.getByLabel("Kartennummer suchen").press("Enter");
+    await page.getByRole("link", { name: new RegExp(cardLocator) }).click();
     await expect(page.getByText("1 Stempel", { exact: false }).first()).toBeVisible();
     await page.getByRole("button", { name: "Korrigieren" }).first().click();
     const correct = page.getByRole("button", { name: "Korrektur buchen" });
@@ -95,18 +95,18 @@ test("the counter finds a card by its random number, a mistake is corrected, and
     // ── Owner: reissue with the explicit entitlement confirmation ──
     writes.length = 0;
     await page.getByRole("button", { name: "Karte neu ausstellen" }).click();
-    const dialog = page.getByRole("alertdialog");
+    const dialog = page.locator("form.ow-q"); // a screen since ENG-122a, no longer a dialog
     await expect(dialog.getByText("Berechtigung geprüft", { exact: true }).first()).toBeVisible();
     await expect(dialog.getByText("Stelle die Karte nur neu aus, wenn du geprüft hast, dass die Person zu dieser Karte gehört. Der bisherige Kartenlink und QR-Code werden sofort ungültig. Guthaben, Kartennummer und Verlauf bleiben erhalten.")).toBeVisible();
     const submit = dialog.getByRole("button", { name: "Neuen Link ausstellen" });
     await expect(submit).toBeDisabled();
     await dialog.getByLabel(/Grund/).fill("Neues Handy, alten Kartenlink auf dem alten Gerät gezeigt");
-    await dialog.getByLabel("Wie hast du geprüft?").selectOption({ label: "Vorhandener Kartenlink" });
+    await dialog.getByText("Vorhandener Kartenlink").click();
     await expect(submit).toBeDisabled(); // still no confirmation
     await dialog.getByRole("checkbox", { name: "Berechtigung geprüft" }).check();
     await expect(submit).toBeEnabled();
     await submit.click();
-    await expect(page.getByRole("dialog").getByText("Der alte Link und der alte QR-Code funktionieren nicht mehr.")).toBeVisible();
+    await expect(page.getByText("Der alte Link und der alte QR-Code funktionieren nicht mehr.", { exact: false })).toBeVisible();
     expect(writes).toHaveLength(1);
     expect(writes[0].url).toMatch(/\/api\/merchant\/customers\/[0-9a-f-]+\/reissue$/);
     expect(writes[0].body).toMatchObject({ verificationMethod: "card_link", entitlementConfirmed: true, reason: "Neues Handy, alten Kartenlink auf dem alten Gerät gezeigt" });
@@ -180,24 +180,19 @@ test("correction and reissue dialogs fit short screens and keep their actions re
       const buttons = [...element.querySelectorAll("button")].map(button => button.getBoundingClientRect());
       return buttons.length === 2 && (buttons[1].left - buttons[0].right >= 8 || buttons[1].top - buttons[0].bottom >= 8);
     })).toBe(true);
-    await page.goto("/merchant/customers");
-    await page.getByRole("button", { name: new RegExp(`Karte ${card.cardLocator}`) }).click();
+    await page.goto("/merchant/customers?activity=all");
+    await page.getByRole("link", { name: new RegExp(card.cardLocator) }).click();
     await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
     for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 800], [1440, 900]]) {
       await page.setViewportSize({ width, height });
-      for (const action of ["Korrigieren", "Karte neu ausstellen"]) {
-        await page.getByRole("button", { name: action, exact: true }).first().click();
-        const dialog = page.locator(".ow-dialog");
-        await expect(dialog).toBeVisible();
-        await page.screenshot({ path: testInfo.outputPath(`dialog-${width}-${action === "Korrigieren" ? "correction" : "reissue"}.png`) });
-        await expect.poll(() => dialog.evaluate(element => {
-          const box = element.getBoundingClientRect();
-          return box.top >= 0 && box.bottom <= window.innerHeight && box.left >= 0 && box.right <= window.innerWidth;
-        })).toBe(true);
-        await expect.poll(() => dialog.evaluate(element => element.scrollTop)).toBe(0);
-        await expect(dialog.getByRole("heading")).toBeInViewport();
-        await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
-        await expect(dialog).toBeHidden();
+      // Since ENG-122a both are screens in the card's own history: heading on top, no sideways scroll, Back to the card.
+      for (const [action, heading] of [["Korrigieren", "Vorgang korrigieren"], ["Karte neu ausstellen", /neu ausstellen$/]] as const) {
+        await page.getByRole("button", { name: action }).first().click();
+        await expect(page.getByRole("heading", { level: 1, name: heading })).toBeInViewport();
+        await page.screenshot({ path: testInfo.outputPath(`step-${width}-${action === "Korrigieren" ? "correction" : "reissue"}.png`) });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+        await page.goBack();
+        await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
       }
     }
   } finally { await context.close(); await guest.dispose(); await owner.context.dispose(); }

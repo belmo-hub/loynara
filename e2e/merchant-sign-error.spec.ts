@@ -12,6 +12,7 @@ test("failed sign download leaves the merchant dashboard usable and can be retri
   await page.waitForURL("/merchant");
   await expect(page.getByRole("heading", { level: 1, name: /Übersicht|Dein Treueprogramm einrichten/ })).toBeVisible();
 
+  await page.goto("/merchant/customers"); // the Tresenschild lives under Kunden since ENG-122a
   let failNext = true;
   await page.route("**/api/qr?*", async route => {
     if (failNext) {

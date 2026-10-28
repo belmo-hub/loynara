@@ -77,16 +77,19 @@ test("customer search stays applied when switching between location and tenant s
     const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
     try {
       const page = await context.newPage();
+      // Kunden rows since ENG-122a: „Alle Karten“ lists every card, a search lists its cards under the field.
+      const rows = page.locator("section.ow-prog a.ow-prog-row");
+      await page.goto("/merchant/customers?activity=all");
+      await expect(rows).toHaveCount(2);
       await page.goto("/merchant/customers");
-      await expect(page.locator(".ow-member")).toHaveCount(2);
       await page.getByLabel("Kartennummer suchen").fill(wanted.id);
-      await page.getByRole("button", { name: "Suchen", exact: true }).click();
-      await expect(page.locator(".ow-member")).toHaveCount(1);
+      await page.getByLabel("Kartennummer suchen").press("Enter");
+      await expect(rows).toHaveCount(1);
       for (const label of ["Alle Standorte", "Erster Standort"]) {
         await page.getByRole("group", { name: "Umfang" }).getByRole("button", { name: label, exact: true }).click();
         await page.waitForLoadState("networkidle");
-        await expect(page.locator(".ow-member")).toHaveCount(1);
-        await expect(page.locator(".ow-member")).toContainText(wanted.pseudonym);
+        await expect(rows).toHaveCount(1);
+        await expect(rows).toContainText(wanted.pseudonym.replace(/^Karte /, ""));
         await expect(page.getByLabel("Kartennummer suchen")).toHaveValue(wanted.id);
       }
     } finally { await context.close(); }

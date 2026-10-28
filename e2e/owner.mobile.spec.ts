@@ -59,7 +59,7 @@ test.describe("owner dashboard on phones", () => {
       const rows = [...document.querySelectorAll(".ow-seg")].filter(seg => seg.getBoundingClientRect().width > 2)
         .map(seg => new Set([...seg.querySelectorAll("button")].map(button => Math.round(button.getBoundingClientRect().top))).size);
       const broken: string[] = [];
-      for (const row of document.querySelectorAll(".ow-member")) {
+      for (const row of document.querySelectorAll("section.ow-prog .ow-prog-row")) {
         const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
           for (const word of node.textContent!.matchAll(/\S+/g)) {
@@ -72,8 +72,8 @@ test.describe("owner dashboard on phones", () => {
       }
       return { rows: [...new Set(rows)], broken };
     });
-    await page.goto("/merchant/customers");
-    await expect(page.locator(".ow-member").first()).toBeVisible();
+    await page.goto("/merchant/customers?activity=all");
+    await expect(page.locator("section.ow-prog .ow-prog-row").first()).toBeVisible();
     expect(await layout()).toEqual({ rows: [1], broken: [] });
     await page.goto("/merchant/program/card");
     await page.getByRole("button", { name: "Vorschau" }).click();

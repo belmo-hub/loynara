@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { ArrowRight, Link2, Printer } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
@@ -20,6 +21,31 @@ export async function downloadCounterSign(me: MeResponse) {
   const link = document.createElement("a");
   link.href = url; link.download = "anmeldeschild.html"; link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** „Kunden einladen“ on Kunden (ENG-122a, R3) as two rows: copy the sign-up link, download the Tresenschild. */
+export function InviteRows({ me }: { me: MeResponse }) {
+  const { copied, copy } = useCopy();
+  const [error, setError] = useState("");
+  const joinUrl = joinUrlOf(me);
+  const row = (icon: ReactNode, title: string, sub: string, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
+    <span className="ow-prog-icon">{icon}</span>
+    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong><small>{sub}</small></span></span>
+    <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
+  </button></li>;
+  return (
+    <div>
+      <h2>Kunden einladen</h2>
+      {!joinUrl ? <p className="ow-prog-note">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p> : <ul>
+        {row(<Link2 size={22} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", joinUrl.replace(/^https?:\/\//, ""),
+          () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
+        {row(<Printer size={22} aria-hidden="true" />, "Tresenschild laden", "PDF mit QR-Code zum Ausdrucken",
+          () => void downloadCounterSign(me).catch(cause => setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden.")))}
+      </ul>}
+      <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
+      {error && <p className="ow-error ow-prog-note" role="alert">{error}</p>}
+    </div>
+  );
 }
 
 /** Invite link and printable counter sign; the join URL is the public programme address, not a private card link. */
