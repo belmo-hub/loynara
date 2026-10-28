@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { billingLocationPlans, outboxJobs, subscriptions } from "@/db/schema";
+import { setStripeClient } from "./billing-stripe";
 import { createAdditionalLocation } from "./locations";
 import { createMerchant } from "./product";
 import type { TransactionalEmailProvider, TransactionalMessage } from "./transactional-email";
@@ -10,35 +11,43 @@ import { deliverFreeMonthReminder, FREE_MONTH_REMINDER, freeMonthsEndingSoon, qu
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname)) throw new Error("Dedicated local synthetic database required");
 
-const previous = { smtp: process.env.SMTP_HOST, base: process.env.PUBLIC_BASE_URL, external: process.env.EXTERNAL_EMAIL_ENABLED };
+const previous = { smtp: process.env.SMTP_HOST, base: process.env.PUBLIC_BASE_URL, external: process.env.EXTERNAL_EMAIL_ENABLED, vat: process.env.BILLING_VAT_MODE };
+// Stripe's public business details, as the invoices print them (synthetic).
+let account: unknown = { business_profile: { name: "Synthetische Betreiberin", support_address: { line1: "Musterstraße 1", line2: null, postal_code: "12345", city: "Musterstadt" } } };
 beforeEach(async () => {
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
   process.env.SMTP_HOST = "localhost";
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
+  process.env.BILLING_VAT_MODE = "kleinunternehmer";
+  account = { business_profile: { name: "Synthetische Betreiberin", support_address: { line1: "Musterstraße 1", line2: null, postal_code: "12345", city: "Musterstadt" } } };
+  setStripeClient(async (method, path) => { if (method === "GET" && path === "/account") return account; throw new Error(`Unexpected Stripe call ${method} ${path}`); });
 });
+afterEach(() => setStripeClient());
 afterAll(async () => {
-  for (const [key, value] of Object.entries({ SMTP_HOST: previous.smtp, PUBLIC_BASE_URL: previous.base, EXTERNAL_EMAIL_ENABLED: previous.external })) {
+  for (const [key, value] of Object.entries({ SMTP_HOST: previous.smtp, PUBLIC_BASE_URL: previous.base, EXTERNAL_EMAIL_ENABLED: previous.external, BILLING_VAT_MODE: previous.vat })) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
   await pool.end();
 });
 
-// Go-live 10 Nov 2026, 11:00 Berlin; Stripe's first billing date 10 Dec 00:00 UTC; the last free day is 9 Dec.
+// Go-live 10 Nov 2026, 11:00 Berlin; Stripe's first billing date 10 Dec 00:00 UTC; the last free day is 9 December.
 const START = new Date("2026-11-10T10:00:00Z");
 const FREE_UNTIL = new Date("2026-12-10T00:00:00Z");
 const DAY = 86_400_000;
+const location = (name: string) => ({ name, city: "Kassel", country: "DE" as const, timezone: "Europe/Berlin", programName: `Karte ${name}`, programType: "stamp" as const, rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 5 });
 
-async function shop(planCode: "founding" | "list" = "founding") {
+/** A shop on the list plan, two locations from the start and one added after go-live (no free month, not in the reminder). */
+async function shop({ second = true } = {}) {
   const owner = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [owner, "Synthetic owner", `${owner}@example.test`]);
-  const created = await createMerchant({ userId: owner, businessName: "Synthetic Monats-Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 5 });
+  const created = await createMerchant({ userId: owner, businessName: "Synthetic Monats-Café", locationName: "Am Markt", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 5 });
+  if (second) await createAdditionalLocation(owner, location("Bahnhof"));
   await db.update(billingLocationPlans).set({ createdAt: new Date("2026-11-01T09:00:00Z") }).where(eq(billingLocationPlans.tenantId, created.tenantId));
-  // A location added after go-live gets no free month and no reminder.
-  const later = await createAdditionalLocation(owner, { name: "Später dazu", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Zweite Karte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Tee", rewardCost: 5 });
+  const later = await createAdditionalLocation(owner, location("Später dazu"));
   await db.update(billingLocationPlans).set({ createdAt: new Date("2026-11-20T09:00:00Z") }).where(eq(billingLocationPlans.locationId, later.locationId));
-  await db.update(subscriptions).set({ status: "active", provider: "stripe", providerSubscriptionId: `sub_test${randomUUID().slice(0, 8)}`, planCode, startedAt: START, freeUntil: FREE_UNTIL }).where(eq(subscriptions.tenantId, created.tenantId));
-  return { ...created, owner, later };
+  await db.update(subscriptions).set({ status: "active", provider: "stripe", providerSubscriptionId: `sub_test${randomUUID().slice(0, 8)}`, planCode: "list", startedAt: START, freeUntil: FREE_UNTIL }).where(eq(subscriptions.tenantId, created.tenantId));
+  return { ...created, owner };
 }
 const jobs = async (tenantId: string) => db.select().from(outboxJobs).where(eq(outboxJobs.tenantId, tenantId));
 function fakeProvider() {
@@ -46,14 +55,16 @@ function fakeProvider() {
   const provider: TransactionalEmailProvider = { name: "mailpit", async send(message) { sent.push(message); return { state: "accepted", messageId: `local:${message.jobId}` }; } };
   return { sent, provider };
 }
+// Intl puts a no-break space between amount and euro sign.
+const plain = (text: string) => text.replace(/ /g, " ");
 
 describe("free-month reminder (ENG-123)", () => {
-  it("queues one reminder per location that started with the shop, from 7 days before the end, exactly once", async () => {
+  it("queues one reminder per business, from 7 days before the end, exactly once", async () => {
     const s = await shop();
     expect(await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - 7 * DAY - 1000))).toBe(0);
     expect(await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - 7 * DAY))).toBe(1);
     const [job] = await jobs(s.tenantId);
-    expect(job).toMatchObject({ kind: FREE_MONTH_REMINDER, payload: { locationId: s.locationId, freeUntil: "2026-12-10T00:00:00Z", recipientUserId: s.owner } });
+    expect(job).toMatchObject({ kind: FREE_MONTH_REMINDER, payload: { freeUntil: "2026-12-10T00:00:00Z", recipientUserId: s.owner } });
     expect(await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - DAY))).toBe(0);
     expect(await jobs(s.tenantId)).toHaveLength(1);
   });
@@ -68,11 +79,11 @@ describe("free-month reminder (ENG-123)", () => {
     const quiet = await shop();
     process.env.SMTP_HOST = "disabled";
     expect(await queueFreeMonthReminders(pool, due)).toBe(0);
-    expect(await freeMonthsEndingSoon(pool, due)).toEqual([{ tenantId: quiet.tenantId, shop: "Synthetic Monats-Café", location: "Synthetic Monats-Café", lastFreeDay: "09.12.2026", sent: false }]);
+    expect(await freeMonthsEndingSoon(pool, due)).toEqual([{ tenantId: quiet.tenantId, shop: "Synthetic Monats-Café", locations: ["Am Markt", "Bahnhof"], lastFreeDay: "9. Dezember", sent: false }]);
   });
 
-  it("sends the last free day, the first billing day and the plan's price, with no VAT wording, once; /operator then shows it as sent", async () => {
-    const s = await shop("founding");
+  it("sends Marketing's text: owner-format dates, each free-month location at its stored price, the operator from Stripe; once", async () => {
+    const s = await shop();
     const due = new Date(FREE_UNTIL.getTime() - 7 * DAY);
     await queueFreeMonthReminders(pool, due);
     const [job] = await jobs(s.tenantId);
@@ -80,22 +91,50 @@ describe("free-month reminder (ENG-123)", () => {
     expect(await deliverFreeMonthReminder(job, provider)).toEqual({ status: "complete" });
     expect(await deliverFreeMonthReminder(job, provider)).toMatchObject({ status: "blocked" });
     expect(sent).toHaveLength(1);
-    expect(sent[0].subject).toBe("Dein kostenloser Monat für Synthetic Monats-Café endet am 09.12.2026");
-    expect(sent[0].body).toContain("endet am 09.12.2026.");
-    // Intl puts a no-break space between amount and euro sign.
-    expect(sent[0].body.replace(/\u00a0/g, " ")).toContain("Danach kostet Loynara 39,00 € im Monat für diesen Standort. Die erste Rechnung kommt am 10.12.2026 per E-Mail.");
-    expect(sent[0].body).toContain("Wenn du bis zum 09.12.2026 kündigst, kostet dich das nichts.");
-    expect(sent[0].body).not.toMatch(/Umsatzsteuer|UStG|MwSt/);
+    expect(sent[0].subject).toBe("Dein kostenloser Monat für Synthetic Monats-Café endet am 9. Dezember");
+    expect(plain(sent[0].body)).toBe([
+      "Hallo,",
+      "",
+      "dein kostenloser Monat bei Loynara für Synthetic Monats-Café endet am 9. Dezember.",
+      "",
+      "Möchtest du weitermachen, musst du nichts tun.",
+      "Ab dem 10. Dezember kostet Loynara 98 € im Monat für deine 2 Standorte:",
+      "Am Markt: 49 €",
+      "Bahnhof: 49 €",
+      "Die erste Rechnung kommt am selben Tag per E-Mail. Eine Zahlungsart kannst du vorher in deinem Inhaberbereich unter „Abrechnung“ hinterlegen.",
+      "",
+      "Möchtest du aufhören, schreib bis zum 9. Dezember eine kurze E-Mail an support@getloynara.com. Dann endet der Vertrag für alle Standorte mit dem kostenlosen Monat und kostet dich nichts.",
+      "",
+      "Viele Grüße",
+      "Loynara",
+      "",
+      "Synthetische Betreiberin · Musterstraße 1, 12345 Musterstadt",
+    ].join("\n"));
     await db.update(outboxJobs).set({ status: "complete" }).where(eq(outboxJobs.id, job.id));
-    expect(await freeMonthsEndingSoon(pool, due)).toMatchObject([{ tenantId: s.tenantId, lastFreeDay: "09.12.2026", sent: true }]);
+    expect(await freeMonthsEndingSoon(pool, due)).toMatchObject([{ tenantId: s.tenantId, sent: true }]);
   });
 
-  it("sends nothing when the shop cancelled or the free month moved after the job was queued", async () => {
+  it("names the one location, and adds „zzgl. USt“ in standard VAT mode, as on the invoice", async () => {
+    process.env.BILLING_VAT_MODE = "standard";
+    const s = await shop({ second: false });
+    await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - 7 * DAY));
+    const [job] = await jobs(s.tenantId);
+    const { sent, provider } = fakeProvider();
+    await deliverFreeMonthReminder(job, provider);
+    expect(plain(sent[0].body)).toContain("Ab dem 10. Dezember kostet Loynara 49 € zzgl. USt im Monat für Am Markt.");
+  });
+
+  it("sends nothing without a VAT mode, without the operator's details in Stripe, or after the shop cancelled", async () => {
     const s = await shop();
     await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - 7 * DAY));
     const [job] = await jobs(s.tenantId);
-    await db.update(subscriptions).set({ cancelAtPeriodEnd: true }).where(eq(subscriptions.tenantId, s.tenantId));
     const { sent, provider } = fakeProvider();
+    delete process.env.BILLING_VAT_MODE;
+    expect(await deliverFreeMonthReminder(job, provider)).toEqual({ status: "blocked", reason: "No VAT mode set" });
+    process.env.BILLING_VAT_MODE = "kleinunternehmer";
+    account = { business_profile: { name: "Synthetische Betreiberin", support_address: null } };
+    expect(await deliverFreeMonthReminder(job, provider)).toMatchObject({ status: "blocked", reason: expect.stringContaining("Operator") });
+    await db.update(subscriptions).set({ cancelAtPeriodEnd: true }).where(eq(subscriptions.tenantId, s.tenantId));
     expect(await deliverFreeMonthReminder(job, provider)).toMatchObject({ status: "suppressed" });
     expect(sent).toHaveLength(0);
   });

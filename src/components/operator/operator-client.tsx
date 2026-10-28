@@ -29,7 +29,7 @@ type Awaiting = { tenantId: string; tenant: string; location: string; city: stri
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
 type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; lastFreeDay: string | null };
-type FreeMonth = { tenantId: string; shop: string; location: string; lastFreeDay: string; sent: boolean };
+type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
@@ -223,7 +223,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     {freeMonths.length ? <Card as="section" aria-labelledby="op-free-month">
       <CardHeader id="op-free-month" title="Kostenloser Monat endet bald" description="Die Erinnerung geht 7 Tage vorher per E-Mail raus. Steht hier „nicht gesendet“, bitte selbst von support@ schicken." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-        {freeMonths.map(f => <li key={`${f.tenantId}/${f.location}`} role={f.sent ? "status" : "alert"}><strong>{f.shop}</strong> · {f.location} · letzter freier Tag {f.lastFreeDay} · <Badge tone={f.sent ? "success" : "warning"}>{f.sent ? "Erinnerung gesendet" : "nicht gesendet"}</Badge></li>)}
+        {freeMonths.map(f => <li key={f.tenantId} role={f.sent ? "status" : "alert"}><strong>{f.shop}</strong> · {f.locations.join(", ")} · letzter freier Tag {f.lastFreeDay} · <Badge tone={f.sent ? "success" : "warning"}>{f.sent ? "Erinnerung gesendet" : "nicht gesendet"}</Badge></li>)}
       </ul>
     </Card> : null}
 

@@ -1,5 +1,5 @@
 {
-  "id": "c00d52ee-00d1-4912-8840-c8c5beec3a48",
+  "id": "b2a63150-7be2-4efc-95c0-415c16d58ff6",
   "prevId": "edcc96fa-863d-4b61-a8b9-9801d98e2d86",
   "version": "7",
   "dialect": "postgresql",
@@ -2170,12 +2170,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "free_until": {
           "name": "free_until",
           "type": "timestamp with time zone",
@@ -2204,29 +2198,13 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "free_month_reminders_tenant_id_location_id_locations_tenant_id_id_fk": {
-          "name": "free_month_reminders_tenant_id_location_id_locations_tenant_id_id_fk",
-          "tableFrom": "free_month_reminders",
-          "tableTo": "locations",
-          "columnsFrom": [
-            "tenant_id",
-            "location_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "free_month_reminders_tenant_id_location_id_free_until_pk": {
-          "name": "free_month_reminders_tenant_id_location_id_free_until_pk",
+        "free_month_reminders_tenant_id_free_until_pk": {
+          "name": "free_month_reminders_tenant_id_free_until_pk",
           "columns": [
             "tenant_id",
-            "location_id",
             "free_until"
           ]
         }

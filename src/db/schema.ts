@@ -593,16 +593,12 @@ export const outboxJobs = pgTable("outbox_jobs", {
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
 ]);
 
-/** ENG-123: one row per location and free month, written in the same statement that queues its reminder mail. */
+/** ENG-123: one row per shop and free month (Legal: one reminder per business), written in the same statement that queues the mail. */
 export const freeMonthReminders = pgTable("free_month_reminders", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
-  locationId: uuid("location_id").notNull(),
   freeUntil: timestamp("free_until", { withTimezone: true }).notNull(),
   createdAt: createdAt(),
-}, (t) => [
-  primaryKey({ columns: [t.tenantId, t.locationId, t.freeUntil] }),
-  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
-]);
+}, (t) => [primaryKey({ columns: [t.tenantId, t.freeUntil] })]);
 
 /** One row per shop and reported Berlin ISO week (its Monday), written in the same statement that queues the mails. */
 export const weeklyOwnerReports = pgTable("weekly_owner_reports", {
