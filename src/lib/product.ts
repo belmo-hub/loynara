@@ -409,14 +409,15 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
  * Programme rules as customers see them (card and sign-up): the owner's text, plus the win-back and birthday lines while
  * those bonuses are on (Legal). Win-back runs without Wallet messages (ENG-089); birthday stays with them. Points by
  * purchase amount open with the system's earning sentence, and the owner's text adds to it (ENG-099 3c).
+ * `bonusExclusions: false` drops the bonus lines' exclusion sentence for a page that prints it once, last.
  */
-function shownRules(program: typeof programs.$inferSelect, tenant: typeof tenants.$inferSelect) {
+function shownRules(program: typeof programs.$inferSelect, tenant: typeof tenants.$inferSelect, bonusExclusions = true) {
   const messages = !surfaceHidden("walletMessages");
   const type = program.type as "stamp" | "points";
   const lines = [program.rulesText];
   if (byPurchase(program.type, program.earningMode)) lines.unshift(purchaseRuleSentence(program.pointsPerCurrencyUnit, tenant.currency, tenant.locale === "fr" ? "fr" : "de"));
-  if (program.winbackEnabled && program.winbackBonus > 0) lines.push(winbackRule(type, program.winbackDays, program.winbackBonus, messages));
-  if (messages && program.birthdayEnabled && program.birthdayBonus > 0) lines.push(birthdayRule(type, program.birthdayBonus));
+  if (program.winbackEnabled && program.winbackBonus > 0) lines.push(winbackRule(type, program.winbackDays, program.winbackBonus, messages, bonusExclusions));
+  if (messages && program.birthdayEnabled && program.birthdayBonus > 0) lines.push(birthdayRule(type, program.birthdayBonus, bonusExclusions));
   return lines.filter(Boolean).join("\n\n");
 }
 
@@ -546,7 +547,8 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program, row.tenant), ownerRulesText: row.program.rulesText, pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  // German sign-up pages print Legal's exclusions once, at the end of the rules (join-client), so the bonus lines leave them out.
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program, row.tenant, row.tenant.locale === "fr"), ownerRulesText: row.program.rulesText, pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

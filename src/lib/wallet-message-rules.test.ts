@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EXCLUDED_GOODS } from "./card-extras";
 import { almostText, birthdayCashierLine, birthdayRule, birthdayText, birthdayWeek, checkMessageText, consentText, needsActionHint, winbackCashierLine, winbackRule, winbackText } from "./wallet-message-rules";
 
 describe("message text rules", () => {
@@ -50,6 +51,10 @@ describe("a one-point bonus in the singular (ENG-104)", () => {
     onlyTheNumber(winbackRule("points", 30, 1), winbackRule("points", 30, 2));
     onlyTheNumber(winbackRule("points", 30, 1, false), winbackRule("points", 30, 2, false));
     expect(winbackRule("stamp", 30, 1)).toContain("einmal 1 Stempel extra.");
+    // Legal's exclusions stay in the line (card, owner preview) unless a page prints them once for all rules (sign-up).
+    for (const line of [winbackRule("points", 30, 2), winbackRule("points", 30, 2, false), birthdayRule("points", 2)]) expect(line.endsWith(` ${EXCLUDED_GOODS}`)).toBe(true);
+    expect(winbackRule("stamp", 30, 1, false, false)).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal 1 Stempel extra.");
+    expect(birthdayRule("points", 2, false)).not.toContain("Nicht auf");
     expect(birthdayRule("points", 1)).toContain("bei einem bestätigten Besuch 1 Punkt extra. Nicht auf Tabak");
     expect(birthdayRule("points", 2)).toContain("bei einem bestätigten Besuch 2 Punkte extra. Nicht auf Tabak");
     onlyTheNumber(birthdayRule("points", 1), birthdayRule("points", 2));

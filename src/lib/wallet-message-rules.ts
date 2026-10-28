@@ -1,5 +1,6 @@
 // Wallet messages (ENG-043): the pure rules and the verbatim texts. No database, so client code may import it.
 // Rules are Product's (2026-10-22-spec-wallet-messages.md), texts are Legal's draft of 22 Oct 2026 (not legal advice).
+import { EXCLUDED_GOODS } from "./card-extras";
 
 export const MESSAGE_MAX = 140;
 /** Messages per programme and per customer in any rolling window of this many days (the consent text promises „höchstens 2 pro Woche“). */
@@ -69,8 +70,9 @@ export function winbackText(type: "stamp" | "points", bonus: number, day: string
 
 /** The programme-rules line on the card while the bonus is on (Legal: the bonus must be in the rules customers see). */
 /** Legal's line (24 Oct, Marketing v1.8 §9); `reminders`: the Wallet sentence only while Wallet messages are offered (ENG-089). */
-export function winbackRule(type: "stamp" | "points", days: number, bonus: number, reminders = true) {
-  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""} Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+/** `exclusions: false` leaves Legal's exclusion sentence to a page that prints it once for all rules (the sign-up page). */
+export function winbackRule(type: "stamp" | "points", days: number, bonus: number, reminders = true, exclusions = true) {
+  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""}${exclusions ? ` ${EXCLUDED_GOODS}` : ""}`;
 }
 
 export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
@@ -93,8 +95,9 @@ export const BIRTHDAY_FIELD_TEXT = (shop: string) => `Geburtstag (freiwillig): n
 export function birthdayText(type: "stamp" | "points", bonus: number, day: string) {
   return bonus > 0 ? `Alles Gute zum Geburtstag! Komm bis zum ${day} vorbei, dann gibt's ${extra(type, bonus)}.` : "Alles Gute zum Geburtstag! Wir freuen uns, dich bald wiederzusehen.";
 }
-export const birthdayRule = (type: "stamp" | "points", bonus: number) =>
-  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : points(bonus)} extra. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+/** `exclusions: false` as for winbackRule. */
+export const birthdayRule = (type: "stamp" | "points", bonus: number, exclusions = true) =>
+  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${exclusions ? ` ${EXCLUDED_GOODS}` : ""}`;
 export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);

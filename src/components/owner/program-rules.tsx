@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ReceiptText, Users } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { purchasePoints, purchaseRuleSentence } from "@/lib/points";
 import { CardLinePreview, nf, NumberStepper } from "./owner-ui";
 import { earningSentence, euro, EXTRA_RULES, EXTRA_RULES_HINT, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, QUESTIONS, RULE_PLACEHOLDER, ruleKind, SHORT_RULE, unitName, type EarningMode, type RuleKind } from "./program-helpers";
@@ -24,20 +25,32 @@ const Compare = ({ before, after, none }: { before: string; after: string; /** W
   <div className="ow-qpanel ow-qcmp" data-new><p>Neu</p><p className={after ? undefined : "ow-muted"}>{after || none}</p></div>
 </>;
 
-/** 14 (the rule itself, W35) or 52 (by purchase amount: what adds to the system's sentence, W51), with the sign-up preview. */
-function RuleField({ kind, program, text, onChange, error }: { kind: RuleKind; program: PublicProgram; text: string; onChange: (text: string) => void; error: string }) {
-  const extras = kind === "purchase";
+/**
+ * 14 (the rule itself, W35) or 52 (by purchase amount: what adds to the system's sentence, W51), with the sign-up preview.
+ * `former` (C2): the extra rules so far, offered to take into the rule while the field doesn't hold them yet.
+ */
+function RuleField({ kind, program, text, onChange, error, former = "" }: { kind: RuleKind; program: PublicProgram; text: string; onChange: (text: string) => void; error: string; former?: string }) {
+  const extras = kind === "purchase", field = useRef<HTMLTextAreaElement>(null);
+  function adopt() {
+    onChange(text.trim() ? `${text.trimEnd()}\n${former}` : former);
+    requestAnimationFrame(() => { const end = field.current?.value.length ?? 0; field.current?.focus(); field.current?.setSelectionRange(end, end); });
+  }
   return <>
     <div className="ow-field ow-qpanel">
       <label htmlFor="rule-text">{extras ? EXTRA_RULES_LABEL : QUESTIONS.rule}</label>
-      <textarea id="rule-text" className="ow-textarea" rows={4} value={text} maxLength={3000} placeholder={RULE_PLACEHOLDER[kind]} onChange={event => onChange(event.target.value)}
+      <textarea ref={field} id="rule-text" className="ow-textarea" rows={4} value={text} maxLength={3000} placeholder={RULE_PLACEHOLDER[kind]} onChange={event => onChange(event.target.value)}
         aria-invalid={Boolean(error)} aria-describedby={error ? "rule-text-error rule-text-hint" : "rule-text-hint"} />
       <FieldError id="rule-text-error">{error}</FieldError>
+      {former && !text.includes(former) && <>
+        <p id="rule-text-former" className="ow-hint ow-qformer">Bisher unter „Weitere Regeln“: <span>{former}</span></p>
+        <button type="button" className="ow-qlink" aria-describedby="rule-text-former" onClick={adopt}>In die Regel übernehmen</button>
+      </>}
       <p id="rule-text-hint" className="ow-hint">{extras ? EXTRA_RULES_HINT : "Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}</p>
     </div>
-    {/* No preview of a rule the save refuses, as on the news (18). */}
+    {/* No preview of a rule the save refuses, as on the news (18). By purchase amount it ends with Legal's exclusions, as
+        the sign-up page does (German pages). */}
     {(extras || text.trim().length >= 10) && <div className="ow-qpanel">
-      <CardLinePreview label="So steht es bei der Anmeldung" shop={program.businessName} brandColor={program.brandColor}>
+      <CardLinePreview label="So steht es bei der Anmeldung" shop={program.businessName} brandColor={program.brandColor} rules={extras && program.locale !== "fr" ? EXCLUDED_GOODS : undefined}>
         <span className="ow-qrule">{shownText(kind, program, text.trim())}</span>
         {program.rewards.map(reward => <span key={reward.rewardId} className="ow-cardline-reward"><b>{reward.title}</b><span>{nf.format(reward.cost)} {unitName(program.programType, reward.cost)}</span></span>)}
       </CardLinePreview>
@@ -74,7 +87,7 @@ export function RuleQuestion({ me, program }: { me: MeResponse; program: PublicP
 export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program: PublicProgram; /** NFC is offered here. */ nfc: boolean }) {
   const saved = { mode: program.earningMode, rate: String(program.pointsPerCurrencyUnit) }, savedText = program.ownerRulesText ?? "";
   const [draft, setDraft] = useState(saved);
-  const [text, setText] = useState(savedText);
+  const [text, setText] = useState(""); // C2's 14 starts empty; the extras so far are offered under the field
   const { step, open, back } = useReview<"rule" | "review">();
   const purchase = draft.mode === "purchase", rate = Number(draft.rate), max = MAX_POINTS_PER_CURRENCY_UNIT;
   const rateOk = wholeIn(draft.rate, 1, max);
@@ -84,7 +97,7 @@ export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program:
   const sentence = (mode: EarningMode, perUnit: number) => earningSentence("points", mode, perUnit, program.currency);
   if (step === "rule") return (
     <QuestionForm title="Wie sammeln deine Kunden?" back={{ label: QUESTIONS.earning, onClick: back }} busy={false} failed="" action="Weiter" onSubmit={() => { if (q.check()) open(); }}>
-      <RuleField kind="manual" program={program} text={text} onChange={setText} error={q.error("rule-text")} />
+      <RuleField kind="manual" program={program} text={text} onChange={setText} error={q.error("rule-text")} former={savedText} />
     </QuestionForm>
   );
   if (step) return (

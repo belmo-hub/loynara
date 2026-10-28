@@ -68,7 +68,8 @@ describe("Programm list", () => {
     const all = Object.fromEntries(sections.flatMap(section => section.rows).map(row => [row.title, row]));
     expect(all.Gratiskaffee.sub).toBe("Einlösbar ab 1.000 Punkten");
     expect([all["Punkte verfallen"].value, all["NFC-Tap"].sub, all["Happy Hour"].value]).toEqual(["Nie", "Mit Bestätigung", "An"]);
-    expect(sections[1].rows.map(row => row.title)).toEqual(["Weitere Regeln", "So entstehen Punkte", "Punkte verfallen", "NFC-Tap"]);
+    expect(sections[1].rows.map(row => row.title)).toEqual(["So entstehen Punkte", "Weitere Regeln", "Punkte verfallen", "NFC-Tap"]); // the earning, then what adds to it
+    expect(programSections({ ...base, program: { ...points, earningMode: "manual" } })[1].rows.map(row => row.title)).toEqual(["Regel auf der Karte", "So entstehen Punkte", "Punkte verfallen"]);
     expect(rows({ program: { ...points, pointsPerCurrencyUnit: 1 } })["So entstehen Punkte"].sub).toBe("Nach Einkaufswert: 1 Punkt pro €"); // W36
     expect(rows({ program: { ...points, pointsPerCurrencyUnit: 2, currency: "MAD" } })["So entstehen Punkte"].sub).toBe("Nach Einkaufswert: 2 Punkte pro MAD");
     expect(rows({ program: { ...points, earningMode: "manual" } })["So entstehen Punkte"].sub).toBe("Manuell");

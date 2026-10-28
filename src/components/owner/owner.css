@@ -760,6 +760,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 /* The rule questions (14, 33) and their review (34, 35): the rule keeps its line breaks, as on the card and the sign-up page. */
 .ow-qpanel .ow-textarea { field-sizing: content; }
 .ow-qrule { display: block; margin-bottom: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* C2: the extra rules so far, in ink after their muted label, as the owner wrote them. */
+.ow-qformer span { color: var(--color-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ow-qcmp { display: grid; gap: 6px; }
 .ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }

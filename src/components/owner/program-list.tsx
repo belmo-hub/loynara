@@ -34,19 +34,19 @@ export function programSections({ me, program, winback, referrals, nfc, logo }: 
   const type = program.programType, points = type === "points", referral = program.referral, rate = program.pointsPerCurrencyUnit;
   const reviews = referrals.filter(item => item.status === "review").length;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
-  // By purchase amount the card states the earning itself, and the owner's text holds extra rules only (W51).
+  // By purchase amount the card states the earning itself, and the owner's text holds extra rules only (W51): the earning
+  // row comes first, then what adds to it.
   const rules = program.ownerRulesText ?? program.rulesText, extras = ruleKind(type, program.earningMode) === "purchase";
+  const rule: Row = { ...ask("rule"), icon: ScrollText, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) };
+  const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
       ...program.rewards.map(reward => ({ href: `/merchant/program/rewards/${reward.rewardId}`, icon: Gift, title: reward.title, sub: `Einlösbar ab ${nf.format(reward.cost)} ${reward.cost === 1 ? unitName(type, 1) : unitDative(type)}` })),
       { href: "/merchant/program/rewards/new", icon: Plus, title: "Prämie hinzufügen" },
     ] },
     { title: "So sammeln Kunden", rows: [
-      { ...ask("rule"), icon: ScrollText, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) },
-      ...(points ? [
-        { ...ask("earning"), icon: Coins, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" },
-        { ...ask("points-expiry"), icon: Hourglass, ...(me.pointsExpiryMonths ? { sub: `Nach ${me.pointsExpiryMonths} Monaten` } : off("Nie")) },
-      ] : []),
+      ...(extras ? [...earning, rule] : [rule, ...earning]),
+      ...(points ? [{ ...ask("points-expiry"), icon: Hourglass, ...(me.pointsExpiryMonths ? { sub: `Nach ${me.pointsExpiryMonths} Monaten` } : off("Nie")) }] : []),
       ...(nfc ? [{ ...ask("nfc"), icon: Nfc, ...(tap ? { sub: tap.label } : off("Aus")) }] : []),
     ] },
     { title: "Extras", note: EXCLUDED_GOODS, rows: [

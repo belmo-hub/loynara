@@ -8,7 +8,7 @@ import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerIcon } from "./owner-ui";
-import { confirmSentence, draftRules, earningSentence, euro, EXTRA_RULES_HINT, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, RULE_PLACEHOLDER, ruleKind, SHORT_RULE, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
+import { confirmSentence, draftRules, earningSentence, euro, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, RULE_PLACEHOLDER, ruleKind, SETUP_EXTRA_RULES_HINT, SHORT_RULE, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Preset = { id: string; label: string; type: ProgramKind; mode: EarningMode; rate: number; reward: string; cost: number };
 // Editable starting points only. They are examples, not approved or recommended commercial programmes.
@@ -154,7 +154,7 @@ export function ProgramSetup() {
             </div>
             {f.type === "points" && effectiveMode === "purchase" && <Field id="su-rate" label={`Punkte pro 1 ${currency === "EUR" ? "€" : currency}`} error={err("rate")}><input id="su-rate" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={f.rate} onChange={event => set({ rate: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={Boolean(err("rate"))} /></Field>}
             <div className="ow-readonly"><strong style={{ display: "block", marginBottom: 2 }}>Wer bestätigt?</strong>{confirmSentence(f.type, effectiveMode)}</div>
-            <Field id="su-rules" label={extras ? EXTRA_RULES_LABEL : "Regeltext für Kunden"} error={err("rules")} hint={extras ? EXTRA_RULES_HINT : "Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}>
+            <Field id="su-rules" label={extras ? EXTRA_RULES_LABEL : "Regeltext für Kunden"} error={err("rules")} hint={extras ? SETUP_EXTRA_RULES_HINT : "Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}>
               <textarea id="su-rules" className="ow-textarea" rows={4} value={rulesText} maxLength={3000} placeholder={RULE_PLACEHOLDER[kind]} onChange={event => set({ rules: event.target.value, rulesEdited: true })} aria-invalid={Boolean(err("rules"))} />
             </Field>
           </>}

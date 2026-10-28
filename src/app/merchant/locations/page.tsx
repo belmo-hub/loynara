@@ -7,6 +7,7 @@ import { clearFlash, peekFlash, setFlash } from "@/components/owner/flash";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { locationCreateMessage, locationSwitchMessage } from "@/components/owner/owner-errors";
 import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
+import { EXTRA_RULES_LABEL, RULE_PLACEHOLDER, SETUP_EXTRA_RULES_HINT } from "@/components/owner/program-helpers";
 import { useLoad } from "@/components/owner/use-load";
 
 type Location = {
@@ -84,9 +85,15 @@ export default function MerchantLocationsPage() {
             <Field id="lc-city" label="Stadt"><input id="lc-city" className="ow-input" value={draft.city} onChange={event => set({ city: event.target.value })} minLength={2} maxLength={120} required /></Field>
             <Field id="lc-tz" label="Zeitzone"><input id="lc-tz" className="ow-input" value={draft.timezone} onChange={event => set({ timezone: event.target.value })} minLength={3} maxLength={80} required /></Field>
             <Field id="lc-prog" label="Programmname"><input id="lc-prog" className="ow-input" value={draft.programName} onChange={event => set({ programName: event.target.value })} minLength={2} maxLength={180} required /></Field>
-            <Field id="lc-type" label="Programmtyp"><select id="lc-type" className="ow-select" value={draft.programType} onChange={event => set({ programType: event.target.value as Draft["programType"] })}><option value="stamp">Stempel, manuelle Vergabe</option><option value="points">Punkte je Kaufbetrag</option></select></Field>
+            {/* Into points by purchase amount the text starts over as extra rules, as in setup (W51). */}
+            <Field id="lc-type" label="Programmtyp"><select id="lc-type" className="ow-select" value={draft.programType} onChange={event => set({ programType: event.target.value as Draft["programType"], ...(event.target.value === "points" ? { rulesText: "" } : {}) })}><option value="stamp">Stempel, manuelle Vergabe</option><option value="points">Punkte je Kaufbetrag</option></select></Field>
             {draft.programType === "points" && <Field id="lc-rate" label={`Punkte pro 1 ${l.currency}`}><input id="lc-rate" className="ow-input" type="number" value={draft.pointsPerCurrencyUnit} onChange={event => set({ pointsPerCurrencyUnit: Number(event.target.value) })} min={1} max={1000} step={1} required /></Field>}
-            <Field id="lc-rules" label="Teilnahmebedingungen"><textarea id="lc-rules" className="ow-textarea" value={draft.rulesText} onChange={event => set({ rulesText: event.target.value })} minLength={10} maxLength={3000} rows={4} required /></Field>
+            {/* Points here earn by the purchase amount: the card states that rule, so the text holds optional extra rules. */}
+            <Field id="lc-rules" label={draft.programType === "points" ? EXTRA_RULES_LABEL : "Teilnahmebedingungen"}>
+              <textarea id="lc-rules" className="ow-textarea" value={draft.rulesText} onChange={event => set({ rulesText: event.target.value })} maxLength={3000} rows={4}
+                {...(draft.programType === "points" ? { placeholder: RULE_PLACEHOLDER.purchase, "aria-describedby": "lc-rules-hint" } : { minLength: 10, required: true })} />
+              {draft.programType === "points" && <span id="lc-rules-hint" className="ow-hint">{SETUP_EXTRA_RULES_HINT}</span>}
+            </Field>
             <Field id="lc-reward" label="Erste Prämie"><input id="lc-reward" className="ow-input" value={draft.rewardTitle} onChange={event => set({ rewardTitle: event.target.value })} minLength={2} maxLength={180} required /></Field>
             <Field id="lc-cost" label={`Kosten in ${draft.programType === "stamp" ? "Stempeln" : "Punkten"}`}><input id="lc-cost" className="ow-input" style={{ maxWidth: 200 }} type="number" value={draft.rewardCost} onChange={event => set({ rewardCost: Number(event.target.value) })} min={1} max={100000} step={1} required /></Field>
             <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy}>{busy ? "Wird angelegt …" : "Standort und Programm anlegen"}</button></div>

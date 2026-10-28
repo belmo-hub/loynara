@@ -7,6 +7,7 @@ import { createMerchant, enroll, getCard, getPublicProgram, lookupCard, updatePr
 import { credentialHash } from "./wallet/data";
 import { deliverWalletMessage, setWalletConsent, type WalletMessageSend } from "./wallet-messages";
 import { winbackRule } from "./wallet-message-rules";
+import { EXCLUDED_GOODS } from "./card-extras";
 import { getWinback, queueWinbackMessages, updateWinback } from "./winback";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
@@ -146,7 +147,10 @@ describe("win-back bonus at the counter", () => {
     const rule = winbackRule("stamp", 30, 1);
     expect(rule).toBe("Willkommen-zurück-Bonus: Warst du 30 Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal 1 Stempel extra. Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
     expect((await getCard(c.cardToken)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${rule}`);
-    expect((await getPublicProgram(s.slug)).rulesText).toBe(`Ein Stempel pro Besuch.\n\n${rule}`);
+    // The sign-up page prints Legal's exclusions once, after all rules (join-client), so its win-back line leaves them out.
+    const join = (await getPublicProgram(s.slug)).rulesText;
+    expect(join).toBe(`Ein Stempel pro Besuch.\n\n${winbackRule("stamp", 30, 1, true, false)}`);
+    expect(`${join}\n\n${EXCLUDED_GOODS}`.split(EXCLUDED_GOODS)).toHaveLength(2); // exactly once on the page
     // The owner's rule editor gets only the owner's text, so a save never stores the bonus line (ENG-089).
     expect((await getPublicProgram(s.slug)).ownerRulesText).toBe("Ein Stempel pro Besuch.");
   });

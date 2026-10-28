@@ -42,6 +42,38 @@ async function withForgedSelection(baseURL: string, source: APIRequestContext, l
   return apiRequest.newContext({ baseURL, storageState: state, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
 }
 
+test("a new points location takes optional extra rules, a stamp location still needs its rule (ENG-099 3c)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const owner = await signup(url, "rules-owner");
+  try {
+    await onboard(owner.context, "Synthetic Rules A");
+    const context = await browser.newContext({ baseURL: url, storageState: await owner.context.storageState() });
+    try {
+      const page = await context.newPage();
+      const posts: string[] = [];
+      page.on("request", request => { if (request.method() === "POST" && new URL(request.url()).pathname === "/api/merchant/locations") posts.push(request.postData() ?? ""); });
+      await page.goto("/merchant/locations");
+      await page.getByLabel("Standortname").fill("Synthetic Rules Counter");
+      await page.getByLabel("Stadt").fill("Bonn");
+      await page.getByLabel("Programmname").fill("Synthetic rules card");
+      await page.getByLabel("Erste Prämie").fill("Kaffee");
+      const create = page.getByRole("button", { name: "Standort und Programm anlegen" });
+      await page.getByLabel("Teilnahmebedingungen").fill("Zu kurz.");
+      await create.click();
+      expect(await page.getByLabel("Teilnahmebedingungen").evaluate(field => (field as HTMLTextAreaElement).validity.tooShort)).toBe(true);
+      expect(posts).toHaveLength(0);
+      // Points earn by the purchase amount here: the card states that rule, so the field is for optional extra rules.
+      await page.getByLabel("Programmtyp").selectOption("points");
+      const extras = page.getByLabel("Weitere Regeln (optional)", { exact: true });
+      await expect(extras).toHaveValue("");
+      await expect(extras).toHaveAttribute("placeholder", "z. B. Karte vor dem Bezahlen zeigen. Nachträglich gibt es keine Punkte.");
+      await create.click();
+      await expect(page.getByRole("status").filter({ hasText: "Standort mit eigenem Programm" })).toBeVisible();
+      expect(posts.map(body => JSON.parse(body))).toMatchObject([{ programType: "points", earningMode: "purchase", rulesText: "" }]);
+    } finally { await context.close(); }
+  } finally { await owner.context.dispose(); }
+});
+
 test("owner creates and selects a second location without crossing card or staff boundaries", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const ownerA = await signup(url, "multi-owner-a");
