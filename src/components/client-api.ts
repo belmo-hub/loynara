@@ -49,6 +49,8 @@ export type MeResponse = {
   role: "owner" | "manager" | "cashier";
   businessName: string;
   locationName: string;
+  /** The active location's colour (#RRGGBB) for card previews. Owner only, like the brand read; absent for managers and cashiers. */
+  brandColor?: string;
   publicBaseUrl: string;
   locale?: "de" | "fr";
   programSlug: string;

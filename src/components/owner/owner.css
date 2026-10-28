@@ -541,7 +541,7 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 @media (min-width: 1024px) {
   .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "board side" "diary side"; align-items: start; column-gap: var(--space-6); }
   .ow-dash > .ow-dash-notice { grid-area: notice; }
-  .ow-dash > .ow-board, .ow-dash > .ow-dash-error { grid-area: board; }
+  .ow-dash > .ow-board, .ow-dash > .ow-dash-error, .ow-dash > .ow-dash-lead { grid-area: board; }
   .ow-dash > .ow-diary { grid-area: diary; }
   .ow-dash > .ow-dash-side { grid-area: side; position: sticky; top: var(--space-6); }
   .ow-dash--single { grid-template-columns: minmax(0, 720px); grid-template-areas: "notice" "board" "diary"; }
@@ -584,6 +584,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 @keyframes ow-pulse { 50% { opacity: .45; } }
 
 .ow-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+/* Three tiles (the ENG-095 block replaces „Wiedergekommen“): the last one takes the whole row. */
+.ow-tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .ow-tile { padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
 .ow-tile-n { display: block; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); color: var(--color-ink); }
 .ow-tile-note { display: block; font-size: var(--text-14); color: var(--color-ink-muted); }
@@ -622,7 +624,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 /* The redeemed reward is the one coral element on the screen (spec §4.2). */
 .ow-pill[data-kind="redemption"] { border-color: var(--color-stamp); }
 .ow-pill[data-kind="redemption"] b { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--color-stamp); }
-.ow-tiles-title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+/* `.owner-app` so the muted colour beats `.owner-app h2` (it rendered in ink before ENG-095); the h2 weight 650 stays. */
+.owner-app .ow-tiles-title { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Label on its own row; the „?“ shares the note row (same grid cell as the body, end-aligned), outside the body's link. */
 .ow-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; }
 /* Only a soft hyphen in the label may break a word (hyphens: manual). */
@@ -752,3 +755,31 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qlink[aria-expanded="true"] svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .ow-qlink svg { transition: none; } }
 .ow-qlink:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ENG-095, under the board: customers back with the bonus or new on a referral. Nothing here is earned, so no coral. */
+.ow-brought, .ow-brought-off { border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-brought { padding: var(--space-4); }
+.ow-brought-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.ow-brought-head .ow-tile-q { flex: none; align-self: flex-start; }
+/* `.ow-brought p` beats `.owner-app p { margin: 0 }`. */
+.ow-brought .ow-brought-n { margin-top: var(--space-1); font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
+.ow-brought-lines, .ow-brought .ow-brought-all { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+/* Rows sit further apart than the lines of a wrapped label, so „mit Bonus“ never reads as a row of its own. */
+.ow-brought-lines { display: grid; gap: var(--space-2); }
+.ow-brought-lines div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: var(--space-3); line-height: 1.25; }
+.ow-brought-lines dt { flex: 1 1 0; min-width: 0; text-wrap: balance; }
+.ow-brought-lines dd { margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The till-amount sub-line takes its own row under „Umsatz dieser Buchungen“. */
+.ow-brought-lines dd + dd { flex-basis: 100%; font-weight: var(--weight-body); white-space: normal; }
+.ow-brought-lines dd + dd, .ow-brought-all { font-size: var(--text-14); color: var(--color-ink-muted); }
+/* The all-card figure in regular weight, so it reads as context, not as the base of a ratio (Design). */
+.ow-brought-all span { color: var(--color-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-brought-off { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); color: var(--color-ink); text-decoration: none; transition: transform var(--dur-press) var(--ease-out); }
+.ow-brought-off:active { transform: scale(.97); }
+.ow-brought-off > span:first-child { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); }
+.ow-brought-off > span + span { flex: 1; min-width: 0; }
+.ow-brought-off b { display: block; font-weight: var(--weight-strong); line-height: 1.3; }
+.ow-brought-off small { display: block; margin-top: 2px; color: var(--color-ink-muted); }
+.ow-brought-off:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-brought-off > svg { flex: none; color: var(--color-ink-muted); }
+@media (prefers-reduced-motion: reduce) { .ow-brought-off { transition: none; } .ow-brought-off:active { transform: none; } }

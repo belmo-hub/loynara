@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { withUnit } from "@/lib/units";
 import { BrowserCardPreview, CodeMock, type CardPreviewProps } from "./card-preview";
 import { readableInk } from "./color";
 
@@ -16,7 +17,7 @@ function progress(data: PreviewData) {
   const unit = data.programType === "points" ? "Punkte" : "Stempel";
   const cost = Math.max(1, data.rewardCost);
   const ready = data.balance >= cost;
-  return { unit, ready, balance: data.programType === "stamp" ? `${data.balance} / ${cost}` : String(data.balance), status: ready ? "An der Kasse einlösen" : `Noch ${cost - data.balance} ${unit}` };
+  return { unit, ready, balance: data.programType === "stamp" ? `${data.balance} / ${cost}` : String(data.balance), status: ready ? "An der Kasse einlösen" : `Noch ${withUnit(cost - data.balance, data.programType)}` };
 }
 
 /** Mirrors lib/wallet/apple: automatic light/dark text, PNG logo when present, progress in the header. */

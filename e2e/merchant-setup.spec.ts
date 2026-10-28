@@ -21,7 +21,7 @@ test("guided setup walks four steps, validates inline and previews the card befo
   // Step 2: earning sentence and who confirms are separate; an editable rule text is proposed.
   await expect(page.getByRole("heading", { name: "Wie sammeln Kunden?" })).toBeVisible();
   await expect(page.getByText("Wer bestätigt?")).toBeVisible();
-  await expect(page.getByLabel("Regeltext für Kunden")).toHaveValue(/Stempel/);
+  await expect(page.getByLabel("Regeltext für Kunden")).toHaveValue("Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse.");
   await page.getByRole("button", { name: "Weiter", exact: true }).click();
 
   // Step 3: preset values are only examples and stay editable; the cost is never silently zero.

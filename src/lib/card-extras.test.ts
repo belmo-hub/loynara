@@ -35,4 +35,12 @@ describe("challengeSentence in the card's language", () => {
     expect(fr.conditions).toBe("Seules les visites confirmées en caisse comptent, une par jour au maximum. Valable jusqu’au 31/10/2026. Hors tabac, presse, livres, loterie et recharges téléphoniques.");
     expect(challengeSentence(3, 1, "stamp", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 1 tampon supplémentaire.");
   });
+  it("says a one-point bonus in the singular, in German and French (ENG-104)", () => {
+    expect(challengeSentence(3, 1, "points", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 1 Punkt extra.");
+    expect(challengeSentence(3, 2, "points", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 2 Punkte extra.");
+    expect(challengeSentence(3, 1, "points", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 1 point supplémentaire.");
+    expect(challengeSentence(3, 2, "points", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 2 points supplémentaires.");
+    expect(challengeSentence(3, 1, "stamp", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 1 Stempel extra.");
+    expect(challengeSentence(3, 2, "stamp", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 2 tampons supplémentaires.");
+  });
 });

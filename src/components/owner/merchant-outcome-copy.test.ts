@@ -10,11 +10,26 @@ describe("merchant outcome descriptions", () => {
     // Correcting it returns 0 on the server, whereas the individual entry changes it to 2.
     const html = renderToStaticMarkup(createElement(CorrectionDialog, {
       entry: { id: "checkout", kind: "award", delta: 1, source: "staff_online", createdAt: "2026-10-01T12:00:00Z", reversalOfId: null, reversed: false, rewardTitle: null, reason: null },
-      unit: "Stempel", locationId: "location", balance: 3, onClose: () => {}, onDone: () => {},
+      kind: "stamp", locationId: "location", balance: 3, onClose: () => {}, onDone: () => {},
     }));
     expect(html).not.toContain("nach Korrektur");
     expect(html).toContain("Empfehlungsboni");
     expect(html).toContain("endgültigen Stand");
+  });
+
+  it("counts one point in the singular when a correction is previewed (ENG-108)", () => {
+    const dialog = (delta: number, balance: number) => renderToStaticMarkup(createElement(CorrectionDialog, {
+      entry: { id: "checkout", kind: "award", delta, source: "staff_online", createdAt: "2026-10-01T12:00:00Z", reversalOfId: null, reversed: false, rewardTitle: null, reason: null },
+      kind: "points", locationId: "location", balance, onClose: () => {}, onDone: () => {},
+    }));
+    expect(dialog(1, 1)).toMatch(/· \+1 Punkt<\/p>/);
+    expect(dialog(1, 1)).toContain('Stand jetzt <strong class="ow-num">1 Punkt</strong>');
+    expect(dialog(1, 1)).toContain('nur dieser Vorgang <strong class="ow-num">0 Punkte</strong>');
+    expect(dialog(1, 1)).toContain("Loynara bucht <strong>-1 Punkt</strong>");
+    expect(dialog(2, 3)).toMatch(/· \+2 Punkte<\/p>/);
+    expect(dialog(2, 3)).toContain('Stand jetzt <strong class="ow-num">3 Punkte</strong>');
+    expect(dialog(2, 3)).toContain('nur dieser Vorgang <strong class="ow-num">1 Punkt</strong>');
+    expect(dialog(2, 3)).toContain("Loynara bucht <strong>-2 Punkte</strong>");
   });
 
   it("keeps signup, pending, credited and review counts distinct without deriving visits from bonus status", () => {

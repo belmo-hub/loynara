@@ -1,3 +1,5 @@
+import { unitWord } from "./units";
+
 type CounterSignInput = {
   businessName: string;
   locationName: string;
@@ -26,7 +28,7 @@ export function counterSignHtml(input: CounterSignInput): string {
   }
   const dense = Math.max(input.businessName.length, input.locationName.length, input.rewardTitle.length) > 55
     || input.businessName.length + input.locationName.length + input.rewardTitle.length > 120;
-  const reward = `<p class="reward">${escapeHtml(String(input.rewardCost))} ${input.programType === "points" ? "Punkte" : "Stempel"} → ${escapeHtml(input.rewardTitle)}</p>`;
+  const reward = `<p class="reward">${escapeHtml(String(input.rewardCost))} ${unitWord(input.rewardCost ?? 0, input.programType ?? "stamp")} → ${escapeHtml(input.rewardTitle)}</p>`;
   return `<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(input.businessName)} · Anmeldeschild</title>
 <style>

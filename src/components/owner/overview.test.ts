@@ -46,18 +46,26 @@ describe("buildInsights", () => {
   it("never links to campaigns where they are withheld or for managers", () => {
     expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: false, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
     expect(hrefs(buildInsights({ summary, unit: "Stempel", isOwner: false, campaigns: true, referrals: null })).some(href => href.includes("campaigns"))).toBe(false);
+    // ENG-112: the Leitung reads the win-back counts too, but only the owner can switch the bonus on.
+    const forManager = buildInsights({ summary, unit: "Stempel", isOwner: false, campaigns: true, referrals: null, winback: { enabled: false, inWindow: 0 } }).find(item => item.id === "drifting")!;
+    expect(forManager.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
   });
 
   it("points drifting cards to the Wallet win-back where it is offered (O8)", () => {
     const drifting = (winback?: { enabled: boolean; inWindow: number } | null) => buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: null, winback }).find(item => item.id === "drifting")!;
     expect(drifting(null).actions).toEqual([{ label: "Karten ansehen", href: "/merchant/customers?activity=drifting&days=30&scope=all" }]);
     expect(drifting(null).next).toBeUndefined();
-    expect(drifting({ enabled: false, inWindow: 0 }).actions.at(-1)).toEqual({ label: "Willkommen-zurück-Bonus einschalten", href: "/merchant/wallet-messages#winback-title" });
+    expect(drifting({ enabled: false, inWindow: 0 }).actions.at(-1)).toEqual({ label: "Willkommen-zurück-Bonus einschalten", href: "/merchant/program/winback" });
     const on = drifting({ enabled: true, inWindow: 3 });
     expect(on.next).toBe("3 Karten bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen.");
     expect(on.why).toContain(on.next);
     expect(on.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
     expect(drifting({ enabled: true, inWindow: 1 }).next).toBe("1 Karte bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt.");
+    // ENG-111 (Marketing): no card in the window, no „0 Karten bekommen …“; the bar keeps its title and „Ansehen“.
+    const none = drifting({ enabled: true, inWindow: 0 });
+    expect(none.next).toBeUndefined();
+    expect(none.why).toBe("Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten 30 Tagen. Vor einer Woche waren es 4. Warum, wissen wir nicht.");
+    expect(none.actions.map(action => action.label)).toEqual(["Karten ansehen"]);
   });
 
   it("says nothing when the data shows nothing", () => {

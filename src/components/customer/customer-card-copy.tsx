@@ -1,7 +1,9 @@
+import { unitWord } from "@/lib/units";
+
 // Guest card copy in German (Du-form) and French. Texts that e2e specs read are kept word for word.
 const de = {
   yourCard: "Deine Treuekarte", cardLabel: "Deine Treuekarte", footer: "Mit Loynara",
-  stamps: "Stempel", points: "Punkte", point: "Punkt",
+  unit: (n: number, kind: "stamps" | "points") => unitWord(n, kind, "de"),
   still: "Noch",
   // The card's progress line says what the Wallet reminder says (Marketing, 23 Oct): the reward after a colon, no quotes.
   toReward: (unit: string) => `${unit} bis zu deiner Prämie:`,
@@ -41,7 +43,7 @@ const de = {
   expiryList: "Deine Punkte verfallen:", more: "Außerdem",
   // ENG-089 (Marketing v1.8 §9, Legal 24 Oct): a card inside its win-back window; [Datum] is the window's last day. The
   // „Bedingungen“ link to the rules is Legal's condition for leaving the exclusions out of this line.
-  winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Bis zum ${day} gibt's bei deinem nächsten Besuch ${points ? `${bonus} Punkte` : "1 Stempel"} extra.`,
+  winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Bis zum ${day} gibt's bei deinem nächsten Besuch ${points ? `${bonus} ${bonus === 1 ? "Punkt" : "Punkte"}` : "1 Stempel"} extra.`,
   conditions: "Bedingungen",
   happyHour: (until: string) => `Doppelte Punkte bis ${until}`, rules: "Programmregeln", news: "Neuigkeiten", review: "Hat es dir gefallen? Hinterlass uns eine Bewertung.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
   closeCard: "Karte schließen", confirmClose: "Schließung verbindlich bestätigen", closing: "Wird geschlossen …",
@@ -54,7 +56,7 @@ export type Copy = typeof de;
 
 const fr: Copy = {
   yourCard: "Votre carte de fidélité", cardLabel: "Votre carte de fidélité", footer: "Avec Loynara",
-  stamps: "tampons", points: "points", point: "point",
+  unit: (n, kind) => unitWord(n, kind, "fr"),
   still: "Encore",
   toReward: (unit) => `${unit} avant votre récompense :`,
   readyFor: "Votre récompense est prête :",
@@ -90,7 +92,7 @@ const fr: Copy = {
   challenge: "Défi du mois", challengeDone: "Réussi ! Le bonus a été crédité.", challengeDoneShort: "réussi",
   challengeProgress: (visits, target) => `${visits} visite${visits === 1 ? "" : "s"} sur ${target}`,
   expiryList: "Vos points expirent :", more: "Également",
-  winback: (points, bonus, day) => `Bon retour ! Jusqu’au ${day}, votre prochaine visite vous rapporte ${points ? `${bonus} points supplémentaires` : "1 tampon supplémentaire"}.`,
+  winback: (points, bonus, day) => `Bon retour ! Jusqu’au ${day}, votre prochaine visite vous rapporte ${points ? `${bonus} ${bonus === 1 ? "point supplémentaire" : "points supplémentaires"}` : "1 tampon supplémentaire"}.`,
   conditions: "Conditions",
   happyHour: (until: string) => `Points doubles jusqu’à ${until}`, rules: "Règles du programme", news: "Actualités", review: "Ça vous a plu ? Laissez-nous un avis.", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",
   closeCard: "Fermer ma carte", confirmClose: "Confirmer la fermeture définitive", closing: "Fermeture …",
