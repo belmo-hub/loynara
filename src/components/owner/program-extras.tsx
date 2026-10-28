@@ -42,9 +42,9 @@ function WelcomeBonus({ me }: { me: MeResponse }) {
       {stamp
         ? <Choices name="welcome-bonus" label="Startbonus" value={value} saved={saved} onChange={setValue}
           options={[{ value: "0", label: "Aus", sub: "Kein Startbonus", icon: X }, ...[1, 2, 3].map(n => ({ value: String(n), label: `+${n} Stempel`, icon: Plus }))]} />
-        : <div className="ow-qnumber" data-typed>{/* 0 to 50 in ones: the number looks like the field it is, so owners type */}
+        : <div className="ow-qnumber" data-typed>{/* 0 to 50 in fives, as PR 2's points: the number looks like the field it is, so other values are typed */}
           <label htmlFor="welcome-bonus" className="ow-sr">Startbonus</label>
-          <NumberStepper id="welcome-bonus" value={value} onChange={next => setValue(next && String(Math.min(Number(next), max)))} min={0} max={max} unit={unit} bonus offAtZero invalid={Boolean(error)} describedBy={error ? "welcome-bonus-hint" : undefined} />
+          <NumberStepper id="welcome-bonus" value={value} onChange={next => setValue(next && String(Math.min(Number(next), max)))} min={0} max={max} stepSize={5} unit={unit} bonus offAtZero invalid={Boolean(error)} describedBy={error ? "welcome-bonus-hint" : undefined} />
           <FieldError id="welcome-bonus-hint">{error}</FieldError>
         </div>}
     </QuestionForm>
@@ -94,7 +94,7 @@ function Levels({ me }: { me: MeResponse }) {
   // No default thresholds (Product): switching levels on needs both.
   const q = useQuestion("levels", JSON.stringify(draft) !== JSON.stringify(saved), draft.on ? {
     "level-silver": wholeIn(draft.silver, 2, 50) ? "" : rangeError(2, 50),
-    "level-gold": !wholeIn(draft.gold, 3, 90) ? rangeError(3, 90) : Number(draft.gold) <= Number(draft.silver) ? "Gold braucht mehr Besuche als Silber." : "",
+    "level-gold": !wholeIn(draft.gold, 3, 90) ? rangeError(3, 90) : Number(draft.gold) <= Number(draft.silver) ? "Gold braucht mehr Buchungstage als Silber." : "",
     ...Object.fromEntries(PERKS.map(([, key]) => [key, perk(key)])),
   } : {});
   const edit = (patch: Partial<typeof draft>) => setDraft(value => ({ ...value, ...patch }));
@@ -144,7 +144,7 @@ function News({ me, program }: { me: MeResponse; program: PublicProgram }) {
         <p className="ow-qcount"><span id="card-news-hint">Nur Text, keine Links</span><span>{Array.from(text).length}/{CARD_NEWS_MAX}</span></p>
       </div>
       {shown && <div className="ow-qpanel"><CardLinePreview label="So steht es auf der Karte" shop={program.businessName} brandColor={program.brandColor}>{shown}</CardLinePreview></div>}
-      {saved && <button type="button" className="ow-qlink" data-danger onClick={() => void q.save(EXTRAS, { programId: me.programId, cardNews: "" }, true)}>Neuigkeit entfernen</button>}
+      {saved && <button type="button" className="ow-qlink" data-danger onClick={() => void q.save(EXTRAS, { programId: me.programId, cardNews: "" }, "Neuigkeit entfernt")}>Neuigkeit entfernen</button>}
     </QuestionForm>
   );
 }
@@ -163,6 +163,7 @@ function ReviewLink({ me }: { me: MeResponse }) {
           aria-invalid={Boolean(error)} aria-describedby={error ? "review-url-error review-url-hint" : "review-url-hint"} />
         <FieldError id="review-url-error">{error}</FieldError>
         <p id="review-url-hint" className="ow-hint">Den Link findest du in deinem Google-Unternehmensprofil.</p>
+        <p className="ow-hint">Ab der dritten bestätigten Buchung zeigt die Karte den Link. Für eine Bewertung gibt es keine Prämie.</p>
       </div>
     </QuestionForm>
   );
@@ -203,6 +204,8 @@ function PointsExpiry({ me }: { me: MeResponse }) {
       onSubmit={() => void q.save(EXTRAS, { programId: me.programId, pointsExpiryMonths: value ? Number(value) : null })}>
       <Choices name="points-expiry" label="Punkte verfallen" value={value} saved={saved} onChange={setValue}
         options={[{ value: "", label: "Nie", icon: X }, ...POINTS_EXPIRY_MONTHS.map(months => ({ value: String(months), label: `Nach ${months} Monaten`, icon: Hourglass }))]} />
+      {/* The card warns EXPIRY_REMINDER_DAYS (30) days ahead. */}
+      {value && <p className="ow-hint">30 Tage vor dem Verfall sehen Kunden einen Hinweis auf ihrer Karte.</p>}
     </QuestionForm>
   );
 }

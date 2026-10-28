@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, type LucideIcon } from "lucide-react";
+import { Check, ChevronLeft, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ClientApiError, postJson } from "@/components/client-api";
@@ -9,10 +9,11 @@ import { GuardedLink } from "./owner-shell";
 import { Notice, OwnerIcon } from "./owner-ui";
 import { markSaved } from "./program-list";
 
-/** After a save: fresh account values, then back on the list with `row` outlined (Design rule 10), by default this page's. */
+/** After a save: fresh account values, then back on the list with `row` outlined (Design rule 10), by default this page's,
+ *  and the toast's words if the save was more than a save. */
 export function useBackToList() {
   const owner = useOwner(), router = useRouter(), path = usePathname();
-  return (row = path) => void owner.refresh().then(() => { markSaved(row, path); router.push("/merchant/program", { scroll: false }); });
+  return (row = path, toast?: string) => void owner.refresh().then(() => { markSaved(row, path, toast); router.push("/merchant/program", { scroll: false }); });
 }
 
 // Server diagnostics stay off the page: a lost connection or a rate limit says what to do (client-api), and the server's
@@ -40,13 +41,13 @@ export function useQuestion(key: string, changed: boolean, problems: Record<stri
     if (first) { setTried(true); document.getElementById(first)?.focus(); }
     return !first;
   }
-  /** `force` saves as it stands, for an action that replaces the answer („Neuigkeit entfernen“). */
-  async function save(url: string, body: object, force = false) {
+  /** `action` is a save that replaces the answer („Neuigkeit entfernen“): it saves as it stands, and the toast says `action`. */
+  async function save(url: string, body: object, action?: string) {
     if (busy) return;
-    if (!force && !changed) { leave(); return; }
-    if (!force && !check()) return;
+    if (!action && !changed) { leave(); return; }
+    if (!action && !check()) return;
     setBusy(true); setFailed("");
-    try { await postJson(url, body); done(); } catch (cause) { setFailed(failure(cause)); setBusy(false); }
+    try { await postJson(url, body); done(undefined, action); } catch (cause) { setFailed(failure(cause)); setBusy(false); }
   }
   return { busy, failed, check, save, leave, error: (id: string) => (tried && problems[id]) || "" };
 }
@@ -106,6 +107,7 @@ export function Choices({ name, label, options, value, saved, onChange }: { name
           <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} onChange={() => onChange(option.value)} />
           <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
           <span className="ow-prog-text"><strong>{option.label}</strong>{sub && <small>{sub}</small>}</span>
+          {option.value === value && <Check className="ow-qchoice-check" size={22} aria-hidden="true" />}
         </label>;
       })}
     </fieldset>
