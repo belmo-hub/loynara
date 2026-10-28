@@ -35,7 +35,7 @@ test("failed and mismatched cancellation responses never confirm another invitat
  for(const mismatched of [false,true]){
   await page.route("**/api/staff/invite/revoke",route=>route.fulfill({status:mismatched?200:500,contentType:"application/json",body:JSON.stringify(mismatched?{inviteId:randomUUID(),status:"revoked"}:{error:"Synthetic cancellation unavailable"})}));
   await row.getByRole("button").click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();
-  await expect(page.locator('.ow-notice[role="alert"]')).toBeVisible();await expect(page.locator("#ow-main")).toHaveCount(0);await expect(row).toContainText("Offen");
+  await expect(page.locator('.ow-notice[role="alert"]')).toBeVisible();await expect(page.getByRole("button",{name:"Einladung widerrufen",exact:true})).toHaveCount(0);await expect(row).toContainText("Offen");
   await expect(page.getByText(`Die Einladung für ${email} wurde widerrufen.`,{exact:true})).toHaveCount(0);await page.unroute("**/api/staff/invite/revoke");
  }
  expect((await pool.query("SELECT revoked_at FROM staff_invites WHERE id=$1",[invite.id])).rows).toEqual([{revoked_at:null}]);

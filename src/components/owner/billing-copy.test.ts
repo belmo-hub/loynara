@@ -15,7 +15,7 @@ describe("Abrechnung wording (ENG-122c, R17 FINAL, D-021)", () => {
   });
   it("labels a state by the billing mode: live (Stripe) or the local payment test", () => {
     expect(billingStatus({ liveBilling: true, status: "manual_pending" })).toBe("Noch kein Abo");
-    expect(billingStatus({ liveBilling: false, status: "manual_pending" })).toBe("Entwurf ohne Zahlung");
+    expect(billingStatus({ liveBilling: false, status: "manual_pending" })).toBe("Noch kein Abo") // Marketing FINAL while billing is off;
     expect(billingStatus({ liveBilling: true, status: "unknown_state" })).toBe("unknown_state");
   });
 });
