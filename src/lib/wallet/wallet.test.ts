@@ -317,7 +317,7 @@ describe("Apple pass", () => {
       writeFileSync(archive, buffer);
       const files = execFileSync("unzip", ["-Z1", archive], { encoding: "utf8" }).trim().split("\n");
       expect(files).toEqual(expect.arrayContaining(["pass.json", "manifest.json", "signature", "icon.png", "icon@2x.png", "icon@3x.png", "logo.png", "logo@2x.png", "strip.png", "strip@2x.png", "strip@3x.png"]));
-      expect(execFileSync("unzip", ["-p", archive, "strip@3x.png"])).toEqual(stripPng("stamp", 7, 10, 3));
+      expect(execFileSync("unzip", ["-p", archive, "strip@3x.png"])).toEqual(stripPng("stamp", 7, [10], 3));
       expect(execFileSync("unzip", ["-p", archive, "icon@3x.png"])).toEqual(iconPng(3, pass.brandColor));
       const manifest = JSON.parse(execFileSync("unzip", ["-p", archive, "manifest.json"], { encoding: "utf8" }));
       for (const name of files.filter(file => file !== "manifest.json" && file !== "signature")) {

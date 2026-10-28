@@ -199,14 +199,14 @@ const run = promisify(execFile);
  * Signs and zips one pass. OpenSSL and zip must exist in the runtime image (see Dockerfile and scripts/wallet-runtime-check.ts).
  * A live card with a target reward gets its progress strip; a voided pass and a programme without a reward get none.
  */
-export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo"> & Partial<Pick<WalletPassData, "programType" | "balance" | "reward">>, config: AppleSigningConfig): Promise<Buffer> {
+export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo"> & Partial<Pick<WalletPassData, "programType" | "balance" | "reward" | "rewards">>, config: AppleSigningConfig): Promise<Buffer> {
   const dir = await mkdtemp(join(tmpdir(), "loynara-pass-"));
   try {
     const files = new Map<string, Buffer>();
     files.set("pass.json", Buffer.from(JSON.stringify(passJson)));
     for (const [suffix, scale] of [["", 1], ["@2x", 2], ["@3x", 3]] as const) {
       files.set(`icon${suffix}.png`, iconPng(scale, brand.brandColor));
-      if (brand.reward && brand.balance !== undefined) files.set(`strip${suffix}.png`, stripPng(brand.programType ?? "stamp", brand.balance, brand.reward.cost, scale));
+      if (brand.reward && brand.balance !== undefined) files.set(`strip${suffix}.png`, stripPng(brand.programType ?? "stamp", brand.balance, brand.rewards?.length ? brand.rewards.map(item => item.cost) : [brand.reward.cost], scale));
     }
     if (brand.appleLogo) {
       // Wallet scales the logo into its 160 x 50 pt slot; one checked PNG serves every density.
