@@ -35,8 +35,8 @@ describe("Programm list", () => {
     expect(Object.keys(all)).not.toContain("NFC-Tap");
   });
 
-  it("promises the logo on the Kundenkarte row only where the logo upload is offered", () => {
-    expect([rows({}).Kundenkarte.sub, rows({ logo: false }).Kundenkarte.sub]).toEqual(["Logo und Farbe", "Farbe"]);
+  it("names the card page's names and promises the logo only where the logo upload is offered (W38)", () => {
+    expect([rows({}).Kundenkarte.sub, rows({ logo: false }).Kundenkarte.sub]).toEqual(["Namen, Logo und Farbe", "Namen und Farbe"]);
   });
 
   it("shows numbers big and set texts as sub-lines", () => {
@@ -68,6 +68,11 @@ describe("Programm list", () => {
     const all = Object.fromEntries(sections.flatMap(section => section.rows).map(row => [row.title, row]));
     expect(all.Gratiskaffee.sub).toBe("Einlösbar ab 1.000 Punkten");
     expect([all["Punkte verfallen"].value, all["NFC-Tap"].sub, all["Happy Hour"].value]).toEqual(["Nie", "Mit Bestätigung", "An"]);
+    expect(sections[1].rows.map(row => row.title)).toEqual(["Regel auf der Karte", "So entstehen Punkte", "Punkte verfallen", "NFC-Tap"]);
+    expect(rows({ program: { ...points, pointsPerCurrencyUnit: 1 } })["So entstehen Punkte"].sub).toBe("Nach Einkaufswert: 1 Punkt pro €"); // W36
+    expect(rows({ program: { ...points, pointsPerCurrencyUnit: 2, currency: "MAD" } })["So entstehen Punkte"].sub).toBe("Nach Einkaufswert: 2 Punkte pro MAD");
+    expect(rows({ program: { ...points, earningMode: "manual" } })["So entstehen Punkte"].sub).toBe("Manuell");
+    expect(Object.keys(rows({}))).not.toContain("So entstehen Punkte"); // stamps: the type is set in setup only
     expect(sections.map(section => section.title)).not.toContain("Für die Ergebnisse");
     expect(rows({ program: points, me: { ...me, pointsExpiryMonths: 24 } })["Punkte verfallen"].sub).toBe("Nach 24 Monaten");
   });

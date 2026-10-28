@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BadgePlus, CalendarCheck, Check, Clock, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { ArrowRight, BadgePlus, CalendarCheck, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
@@ -31,7 +31,7 @@ export function quoteStart(text: string, max = 44) {
 
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
 export function programSections({ me, program, winback, referrals, nfc, logo }: ListData) {
-  const type = program.programType, points = type === "points", referral = program.referral;
+  const type = program.programType, points = type === "points", referral = program.referral, rate = program.pointsPerCurrencyUnit;
   const reviews = referrals.filter(item => item.status === "review").length;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
@@ -41,7 +41,10 @@ export function programSections({ me, program, winback, referrals, nfc, logo }: 
     ] },
     { title: "So sammeln Kunden", rows: [
       { ...ask("rule"), icon: ScrollText, sub: quoteStart(program.ownerRulesText ?? program.rulesText) },
-      ...(points ? [{ ...ask("points-expiry"), icon: Hourglass, ...(me.pointsExpiryMonths ? { sub: `Nach ${me.pointsExpiryMonths} Monaten` } : off("Nie")) }] : []),
+      ...(points ? [
+        { ...ask("earning"), icon: Coins, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" },
+        { ...ask("points-expiry"), icon: Hourglass, ...(me.pointsExpiryMonths ? { sub: `Nach ${me.pointsExpiryMonths} Monaten` } : off("Nie")) },
+      ] : []),
       ...(nfc ? [{ ...ask("nfc"), icon: Nfc, ...(tap ? { sub: tap.label } : off("Aus")) }] : []),
     ] },
     { title: "Extras", note: EXCLUDED_GOODS, rows: [
@@ -54,8 +57,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo }: 
         ...(!referral?.enabled ? off("Aus") : referral.referrerBonus === referral.referredBonus ? big(`+${referral.referrerBonus}`) : { ...big(`+${referral.referrerBonus} · +${referral.referredBonus}`), pair: true }) }) },
       ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(me.happyHourEnabled ? { value: "An" } : off("Aus")) }] : []),
     ] },
-    // Where the logo upload is withheld (pilot surfaces), the card studio offers the colour only.
-    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Logo und Farbe" : "Farbe" }] },
+    // The card studio holds the names (W38); where the logo upload is withheld (pilot surfaces) it offers the colour, no logo.
+    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" }] },
     { title: "Infos auf der Karte", rows: [
       { ...ask("news"), icon: Megaphone, ...(me.cardNews ? { sub: quoteStart(me.cardNews) } : off("Keine")) },
       { ...ask("review-link"), icon: Star, ...(me.reviewUrl ? { sub: host(me.reviewUrl) } : off("Kein Link")) },

@@ -1,10 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { GuardedLink } from "./owner-shell";
 import { useMemo, useRef, useState } from "react";
 import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
-import { withUnit } from "@/lib/units";
 import { HEX_COLOR as HEX, readableInk } from "./color";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { MoreInfo, OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
@@ -21,14 +19,18 @@ const SURFACES: Array<{ id: Surface; label: string }> = [{ id: "browser", label:
 type Demo = "new" | "close" | "ready";
 const DEMOS: Array<{ id: Demo; label: string }> = [{ id: "new", label: "Neue Karte" }, { id: "close", label: "Kurz vor Prämie" }, { id: "ready", label: "Prämie verfügbar" }];
 
+// The programme's name joins the two names here (W42). It is saved with the card page, without a review: a name is not a
+// rule. The server still writes a rule version for it.
+type Draft = Brand & { programName: string };
+
 export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; program: PublicProgram; initial: Brand; onSaved: (brand: Brand) => void }) {
   const owner = useOwner();
   const hidden = me.hiddenSurfaces ?? [];
   const walletsHidden = hidden.includes("walletPreviews");
   const logoHidden = hidden.includes("cardLogo");
   const surfaces = walletsHidden ? SURFACES.filter(item => item.id === "browser") : SURFACES;
-  const [saved, setSaved] = useState<Brand>(initial);
-  const [draft, setDraft] = useState<Brand>(initial);
+  const [saved, setSaved] = useState<Draft>(() => ({ ...initial, programName: program.programName }));
+  const [draft, setDraft] = useState<Draft>(saved);
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
   const [errorLabel, setErrorLabel] = useState("");
@@ -42,8 +44,9 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   const logoRevision = useRef(0);
 
   const colorValid = HEX.test(draft.brandColor);
-  const nameValid = draft.businessName.trim().length >= 2 && draft.locationName.trim().length >= 2;
-  const changed = draft.businessName !== saved.businessName || draft.locationName !== saved.locationName || draft.brandColor.toLowerCase() !== saved.brandColor.toLowerCase() || draft.logoData !== saved.logoData;
+  const nameValid = [draft.businessName, draft.locationName, draft.programName].every(name => name.trim().length >= 2);
+  const programShort = draft.programName.trim().length < 2; // named with the setup's own words
+  const changed = draft.businessName !== saved.businessName || draft.locationName !== saved.locationName || draft.programName !== saved.programName || draft.brandColor.toLowerCase() !== saved.brandColor.toLowerCase() || draft.logoData !== saved.logoData;
   const shownState: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("card-studio", changed);
 
@@ -51,10 +54,10 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   const balance = demo === "new" ? 0 : demo === "close" ? Math.max(0, cost - 1) : cost;
   const previewData = useMemo(() => ({
     businessName: draft.businessName.trim(), locationName: draft.locationName.trim(), brandColor: colorValid ? draft.brandColor : saved.brandColor,
-    programType: program.programType, rewardTitle: program.rewards[0]?.title ?? program.rewardTitle, rewardCost: cost, balance, programName: program.programName, logoData: draft.logoData,
+    programType: program.programType, rewardTitle: program.rewards[0]?.title ?? program.rewardTitle, rewardCost: cost, balance, programName: draft.programName.trim(), logoData: draft.logoData,
   }), [draft, colorValid, saved.brandColor, program, cost, balance]);
 
-  function edit(patch: Partial<Brand>) { revision.current++; setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
+  function edit(patch: Partial<Draft>) { revision.current++; setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
 
   async function pickLogo(file: File | undefined) {
     if (!file) return;
@@ -77,9 +80,12 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
       // logoData: omitted = keep, null = remove, string = replace. Only send the image when it changed.
       const logoChanged = draft.logoData !== saved.logoData;
       const result = await postJson<Brand>("/api/merchant/program/brand", { programSlug: me.programSlug, businessName: draft.businessName.trim(), locationName: draft.locationName.trim(), brandColor: draft.brandColor, ...(logoChanged ? { logoData: draft.logoData } : {}) });
-      setSaved(result);
+      const programName = draft.programName.trim();
+      if (draft.programName !== saved.programName) await postJson("/api/merchant/program/update", { programSlug: me.programSlug, name: programName });
+      const next = { ...result, programName };
+      setSaved(next);
       // Only the submitted revision was acknowledged; keep edits made during I/O.
-      setDraft(current => revision.current === submittedRevision ? result : current); setState("saved"); onSaved(result); setSavedVersion(value => value + 1);
+      setDraft(current => revision.current === submittedRevision ? next : current); setState("saved"); onSaved(result); setSavedVersion(value => value + 1);
       owner.announce(revision.current === submittedRevision ? "Kundenkarte gespeichert." : "Der eingereichte Stand wurde gespeichert. Neuere Änderungen sind noch ungespeichert.");
       void owner.refresh();
     } catch (cause) {
@@ -99,9 +105,11 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
       <div className="ow-studio" data-pane={pane}>
         <div className="ow-studio-controls ow-card">
           <fieldset className="ow-group">
-            <legend>Identität</legend>
+            <legend>Namen</legend>
             <div className="ow-field"><label htmlFor="cs-name">Geschäftsname</label><input id="cs-name" className="ow-input" value={draft.businessName} maxLength={180} onChange={event => edit({ businessName: event.target.value })} aria-invalid={draft.businessName.trim().length < 2} aria-describedby="cs-name-hint" /><span id="cs-name-hint" className="ow-hint">Gilt für alle deine Standorte.</span></div>
             <div className="ow-field"><label htmlFor="cs-loc">Standortname</label><input id="cs-loc" className="ow-input" value={draft.locationName} maxLength={180} onChange={event => edit({ locationName: event.target.value })} aria-invalid={draft.locationName.trim().length < 2} /><span className="ow-hint">Nur für diesen Standort.</span></div>
+            <div className="ow-field"><label htmlFor="cs-program">Programmname</label><input id="cs-program" className="ow-input" value={draft.programName} maxLength={180} onChange={event => edit({ programName: event.target.value })} aria-invalid={programShort} aria-describedby={programShort ? "cs-program-err cs-program-hint" : "cs-program-hint"} />
+              {programShort && <span id="cs-program-err" className="ow-error">Bitte einen Programmnamen mit 2 bis 180 Zeichen eingeben.</span>}<span id="cs-program-hint" className="ow-hint">Steht auf der Wallet-Karte.</span></div>
           </fieldset>
           <fieldset className="ow-group">
             <legend>Gestaltung</legend>
@@ -130,11 +138,6 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
               {draft.logoData && <span className="ow-hint">Das Logo erscheint auf der Wallet-Karte{logoIsPng ? "" : ", sobald es als PNG vorliegt (dieses Bild ist kein PNG)"}. Die Browserkarte zeigt deinen Geschäftsnamen.</span>}
             </div>
             )}
-          </fieldset>
-          <fieldset className="ow-group">
-            <legend>Inhalt</legend>
-            <div className="ow-readonly"><dl className="ow-dl"><dt>Programm</dt><dd>{program.programName}</dd><dt>Prämie</dt><dd>{withUnit(program.rewardCost, program.programType)} → {program.rewardTitle}</dd></dl></div>
-            <p className="ow-hint">Programmname, Prämien und Regeln pflegst du unter <GuardedLink className="ow-link" href="/merchant/program">Programm</GuardedLink>.</p>
           </fieldset>
           {!walletsHidden && <fieldset className="ow-group">
             <legend>Apple &amp; Google Wallet</legend>

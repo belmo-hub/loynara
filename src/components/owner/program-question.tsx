@@ -12,7 +12,7 @@ import { ExtrasQuestion } from "./program-extras";
 import { QUESTIONS, type Question } from "./program-helpers";
 import { NewReward } from "./program-new-reward";
 import { RewardsCard } from "./program-rewards";
-import { RuleCard } from "./program-rules";
+import { EarningQuestion, RuleQuestion } from "./program-rules";
 import { useBackToList } from "./question-form";
 import { TapPolicyCard } from "./tap-policy";
 import { useLoad } from "./use-load";
@@ -20,7 +20,7 @@ import { WinbackQuestion, type Winback } from "./winback-card";
 
 const OWNER_ONLY = "Nur Inhaber:innen können Regeln und Prämien ändern.";
 // Questions that need the programme read: rewards, the shop's colour, the currency or the stored rule.
-const READS_PROGRAM = new Set<Question>(["rule", "winback", "challenge", "news", "average-spend"]);
+const READS_PROGRAM = new Set<Question>(["rule", "earning", "winback", "challenge", "news", "average-spend"]);
 
 /** A Programm row's own page for a setting without a question screen: back to the list, the row's name, its editor. */
 function Frame({ title, quiet, children }: { title?: string; /** The editor shows the same name as its own heading. */ quiet?: boolean; children: ReactNode }) {
@@ -42,7 +42,7 @@ export function ProgramQuestion({ question }: { question: Question }) {
   const [program, reload] = useLoad<PublicProgram>(me && READS_PROGRAM.has(question) ? `/api/program/${slug}` : null);
   const [winback, reloadWinback] = useLoad<Winback>(me && question === "winback" ? `/api/merchant/program/winback?programSlug=${slug}` : null);
   // A row the list does not show this shop (an old link) leads back to the list.
-  const offered = !me || (question === "points-expiry" || question === "happy-hour" ? me.programType === "points" : question !== "average-spend" || me.programType === "stamp" || me.earningMode === "manual");
+  const offered = !me || (["earning", "points-expiry", "happy-hour"].includes(question) ? me.programType === "points" : question !== "average-spend" || me.programType === "stamp" || me.earningMode === "manual");
   useEffect(() => { if (!offered) router.replace("/merchant/program"); }, [offered, router]);
   if (!me || !offered) return null;
   const title = QUESTIONS[question];
@@ -55,7 +55,8 @@ export function ProgramQuestion({ question }: { question: Question }) {
   // The heading waits too: the question replaces the row's name, so it would jump once loaded.
   if (program.state === "loading" || winback.state === "loading") return <Frame><LoadingBlock /></Frame>;
   const data = program.state === "ok" ? program.data : null;
-  if (question === "rule") return data && <Frame title={title}><RuleCard me={me} program={data} onSaved={() => done()} /></Frame>;
+  if (question === "rule") return data && <RuleQuestion me={me} program={data} />;
+  if (question === "earning") return data && <EarningQuestion me={me} program={data} nfc={!hiddenSurfaces.includes("nfc")} />;
   if (question === "winback") return data && winback.state === "ok" && <WinbackQuestion me={me} program={data} initial={winback.data} reminders={!hiddenSurfaces.includes("walletMessages")} />;
   return <ExtrasQuestion me={me} question={question} program={data} />;
 }

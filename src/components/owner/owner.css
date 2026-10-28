@@ -94,6 +94,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
      mid-screen; the page keeps room for the pinned bar so nothing hides behind it. */
   .ow-savebar:not([data-idle]) { position: fixed; left: 0; right: 0; bottom: var(--ow-tabbar); margin: 0; padding-bottom: var(--space-3); }
   .ow-content:has(.ow-savebar:not([data-idle])) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 120px); }
+  .ow-content:has(.ow-savebar:not([data-idle])) :focus { scroll-margin-bottom: calc(var(--ow-tabbar) + 140px); }
   .ow-tabs {
     position: fixed; inset: auto 0 0 0; z-index: var(--z-nav); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
     padding: 4px var(--space-2) calc(4px + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
@@ -756,6 +757,18 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qlink[aria-expanded="true"] svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .ow-qlink svg { transition: none; } }
 .ow-qlink:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* The rule questions (14, 33) and their review (34, 35): the rule keeps its line breaks, as on the card and the sign-up page. */
+.ow-qpanel .ow-textarea { field-sizing: content; }
+.ow-qrule { display: block; margin-bottom: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ow-qcmp { display: grid; gap: 6px; }
+.ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ow-qcmp[data-new] { box-shadow: inset 0 0 0 2px var(--color-action); }
+.ow-qsum dl { margin: var(--space-2) 0 0; }
+.ow-qsum dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-bottom: 1px solid var(--color-line); }
+.ow-qsum dt { min-width: 0; color: var(--color-ink-muted); overflow-wrap: anywhere; }
+.ow-qsum dd { flex: none; margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.ow-qsum .ow-hint { padding-top: var(--space-2); }
 
 /* ENG-095, under the board: customers back with the bonus or new on a referral. Nothing here is earned, so no coral. */
 .ow-brought, .ow-brought-off { border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }

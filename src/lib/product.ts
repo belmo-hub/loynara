@@ -142,11 +142,12 @@ export async function setupDraft(userId: string) {
   return { businessName: row.businessName, locationName: row.locationName, city: row.city, country: row.country, timezone: row.timezone, locale: row.locale };
 }
 
+// Every field but the programme is optional: a Programm question posts only its own (ENG-099 N-3), the rest stays as stored.
 const updateProgramInput = z.object({
   actorUserId: z.string().min(1),
   programSlug: z.string().min(1).max(120),
-  name: shortText,
-  rulesText: z.string().trim().min(10).max(3000),
+  name: shortText.optional(),
+  rulesText: z.string().trim().min(10).max(3000).optional(),
   programType: z.enum(["stamp", "points"]).optional(),
   earningMode: z.enum(["manual", "purchase"]).optional(),
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
@@ -159,6 +160,7 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     if (!program) throw new DomainError("NOT_FOUND", "Program not found");
     const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
     if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    const name = input.name ?? program.name, rulesText = input.rulesText ?? program.rulesText;
     const nextType = input.programType ?? program.type;
     const earningMode = input.earningMode ?? program.earningMode;
     const pointsPerCurrencyUnit = input.pointsPerCurrencyUnit ?? program.pointsPerCurrencyUnit;
@@ -169,11 +171,11 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     }
     const [latestRule] = await tx.select().from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, program.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
     if (!latestRule) throw new DomainError("NOT_FOUND", "Programme rule not found");
-    const ruleChanged = program.name !== input.name || program.rulesText !== input.rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
+    const ruleChanged = program.name !== name || program.rulesText !== rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
     if (ruleChanged) {
       // A welcome bonus is sized for one programme type (up to 3 stamps or 50 points); a type change switches it off.
-      await tx.update(programs).set({ name: input.name, rulesText: input.rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null, challengeVisits: null, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null } : {}) }).where(eq(programs.id, program.id));
-      await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name: input.name, type: nextType, rulesText: input.rulesText, earningMode, pointsPerCurrencyUnit });
+      await tx.update(programs).set({ name, rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null, challengeVisits: null, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null } : {}) }).where(eq(programs.id, program.id));
+      await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name, type: nextType, rulesText, earningMode, pointsPerCurrencyUnit });
       await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     }
     return { programSlug: program.slug, programType: nextType, ruleVersion: latestRule.version + Number(ruleChanged) };

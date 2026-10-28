@@ -52,6 +52,20 @@ export function useQuestion(key: string, changed: boolean, problems: Record<stri
   return { busy, failed, check, save, leave, error: (id: string) => (tried && problems[id]) || "" };
 }
 
+/**
+ * A question with a review step (14 → 35, 33 → 34). The review is an entry in this page's history, so Back and the
+ * phone's back gesture return to the question with the input kept, as in the new-reward steps.
+ */
+export function useReview() {
+  const [review, setReview] = useState(false);
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => setReview(event.state?.review === true);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  return { review, open: () => { window.history.pushState({ review: true }, ""); setReview(true); }, back: () => window.history.back() };
+}
+
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
 export function QuestionForm({ title, lead, back, busy, failed, action = "Speichern", onSubmit, children }: {
   title: string; lead?: ReactNode; /** A review step goes back to its question instead of the list. */ back?: { label: string; onClick: () => void };
