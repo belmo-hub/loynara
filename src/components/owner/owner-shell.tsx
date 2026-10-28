@@ -45,7 +45,8 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   }, [pathname, owner.me]);
 
   if (owner.status === "unprovisioned") {
-    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
+    // Before a programme exists (setup, ENG-122f): the logo alone, no shop name, no Kasse and no tab bar; signing out stays.
+    return <div className="ow-bare ow-bare--setup"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark word={false} label="Loynara" /><LogoutButton className="ow-btn ow-btn--ghost ow-btn--sm" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
   }
   if (owner.status === "ended" && owner.ended) {
     // Nothing else is offered: no navigation and no settings that could change the programme.
