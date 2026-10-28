@@ -270,6 +270,17 @@ describe("Apple pass", () => {
     expect(back.note).not.toHaveProperty("dataDetectorTypes"); // the rest keeps Wallet's defaults
   });
 
+  it("lists what each reward costs right after the reward name, in the merchant's order (ENG-116)", () => {
+    const rewards = [{ title: "Gratiskaffee", cost: 100 }, { title: "Frühstück", cost: 1 }, { title: "Torte", cost: 200 }];
+    const back = applePassJson({ ...pass, programType: "points", reward: rewards[0], rewards }, serial, appleConfig).storeCard.backFields;
+    expect(back.map(field => field.key).slice(0, 3)).toEqual(["rewardTitle", "rewards", "programme"]);
+    expect(back[1]).toEqual({ key: "rewards", label: "Prämien", value: "100 Punkte – Gratiskaffee\n1 Punkt – Frühstück\n200 Punkte – Torte", dataDetectorTypes: [] });
+    const stamps = applePassJson({ ...pass, rewards: [{ title: "Gratiskaffee", cost: 10 }, { title: "Brötchen", cost: 1 }] }, serial, appleConfig).storeCard.backFields;
+    expect(stamps.find(field => field.key === "rewards")?.value).toBe("10 Stempel – Gratiskaffee\n1 Stempel – Brötchen");
+    // No approved French label yet: French passes keep their back as it is.
+    expect(applePassJson({ ...pass, locale: "fr", rewards }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("rewards");
+  });
+
   it("keeps today's approved French status line while the new strings are German only (founder, 28 Oct)", () => {
     const card = (data: Partial<WalletPassData>) => applePassJson({ ...pass, locale: "fr", ...data }, serial, appleConfig).storeCard;
     expect(card({}).secondaryFields[1]).toEqual({ key: "status", label: "STATUT", value: "Encore 3 tampons", changeMessage: "%@", textAlignment: "PKTextAlignmentRight" });
