@@ -84,7 +84,7 @@ export default function StaffPage() {
         {staff.state === "loading" ? <LoadingBlock rows={2} height={64} /> : <>
           <Rows title="Aktuelle Zugänge" note="Gesperrte Teammitglieder können nicht mehr buchen.">
             {people.map(item => <Row key={item.userId} icon={Users} title={<>{item.email || "E-Mail nicht verfügbar"}{item.userId === me.userId && <span className="ow-muted"> (du)</span>}</>}
-              sub={`${ROLE_LABEL[item.role]} · ${item.role === "owner" ? "Alle Standorte" : placeOf(item.locationId)}`} value={item.active ? "Aktiv" : "Gesperrt"} off
+              sub={`${ROLE_LABEL[item.role]} · ${item.role === "owner" ? "Alle Standorte" : placeOf(item.locationId)} · ${item.active ? "Aktiv" : "Gesperrt"}`}
               {...(item.role !== "owner" && item.active ? { onClick: () => open(`revoke:${item.userId}`) } : {})} />)}
           </Rows>
           {/* R16: the invitation's sub-line names role, location and state (copy-rest R16 FINAL). */}
