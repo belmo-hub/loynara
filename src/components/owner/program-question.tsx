@@ -56,7 +56,7 @@ export function ProgramQuestion({ question }: { question: Question }) {
   if (program.state === "loading" || winback.state === "loading") return <Frame><LoadingBlock /></Frame>;
   const data = program.state === "ok" ? program.data : null;
   if (question === "rule") return data && <RuleQuestion me={me} program={data} />;
-  if (question === "earning") return data && <EarningQuestion me={me} program={data} />;
+  if (question === "earning") return data && <EarningQuestion me={me} program={data} nfc={!hiddenSurfaces.includes("nfc")} />;
   if (question === "winback") return data && winback.state === "ok" && <WinbackQuestion me={me} program={data} initial={winback.data} reminders={!hiddenSurfaces.includes("walletMessages")} />;
   return <ExtrasQuestion me={me} question={question} program={data} />;
 }

@@ -54,7 +54,7 @@ export function RuleQuestion({ me, program }: { me: MeResponse; program: PublicP
 }
 
 /** 33 and 34 (points shops): how points come about, with the till's arithmetic from the server's own functions. */
-export function EarningQuestion({ me, program }: { me: MeResponse; program: PublicProgram }) {
+export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program: PublicProgram; /** NFC is offered here. */ nfc: boolean }) {
   const saved = { mode: program.earningMode, rate: String(program.pointsPerCurrencyUnit) };
   const [draft, setDraft] = useState(saved);
   const { review, open, back } = useReview();
@@ -90,7 +90,7 @@ export function EarningQuestion({ me, program }: { me: MeResponse; program: Publ
             <div><dt>Einkauf {euro(EXAMPLE_MINOR, program.currency)}</dt><dd>{nf.format(points)} {unitName("points", points)}</dd></div>
             {spend !== null && <div><dt>{cheapest.title} ab</dt><dd>{euro(spend, program.currency)} Einkauf</dd></div>}
           </dl>
-          <p className="ow-hint">Abgerundet auf ganze Punkte. {MIN_SPEND_LABEL} Den Einkaufswert gibt das Team an der Kasse ein. Das NFC-Schild überträgt keinen Betrag.</p>
+          <p className="ow-hint">Abgerundet auf ganze Punkte. {MIN_SPEND_LABEL} Den Einkaufswert gibt das Team an der Kasse ein.{nfc && " Das NFC-Schild überträgt keinen Betrag."}</p>
         </div>}
       </>}
     </QuestionForm>
