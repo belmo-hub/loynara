@@ -8,8 +8,9 @@ import { getMerchantMember } from "./merchant-members";
 import { createMerchant, enroll, getCard, getPublicProgram, updateProgramExtras } from "./product";
 import { addMonths } from "./points-expiry-rules";
 import { expireCardPoints, queueExpiryReminders, runPointsExpiry } from "./points-expiry";
-import { credentialHash } from "./wallet/data";
+import { credentialHash, walletPassDataByMembershipId } from "./wallet/data";
 import { deliverWalletMessage, setWalletConsent } from "./wallet-messages";
+import { EXCLUDED_GOODS } from "./card-extras";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -62,6 +63,8 @@ describe("points expiry setting", () => {
     expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBe(rule);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     expect((await getCard(card.cardToken)).pointsExpiry).toEqual({ rule, batches: [], notice: undefined });
+    // The back of the Apple pass lists it as the sign-up page does: after the rules, before the exclusions (ENG-119).
+    expect((await walletPassDataByMembershipId(card.id)).rules).toEqual(["Punkte für jeden bestätigten Besuch.", rule, EXCLUDED_GOODS]);
     // The other shop is untouched.
     expect((await getPublicProgram(other.programSlug)).pointsExpiryRule).toBeUndefined();
   });

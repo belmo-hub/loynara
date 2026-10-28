@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, tenants, walletMessageRecipients, walletMessages } from "@/db/schema";
+import { signUpRules } from "@/lib/card-extras";
 import { formatCardLocator } from "@/lib/card-locator";
 import { DomainError } from "@/lib/loyalty";
-import { currentRewards } from "@/lib/product";
+import { currentRewards, publicRules } from "@/lib/product";
 import type { WalletBrand, WalletPassData } from "./types";
 import { appleLogoFromData, merchantGoogleLogoUrl } from "./logo";
 
@@ -72,6 +73,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
       ...(target ? { reward: { title: target.title, cost: target.cost } } : {}),
+      rules: signUpRules(publicRules(row.program, row.tenant)),
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       ...(lastMessage ? { message: lastMessage.text } : {}),
     },
