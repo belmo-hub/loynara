@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { withUnit } from "@/lib/units";
 import { cx } from "./cx";
 import styles from "./stamp-grid.module.css";
 
@@ -24,7 +25,7 @@ export function stampColumns(total: number) {
  */
 export function StampGrid({ earned, total, landed, locale = "de", mark, size = "md", className }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
-  const label = locale === "fr" ? `${filled} ${filled === 1 ? "tampon" : "tampons"} sur ${total}` : `${filled} von ${total} Stempeln`;
+  const label = locale === "fr" ? `${withUnit(filled, "stamps", "fr")} sur ${total}` : `${filled} von ${withUnit(total, "stamps", "de", "dat")}`;
   if (total > STAMP_GRID_MAX) {
     return <div className={cx(styles.track, className)} role="img" aria-label={label}>
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />

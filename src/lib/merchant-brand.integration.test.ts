@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db, pool } from "@/db";
-import { staffRoles } from "@/db/schema";
-import { createMerchant, enroll, getCard, getPublicProgram } from "./product";
+import { locations, staffRoles } from "@/db/schema";
+import { createAdditionalLocation } from "./locations";
+import { createMerchant, enroll, getCard, getMerchantContext, getPublicProgram } from "./product";
 import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
 import { walletPassDataByMembershipId } from "./wallet/data";
 import { GET as getGoogleLogo } from "@/app/api/wallet/assets/google-logo/[programId]/route";
@@ -49,6 +51,28 @@ describe("merchant brand editor", () => {
     await expect(getMerchantBrand({ actorUserId: cashier, programSlug: first.merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(updateMerchantBrand({ actorUserId: otherOwner, programSlug: first.merchant.programSlug, businessName: "Unauthorized", locationName: "Nope", brandColor: "#123456" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(updateMerchantBrand({ actorUserId: first.ownerId, programSlug: first.merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#123456", logoData: "data:image/png;base64,ZmFrZQ==" })).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  });
+
+  it("puts the colour, never the logo, into /api/me for exactly the people the brand read lets in", async () => {
+    const { ownerId, merchant } = await fixture();
+    await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#1f4d3f", logoData: tinyPng });
+    const north = await createAdditionalLocation(ownerId, { name: "Before Nord", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "North card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 });
+    await updateMerchantBrand({ actorUserId: ownerId, programSlug: north.programSlug, businessName: "Before Café", locationName: "Before Nord", brandColor: "#a8492c" });
+    const staff = { manager: randomUUID(), cashier: randomUUID() };
+    for (const [role, id] of Object.entries(staff)) {
+      await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [id, `Synthetic ${role}`, `${id}@example.test`]);
+      await db.insert(staffRoles).values({ tenantId: merchant.tenantId, locationId: merchant.locationId, userId: id, role });
+    }
+    expect(await getMerchantContext(ownerId)).toMatchObject({ locationId: merchant.locationId, brandColor: "#1f4d3f" });
+    expect(await getMerchantContext(ownerId, north.locationId)).toMatchObject({ locationId: north.locationId, brandColor: "#a8492c" });
+    for (const id of Object.values(staff)) {
+      await expect(getMerchantBrand({ actorUserId: id, programSlug: merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect((await getMerchantContext(id))?.brandColor).toBeUndefined();
+    }
+    for (const id of [ownerId, ...Object.values(staff)]) expect(JSON.stringify(await getMerchantContext(id))).not.toContain(tinyPng.split(",")[1]);
+    // The column has no CHECK: a stored value that is not #RRGGBB is left out, so the preview keeps its fallback colour.
+    await db.update(locations).set({ brandColor: "red" }).where(eq(locations.id, merchant.locationId));
+    expect((await getMerchantContext(ownerId))?.brandColor).toBeUndefined();
   });
 
   it("keeps the Google PNG route disabled by default and resolves a saved merchant logo only with an approved origin", async () => {

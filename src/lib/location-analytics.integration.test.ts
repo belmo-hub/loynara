@@ -73,7 +73,7 @@ describe("per-location Übersicht analytics (ENG-076)", () => {
     expect(report.previous).toEqual({ newCards: 0, qualifyingCheckouts: 2, repeatCards: 1, redemptions: 0, winbacks: 0 });
   });
 
-  it("counts the owner's cards inside the win-back window with the counter's local-day rule, only where the surface is offered", async () => {
+  it("counts the cards inside the win-back window with the counter's local-day rule, for the owner and the Leitung, with or without Wallet messages", async () => {
     const owner = await user();
     const manager = await user();
     const a = await shop(owner, "Synthetic Location Winback");
@@ -90,9 +90,13 @@ describe("per-location Übersicht analytics (ENG-076)", () => {
     await lapsed(32); await lapsed(42); // inside 30..44 local days (away from the edges, so a DST hour cannot move them)
     await lapsed(20); await lapsed(50); await lapsed(35, true); // too recent, too long ago, closed
     expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).winback).toEqual({ enabled: true, inWindow: 2 });
-    expect((await getLocationAnalytics(manager, { locationId: a.locationId, asOf })).winback).toBeNull();
+    expect((await getLocationAnalytics(manager, { locationId: a.locationId, asOf })).winback).toEqual({ enabled: true, inWindow: 2 }); // counts only, own location
+    // ENG-112: the bonus runs without Wallet messages since ENG-089, so withholding them (the pilot) changes nothing here.
     vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
-    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).winback).toBeNull();
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).winback).toEqual({ enabled: true, inWindow: 2 });
+    // Switched on without a bonus gives nothing at the counter, so it is not on.
+    await db.update(programs).set({ winbackBonus: 0 }).where(eq(programs.id, a.programId));
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).winback).toEqual({ enabled: false, inWindow: 0 });
   });
 
   it("counts exactly the cards the counter would give the win-back bonus: from day N to day N + 14, not a day earlier or later", async () => {

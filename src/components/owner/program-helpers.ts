@@ -1,10 +1,11 @@
 import { MAX_POINTS_PER_CURRENCY_UNIT, parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
+import { unitWord } from "@/lib/units";
 
 export type ProgramKind = "stamp" | "points";
 export type EarningMode = "manual" | "purchase";
-export const unitName = (type: ProgramKind, count = 2) => type === "points" ? (count === 1 ? "Punkt" : "Punkte") : (count === 1 ? "Stempel" : "Stempel");
+export const unitName = (type: ProgramKind, count = 2) => unitWord(count, type);
 /** Dative plural for "in …" / "mit …" sentences. */
-export const unitDative = (type: ProgramKind) => type === "points" ? "Punkten" : "Stempeln";
+export const unitDative = (type: ProgramKind) => unitWord(2, type, "de", "dat");
 export { MAX_POINTS_PER_CURRENCY_UNIT };
 
 export function euro(minor: number, currency: string) {
@@ -23,6 +24,15 @@ export function confirmSentence(type: ProgramKind, mode: EarningMode) {
   const base = "Kunden können sich nichts selbst gutschreiben: Jede Vergabe bestätigt dein Team an der Kasse per QR-Scan oder Kartencode.";
   if (type === "points" && mode === "purchase") return `${base} Den Einkaufswert gibt das Team dort ein. Ein NFC-Tag kennt keinen Betrag.`;
   return base;
+}
+
+/**
+ * The setup's suggested rules text: how customers earn, nothing about rewards. The join page and the card list rewards
+ * live; a reward sentence stored here stays behind when the owner changes the reward (ENG-101).
+ */
+export function draftRules(type: ProgramKind, mode: EarningMode, rate: number) {
+  if (type === "stamp") return "Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse.";
+  return mode === "purchase" ? `Pro 1 € Einkaufswert gibt es ${rate} ${rate === 1 ? "Punkt" : "Punkte"}, abgerundet. Das Team bestätigt jede Buchung an der Kasse.` : "Das Team vergibt Punkte an der Kasse.";
 }
 
 /** Smallest purchase (in minor units) that earns at least `cost` points, using the server's own rounding. */

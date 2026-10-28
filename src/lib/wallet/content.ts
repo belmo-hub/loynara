@@ -1,3 +1,4 @@
+import { unitWord } from "@/lib/units";
 import type { RevokeReason, WalletLocale, WalletPassData } from "./types";
 
 /**
@@ -64,7 +65,7 @@ export function walletProgress(pass: WalletPassData): WalletProgress {
     balanceText: pass.programType === "stamp" ? `${Math.min(pass.balance, 9999)} / ${reward.cost}` : String(pass.balance),
     rewardTitle: reward.title,
     ready,
-    statusText: ready ? t.redeemAtCounter : t.remaining(reward.cost - pass.balance, unit),
+    statusText: ready ? t.redeemAtCounter : t.remaining(reward.cost - pass.balance, unitWord(reward.cost - pass.balance, pass.programType, pass.locale)),
   };
 }
 
