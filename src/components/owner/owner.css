@@ -741,6 +741,19 @@ div.ow-prog-row:active { transform: none; }
 .ow-qsum dt { min-width: 0; color: var(--color-ink-muted); overflow-wrap: anywhere; }
 .ow-qsum dd { flex: none; margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .ow-qsum .ow-hint { padding-top: var(--space-2); }
+/* Nachricht (ENG-122d, screens 10 and 11): the lock screen on the board's dark green in both themes, the send warning, and
+   the step's buttons in the page's flow (the cards below the question have their own save bar, so nothing pins here). */
+.ow-lock { display: grid; gap: var(--space-4); padding: var(--space-4) var(--space-3) var(--space-5); border-radius: var(--radius-lg); background: var(--color-board); color: var(--color-on-board); }
+.ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ow-lock-note { display: grid; gap: 2px; padding: 10px var(--space-3); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-board), transparent 84%); font-size: var(--text-14); overflow-wrap: anywhere; }
+.ow-lock-note b { display: flex; justify-content: space-between; gap: var(--space-3); }
+.ow-lock-note b span + span { flex: none; color: var(--color-on-board-muted); font-weight: var(--weight-label); }
+.ow-qnote { display: flex; align-items: flex-start; gap: var(--space-3); }
+.ow-qnote > svg { flex: none; color: var(--color-warning); }
+.ow-qnote strong { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); }
+.ow-qnote p { padding-top: 2px; color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-qactions { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.ow-qactions .ow-btn, .ow-qactions button { width: 100%; min-height: 52px; }
 /* First setup (ENG-122f, screens 19–22): the question pages before a programme exists, in the bare shell. The column is
    centred under the logo; without a bottom bar the button ends the page instead of being pinned. */
 .ow-qsetup, .ow-bare--setup .ow-topbar { max-width: calc(40rem + 2 * var(--space-6)); margin-inline: auto; }

@@ -20,6 +20,7 @@ const data = vi.hoisted(() => {
   return { report, retention, week };
 });
 vi.mock("@/components/owner/owner-context", () => ({ useOwner: () => ({ me: { role: "owner", programType: "points" }, locations: [] }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, replace: () => {} }) }));
 vi.mock("@/components/owner/use-load", () => ({
   useLoad: (url: string | null) => [url?.startsWith("/api/merchant/analytics") ? { state: "ok", data: data.report, at: 0 }
     : url?.startsWith("/api/merchant/retention") ? { state: "ok", data: data.retention, at: 0 } : { state: "loading" }, () => {}],
@@ -59,6 +60,10 @@ describe("Ergebnisse as Wegweiser rows (ENG-122b)", () => {
     expect(rowOf(html, "Länger nicht da")).toMatch(/^<li><a class="ow-prog-row" href="\/merchant\/customers\?activity=drifting&amp;days=30&amp;scope=all">/);
     expect(rowOf(html, "Länger nicht da")).toContain("<small>Vor einer Woche: 4.</small>");
     expect(rowOf(html, "Noch nie an der Kasse")).toMatch(/^<li><div class="ow-prog-row">/);
+  });
+
+  it("leads back to the Aktionen list", () => {
+    expect(render()).toContain('<a class="ow-back" href="/merchant/actions">');
   });
 
   it("keeps the live empty sentences", () => {

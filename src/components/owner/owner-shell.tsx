@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
-import { activeGroup, groupHref, groupLabel, MORE_HREF, visibleGroups, visibleItems } from "./nav";
+import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
 import { useOwner } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 import { ProgrammeEndedPage } from "./programme-ended-page";
@@ -73,7 +73,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <LocationBox />
         <nav className="ow-nav" aria-label="Hauptnavigation">
           {visibleGroups(role, hidden).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{groupLabel(item, hidden)}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
           ))}
         </nav>
         <div className="ow-side-foot">
@@ -106,7 +106,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
           {visibleGroups(role, hidden).slice(0, 4).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{TAB_LABELS[item.id] ?? groupLabel(item, hidden)}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{TAB_LABELS[item.id] ?? item.label}</GuardedLink>
           ))}
           <GuardedLink href={MORE_HREF} className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><OwnerIcon name="menu" />Mehr</GuardedLink>
         </nav>
