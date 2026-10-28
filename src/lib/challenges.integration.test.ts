@@ -5,7 +5,7 @@ import { db, pool } from "@/db";
 import { ledgerEntries, memberships } from "@/db/schema";
 import { award, reverseEntry } from "./loyalty";
 import { getMerchantMember } from "./merchant-members";
-import { createMerchant, enroll, getCard, getMerchantContext, updateProgramExtras } from "./product";
+import { createMerchant, createReward, enroll, getCard, getMerchantContext, updateProgramExtras } from "./product";
 import { monthOf, nextMonthStart } from "./card-extras";
 import { challengeProgress } from "./challenges";
 
@@ -91,6 +91,14 @@ describe("challenge setting", () => {
     expect(await challenge(points, 3, 2)).toMatchObject({ challengeVisits: 3, challengeBonus: 2 });
     // Switching a running challenge off waits for the next month (ENG-065); the bonus value is kept.
     expect(await challenge(points, null)).toMatchObject({ challengeVisits: 3, challengeBonus: 2, challengeNext: { visits: null, bonus: null } });
+  });
+
+  it("checks the bonus only when the challenge is saved, so another setting saves past one a cheaper reward outgrew (ENG-099 N-3)", async () => {
+    const s = await shop("points", "Synthetic Bistro");
+    expect(await challenge(s, 3, 2)).toMatchObject({ challengeBonus: 2 });
+    await createReward({ actorUserId: s.owner, programSlug: s.programSlug, title: "Espresso", cost: 4 }); // a quarter of 4 is 1
+    expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, cardNews: "Neu: Kürbissuppe" })).toMatchObject({ cardNews: "Neu: Kürbissuppe", challengeVisits: 3, challengeBonus: 2 });
+    await expect(challenge(s, 4, 2)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" }); // the challenge's own page still says so
   });
 });
 

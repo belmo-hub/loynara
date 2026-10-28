@@ -68,8 +68,9 @@ export function programSections({ me, program, winback, referrals, nfc, logo }: 
   return sections;
 }
 
-// Where the owner left the list for a row's page, so the list comes back there (Design rule 10): row, scroll offset, saved.
-type Return = { row: string; y?: number; saved?: boolean };
+// Where the owner left the list for a row's page, so the list comes back there (Design rule 10): row, scroll offset, saved,
+// and the toast's words when a save did more than save („Neuigkeit entfernt“).
+type Return = { row: string; y?: number; saved?: boolean; toast?: string };
 const RETURN = "owner-programm-return";
 function readReturn(): Return | null {
   try { const value = JSON.parse(sessionStorage.getItem(RETURN) ?? "null"); return typeof value?.row === "string" ? value : null; } catch { return null; }
@@ -77,8 +78,8 @@ function readReturn(): Return | null {
 function writeReturn(value: Return | null) {
   try { if (value) sessionStorage.setItem(RETURN, JSON.stringify(value)); else sessionStorage.removeItem(RETURN); } catch { /* storage may be unavailable */ }
 }
-/** A row's page saved: the list outlines `row` and says „Gespeichert“, scrolled as when the owner tapped `from`. */
-export function markSaved(row: string, from = row) { const last = readReturn(); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true }); }
+/** A row's page saved: the list outlines `row` and says `toast`, scrolled as when the owner tapped `from`. */
+export function markSaved(row: string, from = row, toast = "Gespeichert") { const last = readReturn(); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }); }
 
 /** Programm for owners (ENG-099, Wegweiser): section labels on the grey, one link per setting with its current value. */
 export function ProgramList({ me }: { me: MeResponse }) {
@@ -131,7 +132,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
           </div>)}
         </div>
       )}
-      <div className="ow-toast-region" role="status">{ready && toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />Gespeichert</span>}</div>
+      <div className="ow-toast-region" role="status">{ready && toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>
     </div>
   );
 }
