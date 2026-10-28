@@ -257,6 +257,8 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     if (levels.levelSilverVisits !== null && levels.levelGoldVisits !== null && levels.levelGoldVisits <= levels.levelSilverVisits) throw new DomainError("INVALID_LEVELS", "Gold braucht mehr Buchungstage als Silber.");
     if ([levels.levelBronzePerk, levels.levelSilverPerk, levels.levelGoldPerk].some(levelPerkProblem)) throw new DomainError("INVALID_LEVELS", "Ein Vorteil ist reiner Text, höchstens 60 Zeichen, ohne Links.");
     const [updated] = await tx.update(programs).set({ welcomeBonus: input.welcomeBonus ?? program.welcomeBonus, cardNews: cardNews ?? program.cardNews, reviewUrl, ...expiry, ...challenge, ...levels, averageVisitSpendMinor: input.averageVisitSpendMinor === undefined ? program.averageVisitSpendMinor : input.averageVisitSpendMinor }).where(eq(programs.id, program.id)).returning();
+    // The back of the Apple pass lists the expiry rule (ENG-119): a new period refreshes installed passes, without an alert.
+    if ("pointsExpiryMonths" in expiry) await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { welcomeBonus: updated.welcomeBonus, cardNews: updated.cardNews, reviewUrl: updated.reviewUrl, pointsExpiryMonths: updated.pointsExpiryMonths, challengeVisits: updated.challengeVisits, challengeBonus: updated.challengeBonus, challengeNext: pendingChallenge(updated, month),
       levelsEnabled: updated.levelsEnabled, levelSilverVisits: updated.levelSilverVisits, levelGoldVisits: updated.levelGoldVisits, levelBronzePerk: updated.levelBronzePerk, levelSilverPerk: updated.levelSilverPerk, levelGoldPerk: updated.levelGoldPerk, averageVisitSpendMinor: updated.averageVisitSpendMinor };
   });
@@ -421,6 +423,12 @@ function shownRules(program: typeof programs.$inferSelect, tenant: typeof tenant
   return lines.filter(Boolean).join("\n\n");
 }
 
+/** The rules the sign-up page receives; signUpRules lays them out there and on the back of the Apple Wallet pass. */
+export function publicRules(program: typeof programs.$inferSelect, tenant: typeof tenants.$inferSelect) {
+  // German pages print Legal's exclusions once, at the end of the rules (signUpRules), so the bonus lines leave them out.
+  return { locale: tenant.locale, rulesText: shownRules(program, tenant, tenant.locale === "fr"), pointsExpiryRule: program.pointsExpiryMonths ? expiryRuleText(program.pointsExpiryMonths) : undefined };
+}
+
 /** The owner screen's challenge: the terms in force now and a change that starts later („Gilt ab 1.11.“). */
 function meChallenge(program: typeof programs.$inferSelect, timeZone: string) {
   const month = monthOf(new Date(), timeZone), current = challengeFor(program, month);
@@ -547,8 +555,7 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  // German sign-up pages print Legal's exclusions once, at the end of the rules (join-client), so the bonus lines leave them out.
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program, row.tenant, row.tenant.locale === "fr"), ownerRulesText: row.program.rulesText, pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(row.program, row.tenant), ownerRulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

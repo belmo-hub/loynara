@@ -35,6 +35,8 @@ export type WalletPassData = WalletBrand & {
   cardLocator: string;
   /** The card's target reward (the first by the merchant's order, as on the browser card). */
   reward?: { title: string; cost: number };
+  /** The programme rules as the sign-up page lists them (signUpRules), one paragraph each, for the back of the Apple pass. */
+  rules?: string[];
   lastActivityAt?: Date;
   /** The last owner message sent to this card (PassFast only), kept so a refresh resends it unchanged. */
   message?: string;

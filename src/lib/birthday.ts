@@ -9,6 +9,7 @@ import { surfaceHidden } from "./pilot-surfaces";
 import { eligible, lock } from "./wallet-messages";
 import { BIRTHDAY_FIELD_TEXT, birthdayText, birthdayWeek, germanDay, WINBACK_SEND_WINDOW } from "./wallet-message-rules";
 import { bonusMax, queueBatch } from "./winback";
+import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 
 // Birthday (ENG-049). The customer may store day and month (no year) on the card; Legal (22 Oct): a voluntary field for a
 // programme benefit, no separate consent, deletable at any time and then gone. The bonus is booked at the counter
@@ -78,7 +79,14 @@ export async function updateBirthday(input: { actorUserId: string; programSlug: 
   const next = settingsInput.parse(input.settings);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   if (next.bonus > await bonusMax(program)) throw new DomainError("INVALID_BIRTHDAY_BONUS", program.type === "stamp" ? "Bonus: kein Bonus oder 1 Stempel." : "Bonus: höchstens ein Viertel deiner günstigsten Prämie.");
-  await db.execute(sql`UPDATE programs SET birthday_enabled = ${next.enabled}, birthday_bonus = ${next.bonus} WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid`);
+  await db.transaction(async tx => {
+    const [row] = rows<{ changed: boolean }>(await tx.execute(sql`
+      WITH before AS (SELECT id, birthday_enabled, birthday_bonus FROM programs WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid FOR UPDATE)
+      UPDATE programs p SET birthday_enabled = ${next.enabled}, birthday_bonus = ${next.bonus} FROM before WHERE p.id = before.id
+      RETURNING (before.birthday_enabled, before.birthday_bonus) IS DISTINCT FROM (p.birthday_enabled, p.birthday_bonus) AS changed`));
+    // The back of the Apple pass shows the birthday line (ENG-119): a change refreshes installed passes, without an alert.
+    if (row?.changed) await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
+  });
   return settings({ ...program, birthdayEnabled: next.enabled, birthdayBonus: next.bonus });
 }
 

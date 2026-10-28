@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
-import { EXCLUDED_GOODS } from "@/lib/card-extras";
+import { signUpRules } from "@/lib/card-extras";
 import { withUnit } from "@/lib/units";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { Gift } from "lucide-react";
@@ -162,7 +162,7 @@ export function JoinClient({ slug }: { slug: string }) {
       {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
       {/* The rules the checkbox accepts: by purchase amount the earning sentence opens them (server), and the fixed
           exclusions stand on the page itself, not only behind the terms link (Legal). */}
-      <div className={styles.rules}><h3>{t.rules}</h3><p>{program.rulesText}</p>{program.pointsExpiryRule && <p>{program.pointsExpiryRule}</p>}{locale === "de" && <p>{EXCLUDED_GOODS}</p>}</div>
+      <div className={styles.rules}><h3>{t.rules}</h3>{signUpRules(program).map((line, index) => <p key={index}>{line}</p>)}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit}>
         <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
