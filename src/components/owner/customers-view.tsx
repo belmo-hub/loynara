@@ -106,8 +106,8 @@ export function CustomersView() {
   const listKey = list.toString();
   const [fresh, setFresh] = useState<Record<string, MerchantMember>>({});
   useLayoutEffect(() => {
-    if (card) { window.scrollTo(0, 0); return; }
-    if (listY?.list === listKey) window.scrollTo(0, listY.y);
+    if (card) { window.scrollTo({ top: 0, behavior: "instant" }); return; }
+    if (listY?.list === listKey) window.scrollTo({ top: listY.y, behavior: "instant" });
     listY = null;
   }, [card, listKey]);
   return <>

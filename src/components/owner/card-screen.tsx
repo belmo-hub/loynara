@@ -63,7 +63,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
   useEffect(() => { if (detail) onMember(detail.member); }, [detail, onMember]);
   // A step or the card comes in at the top with its heading focused; back on the card, where it was left (or at the notice).
   useLayoutEffect(() => {
-    window.scrollTo(0, step ? 0 : y.current);
+    window.scrollTo({ top: step ? 0 : y.current, behavior: "instant" }); // the page scrolls smoothly elsewhere; a new screen jumps
     box.current?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
   }, [step, loaded]);
 
