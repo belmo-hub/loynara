@@ -537,72 +537,83 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-perm-no { color: var(--color-ink-muted); }
 @media (max-width: 520px) { .ow-perm th, .ow-perm td { padding: 8px 4px; font-size: var(--text-14); } }
 
-/* ───────────── Übersicht, direction D (ENG-085): the board, two tiles, the next step and the diary ───────────── */
+/* ───────────── Übersicht, direction D (ENG-085) as Wegweiser start screen A (ENG-121): greeting, the green band, the
+   white overview card, the rows and the diary ───────────── */
 .ow-dash { display: grid; gap: var(--space-4); }
 @media (min-width: 1024px) {
-  .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "board side" "diary side"; align-items: start; column-gap: var(--space-6); }
+  .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "hello hello" "next next" "board side" "diary diary" "invite invite"; align-items: start; column-gap: var(--space-6); }
   .ow-dash > .ow-dash-notice { grid-area: notice; }
+  .ow-dash > .ow-hello { grid-area: hello; }
+  .ow-dash > .ow-next { grid-area: next; }
   .ow-dash > .ow-board, .ow-dash > .ow-dash-error, .ow-dash > .ow-dash-lead { grid-area: board; }
   .ow-dash > .ow-diary { grid-area: diary; }
-  .ow-dash > .ow-dash-side { grid-area: side; position: sticky; top: var(--space-6); }
-  .ow-dash--single { grid-template-columns: minmax(0, 720px); grid-template-areas: "notice" "board" "diary"; }
+  .ow-dash > .ow-dash-side { grid-area: side; }
+  .ow-dash > .ow-dash-invite { grid-area: invite; }
+  .ow-dash--single { grid-template-columns: minmax(0, 720px); grid-template-areas: none; }
+  .ow-dash.ow-dash--single > * { grid-area: auto; }
 }
 .ow-dash-side { display: grid; gap: var(--space-4); }
+.ow-dash-notice:empty { display: none; }
+/* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
+.owner-app .ow-hello { margin: 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
 
-.ow-board { background: var(--color-board); color: var(--color-on-board); border-radius: var(--radius-xl); padding: var(--space-6) var(--space-5) var(--space-5); }
-.ow-board-hello { margin: 0 0 var(--space-2); font-size: var(--text-16); font-weight: var(--weight-strong); }
-.ow-board-kicker, .ow-board-sub, .ow-board-legend, .ow-strip-cap { margin: 0; font-size: var(--text-14); color: var(--color-on-board-muted); }
-.ow-board-big { margin: var(--space-2) 0 var(--space-1); font: var(--weight-heavy) var(--display-board)/1 var(--font-display); letter-spacing: -.04em; }
+/* The next step: the one green thing on the page, the whole band one action. */
+.ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+a.ow-band, button.ow-band { cursor: pointer; }
+a.ow-band:active, button.ow-band:active { transform: scale(.985); }
+@media (hover: hover) { a.ow-band:hover, button.ow-band:hover { background: var(--color-action-hover); } }
+.ow-band-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
+.ow-band-text { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.ow-band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; text-wrap: balance; }
+.ow-band small { display: block; margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
+.ow-band-go { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); font-weight: var(--weight-strong); }
+@media (max-width: 359px) { .ow-band-icon { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ow-band { transition: none; } a.ow-band:active, button.ow-band:active { transform: none; } }
+
+/* The overview card: white (surface), ink numbers; the bars are a light tint of the action green, yesterday in full. */
+.ow-board { background: var(--color-surface); color: var(--color-ink); border-radius: var(--radius-lg); padding: var(--space-4); }
+.ow-board-kicker, .ow-board-sub, .ow-board-legend, .ow-strip-cap { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-board-big { margin: var(--space-1) 0; font: var(--weight-heavy) var(--display-num)/1.1 var(--font-display); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .ow-board-big small { font-size: var(--text-28); letter-spacing: -.02em; }
-.ow-board-title { margin: var(--space-2) 0; font: var(--weight-heavy) var(--text-28)/1.15 var(--font-display); text-wrap: balance; }
-.ow-board-news { margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--color-board-line); font: var(--weight-heavy) var(--text-18)/1.3 var(--font-display); text-wrap: balance; }
-.ow-board-ask { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-board-line); border-radius: var(--radius-lg); display: grid; gap: var(--space-3); }
+.ow-board .ow-board-news { margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--color-line); font: var(--weight-heavy) var(--text-16)/1.4 var(--font-display); text-wrap: balance; }
+.ow-board-ask { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); display: grid; gap: var(--space-3); }
 .ow-board-ask p { margin: 0; }
 .ow-board-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
-.ow-btn--board { background: var(--color-on-board); color: var(--color-board); }
-.ow-btn--board:focus-visible, .ow-board-textbtn:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: 2px; }
-.ow-board-textbtn { min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-on-board); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; cursor: pointer; }
+.ow-board-textbtn { min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; cursor: pointer; }
 
-.ow-strip { margin-top: var(--space-5); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
+.ow-strip { margin-top: var(--space-4); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
 .ow-strip-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: var(--space-1); height: 100%; min-width: 0; }
 .ow-strip-n { font-size: var(--text-14); font-weight: var(--weight-strong); }
-.ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--color-board-line); }
-.ow-strip-bar[data-lit] { background: var(--color-board-mark); }
-.ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-board-line); }
+.ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: color-mix(in oklab, var(--color-action) 25%, var(--color-surface)); }
+.ow-strip-bar[data-lit] { background: var(--color-action); }
+.ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-line-strong); }
 /* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
-.ow-strip-d { font-size: var(--text-14); color: var(--color-on-board-muted); white-space: nowrap; }
-.ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-on-board); }
+.ow-strip-d { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
+.ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-ink); }
+/* Under 360 the columns are about 30 px and „gestern“ at 14 px touches the label before it; at 12 px they keep a gap. */
+@media (max-width: 359px) { .ow-strip-d { font-size: var(--text-12); } }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
 
 .ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: 3px; height: 14px; }
-.ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-board-mark); }
-.ow-stock span[data-kind="drifting"] { background: var(--color-board-line); }
-.ow-stock span[data-kind="never"] { background: none; border: 1px solid var(--color-board-line); }
+.ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-action); }
+.ow-stock span[data-kind="drifting"] { background: color-mix(in oklab, var(--color-action) 25%, var(--color-surface)); }
+.ow-stock span[data-kind="never"] { background: none; border: 1px solid var(--color-line-strong); }
 .ow-board-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 
-.ow-ph { display: block; border-radius: var(--radius-sm); background: var(--color-board-line); }
+.ow-ph { display: block; border-radius: var(--radius-sm); background: var(--color-fill); }
 @media (prefers-reduced-motion: no-preference) { .ow-board[aria-busy="true"] .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
 @keyframes ow-pulse { 50% { opacity: .45; } }
 
-.ow-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-/* Three tiles (the ENG-095 block replaces „Wiedergekommen“): the last one takes the whole row. */
-.ow-tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-.ow-tile { padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
-.ow-tile-n { display: block; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); color: var(--color-ink); }
-.ow-tile-note { display: block; font-size: var(--text-14); color: var(--color-ink-muted); }
-
-.ow-nextbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); box-shadow: var(--shadow-raised); }
-.ow-nextbar p { flex: 1 1 12rem; margin: 0; font-size: var(--text-14); line-height: 1.35; }
-.ow-nextbar b { display: block; font-size: var(--text-16); }
-.ow-nextbar .ow-btn { flex: none; margin-left: auto; }
-/* The close sits in its own right-hand gutter, so it never covers the text or the action. */
-.ow-nextbar { position: relative; padding-right: 48px; }
-.ow-nextbar-close { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-lg); background: none; color: var(--color-ink-muted); cursor: pointer; }
-.ow-nextbar-close:hover { color: var(--color-ink); }
-@media (max-width: 1023px) {
-  .ow-nextbar { position: fixed; left: var(--space-3); right: var(--space-3); bottom: calc(var(--ow-tabbar) + var(--space-3)); z-index: var(--z-sticky); }
-  .ow-dash[data-next] { padding-bottom: 160px; } /* the fixed bar is 145 px at 320 px wide; room for one more line */
-}
+/* The 30-day rows: Programm list rows (ENG-099); one „?“ on the section head opens their help. */
+.ow-rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ow-rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.ow-rows div.ow-prog-row:active { transform: none; }
+/* The value is first in the DOM (read before the note) and drawn at the right edge; unlinked rows keep the arrow's
+   width empty, so every value shares one right edge. */
+.ow-rows .ow-prog-value { order: 1; }
+.ow-rows div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
+.ow-rows-help + .ow-rows-help { margin-top: var(--space-4); }
+.ow-rows-help h3 { margin: 0 0 var(--space-1); font-size: var(--text-16); font-weight: var(--weight-strong); }
 
 .ow-diary h2 { margin-bottom: var(--space-2); }
 .ow-day { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-5); }
@@ -627,28 +638,14 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-pill[data-kind="redemption"] b { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--color-stamp); }
 /* `.owner-app` so the muted colour beats `.owner-app h2` (it rendered in ink before ENG-095); the h2 weight 650 stays. */
 .owner-app .ow-tiles-title { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
-/* Label on its own row; the „?“ shares the note row (same grid cell as the body, end-aligned), outside the body's link. */
-.ow-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; }
-/* Only a soft hyphen in the label may break a word (hyphens: manual). */
-.ow-tile-label { grid-column: 1 / -1; margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); hyphens: manual; }
-.ow-tile-body { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; gap: 2px; }
-.ow-tile-body .ow-tile-note { padding-right: var(--space-8); }
-.ow-tile-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
-.ow-tile-row svg { flex: none; margin-bottom: var(--space-1); color: var(--color-action); }
 /* A 24 px "?" with a 44 px target (spec §1.3). */
-.ow-tile-q { grid-column: 2; grid-row: 2; align-self: end; position: relative; display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
+.ow-tile-q { position: relative; display: inline-grid; place-items: center; flex: none; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
 .ow-tile-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
-.ow-tile-help { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-tile-link { border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
-.ow-tile-link:hover .ow-tile-note, .ow-tile-link:focus-visible .ow-tile-note { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.ow-tile-go { margin-left: var(--space-1); }
 .ow-pill[data-kind="more"] { color: var(--color-ink-muted); }
-@media (min-width: 1024px) { .ow-dash > .ow-dash-invite { grid-column: 1; } }
 /* The board's „?“ ends its sub-line: a 24 px circle with a 44 px target; the negative margins keep the line's height. */
-.ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-on-board); font: inherit; vertical-align: middle; cursor: pointer; }
-.ow-board-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-board-line); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
-.ow-board-q:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: -4px; border-radius: var(--radius-pill); }
-.ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-on-board-muted); }
+.ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; vertical-align: middle; cursor: pointer; }
+.ow-board-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
+.ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Number stepper (owner-fields spec §3): − value + with 44 px round buttons; the value stays a typed field, sized to its digits. */
 .ow-number { display: inline-flex; align-items: center; gap: var(--space-2); }
 .ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }

@@ -1,25 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CircleCheck, CreditCard, Gift, RefreshCw, Undo2, type LucideIcon } from "lucide-react";
+import { ArrowRight, CircleCheck, CreditCard, Flag, Gift, RefreshCw, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
 import { BROUGHT_COPY, formatMinor } from "@/lib/spend-copy";
-import { nf, OwnerIcon } from "./owner-ui";
+import { nf } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
 const NBSP = "\u00a0";
-const SHY = "\u00ad";
 
-/** The one deep green panel: greeting, kicker, then the number area and the strip the caller passes in. */
-export function Board({ hello, kicker, busy = false, children }: { hello: string; kicker: string; busy?: boolean; children: ReactNode }) {
+/** The overview card (Wegweiser A): white, since green marks only the one thing to do. Kicker, then what the caller passes in. */
+export function Board({ kicker, busy = false, children }: { kicker: string; busy?: boolean; children: ReactNode }) {
   return (
     <section className="ow-board" aria-labelledby="ow-board-kicker" aria-busy={busy}>
-      <p className="ow-board-hello">{hello}</p>
       <p className="ow-board-kicker" id="ow-board-kicker">{kicker}</p>
       {children}
     </section>
@@ -95,34 +93,37 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
 const TILE_ICONS = { bookings: CircleCheck, cards: CreditCard, back: Undo2, rewards: Gift } satisfies Record<string, LucideIcon>;
 /** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). */
 export type Tile = { key: keyof typeof TILE_ICONS; label: string; value: string; note: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
-/** The four tiles, always in this order, numbers in ink: no arrows, no colour coding (spec §1.3). */
+/** The tiles as Programm list rows (Wegweiser A): value at the right edge, the note as sub-line, an arrow only where the row links. */
 export function Tiles({ tiles }: { tiles: Tile[] }) {
+  const [help, setHelp] = useState(false);
+  const close = () => setHelp(false);
   return (
     <section className="ow-stack" aria-labelledby="ow-tiles-title" style={{ gap: 8 }}>
-      <h2 id="ow-tiles-title" className="ow-tiles-title">Letzte 30 Tage an diesem Standort</h2>
-      <div className="ow-tiles">{tiles.map(tile => <TileCard key={tile.key} tile={tile} />)}</div>
+      <div className="ow-rows-head">
+        <h2 id="ow-tiles-title" className="ow-tiles-title">Letzte 30 Tage an diesem Standort</h2>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „Letzte 30 Tage an diesem Standort“</span></button>
+      </div>
+      <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>
+      <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
+        {tiles.map(tile => <div className="ow-rows-help" key={tile.key}><h3>{tile.label}</h3><p>{tile.help}</p></div>)}
+      </Sheet>
     </section>
   );
 }
-function TileCard({ tile }: { tile: Tile }) {
-  const [open, setOpen] = useState(false);
-  const helpId = useId();
+function TileRow({ tile }: { tile: Tile }) {
   const Icon = TILE_ICONS[tile.key];
   const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
-  // The icon sits beside the number, as in Design's mock; the label has its row to itself.
-  const body = <><span className="ow-tile-row"><span className="ow-tile-n">{value}</span><Icon size={22} aria-hidden="true" focusable="false" /></span>
-    <span className="ow-tile-note">{tile.note}{tile.href && <span className="ow-tile-go" aria-hidden="true">›</span>}</span></>;
-  return (
-    <div className="ow-tile">
-      <h3 className="ow-tile-label">{tile.label}</h3>
-      {/* A linked tile's whole body is the link; the „?“ stays its own button on the note row, outside it. */}
-      {tile.href
-        ? <Link className="ow-tile-body ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label.replace(SHY, "")}: </span>{body}</Link>
-        : <div className="ow-tile-body">{body}</div>}
-      <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label.replace(SHY, "")}“</span></button>
-      <p id={helpId} className="ow-tile-help" hidden={!open}>{tile.help}</p>
-    </div>
-  );
+  const body = <>
+    <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
+    {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}
+    <span className="ow-prog-main">
+      <span className="ow-prog-value" data-big="">{value}</span>
+      <span className="ow-prog-text"><strong>{tile.label}</strong><small>{tile.note}</small></span>
+    </span>
+  </>;
+  return tile.href
+    ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /></Link>
+    : <div className="ow-prog-row">{body}</div>;
 }
 
 const readSeen = (key: string) => { try { const seen = window.localStorage.getItem(key); return seen === null ? null : Number(seen); } catch { return null; } };
@@ -203,16 +204,23 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
   );
 }
 
-export type NextAction = { label: string; href: string } | { label: string; onClick: () => void };
-/** „Als Nächstes“: a bar above the bottom navigation on phones, a card in the right column on desktop. */
-export function NextBar({ title, text, action, onClose }: { title: string; text?: string; action?: NextAction; onClose?: () => void }) {
+export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
+/** „Als Nächstes“ as the green band in the page's flow: the whole band is the action; without one it is only text. */
+/** `children` render under the band, inside its section (the Tresenschild's error line, beside what was tapped). */
+export function NextBand({ title, text, action, children }: { title: string; text?: string; action?: NextAction; children?: ReactNode }) {
+  const body = <>
+    <span className="ow-band-icon"><Flag size={22} aria-hidden="true" focusable="false" /></span>
+    <span className="ow-band-text">
+      <b>{title}</b>{text && <small>{text}</small>}
+      {action && <span className="ow-band-go">{action.label}<ArrowRight size={20} aria-hidden="true" focusable="false" /></span>}
+    </span>
+  </>;
   return (
-    <section className="ow-nextbar" aria-label="Als Nächstes">
-      <p><b>{title}</b>{text}</p>
-      {action && ("href" in action
-        ? <Link className="ow-btn ow-btn--primary ow-btn--sm" href={action.href}>{action.label}</Link>
-        : <button type="button" className="ow-btn ow-btn--primary ow-btn--sm" onClick={action.onClick}>{action.label}</button>)}
-      {onClose && <button type="button" className="ow-nextbar-close" aria-label="Hinweis schließen" onClick={onClose}><OwnerIcon name="close" /></button>}
+    <section className="ow-next" aria-label="Als Nächstes">
+      {!action ? <div className="ow-band">{body}</div>
+        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}</Link>
+          : <button type="button" className="ow-band" onClick={action.onClick}>{body}</button>}
+      {children}
     </section>
   );
 }

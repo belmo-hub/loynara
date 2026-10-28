@@ -13,15 +13,16 @@ import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, JoinCard, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 /*
- * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct): one green board,
- * four tiles for the last 30 days at the active location, the next step, the diary. Everything is about the active location.
+ * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct) laid out as Wegweiser
+ * start screen A (ENG-121): the greeting, the next step as the green band, the overview card, four rows for the last 30 days
+ * at the active location, the diary. Everything is about the active location.
  */
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
@@ -34,7 +35,6 @@ const AVERAGE_HREF = "/merchant/program";
 const ASK_KEY = "loynara:average-ask-hidden-until";
 const MILESTONES = [100, 50, 25, 10, 1];
 const MILESTONE_KEY = "loynara:milestones-seen";
-const NEXT_KEY = "loynara:next-hidden";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
@@ -109,8 +109,6 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
-  const [nextHidden, hideNext] = useHiddenNext(next ? nextHintKey({ locationId: me.locationId, quiet, lastBookingOn: a?.lastBookingOn, kind: next.kind }) : "");
-  const showNext = next && !nextHidden;
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
   // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
   // bookings are the board's and the Buchungen tile's number, so the screen shows one figure for one fact.
@@ -120,13 +118,18 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
       : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
+  const signFailed = signError && <p className="ow-error" role="alert">{signError}</p>;
+
   return (
-    <div className="ow-page ow-dash" data-next={showNext ? "" : undefined}>
+    <div className="ow-page ow-dash">
       <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
+      <p className="ow-hello">{hello}</p>
+      {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
+      {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
       <div className="ow-dash-lead ow-stack">
         {failed && !board ? <ErrorCard reload={reload} />
-          : <Board hello={hello} kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
+          : <Board kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
             {!board ? <BoardPlaceholder /> : <>
               {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
                 <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
@@ -144,8 +147,6 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
           : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
-        {showNext && <NextBar {...next} onClose={() => { hideNext(); document.getElementById("ow-main")?.focus({ preventScroll: true }); }} />}
-        {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
       {!failed && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
@@ -193,33 +194,9 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     <p className="ow-board-sub">bestätigt an der Kasse</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>
-      <div className="ow-board-actions"><Link className="ow-btn ow-btn--board ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
+      <div className="ow-board-actions"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
     </div>}
   </>;
-}
-
-/**
- * Which „Als Nächstes“ hint a close applies to: its kind, never its text, whose counts change daily. A quiet week is
- * one gap however many days it grows; the next booking starts a new gap, so the hint can come back.
- */
-export function nextHintKey(input: { locationId: string; quiet: number | "over90" | null; lastBookingOn: string | null | undefined; kind: string }) {
-  return input.quiet !== null ? `${input.locationId}:quiet:${input.lastBookingOn ?? "none"}` : `${input.locationId}:${input.kind}`;
-}
-/** Stored as "<until ms>|<hint key>": the closed hint stays away for 7 days in this browser. */
-export function isNextHidden(stored: string | null, key: string, now: number) {
-  const split = stored?.indexOf("|") ?? -1;
-  return split > 0 && stored!.slice(split + 1) === key && Number(stored!.slice(0, split)) > now;
-}
-const readNextHidden = (key: string) => () => { try { return isNextHidden(window.localStorage.getItem(NEXT_KEY), key, Date.now()); } catch { return false; } };
-
-/** The close (X) on „Als Nächstes“: on phones the bar is fixed over the page, so the owner must be able to put it away. */
-function useHiddenNext(key: string): [boolean, () => void] {
-  const stored = useSyncExternalStore(onStorage, readNextHidden(key), () => false);
-  const [dismissed, setDismissed] = useState("");
-  return [stored || dismissed === key, () => {
-    setDismissed(key);
-    try { window.localStorage.setItem(NEXT_KEY, `${Date.now() + 7 * 86_400_000}|${key}`); } catch { /* storage blocked: hidden until reload */ }
-  }];
 }
 
 const readAskHidden = () => { try { return Number(window.localStorage.getItem(ASK_KEY) ?? 0) > Date.now(); } catch { return false; } };
@@ -331,22 +308,19 @@ function EmptyShop({ me }: { me: MeResponse }) {
   const steps = readiness.state === "ok" ? readiness.data.steps.filter(step => step.id in FIRST_STEPS) : [];
   const current = steps.find(step => step.required && step.status === "todo");
   const joinUrl = joinUrlOf(me);
-  const lead = !current ? null
-    : current.id === "enrolment" ? { title: "Melde die erste Karte selbst an.", text: "Mit deinem eigenen Handy. So siehst du, was deine Kundinnen und Kunden sehen.", action: joinUrl ? <a className="ow-btn ow-btn--board ow-btn--sm" href={joinUrl} target="_blank" rel="noopener noreferrer">Anmeldelink öffnen</a> : null }
-      : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: <Link className="ow-btn ow-btn--board ow-btn--sm" href="/cashier">Kasse öffnen</Link> }
-        : { title: current.evidence, text: undefined, action: current.action ? <Link className="ow-btn ow-btn--board ow-btn--sm" href={current.action.href}>{current.action.label}</Link> : null };
+  const lead: { title: string; text?: string; action?: NextAction } | null = !current ? null
+    : current.id === "enrolment" ? { title: "Melde die erste Karte selbst an.", text: "Mit deinem eigenen Handy. So siehst du, was deine Kundinnen und Kunden sehen.", action: joinUrl ? { label: "Anmeldelink öffnen", href: joinUrl, external: true } : undefined }
+      : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: { label: "Kasse öffnen", href: "/cashier" } }
+        : { title: current.evidence, action: current.action ? { label: current.action.label, href: current.action.href } : undefined };
   return (
     <div className="ow-page ow-dash ow-dash--single">
       <h1 className="ow-sr">Dein Treueprogramm einrichten</h1>
       <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
-      <Board hello={`Willkommen bei Loynara, ${me.businessName}.`} kicker={readiness.state === "ok" ? `Startklar · ${readiness.data.requiredDone} von ${readiness.data.requiredTotal} Pflichtschritten` : "Startklar"} busy={readiness.state !== "ok" && readiness.state !== "error"}>
-        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Zahlen sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--board ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
-          : readiness.state !== "ok" ? <BoardPlaceholder />
-            : lead && <>
-              <p className="ow-board-title">{lead.title}</p>
-              {lead.text && <p className="ow-board-sub">{lead.text}</p>}
-              {lead.action && <div className="ow-board-actions" style={{ marginTop: 16 }}>{lead.action}</div>}
-            </>}
+      <p className="ow-hello">Willkommen bei Loynara, {me.businessName}.</p>
+      {lead && <NextBand {...lead} />}
+      <Board kicker={readiness.state === "ok" ? `Startklar · ${readiness.data.requiredDone} von ${readiness.data.requiredTotal} Pflichtschritten` : "Startklar"} busy={readiness.state !== "ok" && readiness.state !== "error"}>
+        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Zahlen sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
+          : readiness.state !== "ok" && <BoardPlaceholder />}
         <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
       </Board>
       <section className="ow-diary" aria-labelledby="ow-steps-title">
