@@ -687,10 +687,10 @@ describe("native Apple passes (ENG-127)", () => {
     expect(await drain(id, s.tenantId, noSend)).toEqual({ status: "complete" });
     expect(await refreshes(s.tenantId)).toEqual([a.id, b.id].sort());
     expect((await recipientStatuses(id)).map(r => r.status)).toEqual(["sent", "sent"]);
-    // What the device fetches after the push: the message first on the back, with the lock-screen changeMessage.
+    // What the device fetches after the push: the message on the back, with the lock-screen changeMessage.
     const snapshot = await walletCardSnapshot(a.id);
     if (!snapshot.open) throw new Error("open");
-    expect(applePassJson(snapshot.pass, a.passId, apple).storeCard.backFields[0]).toMatchObject({ key: "message", label: "Nachricht von Synthetic Café vom 22.10.", value: TEXT, changeMessage: "%@" });
+    expect(applePassJson(snapshot.pass, a.passId, apple).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ label: "Nachricht von Synthetic Café vom 22.10.", value: TEXT, changeMessage: "%@" });
   });
 
   it("respects the per-customer cap: a card with two messages this week gets no refresh", async () => {

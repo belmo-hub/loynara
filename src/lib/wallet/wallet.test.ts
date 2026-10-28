@@ -281,15 +281,17 @@ describe("Apple pass", () => {
     expect(applePassJson({ ...pass, locale: "fr", rewards }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("rewards");
   });
 
-  it("puts the owner's message first on the back with a lock-screen changeMessage, leaving the front as it was (ENG-127)", () => {
+  it("puts the owner's message after the rules and the reward on the back, with a lock-screen changeMessage, leaving the front as it was (ENG-127)", () => {
     const text = "Heute ruhig: Kaffee zum halben Preis bis 17 Uhr.";
-    const json = applePassJson({ ...pass, message: text, messageDay: "28.10." }, serial, appleConfig);
-    expect(json.storeCard.backFields[0]).toEqual({ key: "message", label: "Nachricht von Kasseler Kaffee vom 28.10.", value: text, changeMessage: "%@", dataDetectorTypes: [] });
-    const plain = applePassJson(pass, serial, appleConfig);
+    const rules = ["Ein Stempel pro Kaffee."];
+    const json = applePassJson({ ...pass, rules, message: text, messageDay: "28.10." }, serial, appleConfig);
+    expect(json.storeCard.backFields.map(field => field.key).slice(0, 3)).toEqual(["rules", "rewardTitle", "message"]);
+    expect(json.storeCard.backFields[2]).toEqual({ key: "message", label: "Nachricht von Kasseler Kaffee vom 28.10.", value: text, changeMessage: "%@", dataDetectorTypes: [] });
+    const plain = applePassJson({ ...pass, rules }, serial, appleConfig);
     expect(plain.storeCard.backFields.map(field => field.key)).not.toContain("message");
-    expect({ ...json.storeCard, backFields: json.storeCard.backFields.slice(1) }).toEqual(plain.storeCard);
-    // Consent without a message yet: the key exists empty, so Wallet alerts when the first message changes it.
-    expect(applePassJson({ ...pass, message: "" }, serial, appleConfig).storeCard.backFields[0]).toMatchObject({ key: "message", label: "Nachricht von Kasseler Kaffee", value: "" });
+    expect({ ...json.storeCard, backFields: json.storeCard.backFields.filter(field => field.key !== "message") }).toEqual(plain.storeCard);
+    // Consent without a message yet: the key exists with a placeholder, so Wallet alerts when the first message changes it.
+    expect(applePassJson({ ...pass, message: "" }, serial, appleConfig).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ key: "message", label: "Nachricht von Kasseler Kaffee", value: "Noch keine Nachricht." });
     expect(applePassJson({ ...pass, locale: "fr", message: text }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("message");
   });
 
