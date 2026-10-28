@@ -115,9 +115,10 @@ function TileRow({ tile }: { tile: Tile }) {
   const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
+    {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}
     <span className="ow-prog-main">
-      <span className="ow-prog-text"><strong>{tile.label}</strong><small>{tile.note}</small></span>
       <span className="ow-prog-value" data-big="">{value}</span>
+      <span className="ow-prog-text"><strong>{tile.label}</strong><small>{tile.note}</small></span>
     </span>
   </>;
   return tile.href
@@ -205,7 +206,8 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
 
 export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
 /** „Als Nächstes“ as the green band in the page's flow: the whole band is the action; without one it is only text. */
-export function NextBand({ title, text, action }: { title: string; text?: string; action?: NextAction }) {
+/** `children` render under the band, inside its section (the Tresenschild's error line, beside what was tapped). */
+export function NextBand({ title, text, action, children }: { title: string; text?: string; action?: NextAction; children?: ReactNode }) {
   const body = <>
     <span className="ow-band-icon"><Flag size={22} aria-hidden="true" focusable="false" /></span>
     <span className="ow-band-text">
@@ -218,6 +220,7 @@ export function NextBand({ title, text, action }: { title: string; text?: string
       {!action ? <div className="ow-band">{body}</div>
         : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}</Link>
           : <button type="button" className="ow-band" onClick={action.onClick}>{body}</button>}
+      {children}
     </section>
   );
 }

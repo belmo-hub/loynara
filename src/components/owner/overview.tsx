@@ -118,12 +118,15 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
       : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
+  const signFailed = signError && <p className="ow-error" role="alert">{signError}</p>;
+
   return (
     <div className="ow-page ow-dash">
       <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
       <p className="ow-hello">{hello}</p>
-      {next && <NextBand {...next} />}
+      {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
+      {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
       <div className="ow-dash-lead ow-stack">
         {failed && !board ? <ErrorCard reload={reload} />
           : <Board kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
@@ -144,7 +147,6 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
           : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
-        {signError && <p className="ow-error" role="alert">{signError}</p>}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
       {!failed && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
@@ -192,7 +194,7 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     <p className="ow-board-sub">bestätigt an der Kasse</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>
-      <div className="ow-board-actions"><Link className="ow-btn ow-btn--board ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
+      <div className="ow-board-actions"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
     </div>}
   </>;
 }

@@ -80,7 +80,9 @@ describe("Übersicht direction D (ENG-085)", () => {
     // Wegweiser rows: label, note as sub-line, the value at the right edge; the whole linked row is the link, with the arrow.
     const link = html.match(/<a class="ow-prog-row" href="([^"]+)">(.*?)<\/a>/);
     expect(link?.[1]).toBe("/merchant/customers?activity=recent&amp;days=30&amp;locationId=loc-1");
-    expect(link?.[2]).toMatch(/<strong>Buchungen<\/strong><small>vorher 10<\/small><\/span><span class="ow-prog-value" data-big="">9<\/span><\/span><svg[^>]*ow-prog-arrow/);
+    expect(link?.[2]).toMatch(/<span class="ow-prog-value" data-big="">9<\/span><span class="ow-prog-text"><strong>Buchungen<\/strong><small>vorher 10<\/small><\/span><\/span><svg[^>]*ow-prog-arrow/);
+    // The link's name reads the value before the comparison: „9 Buchungen vorher 10“, never „Buchungen vorher 10 9“.
+    expect(link?.[2].replace(/<svg.*?<\/svg>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()).toBe("9 Buchungen vorher 10");
     expect(html.match(/class="ow-prog-row"/g)).toHaveLength(4);
     expect(html.match(/ow-prog-arrow/g)).toHaveLength(1); // only the linked row; the other Kunden filters come with ENG-086
     // One „?“ for all rows, on the section head; the shared sheet lists the four help texts under their labels, word for word.
@@ -164,7 +166,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("Karten an deinem Standort: 17 da · 0 länger nicht da · 2 noch nie an der Kasse");
     expect(html).toContain("Buchungen an diesem Standort · letzte 7 Tage");
     expect(html).toContain('<div class="ow-prog-row">'); // unlinked rows carry no arrow
-    expect(html).toContain('<strong>Wieder\u00adgekommen</strong><small>Willkommen-zurück-Bonus ist aus</small></span><span class="ow-prog-value" data-big="">–</span>');
+    expect(html).toContain('<span class="ow-prog-value" data-big="">–</span><span class="ow-prog-text"><strong>Wieder\u00adgekommen</strong><small>Willkommen-zurück-Bonus ist aus</small></span>');
     expect(html).not.toContain("€");
     expect(html).not.toContain("Umsatz");
   });

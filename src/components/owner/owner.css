@@ -579,7 +579,6 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ow-board-ask { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); display: grid; gap: var(--space-3); }
 .ow-board-ask p { margin: 0; }
 .ow-board-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
-.ow-btn--board { background: var(--color-action); color: var(--color-on-action); }
 .ow-board-textbtn { min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; cursor: pointer; }
 
 .ow-strip { margin-top: var(--space-4); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
@@ -591,6 +590,8 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 /* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
 .ow-strip-d { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
 .ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-ink); }
+/* Under 360 the columns are about 30 px and „gestern“ at 14 px touches the label before it; at 12 px they keep a gap. */
+@media (max-width: 359px) { .ow-strip-d { font-size: var(--text-12); } }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
 
 .ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: 3px; height: 14px; }
@@ -607,6 +608,10 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ow-rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .ow-rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .ow-rows div.ow-prog-row:active { transform: none; }
+/* The value is first in the DOM (read before the note) and drawn at the right edge; unlinked rows keep the arrow's
+   width empty, so every value shares one right edge. */
+.ow-rows .ow-prog-value { order: 1; }
+.ow-rows div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
 .ow-rows-help + .ow-rows-help { margin-top: var(--space-4); }
 .ow-rows-help h3 { margin: 0 0 var(--space-1); font-size: var(--text-16); font-weight: var(--weight-strong); }
 
