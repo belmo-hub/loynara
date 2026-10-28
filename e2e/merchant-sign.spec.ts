@@ -13,6 +13,7 @@ test("merchant downloads a printable sign with its own identity and join QR", as
   const response = await page.request.get("/api/me");
   expect(response.ok()).toBe(true);
   const merchant = await response.json() as { businessName: string; programSlug: string; publicBaseUrl: string };
+  await page.goto("/merchant/customers"); // the Tresenschild lives under Kunden since ENG-122a
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Tresenschild laden" }).click();
   const download = await downloadPromise;

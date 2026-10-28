@@ -1,4 +1,6 @@
-/* Counter screen inside CashierShell (always dark). Every target is at least 44 px; booking actions 56–64 px. */
+/* Counter screen inside CashierShell (always dark), in the Übersicht grammar (ENG-122g): a question as the heading, the
+   card as the one panel, one green band for a ready reward, the booking button in the dock. Every target is at least
+   44 px; booking actions 56–64 px. */
 .headerActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-1); }
 .headerActions p[role="alert"] { max-width: 16rem; margin: var(--space-1) 0 0; color: var(--color-ink); font-size: var(--text-14); }
 /* appearance: none so Safari honours the 44 px height; the chevron is an inline SVG in the dark theme ink. */
@@ -23,8 +25,10 @@
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; } }
 
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* The scan state's question; on every other state the heading stays for screen readers only. */
+.title { margin: var(--space-1) 2px 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
 
-.panel { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
+.panel { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); background: var(--color-surface); }
 .ready, .stack { display: grid; gap: var(--space-3); }
 .stack > :global(button):last-child:not(:first-child) { justify-self: start; }
 .eyebrow { color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
@@ -32,25 +36,26 @@
 .meta { margin: 0; font-weight: var(--weight-label); }
 .help { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 
-/* Open card */
-.card { display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
+/* Open card: the one panel. The balance, its unit and the level on one line, the stamps under it, then the rewards. */
+.card { display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-xl); background: var(--color-surface); }
 .cardHead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 .cardHead > div { display: grid; gap: var(--space-1); }
 .cardHead > :global(button) { margin-right: calc(-1 * var(--space-2)); }
-.note { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink); font-size: var(--text-14); line-height: var(--leading-body); }
-.balance { display: grid; gap: var(--space-1); }
-.balance > span { color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
-.balance strong { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-/* Compact stamp row: the progress reads at a glance and the reward list stays above the dock. */
-.stamps { max-width: 15rem; }
+.note { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font-size: var(--text-14); line-height: var(--leading-body); }
+.balance { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
+.balance strong { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
 .balance em { font-size: var(--text-22); font-style: normal; font-weight: var(--weight-strong); letter-spacing: 0; }
+.level { margin-left: auto; color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
+/* The stamps span the panel on a phone and stop growing on a wide counter. */
+.stamps { max-width: 22rem; }
 .rewards { display: grid; gap: var(--space-2); }
 .rewards h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
 .rewardList { display: grid; gap: var(--space-2); }
+/* Rows: the reward and its price, what a tap does at the right edge. */
 .reward {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--target-cashier); padding: var(--space-2) var(--space-4);
-  border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: transparent; color: var(--color-ink); font: inherit; text-align: left;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-press) ease;
+  border: 0; border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) ease;
 }
 .reward > span:first-child { display: grid; gap: 2px; min-width: 0; }
 .reward strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
@@ -58,9 +63,9 @@
 .rewardAction { flex: none; color: var(--color-action); font-weight: var(--weight-strong); }
 .reward:active:not(:disabled) { transform: scale(.97); }
 .reward:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-.reward:disabled { border-color: var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
+.reward:disabled { background: transparent; box-shadow: inset 0 0 0 1px var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
 .reward:disabled .rewardAction { color: var(--color-ink-muted); }
-@media (hover: hover) and (pointer: fine) { .reward:hover:not(:disabled) { border-color: var(--color-ink); } }
+@media (hover: hover) and (pointer: fine) { .reward:hover:not(:disabled) { background: var(--color-action-soft); } }
 
 /* Amount sheet: the preview of what „Buchen“ books, large enough to check before the tap. */
 .preview { display: grid; gap: var(--space-1); min-height: 4.5rem; align-content: center; }
@@ -69,15 +74,35 @@
 .preview .previewProblem { color: var(--color-danger); font-size: var(--text-16); }
 
 /* Dock: stepper over the booking button. The value changes at once; only the press scales. */
-.stepper { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
-.stepper output { min-width: 3ch; font-size: var(--text-28); font-weight: var(--weight-heavy); text-align: center; font-variant-numeric: tabular-nums; }
+.stepper { display: flex; align-items: center; justify-content: center; gap: var(--space-6); }
+.stepper output { min-width: 2ch; font: var(--weight-heavy) var(--display-tile)/1 var(--font-display); text-align: center; font-variant-numeric: tabular-nums; }
 .step { width: var(--target-cashier); padding: 0; }
+/* The one green band (ENG-121) for a ready reward. The whole band is the action; it stays last in the dock, in thumb
+   reach, and the earning button above it steps back. */
+.band {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg);
+  background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) ease;
+}
+.band:active:not(:disabled) { transform: scale(.985); }
+.band:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.band:disabled { background: var(--color-action-soft); color: var(--color-ink-muted); cursor: not-allowed; }
+@media (hover: hover) and (pointer: fine) { .band:hover:not(:disabled) { background: var(--color-action-hover); } }
+.bandIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 88%); }
+.bandText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.bandText b { display: block; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.3; }
+/* A long reward name stops at two lines, so the dock keeps its height; the reward list on the card names it in full. */
+.bandText small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
+@media (max-width: 359px) { .bandIcon { display: none; } }
 
-@media (prefers-reduced-motion: reduce) { .reward { transition: none; } .reward:active:not(:disabled) { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .reward, .band { transition: none; }
+  .reward:active:not(:disabled), .band:active:not(:disabled) { transform: none; }
+}
 
 /* Outcomes. Reduced motion: no animation. */
-.outcome { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); }
-.outcomeIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-surface); color: var(--color-ink); }
+.outcome { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.outcomeIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-raised); color: var(--color-ink); }
 .outcomeText { display: grid; gap: var(--space-1); min-width: 0; overflow-wrap: anywhere; }
 .outcomeText strong { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.25; }
 .outcomeText > span { margin: 0; font-size: var(--text-16); line-height: var(--leading-body); }
@@ -86,34 +111,38 @@
 .outcome[data-tone="rejected"] .outcomeIcon { background: var(--color-danger); color: var(--color-bg); }
 .outcome[data-tone="pending"] .outcomeIcon, .outcome[data-tone="offline"] .outcomeIcon { background: var(--color-warning); color: var(--color-bg); }
 
-/* "Gebucht" owns the screen after a booking: centred, large, calm; the next-card action stays secondary.
-   It fades in over 160 ms with no movement (cashiers see it dozens of times a shift, it must never hold up the next
-   scan) and the tick draws once; that is the screen's only motion. */
+/* „Gebucht“ owns the top of the screen after a booking: the badge, the title, what was booked as a chip, the new
+   balance, the card number. The camera keeps running under it for the next card. It fades in over 160 ms with no
+   movement (cashiers see it dozens of times a shift, it must never hold up the next scan) and the tick draws once;
+   that is the screen's only motion. */
 .booked {
-  display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4) var(--space-6); border-radius: var(--radius-lg);
-  background: var(--color-raised); box-shadow: inset 0 0 0 1.5px var(--color-success); text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
+  display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-4) var(--space-2);
+  text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
 }
 @starting-style { .booked { opacity: 0; } }
-.booked[data-tone="pending"] { box-shadow: inset 0 0 0 1.5px var(--color-warning); }
-.booked[data-tone="undone"] { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); }
-.bookedIcon { display: grid; place-items: center; width: 72px; height: 72px; margin-bottom: var(--space-2); border-radius: 50%; background: var(--color-success); color: var(--color-bg); }
-.booked[data-tone="pending"] .bookedIcon { background: var(--color-warning); }
+.bookedIcon { display: grid; place-items: center; width: 112px; height: 112px; margin-bottom: var(--space-2); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
+.booked[data-tone="pending"] .bookedIcon { background: color-mix(in oklab, var(--color-warning), transparent 82%); color: var(--color-warning); }
 .booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
-.booked h2 { margin: 0; font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.01em; }
+.booked h2 { margin: 0; font: var(--weight-heavy) var(--display-num)/1.05 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }
+/* Longer titles („Vorgemerkt, noch nicht gebucht“, „Rückgängig gemacht“) step down so they keep two lines at most. */
+.booked:not([data-tone="success"]) h2 { font-size: var(--text-28); letter-spacing: -.015em; }
 .booked p { margin: 0; max-width: 32ch; }
-.bookedHeadline { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1.05; letter-spacing: -.02em; font-variant-numeric: tabular-nums; text-wrap: balance; }
-.bookedDetail { font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.bookedHeadline {
+  display: inline-flex; align-items: center; min-height: 40px; margin-top: var(--space-1); padding: var(--space-1) var(--space-4); border-radius: var(--radius-sm);
+  background: var(--color-success); color: var(--color-bg); font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.2; font-variant-numeric: tabular-nums; text-wrap: balance;
+}
+.bookedDetail { font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.35; font-variant-numeric: tabular-nums; }
 .bookedMeta { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
 .bookedHint { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
 .bookedError { color: var(--color-danger); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
-.bookedActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-3); }
+.bookedActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 .booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick 220ms var(--ease-out) 60ms both; }
 @keyframes tick { from { stroke-dashoffset: 24; } }
 @media (prefers-reduced-motion: reduce) { .booked { transition: none; } .bookedIcon path, .outcomeIcon path { animation: none; } }
 
 /* Loading and blocked access */
-.access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-raised); }
+.access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-xl); background: var(--color-surface); }
 .access h1 { margin: 0; font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.25; }
 .access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
 .access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }

@@ -30,7 +30,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".video"], value: "#0B1410", reason: "camera viewport behind the live video, darker than any surface" },
-  { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "rgba(255, 255, 255, .92)", reason: "sight brackets drawn over the live camera image" },
+  { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
   { file: "src/components/ui/dialog.module.css", kind: "colour", selectors: [".dialog::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   { file: "src/components/ui/sheet.module.css", kind: "colour", selectors: [".sheet::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   ...(["colour", "font size"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),

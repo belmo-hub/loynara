@@ -5,7 +5,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
-import { Check, Clock, Menu, Minus, Plus, ScanLine, ShieldAlert, Undo2, WifiOff, X } from "lucide-react";
+import { ArrowRight, Check, Clock, Gift, Menu, Minus, Plus, ScanLine, ShieldAlert, Undo2, WifiOff, X } from "lucide-react";
 import type { ProgramType, UiLocale } from "@/components/loyalty-ui";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
@@ -142,6 +142,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
   const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
   const rewardFirst = readyRewards.length > 0;
+  // The band names the one ready reward (copy R21); with several, its tap opens the list, so it names none. No French yet.
+  const readyLine = locale === "de" && readyRewards.length === 1 ? `${readyRewards[0].name} · Stand reicht` : "";
   function redeemReady() {
     if (readyRewards.length === 1) { setConfirm({ kind: "redeem", reward: readyRewards[0] }); return; }
     const first = document.querySelector<HTMLButtonElement>(".reward-action-list button:not(:disabled)");
@@ -174,7 +176,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   const cheapest = card && card.programType !== "points" && card.rewards.length ? Math.min(...card.rewards.map(reward => reward.cost)) : 0;
   const stampGoal = cheapest > 0 && cheapest <= STAMP_GRID_MAX ? cheapest : 0;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
-  const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "go" as const, size: "xl" as const };
+  const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
   const dock = card ? <>
     {purchaseMode
       ? <Button {...earnLook} block disabled={busy}
@@ -188,14 +190,19 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         </div>
         <Button {...earnLook} block className="cashier-award-now" onClick={() => awardQuantity(card)} disabled={busy}>{awardLabel}</Button>
       </>}
-    {rewardFirst && <Button variant="go" size="xl" block className="cashier-redeem-now" onClick={redeemReady} disabled={busy}>{t.redeem}</Button>}
+    {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeemReady} disabled={busy}>
+      <span className={styles.bandIcon} aria-hidden="true"><Gift size={22} /></span>
+      <span className={styles.bandText}><b>{t.redeem}</b>{readyLine && <small>{readyLine}</small>}</span>
+      <ArrowRight size={22} aria-hidden="true" />
+    </button>}
   </> : undefined;
 
-  // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region.
+  // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. After a
+  // booking the result carries its own title, so the strip steps aside.
   return <CashierShell lang={locale} live={false} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={stateLabel} stateDetail={stateDetail} dock={dock}>
-    {/* The status strip says where the counter is; the heading stays for screen readers and page structure. */}
-    <h1 className={styles.srOnly}>{card ? t.found : t.scanTitle}</h1>
+    state={shellState} stateLabel={booked ? null : stateLabel} stateDetail={stateDetail} dock={dock}>
+    {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
+    <h1 className={card || preview || booked ? styles.srOnly : styles.title}>{card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
@@ -203,9 +210,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>}
       {/* After a booking the result owns the top of the screen, readable from arm's length: what was booked, the new balance. */}
       {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
-        <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={36} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={32} /> : <Clock size={32} />}</span>
-        {/* With an amount, the tick and the amount say it and the strip above carries the title; the heading stays for screen readers. */}
-        <h2 className={booked.headline ? styles.srOnly : undefined}>{booked.title}</h2>
+        <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={56} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
+        <h2>{booked.title}</h2>
         {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
         <p className={styles.bookedDetail}>{booked.detail}</p>
         {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
@@ -249,18 +255,20 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${withUnit(winback, card.programType, locale)} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
         {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${withUnit(birthday, card.programType, locale)} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
         <small>{WINBACK_EXCLUSIONS}</small></p>}
+      {/* The number, its unit and the level read as one line; the label stays for screen readers. */}
       <div className={cx("balance-display", styles.balance)}>
-        <span>{t.balance}</span>
+        <span className={styles.srOnly}>{t.balance}</span>
         <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
+        {card.level && <span className={styles.level}>{card.level.name}</span>}
       </div>
-      {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />
-        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} size="sm" className={styles.stamps} />}
+        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} className={styles.stamps} />}
+      {card.level?.perk && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
       {purchaseMode && <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
         footer={<div className={styles.stack}>
           {offlineChoice && <Button variant="secondary" size="lg" block disabled={busy || !purchaseAward} onClick={() => bookPurchase(true)}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
-          <Button variant="go" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
+          <Button variant="primary" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
         </div>}>
         <div className={styles.stack}>
           <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}

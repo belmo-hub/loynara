@@ -28,6 +28,11 @@ describe("counts on the cashier screen (ENG-108)", () => {
     expect(view("fr", { balance: 2 })).toMatch(/>2<\/span> <em>points<\/em>/);
     expect(view("fr", { programType: "stamps", balance: 1 })).toMatch(/>1<\/span> <em>tampon<\/em>/);
   });
+  it("the reward band names the one ready reward, in German only, and none when several are ready (ENG-122g)", () => {
+    expect(view("de")).toContain("<b>Prämie einlösen</b><small>Kaffee · Stand reicht</small>");
+    expect(view("fr")).not.toContain("<small>Kaffee");
+    expect(view("de", { balance: 2, rewards: card.rewards.map(reward => ({ ...reward, eligible: true })) })).toContain("<b>Prämie einlösen</b></span>");
+  });
   it("reward prices, with a reward that costs exactly 1", () => {
     expect(view("de")).toContain("<small>1 Punkt</small>");
     expect(view("de")).toContain("<small>2 Punkte</small>");

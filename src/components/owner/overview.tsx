@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, CircleCheck, CreditCard, Gift, Undo2 } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
@@ -12,7 +12,7 @@ import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
-import { downloadCounterSign, JoinCard, joinUrlOf } from "./join-card";
+import { downloadCounterSign, joinUrlOf } from "./join-card";
 import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
@@ -146,15 +146,12 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
-          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
+          : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
       {!failed && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
         {!a && <p className="ow-muted" aria-busy="true">Lädt …</p>}
       </Diary>}
-      {/* Until ENG-086 moves them under Kunden, the invite link and the Tresenschild stay reachable here, below the diary
-          (Einstellungen, where the owner also finds them, is owner-only). */}
-      <div className="ow-dash-invite"><JoinCard me={me} /></div>
     </div>
   );
 }
@@ -247,11 +244,11 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
-    { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
-    { key: "cards", label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
-    { key: "back", label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
+    { key: "bookings", icon: CircleCheck, label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
+    { key: "cards", icon: CreditCard, label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
+    { key: "back", icon: Undo2, label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
-    { key: "rewards", label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
+    { key: "rewards", icon: Gift, label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
   ];
 }
 
@@ -338,8 +335,6 @@ function EmptyShop({ me }: { me: MeResponse }) {
           );
         })}
       </section>
-      {/* The invite link and the Tresenschild, until ENG-086 moves them under Kunden. */}
-      <JoinCard me={me} />
     </div>
   );
 }
