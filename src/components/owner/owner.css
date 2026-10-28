@@ -140,7 +140,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--space-3); font-size: var(--text-14); border-radius: var(--radius-pill); }
 .ow-link { color: var(--color-action); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-link--block { display: inline-flex; align-items: center; min-height: 44px; }
-.ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: 700; background: var(--color-fill); color: var(--color-ink-muted); }
+.ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: var(--radius-sm); font-size: var(--text-14); font-weight: 700; background: var(--color-fill); color: var(--color-ink-muted); }
 .ow-chip--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
 .ow-chip--warn { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
 .ow-chip--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
@@ -352,37 +352,25 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .owner-app h1[tabindex="-1"]:focus, .owner-app main[tabindex="-1"]:focus { outline: none; box-shadow: none; }
 .ow-bare .ow-topbar { padding-inline: var(--space-6); }
 
-/* Customers */
-.ow-filters { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); align-items: flex-end; padding: var(--space-4) var(--space-6); }
-.ow-filters-q { flex: 1 1 160px; max-width: 32rem; }
-.ow-filters-more { flex: 1 1 100%; }
-.ow-filters-more > summary { font-weight: var(--weight-label); }
-.ow-filters-fields { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; padding-top: var(--space-2); }
-@media (max-width: 640px) { .ow-filters { padding: var(--space-3) var(--space-4); } }
-.ow-cust { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
-.ow-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); container-type: inline-size; }
-.ow-member { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); min-height: 56px; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-raised); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
-.ow-member:hover { border-color: var(--color-line-strong); background: var(--color-bg); }
-.ow-member[aria-current="true"] { border-color: var(--color-action); background: var(--color-action-soft); }
-.ow-member-id, .ow-member-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ow-member-stat { text-align: right; flex: none; }
-.ow-member small { color: var(--color-ink-muted); font-size: var(--text-14); overflow-wrap: anywhere; }
-.ow-member-id strong { white-space: nowrap; overflow-wrap: anywhere; }
-/* A narrow list (phones, and the list column beside an open card on small laptops) puts the stats under the card
-   number, so the programme name keeps the full width instead of breaking letter by letter. */
-@container (max-width: 440px) {
-  .ow-member { flex-direction: column; align-items: stretch; }
-  .ow-member-stat { text-align: left; }
-}
-.ow-cust-back { display: none; align-self: flex-start; margin-bottom: var(--space-2); }
-.ow-cust-detail { position: sticky; top: 72px; }
-@media (max-width: 900px) {
-  .ow-cust { grid-template-columns: minmax(0, 1fr); }
-  .ow-cust[data-detail="open"] .ow-cust-list { display: none; }
-  .ow-cust[data-detail="closed"] .ow-cust-detail { display: none; }
-  .ow-cust-back { display: inline-flex; }
-  .ow-cust-detail { position: static; }
-}
+/* Kunden (ENG-122a, rest 01–06) on the Übersicht's and Programm's parts: the search field on top, then their rows. */
+.ow-search { position: relative; display: grid; gap: var(--space-1); max-width: 40rem; }
+.ow-search > svg { position: absolute; top: 16px; left: var(--space-4); color: var(--color-ink-muted); pointer-events: none; }
+.ow-search .ow-input { min-height: 52px; padding-left: 48px; -webkit-appearance: none; appearance: none; }
+/* A copy, a download or a step is a row too: the button wears the link row's shape. */
+button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.ow-prog-text .ow-chip { margin-top: var(--space-1); }
+/* A card's balance: the number reads first, its unit one step quieter, so „Zuletzt vor 34 Tagen“ keeps one line. */
+.ow-prog-value small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; }
+.ow-page > a.ow-band { max-width: 40rem; }
+.ow-band-arrow { flex: none; }
+/* The card's „Aktueller Stand“: the unit one step down from the board's, the slots under the number. */
+.ow-stand .ow-board-big small { font-size: var(--text-22); }
+.ow-stand-grid { margin-top: var(--space-3); }
+.ow-day-sum strong { color: var(--color-ink); font-weight: var(--weight-strong); }
+.ow-qlegend { margin: 0 2px var(--space-1); padding: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); color: var(--color-ink-muted); }
+.ow-qsum dl > div[data-new] dd { color: var(--color-action); }
+.ow-reissued { display: grid; justify-items: center; gap: var(--space-2); text-align: center; text-wrap: pretty; }
+.ow-reissued strong { font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 
 /* Campaigns */
 .ow-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
@@ -501,17 +489,12 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-filebtn:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .ow-swatches + .ow-colorrow { margin-top: var(--space-2); }
 @media (max-width: 560px) { .ow-step .ow-btn--ghost { padding-inline: 0; justify-self: start; } }
-.ow-feed-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
-.ow-feed-reason { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-readiness-group + .ow-readiness-group { margin-top: var(--space-4); }
 .ow-readiness-group h3 { font-size: var(--text-16); margin: 0; }
 .ow-step-mark--external { border-style: dashed; }
 .ow-step-mark--na { border-color: var(--color-line); }
 .ow-step-mark--todo { border-color: var(--color-line-strong); }
 details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
-.ow-entitlement { border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin: 0; display: grid; gap: var(--space-2); }
-.ow-entitlement legend { font-weight: 700; padding-inline: 6px; }
-.ow-entitlement p { margin: 0; }
 
 /* Retention: insight list (overview). */
 .ow-insights { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
@@ -530,14 +513,13 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
    white overview card, the rows and the diary ───────────── */
 .ow-dash { display: grid; gap: var(--space-4); }
 @media (min-width: 1024px) {
-  .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "hello hello" "next next" "board side" "diary diary" "invite invite"; align-items: start; column-gap: var(--space-6); }
+  .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "hello hello" "next next" "board side" "diary diary"; align-items: start; column-gap: var(--space-6); }
   .ow-dash > .ow-dash-notice { grid-area: notice; }
   .ow-dash > .ow-hello { grid-area: hello; }
   .ow-dash > .ow-next { grid-area: next; }
   .ow-dash > .ow-board, .ow-dash > .ow-dash-error, .ow-dash > .ow-dash-lead { grid-area: board; }
   .ow-dash > .ow-diary { grid-area: diary; }
   .ow-dash > .ow-dash-side { grid-area: side; }
-  .ow-dash > .ow-dash-invite { grid-area: invite; }
   .ow-dash--single { grid-template-columns: minmax(0, 720px); grid-template-areas: none; }
   .ow-dash.ow-dash--single > * { grid-area: auto; }
 }
@@ -596,7 +578,7 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 /* The 30-day rows: Programm list rows (ENG-099); one „?“ on the section head opens their help. */
 .ow-rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .ow-rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.ow-rows div.ow-prog-row:active { transform: none; }
+div.ow-prog-row:active { transform: none; }
 /* The value is first in the DOM (read before the note) and drawn at the right edge; unlinked rows keep the arrow's
    width empty, so every value shares one right edge. */
 .ow-rows .ow-prog-value { order: 1; }

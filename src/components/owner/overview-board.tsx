@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CircleCheck, CreditCard, Flag, Gift, RefreshCw, Undo2, type LucideIcon } from "lucide-react";
+import { ArrowRight, Flag, RefreshCw, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -90,35 +90,38 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
   );
 }
 
-const TILE_ICONS = { bookings: CircleCheck, cards: CreditCard, back: Undo2, rewards: Gift } satisfies Record<string, LucideIcon>;
-/** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). */
-export type Tile = { key: keyof typeof TILE_ICONS; label: string; value: string; note: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
-/** The tiles as Programm list rows (Wegweiser A): value at the right edge, the note as sub-line, an arrow only where the row links. */
-export function Tiles({ tiles }: { tiles: Tile[] }) {
+/** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). No `help`: not in the sheet. */
+export type Tile = { key: string; icon: LucideIcon; label: string; value: string; note?: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
+/**
+ * Rows under a section head whose „?“ opens their help (Wegweiser A): value at the right edge, the note as sub-line, an
+ * arrow only where the row links. The Übersicht's 30 days and Kunden's groups (ENG-122a).
+ */
+export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
   const [help, setHelp] = useState(false);
+  const titleId = useId();
   const close = () => setHelp(false);
   return (
-    <section className="ow-stack" aria-labelledby="ow-tiles-title" style={{ gap: 8 }}>
+    <section className="ow-stack" aria-labelledby={titleId} style={{ gap: 8 }}>
       <div className="ow-rows-head">
-        <h2 id="ow-tiles-title" className="ow-tiles-title">Letzte 30 Tage an diesem Standort</h2>
-        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „Letzte 30 Tage an diesem Standort“</span></button>
+        <h2 id={titleId} className="ow-tiles-title">{title}</h2>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{title}“</span></button>
       </div>
       <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>
       <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
-        {tiles.map(tile => <div className="ow-rows-help" key={tile.key}><h3>{tile.label}</h3><p>{tile.help}</p></div>)}
+        {tiles.filter(tile => tile.help).map(tile => <div className="ow-rows-help" key={tile.key}><h3>{tile.label}</h3><p>{tile.help}</p></div>)}
       </Sheet>
     </section>
   );
 }
 function TileRow({ tile }: { tile: Tile }) {
-  const Icon = TILE_ICONS[tile.key];
+  const Icon = tile.icon;
   const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
     {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}
     <span className="ow-prog-main">
       <span className="ow-prog-value" data-big="">{value}</span>
-      <span className="ow-prog-text"><strong>{tile.label}</strong><small>{tile.note}</small></span>
+      <span className="ow-prog-text"><strong>{tile.label}</strong>{tile.note && <small>{tile.note}</small>}</span>
     </span>
   </>;
   return tile.href

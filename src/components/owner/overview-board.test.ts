@@ -87,7 +87,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html.match(/ow-prog-arrow/g)).toHaveLength(1); // only the linked row; the other Kunden filters come with ENG-086
     // One „?“ for all rows, on the section head; the shared sheet lists the four help texts under their labels, word for word.
     expect(html.match(/class="ow-tile-q"/g)).toHaveLength(1);
-    expect(html).toMatch(/<h2 id="ow-tiles-title" class="ow-tiles-title">Letzte 30 Tage an diesem Standort<\/h2><button type="button" class="ow-tile-q" aria-haspopup="dialog">/);
+    expect(html).toMatch(/<h2 id="[^"]+" class="ow-tiles-title">Letzte 30 Tage an diesem Standort<\/h2><button type="button" class="ow-tile-q" aria-haspopup="dialog">/);
     const sheet = html.slice(html.lastIndexOf("<dialog"), html.lastIndexOf("</dialog>"));
     expect(sheet).toMatch(/<h2 id="[^"]+" class="[^"]*">So zählen wir<\/h2>/);
     expect([...sheet.matchAll(/<h3>([^<]+)<\/h3><p>([^<]+)<\/p>/g)].map(match => `${match[1]}: ${match[2]}`)).toEqual([
@@ -222,8 +222,8 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).not.toMatch(/\d{1,2}:\d{2}/);
   });
 
-  it("keeps the invite link and Tresenschild reachable on the page until ENG-086 moves them", () => {
-    expect(render()).toContain("Kunden einladen");
+  it("leaves the invite link and Tresenschild to Kunden (ENG-122a)", () => {
+    expect(render()).not.toContain("Kunden einladen");
   });
 });
 
@@ -383,8 +383,7 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     expect(html).not.toContain("Wenn du magst");
     expect([...html.matchAll(/class="ow-day" data-state="(\w+)"><div class="ow-day-rail" aria-hidden="true"><i>(<svg)?/g)].map(match => `${match[1]}${match[2] ? "+check" : ""}`))
       .toEqual(["done+check", "current", "open", "open"]); // done, current and open differ by shape
-    expect(html).toContain("Kunden einladen");
-    expect(html).toContain("Tresenschild laden");
+    expect(html).not.toContain("Kunden einladen"); // under Kunden since ENG-122a
   });
 
   it("a step without an action is a band without an arrow that nothing can tap; a failed read keeps the white card", () => {
@@ -403,6 +402,6 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     const html = render();
     expect(html).not.toContain("/merchant/staff");
     expect(html).not.toContain("/merchant/program/card");
-    expect(html).toContain("Tresenschild laden");
+    expect(html).not.toContain("Tresenschild laden"); // the Leitung finds it under Kunden (ENG-122a), which it can open
   });
 });
