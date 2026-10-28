@@ -142,7 +142,7 @@ export function ProgramSetup() {
   const reward = cost !== null ? `${withUnit(cost, f.type)} → ${f.rewardName.trim()}` : "–";
   // As the sign-up page shows the rules: by purchase amount the system's sentence opens and the owner's text adds to it.
   const shownRules = extras ? [purchaseRuleSentence(rate, currency), rulesText.trim()].filter(Boolean).join("\n\n") : rulesText.trim();
-  const points = f.type === "points", sample = f.preset && f.preset !== "other";
+  const points = f.type === "points", sample = f.preset !== "other" && PRESETS.find(preset => preset.id === f.preset)?.type === f.type; // only then did the preset bring its value
 
   return (
     <div className="ow-page ow-qpage ow-qsetup">
