@@ -199,6 +199,20 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "wallet.program_refresh") {
+    try {
+      const { db } = await import("../src/db");
+      const { runWalletProgramRefresh } = await import("../src/lib/wallet/enqueue");
+      const result = await runWalletProgramRefresh(db, job);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: it only queues coalesced card refreshes.
+      const permanent = job.attempts >= maxAttempts;
+      const marked = await mark(job, permanent ? "failed" : "retry", "Scheduled Wallet refresh failed", permanent ? 0 : Math.min(3600, 30 * 2 ** (job.attempts - 1)));
+      console.error(`Scheduled Wallet refresh job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind !== "wallet.refresh") {
     return await mark(job, "failed", "Unknown job kind");
   }

@@ -54,3 +54,25 @@ export async function enqueueWalletProgramRefresh(tx: Query, tenantId: string, p
       WHERE kind = 'wallet.refresh' AND status = 'pending' AND payload ->> 'coalescingVersion' = '1'
     DO UPDATE SET payload = outbox_jobs.payload`);
 }
+
+/**
+ * ENG-100 D6: a dated reward change reaches the passes on its date through a job of this kind, scheduled at effective_at
+ * or ends_at, whose worker run queues the programme-wide refresh then. Never a future `wallet.refresh` row: it would hold
+ * the card's coalescing slot and swallow every balance refresh until the date. Health checks count only overdue jobs.
+ * Rollback: a worker from before ENG-100 marks this kind failed. Before rolling the worker back past ENG-100, cancel them:
+ *   UPDATE outbox_jobs SET status = 'suppressed', last_error = 'rollback' WHERE kind = 'wallet.program_refresh' AND status = 'pending';
+ */
+export const WALLET_PROGRAM_REFRESH = "wallet.program_refresh";
+
+export async function scheduleWalletProgramRefresh(tx: Query, tenantId: string, programId: string, at: Date): Promise<void> {
+  await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload, next_attempt_at)
+    VALUES (${tenantId}::uuid, ${WALLET_PROGRAM_REFRESH}, jsonb_build_object('programId', ${programId}::text), ${at}::timestamptz)`);
+}
+
+/** The worker's run of a scheduled programme refresh: the refresh reads the state current at that time. */
+export async function runWalletProgramRefresh(database: Pick<typeof db, "transaction">, job: { tenantId: string; payload: Record<string, unknown> }) {
+  const programId = job.payload.programId;
+  if (typeof programId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(programId)) return { status: "failed" as const, reason: "Invalid wallet job payload" };
+  await database.transaction(tx => enqueueWalletProgramRefresh(tx, job.tenantId, programId));
+  return { status: "complete" as const };
+}
