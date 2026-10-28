@@ -10,6 +10,8 @@ export type HiddenSurfaces = readonly PilotSurface[];
 
 const OWNER: OwnerRole[] = ["owner"];
 const BOTH: OwnerRole[] = ["owner", "manager"];
+/** The phone's „Mehr“ tab and the desktop's „Einstellungen“: one page of signposts for both. */
+export const MORE_HREF = "/merchant/more";
 
 // Five destinations, two levels. Every pre-existing URL stays reachable and unchanged.
 export const NAV_GROUPS: NavGroup[] = [
@@ -29,11 +31,9 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "Ergebnisse", href: "/merchant/analytics", roles: OWNER },
     { label: "Beratung", href: "/merchant/adviser", roles: OWNER },
   ] },
-  { id: "settings", label: "Einstellungen", icon: "gear", roles: OWNER, prefixes: ["/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing"], items: [
-    { label: "Geschäft", href: "/merchant/settings", roles: OWNER },
-    { label: "Standorte", href: "/merchant/locations", roles: OWNER },
-    { label: "Team", href: "/merchant/staff", roles: OWNER },
-    { label: "Abrechnung", href: "/merchant/billing", roles: OWNER, surface: "billing" },
+  // Geschäft, Standorte, Team and Abrechnung are rows of the „Mehr“ page (ENG-122c), so the area has no sub-tabs either.
+  { id: "settings", label: "Einstellungen", icon: "gear", roles: OWNER, prefixes: [MORE_HREF, "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing"], items: [
+    { label: "Einstellungen", href: MORE_HREF, roles: OWNER },
   ] },
 ];
 

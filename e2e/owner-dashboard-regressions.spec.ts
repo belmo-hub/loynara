@@ -42,7 +42,7 @@ test("failed context refresh after location selection shows an error and retry r
 for (const flow of [
   { name: "rule page back to the list", path: "/merchant/program/rule", field: "Regel auf der Karte", link: "Programm", target: "/merchant/program" },
   { name: "card studio to rules", path: "/merchant/program/card", field: "Geschäftsname", link: "Programm", target: "/merchant/program" },
-  { name: "location draft to programme", path: "/merchant/locations", field: "Standortname", link: "Programm ansehen", target: "/merchant/program" },
+  { name: "location draft back to Standorte", path: "/merchant/locations/new", field: "Standortname", link: "Standorte", target: "/merchant/locations" },
 ]) test(`page link guards unsaved edits: ${flow.name}`, async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const f = await owner(url);

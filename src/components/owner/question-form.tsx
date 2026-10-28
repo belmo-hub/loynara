@@ -116,8 +116,8 @@ export function Choices({ name, label, options, value, saved, onChange }: { name
 }
 
 /** On or off for a whole setting (screens 09–11); what it switches shows below only while it is on. */
-export const SwitchRow = ({ label, sub, checked, onChange }: { label: string; sub: string; checked: boolean; onChange: (on: boolean) => void }) =>
-  <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong><small>{sub}</small></span><input type="checkbox" role="switch" checked={checked} onChange={event => onChange(event.target.checked)} /></label>;
+export const SwitchRow = ({ label, sub, checked, disabled, onChange }: { label: string; sub?: string; checked: boolean; disabled?: boolean; onChange: (on: boolean) => void }) =>
+  <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong>{sub && <small>{sub}</small>}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} /></label>;
 
 /** A labelled value on a panel: the label and its control share a line while they fit, the limit or the error under them. */
 export const Control = ({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error: string; children: ReactNode }) => (
