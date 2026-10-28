@@ -67,7 +67,7 @@ for (const [name, question] of Object.entries(PAYLOADS)) test(`${name} posts onl
       await route.fulfill({ json: {} });
     });
     await page.goto(`/merchant/program/${question.path}`);
-    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(page.locator("h1").first()).toBeVisible({ timeout: 30_000 }); // CI's next dev compiles a route on its first visit
     await question.answer(page);
     await expect.poll(() => bodies.length).toBe(1);
     expect(Object.keys(bodies[0]).sort()).toEqual([...question.keys].sort());
