@@ -57,8 +57,9 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         await expect(page.locator(".customer-card-number strong")).toHaveText(card.cardLocator);
         await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "available" } }));
         await page.reload();
-        await expect(page.locator(".customer-wallet-add")).toBeVisible();
         await expect(page.getByRole("button", { name: "Karte aktualisieren", exact: true })).toBeVisible();
+        await page.getByRole("button", { name: /^In Wallet speichern/ }).click(); // the Wallet sheet (ENG-122e)
+        await expect(page.locator(".customer-wallet-add")).toBeVisible();
         await capture(page, "card-wallet-mocked-ready", viewport.width);
         const second = await owner.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, additionalCard: true } });
         expect(second.status()).toBe(201);

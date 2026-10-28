@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronRight, History, RefreshCw } from "lucide-react";
+import { ArrowRight, CalendarCheck, Check, ChevronRight, Clock, Gift, Hourglass, Link2, Medal, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
-import { Badge } from "@/components/ui/badge";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
+import { Sheet } from "@/components/ui/sheet";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
 import { CardFace, nearestReward, type CardReward } from "./card-face";
 import { copyFor, type Copy } from "./customer-card-copy";
@@ -68,23 +68,30 @@ export type CustomerCardProps = {
 };
 
 /**
- * The guest's card: an ending programme first, then one progress line that names the reward, the card itself with the
- * code inset like a Wallet pass, at most one highlighted extra, then everything that keeps the card findable.
+ * The guest's card in the Wegweiser look (ENG-122e): an ending programme first, the goal as the page's heading, the card
+ * with the code inset like a Wallet pass, the green band only while a reward is ready, then section heads on the grey with
+ * white rows. Wallet and recovery open sheets; the programme rules stay on the page, as before.
  */
 export function CustomerCard(props: CustomerCardProps) {
   const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<"wallet" | "return" | null>(null);
+  const closeSheet = () => setSheet(null);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
   const nearest = nearestReward(rewards, balance);
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   const nextGoal = [...rewards].filter((reward) => reward.cost > balance).sort((a, b) => a.cost - b.cost)[0];
+  const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level });
+  const wallets = walletButtons(props, t);
+  // The goal is the page's heading; a programme without a reward has none, so the shop's name takes the h1.
+  const Name = selected ? "p" : "h1";
 
   const header = <div className={`customer-header ${styles.merchant}`}>
     <span className={styles.mono} aria-hidden="true">{Array.from(businessName)[0]}</span>
-    <div className={styles.merchantText}><h1 className={`customer-header-merchant ${styles.merchantName}`}>{businessName}</h1><span>{t.yourCard}</span></div>
+    <div className={styles.merchantText}><Name className={`customer-header-merchant ${styles.merchantName}`}>{businessName}</Name><span>{t.yourCard}</span></div>
   </div>;
 
   return <CardStatusProvider><CustomerShell brandColor={brandColor} locale={locale} header={header} footer={<p className={styles.footer}>{t.footer}</p>}>
@@ -109,52 +116,86 @@ export function CustomerCard(props: CustomerCardProps) {
     </div> : null}
     </div>
 
-
     {notices}
 
-    <Extras items={extras({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level })} label={t.more} />
+    {readyCount > 0 ? <p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
 
-    {news ? <section className={styles.panel} aria-labelledby="customer-news-title">
-      <h2 id="customer-news-title" className={styles.panelTitle}>{t.news}</h2>
-      <p className={styles.rules}>{news}</p>
-    </section> : null}
+    {notes.length ? <Section name="notes" title={t.goodToKnow}>
+      <ul className={styles.rows}>{notes.map(({ key, icon: Icon, warn, body }) => <li key={key} className={styles.row}>
+        <span className={styles.rowIcon} data-tone={warn ? "warn" : undefined}><Icon size={22} aria-hidden="true" /></span>
+        <span className={styles.rowText}>{body}</span>
+      </li>)}</ul>
+    </Section> : null}
 
-    <Wallet {...props} t={t} />
+    {news ? <Section name="news" title={t.news}><p className={`${styles.card} ${styles.rules}`}>{news}</p></Section> : null}
 
-    {rewards.length > 1 ? <section className={styles.panel} aria-labelledby="customer-rewards-title">
-      <h2 id="customer-rewards-title" className={styles.panelTitle}>{t.chooseReward}</h2>
-      <div role="group" aria-label={t.rewardsGroup} className={styles.rewardList}>
-        {rewards.map((reward) => <button key={reward.id} type="button" aria-pressed={selected?.id === reward.id} className={styles.rewardRow} onClick={() => setSelectedId(reward.id)}>
-          <span className={styles.rewardText}><strong>{reward.title}</strong><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
-          <Badge tone={balance >= reward.cost ? "success" : "neutral"}>{balance >= reward.cost ? t.redeemable : t.short(number.format(reward.cost - balance))}</Badge>
-        </button>)}
+    {rewards.length > 1 ? <Section name="rewards" title={t.chooseReward}>
+      <div role="group" aria-labelledby="customer-rewards-title" className={styles.rows}>
+        {rewards.map((reward) => {
+          const ready = balance >= reward.cost;
+          return <button key={reward.id} type="button" aria-pressed={selected?.id === reward.id} className={styles.row} onClick={() => setSelectedId(reward.id)}>
+            <span className={styles.rowIcon}><Gift size={22} aria-hidden="true" /></span>
+            <span className={styles.rowMain}>
+              <span className={styles.rowText}><strong>{reward.title}</strong><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
+              {ready ? null : <span className={styles.rowValue}>{t.short(number.format(reward.cost - balance))}</span>}
+            </span>
+            {ready ? <span className={styles.chipLine}><span className={styles.chip}><Check size={14} strokeWidth={3} aria-hidden="true" />{t.redeemable}</span></span> : null}
+          </button>;
+        })}
       </div>
-    </section> : null}
+    </Section> : null}
 
     {reviewUrl ? <p className={styles.links}><a href={reviewUrl} target="_blank" rel="noopener noreferrer">{t.review}</a></p> : null}
 
+    <Section name="activity" title={t.activity} className="customer-activity">
+      <div className={styles.card}>
+        {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
+      </div>
+    </Section>
+
+    <Section name="more" title={t.yourCardHead}>
+      <div className={styles.rows}>
+        {wallets.length ? <Signpost icon={WalletIcon} title={t.walletTitle} sub={t.walletRow} onOpen={() => setSheet("wallet")} /> : null}
+        {props.walletError && sheet !== "wallet" ? <p className={`wallet-error ${styles.alert}`} role="alert">{props.walletError}</p> : null}
+        <Signpost icon={Link2} title={t.save} onOpen={() => setSheet("return")} />
+      </div>
+    </Section>
+    {wallets.length ? <Wallet {...props} t={t} buttons={wallets} open={sheet === "wallet"} onClose={closeSheet} /> : null}
+    <ReturnSteps t={t} cardLocator={cardLocator} open={sheet === "return"} onClose={closeSheet} />
+
     {contactPanel}
 
-    <ReturnSteps t={t} cardLocator={cardLocator} />
-
-    <section className={`customer-activity ${styles.panel}`} aria-labelledby="customer-activity-title">
-      <h2 id="customer-activity-title" className={styles.panelTitle}><History size={18} aria-hidden="true" /> {t.activity}</h2>
-      {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
-    </section>
-
-    {rulesText || pointsExpiry || challenge || level ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">
-      <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
-      {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
-      {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
-      {pointsExpiry?.batches.length ? <><p className={styles.rules}>{t.expiryList}</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
-      {challenge ? <p className={styles.rules}>{t.challenge}: {challenge.conditions}</p> : null}
-      {level ? <p className={styles.rules}>{t.levelRule}</p> : null}
-      <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
-    </section> : null}
+    {rulesText || pointsExpiry || challenge || level ? <Section name="rules" id="customer-rules" title={t.rules}>
+      <div className={styles.card}>
+        {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
+        {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
+        {pointsExpiry?.batches.length ? <><p className={styles.rules}>{t.expiryList}</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
+        {challenge ? <p className={styles.rules}>{t.challenge}: {challenge.conditions}</p> : null}
+        {level ? <p className={styles.rules}>{t.levelRule}</p> : null}
+        <p className={styles.links}><a href="/teilnahmebedingungen">{t.terms}</a><a href="/datenschutz">{t.privacy}</a></p>
+      </div>
+    </Section> : null}
 
     {exportUrl ? <div className={styles.export}><CustomerExportLink url={exportUrl} locale={locale}>{t.export}</CustomerExportLink></div> : null}
     {props.onCloseCard ? <CloseCard {...props} t={t} /> : null}
   </CustomerShell></CardStatusProvider>;
+}
+
+/** A section head on the grey and what it heads (Wegweiser). */
+function Section({ name, id, title, className, children }: { name: string; id?: string; title: string; className?: string; children: ReactNode }) {
+  return <section id={id} className={className ? `${className} ${styles.section}` : styles.section} aria-labelledby={`customer-${name}-title`}>
+    <h2 id={`customer-${name}-title`} className={styles.sectionHead}>{title}</h2>
+    {children}
+  </section>;
+}
+
+/** A row that opens a sheet: icon tile, title, sub-line and the arrow. */
+function Signpost({ icon: Icon, title, sub, onOpen }: { icon: LucideIcon; title: string; sub?: string; onOpen: () => void }) {
+  return <button type="button" className={styles.row} aria-haspopup="dialog" onClick={onOpen}>
+    <span className={styles.rowIcon}><Icon size={22} aria-hidden="true" /></span>
+    <span className={styles.rowText}><strong>{title}</strong>{sub ? <small>{sub}</small> : null}</span>
+    <ArrowRight className={styles.rowArrow} size={22} aria-hidden="true" />
+  </button>;
 }
 
 /** The one progress statement: how many are missing for which reward, or which reward is ready. */
@@ -165,90 +206,80 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
   const sub = remaining > 0 ? (readyCount === 1 ? t.readyOne : readyCount > 1 ? t.readyMany(readyCount) : null)
     : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
   return <div className={styles.goal}>
-    <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor
-      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={`goal-reward ${styles.rewardName}`}>{selected.title}</span></p>
+    <h1 className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor
+      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={`goal-reward ${styles.rewardName}`}>{selected.title}</span></h1>
     {sub ? <p className={styles.goalSub}>{sub}</p> : null}
   </div>;
 }
 
-type Extra = { key: string; line: ReactNode; block: ReactNode };
+type Note = { key: string; icon: LucideIcon; warn?: boolean; body: ReactNode };
 
 /**
- * Time-bound extras, nearest deadline first (Head of Design, 23 Oct): a happy hour running now ends today, a win-back
- * window within 14 days, the expiry notice covers the next 30 days, the challenge ends with the month, the level runs 90 days. The first one present is shown in full; the rest fold into one quiet list,
- * so a card never stacks four panels. Their fine print lives in the programme rules.
+ * „Gut zu wissen“: the time-bound extras as rows, nearest deadline first (Head of Design, 23 Oct): a happy hour running
+ * now ends today, a win-back window within 14 days, the expiry notice covers the next 30 days, the challenge ends with the
+ * month, the level runs 90 days. ENG-100's dated change lines go first once the card read carries them (copy-rest R20).
+ * Their fine print lives in the programme rules.
  */
-function extras({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level }: Pick<CustomerCardProps, "locale" | "programType" | "happyHourUntil" | "winback" | "pointsExpiry" | "challenge" | "level"> & { t: Copy }): Extra[] {
-  const items: Extra[] = [];
-  if (happyHourUntil) items.push({ key: "happy", line: t.happyHour(happyHourUntil), block: <p className={styles.highlight}>{t.happyHour(happyHourUntil)}</p> });
+function goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level }: Pick<CustomerCardProps, "locale" | "programType" | "happyHourUntil" | "winback" | "pointsExpiry" | "challenge" | "level"> & { t: Copy }): Note[] {
+  const notes: Note[] = [];
+  if (happyHourUntil) notes.push({ key: "happy", icon: Clock, body: <span>{t.happyHour(happyHourUntil)}</span> });
   if (winback) {
     const day = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "de-DE", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${winback.until}T00:00:00Z`));
-    const line = <>{t.winback(programType === "points", winback.bonus, day)} <a href="#customer-rules" className={styles.inlineLink}>{t.conditions}</a></>;
-    items.push({ key: "winback", line, block: <p className={styles.highlight}>{line}</p> });
+    // Legal (24 Oct): the „Bedingungen“ link to the rules stays with the line, so the exclusions can stay out of it.
+    notes.push({ key: "winback", icon: RefreshCw, body: <span>{t.winback(programType === "points", winback.bonus, day)} <a href="#customer-rules" className={styles.inlineLink}>{t.conditions}</a></span> });
   }
-  if (pointsExpiry?.notice) items.push({ key: "expiry", line: pointsExpiry.notice, block: <p className={styles.highlight} role="status">{pointsExpiry.notice}</p> });
-  if (challenge) {
-    const progress = challenge.done ? t.challengeDone : t.challengeProgress(challenge.visits, challenge.target);
-    items.push({ key: "challenge", line: `${t.challenge}: ${challenge.done ? t.challengeDoneShort : progress}`, block: <section className={styles.panel} aria-labelledby="customer-challenge-title">
-      <h2 id="customer-challenge-title" className={styles.panelTitle}>{t.challenge}</h2>
-      <p className={styles.rules}>{challenge.text}</p>
-      <p className={styles.rules}><strong>{progress}</strong></p>
-    </section> });
-  }
-  if (level) {
-    const title = level.name ? t.levelTitle(level.name) : t.noLevel;
-    items.push({ key: "level", line: level.perk ? `${title} · ${level.perk}` : title, block: <section className={styles.panel} aria-labelledby="customer-level-title">
-      <h2 id="customer-level-title" className={styles.panelTitle}>{title}</h2>
-      {level.name && level.until ? <p className={styles.rules}><strong>{t.levelUntil(level.name, level.until)}</strong>{t.levelUntilRest}</p> : null}
-      {level.perk ? <p className={styles.rules}>{t.perk(level.perk)}</p> : null}
-      <p className={styles.rules}>{level.next ? t.levelNext(level.next.visits, level.next.name) : t.levelTop}</p>
-    </section> });
-  }
-  return items;
+  if (pointsExpiry?.notice) notes.push({ key: "expiry", icon: Hourglass, warn: true, body: <span role="status">{pointsExpiry.notice}</span> });
+  if (challenge) notes.push({ key: "challenge", icon: CalendarCheck, body: <>
+    <strong>{t.challenge}</strong><small>{challenge.text}</small><small className={styles.ink}>{challenge.done ? t.challengeDone : t.challengeProgress(challenge.visits, challenge.target)}</small>
+  </> });
+  if (level) notes.push({ key: "level", icon: Medal, body: <>
+    <strong>{level.name ? t.levelTitle(level.name) : t.noLevel}</strong>
+    {level.name && level.until ? <small><b className={styles.ink}>{t.levelUntil(level.name, level.until)}</b>{t.levelUntilRest}</small> : null}
+    {level.perk ? <small>{t.perk(level.perk)}</small> : null}
+    <small>{level.next ? t.levelNext(level.next.visits, level.next.name) : t.levelTop}</small>
+  </> });
+  return notes;
 }
 
-function Extras({ items, label }: { items: Extra[]; label: string }) {
-  const [first, ...rest] = items;
-  if (!first) return null;
-  return <>
-    {first.block}
-    {rest.length ? <ul className={styles.moreList} aria-label={label}>{rest.map(item => <li key={item.key}>{item.line}</li>)}</ul> : null}
-  </>;
-}
+type WalletButton = { id: "apple" | "google"; label: string; onClick: () => void };
 
-function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", t }: CustomerCardProps & { t: Copy }) {
-  // Platform only orders and narrows what is shown; the server decides availability.
+/** The Add to Wallet buttons this device gets. Platform only orders and narrows what is shown; the server decides availability. */
+function walletButtons({ onAppleWallet, onGoogleWallet, walletPlatform = "other" }: CustomerCardProps, t: Copy): WalletButton[] {
   const apple = onAppleWallet && walletPlatform !== "android" ? [{ id: "apple" as const, label: t.addApple, onClick: onAppleWallet }] : [];
   const google = onGoogleWallet && walletPlatform !== "ios" ? [{ id: "google" as const, label: t.addGoogle, onClick: onGoogleWallet }] : [];
-  const buttons = walletPlatform === "android" ? [...google, ...apple] : [...apple, ...google];
-  if (!buttons.length) return null;
-  return <section className={`customer-wallet-add ${styles.wallet}`} aria-labelledby="customer-wallet-title">
-    <h2 id="customer-wallet-title" className={styles.panelTitle}>{t.walletTitle}</h2>
-    <p className={styles.muted}>{t.walletIntro}</p>
-    <div className={styles.walletButtons}>{buttons.map((button) => <button key={button.id} type="button" className={`wallet-add wallet-add--${button.id} ${styles.walletButton}`} onClick={button.onClick} disabled={walletBusy !== null} aria-busy={walletBusy === button.id} aria-label={walletBusy === button.id ? t.walletLoading : button.label}>
-      {button.id === "google" ? <Image unoptimized src={`/wallet/google-add-${locale}.svg`} alt={button.label} width={199} height={55} /> : <span>{walletBusy === button.id ? t.walletLoading : button.label}</span>}
-    </button>)}</div>
-    {googleTestOnly && google.length ? <p className={`wallet-mode-note ${styles.muted}`}>{t.googleDemo}</p> : null}
-    {walletError ? <p className={`wallet-error ${styles.alert}`} role="alert">{walletError}</p> : null}
-  </section>;
+  return walletPlatform === "android" ? [...google, ...apple] : [...apple, ...google];
 }
 
-function ReturnSteps({ t, cardLocator }: { t: Copy; cardLocator?: string }) {
+function Wallet({ buttons, walletBusy = null, googleTestOnly, walletError, locale = "de", t, open, onClose }: CustomerCardProps & { t: Copy; buttons: WalletButton[]; open: boolean; onClose: () => void }) {
+  return <Sheet open={open} onClose={onClose} title={t.walletTitle}>
+    <div className={`customer-wallet-add ${styles.sheetBody}`}>
+      <p className={styles.muted}>{t.walletIntro}</p>
+      <div className={styles.walletButtons}>{buttons.map((button) => <button key={button.id} type="button" className={`wallet-add wallet-add--${button.id} ${styles.walletButton}`} onClick={button.onClick} disabled={walletBusy !== null} aria-busy={walletBusy === button.id} aria-label={walletBusy === button.id ? t.walletLoading : button.label}>
+        {button.id === "google" ? <Image unoptimized src={`/wallet/google-add-${locale}.svg`} alt={button.label} width={199} height={55} /> : <span>{walletBusy === button.id ? t.walletLoading : button.label}</span>}
+      </button>)}</div>
+      {googleTestOnly && buttons.some(button => button.id === "google") ? <p className={`wallet-mode-note ${styles.muted}`}>{t.googleDemo}</p> : null}
+      {walletError && open ? <p className={`wallet-error ${styles.alert}`} role="alert">{walletError}</p> : null}
+    </div>
+  </Sheet>;
+}
+
+function ReturnSteps({ t, cardLocator, open, onClose }: { t: Copy; cardLocator?: string; open: boolean; onClose: () => void }) {
   const { text: status, live, announce: setStatus } = useCardStatus("return");
   async function copyLink() {
     setStatus(await copyText(new URL(window.location.pathname, window.location.origin).href) ? t.copied : t.copyFailed);
   }
-  return <section className={`customer-wallet ${styles.panel}`} aria-labelledby="customer-return-title">
-    <h2 id="customer-return-title" className={styles.panelTitle}>{t.save}</h2>
-    <ol className={`customer-return-steps ${styles.steps}`}>
-      <li>{t.stepBookmark}</li>
-      <li>{t.stepScanAgain}</li>
-      {cardLocator ? <li>{t.stepNumber(cardLocator)}</li> : null}
-    </ol>
-    <p className={styles.muted}>{t.linkWarning}</p>
-    <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>
-    <CardStatusLine text={status} live={live} className={styles.muted} />
-  </section>;
+  return <Sheet open={open} onClose={onClose} title={t.save}>
+    <div className={`customer-wallet ${styles.sheetBody}`}>
+      <ol className={`customer-return-steps ${styles.steps}`}>
+        <li>{t.stepBookmark}</li>
+        <li>{t.stepScanAgain}</li>
+        {cardLocator ? <li>{t.stepNumber(cardLocator)}</li> : null}
+      </ol>
+      <p className={styles.muted}>{t.linkWarning}</p>
+      <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>
+      <CardStatusLine text={status} live={live} className={styles.muted} />
+    </div>
+  </Sheet>;
 }
 
 function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogleWallet, t }: CustomerCardProps & { t: Copy }) {

@@ -69,6 +69,7 @@ test("a returning guest is offered the saved card instead of a silent second car
     const firstPath = new URL(page.url()).pathname;
     const locator = await page.locator(".customer-card-number strong").innerText();
     expect(locator).toMatch(/^K-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+    await page.getByRole("button", { name: "So findest du deine Karte wieder" }).click(); // the recovery sheet (ENG-122e)
     await expect(page.getByRole("heading", { name: "So findest du deine Karte wieder" })).toBeVisible();
     await expect(page.locator(".customer-return-steps")).toContainText(`Notiere dir deine Kartennummer ${locator}`);
     await expect(page.locator(".customer-return-steps")).toContainText("nach einer Prüfung einen neuen Kartenlink");

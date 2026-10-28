@@ -12,6 +12,8 @@ const de = {
   nextGoal: (n: string, unit: string, title: string) => `Nächstes Ziel: noch ${n} ${unit} für „${title}“.`,
   balance: "Gesammelt",
   rewardReady: "Prämie verfügbar. Lass sie an der Kasse einlösen.",
+  // The ready band says rewardReady in two lines.
+  readyTitle: "Prämie verfügbar.", readyText: "Lass sie an der Kasse einlösen.",
   remaining: (n: string, unit: string, title: string) => `Noch ${n} ${unit} für „${title}“.`,
   refresh: "Karte aktualisieren", refreshing: "Wird aktualisiert …",
   refreshFailed: "Die Karte konnte nicht aktualisiert werden. Du siehst den zuletzt geladenen Stand. Versuch es gleich noch einmal.",
@@ -20,6 +22,8 @@ const de = {
   showToRedeem: "Zum Einlösen an der Kasse zeigen.",
   walletTitle: "In Wallet speichern",
   walletIntro: "Deine Karte liegt dann bei deinen anderen Karten auf dem Handy. Stempel und Prämien aktualisieren sich dort automatisch; gebucht wird weiterhin an der Kasse.",
+  // Wegweiser card page (ENG-122e): copy-rest R20, Marketing FINAL 28 Oct.
+  goodToKnow: "Gut zu wissen", yourCardHead: "Deine Karte", walletRow: "Stand aktualisiert sich automatisch",
   addApple: "Zu Apple Wallet hinzufügen", addGoogle: "Zu Google Wallet hinzufügen", walletLoading: "Wird vorbereitet …",
   googleDemo: "Google Wallet ist für dieses Geschäft noch in der Testphase. Speichern ist nur mit freigegebenen Testkonten möglich.",
   chooseReward: "Deine Prämien", rewardsGroup: "Prämien", redeemable: "Einlösbar", short: (n: string) => `noch ${n}`,
@@ -40,7 +44,7 @@ const de = {
   levelRule: "Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum beim Level sagt, bis wann es sicher gilt.",
   challenge: "Monats-Challenge", challengeDone: "Geschafft! Der Bonus ist gutgeschrieben.", challengeDoneShort: "geschafft",
   challengeProgress: (visits: number, target: number) => `${visits} von ${target} Besuchen`,
-  expiryList: "Deine Punkte verfallen:", more: "Außerdem",
+  expiryList: "Deine Punkte verfallen:",
   // ENG-089 (Marketing v1.8 §9, Legal 24 Oct): a card inside its win-back window; [Datum] is the window's last day. The
   // „Bedingungen“ link to the rules is Legal's condition for leaving the exclusions out of this line.
   winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Bis zum ${day} gibt's bei deinem nächsten Besuch ${points ? `${bonus} ${bonus === 1 ? "Punkt" : "Punkte"}` : "1 Stempel"} extra.`,
@@ -64,6 +68,7 @@ const fr: Copy = {
   nextGoal: (n, unit, title) => `Prochain objectif : encore ${n} ${unit} pour « ${title} ».`,
   balance: "Votre solde",
   rewardReady: "Récompense disponible. Demandez son utilisation en caisse.",
+  readyTitle: "Récompense disponible.", readyText: "Demandez son utilisation en caisse.",
   remaining: (n, unit, title) => `Encore ${n} ${unit} pour « ${title} ».`,
   refresh: "Actualiser le solde", refreshing: "Actualisation …",
   refreshFailed: "Le solde n’a pas pu être actualisé. Le dernier solde chargé est affiché. Veuillez réessayer.",
@@ -72,6 +77,8 @@ const fr: Copy = {
   showToRedeem: "À présenter en caisse pour utiliser la récompense.",
   walletTitle: "Ajouter à Wallet",
   walletIntro: "Votre carte rejoint vos autres cartes sur le téléphone. Tampons et récompenses s’y mettent à jour automatiquement ; les opérations restent confirmées en caisse.",
+  // No new French copy for now (founder, 28 Oct): these three stay German until French is commissioned.
+  goodToKnow: de.goodToKnow, yourCardHead: de.yourCardHead, walletRow: de.walletRow,
   addApple: "Ajouter à Apple Wallet", addGoogle: "Ajouter à Google Wallet", walletLoading: "Préparation …",
   googleDemo: "Google Wallet est encore en phase de test pour ce commerce. L’enregistrement n’est possible que pour des comptes de test autorisés.",
   chooseReward: "Vos récompenses", rewardsGroup: "Récompenses", redeemable: "Disponible", short: (n) => `encore ${n}`,
@@ -91,7 +98,7 @@ const fr: Copy = {
   levelRule: "Le niveau compte vos visites des 90 derniers jours. Sans visite, il redescend ; la date indiquée avec le niveau dit jusqu’à quand il est garanti.",
   challenge: "Défi du mois", challengeDone: "Réussi ! Le bonus a été crédité.", challengeDoneShort: "réussi",
   challengeProgress: (visits, target) => `${visits} visite${visits === 1 ? "" : "s"} sur ${target}`,
-  expiryList: "Vos points expirent :", more: "Également",
+  expiryList: "Vos points expirent :",
   winback: (points, bonus, day) => `Bon retour ! Jusqu’au ${day}, votre prochaine visite vous rapporte ${points ? `${bonus} ${bonus === 1 ? "point supplémentaire" : "points supplémentaires"}` : "1 tampon supplémentaire"}.`,
   conditions: "Conditions",
   happyHour: (until: string) => `Points doubles jusqu’à ${until}`, rules: "Règles du programme", news: "Actualités", review: "Ça vous a plu ? Laissez-nous un avis.", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",

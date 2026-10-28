@@ -23,13 +23,13 @@ test("supported private-card URL navigation replaces the document and shows the 
   try {
     const page = await context.newPage();
     await page.goto(`/card/${cards[0].cardToken}`);
-    await expect(page.getByRole("heading", { name: "Synthetic route A", exact: true })).toBeVisible();
+    await expect(page.locator(".customer-header-merchant", { hasText: "Synthetic route A" })).toBeVisible();
     const firstDocument = await page.evaluate(() => performance.timeOrigin);
     // Genuine private URL navigation, not an injected router or manufactured token-prop transition.
     await page.goto(`/card/${cards[1].cardToken}`);
-    await expect(page.getByRole("heading", { name: "Synthetic route B", exact: true })).toBeVisible();
+    await expect(page.locator(".customer-header-merchant", { hasText: "Synthetic route B" })).toBeVisible();
     expect(await page.evaluate(() => performance.timeOrigin)).not.toBe(firstDocument);
-    await expect(page.getByRole("heading", { name: "Synthetic route A", exact: true })).toHaveCount(0);
+    await expect(page.locator(".customer-header-merchant", { hasText: "Synthetic route A" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Meine Kartendaten exportieren", exact: true })).toHaveAttribute("href", `/api/card/${cards[1].cardToken}/export`);
   } finally { await context.close(); }
 });

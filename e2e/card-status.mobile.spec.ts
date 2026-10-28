@@ -17,7 +17,9 @@ test("two panels speak: both messages stay visible, one of them is the status", 
   await expect(requested).toBeVisible();
   await expect(page.getByRole("status")).toHaveCount(1);
 
-  // Copying may succeed or be refused by the browser; either way the copy panel speaks next.
+  // Copying may succeed or be refused by the browser; either way the copy panel speaks next. It sits in the recovery
+  // sheet behind its row (ENG-122e).
+  await page.getByRole("button", { name: "So findest du deine Karte wieder" }).click();
   await page.getByRole("button", { name: "Kartenlink kopieren" }).click();
   await expect(page.getByRole("status")).toHaveCount(1);
   await expect(page.getByRole("status")).toContainText(/Kartenlink kopiert|Kopieren nicht möglich/);

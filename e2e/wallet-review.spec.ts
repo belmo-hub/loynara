@@ -68,6 +68,11 @@ async function cardReady(page: Page, token = cardToken) {
   await page.goto(`/card/${encodeURIComponent(token)}`);
   await expect(page.locator(".customer-header-merchant")).toHaveText("Synthetic Wallet Café");
 }
+/** The Wallet buttons sit in a sheet behind the card's „In Wallet speichern“ row (ENG-122e). */
+async function openWallet(page: Page) {
+  await page.getByRole("button", { name: /^In Wallet speichern/ }).click();
+  await expect(page.locator(".customer-wallet-add")).toBeVisible();
+}
 async function fits(page: Page, width: number) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth), "page must have no horizontal overflow").toBeLessThanOrEqual(width);
   expect(await page.locator(".wallet-add").evaluateAll(elements => elements.every(element => {
@@ -95,7 +100,7 @@ test("customer availability and platform matrix fits five viewports (75 combinat
         await expect(page.locator(".customer-wallet-add")).toHaveCount(apple || google ? 1 : 0);
         await expect(page.locator(".wallet-mode-note")).toHaveCount(google && state.google === "test_only" ? 1 : 0);
         if (apple && google) expect(await page.locator(".wallet-add span").allTextContents()).toEqual(["Zu Apple Wallet hinzufügen", "Zu Google Wallet hinzufügen"]);
-        if (apple || google) await page.locator(".customer-wallet-add").scrollIntoViewIfNeeded();
+        if (apple || google) await openWallet(page);
         await fits(page, viewport.width);
         await page.screenshot({ path: testInfo.outputPath(`wallet-customer-${viewport.width}-${agent.name}-${state.name}.png`), fullPage: true, mask: [page.locator(".customer-qr img")] });
       }
@@ -114,6 +119,7 @@ test("slow issuance disables both buttons, prevents duplicate calls and recovers
     await route.fulfill({ status: 502, json: { code: "WALLET_PROVIDER_ERROR", error: "provider fixture private-key.pem" } });
   });
   await cardReady(page);
+  await openWallet(page);
   const apple = page.locator(".wallet-add--apple");
   await apple.click();
   await expect(apple).toHaveText("Wird vorbereitet …");
@@ -163,6 +169,7 @@ test("failed Google Save is explained on the card without a provider redirect", 
   await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "unavailable", google: "test_only" } }));
   await page.route("**/api/wallet/google", route => route.fulfill({ status: 503, json: { code: "WALLET_UNAVAILABLE" } }));
   await cardReady(page);
+  await openWallet(page);
   await page.locator(".wallet-add--google").click();
   await expect(page.locator(".wallet-error[role=alert]")).toContainText("Deine Karte funktioniert weiterhin hier im Browser");
   expect(new URL(page.url()).origin).toBe(appOrigin);
@@ -174,6 +181,7 @@ test("real disabled-provider download renders safe navigation HTML and Back rest
   await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "unavailable" } }));
   await page.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-expired-ticket" } }));
   await cardReady(page);
+  await openWallet(page);
   const responsePromise = page.waitForResponse(response => response.url().includes("/api/wallet/apple/download/"));
   await page.locator(".wallet-add--apple").click();
   const response = await responsePromise;
@@ -290,7 +298,7 @@ test("asynchronous pending polls the protected status without repeating issuance
   });
   await page.route("**/api/wallet/apple",route=>{issues++;return route.fulfill({status:202,json:{status:"pending"}});});
   await page.route("**/api/wallet/apple/download/browser-ready-ticket",route=>route.fulfill({contentType:"text/html",body:"<html><body><h1>Synthetic archive handoff</h1></body></html>"}));
-  await cardReady(page); const button=page.locator(".wallet-add--apple"); await button.click();
+  await cardReady(page); await openWallet(page); const button=page.locator(".wallet-add--apple"); await button.click();
   await expect(button).toHaveText("Wird vorbereitet …"); await expect(button).toBeDisabled(); await expect(page.locator(".wallet-add--google")).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath("apple-pending.png"),fullPage:true,mask:[page.locator(".customer-qr img")]});
   await expect(page.getByRole("heading",{name:"Synthetic archive handoff"})).toBeVisible({timeout:20_000});expect(issues).toBe(1);expect(checks).toBe(3);

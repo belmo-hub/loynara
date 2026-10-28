@@ -25,6 +25,14 @@
 @media (prefers-reduced-motion: reduce) { .readyTag { animation: none; } }
 .stamps { margin: 0; }
 .stamps li { max-width: 56px; justify-self: center; width: 100%; }
+/* The last slot is the reward: a solid ring with a gift until it is earned (Wegweiser card, ENG-122e). */
+.stamps li:last-child:not([data-earned]) { border-style: solid; border-color: color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 20%); }
+.stamps li:last-child:not([data-earned])::after {
+  /* The gift icon (lucide "gift") as a mask, so it takes the card's ink. */
+  --gift: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='8' width='18' height='4' rx='1'/%3E%3Cpath d='M12 8v13'/%3E%3Cpath d='M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7'/%3E%3Cpath d='M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5'/%3E%3C/svg%3E");
+  content: ""; width: 42%; aspect-ratio: 1; background: currentColor;
+  -webkit-mask: var(--gift) center / contain no-repeat; mask: var(--gift) center / contain no-repeat;
+}
 .ladder { margin-block: var(--space-1) 0; }
 .balancePanel { display: grid; gap: 2px; padding-top: var(--space-3); border-top: 1px solid color-mix(in oklab, var(--merchant-ink), transparent 78%); }
 .balanceLine { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin: 0; }
@@ -40,7 +48,9 @@
 .missingQr { margin: 0; padding: var(--space-6) var(--space-2); text-align: center; font-size: var(--text-14); }
 .locator { display: grid; justify-items: center; margin: 0; text-align: center; }
 .locator span { font-size: var(--text-14); color: #58645C; }
-.locator strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+/* Read aloud at the counter, so it stays on one line; a step smaller on narrow phones (Design, 28 Oct). */
+.locator strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 340px) { .locator strong { font-size: var(--text-22); letter-spacing: .02em; } }
 .locator small { font-size: var(--text-14); color: #58645C; }
 .ticketNote { margin: 0; text-align: center; font-size: var(--text-14); color: #58645C; text-wrap: pretty; }
 
@@ -49,10 +59,45 @@
 .alert { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 
-.panel { display: grid; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
-.panelTitle { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
+/* Wegweiser parts (ENG-122e), with the values of the owner's Programm rows and Übersicht band (owner.css .ow-prog-row,
+   .ow-band): a section head on the grey, white rows with a 40 px icon tile, one green band for the one next step. */
+.section { display: grid; gap: var(--space-2); margin-top: var(--space-1); }
+.sectionHead { margin: 0 2px; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.4; color: var(--color-ink-muted); }
+.card { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; width: 100%; min-height: 64px; padding: var(--space-3) 14px; border: 0; border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); font: inherit; text-align: start; }
+button.row { cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+button.row:active { transform: scale(.985); }
+button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+/* The reward the goal and the card refer to. */
+.row[aria-pressed="true"] { box-shadow: inset 0 0 0 2.5px var(--color-action); }
+.rowIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
+.rowIcon[data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
+/* A value sits beside the words while they fit unbroken, else on a line of its own (as on the Programm list). */
+.rowMain { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) 10px; }
+.rowText { flex: 1 1 0; min-width: 0; max-width: 100%; overflow-wrap: break-word; }
+.rowText > strong, .rowText > small, .rowText > span { display: block; }
+.rowText > strong { font-weight: var(--weight-strong); line-height: 1.35; }
+.rowText > span { font-weight: var(--weight-label); line-height: 1.4; text-wrap: pretty; }
+.rowText > small { margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: var(--color-ink-muted); }
+.ink { color: var(--color-ink); font-weight: var(--weight-strong); }
+.rowValue { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rowArrow { flex: none; color: var(--color-ink-muted); }
+@media (hover: hover) { button.row:hover .rowArrow { color: var(--color-ink); } }
+/* Status chips stand on their own line under the row's text (the 55 rule). */
+.chipLine { flex-basis: 100%; padding-left: 50px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; margin-top: var(--space-1); padding: 0 10px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); font-size: var(--text-14); font-weight: var(--weight-strong); }
+/* The one green thing on the card: shown only while a reward is ready. Mint with dark ink in dark mode, through the tokens. */
+.band { display: flex; align-items: center; gap: var(--space-3); min-height: 76px; margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); }
+.bandIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
+.band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; text-wrap: balance; }
+.band small { display: block; margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
+/* Below 360 px the icons give their room to the words. */
+@media (max-width: 359px) { .rowIcon, .bandIcon { display: none; } .chipLine { padding-left: 0; } }
+@media (prefers-reduced-motion: reduce) { button.row:active { transform: none; } }
+/* Today's wallet and recovery panels, now inside their sheets. */
+.sheetBody { display: grid; gap: var(--space-3); }
 
-.wallet { composes: panel; }
 .walletButtons { display: grid; gap: var(--space-2); }
 .walletButton { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: #111111; color: #FFFFFF; font: var(--weight-label) var(--text-16)/1.2 var(--font-sans); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .walletButton:active:not(:disabled) { transform: scale(.98); }
@@ -61,19 +106,9 @@
 .walletButton:global(.wallet-add--google) { padding: 0; background: transparent; }
 .walletButton img { display: block; height: 52px; width: auto; }
 
-.rewardList { display: grid; }
-.rewardRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border: 0; border-top: 1px solid var(--color-line); background: transparent; color: var(--color-ink); text-align: left; font: inherit; cursor: pointer; }
-.rewardRow:first-child { border-top: 0; }
-.rewardRow[aria-pressed="true"] { border-radius: var(--radius-md); background: var(--color-action-soft); }
-.rewardRow[aria-pressed="true"] + .rewardRow { border-top-color: transparent; }
-.rewardRow:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; border-radius: var(--radius-md); }
-.rewardText { display: grid; min-width: 0; }
-.rewardText strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
-.rewardText small { font-size: var(--text-14); color: var(--color-ink-muted); }
-
 .steps { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); list-style: decimal; line-height: 1.5; }
 .steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.steps strong { font-variant-numeric: tabular-nums; }
+.steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .activity { display: grid; margin: 0; padding: 0; list-style: none; }
 .activity li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
@@ -89,8 +124,9 @@
 .export { display: grid; justify-items: center; }
 .export :global(.auth-error) { margin: 0; font-size: var(--text-14); color: var(--color-danger); }
 
-.close { display: grid; justify-items: center; gap: var(--space-3); }
-.closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0 var(--space-3); border: 0; background: transparent; color: var(--color-ink-muted); font: var(--weight-label) var(--text-14)/1 var(--font-sans); cursor: pointer; }
+/* „Karte schließen“ comes last, as a danger link; the binding step stays behind it. */
+.close { display: grid; justify-items: start; gap: var(--space-3); }
+.closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0 2px; border: 0; background: transparent; color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
 .closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .closeToggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .closeConfirm { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
@@ -102,8 +138,5 @@
 .ending p { margin: 0; font-size: var(--text-14); line-height: 1.45; }
 .endingTitle { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.3; text-wrap: balance; }
 
-/* The one highlighted extra (expiry, happy hour) as a single strong line; the others fold into .moreList. */
-.highlight { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); font-weight: var(--weight-strong); }
-.moreList { display: grid; gap: var(--space-1); margin: 0; padding: 0 var(--space-1); list-style: none; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 /* „Bedingungen“ after the win-back line: an inline link to the programme rules (Legal: the rules one tap away). */
 .inlineLink { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }

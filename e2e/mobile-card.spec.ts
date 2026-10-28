@@ -50,6 +50,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   await expect(page.locator(".customer-wallet")).toContainText(`Notiere dir deine Kartennummer ${card.cardLocator}.`);
   await expect(page.locator(".customer-wallet")).toContainText("nach einer Prüfung einen neuen Kartenlink geben");
   await expect(page.locator(".customer-wallet")).not.toContainText("nicht wiederherstellbar");
+  await page.getByRole("button", { name: "So findest du deine Karte wieder" }).click(); // the recovery sheet (ENG-122e)
   await page.getByRole("button", { name: "Kartenlink kopieren" }).click();
   await expect(page.getByRole("status")).toContainText("Kartenlink kopiert");
   const copied = await page.evaluate(() => navigator.clipboard.readText());
