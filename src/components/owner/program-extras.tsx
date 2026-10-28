@@ -8,6 +8,7 @@ import { CARD_NEWS_MAX, CHALLENGE_VISITS, challengeBonusRange, cardNewsProblem, 
 import { POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { AVERAGE_VISIT_SPEND_MAX_MINOR, SPEND_COPY } from "@/lib/spend-copy";
+import { unitWord } from "@/lib/units";
 import type { Question } from "./program-helpers";
 import { Choices, Control, FieldError, QuestionForm, rangeError, SwitchRow, useQuestion, wholeIn } from "./question-form";
 import { bonusRange } from "./winback-card";
@@ -75,7 +76,7 @@ function Challenge({ me, program }: { me: MeResponse; program: PublicProgram }) 
           <NumberStepper id="challenge-bonus" value={draft.bonus} onChange={bonus => edit({ bonus })} min={range.min} max={Math.max(range.min, range.max)} unit={unit} bonus invalid={Boolean(q.error("challenge-bonus"))} describedBy="challenge-bonus-hint" />
         </Control>
       </>}
-      {next ? <p className="ow-hint">Diesen Monat gilt noch: {me.challengeVisits}-mal, +{me.challengeBonus} {unit.many}. Gilt ab {date(next.from)}: {next.visits ? `${next.visits}-mal, +${next.bonus} ${unit.many}` : "aus"}.</p>
+      {next ? <p className="ow-hint">Diesen Monat gilt noch: {me.challengeVisits}-mal, +{me.challengeBonus} {unitWord(me.challengeBonus ?? 0, me.programType)}. Gilt ab {date(next.from)}: {next.visits ? `${next.visits}-mal, +${next.bonus} ${unitWord(next.bonus ?? 0, me.programType)}` : "aus"}.</p>
         : current !== null && <p className="ow-hint">Änderungen an der laufenden Challenge gelten ab dem 1. des nächsten Monats; dieser Monat bleibt, wie die Karte es zeigt.</p>}
     </QuestionForm>
   );

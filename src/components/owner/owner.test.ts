@@ -49,6 +49,7 @@ describe("rule wording keeps earning and confirmation apart", () => {
   });
   it("describes only supported modes", () => {
     expect(earningSentence("points", "purchase", 2, "EUR")).toBe("2 Punkte pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
+    expect(earningSentence("points", "purchase", 1, "EUR")).toBe("1 Punkt pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
     expect(earningSentence("stamp", "manual", 1, "EUR")).toContain("Stempel");
   });
 });

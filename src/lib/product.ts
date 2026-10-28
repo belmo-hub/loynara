@@ -19,6 +19,7 @@ import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
+import { withUnit } from "./units";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -236,7 +237,7 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
       // shortcut: checked when the owner saves; a cheaper reward added later does not re-check the bonus. Re-check on reward changes if owners hit it.
       const cheapest = Math.min(...(await currentRewards(program.tenantId, program.id, tx)).map(reward => reward.cost));
       const range = challengeBonusRange(program.type, cheapest);
-      if (challengeBonus < range.min || challengeBonus > range.max) throw new DomainError("INVALID_CHALLENGE", range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : `Bonus: ${range.min} bis ${range.max} ${program.type === "stamp" ? "Stempel" : "Punkte"} (bei Punkten höchstens ein Viertel der günstigsten Prämie).`);
+      if (challengeBonus < range.min || challengeBonus > range.max) throw new DomainError("INVALID_CHALLENGE", range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : `Bonus: ${range.min} bis ${withUnit(range.max, program.type as "stamp" | "points")} (bei Punkten höchstens ein Viertel der günstigsten Prämie).`);
     }
     const levels = {
       levelsEnabled: input.levelsEnabled ?? program.levelsEnabled,
@@ -569,7 +570,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
   }
   const [reward] = program ? await currentRewards(tenant.id, program.id) : [];
   const base = { userId, tenantId: tenant.id, locationId: location.id, role: staff.role, businessName: tenant.name, locationName: location.name, locale: tenant.locale, programId: program?.id, programSlug: program?.slug, programType: program?.type, earningMode: program?.earningMode, tapMode: program?.tapMode, tapAutomaticAllowed: automaticTapAllowed(), hiddenSurfaces: hiddenSurfaces(), tapCooldownSeconds: program?.tapCooldownSeconds, welcomeBonus: program.welcomeBonus, cardNews: program.cardNews, reviewUrl: program.reviewUrl, cancellationEndDate: program.cancellationEndDate, cancellationConfirmed: program.cancellationConfirmedAt !== null, happyHourEnabled: program.happyHourEnabled, happyHourWindows: program.happyHourWindows, pointsExpiryMonths: program.pointsExpiryMonths, ...meChallenge(program, location.timezone), levelsEnabled: program.levelsEnabled, levelSilverVisits: program.levelSilverVisits, levelGoldVisits: program.levelGoldVisits, levelBronzePerk: program.levelBronzePerk, levelSilverPerk: program.levelSilverPerk, levelGoldPerk: program.levelGoldPerk, averageVisitSpendMinor: program.averageVisitSpendMinor, rewardTitle: reward?.title, rewardCost: reward?.cost };
-  if (staff.role === "cashier") return { ...base, stats: undefined, activity: undefined };
+  if (staff.role === "cashier") return { ...base, brandColor: undefined, stats: undefined, activity: undefined };
   const [memberCount] = program ? await db.select({ count: sql<number>`count(*)::int` }).from(memberships).where(and(eq(memberships.tenantId, tenant.id), eq(memberships.programId, program.id))) : [{ count: 0 }];
   const [totals] = await db.select({ awards: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'award')::int`, redemptions: sql<number>`count(*) filter (where ${ledgerEntries.kind} = 'redeem')::int` }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, tenant.id), eq(ledgerEntries.locationId, location.id)));
@@ -577,5 +578,7 @@ export async function getMerchantContext(userId: string, selectedLocationId?: st
     .innerJoin(memberships, and(eq(memberships.id, ledgerEntries.membershipId), eq(memberships.tenantId, ledgerEntries.tenantId)))
     .where(and(eq(ledgerEntries.tenantId, tenant.id), eq(ledgerEntries.locationId, location.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(10);
-  return { ...base, stats: { members: memberCount.count, awards: totals.awards, redemptions: totals.redemptions, periodLabel: "Seit Programmstart" }, activity: entries.map((entry) => ({ id: entry.id, kind: entry.kind === "redeem" ? "redemption" : entry.kind, occurredAt: entry.createdAt.toLocaleString(tenant.locale === "fr" ? "fr-FR" : "de-DE", { timeZone: location.timezone }), amount: Math.abs(entry.delta), unit: program?.type === "points" ? "Punkte" : "Stempel", reference: `Karte ${formatCardLocator(entry.cardLocator)}` })) };
+  // For the owner's card previews: owner only, like the brand read (merchant-brand.ts), and without the logo.
+  const brandColor = staff.role === "owner" && /^#[0-9a-fA-F]{6}$/.test(location.brandColor) ? location.brandColor : undefined;
+  return { ...base, brandColor, stats: { members: memberCount.count, awards: totals.awards, redemptions: totals.redemptions, periodLabel: "Seit Programmstart" }, activity: entries.map((entry) => ({ id: entry.id, kind: entry.kind === "redeem" ? "redemption" : entry.kind, occurredAt: entry.createdAt.toLocaleString(tenant.locale === "fr" ? "fr-FR" : "de-DE", { timeZone: location.timezone }), amount: Math.abs(entry.delta), unit: program?.type === "points" ? "Punkte" : "Stempel", reference: `Karte ${formatCardLocator(entry.cardLocator)}` })) };
 }

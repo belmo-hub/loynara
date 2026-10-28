@@ -16,6 +16,7 @@ import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { Sheet } from "@/components/ui/sheet";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
+import { unitWord, withUnit } from "@/lib/units";
 import { birthdayCashierLine, WINBACK_EXCLUSIONS, winbackCashierLine } from "@/lib/wallet-message-rules";
 import styles from "./cashier-view.module.css";
 
@@ -120,6 +121,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
   const winback = card?.winbackBonus ?? 0, birthday = card?.birthdayBonus ?? 0;
+  const balanceAfter = card && purchasePreview ? card.balance + purchasePreview.points + winback + birthday : 0;
   const awardLabel = winback + birthday > 0
     ? `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} + ${winback + birthday} ${locale === "fr" ? "en plus" : "extra"}`
     : awardCount === 1 && !offlineChoice
@@ -244,12 +246,12 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
       {card.matchedBy === "locator" && <p className={styles.note} role="note">{t.locatorNote}</p>}
       {winback + birthday > 0 && <p className={styles.winback} role="note">
-        {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${winback} ${unit} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
-        {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${birthday} ${unit} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
+        {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${withUnit(winback, card.programType, locale)} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
+        {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${withUnit(birthday, card.programType, locale)} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
         <small>{WINBACK_EXCLUSIONS}</small></p>}
       <div className={cx("balance-display", styles.balance)}>
         <span>{t.balance}</span>
-        <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unit}</em></strong>
+        <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
       </div>
       {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
@@ -265,8 +267,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
             onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
           <div id="purchase-preview" className={styles.preview} aria-live="polite">{purchasePreview
             ? <>
-              <strong>+{number.format(purchasePreview.points)} {t.points}{winback + birthday > 0 ? ` + ${winback + birthday} extra` : ""}</strong>
-              <span>{t.newBalance}: {number.format(card.balance + purchasePreview.points + winback + birthday)} {t.points}</span>
+              <strong>+{number.format(purchasePreview.points)} {unitWord(purchasePreview.points, "points", locale)}{winback + birthday > 0 ? ` + ${winback + birthday} extra` : ""}</strong>
+              <span>{t.newBalance}: {number.format(balanceAfter)} {unitWord(balanceAfter, "points", locale)}</span>
             </>
             : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
           {offlineChoice && <p className={styles.note} role="note">{t.offlineNote}</p>}
@@ -276,7 +278,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         <h3>{t.rewards}</h3>
         {card.rewards.length ? <div className={cx("reward-action-list", styles.rewardList)}>
           {card.rewards.map(reward => <button type="button" key={reward.id} className={styles.reward} disabled={!reward.eligible || busy} onClick={() => setConfirm({ kind: "redeem", reward })}>
-            <span><strong>{reward.name}</strong><small>{reward.cost} {unit}</small></span>
+            <span><strong>{reward.name}</strong><small>{withUnit(reward.cost, card.programType, locale)}</small></span>
             <span className={styles.rewardAction}>{reward.eligible ? t.redeemShort : `${t.still} ${number.format(reward.cost - card.balance)}`}</span>
           </button>)}
         </div> : <p className={styles.help}>{t.noRewards}</p>}
@@ -285,7 +287,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
     {confirm && card && <Dialog open onClose={() => setConfirm(null)} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
-      description={confirm.kind === "award" ? `${"quantity" in confirm.award ? `${confirm.award.quantity} ${unit}` : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${confirm.reward.cost} ${unit}) ${t.redeemFor} ${card.cardLocator}.`}
+      description={confirm.kind === "award" ? `${"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor} ${card.cardLocator}.`}
       actions={<>
         <Button variant="secondary" onClick={() => setConfirm(null)}>{t.cancel}</Button>
         {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}

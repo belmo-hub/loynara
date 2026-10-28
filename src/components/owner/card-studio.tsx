@@ -4,6 +4,7 @@ import Image from "next/image";
 import { GuardedLink } from "./owner-shell";
 import { useMemo, useRef, useState } from "react";
 import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
+import { withUnit } from "@/lib/units";
 import { HEX_COLOR as HEX, readableInk } from "./color";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { MoreInfo, OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
@@ -142,7 +143,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
           </fieldset>
           <fieldset className="ow-group">
             <legend>Inhalt</legend>
-            <div className="ow-readonly"><dl className="ow-dl"><dt>Prämie</dt><dd>{program.rewardCost} {program.programType === "stamp" ? "Stempel" : "Punkte"} → {program.rewardTitle}</dd></dl></div>
+            <div className="ow-readonly"><dl className="ow-dl"><dt>Prämie</dt><dd>{withUnit(program.rewardCost, program.programType)} → {program.rewardTitle}</dd></dl></div>
             <p className="ow-hint">Prämien und Regeln pflegst du unter <GuardedLink className="ow-link" href="/merchant/program">Programm</GuardedLink>.</p>
           </fieldset>
           {!walletsHidden && <fieldset className="ow-group">

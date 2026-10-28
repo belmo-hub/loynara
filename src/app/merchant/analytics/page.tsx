@@ -13,6 +13,7 @@ import type { RetentionDays, RetentionSummary } from "@/lib/retention";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SpendCard } from "@/components/owner/spend-card";
 import { SPEND_COPY } from "@/lib/spend-copy";
+import { unitWord } from "@/lib/units";
 
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
@@ -47,14 +48,14 @@ export default function MerchantAnalyticsPage() {
         <section className="ow-card ow-stack" aria-labelledby="an-locations">
           <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Buchungen im Zeitraum, je Standort.</p></div></div>
           {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
-            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} {row.awardActions === 1 ? "Buchung" : "Buchungen"}</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} {unitWord(row.pointUnits, "points")}</span></li>)}
           </ul>}
           <MoreInfo><p>Gezählt am Standort der Buchung, mit dem heutigen Namen. Auch Buchungen aus archivierten Programmen zählen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl.</p></MoreInfo>
         </section>
         <section className="ow-card ow-stack" aria-labelledby="an-staff">
           <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im Zeitraum, je Person.</p></div></div>
           {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Buchungen in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
-            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
+            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} {row.awardActions === 1 ? "Buchung" : "Buchungen"}</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} {unitWord(row.pointUnits, "points")}</span></li>)}
           </ul>}
           <MoreInfo><p>Über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p></MoreInfo>
         </section>
