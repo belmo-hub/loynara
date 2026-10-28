@@ -810,6 +810,7 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog li > * + * { margin-top: var(--space-2); }
 /* A long name or e-mail breaks inside its column; a long text value („Aktiver Standort“) takes its own line and wraps there. */
 .ow-prog-text { min-width: 0; }
+.ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
 .ow-prog-value[data-off] { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ow-prog li p[role="alert"] { margin-top: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-danger); }
 .ow-prog .ow-prog-head { margin: var(--space-5) 2px 0; }
