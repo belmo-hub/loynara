@@ -1,27 +1,28 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
+import { groupHref, visibleGroups, visibleItems } from "./nav";
 
 const ALL = ["billing", "campaigns", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
 const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
-const HIDDEN_HREFS = ["/merchant/billing", "/merchant/campaigns", "/merchant/automations"];
+// Kampagnen and Automationen are rows of the Aktionen list (ENG-122d), which leaves them out where withheld (actions-list.test.ts).
+const HIDDEN_HREFS = ["/merchant/billing"];
 const DRAFT_HREFS = ["/merchant/audiences"];
 
 describe("navigation with pilot-withheld surfaces", () => {
   it("owner: no entry for billing, campaigns or automations; audiences are present and the group keeps its name while owner messages are offered", () => {
     const groups = visibleGroups("owner", ALL);
-    expect(groups.map(group => groupLabel(group, ALL))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(groups.map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = groups.flatMap(group => visibleItems(group, "owner", ALL).map(item => item.href));
     for (const hidden of HIDDEN_HREFS) expect(hrefs).not.toContain(hidden);
     expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
     expect(visibleGroups("owner", FULL).length).toBe(5);
-    expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/staff"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/actions", "/merchant/settings", "/merchant/staff"]));
   });
-  it("with every sending surface withheld the group is named after what is left: Ergebnisse", () => {
+  it("with every sending surface withheld the area keeps its name and its list (ENG-122d: Ergebnisse and Beratung are rows there)", () => {
     const hidden = [...ALL, "walletMessages"] as const;
     const actions = visibleGroups("owner", hidden).find(group => group.id === "actions")!;
-    expect(groupLabel(actions, hidden)).toBe("Ergebnisse");
-    expect(visibleItems(actions, "owner", hidden).map(item => item.href)).toEqual(["/merchant/analytics", "/merchant/adviser"]);
+    expect(actions.label).toBe("Aktionen");
+    expect(visibleItems(actions, "owner", hidden).map(item => item.href)).toEqual(["/merchant/actions"]);
   });
   it("every visible entry leads to an existing page (no dead navigation), for owner and manager", () => {
     for (const role of ["owner", "manager"] as const) {
@@ -38,7 +39,7 @@ describe("navigation with pilot-withheld surfaces", () => {
     expect(visibleItems(groups[2], "manager", ALL).map(item => item.href)).toEqual(["/merchant/customers", "/merchant/audiences"]);
   });
   it("without hidden surfaces nothing changes (development, preview, device test)", () => {
-    expect(visibleGroups("owner").map(group => groupLabel(group))).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = visibleGroups("owner").flatMap(group => visibleItems(group, "owner").map(item => item.href));
     for (const hidden of HIDDEN_HREFS) expect(hrefs).toContain(hidden);
   });

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { BROUGHT_COPY } from "@/lib/spend-copy";
 
-/** One signpost row (Wegweiser): a number at the right edge in ink, a word value muted (`off`), an arrow only with `href`. */
+/** One signpost row (Wegweiser): the value at the right edge in ink, muted when it says „off“ (`off`), an arrow only with `href`. */
 export type ValueRow = { key: string; icon: LucideIcon; title: string; sub?: string; value?: string; off?: boolean; href?: string };
 
 /** A help block in the sheet: an optional name (a row's title) and its live text. */
@@ -38,7 +38,8 @@ export function Rows({ rows }: { rows: ValueRow[] }) {
     const body = <>
       <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
       <span className="ow-prog-main">
-        {value !== undefined && <span className="ow-prog-value" data-big={!off || undefined} data-off={off || undefined}>{value}</span>}
+        {/* Numbers and amounts big, words („An“) at text size, as on the Programm list. */}
+        {value !== undefined && <span className="ow-prog-value" data-big={(!off && /\d/.test(value)) || undefined} data-off={off || undefined}>{value}</span>}
         <span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}</span>
       </span>
     </>;
