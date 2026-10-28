@@ -47,10 +47,10 @@ function RuleField({ kind, program, text, onChange, error, former = "" }: { kind
       </>}
       <p id="rule-text-hint" className="ow-hint">{extras ? EXTRA_RULES_HINT : "Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}</p>
     </div>
-    {/* No preview of a rule the save refuses, as on the news (18). By purchase amount it ends with Legal's exclusions, as
-        the sign-up page does (German pages). */}
+    {/* No preview of a rule the save refuses, as on the news (18). It ends with Legal's exclusions, as the sign-up page
+        does (German pages). */}
     {(extras || text.trim().length >= 10) && <div className="ow-qpanel">
-      <CardLinePreview label="So steht es bei der Anmeldung" shop={program.businessName} brandColor={program.brandColor} rules={extras && program.locale !== "fr" ? EXCLUDED_GOODS : undefined}>
+      <CardLinePreview label="So steht es bei der Anmeldung" shop={program.businessName} brandColor={program.brandColor} rules={program.locale !== "fr" ? EXCLUDED_GOODS : undefined}>
         <span className="ow-qrule">{shownText(kind, program, text.trim())}</span>
         {program.rewards.map(reward => <span key={reward.rewardId} className="ow-cardline-reward"><b>{reward.title}</b><span>{nf.format(reward.cost)} {unitName(program.programType, reward.cost)}</span></span>)}
       </CardLinePreview>
