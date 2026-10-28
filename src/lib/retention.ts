@@ -5,6 +5,7 @@ import * as schema from "@/db/schema";
 import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 /**
  * Retention states for open loyalty cards, derived only from recorded checkouts and balances.
@@ -67,10 +68,10 @@ export function retentionJoins(asOf: string) {
       SELECT min(latest.cost)::int AS cost FROM rewards r
       JOIN LATERAL (
         SELECT rv.cost FROM reward_versions rv
-        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${asOf}
+        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${asOf} AND ${notSuperseded("rv")}
         ORDER BY rv.version DESC LIMIT 1
       ) latest ON true
-      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND ${liveReward("r", asOf)}
     ) rw ON true`;
 }
 
@@ -149,8 +150,8 @@ export async function getRetentionSummary(actorUserId: string, options: { inacti
     reader.query<{ cost: number | null; rewardId: string | null }>(`
       SELECT selected.cost, selected.reward_id AS "rewardId" FROM programs p
       LEFT JOIN LATERAL (SELECT r.id AS reward_id, latest.cost FROM rewards r
-        JOIN LATERAL (SELECT rv.cost FROM reward_versions rv WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= $3 ORDER BY rv.version DESC LIMIT 1) latest ON true
-        WHERE r.tenant_id = p.tenant_id AND r.program_id = p.id AND r.active = true
+        JOIN LATERAL (SELECT rv.cost FROM reward_versions rv WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= $3 AND ${notSuperseded("rv")} ORDER BY rv.version DESC LIMIT 1) latest ON true
+        WHERE r.tenant_id = p.tenant_id AND r.program_id = p.id AND ${liveReward("r", "$3")}
         ORDER BY latest.cost, r.id LIMIT 1) selected ON true
       WHERE p.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
     `, [scope.tenantId, scope.locationId, asOf]),

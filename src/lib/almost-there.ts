@@ -7,6 +7,7 @@ import { quietHoursDeferral } from "./promotion-policy";
 import { eligible, lock } from "./wallet-messages";
 import { almostGap, almostText, WALLET_QUIET_HOURS } from "./wallet-message-rules";
 import { queueBatch } from "./winback";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 // "Fast geschafft" (ENG-045): one Wallet reminder when a card is close to its next reward, once per reward cycle (until
 // the card's next redemption). Marketing, so #88's consent, caps and quiet hours apply. Off by default, owner switch.
@@ -39,8 +40,8 @@ export async function queueAlmostMessages(now = new Date()) {
       const due = sql`SELECT d.pass_id, d.tenant_id, d.membership_id, json_build_array(n.cost - d.balance, n.title)::text AS grp
         FROM (SELECT p.id AS pass_id, p.tenant_id, p.membership_id, m.balance, m.program_id, ${lastConfirmedStamp(now)} AS last ${eligible(p.tenantId, p.programId, now)}) d
         CROSS JOIN LATERAL (SELECT v.cost, v.title FROM rewards r CROSS JOIN LATERAL (SELECT cost, title FROM reward_versions v
-            WHERE v.reward_id = r.id AND v.tenant_id = r.tenant_id AND v.effective_at <= ${now}::timestamptz ORDER BY v.version DESC LIMIT 1) v
-          WHERE r.tenant_id = d.tenant_id AND r.program_id = d.program_id AND r.active AND v.cost > d.balance ORDER BY v.cost LIMIT 1) n
+            WHERE v.reward_id = r.id AND v.tenant_id = r.tenant_id AND v.effective_at <= ${now}::timestamptz AND ${sql.raw(notSuperseded("v"))} ORDER BY v.version DESC LIMIT 1) v
+          WHERE r.tenant_id = d.tenant_id AND r.program_id = d.program_id AND ${liveReward("r", sql`${now}::timestamptz`)} AND v.cost > d.balance ORDER BY v.cost LIMIT 1) n
         WHERE n.cost - d.balance BETWEEN 1 AND ${almostGap(p.type)}::int AND d.last > ${now}::timestamptz - make_interval(hours => ${RECENT_HOURS})
           AND NOT EXISTS (SELECT 1 FROM wallet_message_recipients r JOIN wallet_messages w ON w.id = r.message_id AND w.tenant_id = r.tenant_id AND w.kind = 'almost'
             WHERE r.tenant_id = d.tenant_id AND r.membership_id = d.membership_id

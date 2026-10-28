@@ -4,6 +4,7 @@ import { locations, programs, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { nfcCapability } from "./nfc-keys";
 import { withUnit } from "./units";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 /**
  * "Ready to start" for one location, derived only from persisted state — never from browser checkboxes.
@@ -53,11 +54,11 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
     live_tags: number; confirmed_taps: number;
   }>(`
     SELECT
-      (SELECT count(*)::int FROM rewards r WHERE r.tenant_id = $1 AND r.program_id = $3 AND r.active) AS rewards,
+      (SELECT count(*)::int FROM rewards r WHERE r.tenant_id = $1 AND r.program_id = $3 AND ${liveReward("r", "now()")}) AS rewards,
       (SELECT rv.title FROM rewards r JOIN reward_versions rv ON rv.tenant_id = r.tenant_id AND rv.reward_id = r.id
-        WHERE r.tenant_id = $1 AND r.program_id = $3 AND r.active ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_title,
+        WHERE r.tenant_id = $1 AND r.program_id = $3 AND ${liveReward("r", "now()")} AND rv.effective_at <= now() AND ${notSuperseded("rv")} ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_title,
       (SELECT rv.cost FROM rewards r JOIN reward_versions rv ON rv.tenant_id = r.tenant_id AND rv.reward_id = r.id
-        WHERE r.tenant_id = $1 AND r.program_id = $3 AND r.active ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_cost,
+        WHERE r.tenant_id = $1 AND r.program_id = $3 AND ${liveReward("r", "now()")} AND rv.effective_at <= now() AND ${notSuperseded("rv")} ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_cost,
       (SELECT count(*)::int FROM memberships m JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
         WHERE m.tenant_id = $1 AND p.location_id = $2) AS cards,
       -- Only real counter evidence counts: seed data, referral bonuses and corrected awards do not prove the flow.

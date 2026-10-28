@@ -4,6 +4,7 @@ import { locations, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { formatCardLocator, parseCardLocator } from "./card-locator";
 import { RETENTION_DAYS, retentionJoins, retentionPredicate, type RetentionDays, type RetentionFilter } from "./retention";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 const memberLimit = 25;
 const timelineLimit = 30;
@@ -244,10 +245,10 @@ export async function getMerchantMember(actorUserId: string, membershipId: strin
       FROM rewards r
       JOIN LATERAL (
         SELECT rv.id, rv.title, rv.cost FROM reward_versions rv
-        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= now()
+        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= now() AND ${notSuperseded("rv")}
         ORDER BY rv.version DESC LIMIT 1
       ) current_version ON true
-      WHERE r.tenant_id = $1 AND r.program_id = $2 AND r.active = true
+      WHERE r.tenant_id = $1 AND r.program_id = $2 AND ${liveReward("r", "now()")}
       ORDER BY r.sort_order, r.id
     `, [scope.tenantId, row.programId]);
     eligibleRewards = available.rows.filter(reward => reward.cost <= row.balance);
