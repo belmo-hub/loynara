@@ -593,6 +593,17 @@ export const outboxJobs = pgTable("outbox_jobs", {
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
 ]);
 
+/** ENG-123: one row per location and free month, written in the same statement that queues its reminder mail. */
+export const freeMonthReminders = pgTable("free_month_reminders", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  locationId: uuid("location_id").notNull(),
+  freeUntil: timestamp("free_until", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId, t.freeUntil] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+]);
+
 /** One row per shop and reported Berlin ISO week (its Monday), written in the same statement that queues the mails. */
 export const weeklyOwnerReports = pgTable("weekly_owner_reports", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
@@ -868,6 +879,8 @@ export const subscriptions = pgTable("subscriptions", {
   providerCustomerId: varchar("provider_customer_id", { length: 64 }).unique(),
   providerSubscriptionId: varchar("provider_subscription_id", { length: 64 }).unique(),
   startedAt: timestamp("started_at", { withTimezone: true }),
+  // ENG-123: the first paid moment (Stripe's first billing date) when billing started with the free month; null otherwise.
+  freeUntil: timestamp("free_until", { withTimezone: true }),
 }, (t) => [
   check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled','active','past_due','suspended')`),
   check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
