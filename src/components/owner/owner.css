@@ -834,3 +834,13 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-qsave--pair { display: grid; gap: var(--space-2); }
 .ow-qsave .ow-btn--danger:not(:disabled) { background: var(--color-danger); border-color: transparent; color: var(--color-on-action); }
 @media (max-width: 1023px) { .ow-content:has(.ow-qsave--pair) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); } }
+/* Team, Abrechnung, Empfehlungen: the band's arrow, a back step inside a page, the price card's note, a price per month. */
+.ow-band-arrow { flex: none; }
+button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.ow-numcard .ow-numcard-note { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); font-weight: var(--weight-label); color: var(--color-ink-muted); text-wrap: pretty; }
+/* A price at a row's right edge with „im Monat“ under it, so it stays beside the location's name. */
+.ow-price { display: inline-grid; justify-items: end; }
+.ow-price small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; line-height: 1.2; color: var(--color-ink-muted); }
+.ow-q .ow-qlabel { margin: var(--space-3) 2px 0; font-size: var(--text-14); font-weight: var(--weight-heavy); letter-spacing: 0; color: var(--color-ink-muted); }
+.ow-q .ow-qnote, .ow-qpanel .ow-qreason { margin-top: var(--space-2); }
+.ow-q .ow-qnote { margin-inline: var(--space-1); }

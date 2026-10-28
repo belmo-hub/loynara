@@ -64,7 +64,9 @@ export function useReview<Step extends string = "review">() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const open = (next = "review" as Step) => { window.history.pushState({ questionStep: next }, ""); setStep(next); };
-  return { step, open, back: () => window.history.back() };
+  // `leave` closes `from` only while it is still on screen: a request that ends after the owner went back moves no further back.
+  const leave = (from: Step) => { if (window.history.state?.questionStep === from) window.history.back(); };
+  return { step, open, back: () => window.history.back(), leave };
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */

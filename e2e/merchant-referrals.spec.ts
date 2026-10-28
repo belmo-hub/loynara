@@ -30,11 +30,15 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       const merchantPage = await ownerBrowser.newPage();
       await merchantPage.goto("/merchant/referrals");
       await expect(merchantPage.getByRole("heading", { name: "Empfehlungen", exact: true })).toBeVisible();
+      // ENG-122c: each bonus is a question with its own save; the switch saves on its own.
+      for (const [row, value] of [["Bonus für die empfehlende Karte", "2"], ["Bonus für die neue Karte", "1"]] as const) {
+        await merchantPage.getByRole("button", { name: new RegExp(`^${row}`) }).click();
+        await merchantPage.getByLabel("Bonus", { exact: true }).fill(value);
+        await merchantPage.getByRole("button", { name: "Speichern" }).click();
+        await expect(merchantPage.getByText(/Empfehlungsregel gespeichert/)).toBeVisible();
+      }
       await merchantPage.getByRole("switch", { name: /Empfehlungen für neue Anmeldungen/ }).check();
-      await merchantPage.getByLabel("Bonus für empfehlende Karte (Stempel)").fill("2");
-      await merchantPage.getByLabel("Bonus für neue Karte (Stempel)").fill("1");
-      await merchantPage.getByRole("button", { name: "Regel speichern" }).click();
-      await expect(merchantPage.getByText(/Empfehlungsregel gespeichert/)).toBeVisible();
+      await expect(merchantPage.getByRole("switch", { name: /Empfehlungen für neue Anmeldungen/ })).toBeChecked();
 
       const referrerPage = await guestBrowser.newPage();
       await referrerPage.goto(`/card/${encodeURIComponent(referrerToken)}`);
