@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { iconPng, stripPng } from "./apple-images";
 
 const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-const PAPER = rgb("#F4F5F3"), CORAL = rgb("#E9895F"), OPEN = rgb("#8C9691"), TRACK = rgb("#DCE1DE"), WHITE = rgb("#FFFFFF");
+const PAPER = rgb("#F4F5F3"), CORAL = rgb("#E9895F"), TRACK = rgb("#DCE1DE"), WHITE = rgb("#FFFFFF");
+const CHECK = rgb("#17291F"), OPEN = rgb("#7A867D"); // the app's --color-on-stamp and --color-line-strong
 
 /** Checks the PNG structure (signature, chunk CRCs, 8-bit RGBA, unfiltered rows) and reads pixels by point. */
 function decode(png: Buffer, scale: number) {
@@ -38,14 +39,14 @@ describe("Apple strip image (ENG-119)", () => {
     }
   });
 
-  it("draws collected stamps as coral with a white check and open slots as a dashed grey ring on paper", () => {
+  it("draws collected stamps as coral with an ink check and open slots as a dashed grey ring on paper", () => {
     const image = decode(stripPng("stamp", 3, 10, 2), 2);
     for (let i = 0; i < 10; i++) {
       const [x, y] = slotCentre(i);
       expect(image.at(x, y - 10), `slot ${i}`).toEqual(i < 3 ? CORAL : PAPER);
     }
     const [x, y] = slotCentre(0), [ox, oy] = slotCentre(3);
-    expect(image.at(x + 2.6, y + 0.4)).toEqual(WHITE); // on the check's long stroke
+    expect(image.at(x + 2.6, y + 0.4)).toEqual(CHECK); // on the check's long stroke
     expect(image.at(ox, oy)).toEqual(PAPER);
     expect(image.at(ox + 19, oy)).toEqual(OPEN); // a dash of the ring
     // Dashed, not solid: around the ring the grey comes and goes.
@@ -79,6 +80,7 @@ describe("Apple strip image (ENG-119)", () => {
     expect(open.at(329 + 24.5, 72)).toEqual(OPEN);
     expect(ready.at(150, 72)).toEqual(CORAL);
     expect(ready.at(329, 72 - 15)).toEqual(CORAL);
+    expect(ready.at(329 + 3.4, 72 + 0.5)).toEqual(CHECK); // the ready ring carries the stamp's check
   });
 
   it("switches a stamp reward above 20 to the bar", () => {
@@ -96,13 +98,13 @@ describe("Apple strip image (ENG-119)", () => {
 });
 
 describe("Apple pass icon (ENG-119)", () => {
-  it("is the brand colour with a coral stamp and a white check at 29, 58 and 87 px", () => {
+  it("is the brand colour with a coral stamp and its ink check at 29, 58 and 87 px", () => {
     for (const scale of [1, 2, 3] as const) {
       const image = decode(iconPng(scale, "#264C45"), scale);
       expect([image.width, image.height]).toEqual([29 * scale, 29 * scale]);
       expect(image.at(1, 1)).toEqual(rgb("#264C45"));
       expect(image.at(14.5, 9)).toEqual(CORAL); // the stamp spans 60 % of the icon
-      expect(image.at(14.5 + 1.1, 14.5 + 0.2)).toEqual(WHITE);
+      expect(image.at(14.5 + 1.1, 14.5 + 0.2)).toEqual(CHECK);
     }
   });
 

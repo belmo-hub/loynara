@@ -262,6 +262,14 @@ describe("Apple pass", () => {
     expect(new Set(keys).size).toBe(keys.length); // Wallet needs every field key unique across the pass
   });
 
+  it("turns data detectors off on the rules and the reward name, so „0,3 l“ is no unit and no owner text becomes a link", () => {
+    const json = applePassJson({ ...pass, rules: ["Ein Stempel pro Pizza ab 8 €."], reward: { title: "Gratisgetränk 0,3 l, nur Mo–Fr außer Feiertage", cost: 10 } }, serial, appleConfig);
+    const back = Object.fromEntries(json.storeCard.backFields.map(field => [field.key, field]));
+    expect(back.rules).toMatchObject({ dataDetectorTypes: [] });
+    expect(back.rewardTitle).toMatchObject({ dataDetectorTypes: [] });
+    expect(back.note).not.toHaveProperty("dataDetectorTypes"); // the rest keeps Wallet's defaults
+  });
+
   it("keeps today's approved French status line while the new strings are German only (founder, 28 Oct)", () => {
     const card = (data: Partial<WalletPassData>) => applePassJson({ ...pass, locale: "fr", ...data }, serial, appleConfig).storeCard;
     expect(card({}).secondaryFields[1]).toEqual({ key: "status", label: "STATUT", value: "Encore 3 tampons", changeMessage: "%@", textAlignment: "PKTextAlignmentRight" });

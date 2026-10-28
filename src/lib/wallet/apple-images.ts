@@ -9,7 +9,9 @@ type Shape = { box: readonly number[]; inside: (x: number, y: number) => number 
 type Layer = readonly [Rgb, Shape];
 
 const PAPER: Rgb = [0xf4, 0xf5, 0xf3], CORAL: Rgb = [0xe9, 0x89, 0x5f], CORAL_EDGE: Rgb = [0xc9, 0x66, 0x3c];
-const OPEN: Rgb = [0x8c, 0x96, 0x91], TRACK: Rgb = [0xdc, 0xe1, 0xde], WHITE: Rgb = [255, 255, 255];
+const TRACK: Rgb = [0xdc, 0xe1, 0xde], WHITE: Rgb = [255, 255, 255];
+// The app's tokens: --color-on-stamp for the check (5.98:1 on coral), --color-line-strong for open slots (3.47:1 on paper).
+const ON_STAMP: Rgb = [0x17, 0x29, 0x1f], OPEN: Rgb = [0x7a, 0x86, 0x7d];
 
 const disk = (cx: number, cy: number, r: number): Shape => ({
   box: [cx - r, cy - r, cx + r, cy + r], inside: (x, y) => r - Math.sqrt((x - cx) ** 2 + (y - cy) ** 2),
@@ -41,14 +43,14 @@ function capsule(ax: number, ay: number, bx: number, by: number, r: number): Sha
   };
 }
 
-/** The pressed stamp's white check, in the mock-up's proportions (design/2026-10-28-native-apple-pass/gen_pass.py). */
+/** The pressed stamp's check, in the mock-up's proportions (design/2026-10-28-native-apple-pass/gen_pass.py). */
 function check(cx: number, cy: number, r: number): Shape {
   const half = Math.max(2, r * 0.16) / 2, mx = cx - 0.12 * r, my = cy + 0.28 * r;
   const a = capsule(cx - 0.38 * r, cy + 0.02 * r, mx, my, half), b = capsule(mx, my, cx + 0.38 * r, cy - 0.24 * r, half);
   return { box: a.box.map((value, i) => (i < 2 ? Math.min : Math.max)(value, b.box[i])), inside: (x, y) => Math.max(a.inside(x, y), b.inside(x, y)) };
 }
 
-const stamp = (cx: number, cy: number, r: number): Layer[] => [[CORAL, disk(cx, cy, r)], [CORAL_EDGE, ring(cx, cy, r, 1.5)], [WHITE, check(cx, cy, r)]];
+const stamp = (cx: number, cy: number, r: number): Layer[] => [[CORAL, disk(cx, cy, r)], [CORAL_EDGE, ring(cx, cy, r, 1.5)], [ON_STAMP, check(cx, cy, r)]];
 // A 2 pt dashed ring inside the slot, in whole dashes of about 3.2 pt so the circle shows no seam.
 const slot = (cx: number, cy: number, r: number): Layer[] => [[OPEN, ring(cx, cy, r - 1, 2, Math.max(4, Math.round((2 * Math.PI * (r - 1)) / 6.4)))]];
 
@@ -133,13 +135,13 @@ function lab(color: Rgb) {
 const CORAL_LAB = lab(CORAL);
 
 /**
- * The lock-screen and notification icon (29 pt): the brand colour with a coral stamp across 60 % of it and a white
+ * The lock-screen and notification icon (29 pt): the brand colour with a coral stamp across 60 % of it and the stamp's
  * check. A brand colour close to coral (CIE76 ΔE under 25: terracotta, salmon, orange) gets a 1 pt white ring around it.
  */
 export function iconPng(scale: 1 | 2 | 3, brandColor: string): Buffer {
   const brand = [1, 3, 5].map(i => parseInt(brandColor.slice(i, i + 2), 16));
   const size = 29, c = size / 2, r = size * 0.3;
-  const layers: Layer[] = [[CORAL, disk(c, c, r)], [WHITE, check(c, c, r)]];
+  const layers: Layer[] = [[CORAL, disk(c, c, r)], [ON_STAMP, check(c, c, r)]];
   if (Math.hypot(...lab(brand).map((value, i) => value - CORAL_LAB[i])) < 25) layers.push([WHITE, ring(c, c, r + 0.5, 1)]);
   return render(size, size, scale, brand, layers);
 }

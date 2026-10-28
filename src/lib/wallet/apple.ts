@@ -162,10 +162,10 @@ export function applePassJson(pass: WalletPassData, serial: string, config: Appl
         { key: "status", label: status.label.toUpperCase(), value: status.value, changeMessage: status.changeMessage, textAlignment: "PKTextAlignmentRight" },
       ] : [{ key: "programName", label: t.programme.toUpperCase(), value: pass.programName }],
       backFields: [
-        // ENG-100's dated rule changes will open this field.
-        ...(pass.rules?.length ? [{ key: "rules", label: t.rules, value: pass.rules.join("\n\n") }] : []),
+        // ENG-100's dated rule changes will open this field. Owner-written text: no detected links, numbers or units.
+        ...(pass.rules?.length ? [{ key: "rules", label: t.rules, value: pass.rules.join("\n\n"), dataDetectorTypes: [] }] : []),
         // In full: the name carries the reward's limits (ENG-115), and Wallet may cut it on the front.
-        ...(reward ? [{ key: "rewardTitle", label: rewardLabel, value: reward.title }] : []),
+        ...(reward ? [{ key: "rewardTitle", label: rewardLabel, value: reward.title, dataDetectorTypes: [] }] : []),
         { key: "programme", label: t.programme, value: pass.programName },
         { key: "location", label: t.location, value: pass.locationName },
         { key: "card", label: t.card, value: pass.cardLocator },
