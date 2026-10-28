@@ -128,6 +128,11 @@ describe("merchant and customer journey", () => {
     expect(initial).toHaveLength(2);
     await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Torte", cost: 15, termsText: "Ein Stück Torte" });
     expect((await db.select().from(rewardVersions)).filter(row => row.rewardId === created.rewardId).map(row => row.version)).toEqual([1, 2]);
+    // Stored conditions stay in the owner's list only; the join page, the card and the till get none (ENG-115).
+    expect((await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug })).find(row => row.rewardId === created.rewardId)?.termsText).toBe("Ein Stück Torte");
+    const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const payloads = [(await getPublicProgram(merchant.programSlug)).rewards, (await getCard(member.cardToken)).rewards, (await lookupCard({ userId: ownerId, locationId: merchant.locationId, scanCode: member.scanCode })).rewards];
+    for (const rewards of payloads) expect(rewards.map(row => Object.keys(row).sort())).toEqual([["cost", "id", "rewardId", "sortOrder", "title"], ["cost", "id", "rewardId", "sortOrder", "title"]]);
     await reorderRewards({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardIds: [created.rewardId, initial[0].rewardId] });
     expect((await getPublicProgram(merchant.programSlug)).rewards.map(row => row.title)).toEqual(["Torte", "Kaffee"]);
     await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch." });

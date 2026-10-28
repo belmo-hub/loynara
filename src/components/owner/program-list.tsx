@@ -77,8 +77,8 @@ function readReturn(): Return | null {
 function writeReturn(value: Return | null) {
   try { if (value) sessionStorage.setItem(RETURN, JSON.stringify(value)); else sessionStorage.removeItem(RETURN); } catch { /* storage may be unavailable */ }
 }
-/** A row's page saved: the list outlines that row and says „Gespeichert“. */
-export function markSaved(row: string) { const last = readReturn(); writeReturn({ row, y: last?.row === row ? last.y : undefined, saved: true }); }
+/** A row's page saved: the list outlines `row` and says „Gespeichert“, scrolled as when the owner tapped `from`. */
+export function markSaved(row: string, from = row) { const last = readReturn(); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true }); }
 
 /** Programm for owners (ENG-099, Wegweiser): section labels on the grey, one link per setting with its current value. */
 export function ProgramList({ me }: { me: MeResponse }) {

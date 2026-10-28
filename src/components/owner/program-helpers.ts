@@ -47,6 +47,16 @@ export function minimumSpendMinor(cost: number, rate: number): number | null {
   } catch { return null; }
 }
 
+/** Under a new points reward's number where points come from the purchase amount (Marketing B): the total spend that
+ *  earns it, in whole cents rounded up, „500 €“ or „83,34 €“; MAD written as earningSentence writes it. */
+export function minimumSpendText(cost: number, rate: number, currency: string) {
+  const minor = minimumSpendMinor(cost, rate);
+  if (minor === null) return null;
+  const digits = minor % 100 === 0 ? 0 : 2;
+  const amount = new Intl.NumberFormat("de-DE", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(minor / 100);
+  return `Erreichbar ab insgesamt ${amount} ${currency === "EUR" ? "€" : currency} Einkaufswert.`;
+}
+
 export const MIN_SPEND_LABEL = "Nur reguläres Sammeln; zusätzliche Boni nicht berücksichtigt.";
 export const NO_MIN_SPEND_LABEL = "Mindestumsatz offen: kein €-Wert pro Punkt";
 /** The note exists for points only: a stamp card has no € value per point to leave open. */
@@ -64,6 +74,15 @@ export function purchaseExample(raw: string, rate: number): ExampleResult {
     if (cause instanceof PointsError && cause.code === "INVALID_POINTS_RATE") return { ok: false, message: "Bitte einen Faktor zwischen 1 und 1000 wählen." };
     return { ok: false, message: "Bitte einen Betrag wie 12,90 eingeben." };
   }
+}
+
+/** W12, under a new reward's number: the other rewards' thresholds, lowest first and each once; null when there are none. */
+export function otherRewardsHint(type: ProgramKind, costs: number[]) {
+  if (costs.length === 0) return null;
+  const numbers = [...new Set(costs)].sort((a, b) => a - b).map(cost => cost.toLocaleString("de-DE"));
+  const list = numbers.length === 1 ? numbers[0] : `${numbers.slice(0, -1).join(", ")} und ${numbers[numbers.length - 1]}`;
+  // The unit follows the last, highest number: „1 Punkt“, „1 und 5 Punkte“.
+  return `${costs.length === 1 ? "Deine andere Prämie" : "Deine anderen Prämien"}: ${list} ${unitName(type, Math.max(...costs))}.`;
 }
 
 /** Whole numbers only. Returns null when the text is not a positive integer. */

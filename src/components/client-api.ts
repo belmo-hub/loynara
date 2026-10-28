@@ -114,7 +114,7 @@ export type PublicProgram = {
   pointsExpiryRule?: string;
   rewardTitle: string;
   rewardCost: number;
-  rewards: Array<{ id: string; rewardId: string; title: string; cost: number; termsText: string; sortOrder: number }>;
+  rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number }>;
   brandColor?: string;
   active?: boolean;
   referral?: { enabled: boolean; referrerBonus: number; referredBonus: number };
@@ -147,6 +147,6 @@ export type CardResponse = {
   challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
   /** The card's level (visit days in 90 days), its perk and the next step; absent while the shop has no levels. */
   level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
-  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; termsText?: string; sortOrder?: number }>;
+  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; sortOrder?: number }>;
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean; isChallengeBonus?: boolean }>;
 };

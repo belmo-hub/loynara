@@ -63,6 +63,11 @@ describe("NumberStepper", () => {
     expect(out).toContain('aria-invalid="true"');
     expect(out).toContain("data-invalid");
   });
+  it("names a larger step in its buttons („10 Punkte mehr“)", () => {
+    const out = stepper("250", { min: 1, max: 100000, unit: POINT, stepSize: 10 });
+    expect(out).toContain('aria-label="10 Punkte weniger"');
+    expect(out).toContain('aria-label="10 Punkte mehr"');
+  });
   it("shows „Aus“ without a unit and „+2“ with one", () => {
     expect(stepper("0", { min: 0, max: 5, unit: POINT, bonus: true, offAtZero: true })).toMatch(/value="Aus"[^>]*\/><\/span>/);
     expect(stepper("2", { min: 0, max: 5, unit: POINT, bonus: true })).toMatch(/value="\+2"[^>]*\/><span aria-hidden="true">Punkte<\/span>/);

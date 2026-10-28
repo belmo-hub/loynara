@@ -11,6 +11,7 @@ import { ErrorNotice, LoadingBlock, Notice, Skeleton } from "./owner-ui";
 import { ProgramExtrasCard } from "./program-extras";
 import { QUESTIONS, type Question } from "./program-helpers";
 import { markSaved } from "./program-list";
+import { NewReward } from "./program-new-reward";
 import { RewardsCard } from "./program-rewards";
 import { RuleCard } from "./program-rules";
 import { TapPolicyCard } from "./tap-policy";
@@ -32,10 +33,10 @@ function Frame({ title, quiet, children }: { title?: string; /** The editor show
   );
 }
 
-/** After a save: fresh account values, then back on the list with this row outlined (Design rule 10). */
+/** After a save: fresh account values, then back on the list with `row` outlined (Design rule 10), by default this page's. */
 function useBackToList() {
   const owner = useOwner(), router = useRouter(), path = usePathname();
-  return () => void owner.refresh().then(() => { markSaved(path); router.push("/merchant/program", { scroll: false }); });
+  return (row = path) => void owner.refresh().then(() => { markSaved(row, path); router.push("/merchant/program", { scroll: false }); });
 }
 
 export function ProgramQuestion({ question }: { question: Question }) {
@@ -45,7 +46,7 @@ export function ProgramQuestion({ question }: { question: Question }) {
   if (!me) return null;
   const title = QUESTIONS[question];
   if (me.role !== "owner") return <Frame title={title}><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
-  if (question === "rule") return <Frame title={title}>{program.state === "ok" ? <RuleCard me={me} program={program.data} onSaved={done} /> : program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : <LoadingBlock />}</Frame>;
+  if (question === "rule") return <Frame title={title}>{program.state === "ok" ? <RuleCard me={me} program={program.data} onSaved={() => done()} /> : program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : <LoadingBlock />}</Frame>;
   if (question === "winback") return <Frame title={title}><ProgramWinbackCard slug={me.programSlug} /></Frame>;
   if (question === "happy-hour") return <Frame title={title} quiet><HappyHourCard me={me} earningMode={me.earningMode} onSaved={done} /></Frame>;
   // NFC stays on its page after saving: „Mit Bestätigung“ goes on to activating a plate there.
@@ -53,7 +54,7 @@ export function ProgramQuestion({ question }: { question: Question }) {
   return <Frame title={title}><ProgramExtrasCard me={me} only={question} onSaved={done} /></Frame>;
 }
 
-/** A reward row's page, or „Prämie hinzufügen“ (reward "new"): today's rewards card with that form open. */
+/** A reward row's page (today's rewards card with that reward's form open), or „Prämie hinzufügen“ (reward "new"): three steps. */
 export function RewardQuestion({ reward }: { reward: string }) {
   const { me } = useOwner();
   const done = useBackToList();
@@ -62,6 +63,7 @@ export function RewardQuestion({ reward }: { reward: string }) {
   if (me.role !== "owner") return <Frame title="Prämien"><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
   if (program.state === "error") return <Frame title="Prämien"><ErrorNotice message={program.message} onRetry={reload} /></Frame>;
   if (program.state !== "ok") return <Frame><LoadingBlock /></Frame>;
-  const title = reward === "new" ? "Prämie hinzufügen" : program.data.rewards.find(item => item.rewardId === reward)?.title ?? "Prämien";
-  return <Frame title={title}><RewardsCard me={me} program={program.data} onChanged={reload} open={reward} onSaved={done} /></Frame>;
+  if (reward === "new") return <NewReward slug={me.programSlug} program={program.data} onSaved={rewardId => done(`/merchant/program/rewards/${rewardId}`)} />;
+  const title = program.data.rewards.find(item => item.rewardId === reward)?.title ?? "Prämien";
+  return <Frame title={title}><RewardsCard me={me} program={program.data} onChanged={reload} open={reward} onSaved={() => done()} /></Frame>;
 }
