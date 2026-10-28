@@ -7,7 +7,7 @@ import { birthdayState, DomainError, winbackState } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
-import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
+import { byPurchase, checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT, purchaseRuleSentence } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
 import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy-hour";
@@ -35,7 +35,7 @@ const merchantInput = z.object({
   programType: z.enum(["stamp", "points"]),
   earningMode: z.enum(["manual", "purchase"]).optional(),
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
-  rulesText: z.string().trim().min(10).max(3000),
+  rulesText: z.string().trim().max(3000), // its minimum depends on the earning: checkRulesText
   rewardTitle: shortText,
   rewardCost: z.number().int().min(1).max(100000),
   contactEmail: z.email().optional(),
@@ -66,6 +66,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
   const input = merchantInput.parse(raw);
   const earningMode = input.earningMode ?? "manual";
   if (input.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
+  checkRulesText(input.programType, earningMode, input.rulesText);
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
@@ -123,7 +124,10 @@ async function awaitsSetup(tx: Transaction | typeof db, tenantId: string) {
 
 async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
   const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
-  const [program] = await tx.insert(programs).values({ tenantId, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, earningMode, pointsPerCurrencyUnit: input.pointsPerCurrencyUnit ?? 1, rulesText: input.rulesText, effectiveAt: input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined }).returning();
+  // Never backdated (Legal, ENG-099 3c): a card maps to the rule version in force when it joined. A start date that has
+  // begun (today's, by default) counts from now, as every later version does; a future one stays.
+  const start = input.effectiveDate ? new Date(`${input.effectiveDate}T00:00:00Z`) : undefined;
+  const [program] = await tx.insert(programs).values({ tenantId, locationId: location.id, slug: `${slugOf(input.programName)}-${suffix}`, name: input.programName, type: input.programType, earningMode, pointsPerCurrencyUnit: input.pointsPerCurrencyUnit ?? 1, rulesText: input.rulesText, effectiveAt: start && start > new Date() ? start : undefined }).returning();
   await tx.insert(programRuleVersions).values({ tenantId, programId: program.id, version: 1, name: program.name, type: program.type, rulesText: program.rulesText, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, effectiveAt: program.effectiveAt });
   const [reward] = await tx.insert(rewards).values({ tenantId, programId: program.id }).returning();
   await tx.insert(rewardVersions).values({ tenantId, rewardId: reward.id, version: 1, title: input.rewardTitle, cost: input.rewardCost });
@@ -147,7 +151,7 @@ const updateProgramInput = z.object({
   actorUserId: z.string().min(1),
   programSlug: z.string().min(1).max(120),
   name: shortText.optional(),
-  rulesText: z.string().trim().min(10).max(3000).optional(),
+  rulesText: z.string().trim().max(3000).optional(), // checked against the resulting programme: checkRulesText
   programType: z.enum(["stamp", "points"]).optional(),
   earningMode: z.enum(["manual", "purchase"]).optional(),
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
@@ -165,6 +169,8 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     const earningMode = input.earningMode ?? program.earningMode;
     const pointsPerCurrencyUnit = input.pointsPerCurrencyUnit ?? program.pointsPerCurrencyUnit;
     if (nextType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
+    // The text sent or the stored one: a switch out of points by purchase amount needs the owner's own rule.
+    checkRulesText(nextType, earningMode, rulesText);
     if (nextType !== program.type) {
       const [activity] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, program.tenantId), eq(ledgerEntries.locationId, program.locationId))).limit(1);
       if (activity) throw new DomainError("TYPE_LOCKED", "Program type cannot change after transactions");
@@ -401,15 +407,17 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
 
 /**
  * Programme rules as customers see them (card and sign-up): the owner's text, plus the win-back and birthday lines while
- * those bonuses are on (Legal). Win-back runs without Wallet messages (ENG-089); birthday stays with them.
+ * those bonuses are on (Legal). Win-back runs without Wallet messages (ENG-089); birthday stays with them. Points by
+ * purchase amount open with the system's earning sentence, and the owner's text adds to it (ENG-099 3c).
  */
-function shownRules(program: typeof programs.$inferSelect) {
+function shownRules(program: typeof programs.$inferSelect, tenant: typeof tenants.$inferSelect) {
   const messages = !surfaceHidden("walletMessages");
   const type = program.type as "stamp" | "points";
   const lines = [program.rulesText];
+  if (byPurchase(program.type, program.earningMode)) lines.unshift(purchaseRuleSentence(program.pointsPerCurrencyUnit, tenant.currency, tenant.locale === "fr" ? "fr" : "de"));
   if (program.winbackEnabled && program.winbackBonus > 0) lines.push(winbackRule(type, program.winbackDays, program.winbackBonus, messages));
   if (messages && program.birthdayEnabled && program.birthdayBonus > 0) lines.push(birthdayRule(type, program.birthdayBonus));
-  return lines.join("\n\n");
+  return lines.filter(Boolean).join("\n\n");
 }
 
 /** The owner screen's challenge: the terms in force now and a change that starts later („Gilt ab 1.11.“). */
@@ -484,7 +492,7 @@ export async function getCard(token: string, now = new Date()) {
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
     // With a confirmed end date nothing dated after it shows: the end date, no later challenge month, level date or expiry batch.
     const programmeEnd = row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined;
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(row.program), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(row.program, row.tenant), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -538,7 +546,7 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program), ownerRulesText: row.program.rulesText, pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, locale: row.tenant.locale, rulesText: shownRules(row.program, row.tenant), ownerRulesText: row.program.rulesText, pointsExpiryRule: row.program.pointsExpiryMonths ? expiryRuleText(row.program.pointsExpiryMonths) : undefined, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

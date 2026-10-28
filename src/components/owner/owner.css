@@ -764,6 +764,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ow-qcmp[data-new] { box-shadow: inset 0 0 0 2px var(--color-action); }
+/* The notes under a review leave no word alone on its last line („berechnet.“). */
+.ow-q > .ow-hint { text-wrap: pretty; }
 .ow-qsum dl { margin: var(--space-2) 0 0; }
 .ow-qsum dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-bottom: 1px solid var(--color-line); }
 .ow-qsum dt { min-width: 0; color: var(--color-ink-muted); overflow-wrap: anywhere; }

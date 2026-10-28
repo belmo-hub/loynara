@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftRules, minimumSpendText, NO_MIN_SPEND_LABEL, noMinSpendNote, otherRewardsHint } from "./program-helpers";
+import { draftRules, minimumSpendText, NO_MIN_SPEND_LABEL, noMinSpendNote, otherRewardsHint, ruleKind } from "./program-helpers";
 
 describe("the spend that earns a new points reward (Marketing B)", () => {
   it("rounds up to the cent and shows cents only when there are any", () => {
@@ -37,11 +37,16 @@ describe("the open-minimum-spend note", () => {
 
 describe("the setup's rules draft", () => {
   it.each([
-    ["stamp", "manual", 1, "Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse."],
-    ["points", "manual", 1, "Das Team vergibt Punkte an der Kasse."],
-    ["points", "purchase", 1, "Pro 1 € Einkaufswert gibt es 1 Punkt, abgerundet. Das Team bestätigt jede Buchung an der Kasse."],
-    ["points", "purchase", 3, "Pro 1 € Einkaufswert gibt es 3 Punkte, abgerundet. Das Team bestätigt jede Buchung an der Kasse."],
-  ] as const)("%s, %s, rate %i: the earning sentence as before and no reward sentence", (type, mode, rate, sentence) => {
-    expect(draftRules(type, mode, rate)).toBe(sentence);
+    ["stamp", "manual", "Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse."],
+    ["points", "manual", "Das Team vergibt Punkte an der Kasse."],
+    ["points", "purchase", ""], // the card states the earning itself; the field is for extra rules (W51)
+  ] as const)("%s, %s: the earning as before, no reward sentence", (type, mode, sentence) => {
+    expect(draftRules(type, mode)).toBe(sentence);
+  });
+});
+
+describe("the rules field (W35, W51)", () => {
+  it("is the owner's own rule for stamps and manual points, extra rules by purchase amount", () => {
+    expect([ruleKind("stamp", "manual"), ruleKind("stamp", "purchase"), ruleKind("points", "manual"), ruleKind("points", "purchase")]).toEqual(["stamp", "stamp", "manual", "purchase"]);
   });
 });

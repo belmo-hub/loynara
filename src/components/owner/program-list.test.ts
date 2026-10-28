@@ -68,13 +68,21 @@ describe("Programm list", () => {
     const all = Object.fromEntries(sections.flatMap(section => section.rows).map(row => [row.title, row]));
     expect(all.Gratiskaffee.sub).toBe("Einlösbar ab 1.000 Punkten");
     expect([all["Punkte verfallen"].value, all["NFC-Tap"].sub, all["Happy Hour"].value]).toEqual(["Nie", "Mit Bestätigung", "An"]);
-    expect(sections[1].rows.map(row => row.title)).toEqual(["Regel auf der Karte", "So entstehen Punkte", "Punkte verfallen", "NFC-Tap"]);
+    expect(sections[1].rows.map(row => row.title)).toEqual(["Weitere Regeln", "So entstehen Punkte", "Punkte verfallen", "NFC-Tap"]);
     expect(rows({ program: { ...points, pointsPerCurrencyUnit: 1 } })["So entstehen Punkte"].sub).toBe("Nach Einkaufswert: 1 Punkt pro €"); // W36
     expect(rows({ program: { ...points, pointsPerCurrencyUnit: 2, currency: "MAD" } })["So entstehen Punkte"].sub).toBe("Nach Einkaufswert: 2 Punkte pro MAD");
     expect(rows({ program: { ...points, earningMode: "manual" } })["So entstehen Punkte"].sub).toBe("Manuell");
     expect(Object.keys(rows({}))).not.toContain("So entstehen Punkte"); // stamps: the type is set in setup only
     expect(sections.map(section => section.title)).not.toContain("Für die Ergebnisse");
     expect(rows({ program: points, me: { ...me, pointsExpiryMonths: 24 } })["Punkte verfallen"].sub).toBe("Nach 24 Monaten");
+  });
+
+  it("names the rule row „Weitere Regeln“ where the card states the earning by purchase amount (W51)", () => {
+    const points = { ...program, programType: "points", earningMode: "purchase", rulesText: "1 Punkt pro 1 € Einkaufswert, abgerundet auf ganze Punkte." } as PublicProgram;
+    const extras = (ownerRulesText: string) => rows({ program: { ...points, ownerRulesText } })["Weitere Regeln"];
+    expect([extras("").value, extras("").off, extras("").sub, extras("").href]).toEqual(["Keine", true, undefined, "/merchant/program/rule"]);
+    expect([extras("Karte vor dem Bezahlen zeigen.").sub, extras("Karte vor dem Bezahlen zeigen.").value]).toEqual(["„Karte vor dem Bezahlen zeigen.“", undefined]);
+    expect(rows({ program: { ...points, earningMode: "manual", ownerRulesText: "10 Punkte pro Pizza." } })["Regel auf der Karte"].sub).toBe("„10 Punkte pro Pizza.“");
   });
 
   it("links every row to its own page", () => {

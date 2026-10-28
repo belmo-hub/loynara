@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { parsePurchaseAmountMinor, purchasePoints } from "./points";
+import { checkRulesText, parsePurchaseAmountMinor, purchasePoints, purchaseRuleSentence } from "./points";
+
+describe("the earning sentence by purchase amount (ENG-099 3c)", () => {
+  it("says what purchasePoints books, in the card's words for one and more points", () => {
+    expect(purchaseRuleSentence(1, "EUR")).toBe("1 Punkt pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
+    expect(purchaseRuleSentence(3, "EUR")).toBe("3 Punkte pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
+    expect(purchaseRuleSentence(2, "MAD")).toBe("2 Punkte pro 1 MAD Einkaufswert, abgerundet auf ganze Punkte.");
+    expect(purchaseRuleSentence(1, "MAD", "fr")).toBe("1 point par MAD dépensé. Les fractions de point sont arrondies à l’entier inférieur."); // the sign-up page's French line
+  });
+
+  it("asks the owner's own rule for 10 characters, extra rules by purchase amount for none", () => {
+    for (const text of ["", "Nur Mo–Fr"]) expect(() => checkRulesText("points", "purchase", text)).not.toThrow();
+    for (const [type, mode] of [["stamp", "manual"], ["points", "manual"]]) {
+      expect(() => checkRulesText(type, mode, "Zu kurz.")).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ path: ["rulesText"], code: "too_small" })] }));
+      expect(() => checkRulesText(type, mode, "Ein Stempel pro Kaffee.")).not.toThrow();
+    }
+  });
+});
 
 describe("purchase points", () => {
   it("floors fractional points using exact minor-unit arithmetic", () => {

@@ -53,17 +53,18 @@ export function useQuestion(key: string, changed: boolean, problems: Record<stri
 }
 
 /**
- * A question with a review step (14 → 35, 33 → 34). The review is an entry in this page's history, so Back and the
- * phone's back gesture return to the question with the input kept, as in the new-reward steps.
+ * The steps after a question (14 → 35, 33 → 34, 33 → 14 → 34; null is the question). Each step is an entry in this page's
+ * history, so Back and the phone's back gesture return to the step before with the input kept, as in the new-reward steps.
  */
-export function useReview() {
-  const [review, setReview] = useState(false);
+export function useReview<Step extends string = "review">() {
+  const [step, setStep] = useState<Step | null>(null);
   useEffect(() => {
-    const onPop = (event: PopStateEvent) => setReview(event.state?.review === true);
+    const onPop = (event: PopStateEvent) => setStep(event.state?.questionStep ?? null);
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  return { review, open: () => { window.history.pushState({ review: true }, ""); setReview(true); }, back: () => window.history.back() };
+  const open = (next = "review" as Step) => { window.history.pushState({ questionStep: next }, ""); setStep(next); };
+  return { step, open, back: () => window.history.back() };
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { withUnit } from "@/lib/units";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { Gift } from "lucide-react";
@@ -24,13 +25,6 @@ const copy = {
     welcomeBack: "Bon retour.", savedHere: "Votre carte est enregistrée sur cet appareil.", cardNumber: "Numéro de carte", openCard: "Ouvrir ma carte", anotherLink: "J’ai besoin d’une autre carte", anotherTitle: "Créer une autre carte ?", anotherConfirm: "Je veux quand même créer une carte supplémentaire.", anotherSubmit: "Créer une autre carte", backToCard: "Retour à ma carte", anotherConfirmError: "Veuillez confirmer que vous voulez une carte supplémentaire.", staleNote: "Une carte enregistrée sur cet appareil n’est plus valable, par exemple parce qu’elle a été fermée ou réémise. Si vous avez reçu un nouveau lien de carte, ouvrez-le.", existsError: "Une carte pour ce programme existe déjà sur cet appareil.", checking: "Vérification d’une carte existante sur cet appareil …", referralUnavailable: "Ce lien de parrainage est indisponible. Vous pouvez créer une carte ordinaire sans bonus de parrainage.", withoutReferral: "Continuer sans lien de parrainage", unconfirmed: "La création de la carte n’est pas confirmée. Votre carte peut déjà avoir été créée. Rechargez la page pour vérifier si une carte est enregistrée sur cet appareil. Ne créez pas une autre carte dans la précipitation.",
   },
 } as const;
-
-/** "1 Punkt pro ausgegebenem Euro" / "3 Punkte pro ausgegebenem Euro"; fractions are rounded down by the server. */
-function earnRule(perUnit: number, currency: string, locale: "de" | "fr") {
-  const euro = currency === "EUR";
-  if (locale === "fr") return `${perUnit} point${perUnit === 1 ? "" : "s"} par ${euro ? "euro" : currency} dépensé. Les fractions de point sont arrondies à l’entier inférieur.`;
-  return `${perUnit} ${perUnit === 1 ? "Punkt" : "Punkte"} pro ausgegebenem ${euro ? "Euro" : currency}. Bruchteile von Punkten werden abgerundet.`;
-}
 
 function subscribeToLocation(notify: () => void) {
   window.addEventListener("popstate", notify);
@@ -162,12 +156,13 @@ export function JoinClient({ slug }: { slug: string }) {
       </>}
       {returning.state === "stale" && <p className={styles.muted} role="status">{t.staleNote}</p>}
       {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{withUnit(item.cost, program.programType, locale)}</span></li>)}</ul>}
-      {program.programType === "points" && program.earningMode === "purchase" && <p className={styles.muted}>{earnRule(program.pointsPerCurrencyUnit, program.currency, locale)}</p>}
       {referralCode && <p className={styles.note}>{program.referral?.enabled && !referralUnavailable
         ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${withUnit(program.referral.referrerBonus, program.programType, locale)} et vous ${withUnit(program.referral.referredBonus, program.programType, locale)}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${withUnit(program.referral.referrerBonus, program.programType, locale)} und deine Karte ${withUnit(program.referral.referredBonus, program.programType, locale)} erhalten. Das Öffnen des Links bringt keinen Bonus.`
         : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
       {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
-      <div className={styles.rules}><h3>{t.rules}</h3><p>{program.rulesText}</p>{program.pointsExpiryRule && <p>{program.pointsExpiryRule}</p>}</div>
+      {/* The rules the checkbox accepts: by purchase amount the earning sentence opens them (server), and the fixed
+          exclusions stand on the page itself, not only behind the terms link (Legal). */}
+      <div className={styles.rules}><h3>{t.rules}</h3><p>{program.rulesText}</p>{program.pointsExpiryRule && <p>{program.pointsExpiryRule}</p>}{locale === "de" && <p>{EXCLUDED_GOODS}</p>}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit}>
         <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
