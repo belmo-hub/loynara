@@ -28,7 +28,7 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
-type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; lastFreeDay: string | null; ownerName: string | null; city: string | null };
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
@@ -119,6 +119,14 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function startBilling(tenantId: string) {
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-start", { tenantId, billing: recipient }); setStartFor(null); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  // § 2 (3): an owner who cancels in the free month owes nothing; the subscription must end before its first invoice.
+  const [endFor, setEndFor] = useState<string | null>(null);
+  async function endFreeMonth(tenantId: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-free-month-end", { tenantId }); setEndFor(null); router.refresh(); }
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
@@ -214,7 +222,10 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
             <option value="">Noch nicht gewählt</option>
             {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
           </Select>
-          {b.lastFreeDay ? <span className="ow-muted">Kostenlos bis {b.lastFreeDay}</span>
+          {b.lastFreeDay ? <div style={{ display: "grid", gap: 4 }}><span className="ow-muted">Kostenlos bis {b.lastFreeDay}{b.cancelling ? " · gekündigt, keine Rechnung" : ""}</span>
+            {b.status === "active" && !b.cancelling ? (endFor === b.tenantId
+              ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="danger" loading={busy} onClick={() => void endFreeMonth(b.tenantId)}>Vertrag zum {b.lastFreeDay} beenden, ohne Rechnung</Button><Button variant="quiet" onClick={() => setEndFor(null)}>Zurück</Button></div>
+              : <div><Button variant="quiet" onClick={() => setEndFor(b.tenantId)}>Gekündigt im kostenlosen Monat</Button></div>) : null}</div>
             : b.started ? null
               : startFor === b.tenantId
                 ? <form style={{ display: "grid", gap: 8 }} onSubmit={event => { event.preventDefault(); void startBilling(b.tenantId); }}>

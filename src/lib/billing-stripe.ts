@@ -314,6 +314,28 @@ async function applyPlan(tx: Transaction, tenantId: string, planCode: PlanCode) 
   return updated;
 }
 
+/**
+ * Operator: the owner cancelled inside the free month (§ 2 (3): the contract ends with it and costs nothing). The subscription
+ * is active from day one, so Stripe would still draw the month-two invoice at free_until; this ends it late on the last free
+ * day (Berlin), before the first billing date, with proration off, so no invoice is ever created. The webhook then proposes
+ * that day as the programmes' end date in the Kündigungen block, and the operator confirms it as for any cancellation (#84).
+ */
+export async function endInFreeMonth(input: { actorUserId: string; env: Env; tenantId: string; at?: Date }) {
+  requireStripe();
+  if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid shop");
+  const at = input.at ?? new Date();
+  return db.transaction(async tx => {
+    await assertPlateOperator(tx, input.actorUserId, input.env);
+    const sub = await lockedSubscription(tx, input.tenantId);
+    if (!sub.freeUntil || !sub.providerSubscriptionId || at >= sub.freeUntil) throw new DomainError("BILLING_STATE", "Das Geschäft ist nicht im kostenlosen Monat.");
+    // Three hours before the first billing date is still the last free day in Berlin in summer and winter.
+    const endsAt = Math.floor(sub.freeUntil.getTime() / 1000) - 3 * 3600;
+    await client("POST", `/subscriptions/${sub.providerSubscriptionId}`, { cancel_at: String(endsAt), proration_behavior: "none" }, `free-month-end-${sub.providerSubscriptionId}`);
+    await tx.update(subscriptions).set({ cancelAtPeriodEnd: true, updatedAt: at }).where(eq(subscriptions.tenantId, sub.tenantId));
+    return { tenantId: sub.tenantId, lastFreeDay: lastFreeDay(sub.freeUntil) };
+  });
+}
+
 /** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */
 export async function setTenantPlan(input: { actorUserId: string; env: Env; tenantId: string; planCode: unknown }) {
   if (!isPlanCode(input.planCode) || !z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid plan");

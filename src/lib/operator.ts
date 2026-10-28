@@ -52,6 +52,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     // Billing per shop (the plan the operator chose, the Stripe state) and every start-guarantee decision per location (the operator's notice).
     const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency,
       started: sql<boolean>`${subscriptions.providerSubscriptionId} is not null or ${subscriptions.freeUntil} is not null`,
+      cancelling: subscriptions.cancelAtPeriodEnd,
       // Prefill for the go-live form (the operator completes street and postcode): the active owner's name and the shop's first location's city.
       ownerName: sql<string | null>`(SELECT u.name FROM staff_roles o JOIN "user" u ON u.id = o.user_id WHERE o.tenant_id = ${subscriptions.tenantId} AND o.role = 'owner' AND o.active LIMIT 1)`,
       city: sql<string | null>`(SELECT l.city FROM locations l WHERE l.tenant_id = ${subscriptions.tenantId} ORDER BY l.created_at, l.id LIMIT 1)`,

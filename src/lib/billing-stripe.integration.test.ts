@@ -8,7 +8,7 @@ import { DomainError } from "./loyalty";
 import { createMerchant } from "./product";
 import { getBillingOverview } from "./billing";
 import { operatorOverview } from "./operator";
-import { applyStripeWebhook, createStripeCheckout, createStripePortal, runBillingJob, setStripeClient, setTenantPlan, startBilling, STRIPE_STATUS, verifyStripeSignature, type StripeClient } from "./billing-stripe";
+import { applyStripeWebhook, createStripeCheckout, createStripePortal, endInFreeMonth, runBillingJob, setStripeClient, setTenantPlan, startBilling, STRIPE_STATUS, verifyStripeSignature, type StripeClient } from "./billing-stripe";
 import { expectedFreeUntil, GUARANTEE_LINE, VAT_NOTE, VAT_STANDARD_NOTE } from "./stripe-config";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Stripe billing tests require looplocal_test");
@@ -58,7 +58,7 @@ function fakeStripe() {
     if (method === "POST" && (match = /^\/checkout\/sessions\/([^/]+)\/expire$/.exec(path))) { const session = sessions.get(match[1])!; session.status = "expired"; return session; }
     if (method === "POST" && path === "/billing_portal/sessions") return { url: "https://billing.stripe.com/p/session/test_portal" };
     if (method === "GET" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) return structuredClone(subs.get(match[1])) ?? notFound();
-    if (method === "POST" && /^\/subscriptions\/[^/]+$/.test(path)) return {};
+    if (method === "POST" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) { const sub = subs.get(match[1]); if (sub && params.cancel_at) sub.cancel_at = Number(params.cancel_at); return sub ? structuredClone(sub) : {}; }
     if (method === "GET" && (match = /^\/invoices\/([^/]+)$/.exec(path))) return invoices.get(match[1]) ?? notFound();
     if (method === "POST" && failing.has(path)) throw new DomainError("PROVIDER_ERROR", "Stripe request failed (500)");
     if (method === "POST" && path === "/invoiceitems") return { id: `ii_test${++next}` };
@@ -570,6 +570,23 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
     await setTenantPlan({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, planCode: "founding" });
     expect(await startAs(s)).toMatchObject({ planCode: "founding" });
     expect(stripe.calls.find(call => call.method === "POST" && call.path === "/subscriptions")!.params).toMatchObject({ "items[0][price]": "price_founding0001", "default_tax_rates[0]": "txr_test00000001" });
+  });
+
+  it("ends the contract inside the free month on the last free day, before Stripe could draw the first invoice (§ 2 (3))", async () => {
+    const s = await shop();
+    await startAs(s);
+    const subscriptionId = (await sub(s.tenantId)).providerSubscriptionId!;
+    const inside = new Date("2026-11-20T10:00:00Z");
+    await expect(endInFreeMonth({ actorUserId: s.ownerId, env: process.env, tenantId: s.tenantId, at: inside })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: inside })).toMatchObject({ lastFreeDay: "2026-12-09" });
+    const cancel = stripe.calls.filter(call => call.method === "POST" && call.path === `/subscriptions/${subscriptionId}`).at(-1)!;
+    // 9 Dec 21:00 UTC: still 9 December in Berlin, and before the first billing date (10 Dec 00:00 UTC).
+    expect(cancel.params).toEqual({ cancel_at: String(Math.floor(new Date("2026-12-09T21:00:00Z").getTime() / 1000)), proration_behavior: "none" });
+    expect(await sub(s.tenantId)).toMatchObject({ cancelAtPeriodEnd: true });
+    // Stripe's update arrives: the programmes get the last free day as their provisional end, for the operator to confirm.
+    await deliver(eventFor("customer.subscription.updated", subscriptionId));
+    expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: "2026-12-09", cancellationConfirmedAt: null });
+    await expect(endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: new Date("2026-12-10T01:00:00Z") })).rejects.toMatchObject({ code: "BILLING_STATE" });
   });
 
   it("refuses a go-live without the recipient's full name and address, before any Stripe call", async () => {
