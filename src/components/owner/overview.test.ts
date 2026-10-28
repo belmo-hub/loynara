@@ -55,7 +55,7 @@ describe("buildInsights", () => {
     const drifting = (winback?: { enabled: boolean; inWindow: number } | null) => buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: null, winback }).find(item => item.id === "drifting")!;
     expect(drifting(null).actions).toEqual([{ label: "Karten ansehen", href: "/merchant/customers?activity=drifting&days=30&scope=all" }]);
     expect(drifting(null).next).toBeUndefined();
-    expect(drifting({ enabled: false, inWindow: 0 }).actions.at(-1)).toEqual({ label: "Willkommen-zurück-Bonus einschalten", href: "/merchant/program#winback-title" });
+    expect(drifting({ enabled: false, inWindow: 0 }).actions.at(-1)).toEqual({ label: "Willkommen-zurück-Bonus einschalten", href: "/merchant/program/winback" });
     const on = drifting({ enabled: true, inWindow: 3 });
     expect(on.next).toBe("3 Karten bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen.");
     expect(on.why).toContain(on.next);

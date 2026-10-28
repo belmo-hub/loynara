@@ -15,7 +15,7 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
     // owner readiness before any customer
     const ownerCtx = await browser.newContext({ baseURL: url, storageState: await m.owner.storageState() });
     const ownerPage = await ownerCtx.newPage();
-    await ownerPage.goto("/merchant/program");
+    await ownerPage.goto("/merchant/program/nfc");
     await expect(ownerPage.getByText("1 aktives NFC-Schild, noch nicht berührt.")).toBeVisible();
 
     // customer taps with no card: asked to create one, with the existing-card hint

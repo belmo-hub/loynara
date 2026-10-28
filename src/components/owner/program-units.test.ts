@@ -14,7 +14,7 @@ const me = (change: Partial<MeResponse>) => ({ role: "owner", programType: "poin
 describe("owner programme screens count one in the singular (ENG-108)", () => {
   it("pending challenge hint, for this month and the next", () => {
     const hint = (bonus: number, next: number, programType: "stamp" | "points" = "points") =>
-      renderToStaticMarkup(h(ProgramExtrasCard, { me: me({ programType, challengeVisits: 3, challengeBonus: bonus, challengeNext: { from: "2026-11-01", visits: 4, bonus: next } }) }));
+      renderToStaticMarkup(h(ProgramExtrasCard, { me: me({ programType, challengeVisits: 3, challengeBonus: bonus, challengeNext: { from: "2026-11-01", visits: 4, bonus: next } }), only: "challenge" }));
     expect(hint(1, 2)).toContain("Diesen Monat gilt noch: 3-mal, +1 Punkt. Gilt ab 1.11.: 4-mal, +2 Punkte.");
     expect(hint(2, 1)).toContain("Diesen Monat gilt noch: 3-mal, +2 Punkte. Gilt ab 1.11.: 4-mal, +1 Punkt.");
     expect(hint(1, 2, "stamp")).toContain("Diesen Monat gilt noch: 3-mal, +1 Stempel. Gilt ab 1.11.: 4-mal, +2 Stempel.");

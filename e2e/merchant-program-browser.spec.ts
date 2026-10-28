@@ -17,14 +17,16 @@ test("owner manages the saved reward catalogue in the merchant browser", async (
     try {
       const page = await browserContext.newPage();
       await page.goto("/merchant/program");
+      await page.getByRole("link", { name: "Prämie hinzufügen" }).click();
       await expect(page.getByRole("heading", { name: "Prämien", exact: true })).toBeVisible();
       await expect(page.locator(".ow-reward")).toHaveCount(1);
-      await page.getByRole("button", { name: "Prämie hinzufügen", exact: true }).click();
       await page.getByLabel("Name der Prämie").fill("Torte");
       await page.getByLabel("Preis in Stempeln").fill("8");
       await page.getByRole("button", { name: "Prämie hinzufügen", exact: true }).click();
+      // Saved: back on the Programm list, where the new reward is a row of its own.
+      await expect(page.getByRole("status").filter({ hasText: "Gespeichert" })).toBeVisible();
+      await page.getByRole("link", { name: /^Torte/ }).click();
       await expect(page.locator(".ow-reward")).toHaveCount(2);
-      await expect(page.locator("section[aria-labelledby=rew-title]").getByText("Prämie hinzugefügt.")).toBeVisible();
 
       await page.getByRole("button", { name: "Torte nach oben" }).click();
       await expect(page.locator(".ow-reward").first()).toContainText("Torte");
@@ -32,12 +34,13 @@ test("owner manages the saved reward catalogue in the merchant browser", async (
       expect(publicAfterOrder.status()).toBe(200);
       expect((await publicAfterOrder.json() as { rewards: Array<{ title: string }> }).rewards.map(row => row.title)).toEqual(["Torte", "Kaffee"]);
 
-      await page.locator(".ow-reward").filter({ hasText: "Torte" }).getByRole("button", { name: "Bearbeiten" }).click();
+      // The Torte page opened with its form.
       await page.getByLabel("Name der Prämie").fill("Apfeltorte");
       await expect(page.getByText("Das ändert sich beim Speichern")).toBeVisible();
       await page.getByRole("button", { name: "Prämienversion speichern" }).click();
-      await expect(page.locator(".ow-reward").first()).toContainText("Apfeltorte");
+      await expect(page.getByRole("link", { name: /^Apfeltorte/ })).toBeVisible();
 
+      await page.getByRole("link", { name: /^Kaffee/ }).click();
       await page.locator(".ow-reward").filter({ hasText: "Kaffee" }).getByRole("button", { name: "Archivieren" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Archivieren" }).click();
       await expect(page.locator(".ow-reward")).toHaveCount(1);

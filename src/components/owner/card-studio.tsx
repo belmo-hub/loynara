@@ -134,7 +134,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
           <fieldset className="ow-group">
             <legend>Inhalt</legend>
             <div className="ow-readonly"><dl className="ow-dl"><dt>Programm</dt><dd>{program.programName}</dd><dt>Prämie</dt><dd>{withUnit(program.rewardCost, program.programType)} → {program.rewardTitle}</dd></dl></div>
-            <p className="ow-hint">Programmname, Prämien und Regeln pflegst du unter <GuardedLink className="ow-link" href="/merchant/program">Sammelregeln &amp; Prämien</GuardedLink>.</p>
+            <p className="ow-hint">Programmname, Prämien und Regeln pflegst du unter <GuardedLink className="ow-link" href="/merchant/program">Programm</GuardedLink>.</p>
           </fieldset>
           {!walletsHidden && <fieldset className="ow-group">
             <legend>Apple &amp; Google Wallet</legend>

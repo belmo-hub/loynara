@@ -129,7 +129,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen.</b>`);
     // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
-    expect(render()).toContain('class="ow-btn ow-btn--primary ow-btn--sm" href="/merchant/program#winback-title">Willkommen-zurück-Bonus einschalten</a>');
+    expect(render()).toContain('class="ow-btn ow-btn--primary ow-btn--sm" href="/merchant/program/winback">Willkommen-zurück-Bonus einschalten</a>');
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
@@ -253,7 +253,7 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     const off = () => { state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } })); };
     off();
     const band = showing([row("loc-1", null)]);
-    expect(band).toMatch(/<a class="ow-brought-off" href="\/merchant\/program#winback-title"><span><svg[^]*<\/svg><\/span><span><b>Willkommen-zurück-Bonus einschalten<\/b><small>Ein kleiner Bonus für Kunden, die länger nicht da waren.<\/small><\/span><svg/);
+    expect(band).toMatch(/<a class="ow-brought-off" href="\/merchant\/program\/winback"><span><svg[^]*<\/svg><\/span><span><b>Willkommen-zurück-Bonus einschalten<\/b><small>Ein kleiner Bonus für Kunden, die länger nicht da waren.<\/small><\/span><svg/);
     expect(band).not.toContain('<section class="ow-brought"');
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     expect(showing([row("loc-1", null)])).not.toContain("ow-brought");
@@ -272,9 +272,9 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } }));
     const off = showing([row("loc-1", null)]);
     expect(labels(off)).toContain("Wieder­gekommen");
-    expect(off).toContain('href="/merchant/program#winback-title">Willkommen-zurück-Bonus ist aus</a>');
+    expect(off).toContain('href="/merchant/program/winback">Willkommen-zurück-Bonus ist aus</a>');
     state.hidden = ["walletMessages"]; // the pilot: the setting is on Programm, so the tile links there too
-    expect(showing([row("loc-1", null)])).toContain('href="/merchant/program#winback-title">Willkommen-zurück-Bonus ist aus</a>');
+    expect(showing([row("loc-1", null)])).toContain('href="/merchant/program/winback">Willkommen-zurück-Bonus ist aus</a>');
   });
 
   it("follows the active location", () => {

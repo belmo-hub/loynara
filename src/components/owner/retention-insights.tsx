@@ -10,7 +10,7 @@ export type Insight = { id: string; tone: "act" | "watch"; title: string; why: s
 /** The win-back bonus as the per-location read returns it (`enabled`: on with a bonus); null where the location has no programme. */
 export type WinbackState = { enabled: boolean; inWindow: number } | null;
 /** The win-back setting: on Programm since ENG-089 (Wallet-Nachrichten no longer has it). */
-export const WINBACK_HREF = "/merchant/program#winback-title";
+export const WINBACK_HREF = "/merchant/program/winback";
 
 const cards = (n: number) => `${nf.format(n)} ${n === 1 ? "Karte" : "Karten"}`;
 
