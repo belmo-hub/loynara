@@ -63,7 +63,7 @@ export default function MerchantBillingPage() {
       </NumberCard>
       <div className="ow-prog">
         <Rows title="Status">
-          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."} />
+          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : undefined} />
         </Rows>
         <Rows title="Standorte" help={<><p>{o.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</p><p>Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></>}>
           {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={<Price minor={location.priceMinor} currency={o.currency} />} big />)}
