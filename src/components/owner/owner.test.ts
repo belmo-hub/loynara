@@ -72,7 +72,7 @@ describe("navigation", () => {
     expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden"]);
   });
   it("maps every existing merchant URL to a destination", () => {
-    const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];
+    const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/more", "/merchant/settings", "/merchant/settings/cancel", "/merchant/locations", "/merchant/locations/new", "/merchant/locations/x", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];
     for (const url of urls) expect(activeGroup(url, "owner"), url).toBeDefined();
   });
   it("links each destination to a page its role can open", () => {

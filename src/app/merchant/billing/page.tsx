@@ -2,24 +2,16 @@
 
 import { useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
+import { billingStatus, type BillingOverview as Overview } from "@/components/owner/billing-copy";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 
-type Overview = {
-  status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
-  currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; graceUntil: string | null;
-  liveBilling: boolean; charge: { planCode: "founding" | "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "founding" | "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
-  locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
-  invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
-};
 const money = (minor: number, currency: "EUR" | "MAD") => new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(minor / 100);
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
 const count = (value: number) => value.toLocaleString("de-DE");
-const LIVE_STATUS: Record<string, string> = { manual_pending: "Noch kein Abo", pending_checkout: "Zahlung noch nicht abgeschlossen", active: "Abo aktiv", past_due: "Zahlung fehlgeschlagen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 const PLAN: Record<string, string> = { founding: "Gründungspreis", list: "Listenpreis" };
-const STATUS: Record<string, string> = { manual_pending: "Entwurf ohne Zahlung", pending_checkout: "Lokaler Testvorgang offen", active_fixture: "Lokale Testperiode aktiv", grace_fixture: "Lokale Test-Nachfrist", suspended_fixture: "Lokale Testperiode ausgesetzt", cancelled: "Lokale Testperiode beendet" };
 
 export default function MerchantBillingPage() {
   const { me } = useOwner();
@@ -59,7 +51,7 @@ export default function MerchantBillingPage() {
       <Notice tone="warn">Nur ein Tarifentwurf. Es gibt keine Live-Zahlung, keine geprüfte Steuerberechnung und keinen Rechnungsversand.</Notice>
       {error && <ErrorNotice message={error} />}
       <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
-        <div><p className="ow-eyebrow">Status</p><h2>{STATUS[o.status] ?? o.status}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."}</p></div>
+        <div><p className="ow-eyebrow">Status</p><h2>{billingStatus(o)}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."}</p></div>
         <div><p className="ow-eyebrow">Monatlicher Entwurf</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.monthlySubtotalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{o.locationCount} Standort{o.locationCount === 1 ? "" : "e"} · zzgl. gegebenenfalls anfallender Steuer; keine Rechnung.</p></div>
       </section>
       <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standortpläne und Nutzung</h2>
@@ -100,7 +92,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       {error && <ErrorNotice message={error} />}
       {o.status === "past_due" && <Notice tone="warn" role="alert">Die letzte Zahlung ist fehlgeschlagen. Bitte prüfe deine Zahlungsdaten.</Notice>}
       <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
-        <div><p className="ow-eyebrow">Status</p><h2>{LIVE_STATUS[o.status] ?? o.status}</h2>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Gekündigt zum {date(o.currentPeriodEnd)}.</p> : o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Nächste Abrechnung am {date(o.currentPeriodEnd)}.</p> : o.charge ? <p className="ow-muted" style={{ marginTop: 4 }}>{PLAN[o.charge.planCode]}</p> : null}</div>
+        <div><p className="ow-eyebrow">Status</p><h2>{billingStatus(o)}</h2>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Gekündigt zum {date(o.currentPeriodEnd)}.</p> : o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Nächste Abrechnung am {date(o.currentPeriodEnd)}.</p> : o.charge ? <p className="ow-muted" style={{ marginTop: 4 }}>{PLAN[o.charge.planCode]}</p> : null}</div>
         {/* No amount before the operator has set the plan: a list total would be untrue for a price not yet agreed (Product, L10). */}
         {o.charge
           ? <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.charge.totalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{money(o.charge.unitMinor, o.currency)} pro Standort und Monat. {o.taxNote}</p><p className="ow-muted" style={{ marginTop: 4 }}>{o.charge.quantity} Standort{o.charge.quantity === 1 ? "" : "e"} · monatlich kündbar{o.guaranteeApplied ? " · Startgarantie: Gutschrift auf der Rechnung für Monat 2" : ""}</p></div>

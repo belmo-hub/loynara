@@ -16,7 +16,7 @@ for (const [type, width] of [["stamp", 375], ["points", 1280]] as const) test(`d
     const id = randomUUID(), name = `Synthetic ${type} & Co ${id}`, location = `Synthetic ${type} location`;
     const signup = await owner.request.post("/api/auth/sign-up/email", { headers: { Origin: origin }, data: { name: "Synthetic QR owner", email: `${id}@example.test`, password: "Synthetic-QR-089-Only!" } }); expect(signup.ok()).toBe(true);
     const setup = await owner.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: name, locationName: location, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic QR card", programType: type, rulesText: "Synthetic confirmed purchase", rewardTitle: "Coffee", rewardCost: type === "stamp" ? 5 : 100 } }); expect(setup.status()).toBe(201); const merchant = await setup.json();
-    const page = await owner.newPage(); await page.goto("/merchant/settings");
+    const page = await owner.newPage(); await page.goto("/merchant"); /* the invite card sits on the Übersicht until the Kunden page takes it (ENG-122a) */
     const joinUrl = `${origin}/join/${merchant.programSlug}`; await expect(page.getByLabel("Anmeldelink", { exact: true })).toHaveValue(joinUrl);
     const downloadEvent = page.waitForEvent("download"); await page.getByRole("button", { name: "Tresenschild laden", exact: true }).click(); const download = await downloadEvent; expect(download.suggestedFilename()).toBe("anmeldeschild.html"); const path = await download.path(); expect(path).not.toBeNull(); const html = await readFile(path!, "utf8");
     // Render the actual downloaded artifact, rather than rebuilding it from the source helper.

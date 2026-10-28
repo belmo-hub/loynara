@@ -4,7 +4,8 @@ import { groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
 
 const ALL = ["billing", "campaigns", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
 const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
-const HIDDEN_HREFS = ["/merchant/billing", "/merchant/campaigns", "/merchant/automations"];
+// Abrechnung is a row of the „Mehr“ page (more/page.test.ts), no longer a navigation entry.
+const HIDDEN_HREFS = ["/merchant/campaigns", "/merchant/automations"];
 const DRAFT_HREFS = ["/merchant/audiences"];
 
 describe("navigation with pilot-withheld surfaces", () => {
@@ -15,7 +16,7 @@ describe("navigation with pilot-withheld surfaces", () => {
     for (const hidden of HIDDEN_HREFS) expect(hrefs).not.toContain(hidden);
     expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
     expect(visibleGroups("owner", FULL).length).toBe(5);
-    expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/staff"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/analytics", "/merchant/adviser", "/merchant/more"]));
   });
   it("with every sending surface withheld the group is named after what is left: Ergebnisse", () => {
     const hidden = [...ALL, "walletMessages"] as const;

@@ -5,10 +5,10 @@ import { smallTargets } from "./support/targets";
 
 // The owner dashboard on phones: nothing sideways, text at least 14 px (12 px only for bottom-bar labels; the
 // wallet-pass mock is a scaled illustration), controls at least 44 px, dark with the system, a bottom bar whose
-// "Mehr" opens the navigation panel, and page changes without an entrance animation.
+// „Mehr“ opens its page of signposts, and page changes without an entrance animation.
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 const pages = ["", "/adviser", "/analytics", "/audiences", "/automations", "/billing", "/campaigns", "/customers", "/customers/import",
-  "/locations", "/program", "/program/card", "/referrals", "/settings", "/staff"];
+  "/locations", "/locations/new", "/more", "/program", "/program/card", "/referrals", "/settings", "/settings/cancel", "/staff"];
 
 async function signIn(page: Page) {
   const origin = new URL(test.info().project.use.baseURL!).origin;
@@ -40,16 +40,24 @@ test.describe("owner dashboard on phones", () => {
     }
   });
 
-  test("the bottom bar reaches the main areas and Mehr opens the navigation panel", async ({ page }) => {
+  test("the bottom bar reaches the main areas and Mehr opens its page of signposts", async ({ page }) => {
     await signIn(page);
     await page.goto("/merchant");
     const bar = page.getByRole("navigation", { name: "Bereiche" });
-    await expect(bar.getByRole("link")).toHaveText(["Übersicht", "Programm", "Kunden", "Aktionen"]);
+    await expect(bar.getByRole("link")).toHaveText(["Übersicht", "Programm", "Kunden", "Aktionen", "Mehr"]);
     await bar.getByRole("link", { name: "Kunden" }).click();
     await expect(page).toHaveURL(/\/merchant\/customers$/);
     expect(await page.locator(".ow-body").evaluate(el => getComputedStyle(el).animationName)).toBe("none");
-    await bar.getByRole("button", { name: "Mehr" }).click();
-    await expect(page.getByRole("complementary", { name: "Bereichsnavigation" })).toHaveAttribute("data-open", "true");
+    await bar.getByRole("link", { name: "Mehr" }).click();
+    await expect(page).toHaveURL(/\/merchant\/more$/);
+    await expect(page.getByRole("heading", { name: "Mehr", level: 1 })).toBeVisible();
+    await expect(bar.getByRole("link", { name: "Mehr" })).toHaveAttribute("aria-current", "page");
+    // Its pages keep the tab current, and each leads back to it.
+    await page.getByRole("link", { name: /^Geschäft/ }).click();
+    await expect(page).toHaveURL(/\/merchant\/settings$/);
+    await expect(bar.getByRole("link", { name: "Mehr" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("link", { name: "Mehr", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/merchant\/more$/);
   });
 
   test("at 320 px Kunden rows break no word and every toggle group keeps one row", async ({ page }) => {
