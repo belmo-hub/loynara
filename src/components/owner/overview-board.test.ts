@@ -48,6 +48,8 @@ const spend = (here: SpendFigures, overall: SpendFigures = figures({ visits: 40,
 const retention: RetentionSummary = { asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 17, drifting: 0, never: 2, neverAfterWeek: 0, nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 0, nearRewardId: null, programCount: 1, rules: RETENTION_RULES };
 const readiness = (steps: Array<Partial<LaunchReadiness["steps"][number]>> = []) => ({ locationId: "loc-1", steps, next: null, requiredDone: 1, requiredTotal: 3 });
 const render = () => renderToStaticMarkup(createElement(Overview));
+/** The 30-day rows' labels, in order. */
+const labels = (html: string) => [...html.matchAll(/<div class="ow-prog-row">|<a class="ow-prog-row"[^>]*>/g)].map(match => html.slice(match.index).match(/<strong>([^<]+)<\/strong>/)![1]);
 
 afterEach(() => { vi.unstubAllGlobals(); });
 beforeEach(() => {
@@ -63,7 +65,7 @@ beforeEach(() => {
 describe("Übersicht direction D (ENG-085)", () => {
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {
     const html = render();
-    expect(html).toMatch(/Guten (Morgen|Tag|Abend), Lena\./);
+    expect(html).toMatch(/<p class="ow-hello">Guten (Morgen|Tag|Abend), Lena\.<\/p>/); // the visible heading, outside the card
     expect(html).not.toContain("Café Lindenblatt.");
     expect(html).toContain("Umsatz deiner Loynara-Kunden · 30 Tage");
     expect(html).toContain("128<small>,10"); // this location, not the 999,00 € of the whole business
@@ -71,15 +73,26 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
     expect(html).toMatch(/role="img" aria-label="Buchungen an diesem Standort · letzte 7 Tage: [^"]*gestern 3/);
     expect(html).toContain("Letzte 30 Tage an diesem Standort");
-    expect([...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1])).toEqual(["Buchungen", "Neue Karten", "Wieder\u00adgekommen", "Prämien eingelöst"]); // breaks only at the soft hyphen
+    expect(labels(html)).toEqual(["Buchungen", "Neue Karten", "Wieder\u00adgekommen", "Prämien eingelöst"]); // breaks only at the soft hyphen
     expect(html).toContain('<button type="button" class="ow-board-q" aria-expanded="false"'); // the board's „?“ ends the sub-line
     expect(html).toMatch(/aus Kassenbeträgen an diesem Standort\u00a0<button/);
     expect(html).toContain("vorher 10");
-    const link = html.match(/<a class="ow-tile-body ow-tile-link" href="([^"]+)">(.*?)<\/a>/);
+    // Wegweiser rows: label, note as sub-line, the value at the right edge; the whole linked row is the link, with the arrow.
+    const link = html.match(/<a class="ow-prog-row" href="([^"]+)">(.*?)<\/a>/);
     expect(link?.[1]).toBe("/merchant/customers?activity=recent&amp;days=30&amp;locationId=loc-1");
-    expect(link?.[2]).toMatch(/^<span class="ow-sr">Buchungen: <\/span><span class="ow-tile-row"><span class="ow-tile-n">9<\/span><svg[^]*<\/svg><\/span><span class="ow-tile-note">vorher 10<span class="ow-tile-go" aria-hidden="true">›<\/span><\/span>$/);
-    expect(link?.[2]).not.toContain("<button"); // the „?“ stays outside the link
-    expect(html.match(/ow-tile-link/g)).toHaveLength(1); // the other Kunden filters come with ENG-086
+    expect(link?.[2]).toMatch(/<strong>Buchungen<\/strong><small>vorher 10<\/small><\/span><span class="ow-prog-value" data-big="">9<\/span><\/span><svg[^>]*ow-prog-arrow/);
+    expect(html.match(/class="ow-prog-row"/g)).toHaveLength(4);
+    expect(html.match(/ow-prog-arrow/g)).toHaveLength(1); // only the linked row; the other Kunden filters come with ENG-086
+    // One „?“ for all rows, on the section head; the shared sheet lists the four help texts under their labels, word for word.
+    expect(html.match(/class="ow-tile-q"/g)).toHaveLength(1);
+    expect(html).toMatch(/<h2 id="ow-tiles-title" class="ow-tiles-title">Letzte 30 Tage an diesem Standort<\/h2><button type="button" class="ow-tile-q" aria-haspopup="dialog">/);
+    const sheet = html.slice(html.lastIndexOf("<dialog"), html.lastIndexOf("</dialog>"));
+    expect(sheet).toMatch(/<h2 id="[^"]+" class="[^"]*">So zählen wir<\/h2>/);
+    expect([...sheet.matchAll(/<h3>([^<]+)<\/h3><p>([^<]+)<\/p>/g)].map(match => `${match[1]}: ${match[2]}`)).toEqual([
+      "Buchungen: Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", "Neue Karten: Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben.",
+      "Wieder\u00adgekommen: Karten, die nach über 30 Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.", "Prämien eingelöst: Prämien, die dein Team an der Kasse eingelöst hat."]);
+    expect(sheet).toContain("Schließen");
+    expect(html.indexOf('class="ow-hello"')).toBeLessThan(html.indexOf('class="ow-board"'));
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
@@ -103,7 +116,9 @@ describe("Übersicht direction D (ENG-085)", () => {
     const html = render();
     expect(html).toContain("Eine ruhige Woche. Die letzte Buchung war am Samstag, 24.10.");
     expect(html).toContain("<b>Seit 11 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
-    expect(html).toContain(">Tresenschild laden</button>");
+    // The band is the action: a button for the download, its label the last line with the arrow; nothing closes it any more.
+    expect(html).toMatch(/<section class="ow-next" aria-label="Als Nächstes"><button type="button" class="ow-band">[^]*<span class="ow-band-go">Tresenschild laden<svg/);
+    expect(html).not.toMatch(/Hinweis schließen|ow-nextbar|data-next/);
     expect(html).toContain("25.10.–03.11.");
     expect(html).toContain(`1${NBSP}Punkt vergeben`);
     expect(html).not.toContain("Dringendes");
@@ -129,12 +144,13 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen.</b>`);
     // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
-    expect(render()).toContain('class="ow-btn ow-btn--primary ow-btn--sm" href="/merchant/program/winback">Willkommen-zurück-Bonus einschalten</a>');
+    expect(render()).toMatch(/<a class="ow-band" href="\/merchant\/program\/winback">[^]*<span class="ow-band-go">Willkommen-zurück-Bonus einschalten<svg/);
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
     expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen.</b>`);
-    expect(html).toMatch(/class="ow-btn ow-btn--primary ow-btn--sm" href="[^"]+">Ansehen</);
+    expect(html).toMatch(/<a class="ow-band" href="[^"]+">[^]*<span class="ow-band-go">Ansehen<svg/);
+    expect(html.indexOf('class="ow-next"')).toBeLessThan(html.indexOf('class="ow-board"')); // in the flow, under the greeting
   });
 
   it("Leitung: their card stock, the strip and the four tiles, never a euro or the spend read; the bonus note is plain text", () => {
@@ -147,7 +163,8 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("Karten mit Buchung in den letzten 30 Tagen");
     expect(html).toContain("Karten an deinem Standort: 17 da · 0 länger nicht da · 2 noch nie an der Kasse");
     expect(html).toContain("Buchungen an diesem Standort · letzte 7 Tage");
-    expect(html).toMatch(/<span class="ow-tile-n">–<\/span><svg[^>]*>(?:(?!<\/svg>).)*<\/svg><\/span><span class="ow-tile-note">Willkommen-zurück-Bonus ist aus<\/span>/);
+    expect(html).toContain('<div class="ow-prog-row">'); // unlinked rows carry no arrow
+    expect(html).toContain('<strong>Wieder\u00adgekommen</strong><small>Willkommen-zurück-Bonus ist aus</small></span><span class="ow-prog-value" data-big="">–</span>');
     expect(html).not.toContain("€");
     expect(html).not.toContain("Umsatz");
   });
@@ -177,10 +194,10 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
     expect(html).toMatch(/role="status">Stand (heute, \d{1,2}:\d{2}|gestern)</);
     expect(html).not.toContain("Die Zahlen sind gerade nicht da.");
-    expect(html).not.toContain("ow-tile-label");
+    expect(html).not.toContain("ow-prog-row");
     expect(html.match(/Lädt, sobald die Verbindung wieder da ist\./g)).toHaveLength(1); // once, beside the board
     expect(html).not.toContain("Die letzten Tage am Tresen");
-    expect(html).not.toContain("ow-nextbar"); // no next step beside stale numbers, though cards are away
+    expect(html).not.toContain("ow-band"); // no next step beside stale numbers, though cards are away
     state.me = me({ userId: "someone-else" }); // another person on this device
     expect(render()).toContain("Die Zahlen sind gerade nicht da.");
     state.me = me();
@@ -266,8 +283,9 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
   });
 
   it("replaces the „Wiedergekommen“ tile while it shows; with the gate closed the four tiles stay as they were", () => {
-    const labels = (html: string) => [...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1]);
-    expect(labels(showing([row("loc-1", stamps)]))).toEqual(["Buchungen", "Neue Karten", "Prämien eingelöst"]);
+    const shown = showing([row("loc-1", stamps)]);
+    expect(labels(shown)).toEqual(["Buchungen", "Neue Karten", "Prämien eingelöst"]);
+    expect(shown.slice(shown.lastIndexOf("<dialog"), shown.lastIndexOf("</dialog>"))).not.toContain("gekommen"); // the sheet explains only the rows on screen
     expect(labels(showing([row("loc-1", null)]))).toEqual(["Buchungen", "Neue Karten", "Wieder­gekommen", "Prämien eingelöst"]);
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } }));
     const off = showing([row("loc-1", null)]);
@@ -352,8 +370,10 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     const html = render();
     expect(html).toContain("Willkommen bei Loynara, Café Lindenblatt.");
     expect(html).toContain("Startklar · 1 von 3 Pflichtschritten");
-    expect(html).toContain("Melde die erste Karte selbst an.");
-    expect(html).toContain('href="http://localhost:3000/join/cafe"');
+    expect(html).toContain('<p class="ow-hello">Willkommen bei Loynara, Café Lindenblatt.</p>');
+    // The current step is the green band; its external link opens in a new tab, its label the last line.
+    expect(html).toMatch(/<a class="ow-band" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">[^]*<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><span class="ow-band-go">Anmeldelink öffnen<svg/);
+    expect(html.indexOf('class="ow-band"')).toBeLessThan(html.indexOf("Startklar · 1 von 3 Pflichtschritten")); // the card holds the count and the strip
     expect(html).toContain("Hier siehst du bald jeden Tag am Tresen.");
     for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit dem Anmeldelink oder dem Tresenschild.", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
     expect(html).not.toContain("NFC am Tresen");
@@ -363,6 +383,17 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
       .toEqual(["done+check", "current", "open", "open"]); // done, current and open differ by shape
     expect(html).toContain("Kunden einladen");
     expect(html).toContain("Tresenschild laden");
+  });
+
+  it("a step without an action is a band without an arrow that nothing can tap; a failed read keeps the white card", () => {
+    state.loads["/api/merchant/readiness"] = ok(readiness([{ id: "programme", group: "setup", required: true, status: "todo", title: "Programm und Prämie", evidence: "Noch kein Programm." }]));
+    const html = render();
+    expect(html).toMatch(/<div class="ow-band">[^]*<b>Noch kein Programm\.<\/b><\/span><\/div>/);
+    expect(html).not.toContain("ow-band-go");
+    state.loads["/api/merchant/readiness"] = { state: "error", message: "x" };
+    const failed = render();
+    expect(failed).toMatch(/<section class="ow-board"[^]*Die Zahlen sind gerade nicht da\.[^]*>Erneut laden<\/button>/);
+    expect(failed).not.toContain("ow-band");
   });
 
   it("gives a manager no owner-only links", () => {
