@@ -468,14 +468,13 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-check input[role="switch"]:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ow-check input[role="switch"], .ow-check input[role="switch"]::before { transition: none; } }
 
-/* Trend bars */
-.ow-trend { display: flex; flex-direction: column; gap: var(--space-3); }
-.ow-trend-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); align-items: center; font-size: var(--text-14); }
-.ow-trend-row small { color: var(--color-ink-muted); font-size: var(--text-14); }
-.ow-bar { height: 8px; border-radius: var(--radius-pill); background: var(--color-fill); overflow: hidden; margin-bottom: 2px; }
-.ow-bar span { display: block; height: 100%; background: var(--color-action); border-radius: var(--radius-pill); transition: width var(--dur-ui) var(--ease-out); }
-.ow-bar--alt span { background: var(--color-stamp); }
-@media (max-width: 720px) { .ow-trend-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); } }
+/* Ergebnisse (ENG-122b): heads on the grey over the Übersicht's rows; the period's weeks drawn with the strip's parts. */
+.ow-results { gap: var(--space-4); }
+.ow-rows-section { display: grid; gap: var(--space-2); }
+.ow-rows-note { padding-inline: 2px; font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+/* Twelve weeks at 320 px: narrower gaps, the counts and dates one step smaller. */
+.ow-weeks[data-many] { gap: var(--space-1); }
+.ow-weeks[data-many] :is(.ow-strip-n, .ow-strip-d) { font-size: var(--text-12); }
 
 /* Two-column layouts always stack on narrow screens, even when a page sets its own column ratio inline */
 @media (max-width: 900px) { .ow-two { grid-template-columns: minmax(0, 1fr) !important; } }
@@ -515,17 +514,8 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-entitlement legend { font-weight: 700; padding-inline: 6px; }
 .ow-entitlement p { margin: 0; }
 
-/* Retention: card base bar and insight list (overview). */
+/* Retention: insight list (overview). */
 .ow-insights { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.ow-base { display: grid; gap: 10px; }
-.ow-base-bar { display: flex; gap: 3px; height: 12px; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-fill); }
-.ow-base-seg { display: block; min-width: 6px; height: 100%; }
-.ow-base-seg--recent { background: var(--color-action); }
-.ow-base-seg--drifting { background: var(--color-stamp); }
-.ow-base-seg--never { background: var(--color-line-strong); }
-.ow-base-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-base-legend li { display: inline-flex; align-items: center; gap: 6px; }
-.ow-base-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 /* Team permissions matrix. */
 .ow-table-wrap { overflow-x: auto; }
