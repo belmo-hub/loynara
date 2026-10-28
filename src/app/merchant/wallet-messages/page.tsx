@@ -4,9 +4,8 @@ import { ChevronLeft, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
-import { reopenDay, sendNote } from "@/components/owner/actions-list";
+import { BackToActions, messageRoom, reopenDay, sendNote } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
-import { GuardedLink } from "@/components/owner/owner-shell";
 import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
 import { FieldError, useReview } from "@/components/owner/question-form";
 import { useLoad } from "@/components/owner/use-load";
@@ -70,7 +69,7 @@ export default function WalletMessagesPage() {
   const [receipt, setReceipt] = useState<{ audience: number; at: string; text: string } | null>(null);
 
   const edit = (value: string) => { setText(value); setReceipt(null); try { localStorage.setItem(DRAFT, value); } catch { /* optional */ } };
-  const toActions = <GuardedLink href="/merchant/actions" className="ow-back">{arrow}Aktionen</GuardedLink>;
+  const toActions = <BackToActions />;
   const question = "Was sollen deine Stammkunden lesen?";
 
   if (!me) return null;
@@ -121,7 +120,7 @@ export default function WalletMessagesPage() {
 
   // The confirmation is a screen of its own (Programm 28/30), only for a text that may still be sent.
   if (review.step === "confirm" && canContinue) return (
-    <Frame back={<button type="button" className="ow-back" onClick={review.back}>{arrow}Nachricht</button>} title={`An ${people(d.reach)} senden?`}>
+    <Frame back={<button type="button" className="ow-back" onClick={review.back}>{arrow}Nachricht</button>} title={`An ${d.reach} Kunden senden?`}>
       <div className="ow-q">
         <div className="ow-qpanel ow-qnote"><Megaphone size={24} aria-hidden="true" /><div><strong>Gesendet ist gesendet.</strong><p>{sendNote(d.reach, d.remaining, reopenDay(d.history, d.timezone))}</p></div></div>
         <div className="ow-qpanel ow-cardline">
@@ -139,7 +138,7 @@ export default function WalletMessagesPage() {
   return (
     <Frame back={toActions} title={question}>
       <div className="ow-q">
-        {receipt && <Notice tone="ok" role="status"><strong>Gesendet.</strong> An {people(receipt.audience)} um {stamp(receipt.at, d.timezone)} Uhr. Diese Woche kannst du noch {d.remaining} {d.remaining === 1 ? "Nachricht" : "Nachrichten"} senden.</Notice>}
+        {receipt && <Notice tone="ok" role="status"><strong>Gesendet.</strong> An {people(receipt.audience)} um {stamp(receipt.at, d.timezone)} Uhr. {messageRoom(d) && `${messageRoom(d)}.`}</Notice>}
         {error && <Notice tone="danger" role="alert">{error} Dein Text ist noch da.</Notice>}
         {d.history.some(row => row.warn) && <Notice tone="warn" role="status">Nach einer deiner letzten Nachrichten haben ungewöhnlich viele Kundinnen und Kunden ihre Karte aus der Wallet entfernt. Prüfe, ob du zu oft oder zu werblich geschrieben hast.</Notice>}
         {capped && <Notice tone="warn">Du hast diese Woche schon {SHOP_WEEKLY_CAP} Nachrichten gesendet.{d.nextAllowedAt ? ` Die nächste geht wieder ab ${germanWhen(new Date(d.nextAllowedAt), d.timezone)}.` : ""}</Notice>}

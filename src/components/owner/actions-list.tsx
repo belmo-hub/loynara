@@ -1,15 +1,19 @@
 "use client";
 
-import { ChartColumn, Clock, Mail, Megaphone, Star, Workflow } from "lucide-react";
+import { ChartColumn, ChevronLeft, Clock, Mail, Megaphone, Star, Workflow } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { CAP_WINDOW_DAYS, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
 import type { HiddenSurfaces } from "./nav";
 import { useOwner } from "./owner-context";
+import { GuardedLink } from "./owner-shell";
 import { PageHead } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { Rows, RowSection, type ValueRow } from "./value-rows";
+
+/** Back to the Aktionen list, on the pages its rows open (Ergebnisse, Beratung, Nachricht). */
+export const BackToActions = () => <GuardedLink href="/merchant/actions" className="ow-back"><ChevronLeft size={20} aria-hidden="true" />Aktionen</GuardedLink>;
 
 /** The part of the wallet-message read the list needs: the rolling 7-day cap, as the message page enforces it. */
 export type MessageRoom = { remaining: number; nextAllowedAt: string | null; timezone: string };

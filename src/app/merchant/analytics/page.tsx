@@ -2,6 +2,7 @@
 
 import { ArrowRight, Check, Gift, MapPin, Megaphone, Plus, RefreshCw, Undo2, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
+import { BackToActions } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
 import { Board, BoardPlaceholder } from "@/components/owner/overview-board";
 import { ErrorNotice, LoadingBlock, nf, Notice, PageHead } from "@/components/owner/owner-ui";
@@ -32,7 +33,7 @@ export default function MerchantAnalyticsPage() {
   const [report, reload] = useLoad<MerchantAnalytics>(me?.role === "owner" ? `/api/merchant/analytics?window=${windowDays}` : null);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? "/api/merchant/retention?days=30" : null);
   if (!me) return null;
-  const head = <PageHead title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} />;
+  const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   // The read's last bucket holds only the 2 (or 6) days after the last full week; a short bar would read as a drop.
