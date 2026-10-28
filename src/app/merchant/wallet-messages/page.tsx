@@ -27,7 +27,13 @@ const arrow = <ChevronLeft size={20} aria-hidden="true" />;
 /** The question pages' frame (Wegweiser): back link, the question as the heading; the heading takes the focus on each new step. */
 function Frame({ back, title, children }: { back: ReactNode; title: string; children: ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null), shown = useRef(title);
-  useEffect(() => { if (shown.current !== title) { shown.current = title; heading.current?.focus(); } }, [title]);
+  // A new step starts at the top, also after Back, whose restored scroll lands after this effect (so the next frame).
+  useEffect(() => {
+    if (shown.current === title) return;
+    shown.current = title;
+    const frame = requestAnimationFrame(() => { window.scrollTo({ top: 0 }); heading.current?.focus({ preventScroll: true }); });
+    return () => cancelAnimationFrame(frame);
+  }, [title]);
   return (
     <div className="ow-page ow-qpage">
       <header className="ow-pagehead"><div className="ow-qhead">{back}<h1 ref={heading} tabIndex={-1}>{title}</h1></div></header>
