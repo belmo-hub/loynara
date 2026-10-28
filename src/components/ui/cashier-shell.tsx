@@ -20,13 +20,14 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
         <strong className={styles.location}>{location}</strong>
         {actions ? <div className={styles.actions}>{actions}</div> : null}
       </header>
-      <div className={styles.status} data-state={state} role={live ? "status" : undefined} aria-live={live ? "polite" : undefined}>
+      {/* No label, no strip: a screen that states its own result (the counter's „Gebucht“) leaves it out. */}
+      {stateLabel == null ? null : <div className={styles.status} data-state={state} role={live ? "status" : undefined} aria-live={live ? "polite" : undefined}>
         <span className={styles.dot} aria-hidden="true" />
         <span className={styles.stateText}>
           <strong className={styles.stateLabel}>{stateLabel}</strong>
           {stateDetail ? <span className={styles.detail}>{stateDetail}</span> : null}
         </span>
-      </div>
+      </div>}
       <main id="inhalt" className={styles.main}>{children}</main>
       {dock ? <div className={styles.dock} data-dock="true">{dock}</div> : null}
     </ToastProvider>

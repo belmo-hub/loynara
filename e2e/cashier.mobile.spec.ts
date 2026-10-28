@@ -94,7 +94,8 @@ test.describe("cashier on phones", () => {
     await page.getByLabel("Kartennummer oder Kartencode").fill(code);
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
     const redeem = page.locator(".cashier-redeem-now");
-    await expect(redeem).toHaveText("Prämie einlösen");
+    // The green band: the action, then which reward (copy R21).
+    await expect(redeem).toHaveText(/^Prämie einlösen.+ · Stand reicht$/);
     expect(await audit(page)).toEqual({ overflow: 0, smallText: [], smallControls: [] });
     const [redeemBox, earnBox, viewport] = [await redeem.boundingBox(), await page.locator(".cashier-award-now").boundingBox(), page.viewportSize()!];
     // Primary at the bottom, 64 px; earning steps back above it at 56 px.

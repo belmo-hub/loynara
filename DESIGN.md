@@ -86,7 +86,7 @@ file; no external requests.
 | `--text-14` | 14 / 20 | secondary text, hints, table meta |
 | `--text-16` | 16 / 24 | body, buttons, inputs (16 px stops iOS zoom) |
 | `--text-18` | 18 / 26 | section titles |
-| `--text-22` | 22 / 28 | panel titles, cashier state |
+| `--text-22` | 22 / 28 | panel titles |
 | `--text-28` | 28 / 34 | page titles on phones, customer goal line (display) |
 | `--display-36` | 36 / 40 | page titles ≥ 1024 px (display) |
 | `--display-num` | clamp(40, 11vw, 56) / 1 | customer balance and goal numerals (display) |
