@@ -88,34 +88,51 @@ function png(width: number, height: number, scanlines: Buffer): Buffer {
   return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), chunk("IHDR", header), chunk("IDAT", deflateSync(scanlines)), chunk("IEND", Buffer.alloc(0))]);
 }
 
+// A reward's threshold slot while still open: a solid 2 pt ink ring instead of the dashed grey one; coral is only for
+// earned stamps (Design, ENG-116).
+const threshold = (cx: number, cy: number, r: number): Layer[] => [[ON_STAMP, ring(cx, cy, r - 1, 2)]];
+// Space between two rings' centres for 4 pt of clear track between their drawn edges: a stamp's 0.75 pt edge ring and the
+// half-pixel antialiasing of each edge count as part of the ring.
+const RING_GAP = 4 + 2 * (0.75 + 0.5);
+
 // Apple's store-card strip is 375 x 144 pt. Geometry from the mock-up: 20 pt side padding, stamps of at most 40 pt with
-// 10 pt gaps, an 18 pt bar ending in a reward ring of 26 pt radius.
+// 10 pt gaps, an 18 pt track carrying a ring per reward.
 const STRIP = { width: 375, height: 144, pad: 20 } as const;
 const strips = new Map<string, Buffer>();
 const STRIP_CACHE_MAX = 300;
 
 /**
- * The progress strip: a paper band with one slot per stamp (stamp programmes up to 20), otherwise a bar filled by
- * balance ÷ cost that ends in the reward ring. Every balance from the cost up looks the same, so the key clamps it.
+ * The progress strip: a paper band with one slot per stamp up to the highest reward (stamp programmes up to 20), otherwise
+ * a track filled to the balance with a ring per reward at cost ÷ highest cost. One mark per distinct cost, the five cheapest;
+ * every balance from the highest of them up looks the same, so the key clamps it (Design, ENG-116).
  */
-export function stripPng(kind: "stamp" | "points", balance: number, cost: number, scale: 1 | 2 | 3): Buffer {
-  const bar = kind === "points" || cost > 20, shown = Math.max(0, Math.min(balance, cost));
-  const key = `${bar ? "bar" : "stamps"}:${shown}:${cost}:${shown === cost}:${scale}`;
+export function stripPng(kind: "stamp" | "points", balance: number, costs: number[], scale: 1 | 2 | 3): Buffer {
+  const marks = [...new Set(costs)].sort((a, b) => a - b).slice(0, 5), highest = marks[marks.length - 1];
+  const bar = kind === "points" || highest > 20, shown = Math.max(0, Math.min(balance, highest));
+  const key = `${bar ? "bar" : "stamps"}:${shown}:${marks.join(",")}:${scale}`;
   const cached = strips.get(key);
   if (cached) return cached;
   const { width, height, pad } = STRIP, layers: Layer[] = [];
   if (bar) {
-    const r = 26, x0 = pad + 4, x1 = width - pad - 2 * r - 12, cy = height / 2;
-    layers.push([TRACK, capsule(x0 + 9, cy, x1 - 9, cy, 9)]);
-    // Once anything is collected the fill shows at least its round end.
-    if (shown > 0) layers.push([CORAL, capsule(x0 + 9, cy, x0 + Math.max(18, ((x1 - x0) * shown) / cost) - 9, cy, 9)]);
-    layers.push(...(shown === cost ? stamp : slot)(width - pad - r, cy, r));
+    // The track's round ends sit at start and end; the last ring is centred on the end, so the largest ring stays in the band.
+    const cy = height / 2, start = pad + 13, end = width - pad - 16, at = (value: number) => start + ((end - start) * value) / highest;
+    layers.push([TRACK, capsule(start, cy, end, cy, 9)]);
+    // Once anything is collected the fill shows at least its round end; it runs under the rings.
+    if (shown > 0) layers.push([CORAL, capsule(start, cy, at(shown), cy, 9)]);
+    // The next unreached reward gets the larger ring. Rings keep 4 pt of track between their edges: a later one moves right, the last stays at the end.
+    const next = marks.find(cost => cost > shown);
+    const rings = marks.map(cost => ({ cost, r: cost === next ? 16 : 13, x: at(cost) }));
+    for (let i = 1; i < rings.length; i++) rings[i].x = Math.max(rings[i].x, rings[i - 1].x + rings[i - 1].r + rings[i].r + RING_GAP);
+    rings[rings.length - 1].x = end;
+    for (let i = rings.length - 2; i >= 0; i--) rings[i].x = Math.min(rings[i].x, rings[i + 1].x - rings[i + 1].r - rings[i].r - RING_GAP);
+    // An open ring sits on a paper disc, so neither the track nor the fill shows through its dashes.
+    for (const { cost, r, x } of rings) layers.push(...(cost <= shown ? stamp(x, cy, r) : [[PAPER, disk(x, cy, r)] as const, ...slot(x, cy, r)]));
   } else {
-    const rows = cost <= 5 ? 1 : 2, perRow = Math.ceil(cost / rows), gap = 10;
+    const rows = highest <= 5 ? 1 : 2, perRow = Math.ceil(highest / rows), gap = 10;
     const d = Math.min(40, (width - 2 * pad - (perRow - 1) * gap) / perRow);
     const left = (width - perRow * d - (perRow - 1) * gap) / 2, top = (height - rows * d - (rows - 1) * gap) / 2;
-    for (let i = 0; i < cost; i++) {
-      layers.push(...(i < shown ? stamp : slot)(left + (i % perRow) * (d + gap) + d / 2, top + Math.floor(i / perRow) * (d + gap) + d / 2, d / 2));
+    for (let i = 0; i < highest; i++) {
+      layers.push(...(i < shown ? stamp : marks.includes(i + 1) ? threshold : slot)(left + (i % perRow) * (d + gap) + d / 2, top + Math.floor(i / perRow) * (d + gap) + d / 2, d / 2));
     }
   }
   const image = render(width, height, scale, PAPER, layers);

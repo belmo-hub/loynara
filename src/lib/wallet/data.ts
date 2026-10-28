@@ -52,7 +52,8 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
   };
   if (row.member.closedAt) return { open: false, brand };
-  const [target] = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const rewardList = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const [target] = rewardList;
   const [latest] = await reader.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
@@ -73,6 +74,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
       ...(target ? { reward: { title: target.title, cost: target.cost } } : {}),
+      rewards: rewardList.map(({ title, cost }) => ({ title, cost })),
       rules: signUpRules(publicRules(row.program, row.tenant)),
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       ...(lastMessage ? { message: lastMessage.text } : {}),

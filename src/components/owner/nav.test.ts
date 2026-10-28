@@ -4,8 +4,8 @@ import { groupHref, visibleGroups, visibleItems } from "./nav";
 
 const ALL = ["billing", "campaigns", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
 const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
-// Kampagnen and Automationen are rows of the Aktionen list (ENG-122d), which leaves them out where withheld (actions-list.test.ts).
-const HIDDEN_HREFS = ["/merchant/billing"];
+// Abrechnung is a row of the „Mehr“ page (more/page.test.ts); Kampagnen and Automationen are rows of the Aktionen list (actions-list.test.ts): none is a navigation entry.
+const HIDDEN_HREFS = ["/merchant/billing", "/merchant/campaigns", "/merchant/automations"];
 const DRAFT_HREFS = ["/merchant/audiences"];
 
 describe("navigation with pilot-withheld surfaces", () => {
@@ -16,7 +16,7 @@ describe("navigation with pilot-withheld surfaces", () => {
     for (const hidden of HIDDEN_HREFS) expect(hrefs).not.toContain(hidden);
     expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
     expect(visibleGroups("owner", FULL).length).toBe(5);
-    expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/actions", "/merchant/settings", "/merchant/staff"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/actions", "/merchant/more"]));
   });
   it("with every sending surface withheld the area keeps its name and its list (ENG-122d: Ergebnisse and Beratung are rows there)", () => {
     const hidden = [...ALL, "walletMessages"] as const;
@@ -41,6 +41,7 @@ describe("navigation with pilot-withheld surfaces", () => {
   it("without hidden surfaces nothing changes (development, preview, device test)", () => {
     expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = visibleGroups("owner").flatMap(group => visibleItems(group, "owner").map(item => item.href));
-    for (const hidden of HIDDEN_HREFS) expect(hrefs).toContain(hidden);
+    // Billing, campaigns and automations live on the „Mehr“ page and the Aktionen list, so the navigation is the same either way.
+    expect(hrefs).toEqual(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/audiences", "/merchant/actions", "/merchant/more"]);
   });
 });

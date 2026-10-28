@@ -12,7 +12,7 @@ for (const [failure, width] of [["http", 375], ["incomplete", 1280], ["reset", 3
     const id = randomUUID(), name = `Synthetic QR failure ${id}`;
     const signup = await context.request.post("/api/auth/sign-up/email", { headers: { Origin: origin }, data: { name: "Synthetic QR owner", email: `${id}@example.test`, password: "Synthetic-QR-092-Only!" } }); expect(signup.ok()).toBe(true);
     const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: name, locationName: "Synthetic QR counter", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic card", programType: "stamp", rulesText: "One confirmed purchase", rewardTitle: "Coffee", rewardCost: 5 } }); expect(setup.status()).toBe(201); const merchant = await setup.json();
-    const page = await context.newPage(); await page.goto("/merchant/settings"); let requests = 0, downloads = 0;
+    const page = await context.newPage(); await page.goto("/merchant"); /* the invite card sits on the Übersicht until the Kunden page takes it (ENG-122a) */ let requests = 0, downloads = 0;
     page.on("download", () => { downloads++; });
     await page.route("**/api/qr?*", async route => {
       requests++; if (requests > 1) { await route.continue(); return; }

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { unitWord } from "../units";
+import { unitWord, withUnit } from "../units";
 import { iconPng, stripPng } from "./apple-images";
 import { hexToRgb, passInk, walletProgress, walletText } from "./content";
 import type { WalletPassData, WalletRevokedData, WalletStatus } from "./types";
@@ -166,6 +166,8 @@ export function applePassJson(pass: WalletPassData, serial: string, config: Appl
         ...(pass.rules?.length ? [{ key: "rules", label: t.rules, value: pass.rules.join("\n\n"), dataDetectorTypes: [] }] : []),
         // In full: the name carries the reward's limits (ENG-115), and Wallet may cut it on the front.
         ...(reward ? [{ key: "rewardTitle", label: rewardLabel, value: reward.title, dataDetectorTypes: [] }] : []),
+        // What each reward costs, in the merchant's order (ENG-116): „100 Punkte – Gratiskaffee“.
+        ...(t.rewardList && pass.rewards?.length ? [{ key: "rewards", label: t.rewardList, value: pass.rewards.map(item => `${withUnit(item.cost, pass.programType, pass.locale)} – ${item.title}`).join("\n"), dataDetectorTypes: [] }] : []),
         { key: "programme", label: t.programme, value: pass.programName },
         { key: "location", label: t.location, value: pass.locationName },
         { key: "card", label: t.card, value: pass.cardLocator },
@@ -197,14 +199,14 @@ const run = promisify(execFile);
  * Signs and zips one pass. OpenSSL and zip must exist in the runtime image (see Dockerfile and scripts/wallet-runtime-check.ts).
  * A live card with a target reward gets its progress strip; a voided pass and a programme without a reward get none.
  */
-export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo"> & Partial<Pick<WalletPassData, "programType" | "balance" | "reward">>, config: AppleSigningConfig): Promise<Buffer> {
+export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo"> & Partial<Pick<WalletPassData, "programType" | "balance" | "reward" | "rewards">>, config: AppleSigningConfig): Promise<Buffer> {
   const dir = await mkdtemp(join(tmpdir(), "loynara-pass-"));
   try {
     const files = new Map<string, Buffer>();
     files.set("pass.json", Buffer.from(JSON.stringify(passJson)));
     for (const [suffix, scale] of [["", 1], ["@2x", 2], ["@3x", 3]] as const) {
       files.set(`icon${suffix}.png`, iconPng(scale, brand.brandColor));
-      if (brand.reward && brand.balance !== undefined) files.set(`strip${suffix}.png`, stripPng(brand.programType ?? "stamp", brand.balance, brand.reward.cost, scale));
+      if (brand.reward && brand.balance !== undefined) files.set(`strip${suffix}.png`, stripPng(brand.programType ?? "stamp", brand.balance, brand.rewards?.length ? brand.rewards.map(item => item.cost) : [brand.reward.cost], scale));
     }
     if (brand.appleLogo) {
       // Wallet scales the logo into its 160 x 50 pt slot; one checked PNG serves every density.

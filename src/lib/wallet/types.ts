@@ -35,6 +35,8 @@ export type WalletPassData = WalletBrand & {
   cardLocator: string;
   /** The card's target reward (the first by the merchant's order, as on the browser card). */
   reward?: { title: string; cost: number };
+  /** Every active reward in the merchant's order, for the list on the back of the Apple pass (ENG-116). */
+  rewards?: Array<{ title: string; cost: number }>;
   /** The programme rules as the sign-up page lists them (signUpRules), one paragraph each, for the back of the Apple pass. */
   rules?: string[];
   lastActivityAt?: Date;

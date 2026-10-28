@@ -64,7 +64,9 @@ export function useReview<Step extends string = "review">() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const open = (next = "review" as Step) => { window.history.pushState({ questionStep: next }, ""); setStep(next); };
-  return { step, open, back: () => window.history.back() };
+  // `leave` closes `from` only while it is still on screen: a request that ends after the owner went back moves no further back.
+  const leave = (from: Step) => { if (window.history.state?.questionStep === from) window.history.back(); };
+  return { step, open, back: () => window.history.back(), leave };
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
@@ -116,8 +118,8 @@ export function Choices({ name, label, options, value, saved, onChange }: { name
 }
 
 /** On or off for a whole setting (screens 09–11); what it switches shows below only while it is on. */
-export const SwitchRow = ({ label, sub, checked, onChange }: { label: string; sub: string; checked: boolean; onChange: (on: boolean) => void }) =>
-  <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong><small>{sub}</small></span><input type="checkbox" role="switch" checked={checked} onChange={event => onChange(event.target.checked)} /></label>;
+export const SwitchRow = ({ label, sub, checked, disabled, onChange }: { label: string; sub?: string; checked: boolean; disabled?: boolean; onChange: (on: boolean) => void }) =>
+  <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong>{sub && <small>{sub}</small>}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} /></label>;
 
 /** A labelled value on a panel: the label and its control share a line while they fit, the limit or the error under them. */
 export const Control = ({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error: string; children: ReactNode }) => (

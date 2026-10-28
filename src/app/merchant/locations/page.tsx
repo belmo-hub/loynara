@@ -1,108 +1,41 @@
 "use client";
 
-import { GuardedLink } from "@/components/owner/owner-shell";
-import { useEffect, useState, type FormEvent } from "react";
-import { postJson } from "@/components/client-api";
-import { clearFlash, peekFlash, setFlash } from "@/components/owner/flash";
-import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
-import { locationCreateMessage, locationSwitchMessage } from "@/components/owner/owner-errors";
-import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
-import { EXTRA_RULES_LABEL, RULE_PLACEHOLDER, SETUP_EXTRA_RULES_HINT } from "@/components/owner/program-helpers";
+import { MapPin, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { clearFlash, peekFlash } from "@/components/owner/flash";
+import { programLine, type LocationList } from "@/components/owner/locations-data";
+import { MORE_HREF } from "@/components/owner/nav";
+import { useOwner } from "@/components/owner/owner-context";
+import { MoreLabel, NumberCard, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
+import { ErrorNotice, LoadingBlock, nf, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 
-type Location = {
-  id: string; name: string; city: string; country: string; timezone: string; createdAt: string;
-  programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null;
-  cards: number; awards: number; redemptions: number; activeStaff: number;
-};
-type LocationList = { scope: "all_merchant_locations"; currency: "EUR" | "MAD"; totals: { locations: number; cards: number; awards: number; redemptions: number }; locations: Location[]; countingRule: string };
-type Draft = { name: string; city: string; timezone: string; programName: string; programType: "stamp" | "points"; pointsPerCurrencyUnit: number; rulesText: string; rewardTitle: string; rewardCost: number };
-const emptyDraft: Draft = { name: "", city: "", timezone: "Europe/Berlin", programName: "", programType: "stamp", pointsPerCurrencyUnit: 1, rulesText: "", rewardTitle: "", rewardCost: 5 };
-
+/** Standorte (ENG-122c, screen 14): the totals card, then one row per location; each opens its own page, „Standort hinzufügen“ the form. */
 export default function MerchantLocationsPage() {
   const owner = useOwner();
   const me = owner.me;
   const [list, reload] = useLoad<LocationList>(me?.role === "owner" ? "/api/merchant/locations" : null);
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  // Set by „Standort hinzufügen“ after the new location became the active one.
   const [message] = useState(() => peekFlash());
   useEffect(() => { clearFlash(); }, []);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(emptyDraft);
-  useDirtyGuard("location-draft", dirty);
   if (!me) return null;
-  const head = <PageHead eyebrow="Einstellungen · Standorte" title="Standorte" lead="Jeder Standort hat sein eigenes Programm und eigene Karten." />;
+  const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Standorte" lead="Jeder Standort hat sein eigenes Programm und eigene Karten." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
-  if (list.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
+  if (list.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} height={64} /></div>;
   const l = list.data;
-  const set = (patch: Partial<Draft>) => setDraft(current => ({ ...current, ...patch }));
-
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    setBusy(true); setError("");
-    try {
-      let created: { locationId: string };
-      try { created = await postJson<{ locationId: string }>("/api/merchant/locations", { ...draft, country: l.currency === "EUR" ? "DE" : "MA", earningMode: draft.programType === "points" ? "purchase" : "manual" }); }
-      catch (cause) { setError(locationCreateMessage(cause)); return; }
-      try { await postJson("/api/merchant/locations/select", { locationId: created.locationId }); }
-      catch (cause) {
-        // The location exists now: empty the form (sending it again would hit LOCATION_EXISTS) and list the new location.
-        setDraft(emptyDraft); owner.setDirty("location-draft", false); reload(); void owner.refresh();
-        setError(`Der neue Standort wurde angelegt. ${locationSwitchMessage(cause)}`);
-        return;
-      }
-      setFlash("Standort mit eigenem Programm und eigener Prämie angelegt und ausgewählt. Bestehende Karten und Guthaben blieben am bisherigen Standort.");
-      owner.setDirty("location-draft", false);
-      await owner.refresh(); // the shell remounts this page for the new location and shows the message
-    } finally { setBusy(false); }
-  }
-
   return (
     <div className="ow-page">
       {head}
       {message && <div role="status"><Notice tone="ok">{message}</Notice></div>}
-      {error && <ErrorNotice message={error} />}
-      <section className="ow-card ow-stack" aria-labelledby="loc-overview"><h2 id="loc-overview">Gesamtübersicht</h2>
-        <dl className="ow-metrics"><Stat label="Standorte" value={l.totals.locations} /><Stat label="Karten insgesamt" value={l.totals.cards} /><Stat label="Buchungen" value={l.totals.awards} /><Stat label="Einlösungen" value={l.totals.redemptions} /></dl>
-        <MoreInfo summary="So zählen wir"><p>{l.countingRule}</p></MoreInfo></section>
-      <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
-        <section aria-labelledby="loc-list" className="ow-stack"><h2 id="loc-list" style={{ fontSize: "var(--text-18)" }}>Deine Standorte</h2>
-          {l.locations.map(location => (
-            <article className="ow-card ow-stack" key={location.id}>
-              <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h3 style={{ fontSize: "var(--text-16)" }}>{location.name}</h3><p>{location.city} · {location.country}</p></div>{location.id === me.locationId && <span className="ow-chip ow-chip--ok">Aktiver Standort</span>}</div>
-              <p>{location.programName || "Kein aktives Programm"}{location.programType ? ` · ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}</p>
-              <dl className="ow-dl"><dt>Karten</dt><dd className="ow-num">{location.cards}</dd><dt>Buchungen</dt><dd className="ow-num">{location.awards}</dd><dt>Einlösungen</dt><dd className="ow-num">{location.redemptions}</dd><dt>Aktive Teamzugänge</dt><dd className="ow-num">{location.activeStaff}</dd></dl>
-              <div>{location.id !== me.locationId ? <button type="button" className="ow-btn ow-btn--secondary" disabled={busy || owner.switching} onClick={() => owner.switchLocation(location.id)}>Als aktiven Standort wählen</button> : <GuardedLink href="/merchant/program" className="ow-btn ow-btn--secondary">Programm ansehen</GuardedLink>}</div>
-            </article>
-          ))}
-        </section>
-        <section className="ow-card ow-stack" aria-labelledby="loc-create" style={{ alignSelf: "start" }}>
-          <div><h2 id="loc-create">Standort hinzufügen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Der neue Standort startet ohne Karten. Währung und Land bleiben: {l.currency} · {l.currency === "EUR" ? "Deutschland" : "Marokko"}.</p></div>
-          <form onSubmit={create} className="ow-stack">
-            <Field id="lc-name" label="Standortname"><input id="lc-name" className="ow-input" value={draft.name} onChange={event => set({ name: event.target.value })} minLength={2} maxLength={180} required /></Field>
-            <Field id="lc-city" label="Stadt"><input id="lc-city" className="ow-input" value={draft.city} onChange={event => set({ city: event.target.value })} minLength={2} maxLength={120} required /></Field>
-            <Field id="lc-tz" label="Zeitzone"><input id="lc-tz" className="ow-input" value={draft.timezone} onChange={event => set({ timezone: event.target.value })} minLength={3} maxLength={80} required /></Field>
-            <Field id="lc-prog" label="Programmname"><input id="lc-prog" className="ow-input" value={draft.programName} onChange={event => set({ programName: event.target.value })} minLength={2} maxLength={180} required /></Field>
-            {/* Into points by purchase amount the text starts over as extra rules, as in setup (W51). */}
-            <Field id="lc-type" label="Programmtyp"><select id="lc-type" className="ow-select" value={draft.programType} onChange={event => set({ programType: event.target.value as Draft["programType"], ...(event.target.value === "points" ? { rulesText: "" } : {}) })}><option value="stamp">Stempel, manuelle Vergabe</option><option value="points">Punkte je Kaufbetrag</option></select></Field>
-            {draft.programType === "points" && <Field id="lc-rate" label={`Punkte pro 1 ${l.currency}`}><input id="lc-rate" className="ow-input" type="number" value={draft.pointsPerCurrencyUnit} onChange={event => set({ pointsPerCurrencyUnit: Number(event.target.value) })} min={1} max={1000} step={1} required /></Field>}
-            {/* Points here earn by the purchase amount: the card states that rule, so the text holds optional extra rules. */}
-            <Field id="lc-rules" label={draft.programType === "points" ? EXTRA_RULES_LABEL : "Teilnahmebedingungen"}>
-              <textarea id="lc-rules" className="ow-textarea" value={draft.rulesText} onChange={event => set({ rulesText: event.target.value })} maxLength={3000} rows={4}
-                {...(draft.programType === "points" ? { placeholder: RULE_PLACEHOLDER.purchase, "aria-describedby": "lc-rules-hint" } : { minLength: 10, required: true })} />
-              {draft.programType === "points" && <span id="lc-rules-hint" className="ow-hint">{SETUP_EXTRA_RULES_HINT}</span>}
-            </Field>
-            <Field id="lc-reward" label="Erste Prämie"><input id="lc-reward" className="ow-input" value={draft.rewardTitle} onChange={event => set({ rewardTitle: event.target.value })} minLength={2} maxLength={180} required /></Field>
-            <Field id="lc-cost" label={`Kosten in ${draft.programType === "stamp" ? "Stempeln" : "Punkten"}`}><input id="lc-cost" className="ow-input" style={{ maxWidth: 200 }} type="number" value={draft.rewardCost} onChange={event => set({ rewardCost: Number(event.target.value) })} min={1} max={100000} step={1} required /></Field>
-            <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy}>{busy ? "Wird angelegt …" : "Standort und Programm anlegen"}</button></div>
-          </form>
-        </section>
+      {/* Kicker: copy-rest R15 FINAL; the counts' labels are live. */}
+      <NumberCard label="Gesamtübersicht · alle Standorte" value={nf.format(l.totals.cards)} unit="Karten insgesamt" facts={[["Buchungen", nf.format(l.totals.awards)], ["Einlösungen", nf.format(l.totals.redemptions)]]} />
+      <div className="ow-prog">
+        <Rows title="Deine Standorte" help={<p>{l.countingRule}</p>}>
+          {l.locations.map(location => <Row key={location.id} href={`/merchant/locations/${location.id}`} icon={MapPin} title={location.name} sub={programLine(location)} value={<>{nf.format(location.cards)}<span className="ow-sr"> Karten</span></>} big chip={location.id === me.locationId ? { label: "Aktiver Standort" } : undefined} />)}
+          <Row key="new" href="/merchant/locations/new" icon={Plus} title="Standort hinzufügen" />
+        </Rows>
       </div>
     </div>
   );
 }
-
-function Stat({ label, value }: { label: string; value: number }) { return <div className="ow-metric"><dt>{label}</dt><dd><span className="ow-metric-value">{value}</span></dd></div>; }
-function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) { return <div className="ow-field"><label htmlFor={id}>{label}</label>{children}</div>; }
