@@ -28,7 +28,7 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
-type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; lastFreeDay: string | null };
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; lastFreeDay: string | null; ownerName: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
@@ -113,9 +113,12 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const close = () => { setLabel(null); setPreview(null); setError(""); };
   // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
   const [startFor, setStartFor] = useState<string | null>(null);
+  // § 14 UStG: the invoice recipient's full name and address, recorded at go-live and sent to Stripe.
+  const [recipient, setRecipient] = useState({ name: "", line1: "", postalCode: "", city: "" });
+  const openStart = (b: Billing) => { setStartFor(b.tenantId); setRecipient({ name: b.ownerName ?? "", line1: "", postalCode: "", city: b.city ?? "" }); setError(""); };
   async function startBilling(tenantId: string) {
     setBusy(true); setError("");
-    try { await postJson("/api/operator/billing-start", { tenantId }); setStartFor(null); router.refresh(); }
+    try { await postJson("/api/operator/billing-start", { tenantId, billing: recipient }); setStartFor(null); router.refresh(); }
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
@@ -214,8 +217,16 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
           {b.lastFreeDay ? <span className="ow-muted">Kostenlos bis {b.lastFreeDay}</span>
             : b.started ? null
               : startFor === b.tenantId
-                ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button loading={busy} onClick={() => void startBilling(b.tenantId)}>Heute starten bestätigen</Button><Button variant="quiet" onClick={() => setStartFor(null)}>Zurück</Button></div>
-                : <div><Button variant="secondary" onClick={() => setStartFor(b.tenantId)}>Abrechnung starten (Go-live)</Button></div>}
+                ? <form style={{ display: "grid", gap: 8 }} onSubmit={event => { event.preventDefault(); void startBilling(b.tenantId); }}>
+                  <p className="ow-muted">Rechnungsempfänger (wie in der Pilotvereinbarung):</p>
+                  <TextField label="Name" value={recipient.name} onChange={event => setRecipient(r => ({ ...r, name: event.target.value }))} required autoComplete="off" />
+                  <TextField label="Straße und Hausnummer" value={recipient.line1} onChange={event => setRecipient(r => ({ ...r, line1: event.target.value }))} required autoComplete="off" />
+                  <TextField label="Postleitzahl" value={recipient.postalCode} onChange={event => setRecipient(r => ({ ...r, postalCode: event.target.value }))} required inputMode="numeric" pattern="\d{5}" autoComplete="off" />
+                  <TextField label="Ort" value={recipient.city} onChange={event => setRecipient(r => ({ ...r, city: event.target.value }))} required autoComplete="off" />
+                  {error ? <p role="alert">{error}</p> : null}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button type="submit" loading={busy}>Heute starten bestätigen</Button><Button type="button" variant="quiet" onClick={() => setStartFor(null)}>Zurück</Button></div>
+                </form>
+                : <div><Button variant="secondary" onClick={() => openStart(b)}>Abrechnung starten (Go-live)</Button></div>}
         </li>)}
       </ul>
     </Card>

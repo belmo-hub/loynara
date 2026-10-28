@@ -134,9 +134,17 @@ export const lastFreeDay = (freeUntil: Date) => berlinDay(new Date(freeUntil.get
  * subscription's first billing date is set to the same date next month with proration off, so Stripe's first invoice is the
  * month-two invoice (acceptance 10). The plan defaults to the list price; one unit per location that starts with the shop.
  */
-export async function startBilling(input: { actorUserId: string; env: Env; tenantId: string; at?: Date }) {
+// § 14 UStG: the invoice names the recipient with full name and address; the operator records them at go-live (CTO, 28 Oct).
+const billingRecipient = z.object({
+  name: z.string().trim().min(2).max(120), line1: z.string().trim().min(3).max(120),
+  postalCode: z.string().trim().regex(/^\d{5}$/), city: z.string().trim().min(2).max(80),
+}).strict();
+
+export async function startBilling(input: { actorUserId: string; env: Env; tenantId: string; billing: unknown; at?: Date }) {
   requireStripe();
   if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid shop");
+  const recipient = billingRecipient.safeParse(input.billing);
+  if (!recipient.success) throw new DomainError("INVALID_INPUT", "Bitte Name, Straße, Postleitzahl und Ort für die Rechnung angeben.");
   const at = input.at ?? new Date();
   // The anchor is that day of the month at 00:00 UTC; in the first hours after Berlin midnight that UTC moment is still ahead, which would end the free month within hours.
   if (berlinDay(at) !== at.toISOString().slice(0, 10)) throw new DomainError("BILLING_START_TIME", "Bitte schalte die Abrechnung nach 2 Uhr frei.");
@@ -151,6 +159,10 @@ export async function startBilling(input: { actorUserId: string; env: Env; tenan
     const price = await verifiedPrice(charge);
     const standardVat = await verifiedVatMode() === "standard";
     const customer = await ensureCustomer(tx, sub);
+    await client("POST", `/customers/${customer}`, {
+      name: recipient.data.name, "address[line1]": recipient.data.line1, "address[postal_code]": recipient.data.postalCode,
+      "address[city]": recipient.data.city, "address[country]": "DE",
+    });
     const created = stripeSubscription.parse(await client("POST", "/subscriptions", {
       customer, "items[0][price]": price.id, "items[0][quantity]": String(charge.quantity), "metadata[tenant_id]": sub.tenantId,
       "billing_cycle_anchor_config[day_of_month]": String(Number(berlinDay(at).slice(8))), "billing_cycle_anchor_config[hour]": "0",

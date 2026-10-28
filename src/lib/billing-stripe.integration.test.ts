@@ -52,6 +52,7 @@ function fakeStripe() {
     }
     if (method === "DELETE" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) { const sub = subs.get(match[1]); if (sub) sub.status = "canceled"; return sub ?? notFound(); }
     if (method === "POST" && path === "/customers") return { id: `cus_test${++next}` };
+    if (method === "POST" && (match = /^\/customers\/(cus_[A-Za-z0-9]+)$/.exec(path))) return { id: match[1] };
     if (method === "POST" && path === "/checkout/sessions") { const id = `cs_test_${++next}`; const session = { id, status: "open" as const, url: `https://checkout.stripe.com/c/pay/${id}` }; sessions.set(id, session); return session; }
     if (method === "GET" && (match = /^\/checkout\/sessions\/([^/]+)$/.exec(path))) return sessions.get(match[1]) ?? notFound();
     if (method === "POST" && (match = /^\/checkout\/sessions\/([^/]+)\/expire$/.exec(path))) { const session = sessions.get(match[1])!; session.status = "expired"; return session; }
@@ -534,7 +535,8 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
 
 describe("billing starts at go-live with the free first month (ENG-123)", () => {
   const GO_LIVE = new Date("2026-11-10T10:00:00Z"); // 11:00 Berlin
-  const startAs = (s: { operatorId: string; tenantId: string }, at = GO_LIVE) => { stripe.clock.now = at; return startBilling({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at }); };
+  const RECIPIENT = { name: "Synthetische Inhaberin", line1: "Beispielweg 2", postalCode: "34117", city: "Kassel" };
+  const startAs = (s: { operatorId: string; tenantId: string }, at = GO_LIVE, billing: unknown = RECIPIENT) => { stripe.clock.now = at; return startBilling({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, billing, at }); };
 
   it("follows Stripe's month rule for the first billing date, from the Berlin go-live day", () => {
     expect(expectedFreeUntil(new Date("2026-11-10T10:00:00Z")).toISOString()).toBe("2026-12-10T00:00:00.000Z");
@@ -547,12 +549,16 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
   it("starts with no payment method, no trial and no invoice; first billing date the same date next month; list price by default", async () => {
     const s = await shop();
     await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
-    await expect(startBilling({ actorUserId: s.ownerId, env: process.env, tenantId: s.tenantId, at: GO_LIVE })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(startBilling({ actorUserId: s.ownerId, env: process.env, tenantId: s.tenantId, billing: RECIPIENT, at: GO_LIVE })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await startAs(s)).toMatchObject({ planCode: "list", freeUntil: new Date("2026-12-10T00:00:00Z"), lastFreeDay: "2026-12-09" });
     const created = stripe.calls.find(call => call.method === "POST" && call.path === "/subscriptions")!;
     expect(created.params).toMatchObject({ "items[0][price]": "price_list00000001", "items[0][quantity]": "2", "billing_cycle_anchor_config[day_of_month]": "10", "billing_cycle_anchor_config[hour]": "0", "billing_cycle_anchor_config[minute]": "0", "billing_cycle_anchor_config[second]": "0", proration_behavior: "none", collection_method: "charge_automatically", "metadata[tenant_id]": s.tenantId });
     expect(Object.keys(created.params).some(name => /trial|default_payment_method$|payment_method$/.test(name))).toBe(false);
     expect(stripe.calls.some(call => /invoice/.test(call.path))).toBe(false);
+    // § 14 UStG: the recipient's full name and address are on the Stripe customer before the subscription exists.
+    const recipientCall = stripe.calls.findIndex(call => call.method === "POST" && /^\/customers\/cus_/.test(call.path));
+    expect(stripe.calls[recipientCall].params).toEqual({ name: "Synthetische Inhaberin", "address[line1]": "Beispielweg 2", "address[postal_code]": "34117", "address[city]": "Kassel", "address[country]": "DE" });
+    expect(recipientCall).toBeLessThan(stripe.calls.findIndex(call => call.method === "POST" && call.path === "/subscriptions"));
     expect(stripe.calls.find(call => call.path === "/customers")!.params["invoice_settings[footer]"]).toBeUndefined();
     expect(await sub(s.tenantId)).toMatchObject({ status: "active", provider: "stripe", planCode: "list", priceMinor: 4900, freeUntil: new Date("2026-12-10T00:00:00Z"), startedAt: GO_LIVE });
     await expect(startAs(s)).rejects.toMatchObject({ code: "BILLING_STATE" });
@@ -564,6 +570,14 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
     await setTenantPlan({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, planCode: "founding" });
     expect(await startAs(s)).toMatchObject({ planCode: "founding" });
     expect(stripe.calls.find(call => call.method === "POST" && call.path === "/subscriptions")!.params).toMatchObject({ "items[0][price]": "price_founding0001", "default_tax_rates[0]": "txr_test00000001" });
+  });
+
+  it("refuses a go-live without the recipient's full name and address, before any Stripe call", async () => {
+    const s = await shop();
+    for (const billing of [null, { ...RECIPIENT, postalCode: "3411" }, { ...RECIPIENT, line1: "" }, { ...RECIPIENT, extra: "x" }]) {
+      await expect(startAs(s, GO_LIVE, billing)).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    }
+    expect(stripe.calls).toHaveLength(0);
   });
 
   it("refuses a go-live in the first hours after Berlin midnight, before any Stripe call", async () => {
