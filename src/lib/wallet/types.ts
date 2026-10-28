@@ -40,7 +40,7 @@ export type WalletPassData = WalletBrand & {
   /** The programme rules as the sign-up page lists them (signUpRules), one paragraph each, for the back of the Apple pass. */
   rules?: string[];
   lastActivityAt?: Date;
-  /** The last owner message sent to this card (PassFast only), kept so a refresh resends it unchanged. */
+  /** The last owner message sent to this card, kept so a refresh resends it unchanged; "" for a card that allowed messages and has none yet. */
   message?: string;
 };
 

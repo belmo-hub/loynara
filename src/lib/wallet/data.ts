@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programs, tenants, walletMessageRecipients, walletMessages } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programs, tenants, walletMessageConsents, walletMessageRecipients, walletMessages } from "@/db/schema";
 import { signUpRules } from "@/lib/card-extras";
 import { formatCardLocator } from "@/lib/card-locator";
 import { DomainError } from "@/lib/loyalty";
@@ -64,6 +64,9 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id),
       sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
     .orderBy(desc(walletMessages.createdAt)).limit(1);
+  // A card that allowed messages carries the (empty) field before the first one, because Wallet alerts only when an existing key changes.
+  const [consent] = lastMessage ? [] : await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
+    .where(and(eq(walletMessageConsents.tenantId, row.member.tenantId), eq(walletMessageConsents.membershipId, row.member.id), isNull(walletMessageConsents.withdrawnAt))).limit(1);
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),
@@ -77,7 +80,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       rewards: rewardList.map(({ title, cost }) => ({ title, cost })),
       rules: signUpRules(publicRules(row.program, row.tenant)),
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
-      ...(lastMessage ? { message: lastMessage.text } : {}),
+      ...(lastMessage ? { message: lastMessage.text } : consent ? { message: "" } : {}),
     },
   };
 }

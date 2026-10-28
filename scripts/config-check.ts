@@ -125,12 +125,13 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const apple = env.APPLE_WALLET_ENABLED === "true";
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
-  // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need PassFast and the event webhook
-  // secret, or no removal would ever be recorded and the removal report would silently read 0.
+  // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need an Apple pass that can carry them:
+  // native Apple Wallet (ENG-127, removals come from the pass web service) or PassFast with its event webhook secret,
+  // or no removal would ever be recorded and the removal report would silently read 0.
   if (env.WALLET_MESSAGES_ENABLED === "true") {
-    if (!passfast) issues.push("WALLET_MESSAGES_ENABLED requires PassFast (PASSFAST_ENABLED=true)");
+    if (!passfast && !apple) issues.push("WALLET_MESSAGES_ENABLED requires Apple Wallet (APPLE_WALLET_ENABLED=true or PASSFAST_ENABLED=true)");
     const hook = env.PASSFAST_WEBHOOK_SECRET ?? "";
-    if (hook.length < 16 || placeholder.test(hook)) issues.push("WALLET_MESSAGES_ENABLED requires PASSFAST_WEBHOOK_SECRET with at least 16 characters");
+    if (passfast && (hook.length < 16 || placeholder.test(hook))) issues.push("WALLET_MESSAGES_ENABLED requires PASSFAST_WEBHOOK_SECRET with at least 16 characters");
   }
   if (passfast && !passFastStatus(env).ready) issues.push("PassFast enabled without complete approved configuration");
   if ((passfast || apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
