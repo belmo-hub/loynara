@@ -8,7 +8,7 @@ import { setupReviewValidation } from "./program-setup-validation";
 import { BrowserCardPreview } from "./card-preview";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerIcon } from "./owner-ui";
-import { confirmSentence, draftRules, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
+import { confirmSentence, draftRules, earningSentence, euro, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, RULE_PLACEHOLDER, ruleKind, SETUP_EXTRA_RULES_HINT, SHORT_RULE, unitDative, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Preset = { id: string; label: string; type: ProgramKind; mode: EarningMode; rate: number; reward: string; cost: number };
 // Editable starting points only. They are examples, not approved or recommended commercial programmes.
@@ -50,13 +50,15 @@ export function ProgramSetup() {
   const cost = parseWholeNumber(f.cost);
   const effectiveMode: EarningMode = f.type === "stamp" ? "manual" : f.mode;
   const rateValid = effectiveMode !== "purchase" || (Number.isInteger(rate) && rate >= 1 && rate <= MAX_POINTS_PER_CURRENCY_UNIT);
-  const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode, rateValid ? rate : 1);
+  const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode);
+  // By purchase amount the card states the earning itself, so the field holds optional extra rules (W51).
+  const kind = ruleKind(f.type, effectiveMode), extras = kind === "purchase";
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
   const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
 
   const problems: Array<Record<string, string>> = [
     { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", locationName: f.locationName.trim().length < 2 ? "Bitte den Standort benennen." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
-    { rate: rateValid ? "" : `Bitte eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} eingeben.`, rules: rulesText.trim().length < 10 ? "Der Regeltext braucht mindestens 10 Zeichen." : "" },
+    { rate: rateValid ? "" : `Bitte eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} eingeben.`, rules: !extras && rulesText.trim().length < 10 ? SHORT_RULE : "" },
     { rewardName: f.rewardName.trim().length < 2 ? "Bitte die Prämie benennen." : "", cost: cost === null ? "Bitte eine ganze Zahl größer 0 eingeben." : "" },
     { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", ...reviewValidation.problems },
   ];
@@ -146,13 +148,14 @@ export function ProgramSetup() {
             <div><h2>Wie sammeln Kunden?</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Wähle, wie eine Buchung entsteht. Wer sie bestätigt, steht darunter.</p></div>
             <div className="ow-radio-cards" role="radiogroup" aria-label="Sammelart">
               {([["stamp", "manual", "Stempel", "Dein Team vergibt an der Kasse Stempel, meist einen pro Besuch."], ["points", "purchase", "Punkte nach Einkaufswert", "Das Team gibt den Betrag ein, das System rechnet und rundet ab."], ["points", "manual", "Punkte manuell", "Das Team gibt die Punktmenge direkt ein."]] as const).map(([type, mode, title, text]) => (
-                <label key={title} className="ow-radio-card"><input type="radio" name="su-earn" checked={f.type === type && effectiveMode === mode} onChange={() => set({ type, mode })} /><div><strong>{title}</strong><span>{text}</span></div></label>
+                // Into points by purchase amount the text starts over as extra rules (W51); out of it the owner's text stays.
+                <label key={title} className="ow-radio-card"><input type="radio" name="su-earn" checked={f.type === type && effectiveMode === mode} onChange={() => set({ type, mode, ...(ruleKind(type, mode) === "purchase" ? { rules: "", rulesEdited: false } : {}) })} /><div><strong>{title}</strong><span>{text}</span></div></label>
               ))}
             </div>
             {f.type === "points" && effectiveMode === "purchase" && <Field id="su-rate" label={`Punkte pro 1 ${currency === "EUR" ? "€" : currency}`} error={err("rate")}><input id="su-rate" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={f.rate} onChange={event => set({ rate: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={Boolean(err("rate"))} /></Field>}
             <div className="ow-readonly"><strong style={{ display: "block", marginBottom: 2 }}>Wer bestätigt?</strong>{confirmSentence(f.type, effectiveMode)}</div>
-            <Field id="su-rules" label="Regeltext für Kunden" error={err("rules")} hint="Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell.">
-              <textarea id="su-rules" className="ow-textarea" rows={4} value={rulesText} maxLength={3000} onChange={event => set({ rules: event.target.value, rulesEdited: true })} aria-invalid={Boolean(err("rules"))} />
+            <Field id="su-rules" label={extras ? EXTRA_RULES_LABEL : "Regeltext für Kunden"} error={err("rules")} hint={extras ? SETUP_EXTRA_RULES_HINT : "Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}>
+              <textarea id="su-rules" className="ow-textarea" rows={4} value={rulesText} maxLength={3000} placeholder={RULE_PLACEHOLDER[kind]} onChange={event => set({ rules: event.target.value, rulesEdited: true })} aria-invalid={Boolean(err("rules"))} />
             </Field>
           </>}
           {step === 2 && <>

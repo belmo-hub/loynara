@@ -220,8 +220,9 @@ jobs:
           for _ in $(seq 120); do curl -fsS http://localhost:3049/api/health > /dev/null 2>&1 && exit 0; sleep 1; done
           cat "$RUNNER_TEMP/next-dev.log"; exit 1
       # Desktop project only: it uses the runner's installed Chrome. The *.mobile.spec.ts files need WebKit.
+      # program-question-payloads (ENG-099 N-3) needs only sign-up and the owner pages, so it runs on this app too.
       - name: Run the NFC specs
-        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy e2e/program-question-payloads
       - name: Show the app log
         if: failure()
         run: cat "$RUNNER_TEMP/next-dev.log"

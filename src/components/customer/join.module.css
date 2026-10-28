@@ -28,7 +28,9 @@
 
 .rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
 .rules h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
-.rules p { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; }
+.rules p { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Each rule stands a blank line apart, as the lines inside the shop's own text do. */
+.rules p + p { margin-top: var(--space-4); }
 
 .form { display: grid; gap: var(--space-3); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }

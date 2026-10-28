@@ -9,7 +9,7 @@ import { useOwner } from "./owner-context";
 import { GuardedLink } from "./owner-shell";
 import { ErrorNotice, LoadingBlock, Notice, Skeleton } from "./owner-ui";
 import { ExtrasQuestion } from "./program-extras";
-import { QUESTIONS, type Question } from "./program-helpers";
+import { EXTRA_RULES, QUESTIONS, type Question } from "./program-helpers";
 import { NewReward } from "./program-new-reward";
 import { RewardsCard } from "./program-rewards";
 import { EarningQuestion, RuleQuestion } from "./program-rules";
@@ -45,7 +45,7 @@ export function ProgramQuestion({ question }: { question: Question }) {
   const offered = !me || (["earning", "points-expiry", "happy-hour"].includes(question) ? me.programType === "points" : question !== "average-spend" || me.programType === "stamp" || me.earningMode === "manual");
   useEffect(() => { if (!offered) router.replace("/merchant/program"); }, [offered, router]);
   if (!me || !offered) return null;
-  const title = QUESTIONS[question];
+  const title = question === "rule" && me.programType === "points" && me.earningMode === "purchase" ? EXTRA_RULES : QUESTIONS[question];
   if (me.role !== "owner") return <Frame title={title}><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
   if (question === "happy-hour") return <Frame title={title} quiet><HappyHourCard me={me} earningMode={me.earningMode} onSaved={done} /></Frame>;
   // NFC stays on its page after saving: „Mit Bestätigung“ goes on to activating a plate there.

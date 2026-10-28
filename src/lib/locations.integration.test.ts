@@ -90,4 +90,15 @@ describe("additional merchant locations", () => {
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong timezone", timezone: "Not/A_Timezone" })).rejects.toMatchObject({ code: "INVALID_TIMEZONE" });
     expect((await listMerchantLocations(ownerId)).totals.locations).toBe(2);
   });
+
+  it("asks a new points-by-amount location for extra rules only, stamps and manual points for their rule (ENG-099 3c)", async () => {
+    const ownerId = await user();
+    await shop(ownerId, "Synthetic Multi E");
+    const data = { name: "Synthetic points counter", city: "Bonn", country: "DE" as const, timezone: "Europe/Berlin", programName: "Punktekarte", programType: "points" as const, rulesText: "", rewardTitle: "Kaffee", rewardCost: 30 };
+    await createAdditionalLocation(ownerId, data); // points default to the purchase amount here
+    const short = { issues: [{ path: ["rulesText"], code: "too_small" }] };
+    await expect(createAdditionalLocation(ownerId, { ...data, name: "Synthetic manual counter", earningMode: "manual" })).rejects.toMatchObject(short);
+    await expect(createAdditionalLocation(ownerId, { ...data, name: "Synthetic stamp counter", programType: "stamp", rulesText: "Zu kurz." })).rejects.toMatchObject(short);
+    expect((await listMerchantLocations(ownerId)).totals.locations).toBe(2);
+  });
 });

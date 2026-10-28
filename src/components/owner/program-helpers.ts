@@ -1,4 +1,4 @@
-import { MAX_POINTS_PER_CURRENCY_UNIT, parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
+import { MAX_POINTS_PER_CURRENCY_UNIT, parsePurchaseAmountMinor, PointsError, purchasePoints, purchaseRuleSentence } from "@/lib/points";
 import { unitWord } from "@/lib/units";
 
 export type ProgramKind = "stamp" | "points";
@@ -15,7 +15,7 @@ export function euro(minor: number, currency: string) {
 /** Readable one-sentence rule, derived only from the modes the backend supports. */
 export function earningSentence(type: ProgramKind, mode: EarningMode, rate: number, currency: string) {
   if (type === "stamp") return "Dein Team vergibt Stempel an der Kasse. Die Menge wird dort bei jeder Vergabe bestätigt.";
-  if (mode === "purchase") return `${rate} ${unitName("points", rate)} pro 1 ${currency === "EUR" ? "€" : currency} Einkaufswert, abgerundet auf ganze Punkte.`;
+  if (mode === "purchase") return purchaseRuleSentence(rate, currency);
   return "Dein Team vergibt Punkte manuell an der Kasse. Die Menge wird dort bei jeder Vergabe eingegeben.";
 }
 
@@ -28,12 +28,27 @@ export function confirmSentence(type: ProgramKind, mode: EarningMode) {
 
 /**
  * The setup's suggested rules text: how customers earn, nothing about rewards. The join page and the card list rewards
- * live; a reward sentence stored here stays behind when the owner changes the reward (ENG-101).
+ * live; a reward sentence stored here stays behind when the owner changes the reward (ENG-101). By purchase amount the
+ * system states the earning, so the field starts empty for extra rules (ENG-099 3c).
  */
-export function draftRules(type: ProgramKind, mode: EarningMode, rate: number) {
+export function draftRules(type: ProgramKind, mode: EarningMode) {
   if (type === "stamp") return "Pro bestätigtem Besuch vergibt das Team Stempel an der Kasse.";
-  return mode === "purchase" ? `Pro 1 € Einkaufswert gibt es ${rate} ${rate === 1 ? "Punkt" : "Punkte"}, abgerundet. Das Team bestätigt jede Buchung an der Kasse.` : "Das Team vergibt Punkte an der Kasse.";
+  return mode === "purchase" ? "" : "Das Team vergibt Punkte an der Kasse.";
 }
+
+/** The rules field (W35, W51): stamps and manual points write the rule itself, points by purchase amount only what adds to it. */
+export type RuleKind = "stamp" | "manual" | "purchase";
+export const ruleKind = (type: ProgramKind, mode: EarningMode): RuleKind => type === "stamp" ? "stamp" : mode;
+export const RULE_PLACEHOLDER: Record<RuleKind, string> = {
+  stamp: "z. B. Ein Stempel pro Heißgetränk.", manual: "z. B. 10 Punkte pro Pizza.", purchase: "z. B. Karte vor dem Bezahlen zeigen. Nachträglich gibt es keine Punkte.",
+};
+/** The rule row's title, and its page's, where points come from the purchase amount. */
+export const EXTRA_RULES = "Weitere Regeln";
+export const EXTRA_RULES_LABEL = "Weitere Regeln (optional)";
+export const EXTRA_RULES_HINT = "Wie Kunden Punkte sammeln, steht automatisch auf der Karte. Schreib hier nur, was dazukommt. Ändern kannst du die Sammelregel hier nicht.";
+/** The same field in setup and on a new location, where the earning rule is set in the fields above it (Marketing). */
+export const SETUP_EXTRA_RULES_HINT = "Die Sammelregel legst du oben fest, sie steht automatisch auf der Karte. Schreib hier nur, was dazukommt. Ändern kannst du sie nur oben.";
+export const SHORT_RULE = "Der Regeltext braucht mindestens 10 Zeichen.";
 
 /** Smallest purchase (in minor units) that earns at least `cost` points, using the server's own rounding. */
 export function minimumSpendMinor(cost: number, rate: number): number | null {

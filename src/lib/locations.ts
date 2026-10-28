@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, pool } from "@/db";
 import { billingLocationPlans, locations, programRuleVersions, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
+import { checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
 
 const input = z.object({
   name: z.string().trim().min(2).max(180),
@@ -15,7 +15,7 @@ const input = z.object({
   programType: z.enum(["stamp", "points"]),
   earningMode: z.enum(["manual", "purchase"]).optional(),
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
-  rulesText: z.string().trim().min(10).max(3000),
+  rulesText: z.string().trim().max(3000), // its minimum depends on the earning: checkRulesText
   rewardTitle: z.string().trim().min(2).max(180),
   rewardCost: z.number().int().min(1).max(100000),
 }).strict();
@@ -41,6 +41,7 @@ export async function createAdditionalLocation(actorUserId: string, raw: z.input
   const data = input.parse(raw);
   const earningMode = data.earningMode ?? (data.programType === "points" ? "purchase" : "manual");
   if (data.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
+  checkRulesText(data.programType, earningMode, data.rulesText);
   try { new Intl.DateTimeFormat("de", { timeZone: data.timezone }); }
   catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
 

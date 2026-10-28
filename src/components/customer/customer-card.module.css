@@ -83,7 +83,7 @@
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .activity b[data-sign="plus"] { color: var(--color-success); }
 
-.rules { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; }
+.rules { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); margin: 0; }
 .links a, .export :global(.terms-link) { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
 .export { display: grid; justify-items: center; }

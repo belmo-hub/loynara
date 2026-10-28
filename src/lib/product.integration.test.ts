@@ -2,11 +2,13 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { consentEvents, ledgerEntries, locations, membershipContacts, programRuleVersions, rewardVersions, staffRoles, subscriptions } from "@/db/schema";
+import { consentEvents, ledgerEntries, locations, membershipContacts, programRuleVersions, programs, rewardVersions, staffRoles, subscriptions } from "@/db/schema";
 import { archiveReward, createMerchant, createReward, editReward, enroll, getCard, getMerchantContext, getMerchantRewards, getPublicProgram, lookupCard, reorderRewards, updateProgram } from "./product";
 import { award } from "./loyalty";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
+/** The request schemas' 10-character refusal of a rule (400 Invalid input). */
+const SHORT_RULE = { issues: [{ path: ["rulesText"], code: "too_small" }] };
 
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
@@ -125,7 +127,6 @@ describe("merchant and customer journey", () => {
     expect((await update({ rulesText: "Zwei Punkte je vollem Euro." })).ruleVersion).toBe(3);
     expect((await update({ name: "Barbierkarte" })).ruleVersion).toBe(4);
     expect((await update({ name: "Barbierkarte" })).ruleVersion).toBe(4); // nothing changed, no version
-    await expect(update({ rulesText: "Zu kurz." })).rejects.toThrow();
     const versions = await db.select().from(programRuleVersions).orderBy(programRuleVersions.version);
     expect(versions.map(row => [row.version, row.name, row.earningMode, row.pointsPerCurrencyUnit, row.rulesText])).toEqual([
       [1, "Punktekarte", "purchase", 1, "Ein Punkt je vollem Euro."],
@@ -133,6 +134,55 @@ describe("merchant and customer journey", () => {
       [3, "Punktekarte", "purchase", 2, "Zwei Punkte je vollem Euro."],
       [4, "Barbierkarte", "purchase", 2, "Zwei Punkte je vollem Euro."],
     ]);
+  });
+
+  it("asks only for extra rules where points come from the purchase amount, and shows the earning sentence first (ENG-099 3c)", async () => {
+    const ownerId = await createUser();
+    const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Pizzeria", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3, rulesText: "", rewardTitle: "Pizza gratis", rewardCost: 100 });
+    const update = (fields: Record<string, unknown>) => updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, ...fields });
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    // The card and the sign-up page say the same.
+    const shown = async () => { const texts = [(await getCard(card.cardToken)).rulesText, (await getPublicProgram(merchant.programSlug)).rulesText]; expect(texts[0]).toBe(texts[1]); return texts[0]; };
+    expect(await shown()).toBe("3 Punkte pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
+    await update({ rulesText: "Nur Mo–Fr" });
+    expect(await shown()).toBe("3 Punkte pro 1 € Einkaufswert, abgerundet auf ganze Punkte.\n\nNur Mo–Fr");
+    expect((await getPublicProgram(merchant.programSlug)).ownerRulesText).toBe("Nur Mo–Fr");
+    await update({ rulesText: "", pointsPerCurrencyUnit: 1 });
+    expect(await shown()).toBe("1 Punkt pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
+    // Out of it the owner's own rule is needed again: the stored empty text is refused, a short one too (W35).
+    await expect(update({ earningMode: "manual" })).rejects.toMatchObject(SHORT_RULE);
+    await expect(update({ earningMode: "manual", rulesText: "Zu kurz." })).rejects.toMatchObject(SHORT_RULE);
+    await update({ earningMode: "manual", rulesText: "10 Punkte pro Pizza." });
+    expect(await shown()).toBe("10 Punkte pro Pizza.");
+    await expect(update({ rulesText: "Zu kurz." })).rejects.toMatchObject(SHORT_RULE);
+    await update({ earningMode: "purchase", rulesText: "" }); // 34: the sentence replaces the rule
+    const versions = await db.select().from(programRuleVersions).orderBy(programRuleVersions.version);
+    expect(versions.map(row => [row.version, row.earningMode, row.pointsPerCurrencyUnit, row.rulesText])).toEqual([
+      [1, "purchase", 3, ""], [2, "purchase", 3, "Nur Mo–Fr"], [3, "purchase", 1, ""], [4, "manual", 1, "10 Punkte pro Pizza."], [5, "purchase", 1, ""],
+    ]);
+  });
+
+  it("still asks stamps and manual points for a rule of 10 characters at setup (ENG-099 3c)", async () => {
+    const userId = await createUser();
+    const shop = { userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Zu kurz.", rewardTitle: "Kaffee gratis", rewardCost: 8 } as const;
+    await expect(createMerchant(shop)).rejects.toMatchObject(SHORT_RULE);
+    await expect(createMerchant({ ...shop, programType: "points", earningMode: "manual", rulesText: "" })).rejects.toMatchObject(SHORT_RULE);
+    await expect(createMerchant({ ...shop, programType: "points", rulesText: "" })).rejects.toMatchObject(SHORT_RULE); // points start manual unless set
+    expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toHaveLength(0);
+  });
+
+  it("never backdates a programme: a start date that has begun counts from setup, a later one stays (Legal, ENG-099 3c)", async () => {
+    const shop = async (effectiveDate: string) => {
+      const { programId } = await createMerchant({ userId: await createUser(), businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8, effectiveDate });
+      const [program] = await db.select({ at: programs.effectiveAt }).from(programs).where(eq(programs.id, programId));
+      const [rule] = await db.select({ at: programRuleVersions.effectiveAt }).from(programRuleVersions).where(eq(programRuleVersions.programId, programId));
+      expect(rule.at).toEqual(program.at);
+      return program.at.getTime();
+    };
+    const before = Date.now() - 1000; // the database clock may trail this process slightly
+    expect(await shop("2026-01-01")).toBeGreaterThanOrEqual(before);
+    expect(await shop(new Date().toISOString().slice(0, 10))).toBeGreaterThanOrEqual(before);
+    expect(await shop("2099-01-01")).toBe(Date.UTC(2099, 0, 1));
   });
 
   it("lets only the owner create, version, order, and archive rewards while retaining one active option", async () => {
