@@ -193,8 +193,7 @@ export function ProgramSetup() {
             <textarea id="su-rules" className="ow-textarea" rows={4} value={rulesText} maxLength={3000} placeholder={RULE_PLACEHOLDER[kind]} onChange={event => set({ rules: event.target.value, rulesEdited: true })} {...invalid("rules")} />
           </Field>
           <p className="ow-hint"><strong>Wer bestätigt?</strong> {confirmSentence(f.type, effectiveMode)}</p>
-          {/* TODO-Marketing: Design's note on screen 20; the hint ENG-099 removed said „Programmart“. */}
-          <p className="ow-hint">Die Kartenart lässt sich nach den ersten Buchungen nicht mehr ändern.</p>
+          <p className="ow-hint">Die Kartenart kannst du nach der Einrichtung nicht mehr ändern.</p>
         </>}
         {step === 2 && <>
           <Choices name="su-preset" label="Deine erste Prämie" value={f.preset} saved="" onChange={choose}
@@ -237,7 +236,7 @@ export function ProgramSetup() {
               </>}
             </div>
           </details>
-          <p className="ow-hint">Das Programm startet mit dem Speichern (gültig ab {f.date}). Kunden können sich dann anmelden.</p>
+          <p className="ow-hint">Das Programm startet mit dem Speichern (gültig ab {f.date.split("-").reverse().join(".")}). Kunden können sich dann anmelden.</p>
           <p className="ow-hint">Papierstempel werden nicht automatisch übernommen. Dein Team prüft und bestätigt jede Übertragung einzeln.</p>
           {error && <div ref={fail} className="ow-qfail"><Notice tone="danger" role="alert">{error} Deine Eingaben sind noch da.</Notice></div>}
         </>}
