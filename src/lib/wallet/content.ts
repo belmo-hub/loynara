@@ -1,4 +1,4 @@
-import { unitWord } from "@/lib/units";
+import { unitWord } from "../units";
 import type { RevokeReason, WalletLocale, WalletPassData } from "./types";
 
 /**
