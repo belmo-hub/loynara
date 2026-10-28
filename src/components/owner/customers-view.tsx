@@ -142,7 +142,7 @@ function GroupsScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
         {summary.state === "error" ? <ErrorNotice message={summary.message} onRetry={reload} />
           : summary.state !== "ok" ? <LoadingBlock rows={3} height={64} />
           // No card yet: the way to the first one is the invite right below (the old line pointed to the Übersicht).
-          : summary.data.openCards === 0 ? <EmptyState level={3} icon={<OwnerIcon name="users" size={24} />} title="Noch keine Karten.">Gäste melden sich über deinen Anmeldecode am Tresen an.</EmptyState>
+          : summary.data.openCards === 0 ? <EmptyState level={3} icon={<OwnerIcon name="users" size={24} />} title="Noch keine Karten.">Kunden melden sich über deinen Anmeldecode am Tresen an.</EmptyState>
           : <Tiles title="Gruppen" tiles={groupTiles(summary.data, me.programType === "points" ? "Punkten" : "Stempeln")} />}
         <InviteRows me={me} />
         <p className="ow-prog-note">Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. Namen und Kontaktdaten zeigt Loynara nicht.</p>

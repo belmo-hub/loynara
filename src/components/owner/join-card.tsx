@@ -39,7 +39,7 @@ export function InviteRows({ me }: { me: MeResponse }) {
       {!joinUrl ? <p className="ow-prog-note">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p> : <ul>
         {row(<Link2 size={22} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", joinUrl.replace(/^https?:\/\//, ""),
           () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
-        {row(<Printer size={22} aria-hidden="true" />, "Tresenschild laden", "PDF mit QR-Code zum Ausdrucken",
+        {row(<Printer size={22} aria-hidden="true" />, "Tresenschild laden", "Mit QR-Code zum Ausdrucken",
           () => void downloadCounterSign(me).catch(cause => setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden.")))}
       </ul>}
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
