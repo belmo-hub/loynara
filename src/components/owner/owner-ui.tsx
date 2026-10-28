@@ -53,7 +53,9 @@ const SAVE_LABEL: Record<SaveState, string> = { clean: "", dirty: "Ungespeichert
 
 /** Consistent save pattern: nothing material is saved silently, the state is always visible and announced. */
 export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail, asSubmit = false, alwaysDiscard = false, discardLabel = "Verwerfen", section }: { state: SaveState; /** Names the card while unsaved, where several cards share a page. */ section?: string; errorLabel?: string; onSave?: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string; asSubmit?: boolean; alwaysDiscard?: boolean; discardLabel?: string }) {
-  const busy = state === "saving";
+  const busy = state === "saving", shown = state !== "clean";
+  // On phones the bar pins over the page's foot with the first change: the field being edited moves above it (owner.css).
+  useEffect(() => { const field = document.activeElement; if (shown && field instanceof HTMLElement && field !== document.body) field.scrollIntoView({ block: "nearest" }); }, [shown]);
   return (
     <div className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">

@@ -46,6 +46,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
 
   const colorValid = HEX.test(draft.brandColor);
   const nameValid = [draft.businessName, draft.locationName, draft.programName].every(name => name.trim().length >= 2);
+  const programShort = draft.programName.trim().length < 2; // named with the setup's own words
   const changed = draft.businessName !== saved.businessName || draft.locationName !== saved.locationName || draft.programName !== saved.programName || draft.brandColor.toLowerCase() !== saved.brandColor.toLowerCase() || draft.logoData !== saved.logoData;
   const shownState: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard("card-studio", changed);
@@ -108,7 +109,8 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
             <legend>Namen</legend>
             <div className="ow-field"><label htmlFor="cs-name">Geschäftsname</label><input id="cs-name" className="ow-input" value={draft.businessName} maxLength={180} onChange={event => edit({ businessName: event.target.value })} aria-invalid={draft.businessName.trim().length < 2} aria-describedby="cs-name-hint" /><span id="cs-name-hint" className="ow-hint">Gilt für alle deine Standorte.</span></div>
             <div className="ow-field"><label htmlFor="cs-loc">Standortname</label><input id="cs-loc" className="ow-input" value={draft.locationName} maxLength={180} onChange={event => edit({ locationName: event.target.value })} aria-invalid={draft.locationName.trim().length < 2} /><span className="ow-hint">Nur für diesen Standort.</span></div>
-            <div className="ow-field"><label htmlFor="cs-program">Programmname</label><input id="cs-program" className="ow-input" value={draft.programName} maxLength={180} onChange={event => edit({ programName: event.target.value })} aria-invalid={draft.programName.trim().length < 2} aria-describedby="cs-program-hint" /><span id="cs-program-hint" className="ow-hint">Steht auf der Wallet-Karte.</span></div>
+            <div className="ow-field"><label htmlFor="cs-program">Programmname</label><input id="cs-program" className="ow-input" value={draft.programName} maxLength={180} onChange={event => edit({ programName: event.target.value })} aria-invalid={programShort} aria-describedby={programShort ? "cs-program-err cs-program-hint" : "cs-program-hint"} />
+              {programShort && <span id="cs-program-err" className="ow-error">Bitte einen Programmnamen mit 2 bis 180 Zeichen eingeben.</span>}<span id="cs-program-hint" className="ow-hint">Steht auf der Wallet-Karte.</span></div>
           </fieldset>
           <fieldset className="ow-group">
             <legend>Gestaltung</legend>
