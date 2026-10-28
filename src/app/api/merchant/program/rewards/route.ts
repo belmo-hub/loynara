@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     if (input.action === "takeBack") return Response.json(await takeBackRewardChange({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
     if (input.action === "edit" || input.action === "price" || input.action === "rename") return Response.json(await editReward({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
     if (input.action === "reorder") return Response.json(await reorderRewards({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
-    return Response.json(await archiveReward({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
+    if (input.action === "archive") return Response.json(await archiveReward({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
+    return input satisfies never; // every action has its own branch: nothing falls through to an archive
   } catch (error) { return respondError(error); }
 }

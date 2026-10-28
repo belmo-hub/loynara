@@ -69,10 +69,14 @@ export async function scheduleWalletProgramRefresh(tx: Query, tenantId: string, 
     VALUES (${tenantId}::uuid, ${WALLET_PROGRAM_REFRESH}, jsonb_build_object('programId', ${programId}::text), ${at}::timestamptz)`);
 }
 
-/** The worker's run of a scheduled programme refresh: the refresh reads the state current at that time. */
+/** The worker's run of a scheduled programme refresh: the refresh reads the state current at that time. Rewards whose
+ *  archive date has passed also lose `active`, so code from before ENG-100 (which reads only that flag) agrees after a rollback. */
 export async function runWalletProgramRefresh(database: Pick<typeof db, "transaction">, job: { tenantId: string; payload: Record<string, unknown> }) {
   const programId = job.payload.programId;
   if (typeof programId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(programId)) return { status: "failed" as const, reason: "Invalid wallet job payload" };
-  await database.transaction(tx => enqueueWalletProgramRefresh(tx, job.tenantId, programId));
+  await database.transaction(async tx => {
+    await tx.execute(sql`UPDATE rewards SET active = false WHERE tenant_id = ${job.tenantId}::uuid AND program_id = ${programId}::uuid AND active AND ends_at <= now()`);
+    await enqueueWalletProgramRefresh(tx, job.tenantId, programId);
+  });
   return { status: "complete" as const };
 }

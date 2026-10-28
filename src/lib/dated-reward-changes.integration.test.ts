@@ -2,8 +2,13 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { redemptions, rewardVersions, rewards, walletPasses } from "@/db/schema";
+import { memberships, redemptions, rewardVersions, rewards, walletPasses } from "@/db/schema";
 import { award, redeem } from "./loyalty";
+import { getMerchantMember } from "./merchant-members";
+import { getLaunchReadiness } from "./readiness";
+import { getRetentionSummary } from "./retention";
+import { rewardReadyMemberships } from "./reward-readiness";
+import { selectAudience } from "./segments";
 import { nfcFixture } from "./nfc-test-db";
 import { claimOutboxJob } from "./outbox";
 import { archiveReward, createReward, currentRewards, editReward, getCard, getMerchantRewards, getPublicProgram, lookupCard, takeBackRewardChange } from "./product";
@@ -68,11 +73,21 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     // v3 copies v1 before v2's date: v2 never comes into force, even after its date.
     const cancelled = await pastReward(f, [{ cost: 3, createdDaysAgo: 40, effectiveDaysAgo: 40 }, { cost: 5, createdDaysAgo: 30, effectiveDaysAgo: 2 }, { cost: 3, createdDaysAgo: 20, effectiveDaysAgo: 20 }]);
     expect((await currentRewards(f.tenant.id, f.program.id)).find(row => row.rewardId === cancelled.rewardId)).toMatchObject({ id: cancelled.ids[2], cost: 3 });
+    // v2 (dated a day ago) was superseded by v3 (created before v2's date, dated in 9 days): v1 stays in force past v2's date.
+    const skipped = await pastReward(f, [{ cost: 3, createdDaysAgo: 40, effectiveDaysAgo: 40 }, { cost: 4, createdDaysAgo: 30, effectiveDaysAgo: 1 }, { cost: 6, createdDaysAgo: 20, effectiveDaysAgo: -9 }]);
+    expect((await currentRewards(f.tenant.id, f.program.id)).find(row => row.rewardId === skipped.rewardId)).toMatchObject({ id: skipped.ids[0], cost: 3, pending: { cost: 6 } });
+    await expect(redeemVersion(skipped.ids[1])).rejects.toMatchObject({ code: "STALE_REWARD" });
+    const owner = { actorUserId: f.userId, programSlug: f.program.slug };
+    expect((await getMerchantRewards(owner)).find(row => row.rewardId === skipped.rewardId)).toMatchObject({ versionId: skipped.ids[0], cost: 3, pending: { cost: 6 } });
+    await takeBackRewardChange({ ...owner, rewardId: skipped.rewardId }); // copies the version in force, never the superseded one
+    expect((await getMerchantRewards(owner)).find(row => row.rewardId === skipped.rewardId)).toMatchObject({ cost: 3, pending: null });
   });
 
   it("refuses any other edit while a change waits and takes a raise back at once", async () => {
-    const { coffee, cake, owner, merchantRow, versions } = await setup();
+    const { f, coffee, cake, owner, merchantRow, versions } = await setup();
+    await db.insert(walletPasses).values({ tenantId: f.tenant.id, membershipId: f.member.id, provider: "google", providerObjectId: `synthetic.${randomUUID()}` });
     await editReward({ ...owner, rewardId: coffee.rewardId, cost: 9 });
+    await pool.query("UPDATE outbox_jobs SET status = 'complete' WHERE kind = 'wallet.refresh'");
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 7 })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 10 })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, title: "Espresso", worse: false })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
@@ -80,6 +95,8 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     expect(await versions(coffee.rewardId)).toBe(2);
     await expect(takeBackRewardChange({ ...owner, rewardId: coffee.rewardId })).resolves.toEqual({ rewardId: coffee.rewardId, takenBack: true });
     expect(await merchantRow(coffee.rewardId)).toMatchObject({ version: 3, cost: 8, pending: null });
+    // The pass drops the announced raise now, not at the old date.
+    expect((await pool.query("SELECT 1 FROM outbox_jobs WHERE kind = 'wallet.refresh' AND status = 'pending' AND payload ->> 'membershipId' = $1", [f.member.id])).rowCount).toBe(1);
     await expect(takeBackRewardChange({ ...owner, rewardId: coffee.rewardId })).resolves.toEqual({ rewardId: coffee.rewardId, takenBack: false });
     // The reward takes edits again; other rewards never waited.
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 7 })).resolves.toMatchObject({ effectiveAt: null });
@@ -154,8 +171,12 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     // Not due, so the worker leaves it; when it runs, it queues the card's ordinary refresh.
     await pool.query("UPDATE outbox_jobs SET status = 'complete' WHERE kind = 'wallet.refresh'");
     expect(await claimOutboxJob(pool, { maxAttempts: 5, leaseMinutes: 5 })).toBeNull();
+    await pool.query("UPDATE rewards SET ends_at = now() - interval '1 second' WHERE id = $1", [cake.rewardId]); // the archive date has passed
     await expect(runWalletProgramRefresh(db, { tenantId: f.tenant.id, payload: { programId: f.program.id } })).resolves.toEqual({ status: "complete" });
     expect((await pool.query("SELECT 1 FROM outbox_jobs WHERE kind = 'wallet.refresh' AND status = 'pending' AND next_attempt_at <= now()")).rowCount).toBe(1);
+    // The ended reward also loses `active`, which is all that code from before ENG-100 reads (a web rollback).
+    expect((await db.select({ id: rewards.id, active: rewards.active }).from(rewards).where(eq(rewards.programId, f.program.id))).sort((a, b) => a.id.localeCompare(b.id)))
+      .toEqual([{ id: coffee.rewardId, active: true }, { id: cake.rewardId, active: false }].sort((a, b) => a.id.localeCompare(b.id)));
     await expect(runWalletProgramRefresh(db, { tenantId: f.tenant.id, payload: { programId: "nope" } })).resolves.toMatchObject({ status: "failed" });
   });
 
@@ -169,5 +190,43 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     await expect(takeBackRewardChange({ actorUserId: b.userId, programSlug: a.f.program.slug, rewardId: a.coffee.rewardId })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect((await getMerchantRewards(other)).map(row => [row.title, row.pending])).toEqual([["Coffee", null]]);
     expect(await a.merchantRow(a.coffee.rewardId)).toMatchObject({ pending: { cost: 9 } });
+    // The other shop's live reward never counts as A's last one.
+    await takeBackRewardChange({ ...a.owner, rewardId: a.coffee.rewardId });
+    await archiveReward({ ...a.owner, rewardId: a.coffee.rewardId });
+    await expect(archiveReward({ ...a.owner, rewardId: a.cake.rewardId })).rejects.toMatchObject({ code: "LAST_ACTIVE_REWARD" });
+  });
+
+  it("names the calendar day in the shop's timezone, not UTC", async () => {
+    const { coffee, cake, owner, merchantRow } = await setup();
+    // 23:30 UTC is already the next day in Berlin.
+    await pool.query("UPDATE rewards SET ends_at = '2099-11-24 23:30:00+00' WHERE id = $1", [coffee.rewardId]);
+    await pool.query(`INSERT INTO reward_versions (tenant_id, reward_id, version, title, cost, terms_text, effective_at)
+      SELECT tenant_id, reward_id, 2, title, 13, terms_text, '2099-11-24 23:30:00+00' FROM reward_versions WHERE id = $1`, [cake.versionId]);
+    expect(await merchantRow(coffee.rewardId)).toMatchObject({ endsOn: "2099-11-25" });
+    expect(await merchantRow(cake.rewardId)).toMatchObject({ pending: { effectiveOn: "2099-11-25", cost: 13 } });
+  });
+
+  it("leaves an ended reward out of the owner and automation readers and uses the cost in force", async () => {
+    const { f, coffee, owner } = await setup(); // Coffee 8, Cake 12, the card at 20
+    const tea = await createReward({ ...owner, title: "Tea", cost: 3 });
+    await pool.query("UPDATE rewards SET sort_order = sort_order + 1 WHERE program_id = $1", [f.program.id]);
+    await pool.query("UPDATE rewards SET ends_at = now() - interval '1 second', sort_order = 0 WHERE id = $1", [tea.rewardId]); // ended, and first
+    await editReward({ ...owner, rewardId: coffee.rewardId, cost: 9 }); // waits for its date
+    const card = async (balance: number) => {
+      const [member] = await db.insert(memberships).values({ tenantId: f.tenant.id, programId: f.program.id, scanCode: `sc_${randomUUID()}`, cardToken: `card_${randomUUID().replaceAll("-", "")}${randomUUID().replaceAll("-", "").slice(0, 8)}` }).returning();
+      await award({ userId: f.userId, locationId: f.location.id, membershipId: member.id, quantity: balance, idempotencyKey: randomUUID(), requestId: randomUUID() });
+      return member.id;
+    };
+    const five = await card(5), two = await card(2); // ready and 1 away only if the ended Tea (3) counted
+    const sorted = (ids: string[]) => [...ids].sort();
+    const scope = { tenantId: f.tenant.id, programId: f.program.id };
+
+    expect((await getLaunchReadiness(f.userId, f.location.id)).steps.find(step => step.id === "programme")?.evidence).toMatch(/ 8 \S+ → Coffee$/);
+    expect((await getMerchantMember(f.userId, f.member.id)).eligibleRewards.map(row => [row.title, row.cost])).toEqual([["Coffee", 8], ["Cake", 12]]);
+    expect(await getRetentionSummary(f.userId)).toMatchObject({ rewardReady: 1, nearRewardId: coffee.rewardId, nearRewardMaxRemaining: 2 });
+    expect(await rewardReadyMemberships(db, scope, new Date())).toEqual([f.member.id]);
+    const close = async (maxRemaining: number) => sorted((await selectAudience({ actorUserId: f.userId, programId: f.program.id, definition: { kind: "close_to_reward", maxRemaining } })).membershipIds);
+    expect(await close(6)).toEqual(sorted([five, two])); // 8 - 2 = 6: the cost in force, not the raise
+    expect(await close(2)).toEqual([]);
   });
 });

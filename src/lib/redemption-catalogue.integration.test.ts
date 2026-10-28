@@ -82,6 +82,29 @@ describe("redemption orders catalogue changes against the authoritative booking"
     } finally { await gate.query("ROLLBACK"); await Promise.all([catalogue, booking]); gate.release(); }
   });
 
+  it.each(["raise", "archive"] as const)("checks the %s's date at the booking instant, not when the redemption began", async kind => {
+    const { f, request } = await fixture("edit");
+    const gate = await pool.connect();
+    let booking: Promise<unknown> | undefined;
+    try {
+      // An owner write holds the reward while its date, 1.5 s away, passes. The archive updates the row, so the booking re-reads it.
+      await gate.query("BEGIN");
+      const [{ reward_id: rewardId }] = (await gate.query("SELECT reward_id FROM reward_versions WHERE id = $1", [request.rewardVersionId])).rows;
+      await gate.query("SELECT 1 FROM rewards WHERE id = $1 FOR UPDATE", [rewardId]);
+      const [{ at }] = (kind === "raise"
+        ? await gate.query(`INSERT INTO reward_versions (tenant_id, reward_id, version, title, cost, terms_text, effective_at)
+            SELECT tenant_id, reward_id, version + 1, title, cost + 1, terms_text, clock_timestamp() + interval '1.5 seconds' FROM reward_versions WHERE id = $1 RETURNING effective_at AS at`, [request.rewardVersionId])
+        : await gate.query("UPDATE rewards SET ends_at = clock_timestamp() + interval '1.5 seconds' WHERE id = $1 RETURNING ends_at AS at", [rewardId])).rows;
+      booking = redeem(request).then(value => ({ value }), error => ({ error }));
+      expect(await waitForLock("rewards")).toBe(true);
+      expect((await pool.query("SELECT clock_timestamp() < $1 AS before", [at])).rows[0].before, "the redemption must begin before the date").toBe(true);
+      while (!(await pool.query("SELECT clock_timestamp() > $1 AS past", [at])).rows[0].past) await new Promise(resolve => setTimeout(resolve, 50));
+      await gate.query("COMMIT");
+      expect(await booking).toMatchObject({ error: { code: kind === "raise" ? "STALE_REWARD" : "INVALID_REWARD" } });
+      expect(await db.select().from(redemptions).where(eq(redemptions.membershipId, f.member.id))).toHaveLength(0);
+    } finally { await gate.query("ROLLBACK"); await booking; gate.release(); }
+  });
+
   it("rejects foreign rewards, tenants, locations, revoked staff and closed cards without redemption effects", async () => {
     const { f, request } = await fixture("edit");
     const other = await nfcFixture();
