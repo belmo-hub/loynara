@@ -8,6 +8,7 @@ import { CARD_NEWS_MAX, CHALLENGE_VISITS, cardNewsProblem, EXCLUDED_GOODS, LEVEL
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { AVERAGE_VISIT_SPEND_MAX_MINOR, SPEND_COPY } from "@/lib/spend-copy";
+import { unitWord } from "@/lib/units";
 import type { Question } from "./program-helpers";
 
 /** The Programm rows this card edits, one at a time. */
@@ -96,7 +97,7 @@ export function ProgramExtrasCard({ me, only, onSaved }: { me: MeResponse; only:
           {draft.challengeVisits && <div className="ow-field"><label htmlFor="extras-challenge-bonus">Bonus ({stamp ? "Stempel" : "Punkte"})</label>
             <input id="extras-challenge-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 140 }} value={draft.challengeBonus} onChange={event => edit({ challengeBonus: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={!challengeValid} /></div>}
         </div>
-        {me.challengeNext && <p className="ow-hint" role="status">Diesen Monat gilt noch: {me.challengeVisits}-mal, +{me.challengeBonus} {stamp ? "Stempel" : "Punkte"}. Gilt ab {Number(me.challengeNext.from.slice(8))}.{Number(me.challengeNext.from.slice(5, 7))}.: {me.challengeNext.visits ? `${me.challengeNext.visits}-mal, +${me.challengeNext.bonus} ${stamp ? "Stempel" : "Punkte"}` : "aus"}.</p>}
+        {me.challengeNext && <p className="ow-hint" role="status">Diesen Monat gilt noch: {me.challengeVisits}-mal, +{me.challengeBonus} {unitWord(me.challengeBonus ?? 0, me.programType)}. Gilt ab {Number(me.challengeNext.from.slice(8))}.{Number(me.challengeNext.from.slice(5, 7))}.: {me.challengeNext.visits ? `${me.challengeNext.visits}-mal, +${me.challengeNext.bonus} ${unitWord(me.challengeNext.bonus ?? 0, me.programType)}` : "aus"}.</p>}
         <span id="extras-challenge-hint" className={challengeValid ? "ow-hint" : "ow-error"}>{challengeValid ? `${me.challengeVisits ? "Änderungen an der laufenden Challenge gelten ab dem 1. des nächsten Monats; dieser Monat bleibt, wie die Karte es zeigt. " : ""}Zählt Tage mit einem an der Kasse bestätigten Besuch im Kalendermonat. Der Bonus wird einmal pro Monat mit dem bestätigten Besuch gebucht, der das Ziel erreicht; die Kasse sieht ihn. ${stamp ? "1 bis 3 Stempel." : "Höchstens ein Viertel der günstigsten Prämie."} ${EXCLUDED_GOODS}` : stamp ? "Bonus: 1 bis 3 Stempel." : "Bonus: mindestens 1 Punkt."}</span>
       </fieldset>}
       {only === "levels" && <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>

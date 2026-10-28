@@ -22,6 +22,13 @@ describe("printable merchant sign", () => {
     expect(html).toContain(sign.joinUrl);
   });
 
+  it("names a reward that costs exactly one point in the singular (ENG-108)", () => {
+    expect(counterSignHtml({ ...sign, programType: "points", rewardCost: 1 })).toContain('<p class="reward">1 Punkt → Kaffee &lt;gratis&gt;</p>');
+    expect(counterSignHtml({ ...sign, programType: "points", rewardCost: 2 })).toContain('<p class="reward">2 Punkte → Kaffee &lt;gratis&gt;</p>');
+    expect(counterSignHtml({ ...sign, rewardCost: 1 })).toContain('<p class="reward">1 Stempel → Kaffee &lt;gratis&gt;</p>');
+    expect(counterSignHtml(sign)).toContain('<p class="reward">8 Stempel → Kaffee &lt;gratis&gt;</p>');
+  });
+
   it("rejects a non-HTTPS external join link", () => {
     expect(() => counterSignHtml({ ...sign, joinUrl: "http://example.test/join/synthetic-cafe" })).toThrow("Anmeldelink ist nicht gültig");
   });

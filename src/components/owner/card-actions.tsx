@@ -5,11 +5,11 @@ import QRCode from "qrcode";
 import { useRef, useState } from "react";
 import { ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import type { MerchantMemberDetail } from "@/lib/merchant-members";
+import { unitWord } from "@/lib/units";
 import { Notice, OwnerDialog } from "./owner-ui";
 import { copyText } from "@/components/copy-text";
 
 type Entry = MerchantMemberDetail["timeline"][number];
-type Unit = "Stempel" | "Punkte";
 
 const CORRECTION_ERRORS: Record<string, string> = {
   ALREADY_REVERSED: "Dieser Vorgang wurde bereits korrigiert.",
@@ -35,7 +35,7 @@ export function sourceLabel(source: string) {
  * acting person are stored with the correction. An unclear network result keeps the same idempotency key, so
  * retrying cannot book the correction twice.
  */
-export function CorrectionDialog({ entry, unit, locationId, balance, onClose, onDone }: { entry: Entry; unit: Unit; locationId: string; balance?: number; onClose: () => void; onDone: () => void }) {
+export function CorrectionDialog({ entry, kind, locationId, balance, onClose, onDone }: { entry: Entry; kind: "stamp" | "points"; locationId: string; balance?: number; onClose: () => void; onDone: () => void }) {
   const [reason, setReason] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "uncertain" | "error">("idle");
   const [error, setError] = useState("");
@@ -62,10 +62,10 @@ export function CorrectionDialog({ entry, unit, locationId, balance, onClose, on
       <button type="button" className="ow-btn ow-btn--secondary" onClick={onClose} disabled={state === "saving"}>Abbrechen</button>
       <button type="button" className="ow-btn ow-btn--primary" onClick={() => void submit()} disabled={!valid || state === "saving"} aria-busy={state === "saving"}>{state === "saving" ? "Wird gebucht …" : state === "uncertain" ? "Erneut senden" : "Korrektur buchen"}</button>
     </>}>
-      <p>{entry.kind === "award" ? "Buchung" : entry.kind === "expiry" ? "Verfall" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unit}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p>
-      {balance !== undefined && <div className="ow-readonly ow-row" style={{ justifyContent: "space-between" }} aria-label="Rechnerische Auswirkung dieses Vorgangs"><span>Stand jetzt <strong className="ow-num">{balance} {unit}</strong></span><span aria-hidden="true">→</span><span>nur dieser Vorgang <strong className="ow-num">{balance + effect} {unit}</strong></span></div>}
+      <p>{entry.kind === "award" ? "Buchung" : entry.kind === "expiry" ? "Verfall" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitWord(entry.delta, kind)}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p>
+      {balance !== undefined && <div className="ow-readonly ow-row" style={{ justifyContent: "space-between" }} aria-label="Rechnerische Auswirkung dieses Vorgangs"><span>Stand jetzt <strong className="ow-num">{balance} {unitWord(balance, kind)}</strong></span><span aria-hidden="true">→</span><span>nur dieser Vorgang <strong className="ow-num">{balance + effect} {unitWord(balance + effect, kind)}</strong></span></div>}
       {balance !== undefined && <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einer ersten Buchung können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>}
-      <p className="ow-muted">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unit}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Buchung für Empfehlungen" : ""}.</p>
+      <p className="ow-muted">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unitWord(effect, kind)}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Buchung für Empfehlungen" : ""}.</p>
       <div className="ow-field"><label htmlFor="corr-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="corr-reason" className="ow-textarea" data-autofocus rows={3} readOnly={state === "saving" || state === "uncertain"} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Versehentlich zwei Stempel statt einem vergeben" aria-describedby="corr-reason-n" /><ReasonHint id="corr-reason-n" length={reason.trim().length} /></div>
       {state === "uncertain" && <p className="ow-hint">Für die Wiederholung bleibt der ursprünglich gesendete Grund unverändert.</p>}
       {error && <Notice tone={state === "uncertain" ? "warn" : "danger"} role="alert">{error}</Notice>}

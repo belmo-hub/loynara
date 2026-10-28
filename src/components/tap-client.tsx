@@ -62,6 +62,9 @@ export function stampAnnouncement(state: TapState | "loading" | "error", balance
   return (state === "confirmed" || state === "awarded") && typeof balance === "number" ? `${points ? "Punkte" : "Stempel"} erhalten, neuer Stand ${balance}.` : null;
 }
 
+/** „Aktueller Stand: 1 Punkt“, „… 2 Punkte“; stamps read the same in both numbers. */
+export const currentBalance = (balance: number, points: boolean) => `Aktueller Stand: ${balance} ${points ? (balance === 1 ? "Punkt" : "Punkte") : "Stempel"}`;
+
 /** The guest's card with the booked balance; during the stamp moment its new stamp lands. */
 export function TapCardFace({ card, balance, moment }: { card: CardResponse; balance: number; moment: boolean }) {
   const rewards = card.rewards.map(({ id, title, cost }) => ({ id, title, cost }));
@@ -162,7 +165,7 @@ export function TapClient({ refId }: { refId: string }) {
       {done && card && typeof result?.balance === "number" && <TapCardFace card={card} balance={result.balance} moment={celebrate} />}
       {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p className={styles.number}><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{result.cardLocator}</strong></p>}
       {waiting && <p className={styles.muted}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
-      {typeof result?.balance === "number" && state !== "needs_enrollment" && !(done && card) && <p className={styles.balance}>Aktueller Stand: {result.balance} {points ? "Punkte" : "Stempel"}</p>}
+      {typeof result?.balance === "number" && state !== "needs_enrollment" && !(done && card) && <p className={styles.balance}>{currentBalance(result.balance, points)}</p>}
       {selectionRequired && preview?.cardPath && <div className={styles.actions}>
         <button className={buttonClassName({ size: "lg", block: true })} onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button>
         <a className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath} onClick={() => sessionStorage.removeItem(TAP_RETURN_KEY)}>Gespeicherte Karte {preview.cardLocator} ansehen</a>

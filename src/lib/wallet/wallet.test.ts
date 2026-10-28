@@ -165,6 +165,17 @@ describe("pass content derived from Loynara state", () => {
     expect(walletProgress({ ...pass, locale: "fr" })).toMatchObject({ unit: "tampons", statusText: "Encore 3 tampons" });
   });
 
+  it("counts the last point or stamp in the singular, the field label stays plural (ENG-108)", () => {
+    const points = (balance: number, locale: "de" | "fr" = "de") => walletProgress({ ...pass, locale, programType: "points", balance, reward: { title: "Gutschein", cost: 200 } });
+    expect(points(199)).toMatchObject({ unit: "Punkte", statusText: "Noch 1 Punkt" });
+    expect(points(198)).toMatchObject({ statusText: "Noch 2 Punkte" });
+    expect(points(199, "fr")).toMatchObject({ unit: "points", statusText: "Encore 1 point" });
+    expect(points(198, "fr")).toMatchObject({ statusText: "Encore 2 points" });
+    expect(walletProgress({ ...pass, balance: 9 })).toMatchObject({ statusText: "Noch 1 Stempel" });
+    expect(walletProgress({ ...pass, locale: "fr", balance: 9 })).toMatchObject({ unit: "tampons", statusText: "Encore 1 tampon" });
+    expect(walletProgress({ ...pass, locale: "fr", balance: 8 })).toMatchObject({ statusText: "Encore 2 tampons" });
+  });
+
   it("picks readable text like the browser card", () => {
     expect(passInk("#264C45")).toBe("light");
     expect(passInk("#F2D16B")).toBe("dark");

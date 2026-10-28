@@ -75,7 +75,6 @@ export function CustomerCard(props: CustomerCardProps) {
   const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
-  const unit = programType === "points" ? t.points : t.stamps;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
   const nearest = nearestReward(rewards, balance);
@@ -126,7 +125,7 @@ export function CustomerCard(props: CustomerCardProps) {
       <h2 id="customer-rewards-title" className={styles.panelTitle}>{t.chooseReward}</h2>
       <div role="group" aria-label={t.rewardsGroup} className={styles.rewardList}>
         {rewards.map((reward) => <button key={reward.id} type="button" aria-pressed={selected?.id === reward.id} className={styles.rewardRow} onClick={() => setSelectedId(reward.id)}>
-          <span className={styles.rewardText}><strong>{reward.title}</strong><small>{number.format(reward.cost)} {unit}</small></span>
+          <span className={styles.rewardText}><strong>{reward.title}</strong><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
           <Badge tone={balance >= reward.cost ? "success" : "neutral"}>{balance >= reward.cost ? t.redeemable : t.short(number.format(reward.cost - balance))}</Badge>
         </button>)}
       </div>
@@ -140,7 +139,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     <section className={`customer-activity ${styles.panel}`} aria-labelledby="customer-activity-title">
       <h2 id="customer-activity-title" className={styles.panelTitle}><History size={18} aria-hidden="true" /> {t.activity}</h2>
-      {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {unit}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
+      {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
     {rulesText || pointsExpiry || challenge || level ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">
@@ -161,7 +160,7 @@ export function CustomerCard(props: CustomerCardProps) {
 /** The one progress statement: how many are missing for which reward, or which reward is ready. */
 function Goal({ t, number, programType, balance, selected, readyCount, nextGoal }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; balance: number; selected?: Reward; readyCount: number; nextGoal?: Reward }) {
   if (!selected) return null;
-  const unitFor = (n: number) => (programType === "points" ? (n === 1 ? t.point : t.points) : t.stamps);
+  const unitFor = (n: number) => t.unit(n, programType);
   const remaining = Math.max(0, selected.cost - balance);
   const sub = remaining > 0 ? (readyCount === 1 ? t.readyOne : readyCount > 1 ? t.readyMany(readyCount) : null)
     : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;

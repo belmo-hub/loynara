@@ -7,9 +7,10 @@ import { nf } from "./owner-ui";
 export type ReferralRow = { status: string };
 /** `next`: an extra sentence for "Als Nächstes" on the Übersicht. */
 export type Insight = { id: string; tone: "act" | "watch"; title: string; why: string; next?: string; actions: Array<{ label: string; href: string }> };
-/** The owner's Wallet win-back (ENG-044), as the per-location read returns it: null where it is not offered or not the owner's. */
+/** The win-back bonus as the per-location read returns it (`enabled`: on with a bonus); null where the location has no programme. */
 export type WinbackState = { enabled: boolean; inWindow: number } | null;
-const WINBACK_HREF = "/merchant/wallet-messages#winback-title";
+/** The win-back setting: on Programm since ENG-089 (Wallet-Nachrichten no longer has it). */
+export const WINBACK_HREF = "/merchant/program/winback";
 
 const cards = (n: number) => `${nf.format(n)} ${n === 1 ? "Karte" : "Karten"}`;
 
@@ -32,11 +33,11 @@ export function buildInsights(input: { summary: RetentionSummary; unit: string; 
   if (s.drifting > 0) {
     const trend = s.driftingWeekAgo === s.drifting ? "Gleich viele wie vor einer Woche." : s.driftingWeekAgo < s.drifting ? `Vor einer Woche waren es ${nf.format(s.driftingWeekAgo)}.` : `Vor einer Woche waren es noch ${nf.format(s.driftingWeekAgo)}.`;
     // Product (O8): drifting cards lead to the Wallet win-back where it is offered, never to an unreleased e-mail campaign.
-    const returning = winback?.enabled ? `${cards(winback.inWindow)} ${winback.inWindow === 1 ? "bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt." : "bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen."}` : undefined;
+    const returning = winback?.enabled && winback.inWindow > 0 ? `${cards(winback.inWindow)} ${winback.inWindow === 1 ? "bekommt den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommt." : "bekommen den Willkommen-zurück-Bonus, wenn sie rechtzeitig wiederkommen."}` : undefined;
     list.push({ id: "drifting", tone: "act", title: `${cards(s.drifting)} seit über ${days} Tagen ohne bestätigte Buchung`,
       why: `Diese Karten hatten schon bestätigte Buchungen, aber keine in den letzten ${days} Tagen. ${trend} Warum, wissen wir nicht.${returning ? ` ${returning}` : ""}`,
       next: returning,
-      actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "drifting") }, ...(winback && !winback.enabled ? [{ label: "Willkommen-zurück-Bonus einschalten", href: WINBACK_HREF }] : [])] });
+      actions: [{ label: "Karten ansehen", href: retentionCustomerHref(s, "drifting") }, ...(isOwner && winback && !winback.enabled ? [{ label: "Willkommen-zurück-Bonus einschalten", href: WINBACK_HREF }] : [])] });
   }
   if (s.nearReward > 0) {
     const gap = s.nearRewardMaxRemaining;

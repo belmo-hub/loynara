@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiJson, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
+import { withUnit } from "@/lib/units";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { Notice, OwnerDialog, SaveBar, type SaveState } from "./owner-ui";
 import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, purchaseExample, unitName, type EarningMode, type ProgramKind } from "./program-helpers";
@@ -111,9 +112,9 @@ export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: Pu
               </div>
             </>
           ) : draft.type === "stamp" ? (
-            <p>Dein Team vergibt an der Kasse Stempel, meist einen pro Besuch. {cheapest ? `Nach ${cheapest.cost} Stempeln ist „${cheapest.title}“ erreichbar.` : ""}</p>
+            <p>Dein Team vergibt an der Kasse Stempel, meist einen pro Besuch. {cheapest ? `Nach ${withUnit(cheapest.cost, "stamp", "de", "dat")} ist „${cheapest.title}“ erreichbar.` : ""}</p>
           ) : (
-            <p>Dein Team gibt die Punkte direkt ein. {cheapest ? `Ab ${cheapest.cost} Punkten ist „${cheapest.title}“ erreichbar.` : ""}</p>
+            <p>Dein Team gibt die Punkte direkt ein. {cheapest ? `Ab ${withUnit(cheapest.cost, "points", "de", "dat")} ist „${cheapest.title}“ erreichbar.` : ""}</p>
           )}
           <p className="ow-hint">{minSpend !== null && cheapest ? <>Günstigste Prämie „{cheapest.title}“: mindestens <strong>{euro(minSpend, currency)}</strong> Einkaufswert. {MIN_SPEND_LABEL}</> : [noMinSpendNote(draft.type) && `${noMinSpendNote(draft.type)}.`, draft.type === "stamp" || mode === "manual" ? "Die Menge legt das Team bei der Vergabe fest." : ""].filter(Boolean).join(" ")}</p>
         </aside>
