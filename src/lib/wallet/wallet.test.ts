@@ -281,6 +281,20 @@ describe("Apple pass", () => {
     expect(applePassJson({ ...pass, locale: "fr", rewards }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("rewards");
   });
 
+  it("puts the owner's message after the rules and the reward on the back, with a lock-screen changeMessage, leaving the front as it was (ENG-127)", () => {
+    const text = "Heute ruhig: Kaffee zum halben Preis bis 17 Uhr.";
+    const rules = ["Ein Stempel pro Kaffee."];
+    const json = applePassJson({ ...pass, rules, message: text, messageDay: "28.10." }, serial, appleConfig);
+    expect(json.storeCard.backFields.map(field => field.key).slice(0, 3)).toEqual(["rules", "rewardTitle", "message"]);
+    expect(json.storeCard.backFields[2]).toEqual({ key: "message", label: "Nachricht von Kasseler Kaffee vom 28.10.", value: text, changeMessage: "%@", dataDetectorTypes: [] });
+    const plain = applePassJson({ ...pass, rules }, serial, appleConfig);
+    expect(plain.storeCard.backFields.map(field => field.key)).not.toContain("message");
+    expect({ ...json.storeCard, backFields: json.storeCard.backFields.filter(field => field.key !== "message") }).toEqual(plain.storeCard);
+    // Consent without a message yet: the key exists with a placeholder, so Wallet alerts when the first message changes it.
+    expect(applePassJson({ ...pass, message: "" }, serial, appleConfig).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ key: "message", label: "Nachricht von Kasseler Kaffee", value: "Noch keine Nachricht." });
+    expect(applePassJson({ ...pass, locale: "fr", message: text }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("message");
+  });
+
   it("keeps today's approved French status line while the new strings are German only (founder, 28 Oct)", () => {
     const card = (data: Partial<WalletPassData>) => applePassJson({ ...pass, locale: "fr", ...data }, serial, appleConfig).storeCard;
     expect(card({}).secondaryFields[1]).toEqual({ key: "status", label: "STATUT", value: "Encore 3 tampons", changeMessage: "%@", textAlignment: "PKTextAlignmentRight" });

@@ -166,6 +166,8 @@ export function applePassJson(pass: WalletPassData, serial: string, config: Appl
         ...(pass.rules?.length ? [{ key: "rules", label: t.rules, value: pass.rules.join("\n\n"), dataDetectorTypes: [] }] : []),
         // In full: the name carries the reward's limits (ENG-115), and Wallet may cut it on the front.
         ...(reward ? [{ key: "rewardTitle", label: rewardLabel, value: reward.title, dataDetectorTypes: [] }] : []),
+        // Owner message (ENG-127), after the rules and the reward (Design): ENG-100's dated lines lead the back. Owner-written: no detected links or numbers.
+        ...(t.message && pass.message !== undefined ? [{ key: "message", label: t.message(pass.merchantName, pass.messageDay), value: pass.message || t.noMessage, changeMessage: "%@", dataDetectorTypes: [] }] : []),
         // What each reward costs, in the merchant's order (ENG-116): „100 Punkte – Gratiskaffee“.
         ...(t.rewardList && pass.rewards?.length ? [{ key: "rewards", label: t.rewardList, value: pass.rewards.map(item => `${withUnit(item.cost, pass.programType, pass.locale)} – ${item.title}`).join("\n"), dataDetectorTypes: [] }] : []),
         { key: "programme", label: t.programme, value: pass.programName },
