@@ -23,7 +23,7 @@ async function user() {
 // A points shop that earns by purchase amount: 2 points per euro, so 5.00 EUR is 10 points.
 async function shop(userId: string, type: "stamp" | "points" = "points") {
   const merchant = await createMerchant({ userId, businessName: "Synthetic Happy Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: type, rulesText: "Punkte pro Euro.", rewardTitle: "Kaffee gratis", rewardCost: 100 });
-  if (type === "points") await updateProgram({ actorUserId: userId, programSlug: merchant.programSlug, name: "Punktekarte", rulesText: "Zwei Punkte pro Euro.", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2 });
+  if (type === "points") await updateProgram({ actorUserId: userId, programSlug: merchant.programSlug, name: "Punktekarte", rulesText: "Zwei Punkte pro Euro.", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2, worse: false });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   return { ...merchant, card };
 }
@@ -97,7 +97,7 @@ describe("happy hour", () => {
   it("gives a points programme with manual quantities nothing", async () => {
     const owner = await user(); const m = await shop(owner);
     await on(owner, m);
-    await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Punktekarte", rulesText: "Punkte von Hand.", programType: "points", earningMode: "manual" });
+    await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Punktekarte", rulesText: "Punkte von Hand.", programType: "points", earningMode: "manual", worse: false });
     expect(await award({ userId: owner, locationId: m.locationId, membershipId: m.card.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() })).toMatchObject({ balance: 5 });
     expect((await getCard(m.card.cardToken)).happyHourUntil).toBeUndefined();
   });
@@ -129,8 +129,9 @@ describe("happy hour", () => {
     }
     expect(await rows(m.card.id)).toEqual([]);
     await on(owner, m);
-    await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Stempelkarte", rulesText: "Ein Stempel.", programType: "stamp", earningMode: "manual" });
-    expect((await db.select().from(programs).where(and(eq(programs.id, m.programId))))[0]).toMatchObject({ happyHourEnabled: false });
+    // ENG-100 (Legal): the shop has a card, so the type is locked; welcome-bonus covers what a type change switches off.
+    await expect(updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Stempelkarte", rulesText: "Ein Stempel.", programType: "stamp", earningMode: "manual" })).rejects.toMatchObject({ code: "TYPE_LOCKED" });
+    expect((await db.select().from(programs).where(and(eq(programs.id, m.programId))))[0]).toMatchObject({ happyHourEnabled: true });
   });
 
   it("gives an offline-synced award nothing: its purchase time is not known to the server", async () => {

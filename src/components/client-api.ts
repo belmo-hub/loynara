@@ -118,6 +118,9 @@ export type PublicProgram = {
   brandColor?: string;
   active?: boolean;
   referral?: { enabled: boolean; referrerBonus: number; referredBonus: number };
+  /** ENG-100 D7: the newest rule and reward versions shown, sent back with the join. */
+  ruleVersionId?: string;
+  rewardVersionIds?: string[];
 };
 
 export type CardResponse = {

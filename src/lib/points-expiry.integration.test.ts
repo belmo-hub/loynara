@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, programs } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
@@ -32,6 +32,8 @@ const balanceOf = async (membershipId: string) => (await db.select({ balance: me
 const expiryRows = (membershipId: string) => db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, membershipId), eq(ledgerEntries.kind, "expiry")));
 const entryTime = async (entryId: string) => (await db.select({ at: ledgerEntries.createdAt }).from(ledgerEntries).where(eq(ledgerEntries.id, entryId)))[0].at;
 const setExpiry = (s: Shop, months: 24 | 36 | null, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, pointsExpiryMonths: months });
+/** An expiry in force: switching on is dated four weeks on (ENG-100, dated-rule-changes), so these replay tests start from a passed date. */
+const expiryOn = (s: Shop, months: 24 | 36) => db.update(programs).set({ pointsExpiryMonths: months, pointsExpirySince: sql`now()` }).where(eq(programs.id, s.programId));
 
 describe("points expiry setting", () => {
   it("is off by default: nothing expires and the card shows no rule", async () => {
@@ -70,7 +72,7 @@ describe("points expiry setting", () => {
 describe("the expiry job", () => {
   it("books a labelled ledger row exactly at the expiry instant, once", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     const due = addMonths(await entryTime(first.entryId), 24);
@@ -91,7 +93,7 @@ describe("the expiry job", () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     await give(s, card.id, 30);
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const after = await give(s, card.id, 20);
     // Changing the period restarts it: the 20 points keep their 24-month promise only until the change, then never expire.
     await setExpiry(s, 36);
@@ -104,7 +106,7 @@ describe("the expiry job", () => {
 
   it("uses up the oldest points first when a reward is redeemed", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const old = await give(s, card.id, 50);
     await give(s, card.id, 80);
@@ -117,7 +119,7 @@ describe("the expiry job", () => {
 
   it("gives expired points back through an ordinary correction, which the job then leaves alone", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     const due = addMonths(await entryTime(first.entryId), 24);
@@ -141,8 +143,8 @@ describe("the expiry job", () => {
   it("is not a visit and not a redemption in the owner's numbers, and stays inside its shop", async () => {
     const s = await shop();
     const other = await shop("points", "Other Synthetic Shop");
-    await setExpiry(s, 24);
-    await setExpiry(other, 36);
+    await expiryOn(s, 24);
+    await expiryOn(other, 36);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const neighbour = await enroll({ slug: other.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
@@ -158,7 +160,7 @@ describe("the expiry job", () => {
 
   it("keeps going when one card cannot be booked", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const broken = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const fine = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, broken.id, 40);
@@ -174,7 +176,7 @@ describe("the expiry job", () => {
 
   it("books nothing for an ended programme", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     await db.update(programs).set({ status: "ended" }).where(eq(programs.id, s.programId));
@@ -194,7 +196,7 @@ describe("the 30-day reminder", () => {
 
   it("goes to every Wallet holder as service information, once per 30 days", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const consented = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const silent = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const browserOnly = await enroll({ slug: s.programSlug, acceptedTerms: true });
@@ -229,7 +231,7 @@ describe("the 30-day reminder", () => {
   it("shows the notice on the card within 30 days of the first expiry", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const { cardExpiry } = await import("./points-expiry");
     const first = await give(s, card.id, 25);
     const due = addMonths(await entryTime(first.entryId), 24);
