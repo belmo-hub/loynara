@@ -23,10 +23,9 @@
 .status[data-state="done"] .dot, .status[data-state="error"] .dot { background: currentColor; }
 .status[data-state="error"] { background: var(--color-danger); color: var(--color-bg); }
 .main { flex: 1; display: grid; align-content: start; gap: var(--space-4); padding: var(--space-4) var(--gutter) var(--space-6); }
-.shell[data-has-dock] .main { padding-bottom: calc(192px + env(safe-area-inset-bottom)); }
-/* A three-row dock (stepper, earn, the reward band when a reward is ready) needs one more row of room, with the band's
-   reward name on two lines. */
+/* The dock is sticky at the end of the column, so the page always ends above it, whatever its height (a two-line reward name). */
 .shell:has(.dock > :nth-child(3)) { --toast-offset: 248px; }
-.shell:has(.dock > :nth-child(3)) .main { padding-bottom: calc(256px + env(safe-area-inset-bottom)); }
-.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky); display: grid; gap: var(--space-2); padding: var(--space-4) var(--gutter) calc(var(--space-4) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--color-bg) 80%, transparent); }
+.dock { position: sticky; bottom: 0; z-index: var(--z-sticky); display: grid; gap: var(--space-2); padding: var(--space-4) var(--gutter) calc(var(--space-4) + env(safe-area-inset-bottom)); background: var(--color-bg); }
+/* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock. */
+.dock::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--space-4); background: linear-gradient(to top, var(--color-bg), transparent); pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .status { transition: none; } }
