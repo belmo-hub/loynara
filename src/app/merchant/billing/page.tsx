@@ -1,18 +1,24 @@
 "use client";
 
+import { CreditCard, Euro, FileText, FlaskConical, MapPin } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
-import { billingStatus, type BillingOverview as Overview } from "@/components/owner/billing-copy";
+import { billingStatus, money, perMonth, type BillingOverview as Overview } from "@/components/owner/billing-copy";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
+import { MORE_HREF } from "@/components/owner/nav";
 import { useOwner } from "@/components/owner/owner-context";
-import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
+import { Band, MoreLabel, NumberCard, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
+import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 
-const money = (minor: number, currency: "EUR" | "MAD") => new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(minor / 100);
 const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
 const count = (value: number) => value.toLocaleString("de-DE");
-const PLAN: Record<string, string> = { founding: "Gründungspreis", list: "Listenpreis" };
 
+/**
+ * Abrechnung (ENG-122c, screen 17; D-021): the monthly price card, the status, each location with its stored price, the
+ * receipts. Only what the billing read returns: no price, plan name or VAT wording of its own (the tax line is the read's,
+ * empty while BILLING_VAT_MODE is unset).
+ */
 export default function MerchantBillingPage() {
   const { me } = useOwner();
   const [data, reload] = useLoad<Overview>(me?.role === "owner" ? "/api/merchant/billing" : null);
@@ -20,13 +26,12 @@ export default function MerchantBillingPage() {
   const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   if (!me) return null;
-  const head = <PageHead eyebrow="Einstellungen · Abrechnung" title="Tarif und Abrechnung" lead="Preise und Nutzung pro Standort. Diese Vorschau löst keine Zahlung aus." />;
+  const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Abrechnung" lead="Preise und Nutzung pro Standort." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Abrechnungsdaten sehen.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
-  if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
+  if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} height={64} /></div>;
   const o = data.data;
-  // „Diese Vorschau löst keine Zahlung aus.“ is true only for the fixture preview; live billing takes real payments (Head of Design).
-  if (o.liveBilling) return <LiveBilling o={o} head={<><PageHead eyebrow="Einstellungen · Abrechnung" title="Tarif und Abrechnung" lead="Preise und Nutzung pro Standort." /><CancellationNotice me={me} /></>} />;
+  if (o.liveBilling) return <LiveBilling o={o} head={<>{head}<CancellationNotice me={me} /></>} />;
 
   async function startFixture() {
     setBusy(true); setError("");
@@ -43,34 +48,46 @@ export default function MerchantBillingPage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Kündigung konnte nicht vorgemerkt werden."); }
     finally { setBusy(false); }
   }
+  const canStart = o.fixtureAvailable && ["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(o.status);
+  const canEnd = o.fixtureAvailable && ["active_fixture", "grace_fixture"].includes(o.status) && !o.cancelAtPeriodEnd;
 
   return (
     <div className="ow-page">
       {head}
       <CancellationNotice me={me} />
-      <Notice tone="warn">Nur ein Tarifentwurf. Es gibt keine Live-Zahlung, keine geprüfte Steuerberechnung und keinen Rechnungsversand.</Notice>
       {error && <ErrorNotice message={error} />}
-      <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
-        <div><p className="ow-eyebrow">Status</p><h2>{billingStatus(o)}</h2><p className="ow-muted" style={{ marginTop: 4 }}>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."}</p></div>
-        <div><p className="ow-eyebrow">Monatlicher Entwurf</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.monthlySubtotalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{o.locationCount} Standort{o.locationCount === 1 ? "" : "e"} · zzgl. gegebenenfalls anfallender Steuer; keine Rechnung.</p></div>
-      </section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standortpläne und Nutzung</h2>
-        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong><br /><small className="ow-muted">Standard · {money(location.priceMinor, o.currency)} / Monat als Entwurf</small></span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul>
-        <p className="ow-hint">Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-inv"><h2 id="bi-inv">Belege</h2>
-        {o.invoices.length ? <ul className="ow-feed">{o.invoices.map(invoice => <li key={invoice.id} style={{ display: "block" }}><strong>{money(invoice.amountMinor, invoice.currency)} · Testbuchung</strong><br /><span className="ow-muted">Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}</span><br /><small className="ow-muted">Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</small></li>)}</ul> : <p className="ow-muted">Keine Belege vorhanden. Es wurde keine Zahlung erfasst.</p>}</section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Nächste Schritte</h2>
-        <p>Ein echter gehosteter Checkout, Portalzugang, Steuerberechnung und Rechnungsversand sind nicht eingerichtet.</p>
-        <div className="ow-row">
-          {o.fixtureAvailable && ["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(o.status) && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void startFixture()} disabled={busy}>Lokalen Zahlungstest öffnen</button>}
-          {o.fixtureAvailable && ["active_fixture", "grace_fixture"].includes(o.status) && !o.cancelAtPeriodEnd && (!confirmCancel
-            ? <button type="button" className="ow-btn ow-btn--secondary" onClick={() => setConfirmCancel(true)}>Testperiode zum Ende beenden</button>
-            : <div className="ow-readonly ow-stack"><p>Die Testperiode endet zum angezeigten Periodenende. Bestehende Karten und Buchungen bleiben erhalten.</p><div className="ow-row"><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelFixture()}>Beendigung bestätigen</button><button type="button" className="ow-btn ow-btn--ghost" onClick={() => setConfirmCancel(false)}>Zurück</button></div></div>)}
-        </div>
-      </section>
-      <Notice>{o.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</Notice>
+      {/* Kicker and note: Marketing FINAL for screen 17 (28 Oct), replacing the draft wording. */}
+      <NumberCard label="Dein Preis im Monat" value={money(o.monthlySubtotalMinor, o.currency)}>
+        <p className="ow-board-sub">{perMonth(o.locationCount, o.monthlySubtotalMinor, o.currency)}</p>
+        <p className="ow-numcard-note">Noch keine Zahlung. Alle Bedingungen bekommst du schriftlich, bevor du etwas zahlst.</p>
+      </NumberCard>
+      <div className="ow-prog">
+        <Rows title="Status">
+          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : "Keine Live-Zahlung und kein freigegebener Zahlungsanbieter."} />
+        </Rows>
+        <Rows title="Standorte" help={<><p>{o.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</p><p>Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></>}>
+          {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={<Price minor={location.priceMinor} currency={o.currency} />} big />)}
+        </Rows>
+        <Rows title="Belege">
+          {o.invoices.length
+            ? o.invoices.map(invoice => <Row key={invoice.id} icon={FileText} title={`${money(invoice.amountMinor, invoice.currency)} · Testbuchung`} sub={<>Erfasst {date(invoice.createdAt)} · Testperiode bis {date(invoice.periodEnd)}<br />Fixture-Beleg {invoice.providerInvoiceId}. Steuer nicht berechnet; keine gültige Steuerrechnung.</>} />)
+            : <Row key="none" icon={FileText} title="Keine Belege vorhanden." sub="Es wurde keine Zahlung erfasst." />}
+        </Rows>
+        {/* The local payment test exists on development and preview only (fixtureAvailable). */}
+        {(canStart || canEnd) && <Rows title="Nächste Schritte" note="Ein echter gehosteter Checkout, Portalzugang, Steuerberechnung und Rechnungsversand sind nicht eingerichtet.">
+          {canStart && <Row key="start" icon={FlaskConical} title="Lokalen Zahlungstest öffnen" onClick={() => { if (!busy) void startFixture(); }} />}
+          {canEnd && (!confirmCancel
+            ? <Row key="end" icon={FlaskConical} title="Testperiode zum Ende beenden" onClick={() => setConfirmCancel(true)} />
+            : <div key="confirm" className="ow-qpanel ow-stack"><p>Die Testperiode endet zum angezeigten Periodenende. Bestehende Karten und Buchungen bleiben erhalten.</p><div className="ow-row"><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => void cancelFixture()}>Beendigung bestätigen</button><button type="button" className="ow-btn ow-btn--ghost" onClick={() => setConfirmCancel(false)}>Zurück</button></div></div>)}
+        </Rows>}
+      </div>
     </div>
   );
+}
+
+/** A location's stored price with „im Monat“ under it, so the value stays beside the name (Marketing: „{Preis} im Monat“). */
+function Price({ minor, currency }: { minor: number; currency: "EUR" | "MAD" }) {
+  return <span className="ow-price">{money(minor, currency)}<small> im Monat</small></span>;
 }
 
 /** Live billing through Stripe: checkout and the customer portal are Stripe-hosted pages; only their exact hosts are followed. */
@@ -86,29 +103,29 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt."); setBusy(false); }
   }
   const canCheckout = o.planCode !== null && ["manual_pending", "pending_checkout", "cancelled"].includes(o.status);
+  const checkout = () => { if (!busy) void go("/api/merchant/billing/handoff", "https://checkout.stripe.com"); };
   return (
     <div className="ow-page">
       {head}
       {error && <ErrorNotice message={error} />}
       {o.status === "past_due" && <Notice tone="warn" role="alert">Die letzte Zahlung ist fehlgeschlagen. Bitte prüfe deine Zahlungsdaten.</Notice>}
-      <section className="ow-card ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "center" }}>
-        <div><p className="ow-eyebrow">Status</p><h2>{billingStatus(o)}</h2>{o.cancelAtPeriodEnd && o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Gekündigt zum {date(o.currentPeriodEnd)}.</p> : o.currentPeriodEnd ? <p className="ow-muted" style={{ marginTop: 4 }}>Nächste Abrechnung am {date(o.currentPeriodEnd)}.</p> : o.charge ? <p className="ow-muted" style={{ marginTop: 4 }}>{PLAN[o.charge.planCode]}</p> : null}</div>
-        {/* No amount before the operator has set the plan: a list total would be untrue for a price not yet agreed (Product, L10). */}
-        {o.charge
-          ? <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>{money(o.charge.totalMinor, o.currency)}</strong><p className="ow-muted" style={{ marginTop: 4 }}>{money(o.charge.unitMinor, o.currency)} pro Standort und Monat. {o.taxNote}</p><p className="ow-muted" style={{ marginTop: 4 }}>{o.charge.quantity} Standort{o.charge.quantity === 1 ? "" : "e"} · monatlich kündbar{o.guaranteeApplied ? " · Startgarantie: Gutschrift auf der Rechnung für Monat 2" : ""}</p></div>
-          : <div><p className="ow-eyebrow">Monatlich</p><strong className="ow-metric-value" style={{ fontSize: "var(--display-36)" }}>Tarif offen</strong><p className="ow-muted" style={{ marginTop: 4 }}>Dein Preis wird mit dir vereinbart.</p></div>}
-      </section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-plans"><h2 id="bi-plans">Standorte und Nutzung</h2>
-        <ul className="ow-feed">{o.locations.map(location => <li key={location.locationId}><span><strong>{location.locationName}</strong>{o.charge ? <><br /><small className="ow-muted">{PLAN[o.charge.planCode]} · {money(o.charge.unitMinor, o.currency)} / Monat</small></> : null}</span><span className="ow-num">{count(location.activeMembers)} von {count(location.memberLimit)} aktiven Karten</span></li>)}</ul></section>
-      <section className="ow-card ow-stack" aria-labelledby="bi-next"><h2 id="bi-next">Zahlung</h2>
-        <p>Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe.</p>
-        <div className="ow-row">
-          {canCheckout && <button type="button" className="ow-btn ow-btn--primary" disabled={busy} onClick={() => void go("/api/merchant/billing/handoff", "https://checkout.stripe.com")}>Abo abschließen</button>}
-          {o.paymentAccount && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={() => void go("/api/merchant/billing/portal", "https://billing.stripe.com")}>Zahlungsdaten, Rechnungen und Kündigung</button>}
-        </div>
-        {o.planCode === null && <p className="ow-hint">Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen.</p>}
-      </section>
-      <Notice>{o.countingRule}</Notice>
+      {/* No amount before the operator has set the plan: a list total would be untrue for a price not yet agreed (Product, L10). */}
+      {o.charge
+        ? <NumberCard label="Monatlich" value={money(o.charge.totalMinor, o.currency)}>
+          <p className="ow-board-sub">{perMonth(o.charge.quantity, o.charge.totalMinor, o.currency)}</p>
+          {o.taxNote && <p className="ow-board-sub">{o.taxNote}</p>}
+        </NumberCard>
+        : <NumberCard label="Monatlich" value="Tarif offen"><p className="ow-board-sub">Dein Preis wird mit dir vereinbart.</p></NumberCard>}
+      {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub="Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe." onClick={checkout} />}
+      <div className="ow-prog">
+        <Rows title="Status">
+          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.` : o.currentPeriodEnd ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined} />
+          {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
+        </Rows>
+        <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.planCode === null ? "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen." : undefined}>
+          {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
+        </Rows>
+      </div>
     </div>
   );
 }

@@ -1,17 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@/components/owner/owner-context", () => ({ useOwner: () => ({
-  me: { userId: "owner", role: "owner", locationId: "location", locationName: "Berlin", publicBaseUrl: "http://localhost:3000" },
-  locations: [{ id: "location", name: "Berlin" }],
-}), useDirtyGuard: () => {}, }));
-
-import StaffPage from "./page";
+import { describe, expect, it } from "vitest";
+import { PermissionTable } from "@/components/owner/staff-data";
 
 describe("team permission explanation", () => {
   it("distinguishes manager read access to rules and rewards from owner-only changes", () => {
-    const html = renderToStaticMarkup(createElement(StaffPage));
+    const html = renderToStaticMarkup(createElement(PermissionTable));
     const rows = html.match(/<tr>.*?<\/tr>/g) ?? [];
     const readRow = rows.find(row => row.includes("Programm ansehen"));
     const editRow = rows.find(row => row.includes("Programm und Prämien ändern"));

@@ -18,8 +18,8 @@ test.afterAll(async()=>{await pool.end();});
 for(const width of [375,1280])test(`owner cancels pending invitation and reloads authoritative state at ${width}px`,async({browser,baseURL})=>{
  const email=randomUUID()+"@example.test",invite=await createStaffInvite({actorUserId:ownerId,locationId:shop.locationId,email,role:"cashier"});
  const context=await browser.newContext({baseURL,storageState:storage,extraHTTPHeaders:{Origin:origin},viewport:{width,height:844}});
- try{const page=await context.newPage();await page.goto("/merchant/staff");const section=page.locator('section[aria-labelledby="st-invitations"]'),row=section.getByRole("listitem").filter({hasText:email});
- await expect(row).toContainText("Offen");await row.getByRole("button",{name:"Widerrufen",exact:true}).click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();
+ try{const page=await context.newPage();await page.goto("/merchant/staff");const section=page.locator("#ow-main"),row=section.getByRole("listitem").filter({hasText:email});
+ await expect(row).toContainText("Offen");await row.getByRole("button").click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();
  await expect(row).toContainText("Widerrufen");await expect(row.getByRole("button")).toHaveCount(0);await page.reload();await expect(row).toContainText("Widerrufen");
  expect((await pool.query("SELECT revoked_at IS NOT NULL AS revoked FROM staff_invites WHERE id=$1",[invite.id])).rows).toEqual([{revoked:true}]);
  expect((await pool.query("SELECT count(*)::int AS n FROM staff_audit_events WHERE invite_id=$1 AND action='access_revoked'",[invite.id])).rows).toEqual([{n:1}]);
@@ -31,15 +31,15 @@ for(const width of [375,1280])test(`owner cancels pending invitation and reloads
 test("failed and mismatched cancellation responses never confirm another invitation",async({browser,baseURL})=>{
  const email=randomUUID()+"@example.test",invite=await createStaffInvite({actorUserId:ownerId,locationId:shop.locationId,email,role:"manager"});
  const context=await browser.newContext({baseURL,storageState:storage,extraHTTPHeaders:{Origin:origin},viewport:{width:375,height:844}});
- try{const page=await context.newPage();await page.goto("/merchant/staff");const row=page.locator('section[aria-labelledby="st-invitations"]').getByRole("listitem").filter({hasText:email});
+ try{const page=await context.newPage();await page.goto("/merchant/staff");const row=page.locator("#ow-main li").filter({hasText:email});
  for(const mismatched of [false,true]){
   await page.route("**/api/staff/invite/revoke",route=>route.fulfill({status:mismatched?200:500,contentType:"application/json",body:JSON.stringify(mismatched?{inviteId:randomUUID(),status:"revoked"}:{error:"Synthetic cancellation unavailable"})}));
-  await row.getByRole("button",{name:"Widerrufen",exact:true}).click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();
-  await expect(page.locator('.ow-notice[role="alert"]')).toBeVisible();await expect(page.getByRole("alertdialog")).toHaveCount(0);await expect(row).toContainText("Offen");
+  await row.getByRole("button").click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();
+  await expect(page.locator('.ow-notice[role="alert"]')).toBeVisible();await expect(page.locator("#ow-main")).toHaveCount(0);await expect(row).toContainText("Offen");
   await expect(page.getByText(`Die Einladung für ${email} wurde widerrufen.`,{exact:true})).toHaveCount(0);await page.unroute("**/api/staff/invite/revoke");
  }
  expect((await pool.query("SELECT revoked_at FROM staff_invites WHERE id=$1",[invite.id])).rows).toEqual([{revoked_at:null}]);
- await row.getByRole("button",{name:"Widerrufen",exact:true}).click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();await expect(row).toContainText("Widerrufen");
+ await row.getByRole("button").click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();await expect(row).toContainText("Widerrufen");
  }finally{await context.close();}
 });
 
@@ -55,16 +55,16 @@ test("a delayed committed cancellation cannot close a newer invitation confirmat
   await page.route("**/api/staff/invite/revoke",async route=>{
    const response=await route.fetch();committed();await held;await route.fulfill({response});
   });
-  await page.goto("/merchant/staff");const section=page.locator('section[aria-labelledby="st-invitations"]');
+  await page.goto("/merchant/staff");const section=page.locator("#ow-main");
   const rowA=section.getByRole("listitem").filter({hasText:emailA}),rowB=section.getByRole("listitem").filter({hasText:emailB});
-  await rowA.getByRole("button",{name:"Widerrufen",exact:true}).click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();await ready;
-  await page.getByRole("alertdialog").getByRole("button",{name:"Abbrechen",exact:true}).click();
-  await rowB.getByRole("button",{name:"Widerrufen",exact:true}).click();release();
+  await rowA.getByRole("button").click();await page.getByRole("button",{name:"Einladung widerrufen",exact:true}).click();await ready;
+  await page.locator("#ow-main").getByRole("button",{name:"Abbrechen",exact:true}).click();
+  await rowB.getByRole("button").click();release();
   await expect(rowA).toContainText("Widerrufen");await expect(rowB).toContainText("Offen");
-  await expect(page.getByRole("alertdialog")).toContainText(emailB);await expect(page.getByRole("button",{name:"Einladung widerrufen",exact:true})).toBeEnabled();
+  await expect(page.locator("#ow-main")).toContainText(emailB);await expect(page.getByRole("button",{name:"Einladung widerrufen",exact:true})).toBeEnabled();
   await expect(page.getByText(`Die Einladung für ${emailA} wurde widerrufen.`,{exact:true})).toBeVisible();
   await expect(page.getByText(`Die Einladung für ${emailB} wurde widerrufen.`,{exact:true})).toHaveCount(0);
   expect((await pool.query("SELECT id, revoked_at IS NOT NULL AS revoked FROM staff_invites WHERE id=ANY($1) ORDER BY id",[[inviteA.id,inviteB.id]])).rows).toEqual([{id:inviteA.id,revoked:true},{id:inviteB.id,revoked:false}].sort((a,b)=>a.id.localeCompare(b.id)));
-  await page.getByRole("alertdialog").getByRole("button",{name:"Abbrechen",exact:true}).click();
+  await page.locator("#ow-main").getByRole("button",{name:"Abbrechen",exact:true}).click();
  }finally{release();await context.close();}
 });

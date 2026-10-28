@@ -163,7 +163,7 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
         await expect(page.getByText(/€|Preis|FAIR PRO STANDORT/)).toHaveCount(0);
       } else {
         await page.goto("/merchant/billing");
-        await expect(page.getByRole("heading", { name: "Tarif und Abrechnung" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Abrechnung", exact: true })).toBeVisible();
         await page.goto("/merchant/campaigns");
         await expect(page.getByRole("heading", { name: "Kampagnen", exact: true })).toBeVisible();
         await page.goto("/merchant");
