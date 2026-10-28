@@ -88,8 +88,12 @@ function png(width: number, height: number, scanlines: Buffer): Buffer {
   return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), chunk("IHDR", header), chunk("IDAT", deflateSync(scanlines)), chunk("IEND", Buffer.alloc(0))]);
 }
 
-// A reward's threshold slot while still open: a solid 2.5 pt coral ring instead of the dashed grey one (ENG-116).
-const threshold = (cx: number, cy: number, r: number): Layer[] => [[CORAL, ring(cx, cy, r - 1.25, 2.5)]];
+// A reward's threshold slot while still open: a solid 2 pt ink ring instead of the dashed grey one; coral is only for
+// earned stamps (Design, ENG-116).
+const threshold = (cx: number, cy: number, r: number): Layer[] => [[ON_STAMP, ring(cx, cy, r - 1, 2)]];
+// Space between two rings' centres for 4 pt of clear track between their drawn edges: a stamp's 0.75 pt edge ring and the
+// half-pixel antialiasing of each edge count as part of the ring.
+const RING_GAP = 4 + 2 * (0.75 + 0.5);
 
 // Apple's store-card strip is 375 x 144 pt. Geometry from the mock-up: 20 pt side padding, stamps of at most 40 pt with
 // 10 pt gaps, an 18 pt track carrying a ring per reward.
@@ -115,12 +119,12 @@ export function stripPng(kind: "stamp" | "points", balance: number, costs: numbe
     layers.push([TRACK, capsule(start, cy, end, cy, 9)]);
     // Once anything is collected the fill shows at least its round end; it runs under the rings.
     if (shown > 0) layers.push([CORAL, capsule(start, cy, at(shown), cy, 9)]);
-    // The next unreached reward gets the larger ring. Rings keep 4 pt apart: a later one moves right, the last stays at the end.
+    // The next unreached reward gets the larger ring. Rings keep 4 pt of track between their edges: a later one moves right, the last stays at the end.
     const next = marks.find(cost => cost > shown);
     const rings = marks.map(cost => ({ cost, r: cost === next ? 16 : 13, x: at(cost) }));
-    for (let i = 1; i < rings.length; i++) rings[i].x = Math.max(rings[i].x, rings[i - 1].x + rings[i - 1].r + rings[i].r + 4);
+    for (let i = 1; i < rings.length; i++) rings[i].x = Math.max(rings[i].x, rings[i - 1].x + rings[i - 1].r + rings[i].r + RING_GAP);
     rings[rings.length - 1].x = end;
-    for (let i = rings.length - 2; i >= 0; i--) rings[i].x = Math.min(rings[i].x, rings[i + 1].x - rings[i + 1].r - rings[i].r - 4);
+    for (let i = rings.length - 2; i >= 0; i--) rings[i].x = Math.min(rings[i].x, rings[i + 1].x - rings[i + 1].r - rings[i].r - RING_GAP);
     // An open ring sits on a paper disc, so neither the track nor the fill shows through its dashes.
     for (const { cost, r, x } of rings) layers.push(...(cost <= shown ? stamp(x, cy, r) : [[PAPER, disk(x, cy, r)] as const, ...slot(x, cy, r)]));
   } else {

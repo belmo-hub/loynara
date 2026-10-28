@@ -102,13 +102,19 @@ describe("Apple strip image (ENG-119)", () => {
     expect(stripPng("points", 21, [100], 1)).not.toBe(stripPng("points", 21, [100, 200], 1)); // the key holds every cost
   });
 
-  it("keeps rings 4 pt apart by moving the later one right, and the last one at the end", () => {
+  it("keeps at least 4 pt of clear track between two close rings, moving the later one right", () => {
     const close = decode(stripPng("points", 50, [100, 120, 250], 2), 2);
-    const first = along(100, 250), second = first + 16 + 13 + 4; // 120 would sit at along(120, 250), inside the first ring
+    const first = along(100, 250), second = first + 16 + 13 + 6.5; // 120 would sit at along(120, 250), inside the first ring
     expect(close.at(second, 72)).toEqual(PAPER);
     expect(close.at(second + 12, 72)).toEqual(OPEN);
-    expect(close.at(first + 18, 72)).toEqual(TRACK); // the 4 pt gap between them
-    expect(close.at(339, 72)).toEqual(PAPER);
+    expect(close.at(339, 72)).toEqual(PAPER); // the last ring stays at the end
+    // Along the centre line between the two rings, untouched track pixels span at least 4 pt (8 px at @2x).
+    let run = 0, longest = 0;
+    for (let px = Math.floor(first * 2); px < Math.ceil(second * 2); px++) {
+      run = close.pixel(px, 144).join() === TRACK.join() ? run + 1 : 0;
+      longest = Math.max(longest, run);
+    }
+    expect(longest).toBeGreaterThanOrEqual(8);
   });
 
   it("draws the five cheapest rewards and runs the track to the fifth", () => {
@@ -120,11 +126,12 @@ describe("Apple strip image (ENG-119)", () => {
     expect(stripPng("points", 120, [300, 50, 100, 150, 200, 250], 1)).toBe(stripPng("points", 120, [50, 100, 150, 200, 250], 1));
   });
 
-  it("runs the stamp grid to the highest reward and rings an open threshold slot in coral", () => {
+  it("runs the stamp grid to the highest reward and rings an open threshold slot in solid ink", () => {
     const grid = decode(stripPng("stamp", 3, [5, 10], 2), 2);
     const [fx, fy] = slotCentre(4), [lx, ly] = slotCentre(9), [ox, oy] = slotCentre(3);
-    expect(grid.at(fx + 18.75, fy)).toEqual(CORAL); // a solid 2.5 pt coral ring for 5 stamps
-    expect(grid.at(lx + 18.75, ly)).toEqual(CORAL); // and for 10
+    expect(grid.at(fx + 19, fy)).toEqual(CHECK); // a solid 2 pt ink ring for 5 stamps, not coral
+    expect(grid.at(lx + 19, ly)).toEqual(CHECK); // and for 10
+    expect(grid.at(fx, fy + 19)).toEqual(CHECK); // solid all round, not dashed
     expect(grid.at(fx, fy)).toEqual(PAPER);
     expect(grid.at(ox + 19, oy)).toEqual(OPEN); // an ordinary open slot stays dashed grey
     const reached = decode(stripPng("stamp", 6, [5, 10], 2), 2);
