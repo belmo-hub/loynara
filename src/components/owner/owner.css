@@ -752,3 +752,15 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qlink[aria-expanded="true"] svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .ow-qlink svg { transition: none; } }
 .ow-qlink:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* The rule questions (14, 33) and their review (34, 35): the rule keeps its line breaks, as on the card and the sign-up page. */
+.ow-qpanel .ow-textarea { field-sizing: content; }
+.ow-qrule { display: block; margin-bottom: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ow-qcmp { display: grid; gap: 6px; }
+.ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ow-qcmp[data-new] { box-shadow: inset 0 0 0 2px var(--color-action); }
+.ow-qsum dl { margin: var(--space-2) 0 0; }
+.ow-qsum dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-bottom: 1px solid var(--color-line); }
+.ow-qsum dt { min-width: 0; color: var(--color-ink-muted); overflow-wrap: anywhere; }
+.ow-qsum dd { flex: none; margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.ow-qsum .ow-hint { padding-top: var(--space-2); }

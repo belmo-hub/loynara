@@ -1,132 +1,98 @@
 "use client";
 
 import { useState } from "react";
-import { apiJson, postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
-import { useDirtyGuard, useOwner } from "./owner-context";
-import { Notice, OwnerDialog, SaveBar, type SaveState } from "./owner-ui";
-import { confirmSentence, earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, purchaseExample, unitName, type EarningMode, type ProgramKind } from "./program-helpers";
+import { ReceiptText, Users } from "lucide-react";
+import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { purchasePoints } from "@/lib/points";
+import { CardLinePreview, nf, NumberStepper } from "./owner-ui";
+import { earningSentence, euro, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, unitName, type EarningMode } from "./program-helpers";
+import { Choices, Control, FieldError, QuestionForm, rangeError, useQuestion, useReview, wholeIn } from "./question-form";
 
-type Draft = { name: string; type: ProgramKind; mode: EarningMode; rate: string; rulesText: string };
-const fromProgram = (program: PublicProgram): Draft => ({ name: program.programName, type: program.programType, mode: program.earningMode ?? "manual", rate: String(program.pointsPerCurrencyUnit ?? 1), rulesText: program.ownerRulesText ?? program.rulesText });
+const UPDATE = "/api/merchant/program/update";
+const REVIEW_NOTE = "Gilt ab dem Speichern für neue Buchungen. Bestehende Kartenstände werden nicht neu berechnet.";
+const EXAMPLE_MINOR = 1290; // „Einkauf 12,90 €“, the fixed example of screen 33
 
-export function RuleCard({ me, program, onSaved }: { me: MeResponse; program: PublicProgram; onSaved: (program: PublicProgram) => void }) {
-  const owner = useOwner();
-  const [baseline, setBaseline] = useState<Draft>(() => fromProgram(program));
-  const [draft, setDraft] = useState<Draft>(baseline);
-  const [state, setState] = useState<SaveState>("clean");
-  const [error, setError] = useState("");
-  const [reviewing, setReviewing] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
-  const typeLocked = Boolean(me.stats && me.stats.awards + me.stats.redemptions > 0);
+/** „Regeländerung prüfen“ (34, 35): the stored rule and the new one; saving writes a new rule version at once. */
+const Compare = ({ before, after }: { before: string; after: string }) => <>
+  <div className="ow-qpanel ow-qcmp"><p>Bisher</p><p>{before}</p></div>
+  <div className="ow-qpanel ow-qcmp" data-new><p>Neu</p><p>{after}</p></div>
+</>;
 
-  const rate = Number(draft.rate);
-  const rateValid = draft.type !== "points" || draft.mode !== "purchase" || (Number.isInteger(rate) && rate >= 1 && rate <= MAX_POINTS_PER_CURRENCY_UNIT);
-  const mode: EarningMode = draft.type === "stamp" ? "manual" : draft.mode;
-  const nameValid = draft.name.trim().length >= 2;
-  const rulesValid = draft.rulesText.trim().length >= 10;
-  const valid = nameValid && rulesValid && rateValid;
-  const changed = draft.name !== baseline.name || draft.type !== baseline.type || mode !== baseline.mode || (mode === "purchase" && draft.rate !== baseline.rate) || draft.rulesText !== baseline.rulesText;
-  const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
-  useDirtyGuard("program-rules", changed);
-
-  const currency = program.currency;
-  const cheapest = [...program.rewards].sort((a, b) => a.cost - b.cost)[0];
-  const example = draft.type === "points" && mode === "purchase" ? purchaseExample(amount, rate) : null;
-  const minSpend = draft.type === "points" && mode === "purchase" && cheapest && rateValid ? minimumSpendMinor(cheapest.cost, rate) : null;
-
-  function edit(patch: Partial<Draft>) { setDraft(current => ({ ...current, ...patch })); setJustSaved(false); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
-
-  const changes: Array<{ label: string; from: string; to: string }> = [];
-  if (draft.name !== baseline.name) changes.push({ label: "Programmname", from: baseline.name, to: draft.name.trim() });
-  if (draft.type !== baseline.type) changes.push({ label: "Programmart", from: baseline.type === "stamp" ? "Stempelkarte" : "Punktekarte", to: draft.type === "stamp" ? "Stempelkarte" : "Punktekarte" });
-  if (mode !== baseline.mode || (mode === "purchase" && draft.rate !== baseline.rate) || draft.type !== baseline.type) {
-    const before = earningSentence(baseline.type, baseline.mode, Number(baseline.rate), currency);
-    const after = earningSentence(draft.type, mode, rate, currency);
-    if (before !== after) changes.push({ label: "So wird gesammelt", from: before, to: after });
-  }
-  if (draft.rulesText !== baseline.rulesText) changes.push({ label: "Regeltext für Kunden", from: "Bisheriger Text", to: "Neuer Text" });
-
-  async function save() {
-    setReviewing(false); setState("saving"); setError("");
-    try {
-      await postJson("/api/merchant/program/update", { programSlug: me.programSlug, name: draft.name.trim(), programType: draft.type, earningMode: mode, pointsPerCurrencyUnit: draft.type === "points" && mode === "purchase" ? rate : (program.pointsPerCurrencyUnit ?? 1), rulesText: draft.rulesText.trim() });
-      const updated = await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(me.programSlug)}`);
-      const next = fromProgram(updated);
-      setBaseline(next); setDraft(next); setState("saved"); setEditing(false); setJustSaved(true); onSaved(updated);
-      owner.announce("Neue Regelversion gespeichert."); void owner.refresh();
-    } catch (cause) {
-      setState("error"); setError(cause instanceof Error ? cause.message : "Die Regel konnte nicht gespeichert werden."); owner.announce("Speichern fehlgeschlagen.");
-    }
-  }
-
+/** 14 and 35: the owner's rule text, as the sign-up page shows it, then its review. Rewards are listed live (W35). */
+export function RuleQuestion({ me, program }: { me: MeResponse; program: PublicProgram }) {
+  const saved = program.ownerRulesText ?? program.rulesText;
+  const [text, setText] = useState(saved);
+  const { review, open, back } = useReview();
+  const short = text.trim().length < 10;
+  const q = useQuestion("rule", text.trim() !== saved, { "rule-text": short ? "Der Regeltext braucht mindestens 10 Zeichen." : "" });
+  const error = q.error("rule-text"), type = program.programType;
+  if (review) return (
+    <QuestionForm title="Regeländerung prüfen" back={{ label: "Regel auf der Karte", onClick: back }} busy={q.busy} failed={q.failed} action="Neue Regelversion speichern"
+      onSubmit={() => void q.save(UPDATE, { programSlug: me.programSlug, rulesText: text.trim() })}>
+      <Compare before={saved} after={text.trim()} />
+      <p className="ow-hint">{REVIEW_NOTE}</p>
+    </QuestionForm>
+  );
   return (
-    <section className="ow-card ow-stack" aria-labelledby="rule-title" style={{ gap: 20 }}>
-      <div className="ow-card-head" style={{ marginBottom: 0 }}>
-        <div><h2 id="rule-title">So sammeln Kunden</h2><p>{earningSentence(baseline.type, baseline.mode, Number(baseline.rate), currency)}</p></div>
-        <span className="ow-chip ow-chip--ok"><span className="ow-dot" aria-hidden="true" />Aktiv</span>
+    <QuestionForm title="Wie sammeln deine Kunden?" busy={false} failed="" action="Weiter" onSubmit={() => { if (text.trim() === saved) q.leave(); else if (q.check()) open(); }}>
+      <div className="ow-field ow-qpanel">
+        <label htmlFor="rule-text">Regel auf der Karte</label>
+        <textarea id="rule-text" className="ow-textarea" rows={4} value={text} maxLength={3000} onChange={event => setText(event.target.value)}
+          aria-invalid={Boolean(error)} aria-describedby={error ? "rule-text-error rule-text-hint" : "rule-text-hint"} />
+        <FieldError id="rule-text-error">{error}</FieldError>
+        <p id="rule-text-hint" className="ow-hint">Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell.</p>
       </div>
-      <div className="ow-readonly"><strong style={{ display: "block", marginBottom: 2 }}>Wer bestätigt?</strong>{confirmSentence(baseline.type, baseline.mode)}</div>
-      {!editing && (
-        <div className="ow-stack" style={{ gap: 12 }}>
-          <div><span className="ow-label">Regeltext für Kunden</span><p className="ow-muted" style={{ marginTop: 2 }}>{baseline.rulesText.length > 280 ? `${baseline.rulesText.slice(0, 280)} …` : baseline.rulesText}</p></div>
-          {justSaved && <div role="status"><Notice tone="ok">Neue Regelversion gespeichert. Sie gilt für neue Buchungen.</Notice></div>}
-          <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setEditing(true); setJustSaved(false); }}>Regel ändern</button></div>
-        </div>
-      )}
-      {editing && <>
-      <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
-        <div className="ow-stack">
-          <div className="ow-field"><label htmlFor="rule-name">Programmname</label><input id="rule-name" className="ow-input" value={draft.name} maxLength={180} onChange={event => edit({ name: event.target.value })} aria-invalid={!nameValid} /></div>
-          <fieldset className="ow-group">
-            <legend>Programmart</legend>
-            <div className="ow-radio-cards ow-radio-cards--row">
-              {(["stamp", "points"] as const).map(type => (
-                <label key={type} className="ow-radio-card"><input type="radio" name="rule-type" checked={draft.type === type} disabled={typeLocked && draft.type !== type} onChange={() => edit({ type, mode: type === "stamp" ? "manual" : draft.mode })} /><div><strong>{type === "stamp" ? "Stempelkarte" : "Punktekarte"}</strong><span>{type === "stamp" ? "Ganze Stempel, vergeben an der Kasse." : "Punkte nach Betrag oder manuell."}</span></div></label>
-              ))}
-            </div>
-            {typeLocked && <span className="ow-hint">Die Programmart lässt sich nach den ersten Buchungen nicht mehr ändern.</span>}
-          </fieldset>
-          {draft.type === "points" && (
-            <fieldset className="ow-group">
-              <legend>So entstehen Punkte</legend>
-              <div className="ow-radio-cards ow-radio-cards--row">
-                <label className="ow-radio-card"><input type="radio" name="rule-mode" checked={mode === "purchase"} onChange={() => edit({ mode: "purchase" })} /><div><strong>Nach Einkaufswert</strong><span>Das Team gibt den Betrag ein, das System rechnet und rundet ab.</span></div></label>
-                <label className="ow-radio-card"><input type="radio" name="rule-mode" checked={mode === "manual"} onChange={() => edit({ mode: "manual" })} /><div><strong>Manuell</strong><span>Das Team gibt die Punktmenge direkt ein.</span></div></label>
-              </div>
-              {mode === "purchase" && <div className="ow-field"><label htmlFor="rule-rate">Punkte pro 1 {currency === "EUR" ? "€" : currency}</label><input id="rule-rate" className="ow-input" inputMode="numeric" value={draft.rate} onChange={event => edit({ rate: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={!rateValid} /><span className="ow-hint">Ganze Zahl von 1 bis {MAX_POINTS_PER_CURRENCY_UNIT}.</span></div>}
-            </fieldset>
-          )}
-          <div className="ow-field"><label htmlFor="rule-text">Regeltext für Kunden</label><textarea id="rule-text" className="ow-textarea" value={draft.rulesText} maxLength={3000} onChange={event => edit({ rulesText: event.target.value })} aria-invalid={!rulesValid} aria-describedby="rule-text-hint" /><span id="rule-text-hint" className="ow-hint">Wird Kunden bei der Anmeldung und auf der Karte gezeigt. Mindestens 10 Zeichen.</span></div>
-        </div>
+      {/* No preview of a rule the save refuses, as on the news (18). */}
+      {!short && <div className="ow-qpanel">
+        <CardLinePreview label="So steht es bei der Anmeldung" shop={program.businessName} brandColor={program.brandColor}>
+          <span className="ow-qrule">{text.trim()}</span>
+          {program.rewards.map(reward => <span key={reward.rewardId} className="ow-cardline-reward"><b>{reward.title}</b><span>{nf.format(reward.cost)} {unitName(type, reward.cost)}</span></span>)}
+        </CardLinePreview>
+      </div>}
+    </QuestionForm>
+  );
+}
 
-        <aside className="ow-card ow-card--flat ow-stack" aria-labelledby="ex-title" style={{ background: "var(--color-fill)", alignSelf: "start" }}>
-          <div><h3 id="ex-title" style={{ fontSize: "var(--text-16)" }}>Beispiel durchspielen</h3><p className="ow-hint">Rechnet mit derselben Formel wie der Server.</p></div>
-          {example ? (
-            <>
-              <div className="ow-field"><label htmlFor="ex-amount">Einkaufswert in {currency === "EUR" ? "€" : currency}</label><input id="ex-amount" className="ow-input" inputMode="decimal" placeholder="z. B. 12,90" value={amount} onChange={event => setAmount(event.target.value)} aria-describedby="ex-result" /></div>
-              <div id="ex-result" role="status" aria-live="polite">
-                {example.ok ? <p><strong className="ow-num">{euro(example.amountMinor, currency)}</strong> ergeben <strong className="ow-num">{example.points} {unitName("points", example.points)}</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-muted">Gib einen Betrag ein, um das Ergebnis zu sehen.</p>}
-              </div>
-            </>
-          ) : draft.type === "stamp" ? (
-            <p>Dein Team vergibt an der Kasse Stempel, meist einen pro Besuch. {cheapest ? `Nach ${cheapest.cost} Stempeln ist „${cheapest.title}“ erreichbar.` : ""}</p>
-          ) : (
-            <p>Dein Team gibt die Punkte direkt ein. {cheapest ? `Ab ${cheapest.cost} Punkten ist „${cheapest.title}“ erreichbar.` : ""}</p>
-          )}
-          <p className="ow-hint">{minSpend !== null && cheapest ? <>Günstigste Prämie „{cheapest.title}“: mindestens <strong>{euro(minSpend, currency)}</strong> Einkaufswert. {MIN_SPEND_LABEL}</> : [noMinSpendNote(draft.type) && `${noMinSpendNote(draft.type)}.`, draft.type === "stamp" || mode === "manual" ? "Die Menge legt das Team bei der Vergabe fest." : ""].filter(Boolean).join(" ")}</p>
-        </aside>
-      </div>
-      {shown === "dirty" && <Notice tone="info">Die Änderung gilt ab dem Speichern als neue Regelversion für neue Buchungen. Bestehende Kartenstände werden nicht neu berechnet.</Notice>}
-      <SaveBar section="So sammeln Kunden" state={shown} onSave={() => setReviewing(true)} onDiscard={() => { setDraft(baseline); setState("clean"); setError(""); setEditing(false); }} alwaysDiscard discardLabel={changed ? "Verwerfen" : "Schließen"} canSave={valid && changed} saveLabel="Änderungen prüfen" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "dirty" && !valid ? "Bitte Eingaben prüfen." : undefined} />
+/** 33 and 34 (points shops): how points come about, with the till's arithmetic from the server's own functions. */
+export function EarningQuestion({ me, program }: { me: MeResponse; program: PublicProgram }) {
+  const saved = { mode: program.earningMode, rate: String(program.pointsPerCurrencyUnit) };
+  const [draft, setDraft] = useState(saved);
+  const { review, open, back } = useReview();
+  const purchase = draft.mode === "purchase", rate = Number(draft.rate), max = MAX_POINTS_PER_CURRENCY_UNIT;
+  const rateOk = wholeIn(draft.rate, 1, max);
+  const changed = draft.mode !== saved.mode || (purchase && draft.rate !== saved.rate);
+  const q = useQuestion("earning", changed, { "earning-rate": !purchase || rateOk ? "" : rangeError(1, max) });
+  const sentence = (mode: EarningMode, perUnit: number) => earningSentence("points", mode, perUnit, program.currency);
+  if (review) return (
+    <QuestionForm title="Regeländerung prüfen" back={{ label: "So entstehen Punkte", onClick: back }} busy={q.busy} failed={q.failed} action="Neue Regelversion speichern"
+      onSubmit={() => void q.save(UPDATE, { programSlug: me.programSlug, earningMode: draft.mode, ...(purchase ? { pointsPerCurrencyUnit: rate } : {}) })}>
+      <Compare before={sentence(saved.mode, Number(saved.rate))} after={sentence(draft.mode, rate)} />
+      <p className="ow-hint">{REVIEW_NOTE}</p>
+    </QuestionForm>
+  );
+  const cheapest = [...program.rewards].sort((a, b) => a.cost - b.cost)[0];
+  const spend = cheapest && rateOk ? minimumSpendMinor(cheapest.cost, rate) : null, points = rateOk ? purchasePoints(EXAMPLE_MINOR, rate) : 0;
+  const error = q.error("earning-rate");
+  return (
+    <QuestionForm title="Wie entstehen Punkte?" busy={false} failed="" action="Weiter" onSubmit={() => { if (!changed) q.leave(); else if (q.check()) open(); }}>
+      <Choices name="earning-mode" label="So entstehen Punkte" value={draft.mode} saved={saved.mode} onChange={mode => setDraft({ ...draft, mode: mode as EarningMode })} options={[
+        { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, das System rechnet und rundet ab.", icon: ReceiptText },
+        { value: "manual", label: "Manuell", sub: "Das Team gibt die Punktmenge direkt ein.", icon: Users },
+      ]} />
+      {purchase && <>
+        <Control id="earning-rate" label={`Punkte pro 1 ${program.currency === "EUR" ? "€" : program.currency}`} hint={`1 bis ${max}`} error={error}>
+          <NumberStepper id="earning-rate" value={draft.rate} onChange={value => setDraft({ ...draft, rate: value && String(Math.min(Number(value), max)) })} min={1} max={max}
+            unit={{ one: "Punkt", many: "Punkte" }} invalid={Boolean(error)} describedBy="earning-rate-hint" />
+        </Control>
+        {rateOk && <div className="ow-qpanel ow-qsum">
+          <p className="ow-cardline-label">So rechnet die Kasse</p>
+          <dl>
+            <div><dt>Einkauf {euro(EXAMPLE_MINOR, program.currency)}</dt><dd>{nf.format(points)} {unitName("points", points)}</dd></div>
+            {spend !== null && <div><dt>{cheapest.title} ab</dt><dd>{euro(spend, program.currency)} Einkauf</dd></div>}
+          </dl>
+          <p className="ow-hint">Abgerundet auf ganze Punkte. {MIN_SPEND_LABEL} Den Einkaufswert gibt das Team an der Kasse ein. Das NFC-Schild überträgt keinen Betrag.</p>
+        </div>}
       </>}
-      {reviewing && (
-        <OwnerDialog title="Regeländerung prüfen" onClose={() => setReviewing(false)} actions={<><button type="button" className="ow-btn ow-btn--secondary" onClick={() => setReviewing(false)} data-autofocus>Zurück</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()}>Neue Regelversion speichern</button></>}>
-          <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 8 }}>{changes.map(change => <li key={change.label}><strong>{change.label}:</strong> {change.from} → {change.to}</li>)}</ul>
-          <p>Gilt ab dem Speichern für neue Buchungen. Bestehende Kartenstände werden nicht neu berechnet.</p>
-        </OwnerDialog>
-      )}
-    </section>
+    </QuestionForm>
   );
 }

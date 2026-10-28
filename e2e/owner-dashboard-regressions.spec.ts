@@ -40,7 +40,7 @@ test("failed context refresh after location selection shows an error and retry r
 });
 
 for (const flow of [
-  { name: "rule page back to the list", path: "/merchant/program/rule", field: "Programmname", link: "Programm", target: "/merchant/program", editRules: true },
+  { name: "rule page back to the list", path: "/merchant/program/rule", field: "Regel auf der Karte", link: "Programm", target: "/merchant/program" },
   { name: "card studio to rules", path: "/merchant/program/card", field: "Geschäftsname", link: "Programm", target: "/merchant/program" },
   { name: "location draft to programme", path: "/merchant/locations", field: "Standortname", link: "Programm ansehen", target: "/merchant/program" },
 ]) test(`page link guards unsaved edits: ${flow.name}`, async ({ baseURL, browser }) => {
@@ -51,7 +51,6 @@ for (const flow of [
     try {
       const page = await context.newPage();
       await page.goto(flow.path);
-      if (flow.editRules) await page.getByRole("button", { name: "Regel ändern", exact: true }).click();
       await page.getByLabel(flow.field, { exact: true }).fill("Synthetischer ungespeicherter Entwurf");
       const link = page.locator("#ow-main").getByRole("link", { name: flow.link, exact: true });
       await link.click();

@@ -44,7 +44,7 @@ describe("input parsing", () => {
 
 describe("rule wording keeps earning and confirmation apart", () => {
   it("never suggests NFC knows an amount", () => {
-    expect(confirmSentence("points", "purchase")).toContain("kennt keinen Betrag");
+    expect(confirmSentence("points", "purchase")).toContain("Das NFC-Schild überträgt keinen Betrag.");
     expect(confirmSentence("stamp", "manual")).not.toContain("Betrag");
   });
   it("describes only supported modes", () => {

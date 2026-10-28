@@ -117,6 +117,24 @@ describe("merchant and customer journey", () => {
     ]);
   });
 
+  it("changes only the fields a Programm question sends, each change as a new rule version (ENG-099 N-3)", async () => {
+    const ownerId = await createUser();
+    const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Barber", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je vollem Euro.", rewardTitle: "Haarwäsche gratis", rewardCost: 100 });
+    const update = (fields: Record<string, unknown>) => updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, ...fields });
+    expect((await update({ pointsPerCurrencyUnit: 2 })).ruleVersion).toBe(2);
+    expect((await update({ rulesText: "Zwei Punkte je vollem Euro." })).ruleVersion).toBe(3);
+    expect((await update({ name: "Barbierkarte" })).ruleVersion).toBe(4);
+    expect((await update({ name: "Barbierkarte" })).ruleVersion).toBe(4); // nothing changed, no version
+    await expect(update({ rulesText: "Zu kurz." })).rejects.toThrow();
+    const versions = await db.select().from(programRuleVersions).orderBy(programRuleVersions.version);
+    expect(versions.map(row => [row.version, row.name, row.earningMode, row.pointsPerCurrencyUnit, row.rulesText])).toEqual([
+      [1, "Punktekarte", "purchase", 1, "Ein Punkt je vollem Euro."],
+      [2, "Punktekarte", "purchase", 2, "Ein Punkt je vollem Euro."],
+      [3, "Punktekarte", "purchase", 2, "Zwei Punkte je vollem Euro."],
+      [4, "Barbierkarte", "purchase", 2, "Zwei Punkte je vollem Euro."],
+    ]);
+  });
+
   it("lets only the owner create, version, order, and archive rewards while retaining one active option", async () => {
     const ownerId = await createUser();
     const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kauf.", rewardTitle: "Kaffee", rewardCost: 8 });
