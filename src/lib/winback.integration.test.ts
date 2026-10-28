@@ -158,6 +158,17 @@ describe("win-back bonus at the counter", () => {
   });
 });
 
+describe("the Apple pass back follows the setting (ENG-119)", () => {
+  it("queues one refresh per installed pass when the setting changes, and none for a save that changes nothing", async () => {
+    const s = await shop(); const c = await card(s, "pass");
+    const refreshes = async () => (await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'wallet.refresh' AND payload ->> 'membershipId' = $1", [c.id])).rows[0].n;
+    await updateWinback({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, days: 30, bonus: 1 } });
+    expect(await refreshes()).toBe(0);
+    await updateWinback({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, days: 45, bonus: 1 } });
+    expect(await refreshes()).toBe(1);
+  });
+});
+
 describe("the window on the card page (ENG-089)", () => {
   it("shows the bonus and the window's last day inside the window only, capped at a confirmed programme end", async () => {
     const s = await shop(); const inside = await card(s, "none"); const before = await card(s, "none");

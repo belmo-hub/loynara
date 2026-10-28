@@ -95,6 +95,14 @@ describe("Apple strip image (ENG-119)", () => {
     expect(stripPng("stamp", 4, 9, 2)).not.toBe(first);
     expect(stripPng("stamp", 12, 10, 1)).toBe(stripPng("stamp", 10, 10, 1)); // beyond the cost every strip is the full card
   });
+
+  it("keeps at most 300 states and drops the oldest first", () => {
+    const first = Array.from({ length: 300 }, (_, i) => stripPng("points", i + 1, 1000, 1));
+    expect(stripPng("points", 1, 1000, 1)).toBe(first[0]); // all 300 cached; a hit does not reorder
+    stripPng("points", 301, 1000, 1);
+    expect(stripPng("points", 2, 1000, 1)).toBe(first[1]);
+    expect(stripPng("points", 1, 1000, 1)).not.toBe(first[0]); // the oldest was dropped and is drawn again
+  });
 });
 
 describe("Apple pass icon (ENG-119)", () => {

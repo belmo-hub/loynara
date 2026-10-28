@@ -35,6 +35,20 @@ const entryTime = async (entryId: string) => (await db.select({ at: ledgerEntrie
 const setExpiry = (s: Shop, months: 24 | 36 | null, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, pointsExpiryMonths: months });
 
 describe("points expiry setting", () => {
+  it("refreshes the installed Apple passes when the period changes, and not for a save that keeps it (ENG-119)", async () => {
+    const s = await shop();
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+    const passId = randomUUID();
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'apple',$4,$5,'created')",
+      [passId, s.tenantId, card.id, `passfast:${passId}`, credentialHash(m.scan_code)]);
+    const refreshes = async () => (await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'wallet.refresh' AND payload ->> 'membershipId' = $1", [card.id])).rows[0].n;
+    await setExpiry(s, null);
+    expect(await refreshes()).toBe(0);
+    await setExpiry(s, 24);
+    expect(await refreshes()).toBe(1);
+  });
+
   it("is off by default: nothing expires and the card shows no rule", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
