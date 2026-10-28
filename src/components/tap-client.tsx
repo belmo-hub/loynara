@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse } from "./client-api";
 import { CardContact } from "./card-contact";
-import { CheckCircle2, Clock3, Nfc, TriangleAlert } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Gift, Nfc, TriangleAlert } from "lucide-react";
 import { CardFace, nearestReward } from "./customer/card-face";
 import { LegalLinks } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
@@ -163,8 +163,10 @@ export function TapClient({ refId }: { refId: string }) {
       <h1 className={styles.title}>{title}</h1>
       <p className={styles.detail} role={state === "error" ? "alert" : "status"} aria-live="polite">{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</p>
       {done && card && typeof result?.balance === "number" && <TapCardFace card={card} balance={result.balance} moment={celebrate} />}
-      {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <p className={styles.number}><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{result.cardLocator}</strong></p>}
-      {waiting && <p className={styles.muted}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
+      {result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) && <div className={styles.numberCard}>
+        <p className={styles.number}><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{result.cardLocator}</strong></p>
+        {waiting && <p className={styles.refreshing}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
+      </div>}
       {typeof result?.balance === "number" && state !== "needs_enrollment" && !(done && card) && <p className={styles.balance}>{currentBalance(result.balance, points)}</p>}
       {selectionRequired && preview?.cardPath && <div className={styles.actions}>
         <button className={buttonClassName({ size: "lg", block: true })} onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button>
@@ -175,8 +177,11 @@ export function TapClient({ refId }: { refId: string }) {
         <p className={styles.muted}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p>
         <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
       </div>}
-      {preview?.cardPath && state !== "needs_enrollment" && <Link className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath}>Karte und Prämien ansehen</Link>}
-      {state === "error" && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
+      {/* After a booking the way back to the card is the one green band; otherwise a plain row (Wegweiser, ENG-122e). */}
+      {preview?.cardPath && state !== "needs_enrollment" && <Link className={styles.row} data-on={done || undefined} href={preview.cardPath}>
+        <span className={styles.rowIcon}><Gift size={22} aria-hidden="true" /></span><span className={styles.rowText}>Karte und Prämien ansehen</span><ArrowRight size={22} aria-hidden="true" />
+      </Link>}
+      {(tone === "error" || waiting) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     </section>
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerShell>;
