@@ -283,13 +283,13 @@ describe("Apple pass", () => {
 
   it("puts the owner's message first on the back with a lock-screen changeMessage, leaving the front as it was (ENG-127)", () => {
     const text = "Heute ruhig: Kaffee zum halben Preis bis 17 Uhr.";
-    const json = applePassJson({ ...pass, message: text }, serial, appleConfig);
-    expect(json.storeCard.backFields[0]).toEqual({ key: "message", label: "Nachricht von Kasseler Kaffee", value: text, changeMessage: "%@", dataDetectorTypes: [] });
+    const json = applePassJson({ ...pass, message: text, messageDay: "28.10." }, serial, appleConfig);
+    expect(json.storeCard.backFields[0]).toEqual({ key: "message", label: "Nachricht von Kasseler Kaffee vom 28.10.", value: text, changeMessage: "%@", dataDetectorTypes: [] });
     const plain = applePassJson(pass, serial, appleConfig);
     expect(plain.storeCard.backFields.map(field => field.key)).not.toContain("message");
     expect({ ...json.storeCard, backFields: json.storeCard.backFields.slice(1) }).toEqual(plain.storeCard);
     // Consent without a message yet: the key exists empty, so Wallet alerts when the first message changes it.
-    expect(applePassJson({ ...pass, message: "" }, serial, appleConfig).storeCard.backFields[0]).toMatchObject({ key: "message", value: "" });
+    expect(applePassJson({ ...pass, message: "" }, serial, appleConfig).storeCard.backFields[0]).toMatchObject({ key: "message", label: "Nachricht von Kasseler Kaffee", value: "" });
     expect(applePassJson({ ...pass, locale: "fr", message: text }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("message");
   });
 

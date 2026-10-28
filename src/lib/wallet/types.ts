@@ -42,6 +42,8 @@ export type WalletPassData = WalletBrand & {
   lastActivityAt?: Date;
   /** The last owner message sent to this card, kept so a refresh resends it unchanged; "" for a card that allowed messages and has none yet. */
   message?: string;
+  /** The day that message was sent, „28.10.“ in the shop's timezone. */
+  messageDay?: string;
 };
 
 /** What a revoked pass may still show: who issued it and why it no longer works. No balance, QR code or locator. */

@@ -17,7 +17,7 @@ const TEXT = {
     redeem: "Einlösen", redeemValue: "an der Kasse", redeemMessage: "Deine Prämie ist bereit. Du kannst sie %@ einlösen.",
     balanceMessage: "Dein Stand: %@", rules: "Programmregeln", rewardList: "Prämien",
     // Owner message on the Apple pass back (ENG-127); the lock-screen alert is the text itself.
-    message: (shop: string) => `Nachricht von ${shop}`,
+    message: (shop: string, day?: string) => day ? `Nachricht von ${shop} vom ${day}` : `Nachricht von ${shop}`,
     card: "Karte", location: "Standort", programme: "Programm", updated: "Zuletzt aktualisiert", memberCard: "Mitgliedskarte",
     note: "Hinweis", noteBody: "Stempel, Punkte und Prämien werden nur an der Kasse gebucht. Diese Karte zeigt den aktuellen Stand deiner Treuekarte und aktualisiert sich automatisch.",
     revokedLabel: "Karte", invalid: "Karte ungültig",

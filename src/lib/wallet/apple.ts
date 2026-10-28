@@ -163,7 +163,7 @@ export function applePassJson(pass: WalletPassData, serial: string, config: Appl
       ] : [{ key: "programName", label: t.programme.toUpperCase(), value: pass.programName }],
       backFields: [
         // Owner message (ENG-127), first so the newest news is on top. Owner-written: no detected links or numbers.
-        ...(t.message && pass.message !== undefined ? [{ key: "message", label: t.message(pass.merchantName), value: pass.message, changeMessage: "%@", dataDetectorTypes: [] }] : []),
+        ...(t.message && pass.message !== undefined ? [{ key: "message", label: t.message(pass.merchantName, pass.messageDay), value: pass.message, changeMessage: "%@", dataDetectorTypes: [] }] : []),
         // ENG-100's dated rule changes will open this field. Owner-written text: no detected links, numbers or units.
         ...(pass.rules?.length ? [{ key: "rules", label: t.rules, value: pass.rules.join("\n\n"), dataDetectorTypes: [] }] : []),
         // In full: the name carries the reward's limits (ENG-115), and Wallet may cut it on the front.
