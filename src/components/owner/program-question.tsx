@@ -52,7 +52,8 @@ export function ProgramQuestion({ question }: { question: Question }) {
   if (question === "nfc") return <Frame title={title} quiet><TapPolicyCard me={me} /></Frame>;
   const failed = program.state === "error" ? program : winback.state === "error" ? winback : null;
   if (failed) return <Frame title={title}><ErrorNotice message={failed.message} onRetry={() => { reload(); reloadWinback(); }} /></Frame>;
-  if (program.state === "loading" || winback.state === "loading") return <Frame title={title}><LoadingBlock /></Frame>;
+  // The heading waits too: the question replaces the row's name, so it would jump once loaded.
+  if (program.state === "loading" || winback.state === "loading") return <Frame><LoadingBlock /></Frame>;
   const data = program.state === "ok" ? program.data : null;
   if (question === "rule") return data && <Frame title={title}><RuleCard me={me} program={data} onSaved={() => done()} /></Frame>;
   if (question === "winback") return data && winback.state === "ok" && <WinbackQuestion me={me} program={data} initial={winback.data} reminders={!hiddenSurfaces.includes("walletMessages")} />;

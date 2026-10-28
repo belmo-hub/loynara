@@ -732,6 +732,9 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 @media (hover: hover) { .ow-qchoice:not(:has(:checked)):hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
 @media (prefers-reduced-motion: reduce) { .ow-qchoice:active { transform: none; } }
 .ow-qswitch { justify-content: space-between; min-height: 64px; font-weight: var(--weight-body); }
+/* The whole row is the switch's target, so the focus ring goes round the row, as on the answer rows. */
+.ow-qswitch:has(:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-qswitch input[role="switch"]:focus-visible { outline: none; }
 .ow-qcontrol { display: grid; gap: var(--space-2); }
 .ow-qcontrol > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
 .ow-qcontrol :is(label, .ow-label) { font-size: var(--text-16); font-weight: var(--weight-strong); }
@@ -743,6 +746,9 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qmoney .ow-input { min-height: 56px; padding-right: var(--space-10); font-size: var(--text-22); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .ow-qmoney span { position: absolute; top: 50%; right: var(--space-4); transform: translateY(-50%); font-size: var(--text-22); font-weight: var(--weight-strong); pointer-events: none; }
 /* A text action under the answer: „Vorteile pro Level“ opens more fields, „Neuigkeit entfernen“ saves at once. */
-.ow-qlink { align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-action); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
+.ow-qlink { display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-action); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
 .ow-qlink[data-danger] { color: var(--color-danger); text-decoration: none; }
+.ow-qlink svg { flex: none; transition: transform var(--dur-ui) var(--ease-out); }
+.ow-qlink[aria-expanded="true"] svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .ow-qlink svg { transition: none; } }
 .ow-qlink:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }

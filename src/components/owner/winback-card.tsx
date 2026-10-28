@@ -25,8 +25,7 @@ export function WinbackQuestion({ me, program, initial, reminders }: { me: MeRes
   const daysOk = (value: string) => wholeIn(value, WINBACK_DAYS.min, WINBACK_DAYS.max), bonusOk = (value: string) => wholeIn(value, 0, initial.bonusMax);
   // The texts below keep the last valid values while a field is out of range; only the field shows the error.
   const [last, setLast] = useState({ days: initial.days, bonus: initial.bonus });
-  const q = useQuestion(draft.enabled ? { "winback-days": daysOk(draft.days) ? "" : rangeError(WINBACK_DAYS.min, WINBACK_DAYS.max), "winback-bonus": bonusOk(draft.bonus) ? "" : rangeError(0, initial.bonusMax) } : {});
-  useDirtyGuard("winback", !q.busy && JSON.stringify(draft) !== JSON.stringify(saved));
+  const q = useQuestion("winback", JSON.stringify(draft) !== JSON.stringify(saved), draft.enabled ? { "winback-days": daysOk(draft.days) ? "" : rangeError(WINBACK_DAYS.min, WINBACK_DAYS.max), "winback-bonus": bonusOk(draft.bonus) ? "" : rangeError(0, initial.bonusMax) } : {});
   const edit = (patch: Partial<typeof draft>) => {
     const next = { ...draft, ...patch };
     setDraft(next);

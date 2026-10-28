@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Hourglass, Plus, X } from "lucide-react";
+import { ChevronDown, Hourglass, Plus, X } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
-import { useDirtyGuard } from "./owner-context";
 import { CardLinePreview, NumberStepper } from "./owner-ui";
 import { CARD_NEWS_MAX, CHALLENGE_VISITS, challengeBonusRange, cardNewsProblem, LEVEL_PERK_MAX, levelPerkProblem, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
 import { POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
@@ -34,8 +33,7 @@ function WelcomeBonus({ me }: { me: MeResponse }) {
   const stamp = me.programType === "stamp", max = stamp ? 3 : 50, unit = units(me);
   const saved = String(me.welcomeBonus ?? 0);
   const [value, setValue] = useState(saved);
-  const q = useQuestion({ "welcome-bonus": wholeIn(value, 0, max) ? "" : rangeError(0, max) });
-  useDirtyGuard("welcome-bonus", !q.busy && value !== saved);
+  const q = useQuestion("welcome-bonus", value !== saved, { "welcome-bonus": wholeIn(value, 0, max) ? "" : rangeError(0, max) });
   const error = q.error("welcome-bonus");
   return (
     <QuestionForm title={`Startbonus: wie viele ${unit.many} extra?`} lead={`Mit der ersten Buchung, einmal pro Karte. Höchstens ${max} ${unit.many}.`} busy={q.busy} failed={q.failed}
@@ -43,7 +41,7 @@ function WelcomeBonus({ me }: { me: MeResponse }) {
       {stamp
         ? <Choices name="welcome-bonus" label="Startbonus" value={value} saved={saved} onChange={setValue}
           options={[{ value: "0", label: "Aus", sub: "Kein Startbonus", icon: X }, ...[1, 2, 3].map(n => ({ value: String(n), label: `+${n} Stempel`, icon: Plus }))]} />
-        : <div className="ow-qnumber">
+        : <div className="ow-qnumber" data-typed>{/* 0 to 50 in ones: the number looks like the field it is, so owners type */}
           <label htmlFor="welcome-bonus" className="ow-sr">Startbonus</label>
           <NumberStepper id="welcome-bonus" value={value} onChange={next => setValue(next && String(Math.min(Number(next), max)))} min={0} max={max} unit={unit} bonus offAtZero invalid={Boolean(error)} describedBy={error ? "welcome-bonus-hint" : undefined} />
           <FieldError id="welcome-bonus-hint">{error}</FieldError>
@@ -59,11 +57,10 @@ function Challenge({ me, program }: { me: MeResponse; program: PublicProgram }) 
   const saved = { on: latest !== null, visits: String(latest ?? 4), bonus: String((next?.bonus ?? me.challengeBonus) || 1) };
   const [draft, setDraft] = useState(saved);
   const range = challengeBonusRange(me.programType, Math.min(...program.rewards.map(reward => reward.cost)));
-  const q = useQuestion(draft.on ? {
+  const q = useQuestion("challenge", JSON.stringify(draft) !== JSON.stringify(saved), draft.on ? {
     "challenge-visits": wholeIn(draft.visits, CHALLENGE_VISITS.min, CHALLENGE_VISITS.max) ? "" : rangeError(CHALLENGE_VISITS.min, CHALLENGE_VISITS.max),
     "challenge-bonus": range.max < 1 ? "Der Punkte-Bonus braucht eine Prämie ab 4 Punkten." : wholeIn(draft.bonus, range.min, range.max) ? "" : rangeError(range.min, range.max),
   } : {});
-  useDirtyGuard("challenge", !q.busy && JSON.stringify(draft) !== JSON.stringify(saved));
   const edit = (patch: Partial<typeof draft>) => setDraft(value => ({ ...value, ...patch }));
   const date = (iso: string) => `${Number(iso.slice(8))}.${Number(iso.slice(5, 7))}.`;
   return (
@@ -94,12 +91,11 @@ function Levels({ me }: { me: MeResponse }) {
   const [open, setOpen] = useState(false);
   const perk = (key: Perk) => { const problem = levelPerkProblem(draft[key].trim()); return problem ? TEXT_PROBLEM(LEVEL_PERK_MAX)[problem] : ""; };
   // No default thresholds (Product): switching levels on needs both.
-  const q = useQuestion(draft.on ? {
+  const q = useQuestion("levels", JSON.stringify(draft) !== JSON.stringify(saved), draft.on ? {
     "level-silver": wholeIn(draft.silver, 2, 50) ? "" : rangeError(2, 50),
     "level-gold": !wholeIn(draft.gold, 3, 90) ? rangeError(3, 90) : Number(draft.gold) <= Number(draft.silver) ? "Gold braucht mehr Besuche als Silber." : "",
     ...Object.fromEntries(PERKS.map(([, key]) => [key, perk(key)])),
   } : {});
-  useDirtyGuard("levels", !q.busy && JSON.stringify(draft) !== JSON.stringify(saved));
   const edit = (patch: Partial<typeof draft>) => setDraft(value => ({ ...value, ...patch }));
   const day = { one: "Buchungstag", many: "Buchungstage" };
   const perksShown = open || PERKS.some(([, key]) => perk(key)); // a perk that needs fixing stays in view
@@ -114,7 +110,7 @@ function Levels({ me }: { me: MeResponse }) {
         <Control id="level-gold" label="Gold ab" hint="Gezählt werden Tage mit bestätigter Buchung in den letzten 90 Tagen." error={q.error("level-gold")}>
           <NumberStepper id="level-gold" value={draft.gold} onChange={gold => edit({ gold })} min={3} max={90} unit={day} invalid={Boolean(q.error("level-gold"))} describedBy="level-gold-hint" />
         </Control>
-        <button type="button" className="ow-qlink" aria-expanded={perksShown} aria-controls="level-perks" onClick={() => setOpen(!perksShown)}>Vorteile pro Level</button>
+        <button type="button" className="ow-qlink" aria-expanded={perksShown} aria-controls="level-perks" onClick={() => setOpen(!perksShown)}>Vorteile pro Level<ChevronDown size={18} aria-hidden="true" /></button>
         {perksShown && <div id="level-perks" className="ow-qpanel ow-stack">
           <p className="ow-hint">Der Vorteil ist ein Text, den dein Team an der Kasse sieht und einlöst; gebucht wird nichts. Er muss echt sein und eingehalten werden, nie auf Tabak, Presse, Bücher, Lotto oder Handyguthaben.</p>
           {PERKS.map(([name, key]) => <div key={key} className="ow-field">
@@ -134,11 +130,10 @@ function News({ me, program }: { me: MeResponse; program: PublicProgram }) {
   const saved = me.cardNews ?? "";
   const [text, setText] = useState(saved);
   const problem = cardNewsProblem(text.trim());
-  const q = useQuestion({ "card-news": problem ? TEXT_PROBLEM(CARD_NEWS_MAX)[problem] : "" });
-  useDirtyGuard("card-news", !q.busy && text !== saved);
-  const error = q.error("card-news"), shown = text.trim();
+  const q = useQuestion("card-news", text !== saved, { "card-news": problem ? TEXT_PROBLEM(CARD_NEWS_MAX)[problem] : "" });
+  const error = q.error("card-news"), shown = problem ? "" : text.trim(); // the card never shows a line the save refuses (18)
   return (
-    <QuestionForm title="Was sollen Kunden auf der Karte lesen?" busy={q.busy} failed={q.failed} onSubmit={() => void q.save(EXTRAS, { programId: me.programId, cardNews: shown })}>
+    <QuestionForm title="Was sollen Kunden auf der Karte lesen?" busy={q.busy} failed={q.failed} onSubmit={() => void q.save(EXTRAS, { programId: me.programId, cardNews: text.trim() })}>
       <div className="ow-field ow-qpanel">
         <label htmlFor="card-news">Neuigkeit</label>
         {/* The card shows one line: a line break typed or pasted becomes a space. */}
@@ -157,8 +152,7 @@ function News({ me, program }: { me: MeResponse; program: PublicProgram }) {
 function ReviewLink({ me }: { me: MeResponse }) {
   const saved = me.reviewUrl ?? "";
   const [url, setUrl] = useState(saved);
-  const q = useQuestion({ "review-url": !url.trim() || reviewUrlValid(url.trim()) ? "" : "Bitte einen https-Link von g.page, google.com/maps oder search.google.com/local/writereview." });
-  useDirtyGuard("review-url", !q.busy && url !== saved);
+  const q = useQuestion("review-url", url !== saved, { "review-url": !url.trim() || reviewUrlValid(url.trim()) ? "" : "Bitte einen https-Link von g.page, google.com/maps oder search.google.com/local/writereview." });
   const error = q.error("review-url");
   return (
     <QuestionForm title="Wo können Kunden dich bewerten?" busy={q.busy} failed={q.failed} onSubmit={() => void q.save(EXTRAS, { programId: me.programId, reviewUrl: url.trim() })}>
@@ -180,8 +174,7 @@ function AverageSpend({ me, program }: { me: MeResponse; program: PublicProgram 
   const [text, setText] = useState(saved);
   let minor: number | null | undefined = null; // undefined: not an amount the results can use
   if (text.trim()) { try { minor = parsePurchaseAmountMinor(text); } catch { minor = undefined; } if (minor && minor > AVERAGE_VISIT_SPEND_MAX_MINOR) minor = undefined; }
-  const q = useQuestion({ "average-spend": minor === undefined ? SPEND_COPY.averageError : "" });
-  useDirtyGuard("average-spend", !q.busy && text !== saved);
+  const q = useQuestion("average-spend", text !== saved, { "average-spend": minor === undefined ? SPEND_COPY.averageError : "" });
   const error = q.error("average-spend");
   return (
     <QuestionForm title="Wie hoch ist ein Bon bei dir im Schnitt?" busy={q.busy} failed={q.failed} onSubmit={() => void q.save(EXTRAS, { programId: me.programId, averageVisitSpendMinor: minor })}>
@@ -203,8 +196,7 @@ function AverageSpend({ me, program }: { me: MeResponse; program: PublicProgram 
 function PointsExpiry({ me }: { me: MeResponse }) {
   const saved = String(me.pointsExpiryMonths ?? "");
   const [value, setValue] = useState(saved);
-  const q = useQuestion();
-  useDirtyGuard("points-expiry", !q.busy && value !== saved);
+  const q = useQuestion("points-expiry", value !== saved);
   return (
     <QuestionForm title="Wann verfallen Punkte?" lead="Gilt nur für Punkte ab dem Speichern." busy={q.busy} failed={q.failed}
       onSubmit={() => void q.save(EXTRAS, { programId: me.programId, pointsExpiryMonths: value ? Number(value) : null })}>

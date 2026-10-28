@@ -4,7 +4,7 @@ import { ChevronLeft, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ClientApiError, postJson } from "@/components/client-api";
-import { useOwner } from "./owner-context";
+import { useDirtyGuard, useOwner } from "./owner-context";
 import { GuardedLink } from "./owner-shell";
 import { Notice, OwnerIcon } from "./owner-ui";
 import { markSaved } from "./program-list";
@@ -25,21 +25,30 @@ export const rangeError = (min: number, max: number) => `Bitte eine ganze Zahl v
 export const wholeIn = (draft: string, min: number, max: number) => /^\d+$/.test(draft) && Number(draft) >= min && Number(draft) <= max;
 
 /**
- * One question's save (N-3): it posts only its own fields. `problems` maps a field id to what is wrong with it; the first
- * one is focused, and each shows under its field from the first tap on the button on (screen 18). `unchecked` saves
- * without them, for an action that replaces the input („Neuigkeit entfernen“).
+ * One question's save (N-3): it posts only its own fields, and an unchanged answer goes back to the list without a save.
+ * `problems` maps a field id to what is wrong with it; the first one takes the focus, and each shows under its field from
+ * the first tap on the button on (screen 18). The leave guard holds while the answer is changed and not being saved.
  */
-export function useQuestion(problems: Record<string, string> = {}) {
-  const done = useBackToList();
+export function useQuestion(key: string, changed: boolean, problems: Record<string, string> = {}) {
+  const done = useBackToList(), router = useRouter();
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(""), [tried, setTried] = useState(false);
-  async function save(url: string, body: object, unchecked = false) {
-    const first = unchecked ? undefined : Object.keys(problems).find(id => problems[id]);
-    if (first) { setTried(true); document.getElementById(first)?.focus(); return; }
+  useDirtyGuard(key, !busy && changed);
+  const leave = () => router.push("/merchant/program", { scroll: false });
+  /** True when every field is fine; else the first problem takes the focus. */
+  function check() {
+    const first = Object.keys(problems).find(id => problems[id]);
+    if (first) { setTried(true); document.getElementById(first)?.focus(); }
+    return !first;
+  }
+  /** `force` saves as it stands, for an action that replaces the answer („Neuigkeit entfernen“). */
+  async function save(url: string, body: object, force = false) {
     if (busy) return;
+    if (!force && !changed) { leave(); return; }
+    if (!force && !check()) return;
     setBusy(true); setFailed("");
     try { await postJson(url, body); done(); } catch (cause) { setFailed(failure(cause)); setBusy(false); }
   }
-  return { busy, failed, save, error: (id: string) => (tried && problems[id]) || "" };
+  return { busy, failed, check, save, leave, error: (id: string) => (tried && problems[id]) || "" };
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
