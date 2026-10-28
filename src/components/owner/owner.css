@@ -728,10 +728,11 @@ details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
-/* The picked answer is filled with the action colour; its tile and sub-line take the text colour, the sub-line a step back. */
-.ow-qchoice:has(:checked) { background: var(--color-action); color: var(--color-on-action); }
-.ow-qchoice:has(:checked) .ow-prog-icon { background: color-mix(in oklab, var(--color-on-action), transparent 84%); color: inherit; }
-.ow-qchoice:has(:checked) small { color: color-mix(in oklab, var(--color-on-action), var(--color-action) 20%); }
+/* The picked answer is DESIGN.md's selected row in both themes: soft fill, a 2 px action ring, ink text, and a check at the
+   row's end, so the choice never rests on colour alone; the button stays the one solid green (Design, 28 Oct). */
+.ow-qchoice:has(:checked) { background: var(--color-action-soft); box-shadow: inset 0 0 0 2px var(--color-action); }
+.ow-qchoice:has(:checked) .ow-prog-icon { background: var(--color-surface); }
+.ow-qchoice-check { flex: none; margin-left: auto; color: var(--color-action); }
 @media (hover: hover) { .ow-qchoice:not(:has(:checked)):hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
 @media (prefers-reduced-motion: reduce) { .ow-qchoice:active { transform: none; } }
 .ow-qswitch { justify-content: space-between; min-height: 64px; font-weight: var(--weight-body); }

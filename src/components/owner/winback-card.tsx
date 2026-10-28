@@ -59,6 +59,8 @@ export function WinbackQuestion({ me, program, initial, reminders }: { me: MeRes
             {/* The card line of ENG-089 part B, with its „Bedingungen“ link shown as text here. */}
             {CARD.winback(initial.type === "points", last.bonus, exampleDay)} <u>{CARD.conditions}</u>
           </CardLinePreview>}</div>}
+        {/* When the reminder goes out (WINBACK_SEND_WINDOW, once per card). */}
+        {reminders && <p className="ow-hint">Geht höchstens einmal raus, wenn eine Karte {last.days} Tage lang keine Buchung hatte, Mo–Sa zwischen 10 und 18 Uhr. Nur an Kunden mit Apple Wallet, die Nachrichten erlaubt haben.</p>}
         {/* The reminder is not the card, so with reminders the rules keep their own line. */}
         {reminders && rules && <p className="ow-hint">Steht auf der Karte: {rules}</p>}
       </>}
