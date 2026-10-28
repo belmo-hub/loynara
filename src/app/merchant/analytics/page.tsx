@@ -123,7 +123,8 @@ function Retention({ state, reload }: { state: Loadable<RetentionSummary>; reloa
 
 /**
  * The period's full weeks as the Übersicht strip's bars: the count above each bar, the week's first day under it, the
- * latest week lit. Ninety days give twelve narrow bars, so every third one from the latest carries its date.
+ * latest week lit. Ninety days give twelve narrow bars, so every third one from the latest carries its date; the others keep
+ * an empty line, so every bar stands on the same baseline.
  */
 function Weeks({ weeks }: { weeks: Week[] }) {
   const max = Math.max(1, ...weeks.map(week => week.checkouts));
@@ -137,7 +138,7 @@ function Weeks({ weeks }: { weeks: Week[] }) {
           <div className="ow-strip-day" key={week.from} aria-hidden="true">
             <span className="ow-strip-n">{week.checkouts > 0 ? nf.format(week.checkouts) : ""}</span>
             <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
-            <span className="ow-strip-d" data-yesterday={latest ? "" : undefined}>{!many || (weeks.length - 1 - index) % 3 === 0 ? dayMonth(week.from) : ""}</span>
+            <span className="ow-strip-d" data-yesterday={latest ? "" : undefined}>{!many || (weeks.length - 1 - index) % 3 === 0 ? dayMonth(week.from) : "\u00a0"}</span>
           </div>
         );
       })}
