@@ -115,7 +115,7 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
       // shortcut: the VAT mode is fixed per customer and subscription at checkout; switching a running shop needs a one-time Stripe update, add a job if an operator ever registers for VAT mid-contract.
       const customer = z.object({ id: z.string().regex(/^cus_[A-Za-z0-9]+$/) }).parse(await client("POST", "/customers", {
         "metadata[tenant_id]": tenantId, "preferred_locales[0]": "de", "invoice_settings[custom_fields][0][name]": "Geschäft", "invoice_settings[custom_fields][0][value]": shop.name.slice(0, 140),
-        ...(standardVat ? {} : { "invoice_settings[footer]": VAT_NOTE }),
+        ...(vatMode() === "kleinunternehmer" ? { "invoice_settings[footer]": VAT_NOTE } : {}),
       }, `customer-${tenantId}`));
       customerId = customer.id;
       await tx.update(subscriptions).set({ providerCustomerId: customerId }).where(eq(subscriptions.tenantId, tenantId));

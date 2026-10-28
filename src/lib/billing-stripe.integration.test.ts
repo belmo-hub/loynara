@@ -208,14 +208,26 @@ describe("plans and checkout", () => {
     }
   });
 
-  it("takes the VAT line from the VAT setting, never from the page", async () => {
+  it("takes the VAT line from the VAT setting, never from the page: none by default (D-021), § 19 or 19 % only when set", async () => {
     const s = await shop();
+    expect((await getBillingOverview(s.ownerId)).taxNote).toBe("");
+    setEnv({ BILLING_VAT_MODE: "kleinunternehmer" });
     expect((await getBillingOverview(s.ownerId)).taxNote).toBe(VAT_NOTE);
     setEnv({ BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_test00000001" });
     expect((await getBillingOverview(s.ownerId)).taxNote).toBe(VAT_STANDARD_NOTE);
   });
 
+  it("puts no VAT wording and no tax rate on the Stripe customer or subscription while the mode is unset", async () => {
+    const s = await shop();
+    await setTenantPlan({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, planCode: "list" });
+    await createStripeCheckout(s.ownerId);
+    expect(stripe.calls.find(call => call.path === "/customers")!.params["invoice_settings[footer]"]).toBeUndefined();
+    expect(stripe.calls.find(call => call.method === "POST" && call.path === "/checkout/sessions")!.params["subscription_data[default_tax_rates][0]"]).toBeUndefined();
+    expect(stripe.calls.some(call => call.path.startsWith("/tax_rates/"))).toBe(false);
+  });
+
   it("refuses checkout until the operator chose a plan, then charges that plan per location with the § 19 note on the customer", async () => {
+    setEnv({ BILLING_VAT_MODE: "kleinunternehmer" });
     const s = await shop();
     await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
     await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "PLAN_UNAVAILABLE" });

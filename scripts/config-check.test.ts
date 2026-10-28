@@ -171,7 +171,7 @@ describe("production configuration gate", () => {
 
   describe("live billing (Stripe)", () => {
     // Synthetic placeholders shaped like Stripe identifiers; none is a real credential.
-    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true" };
+    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" };
     it("is accepted off (absent or false) and on with the whole group", () => {
       expect(productionConfigIssues({ ...safe, LIVE_BILLING_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(stripe)).toEqual([]);
@@ -191,7 +191,10 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...stripe, LIVE_BILLING_ENABLED: "yes" })).toEqual(expect.arrayContaining(["LIVE_BILLING_ENABLED must be exactly true or false"]));
       expect(productionConfigIssues(stripe).join(" ")).not.toContain("x".repeat(24));
     });
-    it("is Kleinunternehmer by default and switches to 19 % only with a tax rate", () => {
+    it("refuses live billing on production without an explicit VAT mode (D-021: no invoice without VAT information)", () => {
+      expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: undefined })).toEqual(["Live billing requires an explicit BILLING_VAT_MODE (kleinunternehmer or standard)"]);
+    });
+    it("takes Kleinunternehmer explicitly and switches to 19 % only with a tax rate", () => {
       expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "kleinunternehmer" })).toEqual([]);
       expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_synthetic0001" })).toEqual([]);
       expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "standard" })).toEqual(["BILLING_VAT_MODE=standard requires a valid STRIPE_TAX_RATE_ID"]);
