@@ -704,6 +704,30 @@ describe("native Apple passes (ENG-127)", () => {
     expect(await refreshes(s.tenantId)).toEqual([free.id]);
   });
 
+  it("a French shop's native pass is not offered messages: it has no field to show them (R-1)", async () => {
+    const s = await shop(); const de = await nativeCustomer(s); const fr = await nativeCustomer(s, { consent: false });
+    await pool.query("UPDATE tenants SET locale = 'fr' WHERE id = $1", [s.tenantId]);
+    expect(await getWalletConsent(fr.cardToken)).toMatchObject({ available: false });
+    await expect(setWalletConsent(fr.cardToken, true)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // A consent given before the shop switched language does not make the pass reachable either.
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(0);
+    await expect(go(s)).rejects.toMatchObject({ code: "NO_REACH" });
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_recipients WHERE membership_id = ANY($1)", [[de.id, fr.id]])).rows[0].n).toBe(0);
+  });
+
+  it("only the last device letting go counts as a removal", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    const second = `device-2-${c.passId}`;
+    await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [second, "b".repeat(64)]);
+    await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [second, s.tenantId, c.id, apple.passTypeId, c.passId]);
+    const authorization = `ApplePass ${applePassToken(c.passId, apple)}`;
+    await unregisterAppleDevice({ deviceId: c.deviceId, passTypeId: apple.passTypeId, serial: c.passId, authorization }, apple);
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_pass_events WHERE pass_id = $1", [c.passId])).rows[0].n).toBe(0);
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(1);
+    await unregisterAppleDevice({ deviceId: second, passTypeId: apple.passTypeId, serial: c.passId, authorization }, apple);
+    expect((await pool.query("SELECT event FROM wallet_pass_events WHERE pass_id = $1", [c.passId])).rows).toEqual([{ event: "device.unregistered" }]);
+  });
+
   it("a pass removed from its last device is unreachable and counts in the removal report", async () => {
     const s = await shop(); const c = await nativeCustomer(s);
     const { id } = await go(s); await drain(id, s.tenantId, noSend);
