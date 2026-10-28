@@ -71,7 +71,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       balance: row.member.balance,
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
-      ...(target ? { reward: { title: target.title, cost: target.cost } } : {}),
+      ...(target ? { reward: { title: target.title, cost: target.cost, pending: target.pending, endsOn: target.endsOn } } : {}),
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       ...(lastMessage ? { message: lastMessage.text } : {}),
     },

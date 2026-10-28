@@ -189,11 +189,11 @@ describe("Google Wallet follows every loyalty change (fake provider)", () => {
       const pass = await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
       await refreshWalletForMembership(member.id, { google: client });
       const [reward] = await getMerchantRewards({ actorUserId: owner, programSlug: merchant.programSlug });
-      await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Kuchen", cost: 4, termsText: "" });
+      await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Kuchen", cost: 2, termsText: "", worse: false });
       expect(await pendingRefreshes(member.id)).toHaveLength(1);
       expect(await pendingRefreshes(other.id)).toHaveLength(0); // no saved pass, nothing to update
       await refreshWalletForMembership(member.id, { google: client });
-      expect(api.objects.get(googleObjectId(pass.id, issuer!))).toMatchObject({ loyaltyPoints: { balance: { string: "0 / 4" } }, textModulesData: [{ body: "Kuchen · Noch 4 Stempel" }, { id: "note" }] });
+      expect(api.objects.get(googleObjectId(pass.id, issuer!))).toMatchObject({ loyaltyPoints: { balance: { string: "0 / 2" } }, textModulesData: [{ body: "Kuchen · Noch 2 Stempel" }, { id: "note" }] });
       await pool.query("UPDATE outbox_jobs SET status = 'complete'");
       await updateMerchantBrand({ actorUserId: owner, programSlug: merchant.programSlug, businessName: "Neuer Name", locationName: "Mitte", brandColor: "#7a2e1f" });
       expect(await pendingRefreshes(member.id)).toHaveLength(1);

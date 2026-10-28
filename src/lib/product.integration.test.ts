@@ -97,7 +97,7 @@ describe("merchant and customer journey", () => {
     const updated = await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee, maximal einmal je Kauf.", programType: "points" });
     expect(updated.programType).toBe("points");
     const [reward] = await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug });
-    await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Cappuccino gratis", cost: 9, termsText: "" });
+    await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: reward.rewardId, title: "Cappuccino gratis", cost: 9, termsText: "", worse: false }); // a raise: dated, still a version
     const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     await award({ userId: ownerId, locationId: merchant.locationId, membershipId: member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() });
     await expect(updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee, maximal einmal je Kauf.", programType: "stamp" })).rejects.toMatchObject({ code: "TYPE_LOCKED" });
@@ -194,21 +194,22 @@ describe("merchant and customer journey", () => {
     const created = await createReward({ actorUserId: ownerId, programSlug: merchant.programSlug, title: "Kuchen", cost: 12, termsText: "Ein Stück" });
     const initial = await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug });
     expect(initial).toHaveLength(2);
-    await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Torte", cost: 15, termsText: "Ein Stück Torte" });
+    await editReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Torte", cost: 10, termsText: "Ein Stück Torte", worse: false }); // lower and better: at once
     expect((await db.select().from(rewardVersions)).filter(row => row.rewardId === created.rewardId).map(row => row.version)).toEqual([1, 2]);
     // Stored conditions stay in the owner's list only; the join page, the card and the till get none (ENG-115).
     expect((await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug })).find(row => row.rewardId === created.rewardId)?.termsText).toBe("Ein Stück Torte");
     const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
     const payloads = [(await getPublicProgram(merchant.programSlug)).rewards, (await getCard(member.cardToken)).rewards, (await lookupCard({ userId: ownerId, locationId: merchant.locationId, scanCode: member.scanCode })).rewards];
-    for (const rewards of payloads) expect(rewards.map(row => Object.keys(row).sort())).toEqual([["cost", "id", "rewardId", "sortOrder", "title"], ["cost", "id", "rewardId", "sortOrder", "title"]]);
+    for (const rewards of payloads) expect(rewards.map(row => Object.keys(row).sort())).toEqual([["cost", "endsOn", "id", "pending", "rewardId", "sortOrder", "title"], ["cost", "endsOn", "id", "pending", "rewardId", "sortOrder", "title"]]);
     await reorderRewards({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardIds: [created.rewardId, initial[0].rewardId] });
     expect((await getPublicProgram(merchant.programSlug)).rewards.map(row => row.title)).toEqual(["Torte", "Kaffee"]);
     await updateProgram({ actorUserId: ownerId, programSlug: merchant.programSlug, name: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch." });
     expect(await db.select().from(rewardVersions)).toHaveLength(3);
     await archiveReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: created.rewardId });
-    expect((await getPublicProgram(merchant.programSlug)).rewards.map(row => row.title)).toEqual(["Kaffee"]);
+    // ENG-100: the archive is dated; the reward stays on the join page with its end date until then.
+    expect((await getPublicProgram(merchant.programSlug)).rewards.map(row => [row.title, row.endsOn !== null])).toEqual([["Torte", true], ["Kaffee", false]]);
     await expect(archiveReward({ actorUserId: ownerId, programSlug: merchant.programSlug, rewardId: initial[0].rewardId })).rejects.toMatchObject({ code: "LAST_ACTIVE_REWARD" });
-    expect((await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug })).map(row => row.active)).toEqual([false, true]);
+    expect((await getMerchantRewards({ actorUserId: ownerId, programSlug: merchant.programSlug })).map(row => [row.active, row.endsOn !== null])).toEqual([[true, true], [true, false]]);
   });
 });
 

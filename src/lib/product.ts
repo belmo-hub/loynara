@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
@@ -16,7 +16,8 @@ import { challengeProgress, recentVisitDays } from "./challenges";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { germanDate } from "./programme-end-date";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
-import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
+import { enqueueWalletProgramRefresh, scheduleWalletProgramRefresh } from "./wallet/enqueue";
+import { liveReward, NOTICE_END, notSuperseded } from "./reward-versions";
 import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
@@ -314,20 +315,39 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
   });
 }
 
-/** Active rewards in the merchant's order. The browser card and the Wallet pass both show the first as the target.
- *  No conditions text: rewards carry none on any screen (ENG-115), so it does not travel to cards, join pages or the till. */
-export async function currentRewards(tenantId: string, programId: string, reader: Pick<typeof db, "select"> = db) {
-  const rows = await reader.select({ reward: rewards, version: rewardVersions }).from(rewards)
+type RewardChange = { effectiveOn: string; title: string; cost: number };
+const localDay = (at: SQL) => sql<string>`to_char(${at} AT TIME ZONE ${locations.timezone}, 'YYYY-MM-DD')`;
+
+/** Each reward with its version in force (ENG-100 D1), its pending change and its scheduled end; dates are calendar days
+ *  in the location's timezone. `liveOnly` drops archived and ended rewards. */
+async function rewardCatalogue(reader: Pick<typeof db, "select">, tenantId: string, programId: string, liveOnly: boolean) {
+  const rows = await reader.select({
+    reward: rewards, version: rewardVersions, live: sql<boolean>`${sql.raw(liveReward("rewards", "now()"))}`,
+    endsOn: sql<string | null>`CASE WHEN ${rewards.endsAt} > now() THEN ${localDay(sql`${rewards.endsAt}`)} END`,
+    pending: sql<RewardChange | null>`(SELECT json_build_object('effectiveOn', ${localDay(sql`pv.effective_at`)}, 'title', pv.title, 'cost', pv.cost) FROM reward_versions pv
+      WHERE pv.tenant_id = ${rewards.tenantId} AND pv.reward_id = ${rewards.id} AND pv.effective_at > now() AND ${sql.raw(notSuperseded("pv"))} ORDER BY pv.version DESC LIMIT 1)`,
+  }).from(rewards)
     .innerJoin(rewardVersions, and(eq(rewardVersions.rewardId, rewards.id), eq(rewardVersions.tenantId, rewards.tenantId)))
-    .where(and(eq(rewards.tenantId, tenantId), eq(rewards.programId, programId), eq(rewards.active, true), sql`${rewardVersions.effectiveAt} <= now()`))
+    .innerJoin(programs, and(eq(programs.id, rewards.programId), eq(programs.tenantId, rewards.tenantId)))
+    .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+    .where(and(eq(rewards.tenantId, tenantId), eq(rewards.programId, programId), liveOnly ? sql.raw(liveReward("rewards", "now()")) : undefined,
+      sql`${rewardVersions.effectiveAt} <= now()`, sql.raw(notSuperseded("reward_versions"))))
     .orderBy(desc(rewardVersions.version));
   const seen = new Set<string>();
   return rows.filter(({ reward }) => { if (seen.has(reward.id)) return false; seen.add(reward.id); return true; })
-    .sort((a, b) => a.reward.sortOrder - b.reward.sortOrder || a.reward.id.localeCompare(b.reward.id))
-    .map(({ reward, version }) => ({ id: version.id, rewardId: reward.id, title: version.title, cost: version.cost, sortOrder: reward.sortOrder }));
+    .sort((a, b) => a.reward.sortOrder - b.reward.sortOrder || a.reward.id.localeCompare(b.reward.id));
+}
+
+/** Live rewards in the merchant's order, each at its version in force. The browser card and the Wallet pass both show the
+ *  first as the target. `pending` and `endsOn` announce a dated change (ENG-100 D8). No conditions text: rewards carry
+ *  none on any screen (ENG-115), so it does not travel to cards, join pages or the till. */
+export async function currentRewards(tenantId: string, programId: string, reader: Pick<typeof db, "select"> = db) {
+  return (await rewardCatalogue(reader, tenantId, programId, true))
+    .map(({ reward, version, endsOn, pending }) => ({ id: version.id, rewardId: reward.id, title: version.title, cost: version.cost, sortOrder: reward.sortOrder, endsOn, pending }));
 }
 
 const rewardFields = z.object({ title: shortText, cost: z.number().int().min(1).max(100000), termsText: z.string().trim().max(3000).default("") });
+const rewardTarget = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() });
 
 async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], actorUserId: string, programSlug: string) {
   const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).for("update");
@@ -337,17 +357,26 @@ async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>
   return program;
 }
 
+/** A live reward of the owner's programme under an exclusive lock (taken after the programme's), with its version in force,
+ *  its pending version and the next version number. One pending change per reward (ENG-100): `waiting` blocks other edits. */
+async function ownerReward(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], program: typeof programs.$inferSelect, rewardId: string) {
+  const [reward] = await tx.select().from(rewards).where(and(eq(rewards.id, rewardId), eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), sql.raw(liveReward("rewards", "now()")))).for("update");
+  if (!reward) throw new DomainError("NOT_FOUND", "Reward not found");
+  const versions = await tx.select({ version: rewardVersions, due: sql<boolean>`${rewardVersions.effectiveAt} <= now()`, kept: sql<boolean>`${sql.raw(notSuperseded("reward_versions"))}` })
+    .from(rewardVersions).where(and(eq(rewardVersions.tenantId, program.tenantId), eq(rewardVersions.rewardId, reward.id))).orderBy(desc(rewardVersions.version));
+  const kept = versions.filter(row => row.kept);
+  const inForce = kept.find(row => row.due)?.version;
+  if (!inForce) throw new DomainError("NOT_FOUND", "Reward version not found");
+  const pending = kept[0]?.due ? undefined : kept[0]?.version;
+  return { reward, inForce, pending, next: versions[0].version.version + 1, waiting: Boolean(pending || reward.endsAt) };
+}
+const CHANGE_PENDING = () => new DomainError("CHANGE_PENDING", "Für diese Prämie wartet schon eine Änderung auf ihr Datum. Nimm sie zuerst zurück.");
+
 export async function getMerchantRewards(input: { actorUserId: string; programSlug: string }) {
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const rows = await tx.select({ reward: rewards, version: rewardVersions }).from(rewards)
-      .innerJoin(rewardVersions, and(eq(rewardVersions.rewardId, rewards.id), eq(rewardVersions.tenantId, rewards.tenantId)))
-      .where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id)))
-      .orderBy(desc(rewardVersions.version));
-    const seen = new Set<string>();
-    return rows.filter(({ reward }) => { if (seen.has(reward.id)) return false; seen.add(reward.id); return true; })
-      .sort((a, b) => a.reward.sortOrder - b.reward.sortOrder || a.reward.id.localeCompare(b.reward.id))
-      .map(({ reward, version }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: reward.active }));
+    return (await rewardCatalogue(tx, program.tenantId, program.id, false))
+      .map(({ reward, version, live, endsOn, pending }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: live, endsOn, pending }));
   });
 }
 
@@ -355,7 +384,7 @@ export async function createReward(raw: { actorUserId: string; programSlug: stri
   const input = rewardFields.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
+    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), sql.raw(liveReward("rewards", "now()"))));
     if (active.length >= 100) throw new DomainError("REWARD_LIMIT", "A programme can have at most 100 active rewards");
     const [highest] = await tx.select({ sortOrder: rewards.sortOrder }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id))).orderBy(desc(rewards.sortOrder)).limit(1);
     const [reward] = await tx.insert(rewards).values({ tenantId: program.tenantId, programId: program.id, sortOrder: (highest?.sortOrder ?? -1) + 1 }).returning();
@@ -365,18 +394,44 @@ export async function createReward(raw: { actorUserId: string; programSlug: stri
   });
 }
 
-export async function editReward(raw: { actorUserId: string; programSlug: string; rewardId: string; title: string; cost: number; termsText: string }) {
-  const input = rewardFields.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() }).parse(raw);
+/**
+ * A price change, a rename, or both in one call (ENG-100 D3 and Legal). Compared with the version in force: a higher cost
+ * is dated automatically, a lower or equal one applies at once. A changed title (or conditions text) needs the owner's
+ * `worse` choice, refused when absent: worse is dated, better applies at once. A dated save puts every change of the call
+ * into one version effective four weeks on; an at-once save takes created_at = effective_at = the transaction time, so
+ * nothing created in the same transaction supersedes it (CTO note 1). While a change waits, the reward takes no other edit.
+ */
+export async function editReward(raw: { actorUserId: string; programSlug: string; rewardId: string; title?: string; cost?: number; termsText?: string; worse?: boolean }) {
+  const input = rewardTarget.extend({ title: shortText.optional(), cost: z.number().int().min(1).max(100000).optional(), termsText: z.string().trim().max(3000).optional(), worse: z.boolean().optional() }).parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const [reward] = await tx.select().from(rewards).where(and(eq(rewards.id, input.rewardId), eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true))).for("update");
-    if (!reward) throw new DomainError("NOT_FOUND", "Reward not found");
-    const [latest] = await tx.select().from(rewardVersions).where(and(eq(rewardVersions.tenantId, program.tenantId), eq(rewardVersions.rewardId, reward.id))).orderBy(desc(rewardVersions.version)).limit(1);
-    if (!latest) throw new DomainError("NOT_FOUND", "Reward version not found");
-    if (latest.title === input.title && latest.cost === input.cost && latest.termsText === input.termsText) return { rewardId: reward.id, versionId: latest.id, version: latest.version };
-    const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: latest.version + 1, title: input.title, cost: input.cost, termsText: input.termsText }).returning();
+    const { reward, inForce, next, waiting } = await ownerReward(tx, program, input.rewardId);
+    const title = input.title ?? inForce.title, cost = input.cost ?? inForce.cost, termsText = input.termsText ?? inForce.termsText;
+    const renamed = title !== inForce.title || termsText !== inForce.termsText;
+    if (!renamed && cost === inForce.cost) return { rewardId: reward.id, versionId: inForce.id, version: inForce.version, effectiveAt: null };
+    if (waiting) throw CHANGE_PENDING();
+    if (renamed && input.worse === undefined) throw new DomainError("CHOICE_REQUIRED", "Sag bitte, ob der neue Name für deine Kunden schlechter ist.");
+    const dated = cost > inForce.cost || (renamed && input.worse === true);
+    const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title, cost, termsText, ...(dated ? { effectiveAt: NOTICE_END } : {}) }).returning();
+    if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, version.effectiveAt);
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
-    return { rewardId: reward.id, versionId: version.id, version: version.version };
+    return { rewardId: reward.id, versionId: version.id, version: version.version, effectiveAt: dated ? version.effectiveAt : null };
+  });
+}
+
+/** „Änderung zurücknehmen“ / „Archivieren zurücknehmen“: cancels the waiting change at once. A pending version is superseded
+ *  by a copy of the version in force (rows are append-only); a scheduled archive loses its date. Nothing waiting: no-op. */
+export async function takeBackRewardChange(raw: { actorUserId: string; programSlug: string; rewardId: string }) {
+  const input = rewardTarget.parse(raw);
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    const { reward, inForce, pending, next } = await ownerReward(tx, program, input.rewardId);
+    if (reward.endsAt) await tx.update(rewards).set({ endsAt: null }).where(eq(rewards.id, reward.id));
+    else if (pending) await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title: inForce.title, cost: inForce.cost, termsText: inForce.termsText });
+    else return { rewardId: reward.id, takenBack: false };
+    // A refresh already scheduled for the old date stays: it reads the current state and changes nothing.
+    await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
+    return { rewardId: reward.id, takenBack: true };
   });
 }
 
@@ -384,7 +439,7 @@ export async function reorderRewards(raw: { actorUserId: string; programSlug: st
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardIds: z.array(z.uuid()).min(1).max(100) }).parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
+    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), sql.raw(liveReward("rewards", "now()"))));
     if (input.rewardIds.length !== active.length || new Set(input.rewardIds).size !== active.length || active.some(row => !input.rewardIds.includes(row.id))) throw new DomainError("INVALID_REWARD_ORDER", "Order must include every active reward once");
     for (const [index, id] of input.rewardIds.entries()) await tx.update(rewards).set({ sortOrder: index }).where(eq(rewards.id, id));
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id); // the first reward is the pass's target
@@ -392,16 +447,21 @@ export async function reorderRewards(raw: { actorUserId: string; programSlug: st
   });
 }
 
+/** Archiving is dated (ENG-100 D3): the reward stays on cards and redeemable until ends_at, four weeks on. At least one
+ *  reward must stay that is not ending. */
 export async function archiveReward(raw: { actorUserId: string; programSlug: string; rewardId: string }) {
-  const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() }).parse(raw);
+  const input = rewardTarget.parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true)));
-    if (!active.some(row => row.id === input.rewardId)) throw new DomainError("NOT_FOUND", "Active reward not found");
-    if (active.length === 1) throw new DomainError("LAST_ACTIVE_REWARD", "At least one active reward is required");
-    await tx.update(rewards).set({ active: false }).where(eq(rewards.id, input.rewardId));
+    const { reward, waiting } = await ownerReward(tx, program, input.rewardId);
+    if (waiting) throw CHANGE_PENDING();
+    const [others] = await tx.select({ count: sql<number>`count(*)::int` }).from(rewards)
+      .where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true), sql`${rewards.endsAt} IS NULL`, ne(rewards.id, reward.id)));
+    if (!others.count) throw new DomainError("LAST_ACTIVE_REWARD", "At least one active reward is required");
+    const [ending] = await tx.update(rewards).set({ endsAt: NOTICE_END }).where(eq(rewards.id, reward.id)).returning({ endsAt: rewards.endsAt });
+    await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, ending.endsAt!);
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
-    return { rewardId: input.rewardId, archived: true };
+    return { rewardId: reward.id, endsAt: ending.endsAt };
   });
 }
 

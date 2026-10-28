@@ -1,12 +1,17 @@
 import { z } from "zod";
-import { archiveReward, createReward, editReward, getMerchantRewards, reorderRewards } from "@/lib/product";
+import { archiveReward, createReward, editReward, getMerchantRewards, reorderRewards, takeBackRewardChange } from "@/lib/product";
 import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/http";
 
 const common = { programSlug: z.string().min(1).max(120) };
 const fields = { title: z.string().trim().min(2).max(180), cost: z.number().int().min(1).max(100000), termsText: z.string().trim().max(3000).default("") };
 const action = z.discriminatedUnion("action", [
   z.object({ ...common, action: z.literal("create"), ...fields }).strict(),
-  z.object({ ...common, action: z.literal("edit"), rewardId: z.uuid(), ...fields }).strict(),
+  // ENG-100: price, rename (with the owner's worse choice) and both in one call ("edit", today's owner form) share one
+  // rule set in editReward; a rename without the choice is refused, never applied at once.
+  z.object({ ...common, action: z.literal("edit"), rewardId: z.uuid(), ...fields, termsText: fields.termsText.unwrap().optional(), worse: z.boolean().optional() }).strict(),
+  z.object({ ...common, action: z.literal("price"), rewardId: z.uuid(), cost: fields.cost }).strict(),
+  z.object({ ...common, action: z.literal("rename"), rewardId: z.uuid(), title: fields.title, worse: z.boolean() }).strict(),
+  z.object({ ...common, action: z.literal("takeBack"), rewardId: z.uuid() }).strict(),
   z.object({ ...common, action: z.literal("reorder"), rewardIds: z.array(z.uuid()).min(1).max(100) }).strict(),
   z.object({ ...common, action: z.literal("archive"), rewardId: z.uuid() }).strict(),
 ]);
@@ -26,7 +31,8 @@ export async function POST(request: Request) {
     const user = await sessionUser(request);
     const input = action.parse(await jsonBody(request, 5000));
     if (input.action === "create") return Response.json(await createReward({ ...input, actorUserId: user.id }), { status: 201, headers: { "Cache-Control": "no-store" } });
-    if (input.action === "edit") return Response.json(await editReward({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
+    if (input.action === "takeBack") return Response.json(await takeBackRewardChange({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
+    if (input.action === "edit" || input.action === "price" || input.action === "rename") return Response.json(await editReward({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
     if (input.action === "reorder") return Response.json(await reorderRewards({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
     return Response.json(await archiveReward({ ...input, actorUserId: user.id }), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }

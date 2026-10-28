@@ -34,7 +34,9 @@ export type WalletPassData = WalletBrand & {
   /** Formatted staff locator, e.g. "K-7QX2MA". Not a credential. */
   cardLocator: string;
   /** The card's target reward (the first by the merchant's order, as on the browser card). */
-  reward?: { title: string; cost: number };
+  reward?: { title: string; cost: number;
+    /** ENG-100: a dated change and the archive date (YYYY-MM-DD, location time), data only until the pass shows them. */
+    pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null };
   lastActivityAt?: Date;
   /** The last owner message sent to this card (PassFast only), kept so a refresh resends it unchanged. */
   message?: string;
