@@ -13,6 +13,15 @@ export const SEES_TODAY = "Deine Kunden sehen die Änderung ab heute auf ihrer K
 const SEES = "Deine Kunden sehen die Änderung auf ihrer Karte.";
 export const datedToast = (iso: string) => `Gespeichert. Gilt ab ${longDay(iso)}.`;
 
+/** What each rule save posts (S1b's update route). The owner's „Schlechter“ alone sends worse: true; a change of rate
+ *  alone sends no answer (the server dates a lower one by itself). */
+export const ruleBody = {
+  text: (programSlug: string, rulesText: string, choice: "better" | "worse") => ({ programSlug, rulesText, worse: choice === "worse" }),
+  earning: (programSlug: string, change: { earningMode: "manual" | "purchase"; pointsPerCurrencyUnit?: number; rulesText?: string }, choice?: "better" | "worse") =>
+    ({ programSlug, ...change, ...(choice ? { worse: choice === "worse" } : {}) }),
+  takeBack: (programSlug: string) => ({ programSlug, takeBack: true }),
+};
+
 type Rule = NonNullable<PublicProgram["pending"]>["old"];
 /** Which item a waiting rule change belongs to: the earning mode, the rate, or the text (the rule or Weitere Regeln). */
 export const ruleItem = (before: Rule, after: Rule) => before.earningMode !== after.earningMode ? "mode" : before.pointsPerCurrencyUnit !== after.pointsPerCurrencyUnit ? "rate" : "text";
@@ -63,7 +72,7 @@ export function RuleWaiting({ slug, program, pending, label }: { slug: string; p
       : item === "rate" ? `Es bleibt bei ${perEuro(old.pointsPerCurrencyUnit)}` : old.rulesText.trim() ? "Es bleibt bei der bisherigen Regel" : "Es bleibt ohne weitere Regeln";
     return (
       <QuestionForm title="Änderung zurücknehmen?" back={{ label, onClick: step.back }} busy={q.busy} failed={q.failed} action="Zurücknehmen" cancel={step.back}
-        onSubmit={() => q.save(UPDATE, { programSlug: slug, takeBack: true }, "Änderung zurückgenommen")}>
+        onSubmit={() => q.save(UPDATE, ruleBody.takeBack(slug), "Änderung zurückgenommen")}>
         <When title={kept} undo>Die Änderung entfällt sofort, auch der Hinweis auf den Karten deiner Kunden.</When>
       </QuestionForm>
     );
@@ -88,7 +97,7 @@ export function ExpiryWaiting({ slug, program, expiry, label }: { slug: string; 
   const on = longDay(expiry.effectiveOn), shorter = expiry.before !== null;
   if (step.step === "takeback" && !shorter) return (
     <QuestionForm title="Änderung zurücknehmen?" back={{ label, onClick: step.back }} busy={q.busy} failed={q.failed} action="Zurücknehmen" cancel={step.back}
-      onSubmit={() => q.save(UPDATE, { programSlug: slug, takeBack: true }, "Änderung zurückgenommen")}>
+      onSubmit={() => q.save(UPDATE, ruleBody.takeBack(slug), "Änderung zurückgenommen")}>
       <When title="Punkte verfallen weiter nie" undo>Die Änderung entfällt sofort, auch der Hinweis auf den Karten deiner Kunden.</When>
     </QuestionForm>
   );
@@ -114,15 +123,15 @@ export function ExpiryWaiting({ slug, program, expiry, label }: { slug: string; 
 
 /**
  * The rule and the expiry share one dated version chain on the server, so while one waits the other takes no change either
- * (CHANGE_PENDING). The page says so before anything is entered. Draft wording for Marketing.
+ * (CHANGE_PENDING). The page says so before anything is entered (Marketing FINAL).
  */
-export function OtherWaiting({ title, what, until, final, current }: { title: string; /** „der Sammelregel“, „beim Punkteverfall“ */ what: string; until: string; /** A shortening can't be taken back. */ final?: boolean;
+export function OtherWaiting({ title, what, until, final, current }: { title: string; /** „eine Regeländerung“, „eine Änderung beim Punkteverfall“ */ what: string; until: string; /** A shortening can't be taken back. */ final?: boolean;
   /** What is set today, shown read-only above the notice (Design). */ current: { label: string; value: string } }) {
   const q = useQuestion("other-waiting", false);
   return (
     <QuestionForm title={title} busy={false} failed="" action="" onSubmit={q.leave}>
       <div className="ow-prog-row"><span className="ow-prog-main"><span className="ow-prog-text"><strong>{current.label}</strong><small>{current.value}</small></span></span></div>
-      <Notice tone="warn">Gerade wartet eine Änderung {what} auf ihr Datum, den {longDay(until)}. Ändern kannst du das hier {final ? "ab diesem Tag" : "ab diesem Tag oder wenn du sie zurücknimmst"}.</Notice>
+      <Notice tone="warn">Gerade wartet {what} auf ihr Datum, den {longDay(until)}. Ändern kannst du das hier {final ? "ab diesem Tag" : "ab diesem Tag oder wenn du sie zurücknimmst"}.</Notice>
     </QuestionForm>
   );
 }

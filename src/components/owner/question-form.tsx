@@ -19,7 +19,7 @@ export function useBackToList() {
 // Server diagnostics stay off the page: a lost connection or a rate limit says what to do (client-api), and the server's
 // German checks of a challenge or levels name the field to fix, and a change already waiting (ENG-100) says so. Anything
 // else is the live W25 text.
-const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING")
+export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING")
   ? cause.message : "Die Einstellungen konnten nicht gespeichert werden.";
 
 /** The setup's own wording for a whole number out of range („Bitte eine ganze Zahl von 1 bis 1000 eingeben.“). */

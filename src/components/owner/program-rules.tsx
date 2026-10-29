@@ -8,7 +8,7 @@ import { purchasePoints, purchaseRuleSentence } from "@/lib/points";
 import { CardLinePreview, nf, NumberStepper } from "./owner-ui";
 import { earningSentence, euro, EXTRA_RULES, longDay, EXTRA_RULES_HINT, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, QUESTIONS, RULE_PLACEHOLDER, ruleKind, SHORT_RULE, unitName, type EarningMode, type RuleKind } from "./program-helpers";
 import { Choices, Control, FieldError, QuestionForm, rangeError, useQuestion, useReview, wholeIn } from "./question-form";
-import { datedToast, LinePreview, OtherWaiting, RuleWaiting, SEES_TODAY, WorseChoice } from "./program-rule-changes";
+import { datedToast, LinePreview, OtherWaiting, ruleBody, RuleWaiting, SEES_TODAY, WorseChoice } from "./program-rule-changes";
 import { When } from "./program-reward";
 import { ruleChangeLine } from "@/lib/change-lines";
 
@@ -74,13 +74,13 @@ export function RuleQuestion({ me, program }: { me: MeResponse; program: PublicP
   const q = useQuestion("rule", text.trim() !== saved, { "rule-text": !extras && text.trim().length < 10 ? SHORT_RULE : "" });
   const label = extras ? EXTRA_RULES : QUESTIONS.rule, notice = program.noticeOn ?? "";
   if (program.pending) return <RuleWaiting slug={me.programSlug} program={program} pending={program.pending} label={label} />;
-  if (program.pendingExpiry) return <OtherWaiting title={extras ? "Gibt es weitere Regeln?" : "Wie sammeln deine Kunden?"} what="beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null}
+  if (program.pendingExpiry) return <OtherWaiting title={extras ? "Gibt es weitere Regeln?" : "Wie sammeln deine Kunden?"} what="eine Änderung beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null}
     current={{ label, value: saved || "Keine" }} />;
   if (step) {
     const before = { earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, rulesText: saved };
     return (
       <QuestionForm title="Regeländerung prüfen" back={{ label, onClick: back }} busy={q.busy} failed={q.failed} action="Neue Regelversion speichern" disabled={!worse}
-        onSubmit={() => worse && q.save(UPDATE, { programSlug: me.programSlug, rulesText: text.trim(), worse: worse === "worse" }, worse === "worse" ? datedToast(notice) : undefined)}>
+        onSubmit={() => worse && q.save(UPDATE, ruleBody.text(me.programSlug, text.trim(), worse as "better" | "worse"), worse === "worse" ? datedToast(notice) : undefined)}>
         <Compare before={saved} after={text.trim()} none={extras ? "Keine weiteren Regeln" : undefined} />
         <WorseChoice value={worse} onChange={setWorse} notice={notice} program={program} line={ruleChangeLine(notice, before, { ...before, rulesText: text.trim() })}
           until={saved.trim() ? "Bis dahin gilt die bisherige Regel." : "Bis dahin gibt es keine weiteren Regeln."} />
@@ -117,15 +117,15 @@ export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program:
   const after = { earningMode: draft.mode, pointsPerCurrencyUnit: purchase ? rate : before.pointsPerCurrencyUnit, rulesText: toPurchase ? "" : toManual ? text.trim() : savedText };
   const dated = cut || worse === "worse";
   if (program.pending) return <RuleWaiting slug={me.programSlug} program={program} pending={program.pending} label={QUESTIONS.earning} />;
-  if (program.pendingExpiry) return <OtherWaiting title="Wie entstehen Punkte?" what="beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null}
+  if (program.pendingExpiry) return <OtherWaiting title="Wie entstehen Punkte?" what="eine Änderung beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null}
     current={{ label: QUESTIONS.earning, value: sentence(saved.mode, Number(saved.rate)) }} />;
   if (step === "rule") return (
     <QuestionForm title="Wie sammeln deine Kunden?" back={{ label: QUESTIONS.earning, onClick: back }} busy={false} failed="" action="Weiter" onSubmit={() => { if (q.check()) open(); }}>
       <RuleField kind="manual" program={program} text={text} onChange={setText} error={q.error("rule-text")} former={savedText} />
     </QuestionForm>
   );
-  const submit = () => void q.save(UPDATE, { programSlug: me.programSlug, earningMode: draft.mode, ...(purchase ? { pointsPerCurrencyUnit: rate } : {}), ...(toPurchase ? { rulesText: "" } : toManual ? { rulesText: text.trim() } : {}),
-    ...(switched ? { worse: worse === "worse" } : {}) }, dated ? datedToast(notice) : undefined);
+  const submit = () => void q.save(UPDATE, ruleBody.earning(me.programSlug, { earningMode: draft.mode, ...(purchase ? { pointsPerCurrencyUnit: rate } : {}), ...(toPurchase ? { rulesText: "" } : toManual ? { rulesText: text.trim() } : {}) },
+    switched ? worse as "better" | "worse" : undefined), dated ? datedToast(notice) : undefined);
   // 38: a lower rate, confirmed with its date; no choice.
   if (step && cut) return (
     <QuestionForm title={`Punkte pro €: ${rate} statt ${saved.rate}`} back={{ label: QUESTIONS.earning, onClick: back }} busy={q.busy} failed={q.failed} action="Neue Regelversion speichern" onSubmit={submit}>
