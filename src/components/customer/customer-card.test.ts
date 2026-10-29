@@ -187,3 +187,17 @@ describe("win-back window on the card (ENG-089)", () => {
     expect(card("fr", 2)).toContain("votre prochaine visite vous rapporte 2 points supplémentaires.");
   });
 });
+
+describe("changes waiting for their date (ENG-100 U3)", () => {
+  it("lists each line under the card, and a long new rule opens from its line", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, changes: { lines: ["Ab 24.11. gibt es Kaffee für 6 Stempel. Bis dahin reichen 5.", { text: "Ab 24.11. gilt eine neue Regel. Bis dahin bleibt es bei der bisherigen.", link: true }], newRule: { on: "24.11.", text: "Nur abends." } } }));
+    expect(out).toContain("Ab 24.11. gibt es Kaffee für 6 Stempel. Bis dahin reichen 5.");
+    expect(out).toContain("Neue Regel lesen");
+  });
+
+  it("is wired from the card read on the card page", async () => {
+    // The card page passes the server's waiting changes through cardChanges (src/lib/change-lines.ts, tested there).
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("src/components/card-client.tsx", "utf8")).toMatch(/changes=\{cardChanges\(\{[^}]*rewards: card\.rewards, pending: card\.pending, pendingExpiry: card\.pendingExpiry \}\)\}/);
+  });
+});

@@ -11,3 +11,13 @@ describe("a join refused because the shop changed the programme (ENG-100 W58)", 
     expect(staleJoin(shown, null, "x")).toMatchObject({ program: shown, acceptedTerms: false, stale: true });
   });
 });
+
+describe("the join page applies the whole transition", () => {
+  it("sets consent, rules, mark and error from staleJoin on STALE_RULE", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("src/components/join-client.tsx", "utf8");
+    const branch = source.slice(source.indexOf('cause.code === "STALE_RULE"'), source.indexOf('cause.code === "INVALID_REFERRAL"'));
+    expect(branch).toContain("staleJoin(");
+    for (const set of ["setProgram(next.program)", "setAcceptedTerms(next.acceptedTerms)", "setStale(next.stale)", "setError(next.error)"]) expect(branch).toContain(set);
+  });
+});
