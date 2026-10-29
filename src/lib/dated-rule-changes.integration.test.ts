@@ -83,7 +83,8 @@ describe("dated rule changes (ENG-100 S1b)", () => {
     expect((await getCustomerExport(s.card.cardToken)).program.rulesText).toBe("12 Punkte pro Pizza.");
     const wallet = await walletCardSnapshot(s.card.id);
     expect(wallet.open && wallet.pass).toMatchObject({ rules: expect.arrayContaining([expect.stringContaining("12 Punkte pro Pizza.")]), pending: { rulesText: "5 Punkte pro Pizza." } });
-    expect(JSON.stringify(wallet.open && wallet.pass.rules)).not.toContain("5 Punkte");
+    // The pass back opens with the dated line, the whole new rule quoted (W46), then the rule in force.
+    expect(wallet.open && wallet.pass.rules?.slice(0, 2)).toEqual([expect.stringMatching(/^Ab \d+\.\d+\. gilt: 5 Punkte pro Pizza\. Bis dahin bleibt es bei der bisherigen Regel\.$/), "12 Punkte pro Pizza."]);
     await expect(takeBackRuleChange({ actorUserId: s.owner, programSlug: s.programSlug })).resolves.toEqual({ takenBack: true });
     expect((await getCard(s.card.cardToken))).toMatchObject({ rulesText: "12 Punkte pro Pizza.", pending: null });
     await passDate(s); // the taken-back version never comes into force
@@ -150,6 +151,9 @@ describe("dated expiry (ENG-100 S1b, Legal and Product)", () => {
     const first = (await since(s))!;
     expect(first.getTime()).toBeGreaterThan(Date.now() + 27 * 86_400_000);
     expect((await getCard(s.card.cardToken)).pendingExpiry).toMatchObject({ months: 36, before: null });
+    // Until the date the join page and the card state no expiry rule: none is in force.
+    expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBeUndefined();
+    expect((await getCard(s.card.cardToken)).pointsExpiry).toBeUndefined();
     await passDate(s);
     const started = (await since(s))!;
     await s.expiry(null); // off: at once, recorded

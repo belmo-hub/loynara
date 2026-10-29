@@ -29,8 +29,9 @@ const perEuro = (n: number) => `${n} ${n === 1 ? "Punkt" : "Punkte"} pro 1 € E
  * card, the join page, the Wallet back and the owner's preview. `before` and `after` are the rule in force and the waiting
  * one; `extras` says the shop earns by purchase amount, so the text holds its further rules only.
  */
-export function ruleChangeLine(effectiveOn: string, before: { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string }, after: { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string }): ChangeLine {
-  const day = cardDay(effectiveOn), text = after.rulesText.trim(), long = text.length > QUOTE_MAX;
+export function ruleChangeLine(effectiveOn: string, before: { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string }, after: { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string },
+  /** The Wallet back always quotes the whole new text (W46). */ full = false): ChangeLine {
+  const day = cardDay(effectiveOn), text = after.rulesText.trim(), long = !full && text.length > QUOTE_MAX;
   if (before.earningMode === "manual" && after.earningMode === "purchase")
     return { text: `Ab ${day} gibt es ${perEuro(after.pointsPerCurrencyUnit)}. Bis dahin bleibt es bei der bisherigen Regel.` };
   const old = before.pointsPerCurrencyUnit, keeps = `bei ${old} ${old === 1 ? "Punkt" : "Punkten"} pro 1 € Einkaufswert`;
@@ -47,3 +48,29 @@ export function ruleChangeLine(effectiveOn: string, before: { earningMode: strin
 /** ENG-100: the card line for a waiting expiry switch-on or shortening (Marketing W58 FINAL). */
 export const expiryChangeLine = (effectiveOn: string, months: number) =>
   `Ab ${cardDay(effectiveOn)} verfallen neue Punkte nach ${months} Monaten. Punkte, die du bis dahin sammelst, verfallen nie.`;
+
+type RuleState = { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string };
+type Waiting = {
+  programType: "stamp" | "points";
+  rewards: Array<Reward & { pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
+  pending?: (RuleState & { effectiveOn: string; old: RuleState }) | null;
+  pendingExpiry?: { effectiveOn: string; months: number } | null;
+};
+
+/**
+ * Every change waiting for its date, as the customer reads it (ENG-100 U3): one line per reward, the rule's line with the
+ * full new text behind „Neue Regel lesen“, and the expiry's line. The card lists them together; the join page puts each
+ * after the text it changes; the Wallet back puts them first, in full.
+ */
+export function changeLines(program: Waiting, full = false) {
+  const kind = program.programType === "points" ? "points" : "stamps", pending = program.pending, expiry = program.pendingExpiry;
+  return {
+    rewards: program.rewards.flatMap(reward => reward.endsOn ? [rewardChangeLine(kind, reward, { endsOn: reward.endsOn })] : reward.pending ? [rewardChangeLine(kind, reward, reward.pending)] : []),
+    rule: pending ? ruleChangeLine(pending.effectiveOn, pending.old, pending, full) : undefined,
+    newRule: pending?.rulesText.trim() ? { on: cardDay(pending.effectiveOn), text: pending.rulesText.trim() } : undefined,
+    expiry: expiry ? expiryChangeLine(expiry.effectiveOn, expiry.months) : undefined,
+  };
+}
+
+/** The lines in one list: rewards, the rule, the expiry (card page and Wallet back). */
+export const waitingLines = (lines: ReturnType<typeof changeLines>) => [...lines.rewards, ...(lines.rule ? [lines.rule.text] : []), ...(lines.expiry ? [lines.expiry] : [])];

@@ -156,6 +156,9 @@ export type CardResponse = {
   challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
   /** The card's level (visit days in 90 days), its perk and the next step; absent while the shop has no levels. */
   level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
-  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; sortOrder?: number }>;
+  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; sortOrder?: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
+  /** ENG-100: a rule or expiry change waiting for its date (the card shows the rule in force until then). */
+  pending?: PublicProgram["pending"];
+  pendingExpiry?: PublicProgram["pendingExpiry"];
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean; isChallengeBonus?: boolean }>;
 };

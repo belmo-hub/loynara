@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, History, RefreshCw } from "lucide-react";
+import { CalendarClock, ChevronRight, History, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
 import { CardFace, nearestReward, type CardReward } from "./card-face";
+import type { ChangeLine } from "@/lib/change-lines";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
 import { copyText } from "@/components/copy-text";
@@ -49,6 +50,9 @@ export type CustomerCardProps = {
   endsOn?: string;
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
+  /** ENG-100: changes waiting for their date, one line each under the card (W31, W45, W46, W58); a long new rule is
+   *  readable in full in the rules panel („Neue Regel lesen“). */
+  changes?: { lines: Array<ChangeLine | string>; newRule?: { on: string; text: string } };
   /** Offered only when the server reports the provider available; absent = no button at all. */
   onAppleWallet?: () => void;
   onGoogleWallet?: () => void;
@@ -72,7 +76,7 @@ export type CustomerCardProps = {
  * code inset like a Wallet pass, at most one highlighted extra, then everything that keeps the card findable.
  */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -103,6 +107,10 @@ export function CustomerCard(props: CustomerCardProps) {
         {readyCount > 0 ? <p className={styles.ticketNote}>{t.showToRedeem}</p> : null}
       </section>
     </CardFace>
+    {changes?.lines.length ? <ul className={styles.changes} aria-label="Änderungen">{changes.lines.map(line => {
+      const { text, link } = typeof line === "string" ? { text: line, link: false } : line;
+      return <li key={text}><CalendarClock size={18} aria-hidden="true" /><span>{text}{link ? <> <a href="#customer-new-rule">Neue Regel lesen</a></> : null}</span></li>;
+    })}</ul> : null}
     {props.onRefresh ? <div className={styles.refresh}>
       <Button variant="quiet" size="sm" icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
       {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
@@ -142,9 +150,10 @@ export function CustomerCard(props: CustomerCardProps) {
       {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{activity.map((item) => <li key={item.id}><span><strong>{item.label}</strong><small>{item.date}</small></span><b data-sign={item.change > 0 ? "plus" : item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b></li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
     </section>
 
-    {rulesText || pointsExpiry || challenge || level ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">
+    {rulesText || pointsExpiry || challenge || level || changes?.newRule ? <section id="customer-rules" className={styles.panel} aria-labelledby="customer-rules-title">
       <h2 id="customer-rules-title" className={styles.panelTitle}>{t.rules}</h2>
       {rulesText ? <p className={styles.rules}>{rulesText}</p> : null}
+      {changes?.newRule ? <p id="customer-new-rule" className={styles.rules}><strong>Ab {changes.newRule.on} gilt:</strong> {changes.newRule.text}</p> : null}
       {pointsExpiry ? <p className={styles.rules}>{pointsExpiry.rule}</p> : null}
       {pointsExpiry?.batches.length ? <><p className={styles.rules}>{t.expiryList}</p><ul className={styles.rules}>{pointsExpiry.batches.map(line => <li key={line}>{line}</li>)}</ul></> : null}
       {challenge ? <p className={styles.rules}>{t.challenge}: {challenge.conditions}</p> : null}

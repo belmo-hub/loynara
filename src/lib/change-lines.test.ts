@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expiryChangeLine, rewardChangeLine, ruleChangeLine } from "./change-lines";
+import { changeLines, expiryChangeLine, rewardChangeLine, ruleChangeLine } from "./change-lines";
 
 describe("card lines for a reward change waiting for its date (W31, W49)", () => {
   const coffee = { title: "Gratiskaffee", cost: 10 };
@@ -38,4 +38,21 @@ describe("card lines for a rule or expiry change waiting for its date (W45, W46,
   });
 
   it("announces a stricter expiry", () => expect(expiryChangeLine("2026-11-24", 24)).toBe("Ab 24.11. verfallen neue Punkte nach 24 Monaten. Punkte, die du bis dahin sammelst, verfallen nie."));
+});
+
+describe("all lines for a card, join page or Wallet back (U3)", () => {
+  const old = { earningMode: "manual", pointsPerCurrencyUnit: 1, rulesText: "10 Punkte pro Pizza." };
+  const long = "Punkte gibt es nur für Speisen und Getränke im Lokal, nicht für Lieferungen, Gutscheine oder Feiern mit Vorbestellung, und nur einmal pro Tisch und Besuch.";
+  const program = { programType: "points" as const, rewards: [{ title: "Pizza", cost: 100, pending: { effectiveOn: "2026-11-24", title: "Pizza", cost: 120 } }, { title: "Cola", cost: 30, endsOn: "2026-11-24" }, { title: "Eis", cost: 50 }],
+    pending: { effectiveOn: "2026-11-24", ...old, rulesText: long, old }, pendingExpiry: { effectiveOn: "2026-11-24", months: 24 } };
+  it("lists each waiting change once, with the long rule behind its link", () => {
+    expect(changeLines(program)).toEqual({
+      rewards: ["Ab 24.11. gibt es Pizza für 120 Punkte. Bis dahin reichen 100.", "Ab 24.11. gibt es Cola nicht mehr. Bis dahin kannst du die Prämie noch einlösen."],
+      rule: { text: "Ab 24.11. gilt eine neue Regel. Bis dahin bleibt es bei der bisherigen.", link: true },
+      newRule: { on: "24.11.", text: long },
+      expiry: "Ab 24.11. verfallen neue Punkte nach 24 Monaten. Punkte, die du bis dahin sammelst, verfallen nie.",
+    });
+  });
+  it("quotes the whole rule for the Wallet back", () => expect(changeLines(program, true).rule).toEqual({ text: `Ab 24.11. gilt: ${long} Bis dahin bleibt es bei der bisherigen Regel.` }));
+  it("has nothing when nothing waits", () => expect(changeLines({ programType: "stamp", rewards: [{ title: "Kaffee", cost: 10 }] })).toEqual({ rewards: [], rule: undefined, newRule: undefined, expiry: undefined }));
 });

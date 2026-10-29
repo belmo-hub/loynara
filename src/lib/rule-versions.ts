@@ -50,14 +50,16 @@ export async function programInForce<P extends Program>(reader: Reader, program:
   // Every programme gets its first version when it starts; a bare row (synthetic fixtures) is its own rule.
   if (!rows.length) return { ...program, ruleVersionId: undefined, newestRuleVersionId: undefined, pending: null, pendingExpiry: null };
   const { inForce, pending, effectiveOn } = split(rows);
-  const changed = pending && JSON.stringify(earning(pending)) !== JSON.stringify(earning(inForce));
+  const changed = pending && JSON.stringify(earning(pending)) !== JSON.stringify(earning(inForce)), expiry = pending && expiryWaits(program, pending);
   return {
-    ...program, name: inForce.name, type: inForce.type, ...earning(inForce),
+    // While an expiry waits, the rule shown is the one in force (switch-on: none); its since is the date, so no lot expires
+    // before it either way (D4).
+    ...program, name: inForce.name, type: inForce.type, ...earning(inForce), ...(expiry ? { pointsExpiryMonths: inForce.pointsExpiryMonths } : {}),
     ruleVersionId: inForce.id,
     /** What a join page showed: the newest version, pending or in force (D7). */
     newestRuleVersionId: (pending ?? inForce).id,
     pending: changed ? { effectiveOn: effectiveOn!, ...earning(pending), old: earning(inForce) } satisfies RulePending : null,
     // `before`: the months in force until then (null: points never expire), recorded on the version in force (saveExpiry).
-    pendingExpiry: pending && expiryWaits(program, pending) ? { effectiveOn: effectiveOn!, months: program.pointsExpiryMonths!, before: inForce.pointsExpiryMonths } : null,
+    pendingExpiry: expiry ? { effectiveOn: effectiveOn!, months: program.pointsExpiryMonths!, before: inForce.pointsExpiryMonths } : null,
   };
 }

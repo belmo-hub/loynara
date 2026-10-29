@@ -75,6 +75,9 @@ describe("points expiry setting", () => {
     await expect(setExpiry(stamps, 36)).rejects.toMatchObject({ code: "INVALID_POINTS_EXPIRY" });
 
     expect(await setExpiry(s, 36)).toMatchObject({ pointsExpiryMonths: 36 });
+    // Switching on waits four weeks (ENG-100): until then no expiry rule is in force, and the join page states none.
+    expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBeUndefined();
+    await expiryOn(s, 36); // the date has passed
     const rule = "Punkte verfallen 36 Monate nach dem Sammeln, die ältesten zuerst.";
     expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBe(rule);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });

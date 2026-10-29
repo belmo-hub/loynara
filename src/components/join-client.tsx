@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { Fragment, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { signUpRules } from "@/lib/card-extras";
+import { changeLines } from "@/lib/change-lines";
 import { withUnit } from "@/lib/units";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
-import { Gift } from "lucide-react";
+import { CalendarClock, Gift } from "lucide-react";
 import { CustomerState } from "./customer/customer-state";
 import { Button, buttonClassName } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -17,11 +18,11 @@ import styles from "./customer/join.module.css";
 
 const copy = {
   de: {
-    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "Willkommen bei", headline: "Mach deinen Besuch zählbar.", intro: "Hol dir deine Karte direkt im Browser. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", rewardLabel: "Deine Prämie", cardPreview: "So sieht deine Karte aus", noEmail: "Für die Karte brauchst du keine E-Mail-Adresse und kein Konto.", for: "für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", consentStart: "Ich habe die oben stehenden Programmregeln gelesen und akzeptiere sie.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutzhinweise", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit Loynara, ohne zusätzliche App", acceptError: "Bitte akzeptiere zuerst die Programmregeln.", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.", and: "und",
+    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "Willkommen bei", headline: "Mach deinen Besuch zählbar.", intro: "Hol dir deine Karte direkt im Browser. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", rewardLabel: "Deine Prämie", cardPreview: "So sieht deine Karte aus", noEmail: "Für die Karte brauchst du keine E-Mail-Adresse und kein Konto.", for: "für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", consentStart: "Ich habe die oben stehenden Programmregeln gelesen und akzeptiere sie.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutzhinweise", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit Loynara, ohne zusätzliche App", acceptError: "Bitte akzeptiere zuerst die Programmregeln.", staleError: "Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal und akzeptiere sie. Deine Karte ist noch nicht erstellt.", readRule: "Neue Regel lesen", hideRule: "Neue Regel ausblenden", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.", and: "und",
     welcomeBack: "Willkommen zurück.", savedHere: "Auf diesem Gerät ist deine Karte gespeichert.", cardNumber: "Kartennummer", openCard: "Meine Karte öffnen", anotherLink: "Ich brauche eine weitere Karte", anotherTitle: "Weitere Karte erstellen?", anotherConfirm: "Ich möchte trotzdem eine zusätzliche Karte erstellen.", anotherSubmit: "Weitere Karte erstellen", backToCard: "Zurück zu meiner Karte", anotherConfirmError: "Bitte bestätige, dass du eine zusätzliche Karte möchtest.", staleNote: "Auf diesem Gerät war eine Karte gespeichert, die nicht mehr gilt, zum Beispiel weil sie geschlossen oder neu ausgestellt wurde. Hast du einen neuen Kartenlink bekommen, öffne bitte diesen.", existsError: "Auf diesem Gerät gibt es schon eine Karte für dieses Programm.", checking: "Prüfe, ob du hier schon eine Karte hast …", referralUnavailable: "Dieser Empfehlungslink ist nicht verfügbar. Du kannst ohne Empfehlungsbonus eine normale Karte erstellen.", withoutReferral: "Ohne Empfehlungslink fortfahren", unconfirmed: "Die Kartenerstellung wurde nicht bestätigt. Deine Karte kann bereits erstellt sein. Lade die Seite neu, um eine auf diesem Gerät gespeicherte Karte zu prüfen. Erstelle nicht vorschnell eine weitere Karte.",
   },
   fr: {
-    header: "CARTE DE FIDÉLITÉ NUMÉRIQUE", loadingLabel: "UN INSTANT", loadingTitle: "Chargement du programme.", loadingText: "Nous récupérons les règles et la récompense.", missingLabel: "INDISPONIBLE", missingTitle: "Ce programme est inaccessible.", home: "Retour à l’accueil", welcome: "Bienvenue chez", headline: "Chaque visite compte.", intro: "Obtenez votre carte directement dans le navigateur. En caisse, cumulez des", introEnd: "pour votre prochaine récompense.", stamp: "tampons", points: "points", reward: "VOTRE RÉCOMPENSE", rewardLabel: "Votre récompense", cardPreview: "Aperçu de votre carte", noEmail: "Aucune adresse e-mail ni compte n’est nécessaire pour la carte.", for: "pour", rules: "Règles du programme", inactive: "Ce programme commencera plus tard. L’inscription n’est pas encore ouverte.", email: "Adresse e-mail", optional: "facultative", emailHint: "Aucune adresse e-mail n’est nécessaire pour obtenir la carte.", consentStart: "J’ai lu et j’accepte les règles du programme ci-dessus.", terms: "Autres conditions de participation", privacy: "Politique de confidentialité", marketing: "Je souhaite recevoir à l’avenir des e-mails promotionnels de ce commerce. Ce choix est facultatif et indépendant de ma carte.", submit: "Créer ma carte", submitting: "Création de la carte …", footer: "Avec Loynara, sans application supplémentaire", acceptError: "Veuillez d’abord accepter les règles du programme.", emailError: "Une adresse e-mail est nécessaire pour recevoir des messages.", inactiveError: "Ce programme n’est pas encore actif.", submitError: "La carte n’a pas pu être créée.", loadError: "Programme introuvable.", and: "et",
+    header: "CARTE DE FIDÉLITÉ NUMÉRIQUE", loadingLabel: "UN INSTANT", loadingTitle: "Chargement du programme.", loadingText: "Nous récupérons les règles et la récompense.", missingLabel: "INDISPONIBLE", missingTitle: "Ce programme est inaccessible.", home: "Retour à l’accueil", welcome: "Bienvenue chez", headline: "Chaque visite compte.", intro: "Obtenez votre carte directement dans le navigateur. En caisse, cumulez des", introEnd: "pour votre prochaine récompense.", stamp: "tampons", points: "points", reward: "VOTRE RÉCOMPENSE", rewardLabel: "Votre récompense", cardPreview: "Aperçu de votre carte", noEmail: "Aucune adresse e-mail ni compte n’est nécessaire pour la carte.", for: "pour", rules: "Règles du programme", inactive: "Ce programme commencera plus tard. L’inscription n’est pas encore ouverte.", email: "Adresse e-mail", optional: "facultative", emailHint: "Aucune adresse e-mail n’est nécessaire pour obtenir la carte.", consentStart: "J’ai lu et j’accepte les règles du programme ci-dessus.", terms: "Autres conditions de participation", privacy: "Politique de confidentialité", marketing: "Je souhaite recevoir à l’avenir des e-mails promotionnels de ce commerce. Ce choix est facultatif et indépendant de ma carte.", submit: "Créer ma carte", submitting: "Création de la carte …", footer: "Avec Loynara, sans application supplémentaire", acceptError: "Veuillez d’abord accepter les règles du programme.", staleError: "Le commerce vient de modifier le programme. Veuillez relire les règles ci-dessus et les accepter. Votre carte n’a pas encore été créée.", readRule: "Lire la nouvelle règle", hideRule: "Masquer la nouvelle règle", emailError: "Une adresse e-mail est nécessaire pour recevoir des messages.", inactiveError: "Ce programme n’est pas encore actif.", submitError: "La carte n’a pas pu être créée.", loadError: "Programme introuvable.", and: "et",
     welcomeBack: "Bon retour.", savedHere: "Votre carte est enregistrée sur cet appareil.", cardNumber: "Numéro de carte", openCard: "Ouvrir ma carte", anotherLink: "J’ai besoin d’une autre carte", anotherTitle: "Créer une autre carte ?", anotherConfirm: "Je veux quand même créer une carte supplémentaire.", anotherSubmit: "Créer une autre carte", backToCard: "Retour à ma carte", anotherConfirmError: "Veuillez confirmer que vous voulez une carte supplémentaire.", staleNote: "Une carte enregistrée sur cet appareil n’est plus valable, par exemple parce qu’elle a été fermée ou réémise. Si vous avez reçu un nouveau lien de carte, ouvrez-le.", existsError: "Une carte pour ce programme existe déjà sur cet appareil.", checking: "Vérification d’une carte existante sur cet appareil …", referralUnavailable: "Ce lien de parrainage est indisponible. Vous pouvez créer une carte ordinaire sans bonus de parrainage.", withoutReferral: "Continuer sans lien de parrainage", unconfirmed: "La création de la carte n’est pas confirmée. Votre carte peut déjà avoir été créée. Rechargez la page pour vérifier si une carte est enregistrée sur cet appareil. Ne créez pas une autre carte dans la précipitation.",
   },
 } as const;
@@ -59,6 +60,8 @@ export function JoinClient({ slug }: { slug: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [referralUnavailable, setReferralUnavailable] = useState(false);
+  // ENG-100: the full new rule opens in place, above the checkbox (W58); a stale join marks the rules it reloaded.
+  const [showRule, setShowRule] = useState(false), [stale, setStale] = useState(false);
   const referralCode = useSyncExternalStore(subscribeToLocation, currentReferralCode, serverReferralCode);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
@@ -107,6 +110,11 @@ export function JoinClient({ slug }: { slug: string }) {
         const found = await checkReturning(slug);
         setReturning(found); setWantsAnother(false); setConfirmAnother(false);
         setError(found.state === "existing" ? "" : t.existsError);
+      } else if (cause instanceof ClientApiError && cause.code === "STALE_RULE") {
+        // The shop changed the programme while the page was open (W58): the rules reload in place, to be read and accepted again.
+        const fresh = await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).catch(() => null);
+        if (fresh) setProgram(fresh);
+        setAcceptedTerms(false); setStale(true); setError(t.staleError);
       } else if (cause instanceof ClientApiError && cause.code === "INVALID_REFERRAL") {
         setReferralUnavailable(true); setError(t.referralUnavailable);
       } else if (cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300))) {
@@ -163,7 +171,20 @@ export function JoinClient({ slug }: { slug: string }) {
       {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
       {/* The rules the checkbox accepts: by purchase amount the earning sentence opens them (server), and the fixed
           exclusions stand on the page itself, not only behind the terms link (Legal). */}
-      <div className={styles.rules}><h3>{t.rules}</h3>{signUpRules(program).map((line, index) => <p key={index}>{line}</p>)}</div>
+      <div className={styles.rules} data-stale={stale || undefined}><h3>{t.rules}</h3>{(() => {
+        // ENG-100 (W58): reward lines first, the rule's line after the rule, the expiry's after the expiry rule.
+        const waiting = changeLines(program), change = (text: string, extra?: React.ReactNode) => <p className={styles.change}><CalendarClock size={18} aria-hidden="true" /><span>{text}{extra}</span></p>;
+        const expiryLine = waiting.expiry && change(waiting.expiry);
+        return <>
+          {waiting.rewards.map(line => <Fragment key={line}>{change(line)}</Fragment>)}
+          {signUpRules(program).map((line, index) => <Fragment key={index}>
+            <p>{line}</p>
+            {index === 0 && waiting.rule && change(waiting.rule.text, waiting.rule.link && <> <button type="button" className={styles.ruleToggle} aria-expanded={showRule} aria-controls="join-new-rule" onClick={() => setShowRule(!showRule)}>{showRule ? t.hideRule : t.readRule}</button></>)}
+            {index === 0 && waiting.rule?.link && showRule && <p id="join-new-rule" className={styles.newRule}>{waiting.newRule?.text}</p>}
+            {(index === 0 ? !program.pointsExpiryRule : line === program.pointsExpiryRule) && expiryLine}
+          </Fragment>)}
+        </>;
+      })()}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit}>
         <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
