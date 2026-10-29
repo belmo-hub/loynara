@@ -289,7 +289,7 @@ async function saveExpiry(tx: Transaction, program: typeof programs.$inferSelect
   // A version from before 0042 records no expiry: first record the one in force, so a take-back can tell a shortening.
   const versions = [...(dated && inForce.pointsExpiryMonths !== old ? [{ ...ruleFields(inForce), pointsExpiryMonths: old, pointsExpirySince: program.pointsExpirySince }] : []),
     { ...ruleFields(inForce), ...expiry, ...(dated ? { effectiveAt: noticeEnd(at) } : {}) }];
-  const saved = (await insertRuleVersions(tx, program, at, next, versions)).at(-1)!;
+  await insertRuleVersions(tx, program, at, next, versions);
   if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, noticeEnd(at));
   await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
   return expiry;
@@ -383,7 +383,7 @@ const enrollInput = z.object({
 
 /** The newest version (pending, else in force) of each live reward: what a join page shows (D7). */
 async function newestRewardVersionIds(reader: Pick<typeof db, "select">, tenantId: string, programId: string) {
-  const rows = await reader.select({ id: sql<string>`(SELECT v.id FROM reward_versions v WHERE v.tenant_id = ${rewards.tenantId} AND v.reward_id = ${rewards.id} AND ${sql.raw(notSuperseded("v"))} ORDER BY v.version DESC LIMIT 1)` })
+  const rows = await reader.select({ id: sql<string>`(SELECT v.id FROM reward_versions v WHERE v.tenant_id = rewards.tenant_id AND v.reward_id = rewards.id AND ${sql.raw(notSuperseded("v"))} ORDER BY v.version DESC LIMIT 1)` })
     .from(rewards).where(and(eq(rewards.tenantId, tenantId), eq(rewards.programId, programId), sql.raw(liveReward("rewards", "now()")))).orderBy(asc(rewards.sortOrder), asc(rewards.id));
   return rows.map(row => row.id);
 }
