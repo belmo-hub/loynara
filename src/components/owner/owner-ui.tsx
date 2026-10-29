@@ -90,8 +90,9 @@ export function MoreInfo({ summary = "Mehr dazu", children }: { summary?: string
   return <details className="ow-more"><summary>{summary}</summary><div className="ow-more-body">{children}</div></details>;
 }
 
-export function PageHead({ eyebrow, title, lead, actions }: { eyebrow?: string; title: string; lead?: string; actions?: ReactNode }) {
-  return <header className="ow-pagehead"><div>{eyebrow && <p className="ow-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{lead && <p>{lead}</p>}</div>{actions && <div className="ow-row">{actions}</div>}</header>;
+/** `back`: the link to the list a page was opened from („‹ Aktionen“), above the heading. */
+export function PageHead({ eyebrow, title, lead, actions, back }: { eyebrow?: string; title: string; lead?: string; actions?: ReactNode; back?: ReactNode }) {
+  return <header className="ow-pagehead"><div>{back}{eyebrow && <p className="ow-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{lead && <p>{lead}</p>}</div>{actions && <div className="ow-row">{actions}</div>}</header>;
 }
 
 /** Shared read-failure block: says what failed, keeps the page usable and offers one retry. */

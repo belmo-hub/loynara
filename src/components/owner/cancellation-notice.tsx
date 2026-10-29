@@ -6,9 +6,9 @@ import { cancellationTimeline, germanDate } from "@/lib/programme-end-date";
 import { useOwner } from "./owner-context";
 
 /**
- * A requested or confirmed end date, on Übersicht and Abrechnung: the date, what works until then, and the next step.
- * Requested = provisional ("Voraussichtlich"), confirmed = the operator has set the date. Until the end everything works,
- * redemptions included. The Einstellungen links appear only where the cancel card is offered (it is withheld on production).
+ * A requested or confirmed end date, on Übersicht, Geschäft and Abrechnung: the date, what works until then, and the next
+ * step. Requested = provisional ("Voraussichtlich"), confirmed = the operator has set the date. Until the end everything
+ * works, redemptions included. The link to „Programm beenden“ appears only where that page is offered (withheld on production).
  */
 export function CancellationNotice({ me, now }: { me: MeResponse; now?: Date }) {
   const { locations } = useOwner();
@@ -30,7 +30,7 @@ export function CancellationNotice({ me, now }: { me: MeResponse; now?: Date }) 
       <p className="ow-next-text">{confirmed ? `Dein Programm endet am ${germanDate(endDate)}.` : `Voraussichtlich bis zum ${germanDate(endDate)}.`}</p>
       <p className="ow-muted">{running}</p>
       {confirmed && <p className="ow-muted">{phase !== "past" && "Sag es deinen Kunden, damit sie ihre Prämien noch einlösen."}{isOwner && `${phase !== "past" ? " " : ""}Deine Daten kannst du bis zum ${germanDate(exportUntil)} herunterladen.`}</p>}
-      {settings && phase !== "past" && <div><Link className="ow-btn ow-btn--secondary" href="/merchant/settings">{confirmed ? "Text für deine Kunden" : "Kündigung ansehen"}</Link></div>}
+      {settings && phase !== "past" && <div><Link className="ow-btn ow-btn--secondary" href="/merchant/settings/cancel">{confirmed ? "Text für deine Kunden" : "Kündigung ansehen"}</Link></div>}
     </section>
   );
 }

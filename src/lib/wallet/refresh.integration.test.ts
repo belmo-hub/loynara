@@ -7,7 +7,7 @@ import { closeCard } from "@/lib/card-lifecycle";
 import { reissueCardByStaff } from "@/lib/card-reissue";
 import { award, redeem, reverseEntry } from "@/lib/loyalty";
 import { updateMerchantBrand } from "@/lib/merchant-brand";
-import { createMerchant, editReward, enroll, getMerchantRewards, lookupCard } from "@/lib/product";
+import { createMerchant, createReward, editReward, enroll, getMerchantRewards, lookupCard } from "@/lib/product";
 import { configureReferrals, getCardReferralShare } from "@/lib/referrals";
 import { applePassToken } from "./apple";
 import { registerAppleDevice } from "./apple-service";
@@ -85,6 +85,14 @@ describe("wallet refresh queue", () => {
     const pass = await walletPassDataByMembershipId(member.id);
     expect(pass).toMatchObject({ latitude: 51.3127, longitude: 9.4797, cardLocator: expect.stringMatching(/^K-[A-Z2-9]{6}$/), reward: { title: "Kaffee", cost: 3 } });
     expect(JSON.stringify(pass)).not.toContain("customerLocation");
+  });
+
+  it("lists every active reward in the merchant's order and follows a cost change (ENG-116)", async () => {
+    const { owner, merchant, member } = await createMember();
+    const created = await createReward({ actorUserId: owner, programSlug: merchant.programSlug, title: "Kuchen", cost: 8 });
+    expect((await walletPassDataByMembershipId(member.id)).rewards).toEqual([{ title: "Kaffee", cost: 3 }, { title: "Kuchen", cost: 8 }]);
+    await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Kuchen", cost: 9, termsText: "" });
+    expect((await walletPassDataByMembershipId(member.id)).rewards).toEqual([{ title: "Kaffee", cost: 3 }, { title: "Kuchen", cost: 9 }]);
   });
 });
 

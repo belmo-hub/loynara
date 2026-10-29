@@ -52,7 +52,7 @@ test("a new points location takes optional extra rules, a stamp location still n
       const page = await context.newPage();
       const posts: string[] = [];
       page.on("request", request => { if (request.method() === "POST" && new URL(request.url()).pathname === "/api/merchant/locations") posts.push(request.postData() ?? ""); });
-      await page.goto("/merchant/locations");
+      await page.goto("/merchant/locations/new");
       await page.getByLabel("Standortname").fill("Synthetic Rules Counter");
       await page.getByLabel("Stadt").fill("Bonn");
       await page.getByLabel("Programmname").fill("Synthetic rules card");
@@ -97,6 +97,7 @@ test("owner creates and selects a second location without crossing card or staff
       await page.goto("/merchant/locations");
       await expect(page.getByRole("heading", { name: "Standorte", exact: true })).toBeVisible();
       await expect(page.locator("main").getByText("Synthetic Multi A", { exact: true })).toBeVisible();
+      await page.getByRole("link", { name: "Standort hinzufügen" }).click();
       await page.getByLabel("Standortname").fill("Synthetic Berlin Counter");
       await page.getByLabel("Stadt").fill("Berlin");
       await page.getByLabel("Programmname").fill("Synthetic Berlin card");

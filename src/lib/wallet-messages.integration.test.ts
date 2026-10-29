@@ -8,6 +8,8 @@ import { walletCardSnapshot } from "./wallet/data";
 import { consentText, CONSENT_TEXT_VERSION } from "./wallet-message-rules";
 import { POST } from "@/app/api/wallet/passfast-events/route";
 import { recordPassFastEvent } from "./wallet-pass-events";
+import { applePassJson, applePassToken } from "./wallet/apple";
+import { unregisterAppleDevice } from "./wallet/apple-service";
 import { acknowledgeWalletGuidance, deliverWalletMessage, type WalletMessageGoogleSend, removalWarning, walletMessageStats, getWalletConsent, sendWalletMessage, setWalletConsent, stopWalletMessage, walletMessageOverview, type WalletMessageSend } from "./wallet-messages";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
@@ -642,5 +644,99 @@ describe("Google Wallet messages (ENG-054)", () => {
     expect(google.calls).toEqual([]);
     expect(apple.calls.map(c => c.objectId)).toEqual([`passfast:${both.passId}`]);
     expect((await pool.query("SELECT reason FROM wallet_message_recipients WHERE pass_id = $1", [both.googlePassId])).rows[0].reason).toBe("google_off");
+  });
+});
+
+describe("native Apple passes (ENG-127)", () => {
+  const apple = { passTypeId: "pass.test.loynara", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "q".repeat(20) + "w".repeat(20) };
+  /** A card holding a native Apple pass, registered on one device unless `device` is false. */
+  async function nativeCustomer(s: Shop, { consent = true, device = true } = {}) {
+    const card = await enroll({ slug: s.slug, acceptedTerms: true });
+    const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+    const passId = randomUUID(), deviceId = `device-${passId}`;
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'apple',$4,$5,'registered')",
+      [passId, s.tenantId, card.id, passId, credentialHash(m.scan_code)]);
+    if (device) {
+      await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [deviceId, "a".repeat(64)]);
+      await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [deviceId, s.tenantId, card.id, apple.passTypeId, passId]);
+    }
+    if (consent) await setWalletConsent(card.cardToken, true);
+    return { ...card, passId, deviceId };
+  }
+  const refreshes = async (tenantId: string) => (await pool.query("SELECT payload ->> 'membershipId' AS id FROM outbox_jobs WHERE tenant_id = $1 AND kind = 'wallet.refresh' ORDER BY 1", [tenantId])).rows.map(row => row.id);
+  const noSend: WalletMessageSend = async () => { throw new Error("PassFast must not be called for a native pass"); };
+
+  it("consent queues a refresh, and the pass then carries an empty message field for the first alert", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    expect(await refreshes(s.tenantId)).toEqual([c.id]);
+    const snapshot = await walletCardSnapshot(c.id);
+    if (!snapshot.open) throw new Error("open");
+    expect(snapshot.pass.message).toBe("");
+    const quiet = await nativeCustomer(s, { consent: false });
+    const other = await walletCardSnapshot(quiet.id);
+    expect(other.open && other.pass.message).toBeUndefined();
+  });
+
+  it("a send queues exactly one refresh per consenting, registered pass and never calls PassFast", async () => {
+    const s = await shop(); const a = await nativeCustomer(s); const b = await nativeCustomer(s);
+    await nativeCustomer(s, { consent: false }); await nativeCustomer(s, { device: false });
+    await pool.query("DELETE FROM outbox_jobs WHERE tenant_id = $1", [s.tenantId]); // the consent refreshes already ran
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(2);
+    const { id, audience } = await go(s);
+    expect(audience).toBe(2);
+    expect(await drain(id, s.tenantId, noSend)).toEqual({ status: "complete" });
+    expect(await refreshes(s.tenantId)).toEqual([a.id, b.id].sort());
+    expect((await recipientStatuses(id)).map(r => r.status)).toEqual(["sent", "sent"]);
+    // What the device fetches after the push: the message on the back, with the lock-screen changeMessage.
+    const snapshot = await walletCardSnapshot(a.id);
+    if (!snapshot.open) throw new Error("open");
+    expect(applePassJson(snapshot.pass, a.passId, apple).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ label: "Nachricht von Synthetic Café vom 22.10.", value: TEXT, changeMessage: "%@" });
+  });
+
+  it("respects the per-customer cap: a card with two messages this week gets no refresh", async () => {
+    const s = await shop(); const capped = await nativeCustomer(s); const free = await nativeCustomer(s);
+    await priorMessage(s, capped.id, capped.passId, T("2026-10-18T10:00:00Z"));
+    await priorMessage(s, capped.id, capped.passId, T("2026-10-20T10:00:00Z"));
+    await pool.query("DELETE FROM outbox_jobs WHERE tenant_id = $1", [s.tenantId]);
+    const { id, audience } = await go(s);
+    expect(audience).toBe(1);
+    await drain(id, s.tenantId, noSend);
+    expect(await refreshes(s.tenantId)).toEqual([free.id]);
+  });
+
+  it("a French shop's native pass is not offered messages: it has no field to show them (R-1)", async () => {
+    const s = await shop(); const de = await nativeCustomer(s); const fr = await nativeCustomer(s, { consent: false });
+    await pool.query("UPDATE tenants SET locale = 'fr' WHERE id = $1", [s.tenantId]);
+    expect(await getWalletConsent(fr.cardToken)).toMatchObject({ available: false });
+    await expect(setWalletConsent(fr.cardToken, true)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // A consent given before the shop switched language does not make the pass reachable either.
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(0);
+    await expect(go(s)).rejects.toMatchObject({ code: "NO_REACH" });
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_recipients WHERE membership_id = ANY($1)", [[de.id, fr.id]])).rows[0].n).toBe(0);
+  });
+
+  it("only the last device letting go counts as a removal", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    const second = `device-2-${c.passId}`;
+    await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [second, "b".repeat(64)]);
+    await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [second, s.tenantId, c.id, apple.passTypeId, c.passId]);
+    const authorization = `ApplePass ${applePassToken(c.passId, apple)}`;
+    await unregisterAppleDevice({ deviceId: c.deviceId, passTypeId: apple.passTypeId, serial: c.passId, authorization }, apple);
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_pass_events WHERE pass_id = $1", [c.passId])).rows[0].n).toBe(0);
+    expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(1);
+    await unregisterAppleDevice({ deviceId: second, passTypeId: apple.passTypeId, serial: c.passId, authorization }, apple);
+    expect((await pool.query("SELECT event FROM wallet_pass_events WHERE pass_id = $1", [c.passId])).rows).toEqual([{ event: "device.unregistered" }]);
+  });
+
+  it("a pass removed from its last device is unreachable and counts in the removal report", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    const { id } = await go(s); await drain(id, s.tenantId, noSend);
+    await unregisterAppleDevice({ deviceId: c.deviceId, passTypeId: apple.passTypeId, serial: c.passId, authorization: `ApplePass ${applePassToken(c.passId, apple)}` }, apple);
+    const overview = await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON);
+    expect(overview.reach).toBe(0);
+    expect(overview.history[0]).toMatchObject({ id, sent: 1, removed: 1 });
+    // A repeated unregister call records nothing more.
+    await unregisterAppleDevice({ deviceId: c.deviceId, passTypeId: apple.passTypeId, serial: c.passId, authorization: `ApplePass ${applePassToken(c.passId, apple)}` }, apple);
+    expect((await pool.query("SELECT event FROM wallet_pass_events WHERE pass_id = $1", [c.passId])).rows).toEqual([{ event: "device.unregistered" }]);
   });
 });

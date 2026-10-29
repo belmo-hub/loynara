@@ -22,8 +22,8 @@ test("owner sees priced location plans and actual card usage without a live char
     try {
       const page = await context.newPage();
       await page.goto("/merchant/billing");
-      await expect(page.getByRole("heading", { name: "Tarif und Abrechnung" })).toBeVisible();
-      await expect(page.getByText("98,00 €", { exact: false })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Abrechnung", exact: true })).toBeVisible();
+      await expect(page.locator(".ow-board-big")).toHaveText(/^98\s€$/); // the stored prices in whole euros (ENG-122c)
       await expect(page.locator("main").getByText("Synthetic second counter")).toBeVisible();
       await expect(page.getByText("1 von 10.000 aktiven Karten")).toBeVisible();
       await page.screenshot({ path: "screenshots/platform-after-billing.png", fullPage: true });
@@ -51,7 +51,7 @@ test("local fixture handoff records a test period and owner cancellation in the 
       await page.getByRole("button", { name: "Testbuchung bestätigen" }).click();
       await expect(page.getByText("Lokale Testbuchung erfasst.")).toBeVisible();
       await page.getByRole("link", { name: "Zur Abrechnung" }).click();
-      await expect(page.getByRole("heading", { name: "Lokale Testperiode aktiv" })).toBeVisible();
+      await expect(page.getByText("Lokale Testperiode aktiv", { exact: true })).toBeVisible();
       await expect(page.locator("small").filter({ hasText: "Fixture-Beleg" })).toBeVisible();
       await page.screenshot({ path: "screenshots/platform-after-billing-fixture.png", fullPage: true });
       await page.getByRole("button", { name: "Testperiode zum Ende beenden" }).click();

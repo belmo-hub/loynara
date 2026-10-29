@@ -67,9 +67,15 @@ export async function unregisterAppleDevice(input: Omit<RegistrationInput, "push
   if (!validAppleDeviceId(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
   await authenticatedApplePass(input, config);
   await db.transaction(async (tx) => {
-    await tx.delete(appleRegistrations).where(and(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId), eq(appleRegistrations.passTypeIdentifier, input.passTypeId), eq(appleRegistrations.serialNumber, input.serial)));
+    const removed = await tx.delete(appleRegistrations).where(and(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId), eq(appleRegistrations.passTypeIdentifier, input.passTypeId), eq(appleRegistrations.serialNumber, input.serial)))
+      .returning({ serial: appleRegistrations.serialNumber });
     const other = await tx.select({ id: appleRegistrations.deviceLibraryIdentifier }).from(appleRegistrations).where(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId)).limit(1);
     if (!other.length) await tx.delete(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, input.deviceId));
+    // The last device let go of the pass: the removal report of owner messages counts this like PassFast's device event.
+    if (removed.length) await tx.execute(sql`INSERT INTO wallet_pass_events (pass_id, tenant_id, event, event_at)
+      SELECT p.id, p.tenant_id, 'device.unregistered', clock_timestamp() FROM wallet_passes p
+      WHERE p.id = ${input.serial}::uuid AND NOT EXISTS (SELECT 1 FROM apple_registrations a WHERE a.membership_id = p.membership_id AND a.serial_number = p.id::text)
+      ON CONFLICT ON CONSTRAINT wallet_pass_event_once_uq DO NOTHING`);
   });
 }
 

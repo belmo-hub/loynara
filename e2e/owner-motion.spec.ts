@@ -19,8 +19,8 @@ for (const width of [375, 1280]) for (const reducedMotion of ["reduce", "no-pref
         const page = await context.newPage();
         await page.goto("/merchant/program/card");
         await page.getByLabel("Geschäftsname").fill("Synthetic Motion Neu");
-        if (width === 375) await page.getByRole("button", { name: "Navigation öffnen" }).click();
-        await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Übersicht" }).click();
+        // Phones reach the areas through the bottom bar (no navigation drawer since ENG-122c).
+        await page.getByRole("navigation", { name: width === 375 ? "Bereiche" : "Hauptnavigation" }).getByRole("link", { name: "Übersicht" }).click();
         const dialog = page.getByRole("dialog", { name: "Ungespeicherte Änderungen verwerfen?" });
         await expect(dialog).toBeVisible();
         const motion = await dialog.evaluate(el => {

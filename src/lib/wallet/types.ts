@@ -37,9 +37,15 @@ export type WalletPassData = WalletBrand & {
   reward?: { title: string; cost: number;
     /** ENG-100: a dated change and the archive date (YYYY-MM-DD, location time), data only until the pass shows them. */
     pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null };
+  /** Every active reward in the merchant's order, for the list on the back of the Apple pass (ENG-116). */
+  rewards?: Array<{ title: string; cost: number }>;
+  /** The programme rules as the sign-up page lists them (signUpRules), one paragraph each, for the back of the Apple pass. */
+  rules?: string[];
   lastActivityAt?: Date;
-  /** The last owner message sent to this card (PassFast only), kept so a refresh resends it unchanged. */
+  /** The last owner message sent to this card, kept so a refresh resends it unchanged; "" for a card that allowed messages and has none yet. */
   message?: string;
+  /** The day that message was sent, „28.10.“ in the shop's timezone. */
+  messageDay?: string;
 };
 
 /** What a revoked pass may still show: who issued it and why it no longer works. No balance, QR code or locator. */

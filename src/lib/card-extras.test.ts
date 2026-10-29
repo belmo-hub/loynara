@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cardNewsProblem, challengeSentence, reviewUrlValid } from "./card-extras";
+import { cardNewsProblem, challengeSentence, EXCLUDED_GOODS, reviewUrlValid, signUpRules } from "./card-extras";
+
+describe("sign-up rules (join page and the back of the Apple pass)", () => {
+  it("lists the rules, the points expiry, then the exclusions once on German pages", () => {
+    const expiry = "Punkte verfallen 24 Monate nach dem Sammeln, die ältesten zuerst.";
+    expect(signUpRules({ rulesText: "Ein Stempel pro Besuch.", pointsExpiryRule: expiry, locale: "de" })).toEqual(["Ein Stempel pro Besuch.", expiry, EXCLUDED_GOODS]);
+    expect(signUpRules({ rulesText: "Ein Stempel pro Besuch." })).toEqual(["Ein Stempel pro Besuch.", EXCLUDED_GOODS]);
+    expect(signUpRules({ rulesText: "Un tampon par visite.", locale: "fr" })).toEqual(["Un tampon par visite."]);
+  });
+});
 
 describe("review link", () => {
   it("accepts https links on the three Google review hosts", () => {

@@ -6,7 +6,8 @@ import { ownerProgram } from "./automations";
 import { DomainError } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
 import { quietHoursDeferral } from "./promotion-policy";
-import { assertPassFastBinding, PassFastClient, passFastConfig, passFastData, passFastSerial } from "./wallet/passfast";
+import { assertPassFastBinding, isPassFastObjectId, PassFastClient, passFastConfig, passFastData, passFastSerial } from "./wallet/passfast";
+import { enqueueWalletRefresh } from "./wallet/enqueue";
 import { walletCardSnapshot } from "./wallet/data";
 import { googleObjectId, GoogleWalletClient, type GoogleMessage } from "./wallet/google";
 import { googleDirectConfig } from "./wallet/google-direct";
@@ -15,7 +16,8 @@ import {
   CAP_WINDOW_DAYS, checkMessageText, germanWhen, CONSENT_TEXT_VERSION, consentText, CUSTOMER_WEEKLY_CAP, OWNER_TEXT_VERSION, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP, WALLET_QUIET_HOURS,
 } from "./wallet-message-rules";
 
-// Wallet messages (ENG-043). A message is the PassFast `message` field of one Apple pass; nothing here touches the ledger.
+// Wallet messages (ENG-043). A message is the `message` field of one Apple pass: through PassFast, or on a native pass
+// (ENG-127) a back field with a changeMessage that the ordinary refresh and APNs push delivers. Nothing here touches the ledger.
 // ENG-054: with GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED=true a Google Direct pass also gets it, as a Google message with notification.
 // Product: on only after 4 weeks of Apple sends under the removal warning. Service messages have their own flag (refresh.ts).
 // Surface "walletMessages" is withheld on real production until Legal's documents are live and the founder switches it on.
@@ -32,10 +34,13 @@ const SERVICE_KINDS: readonly string[] = ["expiry"];
 const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
 /** Off until Google approves the issuer: absent or anything but "true" leaves the Apple-only behaviour exactly as it was. */
 const googleOn = () => process.env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED === "true";
-/** A pass that can carry a message: an Apple pass through PassFast, and with the Google flag a Google Direct pass. */
-const messagePass = () => googleOn()
-  ? sql`((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR (p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%'))`
-  : sql`p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%'`;
+const native = sql`(p.provider = 'apple' AND p.provider_object_id NOT LIKE 'passfast:%')`;
+/**
+ * A live pass that can carry a message: an Apple pass through PassFast, a native Apple pass a device registered for
+ * updates (ENG-127; not for a French shop, whose native pass has no message field yet), and with the Google flag a Google Direct pass.
+ */
+const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR ${googleOn() ? sql`(p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%')` : sql`false`}) AND p.status = 'created'
+  OR ${native} AND p.status = 'registered' AND NOT EXISTS (SELECT 1 FROM tenants t WHERE t.id = p.tenant_id AND t.locale = 'fr'))`;
 
 // ---- Consent (customer side, card-token scoped like the other card endpoints) -------------------------------------
 
@@ -44,7 +49,7 @@ async function cardOf(cardToken: string) {
   const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location,
       EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND ${messagePass()}
-        AND p.status = 'created' AND p.revoked_at IS NULL) AS "walletPass",
+        AND p.revoked_at IS NULL) AS "walletPass",
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS granted
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = m.tenant_id
@@ -72,24 +77,31 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
     await db.execute(sql`UPDATE wallet_message_consents SET withdrawn_at = clock_timestamp()
       WHERE tenant_id = ${card.tenantId}::uuid AND membership_id = ${card.membershipId}::uuid AND withdrawn_at IS NULL`);
   }
+  // A native pass shows the message field from consent on (wallet/data.ts), so the first message raises an alert.
+  await enqueueWalletRefresh(db, card.tenantId, card.membershipId);
   return { granted };
 }
 
 // ---- Audience and caps --------------------------------------------------------------------------------------------
 
 /**
- * Passes that may get a message now: Apple pass issued through PassFast and still live, card open, an open consent, and
+ * Passes that may get a message now: a live message pass (messagePass), card open, an open consent, and
  * room under the per-customer cap, counted from delivery (queue time until delivered), as the consent text promises, and per message (a card with an Apple and a Google pass gets one message, not two). Sent, queued and sending rows count (and a send whose outcome is unknown), so
  * ENG-044 reuses this one counter by writing its own rows into wallet_message_recipients.
  */
-/** A pass whose latest device event is an unregistration was removed from the Wallet: it gets no more messages (it still gets balance updates). */
-const reachable = sql`COALESCE((SELECT e.event FROM wallet_pass_events e WHERE e.pass_id = p.id ORDER BY e.event_at DESC, e.received_at DESC LIMIT 1), 'device.registered') <> 'device.unregistered'`;
+/**
+ * A pass removed from the Wallet gets no more messages (it still gets balance updates). PassFast: its latest device event
+ * is an unregistration. Native: no device is registered for its updates any more.
+ */
+const reachable = sql`CASE WHEN ${native}
+  THEN EXISTS (SELECT 1 FROM apple_registrations a WHERE a.membership_id = p.membership_id AND a.serial_number = p.id::text)
+  ELSE COALESCE((SELECT e.event FROM wallet_pass_events e WHERE e.pass_id = p.id ORDER BY e.event_at DESC, e.received_at DESC LIMIT 1), 'device.registered') <> 'device.unregistered' END`;
 
 /** `consent: false` only for service information (the expiry reminder): no marketing consent needed, everything else applies. */
 export const eligible = (tenantId: string, programId: string, now: Date, consent = true) => sql`
   FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id AND m.closed_at IS NULL
   WHERE p.tenant_id = ${tenantId}::uuid AND m.program_id = ${programId}::uuid AND ${messagePass()}
-    AND p.status = 'created' AND p.revoked_at IS NULL AND ${reachable}
+    AND p.revoked_at IS NULL AND ${reachable}
     AND (${!consent}::boolean OR EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL))
     AND (SELECT count(DISTINCT r.message_id) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
       AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain'))
@@ -118,7 +130,7 @@ export function removalWarningPercent(env: Record<string, string | undefined> = 
   return value > 0 && value <= 100 ? value : 5;
 }
 export const removalWarning = (removed: number, sent: number, env?: Record<string, string | undefined>) => sent > 0 && removed * 100 > sent * removalWarningPercent(env);
-/** Per message `m`: Apple deliveries; the removal signal exists only for Apple (PassFast device events), so the warning compares Apple with Apple. */
+/** Per message `m`: Apple deliveries; the removal signal exists only for Apple (PassFast device events, native unregistrations), so the warning compares Apple with Apple. */
 const appleSent = sql`(SELECT count(*)::int FROM wallet_message_recipients r JOIN wallet_passes p ON p.id = r.pass_id WHERE r.message_id = m.id AND r.status = 'sent' AND p.provider = 'apple')`;
 /** Per message `m`: recipients that unregistered the pass from 0 to 48 hours (inclusive) after their own delivery. */
 const removedWithin48h = sql`(SELECT count(DISTINCT r.pass_id)::int FROM wallet_message_recipients r JOIN wallet_pass_events e ON e.pass_id = r.pass_id AND e.event = 'device.unregistered'
@@ -322,7 +334,7 @@ async function deliverOne(tenantId: string, messageId: string, text: string, cla
   // Rechecked right before the provider call: consent withdrawn, pass revoked, card closed or message stopped meanwhile.
   const [state] = rows<{ provider: string; objectId: string; locationId: string; programId: string; live: boolean; reachable: boolean; consent: boolean; stopped: boolean }>(await db.execute(sql`
     SELECT p.provider, p.provider_object_id AS "objectId", pr.location_id AS "locationId", pr.id AS "programId",
-      (p.status = 'created' AND p.revoked_at IS NULL AND m.closed_at IS NULL) AS live, ${reachable} AS reachable,
+      (p.status IN ('created','registered') AND p.revoked_at IS NULL AND m.closed_at IS NULL) AS live, ${reachable} AS reachable,
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS consent,
       (SELECT status = 'stopped' FROM wallet_messages WHERE id = ${messageId}::uuid) AS stopped
     FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id
@@ -341,7 +353,9 @@ async function deliverOne(tenantId: string, messageId: string, text: string, cla
       // Google allows 3 notifications per pass per 24 hours; over it the message is not added and the card is skipped.
       const result = await googleSend({ tenantId, locationId: state.locationId, programId: state.programId, passId: claim.passId, objectId: state.objectId, message: googleMessage(messageId, claim.passId, snapshot.pass.merchantName, text) });
       if (result === "limited") return settle("skipped", "google_limit");
-    } else await send({ tenantId, locationId: state.locationId, objectId: state.objectId, data: { ...passFastData(snapshot.pass), message: text } });
+    } else if (isPassFastObjectId(state.objectId)) await send({ tenantId, locationId: state.locationId, objectId: state.objectId, data: { ...passFastData(snapshot.pass), message: text } });
+    // Native: the card's coalesced refresh pushes the device, which fetches the pass with this (claimed, so newest) message.
+    else await enqueueWalletRefresh(db, tenantId, claim.membershipId);
   } catch (error) {
     // Only the error class is logged: never the text, the card or any contact data.
     console.error(`Wallet message ${messageId} delivery failed (${error instanceof Error ? error.name : "error"})`);

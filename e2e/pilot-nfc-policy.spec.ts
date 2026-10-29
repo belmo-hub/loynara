@@ -138,9 +138,8 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
       await page.goto("/merchant");
       await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", exact: true })).toBeVisible();
       if (productionLike) {
-        // With campaigns, automations and owner messages withheld, the group holds only reports and is named after them.
-        await expect(nav.getByRole("link", { name: "Ergebnisse" })).toBeVisible();
-        await expect(nav.getByRole("link", { name: "Aktionen" })).toHaveCount(0);
+        // With campaigns, automations and owner messages withheld, the Aktionen list keeps only the reports (ENG-122d).
+        await expect(nav.getByRole("link", { name: "Aktionen" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Deine ersten Schritte" })).toBeVisible();
         for (const path of HIDDEN_ROUTES) {
           await page.goto(path);
@@ -152,6 +151,9 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
         await expect(page.getByRole("heading", { name: "Segmente prüfen" })).toBeVisible();
         await page.goto("/merchant/settings");
         await expect(page.getByRole("link", { name: "Abrechnung" })).toHaveCount(0);
+        await page.goto("/merchant/actions");
+        await expect(page.getByRole("link", { name: /Ergebnisse/ })).toBeVisible();
+        await expect(page.getByRole("link", { name: /Nachricht an deine Stammkunden|Kampagnen|Automationen/ })).toHaveCount(0);
         await page.goto("/merchant/analytics");
         await expect(page.getByRole("heading", { name: "Ergebnisse", exact: true })).toBeVisible();
         await expect(page.getByText(/Zustellversuche|Kampagnenversuche|noch nicht/i)).toHaveCount(0);
@@ -163,7 +165,7 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
         await expect(page.getByText(/€|Preis|FAIR PRO STANDORT/)).toHaveCount(0);
       } else {
         await page.goto("/merchant/billing");
-        await expect(page.getByRole("heading", { name: "Tarif und Abrechnung" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Abrechnung", exact: true })).toBeVisible();
         await page.goto("/merchant/campaigns");
         await expect(page.getByRole("heading", { name: "Kampagnen", exact: true })).toBeVisible();
         await page.goto("/merchant");

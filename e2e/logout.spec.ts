@@ -56,9 +56,10 @@ for (const role of ["owner", "manager", "cashier"] as const) {
       const page = await context.newPage();
       await page.setViewportSize({ width: 320, height: 800 });
       await page.goto(role === "cashier" ? "/cashier" : "/merchant");
-      await page.getByRole("button", { name: role === "cashier" ? "Menü: Sprache und Abmelden" : "Navigation öffnen" }).click();
+      // On phones the owner area signs out on the „Mehr“ page (ENG-122c).
+      if (role === "cashier") await page.getByRole("button", { name: "Menü: Sprache und Abmelden" }).click();
+      else await page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name: "Mehr" }).click();
       await expect(page.getByRole("button", { name: "Abmelden", exact: true })).toBeVisible();
-      // The mobile drawer is visible before its opening transition reaches the viewport.
       await expect.poll(async () => (await page.getByRole("button", { name: "Abmelden", exact: true }).boundingBox())?.x ?? -1).toBeGreaterThanOrEqual(0);
       const control = await page.getByRole("button", { name: "Abmelden", exact: true }).boundingBox();
       expect(control).not.toBeNull();
