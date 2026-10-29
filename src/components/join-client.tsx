@@ -49,6 +49,12 @@ async function checkReturning(slug: string): Promise<Returning> {
   } catch { return { state: "unknown" }; }
 }
 
+/** A join refused as stale (W58): the rules reloaded in place (when the reload worked), the consent cleared, the rules
+ *  marked and the error shown. Nothing else on the page changes. */
+export function staleJoin(program: PublicProgram, fresh: PublicProgram | null, message: string) {
+  return { program: fresh ?? program, acceptedTerms: false, stale: true, error: message };
+}
+
 export function JoinClient({ slug }: { slug: string }) {
   const router = useRouter();
   const [program, setProgram] = useState<PublicProgram | null>(null);
@@ -112,9 +118,8 @@ export function JoinClient({ slug }: { slug: string }) {
         setError(found.state === "existing" ? "" : t.existsError);
       } else if (cause instanceof ClientApiError && cause.code === "STALE_RULE") {
         // The shop changed the programme while the page was open (W58): the rules reload in place, to be read and accepted again.
-        const fresh = await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).catch(() => null);
-        if (fresh) setProgram(fresh);
-        setAcceptedTerms(false); setStale(true); setError(t.staleError);
+        const next = staleJoin(program!, await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).catch(() => null), t.staleError);
+        setProgram(next.program); setAcceptedTerms(next.acceptedTerms); setStale(next.stale); setError(next.error);
       } else if (cause instanceof ClientApiError && cause.code === "INVALID_REFERRAL") {
         setReferralUnavailable(true); setError(t.referralUnavailable);
       } else if (cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300))) {

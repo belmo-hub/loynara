@@ -74,3 +74,9 @@ export function changeLines(program: Waiting, full = false) {
 
 /** The lines in one list: rewards, the rule, the expiry (card page and Wallet back). */
 export const waitingLines = (lines: ReturnType<typeof changeLines>) => [...lines.rewards, ...(lines.rule ? [lines.rule.text] : []), ...(lines.expiry ? [lines.expiry] : [])];
+
+/** What the customer card shows (U3): every line under the card, and the whole new rule when its line only links to it. */
+export function cardChanges(card: Waiting) {
+  const lines = changeLines(card);
+  return { lines: [...lines.rewards, ...(lines.rule ? [lines.rule] : []), ...(lines.expiry ? [lines.expiry] : [])], newRule: lines.rule?.link ? lines.newRule : undefined };
+}

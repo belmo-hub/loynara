@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeLines, expiryChangeLine, rewardChangeLine, ruleChangeLine } from "./change-lines";
+import { cardChanges, changeLines, expiryChangeLine, rewardChangeLine, ruleChangeLine } from "./change-lines";
 
 describe("card lines for a reward change waiting for its date (W31, W49)", () => {
   const coffee = { title: "Gratiskaffee", cost: 10 };
@@ -55,4 +55,22 @@ describe("all lines for a card, join page or Wallet back (U3)", () => {
   });
   it("quotes the whole rule for the Wallet back", () => expect(changeLines(program, true).rule).toEqual({ text: `Ab 24.11. gilt: ${long} Bis dahin bleibt es bei der bisherigen Regel.` }));
   it("has nothing when nothing waits", () => expect(changeLines({ programType: "stamp", rewards: [{ title: "Kaffee", cost: 10 }] })).toEqual({ rewards: [], rule: undefined, newRule: undefined, expiry: undefined }));
+});
+
+describe("the customer card's change lines (U3)", () => {
+  const old = { earningMode: "purchase", pointsPerCurrencyUnit: 2, rulesText: "" };
+  const long = "Punkte gibt es nur für Speisen und Getränke im Lokal, nicht für Lieferungen, Gutscheine oder Feiern mit Vorbestellung, und nur einmal pro Tisch und Besuch.";
+  it("lists a waiting raise, rule and expiry, shortens a long rule and keeps its whole text to open", () => {
+    const card = cardChanges({ programType: "points", rewards: [{ title: "Pizza", cost: 100, pending: { effectiveOn: "2026-11-24", title: "Pizza", cost: 120 } }],
+      pending: { effectiveOn: "2026-11-24", ...old, rulesText: long, old }, pendingExpiry: { effectiveOn: "2026-11-24", months: 24 } });
+    expect(card).toEqual({
+      lines: ["Ab 24.11. gibt es Pizza für 120 Punkte. Bis dahin reichen 100.", { text: "Ab 24.11. gilt eine weitere Regel. Bis dahin gilt sie noch nicht.", link: true },
+        "Ab 24.11. verfallen neue Punkte nach 24 Monaten. Punkte, die du bis dahin sammelst, verfallen nie."],
+      newRule: { on: "24.11.", text: long },
+    });
+  });
+  it("quotes a short rule in its line, with nothing to open", () => {
+    expect(cardChanges({ programType: "stamp", rewards: [], pending: { effectiveOn: "2026-11-24", earningMode: "manual", pointsPerCurrencyUnit: 1, rulesText: "Nur abends.", old: { earningMode: "manual", pointsPerCurrencyUnit: 1, rulesText: "Immer." } } }))
+      .toEqual({ lines: [{ text: "Ab 24.11. gilt: Nur abends. Bis dahin bleibt es bei der bisherigen Regel." }], newRule: undefined });
+  });
 });
