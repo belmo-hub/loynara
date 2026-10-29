@@ -9,8 +9,11 @@ import { POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { AVERAGE_VISIT_SPEND_MAX_MINOR, SPEND_COPY } from "@/lib/spend-copy";
 import { unitWord } from "@/lib/units";
-import type { Question } from "./program-helpers";
-import { Choices, Control, FieldError, QuestionForm, rangeError, SwitchRow, useQuestion, wholeIn } from "./question-form";
+import { longDay, QUESTIONS, type Question } from "./program-helpers";
+import { Choices, Control, FieldError, QuestionForm, rangeError, SwitchRow, useQuestion, useReview, wholeIn } from "./question-form";
+import { datedToast, ExpiryWaiting, LinePreview, OtherWaiting, SEES_TODAY } from "./program-rule-changes";
+import { When } from "./program-reward";
+import { expiryChangeLine } from "@/lib/change-lines";
 import { bonusRange } from "./winback-card";
 
 const EXTRAS = "/api/merchant/program/extras";
@@ -25,7 +28,7 @@ export function ExtrasQuestion({ me, question, program }: { me: MeResponse; ques
   if (question === "news") return program && <News me={me} program={program} />;
   if (question === "review-link") return <ReviewLink me={me} />;
   if (question === "average-spend") return program && <AverageSpend me={me} program={program} />;
-  if (question === "points-expiry") return <PointsExpiry me={me} />;
+  if (question === "points-expiry") return program && <PointsExpiry me={me} program={program} />;
   return null;
 }
 
@@ -194,16 +197,35 @@ function AverageSpend({ me, program }: { me: MeResponse; program: PublicProgram 
   );
 }
 
-/** 16 (points shops): the only periods the schema allows. */
-function PointsExpiry({ me }: { me: MeResponse }) {
-  const saved = String(me.pointsExpiryMonths ?? "");
+/**
+ * 16 (points shops): the only periods the schema allows. Switching on or shortening waits four weeks (ENG-100 60/61):
+ * points from before the date never expire. Switching off or lengthening applies at once. A waiting change shows on 57.
+ */
+function PointsExpiry({ me, program }: { me: MeResponse; program: PublicProgram }) {
+  const waiting = program.pendingExpiry, inForce = waiting ? waiting.before : me.pointsExpiryMonths ?? null;
+  const saved = String(inForce ?? "");
   const [value, setValue] = useState(saved);
+  const step = useReview();
   const q = useQuestion("points-expiry", value !== saved);
+  const months = value ? Number(value) : null, notice = program.noticeOn ?? "";
+  const stricter = months !== null && (inForce === null || months < inForce);
+  const save = () => void q.save(EXTRAS, { programId: me.programId, pointsExpiryMonths: months }, stricter ? datedToast(notice) : undefined);
+  if (waiting) return <ExpiryWaiting slug={me.programSlug} program={program} expiry={waiting} label={QUESTIONS["points-expiry"]} />;
+  if (program.pending) return <OtherWaiting title="Wann verfallen Punkte?" what="der Sammelregel" until={program.pending.effectiveOn} />;
+  // 61: the stricter period, confirmed with its date; a shortening can't be taken back (Legal (a)).
+  if (step.step && stricter && months !== null) return (
+    <QuestionForm title={inForce === null ? `Punkte verfallen nach ${months} Monaten` : `Punkte verfallen nach ${months} statt ${inForce} Monaten`}
+      back={{ label: QUESTIONS["points-expiry"], onClick: step.back }} busy={q.busy} failed={q.failed} onSubmit={save}>
+      <When title={`Gilt ab ${longDay(notice)}`}>Alle Punkte davor verfallen nie.{inForce !== null && " Das kannst du nicht zurücknehmen."} {SEES_TODAY}</When>
+      <LinePreview program={program} line={expiryChangeLine(notice, months)} />
+    </QuestionForm>
+  );
   return (
-    <QuestionForm title="Wann verfallen Punkte?" lead="Gilt nur für Punkte ab dem Speichern." busy={q.busy} failed={q.failed}
-      onSubmit={() => void q.save(EXTRAS, { programId: me.programId, pointsExpiryMonths: value ? Number(value) : null })}>
+    <QuestionForm title="Wann verfallen Punkte?" busy={q.busy} failed={q.failed} action={stricter ? "Weiter" : "Speichern"}
+      onSubmit={() => { if (value === saved) q.leave(); else if (stricter) step.open(); else save(); }}>
       <Choices name="points-expiry" label="Punkte verfallen" value={value} saved={saved} onChange={setValue}
         options={[{ value: "", label: "Nie", icon: X }, ...POINTS_EXPIRY_MONTHS.map(months => ({ value: String(months), label: `Nach ${months} Monaten`, icon: Hourglass }))]} />
+      {stricter && <p className="ow-hint" data-later>Punkte, die ab dem {longDay(notice)} dazukommen, verfallen nach {months} Monaten. Alle Punkte davor verfallen nie.</p>}
       {/* The card warns EXPIRY_REMINDER_DAYS (30) days ahead. */}
       {value && <p className="ow-hint">30 Tage vor dem Verfall sehen Kunden einen Hinweis auf ihrer Karte.</p>}
     </QuestionForm>

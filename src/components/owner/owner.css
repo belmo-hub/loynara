@@ -738,6 +738,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-when p { margin-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-q > .ow-hint[data-later] { color: var(--color-warning); font-weight: var(--weight-label); }
 .ow-qchoices-lead { margin: 0 2px var(--space-2); }
+.ow-cardline-link { color: var(--color-action); font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .ow-qsave .ow-btn + .ow-btn { margin-top: var(--space-2); }
 /* The list's chip for a change waiting for its date sits on its own line under the row's text (Design gaps §1). */
 .ow-prog-pend { flex-basis: 100%; }

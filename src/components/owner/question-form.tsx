@@ -17,8 +17,9 @@ export function useBackToList() {
 }
 
 // Server diagnostics stay off the page: a lost connection or a rate limit says what to do (client-api), and the server's
-// German checks of a challenge or levels name the field to fix. Anything else is the live W25 text.
-const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS")
+// German checks of a challenge or levels name the field to fix, and a change already waiting (ENG-100) says so. Anything
+// else is the live W25 text.
+const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING")
   ? cause.message : "Die Einstellungen konnten nicht gespeichert werden.";
 
 /** The setup's own wording for a whole number out of range („Bitte eine ganze Zahl von 1 bis 1000 eingeben.“). */
@@ -91,8 +92,9 @@ export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern �
         {children}
         {failed && <div ref={fail} className="ow-qfail"><Notice tone="danger" role="alert"><strong>Speichern fehlgeschlagen</strong>{failed} Deine Änderungen sind noch da.</Notice></div>}
         {/* Not disabled while saving: the button keeps the focus, and a second tap does nothing (`busy`). */}
-        <div className="ow-qsave"><button type="submit" className={`ow-btn ow-btn--${tone}`} aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button>
-          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}</div>
+        {/* No action (57 for an expiry shortening): nothing to press, the back link leads on. */}
+        {action && <div className="ow-qsave"><button type="submit" className={`ow-btn ow-btn--${tone}`} aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button>
+          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}</div>}
       </form>
     </div>
   );

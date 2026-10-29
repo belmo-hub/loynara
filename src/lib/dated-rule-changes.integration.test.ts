@@ -142,7 +142,7 @@ describe("dated expiry (ENG-100 S1b, Legal and Product)", () => {
     await s.expiry(36);
     const first = (await since(s))!;
     expect(first.getTime()).toBeGreaterThan(Date.now() + 27 * 86_400_000);
-    expect((await getCard(s.card.cardToken)).pendingExpiry).toMatchObject({ months: 36 });
+    expect((await getCard(s.card.cardToken)).pendingExpiry).toMatchObject({ months: 36, before: null });
     await passDate(s);
     const started = (await since(s))!;
     await s.expiry(null); // off: at once, recorded
@@ -164,6 +164,7 @@ describe("dated expiry (ENG-100 S1b, Legal and Product)", () => {
     await award({ userId: s.owner, locationId: s.locationId, membershipId: s.card.id, quantity: 10, idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect((await getCard(s.card.cardToken)).pointsExpiry?.batches).toHaveLength(1);
     await s.expiry(24); // shorter: dated and final
+    expect((await getPublicProgram(s.programSlug)).pendingExpiry).toMatchObject({ months: 24, before: 36 });
     // Product (a): points earned before the new start never expire, so the card drops their date at once.
     expect((await getCard(s.card.cardToken)).pointsExpiry?.batches).toEqual([]);
     await expect(takeBackRuleChange({ actorUserId: s.owner, programSlug: s.programSlug })).rejects.toMatchObject({ code: "CHANGE_PENDING" });

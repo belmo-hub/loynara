@@ -57,6 +57,7 @@ export async function programInForce<P extends Program>(reader: Reader, program:
     /** What a join page showed: the newest version, pending or in force (D7). */
     newestRuleVersionId: (pending ?? inForce).id,
     pending: changed ? { effectiveOn: effectiveOn!, ...earning(pending), old: earning(inForce) } satisfies RulePending : null,
-    pendingExpiry: pending && expiryWaits(program, pending) ? { effectiveOn: effectiveOn!, months: program.pointsExpiryMonths! } : null,
+    // `before`: the months in force until then (null: points never expire), recorded on the version in force (saveExpiry).
+    pendingExpiry: pending && expiryWaits(program, pending) ? { effectiveOn: effectiveOn!, months: program.pointsExpiryMonths!, before: inForce.pointsExpiryMonths } : null,
   };
 }

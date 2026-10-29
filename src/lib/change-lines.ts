@@ -17,3 +17,33 @@ export function rewardChangeLine(type: UnitKind, now: Reward, change: { effectiv
   if (change.title !== now.title) return `Ab ${day} gibt es „${change.title}“ statt „${now.title}“. Bis dahin bleibt es bei der bisherigen Prämie.`;
   return `Ab ${day} gibt es ${now.title} für ${withUnit(change.cost, type)}. Bis dahin ${now.cost === 1 ? "reicht 1" : `reichen ${now.cost}`}.`;
 }
+
+/** A card line, and whether it ends in „Neue Regel lesen“ (a new text over 140 characters is not quoted, W46 v2). */
+export type ChangeLine = { text: string; link?: boolean };
+const QUOTE_MAX = 140;
+const sentence = (text: string) => /[.!?…]$/.test(text) ? text : `${text}.`;
+const perEuro = (n: number) => `${n} ${n === 1 ? "Punkt" : "Punkte"} pro 1 € Einkaufswert`;
+
+/**
+ * ENG-100: the card line for a rule change waiting for its date (Marketing W45, W46 v2, W52, W59 FINAL), the same on the
+ * card, the join page, the Wallet back and the owner's preview. `before` and `after` are the rule in force and the waiting
+ * one; `extras` says the shop earns by purchase amount, so the text holds its further rules only.
+ */
+export function ruleChangeLine(effectiveOn: string, before: { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string }, after: { earningMode: string; pointsPerCurrencyUnit: number; rulesText: string }): ChangeLine {
+  const day = cardDay(effectiveOn), text = after.rulesText.trim(), long = text.length > QUOTE_MAX;
+  if (before.earningMode === "manual" && after.earningMode === "purchase")
+    return { text: `Ab ${day} gibt es ${perEuro(after.pointsPerCurrencyUnit)}. Bis dahin bleibt es bei der bisherigen Regel.` };
+  const old = before.pointsPerCurrencyUnit, keeps = `bei ${old} ${old === 1 ? "Punkt" : "Punkten"} pro 1 € Einkaufswert`;
+  if (before.earningMode === "purchase" && after.earningMode === "manual")
+    return long ? { text: `Ab ${day} gilt eine neue Regel. Bis dahin bleibt es ${keeps}.`, link: true } : { text: `Ab ${day} gilt: ${sentence(text)} Bis dahin bleibt es ${keeps}.` };
+  if (after.pointsPerCurrencyUnit !== old)
+    return { text: `Ab ${day} gibt es ${after.pointsPerCurrencyUnit} ${after.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro € Einkauf. Bis dahin bleibt es bei ${old}.` };
+  // Weitere Regeln that were empty get a line of their own (CARD_LINE_EXTRA_ADDED).
+  if (!before.rulesText.trim())
+    return long ? { text: `Ab ${day} gilt eine weitere Regel. Bis dahin gilt sie noch nicht.`, link: true } : { text: `Ab ${day} gilt zusätzlich: ${sentence(text)} Bis dahin gilt das noch nicht.` };
+  return long ? { text: `Ab ${day} gilt eine neue Regel. Bis dahin bleibt es bei der bisherigen.`, link: true } : { text: `Ab ${day} gilt: ${sentence(text)} Bis dahin bleibt es bei der bisherigen Regel.` };
+}
+
+/** ENG-100: the card line for a waiting expiry switch-on or shortening (Marketing W58 FINAL). */
+export const expiryChangeLine = (effectiveOn: string, months: number) =>
+  `Ab ${cardDay(effectiveOn)} verfallen neue Punkte nach ${months} Monaten. Punkte, die du bis dahin sammelst, verfallen nie.`;

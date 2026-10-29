@@ -21,7 +21,7 @@ import { WinbackQuestion, type Winback } from "./winback-card";
 
 const OWNER_ONLY = "Nur Inhaber:innen können Regeln und Prämien ändern.";
 // Questions that need the programme read: rewards, the shop's colour, the currency or the stored rule.
-const READS_PROGRAM = new Set<Question>(["rule", "earning", "winback", "challenge", "news", "average-spend"]);
+const READS_PROGRAM = new Set<Question>(["rule", "earning", "winback", "challenge", "news", "average-spend", "points-expiry"]);
 
 /** A Programm row's own page for a setting without a question screen: back to the list, the row's name, its editor. */
 function Frame({ title, quiet, children }: { title?: string; /** The editor shows the same name as its own heading. */ quiet?: boolean; children: ReactNode }) {
