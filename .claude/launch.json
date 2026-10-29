@@ -4,23 +4,39 @@
     {
       "name": "local",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "local"],
+      "runtimeArgs": [
+        "run",
+        "local"
+      ],
       "port": 3000,
       "url": "http://localhost:3000"
     },
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000,
       "url": "http://127.0.0.1:3000"
     },
     {
       "name": "preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview"],
+      "runtimeArgs": [
+        "run",
+        "preview"
+      ],
       "port": 3001,
       "url": "http://localhost:3001"
+    },
+    {
+      "name": "eng100-u1",
+      "runtimeExecutable": "/private/tmp/claude-501/-Users-youssefbelmokhtar-Desktop-Loynara--claude-worktrees-eng-100-resume-8adb5f/a5dde137-2482-4b43-9cdd-e97004365002/scratchpad/dev.sh",
+      "runtimeArgs": [],
+      "port": 3013,
+      "url": "http://localhost:3013"
     }
   ]
 }
