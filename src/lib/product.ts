@@ -410,12 +410,13 @@ export async function editReward(raw: { actorUserId: string; programSlug: string
     const { reward, inForce, next, waiting } = await ownerReward(tx, program, input.rewardId);
     const title = input.title ?? inForce.title, cost = input.cost ?? inForce.cost, termsText = input.termsText ?? inForce.termsText;
     const renamed = title !== inForce.title || termsText !== inForce.termsText;
-    if (!renamed && cost === inForce.cost) return { rewardId: reward.id, versionId: inForce.id, version: inForce.version, effectiveAt: null };
+    // Before the no-op: an edit back to the version in force must not read as saved while the dated change still waits.
     if (waiting) throw CHANGE_PENDING();
+    if (!renamed && cost === inForce.cost) return { rewardId: reward.id, versionId: inForce.id, version: inForce.version, effectiveAt: null };
     if (renamed && input.worse === undefined) throw new DomainError("CHOICE_REQUIRED", "Sag bitte, ob der neue Name für deine Kunden schlechter ist.");
     const dated = cost > inForce.cost || (renamed && input.worse === true);
     const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title, cost, termsText, ...(dated ? { effectiveAt: NOTICE_END } : {}) }).returning();
-    if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, version.effectiveAt);
+    if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, NOTICE_END);
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: reward.id, versionId: version.id, version: version.version, effectiveAt: dated ? version.effectiveAt : null };
   });
@@ -461,7 +462,7 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
       .where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true), sql`${rewards.endsAt} IS NULL`, ne(rewards.id, reward.id)));
     if (!others.count) throw new DomainError("LAST_ACTIVE_REWARD", "At least one active reward is required");
     const [ending] = await tx.update(rewards).set({ endsAt: NOTICE_END }).where(eq(rewards.id, reward.id)).returning({ endsAt: rewards.endsAt });
-    await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, ending.endsAt!);
+    await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, NOTICE_END);
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: reward.id, endsAt: ending.endsAt };
   });

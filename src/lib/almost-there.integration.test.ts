@@ -67,6 +67,19 @@ describe("„Fast geschafft“ reminder", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("skips a reward whose archive date has passed and counts from the cost in force, not a waiting raise (ENG-100)", async () => {
+    const s = await shop(); const nine = await card(s);
+    await book(s, nine, 9, hoursBefore(NOON, 1));
+    await pool.query(`INSERT INTO reward_versions (tenant_id, reward_id, version, title, cost, terms_text, effective_at)
+      SELECT tenant_id, reward_id, version + 1, title, 12, terms_text, '2026-11-20T00:00:00Z' FROM reward_versions
+      WHERE reward_id = (SELECT id FROM rewards WHERE program_id = $1) ORDER BY version DESC LIMIT 1`, [s.programId]);
+    await pool.query("UPDATE rewards SET ends_at = $2 WHERE program_id = $1", [s.programId, hoursBefore(NOON, 0.5)]);
+    expect(await queueAlmostMessages(NOON)).toBe(0);
+    await pool.query("UPDATE rewards SET ends_at = NULL WHERE program_id = $1", [s.programId]);
+    expect(await queueAlmostMessages(NOON)).toBe(1);
+    expect(await messages(s)).toEqual([{ text: "Nur noch 1 Stempel bis zu deiner Prämie: Pizza gratis.", members: [nine.id] }]);
+  });
+
   it("is once per reward cycle: nothing more until the card redeems, then once again", async () => {
     const s = await shop(); const c = await card(s);
     await book(s, c, 9, hoursBefore(NOON, 1));

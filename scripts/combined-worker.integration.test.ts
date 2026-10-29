@@ -134,6 +134,17 @@ describe("actual combined worker process with fake HTTP only", () => {
     expect(calls()).toHaveLength(0);
   });
 
+  it("runs a due wallet.program_refresh and queues the card's refresh (ENG-100)", async () => {
+    const f = await fixture();
+    await pool.query("UPDATE outbox_jobs SET status='complete' WHERE id=$1", [f.job]);
+    const scheduled = (await pool.query("INSERT INTO outbox_jobs (tenant_id,kind,payload) VALUES ($1,'wallet.program_refresh',jsonb_build_object('programId',$2::text)) RETURNING id", [f.merchant.tenantId, f.merchant.programId])).rows[0].id;
+    runWorker(false);
+    expect((await pool.query("SELECT status FROM outbox_jobs WHERE id=$1", [scheduled])).rows[0].status).toBe("complete");
+    // Providers are off, so the new card refresh is queued and then held, never sent.
+    expect((await pool.query("SELECT status FROM outbox_jobs WHERE kind='wallet.refresh' AND id<>$1 AND payload->>'membershipId'=$2", [f.job, f.member.id])).rows).toEqual([{ status: "blocked" }]);
+    expect(calls()).toHaveLength(0);
+  });
+
   it("starts providers OFF and blocks a synthetic existing Wallet job without contacting either platform or changing balance", async () => {
     const f = await fixture();
     runWorker(false);

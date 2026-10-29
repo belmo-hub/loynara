@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { db } from "@/db";
 
 type Query = Pick<Parameters<Parameters<typeof db.transaction>[0]>[0], "execute">;
@@ -64,9 +64,10 @@ export async function enqueueWalletProgramRefresh(tx: Query, tenantId: string, p
  */
 export const WALLET_PROGRAM_REFRESH = "wallet.program_refresh";
 
-export async function scheduleWalletProgramRefresh(tx: Query, tenantId: string, programId: string, at: Date): Promise<void> {
+/** `at` is SQL (NOTICE_END) so the job matches the stored date to the microsecond; a JS Date would cut it to milliseconds. */
+export async function scheduleWalletProgramRefresh(tx: Query, tenantId: string, programId: string, at: SQL): Promise<void> {
   await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload, next_attempt_at)
-    VALUES (${tenantId}::uuid, ${WALLET_PROGRAM_REFRESH}, jsonb_build_object('programId', ${programId}::text), ${at}::timestamptz)`);
+    VALUES (${tenantId}::uuid, ${WALLET_PROGRAM_REFRESH}, jsonb_build_object('programId', ${programId}::text), ${at})`);
 }
 
 /** The worker's run of a scheduled programme refresh: the refresh reads the state current at that time. Rewards whose

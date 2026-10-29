@@ -89,6 +89,8 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     await editReward({ ...owner, rewardId: coffee.rewardId, cost: 9 });
     await pool.query("UPDATE outbox_jobs SET status = 'complete' WHERE kind = 'wallet.refresh'");
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 7 })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
+    // Back to the cost in force is no undo: only the take-back cancels the raise.
+    await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 8 })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 10 })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, title: "Espresso", worse: false })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
     await expect(archiveReward({ ...owner, rewardId: coffee.rewardId })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
@@ -167,6 +169,10 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     expect(jobs.filter(job => job.kind === "wallet.refresh").map(job => job.future)).toEqual([false]);
     expect(jobs.filter(job => job.kind === "wallet.program_refresh").map(job => [job.payload, job.at.getTime()]))
       .toEqual([[{ programId: f.program.id }, raise.effectiveAt!.getTime()], [{ programId: f.program.id }, ending.endsAt!.getTime()]]);
+    // Exact to the microsecond, which a JS Date cannot show: a job a moment early would refresh before the date.
+    const exact = await pool.query(`SELECT 1 FROM outbox_jobs j WHERE j.kind = 'wallet.program_refresh'
+      AND (j.next_attempt_at = (SELECT effective_at FROM reward_versions WHERE id = $1) OR j.next_attempt_at = (SELECT ends_at FROM rewards WHERE id = $2))`, [raise.versionId, cake.rewardId]);
+    expect(exact.rowCount).toBe(2);
     expect((await walletCardSnapshot(f.member.id))).toMatchObject({ pass: { reward: { title: "Coffee", cost: 8, pending: { cost: 9 }, endsOn: null } } });
     // Not due, so the worker leaves it; when it runs, it queues the card's ordinary refresh.
     await pool.query("UPDATE outbox_jobs SET status = 'complete' WHERE kind = 'wallet.refresh'");
@@ -197,7 +203,7 @@ describe("dated reward changes (ENG-100 S1a)", () => {
   });
 
   it("names the calendar day in the shop's timezone, not UTC", async () => {
-    const { coffee, cake, owner, merchantRow } = await setup();
+    const { coffee, cake, merchantRow } = await setup();
     // 23:30 UTC is already the next day in Berlin.
     await pool.query("UPDATE rewards SET ends_at = '2099-11-24 23:30:00+00' WHERE id = $1", [coffee.rewardId]);
     await pool.query(`INSERT INTO reward_versions (tenant_id, reward_id, version, title, cost, terms_text, effective_at)
