@@ -211,7 +211,7 @@ function PointsExpiry({ me, program }: { me: MeResponse; program: PublicProgram 
   const stricter = months !== null && (inForce === null || months < inForce);
   const save = () => void q.save(EXTRAS, { programId: me.programId, pointsExpiryMonths: months }, stricter ? datedToast(notice) : undefined);
   if (waiting) return <ExpiryWaiting slug={me.programSlug} program={program} expiry={waiting} label={QUESTIONS["points-expiry"]} />;
-  if (program.pending) return <OtherWaiting title="Wann verfallen Punkte?" what="der Sammelregel" until={program.pending.effectiveOn} />;
+  if (program.pending) return <OtherWaiting title="Wann verfallen Punkte?" what="der Sammelregel" until={program.pending.effectiveOn} current={{ label: QUESTIONS["points-expiry"], value: inForce ? `Nach ${inForce} Monaten` : "Nie" }} />;
   // 61: the stricter period, confirmed with its date; a shortening can't be taken back (Legal (a)).
   if (step.step && stricter && months !== null) return (
     <QuestionForm title={inForce === null ? `Punkte verfallen nach ${months} Monaten` : `Punkte verfallen nach ${months} statt ${inForce} Monaten`}

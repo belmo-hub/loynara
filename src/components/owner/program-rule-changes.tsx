@@ -116,10 +116,12 @@ export function ExpiryWaiting({ slug, program, expiry, label }: { slug: string; 
  * The rule and the expiry share one dated version chain on the server, so while one waits the other takes no change either
  * (CHANGE_PENDING). The page says so before anything is entered. Draft wording for Marketing.
  */
-export function OtherWaiting({ title, what, until, final }: { title: string; /** „der Sammelregel“, „beim Punkteverfall“ */ what: string; until: string; /** A shortening can't be taken back. */ final?: boolean }) {
+export function OtherWaiting({ title, what, until, final, current }: { title: string; /** „der Sammelregel“, „beim Punkteverfall“ */ what: string; until: string; /** A shortening can't be taken back. */ final?: boolean;
+  /** What is set today, shown read-only above the notice (Design). */ current: { label: string; value: string } }) {
   const q = useQuestion("other-waiting", false);
   return (
     <QuestionForm title={title} busy={false} failed="" action="" onSubmit={q.leave}>
+      <div className="ow-prog-row"><span className="ow-prog-main"><span className="ow-prog-text"><strong>{current.label}</strong><small>{current.value}</small></span></span></div>
       <Notice tone="warn">Gerade wartet eine Änderung {what} auf ihr Datum, den {longDay(until)}. Ändern kannst du das hier {final ? "ab diesem Tag" : "ab diesem Tag oder wenn du sie zurücknimmst"}.</Notice>
     </QuestionForm>
   );

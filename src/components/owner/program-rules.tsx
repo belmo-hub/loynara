@@ -74,7 +74,8 @@ export function RuleQuestion({ me, program }: { me: MeResponse; program: PublicP
   const q = useQuestion("rule", text.trim() !== saved, { "rule-text": !extras && text.trim().length < 10 ? SHORT_RULE : "" });
   const label = extras ? EXTRA_RULES : QUESTIONS.rule, notice = program.noticeOn ?? "";
   if (program.pending) return <RuleWaiting slug={me.programSlug} program={program} pending={program.pending} label={label} />;
-  if (program.pendingExpiry) return <OtherWaiting title={extras ? "Gibt es weitere Regeln?" : "Wie sammeln deine Kunden?"} what="beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null} />;
+  if (program.pendingExpiry) return <OtherWaiting title={extras ? "Gibt es weitere Regeln?" : "Wie sammeln deine Kunden?"} what="beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null}
+    current={{ label, value: saved || "Keine" }} />;
   if (step) {
     const before = { earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, rulesText: saved };
     return (
@@ -116,7 +117,8 @@ export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program:
   const after = { earningMode: draft.mode, pointsPerCurrencyUnit: purchase ? rate : before.pointsPerCurrencyUnit, rulesText: toPurchase ? "" : toManual ? text.trim() : savedText };
   const dated = cut || worse === "worse";
   if (program.pending) return <RuleWaiting slug={me.programSlug} program={program} pending={program.pending} label={QUESTIONS.earning} />;
-  if (program.pendingExpiry) return <OtherWaiting title="Wie entstehen Punkte?" what="beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null} />;
+  if (program.pendingExpiry) return <OtherWaiting title="Wie entstehen Punkte?" what="beim Punkteverfall" until={program.pendingExpiry.effectiveOn} final={program.pendingExpiry.before !== null}
+    current={{ label: QUESTIONS.earning, value: sentence(saved.mode, Number(saved.rate)) }} />;
   if (step === "rule") return (
     <QuestionForm title="Wie sammeln deine Kunden?" back={{ label: QUESTIONS.earning, onClick: back }} busy={false} failed="" action="Weiter" onSubmit={() => { if (q.check()) open(); }}>
       <RuleField kind="manual" program={program} text={text} onChange={setText} error={q.error("rule-text")} former={savedText} />
