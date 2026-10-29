@@ -30,6 +30,14 @@ describe("the reward route sends each ENG-100 action to its own function", () =>
     for (const [name, fn] of Object.entries(product)) expect(fn.mock.calls.length, name).toBe(name === called ? 1 : 0);
   });
 
+  it("answers a change already waiting with 409, a conflict rather than invalid input", async () => {
+    const { DomainError } = await import("@/lib/loyalty");
+    product.editReward.mockRejectedValueOnce(new DomainError("CHANGE_PENDING", "Für diese Prämie wartet schon eine Änderung auf ihr Datum. Nimm sie zuerst zurück."));
+    const response = await post({ action: "price", cost: 9 });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: "CHANGE_PENDING" });
+  });
+
   it.each([{ action: "rename", title: "Espresso" }, { action: "rename", title: "Espresso", worse: "yes" }])("refuses a rename without the owner's choice: %o", async body => {
     const response = await post(body);
     expect(response.status).toBe(400);
