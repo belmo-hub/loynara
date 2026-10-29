@@ -113,3 +113,11 @@ describe("a reward row's chip while a change waits (ENG-100, W29, W59)", () => {
     expect(rows({ program: pending }).Gratiskaffee).toMatchObject({ sub: "Einlösbar ab 10 Stempeln", pending: "Ab 24.11.: 12 Stempel" });
   });
 });
+
+describe("archived rewards (Design, ENG-100 U1)", () => {
+  it("adds a quiet row with the count at the end of Prämien, only once a reward is archived", () => {
+    expect(programSections(base)[0].rows.map(row => row.title)).not.toContain("Archivierte Prämien");
+    const rows = programSections({ ...base, archived: 2 })[0].rows;
+    expect(rows.at(-1)).toMatchObject({ title: "Archivierte Prämien", value: "2", off: true, href: "/merchant/program/rewards/archived" });
+  });
+});

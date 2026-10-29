@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUpDown, BadgePlus, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { Archive, ArrowRight, ArrowUpDown, BadgePlus, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
@@ -15,7 +15,7 @@ import type { Winback } from "./winback-card";
 
 type Row = { href: string; icon: LucideIcon; title: string; sub?: string; value?: string; big?: boolean; pair?: boolean; off?: boolean; /** ENG-100: a change waiting for its date (W29, W59). */ pending?: string };
 /** `referrals` is the latest referrals read (empty when it failed); only those waiting for review count. */
-export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean };
+export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean; /** Rewards no longer live (owner read). */ archived?: number };
 
 const ask = (question: Question) => ({ href: `/merchant/program/${question}`, title: QUESTIONS[question] });
 const off = (value: string) => ({ value, off: true });
@@ -39,7 +39,7 @@ export function rewardChip(type: PublicProgram["programType"], reward: PublicPro
 }
 
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
-export function programSections({ me, program, winback, referrals, nfc, logo }: ListData) {
+export function programSections({ me, program, winback, referrals, nfc, logo, archived = 0 }: ListData) {
   const type = program.programType, points = type === "points", referral = program.referral, rate = program.pointsPerCurrencyUnit;
   const reviews = referrals.filter(item => item.status === "review").length;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
@@ -53,6 +53,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo }: 
       ...program.rewards.map(reward => ({ href: `/merchant/program/rewards/${reward.rewardId}`, icon: Gift, title: reward.title, sub: `Einlösbar ab ${nf.format(reward.cost)} ${reward.cost === 1 ? unitName(type, 1) : unitDative(type)}`, pending: rewardChip(type, reward) })),
       ...(program.rewards.length > 1 ? [{ href: "/merchant/program/rewards/order", icon: ArrowUpDown, title: "Reihenfolge ändern" }] : []),
       { href: "/merchant/program/rewards/new", icon: Plus, title: "Prämie hinzufügen" },
+      // Quiet, and only once a reward has been archived (Design): read-only, no restore.
+      ...(archived ? [{ href: "/merchant/program/rewards/archived", icon: Archive, title: "Archivierte Prämien", ...off(nf.format(archived)) }] : []),
     ] },
     { title: "So sammeln Kunden", rows: [
       ...(extras ? [...earning, rule] : [rule, ...earning]),
@@ -103,11 +105,12 @@ export function ProgramList({ me }: { me: MeResponse }) {
   const [program, reload] = useLoad<PublicProgram>(`/api/program/${slug}`);
   const [winback] = useLoad<Winback>(`/api/merchant/program/winback?programSlug=${slug}`);
   const [referrals] = useLoad<{ referrals: Array<{ status: string }> }>(`/api/merchant/referrals?programSlug=${slug}`);
+  const [stored] = useLoad<{ rewards: Array<{ active: boolean }> }>(`/api/merchant/program/rewards?programSlug=${slug}`);
   const [back] = useState(readReturn);
   const [toast, setToast] = useState(Boolean(back?.saved));
   const list = useRef<HTMLDivElement>(null);
   // The two side reads only fill values; waiting for them keeps rows from moving once the list shows.
-  const ready = program.state === "ok" && winback.state !== "loading" && referrals.state !== "loading";
+  const ready = program.state === "ok" && winback.state !== "loading" && referrals.state !== "loading" && stored.state !== "loading";
   useEffect(() => { writeReturn(null); }, []);
   useEffect(() => {
     if (!ready || !back) return;
@@ -124,7 +127,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
 
   const sections = program.state === "ok" && ready ? programSections({
     me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"),
-    referrals: referrals.state === "ok" ? referrals.data.referrals : [],
+    referrals: referrals.state === "ok" ? referrals.data.referrals : [], archived: stored.state === "ok" ? stored.data.rewards.filter(reward => !reward.active).length : 0,
   }) : null;
   return (
     <div className="ow-page">
