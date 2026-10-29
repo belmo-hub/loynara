@@ -14,6 +14,14 @@ const SEES_TODAY = "Deine Kunden sehen die Änderung ab heute auf ihrer Karte.";
 const SEES = "Deine Kunden sehen die Änderung auf ihrer Karte.";
 
 type Reward = PublicProgram["rewards"][number];
+
+/** What each save posts (S1a's strict schema). „Schlechter“ alone sends worse: true: anything else applies a name at once. */
+export const rewardBody = {
+  price: (programSlug: string, rewardId: string, cost: number) => ({ programSlug, action: "price", rewardId, cost }),
+  rename: (programSlug: string, rewardId: string, title: string, choice: "better" | "worse") => ({ programSlug, action: "rename", rewardId, title, worse: choice === "worse" }),
+  archive: (programSlug: string, rewardId: string) => ({ programSlug, action: "archive", rewardId }),
+  takeBack: (programSlug: string, rewardId: string) => ({ programSlug, action: "takeBack", rewardId }),
+};
 type Step = "other" | "raise" | "name" | "rename" | "archive" | "takeback";
 
 /** ENG-100: the date box of a change that waits four weeks, or of a take-back (undo icon). */
@@ -47,7 +55,7 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
   const preview = (line: string) => (
     <div className="ow-qpanel"><CardLinePreview label="So steht es auf der Karte" shop={program.businessName} brandColor={program.brandColor}>{line}</CardLinePreview></div>
   );
-  const price = () => q.save(REWARDS, { programSlug: slug, action: "price", rewardId: reward.rewardId, cost }, cost > reward.cost ? `Gespeichert. Gilt ab ${day}.` : undefined);
+  const price = () => q.save(REWARDS, rewardBody.price(slug, reward.rewardId, cost), cost > reward.cost ? `Gespeichert. Gilt ab ${day}.` : undefined);
   const raiseHint = <p className="ow-hint" data-later>{points ? "Mehr Punkte" : "Mehr Stempel"} gelten erst nach vier Wochen, ab {day}.</p>;
 
   // 57: a change waits. Its heading and date box, the card line, and only the take-back.
@@ -70,7 +78,7 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
     const kept = "endsOn" in waiting ? "Die Prämie bleibt" : waiting.title !== reward.title ? `Es bleibt bei „${reward.title}“` : `Es bleibt bei ${amount(reward.cost)}`;
     return (
       <QuestionForm title="Änderung zurücknehmen?" back={back} busy={q.busy} failed={q.failed} action="Zurücknehmen" cancel={step.back}
-        onSubmit={() => q.save(REWARDS, { programSlug: slug, action: "takeBack", rewardId: reward.rewardId }, "Änderung zurückgenommen")}>
+        onSubmit={() => q.save(REWARDS, rewardBody.takeBack(slug, reward.rewardId), "Änderung zurückgenommen")}>
         <When title={kept} undo>Die Änderung entfällt sofort, auch der Hinweis auf den Karten deiner Kunden.</When>
       </QuestionForm>
     );
@@ -86,7 +94,7 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
   // 30: the archive is dated too; the reward stays redeemable until then.
   if (step.step === "archive") return (
     <QuestionForm title={`${reward.title} archivieren?`} back={back} busy={q.busy} failed={q.failed} action="Archivieren" tone="danger" cancel={step.back}
-      onSubmit={() => q.save(REWARDS, { programSlug: slug, action: "archive", rewardId: reward.rewardId }, `${reward.title} wird am ${day} archiviert.`)}>
+      onSubmit={() => q.save(REWARDS, rewardBody.archive(slug, reward.rewardId), `${reward.title} wird am ${day} archiviert.`)}>
       <When title={`Gilt ab ${day}`}>Bis dahin können Kunden die Prämie noch einlösen. Sie sehen die Änderung ab heute auf ihrer Karte.</When>
       {preview(rewardChangeLine(type, reward, { endsOn: notice }))}
     </QuestionForm>
@@ -111,7 +119,7 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
     ];
     return (
       <QuestionForm title="Passt das so?" back={{ label: "Name ändern", onClick: step.back }} busy={q.busy} failed={q.failed} disabled={!worse}
-        onSubmit={() => worse && q.save(REWARDS, { programSlug: slug, action: "rename", rewardId: reward.rewardId, title: name, worse: worse === "worse" }, worse === "worse" ? `Gespeichert. Gilt ab ${day}.` : undefined)}>
+        onSubmit={() => worse && q.save(REWARDS, rewardBody.rename(slug, reward.rewardId, name, worse as "better" | "worse"), worse === "worse" ? `Gespeichert. Gilt ab ${day}.` : undefined)}>
         <div className="ow-qpanel ow-qcmp"><p>Bisher</p><p>{reward.title}</p></div>
         <div className="ow-qpanel ow-qcmp" data-new><p>Neu</p><p>{name}</p></div>
         <Choices name="reward-worse" label="Was bedeutet die Änderung für deine Kunden?" lead="Schlechter heißt: Die Prämie wird kleiner oder eingeschränkt." options={choices} value={worse} onChange={setWorse} />

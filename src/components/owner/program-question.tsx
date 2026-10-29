@@ -12,7 +12,7 @@ import { ExtrasQuestion } from "./program-extras";
 import { EXTRA_RULES, QUESTIONS, type Question } from "./program-helpers";
 import { NewReward } from "./program-new-reward";
 import { RewardPage } from "./program-reward";
-import { RewardOrder } from "./program-rewards";
+import { ArchivedRewards, RewardOrder } from "./program-rewards";
 import { EarningQuestion, RuleQuestion } from "./program-rules";
 import { useBackToList } from "./question-form";
 import { TapPolicyCard } from "./tap-policy";
@@ -71,6 +71,7 @@ export function RewardQuestion({ reward }: { reward: string }) {
   if (me.role !== "owner") return <Frame title="Prämien"><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
   if (program.state === "error") return <Frame title="Prämien"><ErrorNotice message={program.message} onRetry={reload} /></Frame>;
   if (program.state !== "ok") return <Frame><LoadingBlock /></Frame>;
+  if (reward === "archived") return <Frame title="Archivierte Prämien"><ArchivedRewards slug={me.programSlug} program={program.data} /></Frame>;
   if (reward === "order") return <Frame title="Reihenfolge ändern"><RewardOrder slug={me.programSlug} program={program.data} onChanged={reload} /></Frame>;
   if (reward === "new") return <NewReward slug={me.programSlug} program={program.data} onSaved={rewardId => done(`/merchant/program/rewards/${rewardId}`)} />;
   const found = program.data.rewards.find(item => item.rewardId === reward);

@@ -424,6 +424,8 @@ async function rewardCatalogue(reader: Pick<typeof db, "select">, tenantId: stri
   const rows = await reader.select({
     reward: rewards, version: rewardVersions, live: sql<boolean>`${sql.raw(liveReward("rewards", "now()"))}`,
     endsOn: sql<string | null>`CASE WHEN ${rewards.endsAt} > now() THEN ${localDay(sql`${rewards.endsAt}`)} END`,
+    /** The day a dated archive took effect (owner's „Archivierte Prämien“); null for archives from before ENG-100. */
+    endedOn: sql<string | null>`CASE WHEN ${rewards.endsAt} <= now() THEN ${localDay(sql`${rewards.endsAt}`)} END`,
     pending: sql<RewardChange | null>`(SELECT json_build_object('effectiveOn', ${localDay(sql`pv.effective_at`)}, 'title', pv.title, 'cost', pv.cost) FROM reward_versions pv
       WHERE pv.tenant_id = ${rewards.tenantId} AND pv.reward_id = ${rewards.id} AND pv.effective_at > now() AND ${sql.raw(notSuperseded("pv"))} ORDER BY pv.version DESC LIMIT 1)`,
   }).from(rewards)
@@ -476,7 +478,7 @@ export async function getMerchantRewards(input: { actorUserId: string; programSl
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
     return (await rewardCatalogue(tx, program.tenantId, program.id, false))
-      .map(({ reward, version, live, endsOn, pending }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: live, endsOn, pending }));
+      .map(({ reward, version, live, endsOn, endedOn, pending }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: live, endsOn, endedOn, pending }));
   });
 }
 

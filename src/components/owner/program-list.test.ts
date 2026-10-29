@@ -131,3 +131,11 @@ describe("rule, earning and expiry chips while a change waits (ENG-100, W45, W59
     expect(rows({ ...data, program: { ...points, pendingExpiry: { effectiveOn: "2026-11-24", months: 24, before: null } } as PublicProgram })["Punkte verfallen"]).toMatchObject({ value: "Nie", pending: "Ab 24.11.: nach 24 Monaten" });
   });
 });
+
+describe("archived rewards (Design, ENG-100 U1)", () => {
+  it("adds a quiet row with the count at the end of Prämien, only once a reward is archived", () => {
+    expect(programSections(base)[0].rows.map(row => row.title)).not.toContain("Archivierte Prämien");
+    const rows = programSections({ ...base, archived: 2 })[0].rows;
+    expect(rows.at(-1)).toMatchObject({ title: "Archivierte Prämien", value: "2", off: true, href: "/merchant/program/rewards/archived" });
+  });
+});

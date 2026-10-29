@@ -123,7 +123,7 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     await archiveReward({ ...owner, rewardId: coffee.rewardId });
     await pool.query("UPDATE rewards SET ends_at = now() - interval '1 second' WHERE id = $1", [coffee.rewardId]); // the date has passed
     await expect(redeemVersion(coffee.versionId)).rejects.toMatchObject({ code: "INVALID_REWARD" });
-    expect(await merchantRow(coffee.rewardId)).toMatchObject({ active: false, endsOn: null });
+    expect(await merchantRow(coffee.rewardId)).toMatchObject({ active: false, endsOn: null, endedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     expect((await currentRewards(f.tenant.id, f.program.id)).map(row => row.title)).toEqual(["Cake"]);
     await expect(editReward({ ...owner, rewardId: coffee.rewardId, cost: 7 })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(archiveReward({ ...owner, rewardId: cake.rewardId })).rejects.toMatchObject({ code: "LAST_ACTIVE_REWARD" });
