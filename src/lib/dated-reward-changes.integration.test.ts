@@ -151,6 +151,16 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     expect(await merchantRow(cake.rewardId)).toMatchObject({ title: "Cake slice", cost: 10, pending: null });
   });
 
+  it("treats a change to the conditions text alone like a rename (CTO, 29 Oct)", async () => {
+    const { coffee, cake, owner, merchantRow, versions } = await setup();
+    await expect(editReward({ ...owner, rewardId: coffee.rewardId, termsText: "Nur vormittags" })).rejects.toMatchObject({ code: "CHOICE_REQUIRED" });
+    expect(await versions(coffee.rewardId)).toBe(1);
+    await expect(editReward({ ...owner, rewardId: coffee.rewardId, termsText: "Auch zum Mitnehmen", worse: false })).resolves.toMatchObject({ effectiveAt: null });
+    await editReward({ ...owner, rewardId: cake.rewardId, termsText: "Nur vormittags", worse: true });
+    expect(await merchantRow(cake.rewardId)).toMatchObject({ pending: { cost: 12 } });
+    expect(await versions(coffee.rewardId)).toBe(2);
+  });
+
   it("gives at-once versions created_at = effective_at = the transaction time and dated ones exactly 28 days on", async () => {
     const { coffee, cake, owner } = await setup();
     const now = await editReward({ ...owner, rewardId: cake.rewardId, cost: 10 });

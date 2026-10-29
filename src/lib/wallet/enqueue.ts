@@ -59,7 +59,7 @@ export async function enqueueWalletProgramRefresh(tx: Query, tenantId: string, p
  * ENG-100 D6: a dated reward change reaches the passes on its date through a job of this kind, scheduled at effective_at
  * or ends_at, whose worker run queues the programme-wide refresh then. Never a future `wallet.refresh` row: it would hold
  * the card's coalescing slot and swallow every balance refresh until the date. Health checks count only overdue jobs.
- * Rollback: a worker from before ENG-100 marks this kind failed. Before rolling the worker back past ENG-100, cancel them:
+ * Rollback: a worker from before ENG-100 marks this kind failed ("Unknown job kind"). Before rolling the worker back past ENG-100, cancel them:
  *   UPDATE outbox_jobs SET status = 'suppressed', last_error = 'rollback' WHERE kind = 'wallet.program_refresh' AND status = 'pending';
  */
 export const WALLET_PROGRAM_REFRESH = "wallet.program_refresh";
