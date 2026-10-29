@@ -1,3 +1,4 @@
+import type { RulePending } from "@/lib/rule-versions";
 export type WalletLocale = "de" | "fr";
 export type WalletProvider = "apple" | "google";
 export type RevokeReason = "reissued" | "closed" | "superseded";
@@ -46,6 +47,9 @@ export type WalletPassData = WalletBrand & {
   message?: string;
   /** The day that message was sent, „28.10.“ in the shop's timezone. */
   messageDay?: string;
+  /** ENG-100: a waiting rule or expiry change (YYYY-MM-DD, location time), data only until the pass back shows them. */
+  pending?: RulePending | null;
+  pendingExpiry?: { effectiveOn: string; months: number } | null;
 };
 
 /** What a revoked pass may still show: who issued it and why it no longer works. No balance, QR code or locator. */

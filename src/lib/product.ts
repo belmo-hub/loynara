@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
+import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { birthdayState, DomainError, winbackState } from "./loyalty";
@@ -17,7 +18,8 @@ import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { germanDate } from "./programme-end-date";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh, scheduleWalletProgramRefresh } from "./wallet/enqueue";
-import { liveReward, NOTICE_END, notSuperseded } from "./reward-versions";
+import { liveReward, noticeEnd, notSuperseded, savedAt } from "./reward-versions";
+import { expiryWaits, programInForce, ruleVersions } from "./rule-versions";
 import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
@@ -156,8 +158,29 @@ const updateProgramInput = z.object({
   programType: z.enum(["stamp", "points"]).optional(),
   earningMode: z.enum(["manual", "purchase"]).optional(),
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
+  /** The owner's answer whether a changed mode or rules text is worse for customers (ENG-100 W46); no preselect. */
+  worse: z.boolean().optional(),
 }).strict();
 
+type RuleVersion = typeof programRuleVersions.$inferSelect;
+/** A rule version's fields, to copy into a new one (rows are append-only). */
+const ruleFields = (v: RuleVersion) => ({ name: v.name, type: v.type, rulesText: v.rulesText, earningMode: v.earningMode, pointsPerCurrencyUnit: v.pointsPerCurrencyUnit, pointsExpiryMonths: v.pointsExpiryMonths, pointsExpirySince: v.pointsExpirySince });
+type NewRuleVersion = Omit<PgInsertValue<typeof programRuleVersions>, "tenantId" | "programId" | "version">;
+/** Inserts versions `next`, `next + 1`, … created at the save's instant (savedAt), effective then unless dated: none of them
+ *  supersedes another (CTO note 1). */
+const insertRuleVersions = (tx: Transaction, program: typeof programs.$inferSelect, at: SQL, next: number, rows: NewRuleVersion[]) =>
+  tx.insert(programRuleVersions).values(rows.map((row, index) => ({ effectiveAt: at, ...row, createdAt: at, tenantId: program.tenantId, programId: program.id, version: next + index }))).returning();
+const RULE_PENDING = () => new DomainError("CHANGE_PENDING", "Für die Regel wartet schon eine Änderung auf ihr Datum. Nimm sie zuerst zurück.");
+const EXPIRY_FINAL = () => new DomainError("CHANGE_PENDING", "Diese Änderung kannst du nicht zurücknehmen. Eine neue Änderung geht erst, wenn sie gilt.");
+
+/**
+ * ENG-100 D3, compared with the rule version in force: a lower rate within „Nach Einkaufswert“ is dated four weeks on
+ * automatically, a higher one applies at once; a mode switch (either direction) or a changed rules text needs the owner's
+ * `worse` answer, refused when absent: worse is dated, better applies at once. The programme name always applies at once.
+ * One pending change at a time: while one waits, only the name goes through, carried into both the version in force and
+ * the waiting one (D2). A type change applies at once, and only while the programme has no card and no booking (Legal).
+ * The programmes row is the newest saved (the owner's baseline); customers read the version in force (programInForce).
+ */
 export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
   const input = updateProgramInput.parse(raw);
   return db.transaction(async (tx) => {
@@ -174,18 +197,50 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
     checkRulesText(nextType, earningMode, rulesText);
     if (nextType !== program.type) {
       const [activity] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, program.tenantId), eq(ledgerEntries.locationId, program.locationId))).limit(1);
-      if (activity) throw new DomainError("TYPE_LOCKED", "Program type cannot change after transactions");
+      const [card] = await tx.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.tenantId, program.tenantId), eq(memberships.programId, program.id))).limit(1);
+      if (activity || card) throw new DomainError("TYPE_LOCKED", "Program type cannot change once cards or transactions exist");
     }
-    const [latestRule] = await tx.select().from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, program.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
-    if (!latestRule) throw new DomainError("NOT_FOUND", "Programme rule not found");
-    const ruleChanged = program.name !== name || program.rulesText !== rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
-    if (ruleChanged) {
-      // A welcome bonus is sized for one programme type (up to 3 stamps or 50 points); a type change switches it off.
-      await tx.update(programs).set({ name, rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null, challengeVisits: null, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null } : {}) }).where(eq(programs.id, program.id));
-      await tx.insert(programRuleVersions).values({ tenantId: program.tenantId, programId: program.id, version: latestRule.version + 1, name, type: nextType, rulesText, earningMode, pointsPerCurrencyUnit });
-      await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
-    }
-    return { programSlug: program.slug, programType: nextType, ruleVersion: latestRule.version + Number(ruleChanged) };
+    const at = await savedAt(tx);
+    const { inForce, pending, next } = await ruleVersions(tx, program, at);
+    const ruleChanged = program.rulesText !== rulesText || program.type !== nextType || program.earningMode !== earningMode || program.pointsPerCurrencyUnit !== pointsPerCurrencyUnit;
+    if (!ruleChanged && program.name === name) return { programSlug: program.slug, programType: nextType, ruleVersion: next - 1, effectiveAt: null };
+    if (pending && ruleChanged) throw RULE_PENDING();
+    // Nobody holds a card when the type changes, so nothing there waits for a date.
+    const typeChange = nextType !== inForce.type, switched = earningMode !== inForce.earningMode;
+    const choice = !typeChange && (switched || rulesText !== inForce.rulesText);
+    if (choice && input.worse === undefined) throw new DomainError("CHOICE_REQUIRED", "Sag bitte, ob die neue Regel für deine Kunden schlechter ist.");
+    const dated = !typeChange && ((!switched && earningMode === "purchase" && pointsPerCurrencyUnit < inForce.pointsPerCurrencyUnit) || (choice && input.worse === true));
+    const expiry = typeChange ? { pointsExpiryMonths: null, pointsExpirySince: null } : { pointsExpiryMonths: program.pointsExpiryMonths, pointsExpirySince: program.pointsExpirySince };
+    const versions = pending ? [{ ...ruleFields(inForce), name }, { ...ruleFields(pending), name, effectiveAt: sql`(SELECT effective_at FROM program_rule_versions WHERE id = ${pending.id})` }]
+      : [...(dated && name !== inForce.name ? [{ ...ruleFields(inForce), ...expiry, name }] : []), { name, type: nextType, rulesText, earningMode, pointsPerCurrencyUnit, ...expiry, ...(dated ? { effectiveAt: noticeEnd(at) } : {}) }];
+    // A welcome bonus is sized for one programme type (up to 3 stamps or 50 points); a type change switches it off.
+    await tx.update(programs).set({ name, rulesText, type: nextType, earningMode, pointsPerCurrencyUnit, ...(nextType !== program.type ? { welcomeBonus: 0, happyHourEnabled: false, winbackBonus: Math.min(1, program.winbackBonus), birthdayBonus: Math.min(1, program.birthdayBonus), pointsExpiryMonths: null, pointsExpirySince: null, challengeVisits: null, challengeNextFrom: null, challengeNextVisits: null, challengeNextBonus: null } : {}) }).where(eq(programs.id, program.id));
+    const saved = (await insertRuleVersions(tx, program, at, next, versions)).at(-1)!;
+    if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, noticeEnd(at));
+    await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
+    return { programSlug: program.slug, programType: nextType, ruleVersion: saved.version, effectiveAt: dated ? saved.effectiveAt : null };
+  });
+}
+
+/** Cancels the waiting rule or expiry change at once („Änderung zurücknehmen“): a copy of the version in force supersedes
+ *  it (D1) and the row returns to it. A pending expiry shortening is final (W59, Legal): its old points already never expire. */
+async function takeBackRule(tx: Transaction, program: typeof programs.$inferSelect, at: SQL) {
+  const { inForce, pending, next } = await ruleVersions(tx, program, at);
+  if (!pending) return false;
+  const expiry = expiryWaits(program, pending);
+  if (expiry && inForce.pointsExpiryMonths !== null) throw EXPIRY_FINAL();
+  await insertRuleVersions(tx, program, at, next, [ruleFields(inForce)]);
+  await tx.update(programs).set({ rulesText: inForce.rulesText, earningMode: inForce.earningMode, pointsPerCurrencyUnit: inForce.pointsPerCurrencyUnit, ...(expiry ? { pointsExpiryMonths: null, pointsExpirySince: null } : {}) }).where(eq(programs.id, program.id));
+  // A refresh already scheduled for the old date stays: it reads the current state and changes nothing.
+  await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
+  return true;
+}
+
+export async function takeBackRuleChange(raw: { actorUserId: string; programSlug: string }) {
+  const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).parse(raw);
+  return db.transaction(async tx => {
+    const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
+    return { takenBack: await takeBackRule(tx, program, await savedAt(tx)) };
   });
 }
 
@@ -211,6 +266,35 @@ const programExtrasInput = z.object({
   averageVisitSpendMinor: z.number().int().min(1).max(100000).nullable().optional(),
 }).strict();
 
+/**
+ * ENG-100 D4 and Legal: switching expiry on or shortening it is dated, since = four weeks on, and only lots earned from
+ * since on expire (earlier ones never do). Switching it off or lengthening applies at once. Every save writes a rule
+ * version with the months that apply from its date, and since never moves to an earlier date (Legal). While a change waits the
+ * expiry takes no other edit; switching off a waiting switch-on takes it back, a waiting shortening is final (W59).
+ */
+async function saveExpiry(tx: Transaction, program: typeof programs.$inferSelect, months: (typeof POINTS_EXPIRY_MONTHS)[number] | null) {
+  const at = await savedAt(tx); // the caller holds the programme lock
+  const { inForce, pending, next } = await ruleVersions(tx, program, at);
+  if (pending) {
+    if (!expiryWaits(program, pending)) throw RULE_PENDING();
+    if (months !== null || inForce.pointsExpiryMonths !== null) throw inForce.pointsExpiryMonths === null ? RULE_PENDING() : EXPIRY_FINAL();
+    await takeBackRule(tx, program, at);
+    return {};
+  }
+  const old = program.pointsExpiryMonths, dated = months !== null && (old === null || months < old);
+  // At once, a longer period restarts from now as before: points earned until now never expire, which favours customers.
+  // GREATEST: since never moves to an earlier date (Legal), whatever the row held.
+  const since = (start: SQL) => sql`GREATEST(${start}, ${program.pointsExpirySince})`;
+  const expiry = { pointsExpiryMonths: months, pointsExpirySince: months === null ? null : since(dated ? noticeEnd(at) : at) };
+  // A version from before 0042 records no expiry: first record the one in force, so a take-back can tell a shortening.
+  const versions = [...(dated && inForce.pointsExpiryMonths !== old ? [{ ...ruleFields(inForce), pointsExpiryMonths: old, pointsExpirySince: program.pointsExpirySince }] : []),
+    { ...ruleFields(inForce), ...expiry, ...(dated ? { effectiveAt: noticeEnd(at) } : {}) }];
+  const saved = (await insertRuleVersions(tx, program, at, next, versions)).at(-1)!;
+  if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, noticeEnd(at));
+  await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
+  return expiry;
+}
+
 /** Owner-only programme settings outside the versioned earning rule. */
 export async function updateProgramExtras(raw: z.input<typeof programExtrasInput>, now = new Date()) {
   const input = programExtrasInput.parse(raw);
@@ -225,9 +309,7 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
     const reviewUrl = input.reviewUrl === undefined ? program.reviewUrl : input.reviewUrl.trim() || null;
     if (reviewUrl !== null && !reviewUrlValid(reviewUrl)) throw new DomainError("INVALID_REVIEW_URL", "Review link must be an https Google link (g.page, google.com/maps or search.google.com/local/writereview)");
     if (input.pointsExpiryMonths && program.type !== "points") throw new DomainError("INVALID_POINTS_EXPIRY", "Points expiry needs a points programme");
-    // A new or changed period applies only to points earned from now on: earlier points were collected under the old rule.
-    const expiry = input.pointsExpiryMonths === undefined || input.pointsExpiryMonths === program.pointsExpiryMonths ? {}
-      : { pointsExpiryMonths: input.pointsExpiryMonths, pointsExpirySince: input.pointsExpiryMonths ? sql`now()` : null };
+    const expiry = input.pointsExpiryMonths === undefined || input.pointsExpiryMonths === program.pointsExpiryMonths ? {} : await saveExpiry(tx, program, input.pointsExpiryMonths);
     // ENG-065: a running challenge changes from the next calendar month (location time); this month keeps the terms the
     // card shows. Switching on a challenge that is off starts at once. Saving folds a pending change that has started in.
     const [{ timezone }] = await tx.select({ timezone: locations.timezone }).from(locations).where(and(eq(locations.id, program.locationId), eq(locations.tenantId, program.tenantId)));
@@ -293,16 +375,32 @@ const enrollInput = z.object({
   referralCode: z.string().regex(/^ref_[A-Za-z0-9_-]{24}$/).optional(),
   email: z.email().optional(),
   marketingOptIn: z.boolean().default(false),
+  /** ENG-100 D7: the rule version and reward versions the join page showed (the newest, pending or in force). The join is
+   *  refused as stale when they differ. Optional here; the join page always sends them. */
+  ruleVersionId: z.uuid().optional(),
+  rewardVersionIds: z.array(z.uuid()).max(100).optional(),
 });
+
+/** The newest version (pending, else in force) of each live reward: what a join page shows (D7). */
+async function newestRewardVersionIds(reader: Pick<typeof db, "select">, tenantId: string, programId: string) {
+  const rows = await reader.select({ id: sql<string>`(SELECT v.id FROM reward_versions v WHERE v.tenant_id = ${rewards.tenantId} AND v.reward_id = ${rewards.id} AND ${sql.raw(notSuperseded("v"))} ORDER BY v.version DESC LIMIT 1)` })
+    .from(rewards).where(and(eq(rewards.tenantId, tenantId), eq(rewards.programId, programId), sql.raw(liveReward("rewards", "now()")))).orderBy(asc(rewards.sortOrder), asc(rewards.id));
+  return rows.map(row => row.id);
+}
 
 export async function enroll(raw: z.input<typeof enrollInput>) {
   const input = enrollInput.parse(raw);
   if (input.marketingOptIn && !input.email) throw new DomainError("EMAIL_REQUIRED", "An email is needed to receive marketing");
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.slug), eq(programs.status, "active")));
+    // Shared and taken first, as a booking does, so an owner's save (FOR UPDATE, also programme first) cannot commit a
+    // new rule or reward version between the staleness check and the card.
+    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.slug), eq(programs.status, "active"))).for("share");
     if (!program) throw new DomainError("NOT_FOUND", "Program not found");
     const [availability] = await tx.select({ active: sql<boolean>`${programs.effectiveAt} <= now()` }).from(programs).where(eq(programs.id, program.id));
     if (!availability.active) throw new DomainError("NOT_AVAILABLE", "Program is not active yet");
+    const shownRewards = input.rewardVersionIds && [...input.rewardVersionIds].sort().join();
+    if ((input.ruleVersionId && input.ruleVersionId !== (await programInForce(tx, program)).newestRuleVersionId)
+      || (shownRewards !== undefined && shownRewards !== (await newestRewardVersionIds(tx, program.tenantId, program.id)).sort().join())) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
     if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Location plan is unavailable");
     const [usage] = await tx.select({ total: sql<number>`count(*)::int` }).from(memberships)
@@ -361,10 +459,10 @@ async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>
 
 /** A live reward of the owner's programme under an exclusive lock (taken after the programme's), with its version in force,
  *  its pending version and the next version number. One pending change per reward (ENG-100): `waiting` blocks other edits. */
-async function ownerReward(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], program: typeof programs.$inferSelect, rewardId: string) {
-  const [reward] = await tx.select().from(rewards).where(and(eq(rewards.id, rewardId), eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), sql.raw(liveReward("rewards", "now()")))).for("update");
+async function ownerReward(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], program: typeof programs.$inferSelect, rewardId: string, at: SQL) {
+  const [reward] = await tx.select().from(rewards).where(and(eq(rewards.id, rewardId), eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), liveReward("rewards", at))).for("update");
   if (!reward) throw new DomainError("NOT_FOUND", "Reward not found");
-  const versions = await tx.select({ version: rewardVersions, due: sql<boolean>`${rewardVersions.effectiveAt} <= now()`, kept: sql<boolean>`${sql.raw(notSuperseded("reward_versions"))}` })
+  const versions = await tx.select({ version: rewardVersions, due: sql<boolean>`${rewardVersions.effectiveAt} <= ${at}`, kept: sql<boolean>`${sql.raw(notSuperseded("reward_versions"))}` })
     .from(rewardVersions).where(and(eq(rewardVersions.tenantId, program.tenantId), eq(rewardVersions.rewardId, reward.id))).orderBy(desc(rewardVersions.version));
   const kept = versions.filter(row => row.kept);
   const inForce = kept.find(row => row.due)?.version;
@@ -407,7 +505,8 @@ export async function editReward(raw: { actorUserId: string; programSlug: string
   const input = rewardTarget.extend({ title: shortText.optional(), cost: z.number().int().min(1).max(100000).optional(), termsText: z.string().trim().max(3000).optional(), worse: z.boolean().optional() }).parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const { reward, inForce, next, waiting } = await ownerReward(tx, program, input.rewardId);
+    const at = await savedAt(tx);
+    const { reward, inForce, next, waiting } = await ownerReward(tx, program, input.rewardId, at);
     const title = input.title ?? inForce.title, cost = input.cost ?? inForce.cost, termsText = input.termsText ?? inForce.termsText;
     const renamed = title !== inForce.title || termsText !== inForce.termsText;
     // Before the no-op: an edit back to the version in force must not read as saved while the dated change still waits.
@@ -415,8 +514,8 @@ export async function editReward(raw: { actorUserId: string; programSlug: string
     if (!renamed && cost === inForce.cost) return { rewardId: reward.id, versionId: inForce.id, version: inForce.version, effectiveAt: null };
     if (renamed && input.worse === undefined) throw new DomainError("CHOICE_REQUIRED", "Sag bitte, ob der neue Name für deine Kunden schlechter ist.");
     const dated = cost > inForce.cost || (renamed && input.worse === true);
-    const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title, cost, termsText, ...(dated ? { effectiveAt: NOTICE_END } : {}) }).returning();
-    if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, NOTICE_END);
+    const [version] = await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title, cost, termsText, createdAt: at, effectiveAt: dated ? noticeEnd(at) : at }).returning();
+    if (dated) await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, noticeEnd(at));
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: reward.id, versionId: version.id, version: version.version, effectiveAt: dated ? version.effectiveAt : null };
   });
@@ -428,9 +527,10 @@ export async function takeBackRewardChange(raw: { actorUserId: string; programSl
   const input = rewardTarget.parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const { reward, inForce, pending, next } = await ownerReward(tx, program, input.rewardId);
+    const at = await savedAt(tx);
+    const { reward, inForce, pending, next } = await ownerReward(tx, program, input.rewardId, at);
     if (reward.endsAt) await tx.update(rewards).set({ endsAt: null }).where(eq(rewards.id, reward.id));
-    else if (pending) await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title: inForce.title, cost: inForce.cost, termsText: inForce.termsText });
+    else if (pending) await tx.insert(rewardVersions).values({ tenantId: program.tenantId, rewardId: reward.id, version: next, title: inForce.title, cost: inForce.cost, termsText: inForce.termsText, createdAt: at, effectiveAt: at });
     else return { rewardId: reward.id, takenBack: false };
     // A refresh already scheduled for the old date stays: it reads the current state and changes nothing.
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
@@ -456,13 +556,14 @@ export async function archiveReward(raw: { actorUserId: string; programSlug: str
   const input = rewardTarget.parse(raw);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
-    const { reward, waiting } = await ownerReward(tx, program, input.rewardId);
+    const at = await savedAt(tx);
+    const { reward, waiting } = await ownerReward(tx, program, input.rewardId, at);
     if (waiting) throw CHANGE_PENDING();
     const [others] = await tx.select({ count: sql<number>`count(*)::int` }).from(rewards)
       .where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), eq(rewards.active, true), sql`${rewards.endsAt} IS NULL`, ne(rewards.id, reward.id)));
     if (!others.count) throw new DomainError("LAST_ACTIVE_REWARD", "At least one active reward is required");
-    const [ending] = await tx.update(rewards).set({ endsAt: NOTICE_END }).where(eq(rewards.id, reward.id)).returning({ endsAt: rewards.endsAt });
-    await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, NOTICE_END);
+    const [ending] = await tx.update(rewards).set({ endsAt: noticeEnd(at) }).where(eq(rewards.id, reward.id)).returning({ endsAt: rewards.endsAt });
+    await scheduleWalletProgramRefresh(tx, program.tenantId, program.id, noticeEnd(at));
     await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
     return { rewardId: reward.id, endsAt: ending.endsAt };
   });
@@ -551,6 +652,7 @@ export async function getCard(token: string, now = new Date()) {
       .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
       .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
     if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+    const program = await programInForce(tx, row.program, now);
     const activity = await tx.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, source: ledgerEntries.source, createdAt: ledgerEntries.createdAt, purchaseLedgerId: purchaseAwards.ledgerEntryId }).from(ledgerEntries)
       .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
       .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
@@ -562,7 +664,7 @@ export async function getCard(token: string, now = new Date()) {
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
     // With a confirmed end date nothing dated after it shows: the end date, no later challenge month, level date or expiry batch.
     const programmeEnd = row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined;
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(row.program, row.tenant), news: row.program.cardNews || undefined, happyHourUntil: row.program.earningMode === "purchase" && row.program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, row.program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -602,10 +704,11 @@ export async function previewCardLocator(input: { userId: string; locationId: st
 
 /** Opens a card for checkout work: balance, rewards and the rule version the next award must confirm. */
 export async function lookupCard(input: { userId: string; locationId: string; scanCode: string }) {
-  const { member, program, tenant, by } = await resolveCounterCard({ userId: input.userId, locationId: input.locationId, code: input.scanCode });
-  const [rule] = await db.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, member.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
-  if (!rule) throw new DomainError("NOT_FOUND", "Programme rule not found");
-  return { stage: "open" as const, membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: rule.id, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, new Date())) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, new Date())) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
+  const card = await resolveCounterCard({ userId: input.userId, locationId: input.locationId, code: input.scanCode });
+  const { member, tenant, by } = card;
+  // The counter keeps the rule in force until a waiting change's date (ENG-100): no pending data here.
+  const program = await programInForce(db, card.program);
+  return { stage: "open" as const, membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: program.ruleVersionId, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, new Date())) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, new Date())) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
 }
 
 export async function getPublicProgram(slug: string) {
@@ -614,9 +717,11 @@ export async function getPublicProgram(slug: string) {
     .innerJoin(tenants, eq(tenants.id, programs.tenantId))
     .where(and(eq(programs.slug, slug), eq(programs.status, "active")));
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
+  const program = await programInForce(db, row.program);
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(row.program, row.tenant), ownerRulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  // The join sends back the newest rule and reward versions it showed (D7); owner screens read pending ?? in force.
+  return { businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

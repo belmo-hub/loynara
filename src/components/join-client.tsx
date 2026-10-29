@@ -92,7 +92,8 @@ export function JoinClient({ slug }: { slug: string }) {
           const latest = await checkReturning(slug);
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
+        // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
