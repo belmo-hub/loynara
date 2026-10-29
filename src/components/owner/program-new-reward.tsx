@@ -73,7 +73,8 @@ export function NewReward({ slug, program, onSaved }: { slug: string; program: P
         {step === 1
           ? <GuardedLink href="/merchant/program" className="ow-back"><ChevronLeft size={20} aria-hidden="true" />Programm</GuardedLink>
           : <button type="button" className="ow-back" onClick={() => window.history.back()}><ChevronLeft size={20} aria-hidden="true" />Zurück</button>}
-        <div id="new-reward-step" className="ow-qstep"><span className="ow-qbar" aria-hidden="true">{[1, 2, 3].map(n => <i key={n} data-on={n <= step || undefined} />)}</span>Schritt {step} von 3</div>
+        {/* No „Schritt n von 3“ line above the question (Design's finish review): the bar carries the step. */}
+        <div id="new-reward-step" className="ow-qstep" role="img" aria-label={`Schritt ${step} von 3`}><span className="ow-qbar" aria-hidden="true">{[1, 2, 3].map(n => <i key={n} data-on={n <= step || undefined} />)}</span></div>
         <h1 ref={heading} tabIndex={-1} aria-describedby="new-reward-step">{step === 1 ? "Wie heißt die neue Prämie?" : step === 2 ? `${name}: ab wie vielen ${unitDative(type)}?` : "Passt das so?"}</h1>
       </div></header>
       <form className="ow-q" noValidate onSubmit={event => { event.preventDefault(); void submit(); }}>

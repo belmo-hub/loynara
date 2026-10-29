@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { isQuestion } from "./program-helpers";
-import { programSections, quoteStart, type ListData } from "./program-list";
+import { programSections, quoteStart, rewardChip, type ListData } from "./program-list";
 
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
 const program = {
@@ -17,7 +17,7 @@ describe("Programm list", () => {
     const sections = programSections(base);
     expect(sections.map(section => section.title)).toEqual(["Prämien", "So sammeln Kunden", "Extras", "Aussehen", "Infos auf der Karte", "Für die Ergebnisse"]);
     expect(sections[0].rows.map(row => [row.title, row.sub ?? "", row.href])).toEqual([
-      ["Gratiskaffee", "Einlösbar ab 10 Stempeln", "/merchant/program/rewards/r1"], ["Keks", "Einlösbar ab 1 Stempel", "/merchant/program/rewards/r2"], ["Prämie hinzufügen", "", "/merchant/program/rewards/new"],
+      ["Gratiskaffee", "Einlösbar ab 10 Stempeln", "/merchant/program/rewards/r1"], ["Keks", "Einlösbar ab 1 Stempel", "/merchant/program/rewards/r2"], ["Reihenfolge ändern", "", "/merchant/program/rewards/order"], ["Prämie hinzufügen", "", "/merchant/program/rewards/new"],
     ]);
     expect(sections[0].rows.every(row => !row.value)).toBe(true); // the sub-line already says the number
     expect(sections[2].note).toBe("Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.");
@@ -95,5 +95,21 @@ describe("Programm list", () => {
   it("quotes the start of a text in whole words", () => {
     expect(quoteStart("Kurz.")).toBe("„Kurz.“");
     expect(quoteStart("Einwortohneleerzeichendasvielzulangistfürdiezeileundmehr", 10)).toBe("„Einwortohn …“");
+  });
+});
+
+describe("a reward row's chip while a change waits (ENG-100, W29, W59)", () => {
+  const coffee = { id: "v1", rewardId: "r1", title: "Gratiskaffee", cost: 10, sortOrder: 0 };
+  it.each([
+    [{}, undefined],
+    [{ endsOn: "2026-11-24" }, "Ab 24.11. archiviert"],
+    [{ pending: { effectiveOn: "2026-11-24", title: "Gratiskaffee", cost: 12 } }, "Ab 24.11.: 12 Stempel"],
+    [{ pending: { effectiveOn: "2026-11-24", title: "Gratiskaffee 0,2 l", cost: 10 } }, "Ab 24.11.: neuer Name"],
+    [{ pending: { effectiveOn: "2026-11-24", title: "Gratiskaffee 0,2 l", cost: 12 } }, "Ab 24.11.: 12 Stempel"],
+  ])("%o → %s", (change, chip) => expect(rewardChip("stamp", { ...coffee, ...change })).toBe(chip));
+
+  it("puts the chip on the reward's row", () => {
+    const pending = { ...program, rewards: [{ ...program.rewards[0], pending: { effectiveOn: "2026-11-24", title: "Gratiskaffee", cost: 12 } }] } as PublicProgram;
+    expect(rows({ program: pending }).Gratiskaffee).toMatchObject({ sub: "Einlösbar ab 10 Stempeln", pending: "Ab 24.11.: 12 Stempel" });
   });
 });

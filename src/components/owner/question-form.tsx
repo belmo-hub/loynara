@@ -70,10 +70,11 @@ export function useReview<Step extends string = "review">() {
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
-export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", onSubmit, children }: {
+export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
   title: string; lead?: ReactNode; /** A review step goes back to its question instead of the list. */ back?: { label: string; onClick: () => void };
   busy: boolean; busyLabel?: string; /** Kunden's steps keep the live rule: the button waits until the answer is complete. */ disabled?: boolean;
-  failed: string; action?: string; onSubmit: () => void; children: ReactNode;
+  failed: string; action?: string; /** ENG-100: „Archivieren“ (30) is danger, „Änderung zurücknehmen“ (57) secondary. */ tone?: "primary" | "danger" | "secondary";
+  /** „Abbrechen“ under the button (30, 58). */ cancel?: () => void; onSubmit: () => void; children: ReactNode;
 }) {
   const heading = useRef<HTMLHeadingElement>(null), fail = useRef<HTMLDivElement>(null), shown = useRef(title);
   useEffect(() => { if (shown.current !== title) { shown.current = title; heading.current?.focus(); } }, [title]);
@@ -90,7 +91,8 @@ export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern �
         {children}
         {failed && <div ref={fail} className="ow-qfail"><Notice tone="danger" role="alert"><strong>Speichern fehlgeschlagen</strong>{failed} Deine Änderungen sind noch da.</Notice></div>}
         {/* Not disabled while saving: the button keeps the focus, and a second tap does nothing (`busy`). */}
-        <div className="ow-qsave"><button type="submit" className="ow-btn ow-btn--primary" aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button></div>
+        <div className="ow-qsave"><button type="submit" className={`ow-btn ow-btn--${tone}`} aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button>
+          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}</div>
       </form>
     </div>
   );
@@ -104,10 +106,11 @@ export type Choice = { value: string; label: string; sub?: string; icon: LucideI
  * One answer out of a few, as rows (screens 08, 16, 33). The picked row says „Wie bisher“, or „Neu gewählt“ before it is
  * saved (W25); without a `saved` answer (Kunden 05) it says neither, and the question shows as the group's label.
  */
-export function Choices({ name, label, options, value, saved, onChange }: { name: string; label: string; options: Choice[]; value: string; saved?: string; onChange: (value: string) => void }) {
+export function Choices({ name, label, lead, options, value, saved, onChange }: { name: string; label: string; /** A line under the question (47: „Schlechter heißt: …“). */ lead?: string; options: Choice[]; value: string; saved?: string; onChange: (value: string) => void }) {
   return (
     <fieldset className="ow-qchoices">
       <legend className={saved === undefined ? "ow-qlegend" : "ow-sr"}>{label}</legend>
+      {lead && <p className="ow-hint ow-qchoices-lead">{lead}</p>}
       {options.map(({ icon: Icon, ...option }) => {
         const sub = option.sub ?? (option.value !== value || saved === undefined ? "" : value === saved ? "Wie bisher" : "Neu gewählt");
         return <label key={option.value} className="ow-qchoice">
