@@ -49,6 +49,9 @@ export function RewardOrder({ slug, program, onChanged }: { slug: string; progra
   );
 }
 
+/** „24. November“, with the year when it isn't this one (Marketing FINAL): „3. März 2026“. */
+export const archivedDay = (iso: string, today = new Date()) => `${longDay(iso)}${iso.slice(0, 4) === String(today.getFullYear()) ? "" : ` ${iso.slice(0, 4)}`}`;
+
 type Stored = { rewardId: string; title: string; cost: number; active: boolean; endedOn: string | null };
 /** „Archivierte Prämien“ (read-only, Design): name, cost and the day it ended where one is stored; archives from before
  *  ENG-100 ended at once and have no date. No restore. */
@@ -60,7 +63,7 @@ export function ArchivedRewards({ slug, program }: { slug: string; program: Publ
     <ul className="ow-rows" aria-label="Archivierte Prämien">
       {list.data.rewards.filter(reward => !reward.active).map(reward => (
         <li key={reward.rewardId}><div className="ow-prog-row"><span className="ow-prog-main"><span className="ow-prog-text">
-          <strong>{reward.title}</strong><small>{reward.cost} {unitName(program.programType, reward.cost)}{reward.endedOn && ` · archiviert am ${longDay(reward.endedOn)}`}</small>
+          <strong>{reward.title}</strong><small>{reward.cost} {unitName(program.programType, reward.cost)}{reward.endedOn && ` · archiviert am ${archivedDay(reward.endedOn)}`}</small>
         </span></span></div></li>
       ))}
     </ul>
