@@ -535,7 +535,7 @@ describe("start guarantee (per location, decided on the month-2 invoice)", () =>
 
 describe("billing starts at go-live with the free first month (ENG-123)", () => {
   const GO_LIVE = new Date("2026-11-10T10:00:00Z"); // 11:00 Berlin
-  const RECIPIENT = { name: "Synthetische Inhaberin", line1: "Beispielweg 2", postalCode: "34117", city: "Kassel" };
+  const RECIPIENT = { name: "Synthetische Inhaberin", line1: "Beispielweg 2", postalCode: "34117", city: "Kassel", email: "rechnung@example.test" };
   const startAs = (s: { operatorId: string; tenantId: string }, at = GO_LIVE, billing: unknown = RECIPIENT) => { stripe.clock.now = at; return startBilling({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, billing, at }); };
 
   it("follows Stripe's month rule for the first billing date, from the Berlin go-live day", () => {
@@ -557,7 +557,7 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
     expect(stripe.calls.some(call => /invoice/.test(call.path))).toBe(false);
     // § 14 UStG: the recipient's full name and address are on the Stripe customer before the subscription exists.
     const recipientCall = stripe.calls.findIndex(call => call.method === "POST" && /^\/customers\/cus_/.test(call.path));
-    expect(stripe.calls[recipientCall].params).toEqual({ name: "Synthetische Inhaberin", "address[line1]": "Beispielweg 2", "address[postal_code]": "34117", "address[city]": "Kassel", "address[country]": "DE" });
+    expect(stripe.calls[recipientCall].params).toEqual({ name: "Synthetische Inhaberin", email: "rechnung@example.test", "address[line1]": "Beispielweg 2", "address[postal_code]": "34117", "address[city]": "Kassel", "address[country]": "DE" });
     expect(recipientCall).toBeLessThan(stripe.calls.findIndex(call => call.method === "POST" && call.path === "/subscriptions"));
     expect(stripe.calls.find(call => call.path === "/customers")!.params["invoice_settings[footer]"]).toBeUndefined();
     expect(await sub(s.tenantId)).toMatchObject({ status: "active", provider: "stripe", planCode: "list", priceMinor: 4900, freeUntil: new Date("2026-12-10T00:00:00Z"), startedAt: GO_LIVE });
@@ -589,9 +589,21 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
     await expect(endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: new Date("2026-12-10T01:00:00Z") })).rejects.toMatchObject({ code: "BILLING_STATE" });
   });
 
+  it("ends it at once in the last hours of the free month, when that end time has passed, with no final invoice (review N-2)", async () => {
+    const s = await shop();
+    await startAs(s);
+    const subscriptionId = (await sub(s.tenantId)).providerSubscriptionId!;
+    // 9 Dec 22:30 UTC: still 9 December in Berlin until midnight, but past 21:00 UTC.
+    await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: new Date("2026-12-09T22:30:00Z") });
+    expect(stripe.calls.filter(call => call.path === `/subscriptions/${subscriptionId}`).at(-1)).toMatchObject({ method: "DELETE", params: { invoice_now: "false", prorate: "false" } });
+    expect(stripe.calls.some(call => call.method === "POST" && call.path === `/subscriptions/${subscriptionId}` && "cancel_at" in call.params)).toBe(false);
+    expect(await sub(s.tenantId)).toMatchObject({ cancelAtPeriodEnd: true });
+  });
+
   it("refuses a go-live without the recipient's full name and address, before any Stripe call", async () => {
     const s = await shop();
-    for (const billing of [null, { ...RECIPIENT, postalCode: "3411" }, { ...RECIPIENT, line1: "" }, { ...RECIPIENT, extra: "x" }]) {
+    const noEmail = Object.fromEntries(Object.entries(RECIPIENT).filter(([key]) => key !== "email"));
+    for (const billing of [null, { ...RECIPIENT, postalCode: "3411" }, { ...RECIPIENT, line1: "" }, { ...RECIPIENT, extra: "x" }, noEmail, { ...RECIPIENT, email: "keine-adresse" }]) {
       await expect(startAs(s, GO_LIVE, billing)).rejects.toMatchObject({ code: "INVALID_INPUT" });
     }
     expect(stripe.calls).toHaveLength(0);

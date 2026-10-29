@@ -293,7 +293,7 @@ async function main() {
         try {
           const { queueWeeklyOwnerReports } = await import("../src/lib/weekly-owner-report");
           await queueWeeklyOwnerReports(housekeepingDatabase);
-          // ENG-123: free-month reminders, 7 days before the end; idempotent per location and free month.
+          // ENG-123: free-month reminders, 7 days before the end; idempotent per business and free month.
           const { queueFreeMonthReminders } = await import("../src/lib/free-month-reminder");
           await queueFreeMonthReminders(housekeepingDatabase);
           weeklyReportsCheckedAt = Date.now();

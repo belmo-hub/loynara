@@ -138,13 +138,15 @@ export const lastFreeDay = (freeUntil: Date) => berlinDay(new Date(freeUntil.get
 const billingRecipient = z.object({
   name: z.string().trim().min(2).max(120), line1: z.string().trim().min(3).max(120),
   postalCode: z.string().trim().regex(/^\d{5}$/), city: z.string().trim().min(2).max(80),
+  // Stripe sends invoices, payment reminders and receipts only to the customer's email; a go-live customer never passes Checkout.
+  email: z.email().max(254),
 }).strict();
 
 export async function startBilling(input: { actorUserId: string; env: Env; tenantId: string; billing: unknown; at?: Date }) {
   requireStripe();
   if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid shop");
   const recipient = billingRecipient.safeParse(input.billing);
-  if (!recipient.success) throw new DomainError("INVALID_INPUT", "Bitte Name, Straße, Postleitzahl und Ort für die Rechnung angeben.");
+  if (!recipient.success) throw new DomainError("INVALID_INPUT", "Bitte Name, Straße, Postleitzahl, Ort und E-Mail für die Rechnung angeben.");
   const at = input.at ?? new Date();
   // The anchor is that day of the month at 00:00 UTC; in the first hours after Berlin midnight that UTC moment is still ahead, which would end the free month within hours.
   if (berlinDay(at) !== at.toISOString().slice(0, 10)) throw new DomainError("BILLING_START_TIME", "Bitte schalte die Abrechnung nach 2 Uhr frei.");
@@ -160,7 +162,7 @@ export async function startBilling(input: { actorUserId: string; env: Env; tenan
     const standardVat = await verifiedVatMode() === "standard";
     const customer = await ensureCustomer(tx, sub);
     await client("POST", `/customers/${customer}`, {
-      name: recipient.data.name, "address[line1]": recipient.data.line1, "address[postal_code]": recipient.data.postalCode,
+      name: recipient.data.name, email: recipient.data.email, "address[line1]": recipient.data.line1, "address[postal_code]": recipient.data.postalCode,
       "address[city]": recipient.data.city, "address[country]": "DE",
     });
     const created = stripeSubscription.parse(await client("POST", "/subscriptions", {
@@ -330,7 +332,9 @@ export async function endInFreeMonth(input: { actorUserId: string; env: Env; ten
     if (!sub.freeUntil || !sub.providerSubscriptionId || at >= sub.freeUntil) throw new DomainError("BILLING_STATE", "Das Geschäft ist nicht im kostenlosen Monat.");
     // Three hours before the first billing date is still the last free day in Berlin in summer and winter.
     const endsAt = Math.floor(sub.freeUntil.getTime() / 1000) - 3 * 3600;
-    await client("POST", `/subscriptions/${sub.providerSubscriptionId}`, { cancel_at: String(endsAt), proration_behavior: "none" }, `free-month-end-${sub.providerSubscriptionId}`);
+    // In those last hours that moment has passed and Stripe refuses a past cancel_at: end it now, with no final invoice.
+    if (endsAt <= Math.floor(at.getTime() / 1000)) await client("DELETE", `/subscriptions/${sub.providerSubscriptionId}`, { invoice_now: "false", prorate: "false" }, `free-month-end-${sub.providerSubscriptionId}`);
+    else await client("POST", `/subscriptions/${sub.providerSubscriptionId}`, { cancel_at: String(endsAt), proration_behavior: "none" }, `free-month-end-${sub.providerSubscriptionId}`);
     await tx.update(subscriptions).set({ cancelAtPeriodEnd: true, updatedAt: at }).where(eq(subscriptions.tenantId, sub.tenantId));
     return { tenantId: sub.tenantId, lastFreeDay: lastFreeDay(sub.freeUntil) };
   });

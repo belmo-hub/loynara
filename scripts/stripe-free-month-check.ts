@@ -42,7 +42,8 @@ async function scenario(name: string, start: Date, checkpoints: Date[], anchor: 
   const clock = await stripe("POST", "/test_helpers/test_clocks", { frozen_time: String(seconds(start)), name: `ENG-123 ${name}` });
   const findings: string[] = [];
   try {
-    const customer = await stripe("POST", "/customers", { test_clock: clock.id, name: `ENG-123 ${name}` });
+    // As in production (go-live records the invoice email): Stripe mails invoices only to customer.email.
+    const customer = await stripe("POST", "/customers", { test_clock: clock.id, name: `ENG-123 ${name}`, email: "billing-check@example.com" });
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(start).slice(8);
     // "config" is what startBilling sends; "exactly-one-month" probes the edge: an explicit anchor at the creation time plus one month.
     const oneMonth = new Date(start); oneMonth.setUTCMonth(oneMonth.getUTCMonth() + 1);
@@ -60,7 +61,8 @@ async function scenario(name: string, start: Date, checkpoints: Date[], anchor: 
     for (const checkpoint of checkpoints) {
       await advance(clock.id, checkpoint);
       const list = await invoices(sub.id);
-      findings.push(`at ${checkpoint.toISOString()}: ${list.length} invoice(s): ${list.map(i => `${i.number ?? "unnumbered"} ${i.amount_due / 100} € ${i.status} ${iso(i.period_start)}→${iso(i.period_end)}`).join("; ")}`);
+      const status = (await stripe("GET", `/subscriptions/${sub.id}`)).status;
+      findings.push(`at ${checkpoint.toISOString()}: subscription ${status}; ${list.length} invoice(s): ${list.map(i => `${i.number ?? "unnumbered"} ${i.amount_due / 100} € ${i.status} ${iso(i.period_start)}→${iso(i.period_end)}`).join("; ")}`);
     }
   } finally {
     await stripe("DELETE", `/test_helpers/test_clocks/${clock.id}`);

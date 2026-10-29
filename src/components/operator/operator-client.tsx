@@ -28,7 +28,7 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
-type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; city: string | null };
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
@@ -114,8 +114,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
   const [startFor, setStartFor] = useState<string | null>(null);
   // § 14 UStG: the invoice recipient's full name and address, recorded at go-live and sent to Stripe.
-  const [recipient, setRecipient] = useState({ name: "", line1: "", postalCode: "", city: "" });
-  const openStart = (b: Billing) => { setStartFor(b.tenantId); setRecipient({ name: b.ownerName ?? "", line1: "", postalCode: "", city: b.city ?? "" }); setError(""); };
+  const [recipient, setRecipient] = useState({ name: "", line1: "", postalCode: "", city: "", email: "" });
+  const openStart = (b: Billing) => { setStartFor(b.tenantId); setRecipient({ name: b.ownerName ?? "", line1: "", postalCode: "", city: b.city ?? "", email: b.ownerEmail ?? "" }); setError(""); };
   async function startBilling(tenantId: string) {
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-start", { tenantId, billing: recipient }); setStartFor(null); router.refresh(); }
@@ -234,6 +234,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
                   <TextField label="Straße und Hausnummer" value={recipient.line1} onChange={event => setRecipient(r => ({ ...r, line1: event.target.value }))} required autoComplete="off" />
                   <TextField label="Postleitzahl" value={recipient.postalCode} onChange={event => setRecipient(r => ({ ...r, postalCode: event.target.value }))} required inputMode="numeric" pattern="\d{5}" autoComplete="off" />
                   <TextField label="Ort" value={recipient.city} onChange={event => setRecipient(r => ({ ...r, city: event.target.value }))} required autoComplete="off" />
+                  <TextField label="E-Mail für Rechnungen" type="email" value={recipient.email} onChange={event => setRecipient(r => ({ ...r, email: event.target.value }))} required autoComplete="off" />
                   {error ? <p role="alert">{error}</p> : null}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button type="submit" loading={busy}>Heute starten bestätigen</Button><Button type="button" variant="quiet" onClick={() => setStartFor(null)}>Zurück</Button></div>
                 </form>

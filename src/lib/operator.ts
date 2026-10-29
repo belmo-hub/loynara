@@ -53,8 +53,9 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency,
       started: sql<boolean>`${subscriptions.providerSubscriptionId} is not null or ${subscriptions.freeUntil} is not null`,
       cancelling: subscriptions.cancelAtPeriodEnd,
-      // Prefill for the go-live form (the operator completes street and postcode): the active owner's name and the shop's first location's city.
+      // Prefill for the go-live form (the operator completes street and postcode): the active owner's name and login email, and the shop's first location's city.
       ownerName: sql<string | null>`(SELECT u.name FROM staff_roles o JOIN "user" u ON u.id = o.user_id WHERE o.tenant_id = ${subscriptions.tenantId} AND o.role = 'owner' AND o.active LIMIT 1)`,
+      ownerEmail: sql<string | null>`(SELECT u.email FROM staff_roles o JOIN "user" u ON u.id = o.user_id WHERE o.tenant_id = ${subscriptions.tenantId} AND o.role = 'owner' AND o.active LIMIT 1)`,
       city: sql<string | null>`(SELECT l.city FROM locations l WHERE l.tenant_id = ${subscriptions.tenantId} ORDER BY l.created_at, l.id LIMIT 1)`,
       // The owner-facing date is the last free day, the day before the first billing date (Legal).
       lastFreeDay: sql<string | null>`to_char((${subscriptions.freeUntil} - interval '1 day') AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY')` })
