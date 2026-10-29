@@ -91,8 +91,9 @@ describe("wallet refresh queue", () => {
     const { owner, merchant, member } = await createMember();
     const created = await createReward({ actorUserId: owner, programSlug: merchant.programSlug, title: "Kuchen", cost: 8 });
     expect((await walletPassDataByMembershipId(member.id)).rewards).toEqual([{ title: "Kaffee", cost: 3 }, { title: "Kuchen", cost: 8 }]);
-    await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Kuchen", cost: 9, termsText: "" });
-    expect((await walletPassDataByMembershipId(member.id)).rewards).toEqual([{ title: "Kaffee", cost: 3 }, { title: "Kuchen", cost: 9 }]);
+    await editReward({ actorUserId: owner, programSlug: merchant.programSlug, rewardId: created.rewardId, title: "Kuchen", cost: 7, termsText: "" });
+    // A lower cost applies at once; a raise would wait four weeks (ENG-100).
+    expect((await walletPassDataByMembershipId(member.id)).rewards).toEqual([{ title: "Kaffee", cost: 3 }, { title: "Kuchen", cost: 7 }]);
   });
 });
 
@@ -309,6 +310,17 @@ describe("Google 'Prämie bereit' message (fake provider)", () => {
         expect(warn).toHaveBeenCalledWith("Google Wallet reward message skipped: notification limit reached");
       }, { wrap: fetcher => async (input, init) => String(input).endsWith("/addMessage") ? new Response(body, { status }) : fetcher(input, init) });
     } finally { warn.mockRestore(); }
+  });
+
+  it("sends nothing for a reward whose archive date has passed (ENG-100)", async () => {
+    await withGoogle(async (api, client) => {
+      const { owner, merchant, member, issuer } = await createMember();
+      await issueWalletPass(member.cardToken, "google", id => googleObjectId(id, issuer!));
+      await pool.query("UPDATE rewards SET ends_at = now() - interval '1 second' WHERE program_id = $1", [merchant.programId]);
+      await stamp(owner, merchant.locationId, member.id, 3);
+      await refreshWalletForMembership(member.id, { google: client });
+      expect(addMessageCalls(api)).toHaveLength(0);
+    });
   });
 
   it("sends nothing when an owner edit makes the card ready", async () => {
