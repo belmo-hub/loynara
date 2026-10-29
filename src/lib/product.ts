@@ -643,7 +643,8 @@ export function capLevelUntil<T extends { until?: string }>(level: T | undefined
   return iso > programmeEnd ? { ...level, until: germanDate(programmeEnd) } : level;
 }
 
-export async function getCard(token: string, now = new Date()) {
+export async function getCard(token: string, explicitNow?: Date) {
+  const now = explicitNow ?? new Date();
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
   // Balance, recent activity and reward progress must describe one committed state.
   return db.transaction(async (tx) => {
@@ -654,7 +655,9 @@ export async function getCard(token: string, now = new Date()) {
       .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
       .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
     if (!row) throw new DomainError("NOT_FOUND", "Card not found");
-    const program = await programInForce(tx, row.program, now);
+    // The rule in force by the database clock, as saves and bookings decide it (a web server a few ms off would show the
+    // switch-over late or early); `explicitNow` only for tests.
+    const program = await programInForce(tx, row.program, explicitNow ?? sql`clock_timestamp()`);
     const activity = await tx.select({ delta: ledgerEntries.delta, kind: ledgerEntries.kind, source: ledgerEntries.source, createdAt: ledgerEntries.createdAt, purchaseLedgerId: purchaseAwards.ledgerEntryId }).from(ledgerEntries)
       .leftJoin(purchaseAwards, and(eq(purchaseAwards.ledgerEntryId, ledgerEntries.id), eq(purchaseAwards.tenantId, ledgerEntries.tenantId)))
       .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
