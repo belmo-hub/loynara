@@ -2,144 +2,48 @@
 
 import { useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
-import { useDirtyGuard, useOwner } from "./owner-context";
-import { Notice, OwnerDialog, Skeleton } from "./owner-ui";
-import { euro, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseGermanMoney, parseWholeNumber, unitDative, unitName } from "./program-helpers";
-import { useLoad } from "./use-load";
-import { EmptyState } from "@/components/ui/empty-state";
+import { postJson, type PublicProgram } from "@/components/client-api";
+import { useOwner } from "./owner-context";
+import { Notice } from "./owner-ui";
+import { unitName } from "./program-helpers";
 
-type Reward = { rewardId: string; versionId: string; version: number; title: string; cost: number; termsText: string; sortOrder: number; active: boolean };
-type Form = { id: string; title: string; cost: string; ownCost: string };
-
-/** An edit's request. Conditions are off the screens (ENG-115): the stored text goes back as it is, so an edit neither erases it nor counts it as a change. */
-export const editRequest = (stored: Pick<Reward, "rewardId" | "termsText">, title: string, cost: number) => ({ action: "edit", rewardId: stored.rewardId, title, cost, termsText: stored.termsText });
-
-/** `open` (a reward id) opens that reward's form at once, for its Programm row's page; `onSaved` follows a saved form.
- *  New rewards have their own three steps (program-new-reward.tsx). */
-export function RewardsCard({ me, program, onChanged, open, onSaved }: { me: MeResponse; program: PublicProgram; onChanged: () => void | Promise<void>; open?: string; onSaved?: () => void }) {
+/** „Reihenfolge ändern“: the rewards in the order of the join page and the counter, each move saved at once. Each reward's
+ *  own page (03, program-reward.tsx) changes its cost, name or archive. */
+export function RewardOrder({ slug, program, onChanged }: { slug: string; program: PublicProgram; onChanged: () => void | Promise<void> }) {
   const owner = useOwner();
-  const [list, reload] = useLoad<{ rewards: Reward[] }>(`/api/merchant/program/rewards?programSlug=${encodeURIComponent(me.programSlug)}`);
-  const [form, setForm] = useState<Form | null>(() => {
-    const reward = program.rewards.find(item => item.rewardId === open);
-    return reward ? { id: reward.rewardId, title: reward.title, cost: String(reward.cost), ownCost: "" } : null;
-  });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [archiving, setArchiving] = useState<Reward | null>(null);
-  const [notice, setNotice] = useState("");
-  const type = program.programType;
-  const unit = unitName(type);
-  const purchase = type === "points" && program.earningMode === "purchase";
-  const rate = program.pointsPerCurrencyUnit ?? 1;
-  const active = list.state === "ok" ? list.data.rewards.filter(reward => reward.active) : [];
-  const archived = list.state === "ok" ? list.data.rewards.filter(reward => !reward.active) : [];
-  const original = form ? active.find(reward => reward.rewardId === form.id) : undefined;
-  const dirty = Boolean(form && original && (form.title !== original.title || form.cost !== String(original.cost)));
-  useDirtyGuard("program-rewards", dirty);
+  const [busy, setBusy] = useState(false), [notice, setNotice] = useState(""), [error, setError] = useState("");
+  const rewards = program.rewards;
 
-  const cost = form ? parseWholeNumber(form.cost) : null;
-  const titleValid = Boolean(form && form.title.trim().length >= 2);
-  const valid = titleValid && cost !== null;
-
-  async function run(payload: object, done: string): Promise<boolean> {
+  async function move(index: number, direction: -1 | 1) {
+    const next = [...rewards], target = index + direction;
+    [next[index], next[target]] = [next[target], next[index]];
     setBusy(true); setError(""); setNotice("");
     try {
-      await postJson("/api/merchant/program/rewards", { programSlug: me.programSlug, ...payload });
-      reload(); await onChanged(); void owner.refresh();
-      setNotice(done); owner.announce(done);
-      return true;
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Prämie konnte nicht gespeichert werden."); return false; }
+      await postJson("/api/merchant/program/rewards", { programSlug: slug, action: "reorder", rewardIds: next.map(reward => reward.rewardId) });
+      await onChanged();
+      setNotice("Reihenfolge gespeichert."); owner.announce("Reihenfolge gespeichert.");
+    } catch { setError("Die Reihenfolge konnte nicht gespeichert werden."); }
     finally { setBusy(false); }
   }
-  async function submit() {
-    if (!form || !original || !valid || busy || cost === null) return;
-    const ok = await run(editRequest(original, form.title.trim(), cost), "Neue Prämienversion gespeichert.");
-    if (ok) { setForm(null); onSaved?.(); }
-  }
-  async function move(index: number, direction: -1 | 1) {
-    const next = [...active]; const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    await run({ action: "reorder", rewardIds: next.map(reward => reward.rewardId) }, "Reihenfolge gespeichert.");
-  }
-
-  // Effect of the pending edit, shown before anything is saved.
-  const effect: string[] = [];
-  if (form && original && cost !== null) {
-    if (cost < original.cost) effect.push(`Der Preis sinkt von ${original.cost} auf ${cost} ${unit}. Karten mit mindestens ${cost} ${unit} können die Prämie ab dem Speichern einlösen.`);
-    if (cost > original.cost) effect.push(`Der Preis steigt von ${original.cost} auf ${cost} ${unit}. Kunden brauchen ab dem Speichern mehr; gesammelte Stände bleiben unverändert.`);
-    if (form.title.trim() !== original.title) effect.push(`Der Name ändert sich von „${original.title}“ zu „${form.title.trim()}“.`);
-    if (effect.length) effect.push(`Speichern legt Version ${original.version + 1} an. Bereits eingelöste Prämien behalten ihre bisherige Version.`);
-  }
-  const min = purchase && cost !== null ? minimumSpendMinor(cost, rate) : null;
-  const ownCost = form ? parseGermanMoney(form.ownCost) : null;
 
   return (
-    <section className="ow-card ow-stack" aria-labelledby="rew-title" style={{ gap: 16 }}>
-      <div className="ow-card-head" style={{ marginBottom: 0 }}>
-        <div><h2 id="rew-title">Prämien</h2><p>Reihenfolge wie bei Anmeldung und Kasse. Jede Prämie: Name und Preis in {unitDative(type)}.</p></div>
-      </div>
+    <section className="ow-card ow-stack" aria-label="Reihenfolge der Prämien" style={{ gap: 16 }}>
+      <p className="ow-muted">So stehen die Prämien bei der Anmeldung und an der Kasse.</p>
       {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
-      {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
-      {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reload}>Erneut laden</button>}>{list.message}</Notice>}
-      {list.state === "ok" && active.length === 0 && !form && <EmptyState level={3} size="compact" title="Noch keine aktive Prämie.">Ohne Prämie können deine Gäste nichts einlösen. Leg mit „Prämie hinzufügen“ die erste an.</EmptyState>}
-      {list.state === "ok" && active.length > 0 && (
-        <ol className="ow-rewards" aria-label="Aktive Prämien">
-          {active.map((reward, index) => {
-            const spend = purchase ? minimumSpendMinor(reward.cost, rate) : null;
-            return (
-              <li key={reward.rewardId} className="ow-reward">
-                <div className="ow-reward-head">
-                  <div className="ow-reward-main">
-                    <strong>{reward.title}</strong>
-                    <span className="ow-num">{reward.cost} {unit}</span>
-                    {(spend !== null || noMinSpendNote(type)) && <span className="ow-hint">{spend !== null ? `Ab ${euro(spend, program.currency)} Einkaufswert erreichbar. ${MIN_SPEND_LABEL}` : noMinSpendNote(type)}</span>}
-                  </div>
-                  <div className="ow-reward-move">
-                    <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={18} /></button>
-                    <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === active.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={18} /></button>
-                  </div>
-                </div>
-                <div className="ow-reward-actions">
-                  <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy} onClick={() => { setForm({ id: reward.rewardId, title: reward.title, cost: String(reward.cost), ownCost: "" }); setError(""); setNotice(""); }}>Bearbeiten</button>
-                  <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || active.length <= 1} title={active.length <= 1 ? "Mindestens eine aktive Prämie ist nötig." : undefined} onClick={() => setArchiving(reward)}>Archivieren</button>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-
-      {form && (
-        <form className="ow-card ow-card--flat ow-stack" style={{ background: "var(--color-fill)" }} aria-labelledby="rew-form-title" onSubmit={event => { event.preventDefault(); void submit(); }}>
-          <h3 id="rew-form-title" style={{ fontSize: "var(--text-16)" }}>Prämie bearbeiten</h3>
-          <div className="ow-field"><label htmlFor="rew-title-input">Name der Prämie</label><input id="rew-title-input" className="ow-input" value={form.title} maxLength={180} onChange={event => setForm({ ...form, title: event.target.value })} aria-invalid={form.title.length > 0 && !titleValid} placeholder="z. B. Kaffee aufs Haus" /></div>
-          <div className="ow-field"><label htmlFor="rew-cost">Preis in {unitDative(type)}</label><input id="rew-cost" className="ow-input" inputMode="numeric" value={form.cost} onChange={event => setForm({ ...form, cost: event.target.value.replace(/[^0-9]/g, "") })} aria-invalid={form.cost.length > 0 && cost === null} aria-describedby="rew-cost-hint" style={{ maxWidth: 200 }} /><span id="rew-cost-hint" className="ow-hint">{type === "stamp" ? "So viele Stempel muss eine Karte sammeln." : purchase ? `So viele Punkte werden benötigt. Bei ${rate} ${unitName("points", rate)} pro 1 € entspricht das einem Mindestumsatz.` : "So viele Punkte werden benötigt."}</span></div>
-          {cost !== null && (min !== null || noMinSpendNote(type)) && (
-            <div className="ow-readonly" role="status" aria-live="polite">
-              {min !== null ? <>Mindestumsatz für diese Prämie: <strong>{euro(min, program.currency)}</strong>. {MIN_SPEND_LABEL}</> : noMinSpendNote(type) + "."}
-              {purchase && min !== null && (
-                <div className="ow-field" style={{ marginTop: 10 }}>
-                  <label htmlFor="rew-own" className="ow-hint">Rechenhilfe: Deine Kosten für diese Prämie in € (optional, wird nicht gespeichert)</label>
-                  <input id="rew-own" className="ow-input" inputMode="decimal" placeholder="z. B. 1,80" value={form.ownCost} onChange={event => setForm({ ...form, ownCost: event.target.value })} style={{ maxWidth: 200 }} />
-                  {ownCost !== null ? <span className="ow-hint">Das entspricht rund {((ownCost / (min / 100)) * 100).toFixed(1).replace(".", ",")} % des Mindestumsatzes. Nur eine Rechenhilfe, keine Empfehlung.</span> : form.ownCost ? <span className="ow-error">Bitte einen Betrag wie 1,80 eingeben.</span> : null}
-                </div>
-              )}
+      {error && <p className="ow-error" role="alert">{error}</p>}
+      <ol className="ow-rewards" aria-label="Prämien">
+        {rewards.map((reward, index) => (
+          <li key={reward.rewardId} className="ow-reward">
+            <div className="ow-reward-head">
+              <div className="ow-reward-main"><strong>{reward.title}</strong><span className="ow-num">{reward.cost} {unitName(program.programType, reward.cost)}</span></div>
+              <div className="ow-reward-move">
+                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={18} /></button>
+                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === rewards.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={18} /></button>
+              </div>
             </div>
-          )}
-          {effect.length > 0 && <Notice tone="info"><strong>Das ändert sich beim Speichern</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{effect.map(line => <li key={line}>{line}</li>)}</ul></Notice>}
-          {error && <p className="ow-error" role="alert">{error} Deine Eingaben sind noch da.</p>}
-          <div className="ow-row"><button type="submit" className="ow-btn ow-btn--primary" disabled={!valid || busy || !dirty} aria-busy={busy}>{busy ? "Speichern …" : "Prämienversion speichern"}</button><button type="button" className="ow-btn ow-btn--ghost" disabled={busy} onClick={() => { setForm(null); setError(""); }}>Abbrechen</button></div>
-        </form>
-      )}
-      {error && !form && <p className="ow-error" role="alert">{error}</p>}
-      {archived.length > 0 && <details className="ow-muted"><summary>Archivierte Prämien ({archived.length})</summary><ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{archived.map(reward => <li key={reward.rewardId}>{reward.title} · Version {reward.version}</li>)}</ul></details>}
-      {archiving && (
-        <OwnerDialog title={`„${archiving.title}“ archivieren?`} tone="danger" onClose={() => setArchiving(null)} actions={<><button type="button" className="ow-btn ow-btn--secondary" data-autofocus onClick={() => setArchiving(null)}>Abbrechen</button><button type="button" className="ow-btn ow-btn--danger" disabled={busy} onClick={() => { const target = archiving; setArchiving(null); setForm(current => current?.id === target.rewardId ? null : current); void run({ action: "archive", rewardId: target.rewardId }, `„${target.title}“ archiviert.`); }}>Archivieren</button></>}>
-          <p>Kunden sehen die Prämie danach nicht mehr und können sie nicht mehr einlösen. Bereits eingelöste Prämien bleiben in der Historie.</p>
-        </OwnerDialog>
-      )}
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

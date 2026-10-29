@@ -730,6 +730,17 @@ div.ow-prog-row:active { transform: none; }
 .ow-qrule { display: block; margin-bottom: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* C2: the extra rules so far, in ink after their muted label, as the owner wrote them. */
 .ow-qformer span { color: var(--color-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* ENG-100: the date box of a change that waits four weeks (28, 30, 57) and of a take-back (58, undo icon). */
+.ow-when { display: flex; gap: var(--space-3); align-items: flex-start; padding: 14px var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-when > svg { flex: none; margin-top: 2px; color: var(--color-warning); }
+.ow-when[data-undo] > svg { color: var(--color-action); }
+.ow-when b { display: block; font-size: var(--text-18); font-weight: var(--weight-heavy); }
+.ow-when p { margin-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-q > .ow-hint[data-later] { color: var(--color-warning); font-weight: var(--weight-label); }
+.ow-qchoices-lead { margin: 0 2px var(--space-2); }
+.ow-qsave .ow-btn + .ow-btn { margin-top: var(--space-2); }
+/* The list's chip for a change waiting for its date sits on its own line under the row's text (Design gaps §1). */
+.ow-prog-pend { flex-basis: 100%; }
 .ow-qcmp { display: grid; gap: 6px; }
 .ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }

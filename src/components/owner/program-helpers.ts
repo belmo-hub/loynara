@@ -123,3 +123,7 @@ export const QUESTIONS = {
 } as const;
 export type Question = keyof typeof QUESTIONS;
 export const isQuestion = (value: string): value is Question => Object.hasOwn(QUESTIONS, value);
+
+const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+/** A calendar day (YYYY-MM-DD) as owner screens say it, „24. November“ (the card and the chips: cardDay, „24.11.“). */
+export const longDay = (iso: string) => `${Number(iso.slice(8, 10))}.\u00a0${MONTHS[Number(iso.slice(5, 7)) - 1]}`;

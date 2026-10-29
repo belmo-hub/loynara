@@ -114,7 +114,10 @@ export type PublicProgram = {
   pointsExpiryRule?: string;
   rewardTitle: string;
   rewardCost: number;
-  rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number }>;
+  /** ENG-100: a dated change waiting for its day (YYYY-MM-DD, the shop's calendar) and the day an archive takes effect. */
+  rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
+  /** The day a change to customers' disadvantage saved now would take effect (four weeks on). */
+  noticeOn?: string;
   brandColor?: string;
   active?: boolean;
   referral?: { enabled: boolean; referrerBonus: number; referredBonus: number };
