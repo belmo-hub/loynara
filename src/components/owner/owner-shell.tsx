@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
-import { activeGroup, groupHref, groupLabel, visibleGroups, visibleItems } from "./nav";
+import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
 import { useOwner } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 import { ProgrammeEndedPage } from "./programme-ended-page";
@@ -29,12 +29,6 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const owner = useOwner();
   const router = useRouter();
   const pathname = usePathname();
-  const [openAt, setOpenAt] = useState<string | null>(null);
-  const open = openAt === pathname; // a new route closes the drawer without an effect
-  const setOpen = (value: boolean) => setOpenAt(value ? pathname : null);
-  const menuButton = useRef<HTMLButtonElement>(null);
-  const side = useRef<HTMLElement>(null);
-  const restoreMenuFocus = useRef(false);
   const subnav = useRef<HTMLDivElement>(null);
 
   // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
@@ -50,23 +44,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
     return () => { row.removeEventListener("scroll", edges); window.removeEventListener("resize", edges); };
   }, [pathname, owner.me]);
 
-  useEffect(() => {
-    if (!open) {
-      if (restoreMenuFocus.current) {
-        restoreMenuFocus.current = false;
-        // The close has committed, so the trigger is no longer inside inert content.
-        menuButton.current?.focus();
-      }
-      return;
-    }
-    side.current?.querySelector<HTMLElement>("a, select")?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { restoreMenuFocus.current = true; setOpenAt(null); } };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-
   if (owner.status === "unprovisioned") {
-    return <div className="ow-bare"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark /><LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
+    // Before a programme exists (setup, ENG-122f): the logo alone, no shop name, no Kasse and no tab bar; signing out stays.
+    return <div className="ow-bare ow-bare--setup"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}><BrandMark word={false} label="Loynara" /><LogoutButton className="ow-btn ow-btn--ghost ow-btn--sm" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
   }
   if (owner.status === "ended" && owner.ended) {
     // Nothing else is offered: no navigation and no settings that could change the programme.
@@ -87,12 +67,13 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   return (
     <div className="ow-shell">
       <a href="#ow-main" className="ow-skip">Zum Inhalt springen</a>
-      <aside ref={side} className="ow-side" data-open={open} aria-label="Bereichsnavigation">
+      {/* Desktop only: below 1024 px the bottom bar and the „Mehr“ page carry the same destinations. */}
+      <aside className="ow-side" aria-label="Bereichsnavigation">
         <div className="ow-brand"><GuardedLink href="/merchant" aria-label="Loynara – zur Übersicht"><BrandMark /></GuardedLink></div>
         <LocationBox />
         <nav className="ow-nav" aria-label="Hauptnavigation">
           {visibleGroups(role, hidden).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{groupLabel(item, hidden)}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
           ))}
         </nav>
         <div className="ow-side-foot">
@@ -101,8 +82,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
           <LogoutButton className="ow-btn ow-btn--secondary" onSignedOut={owner.resetAfterSignOut} />
         </div>
       </aside>
-      {open && <div className="ow-scrim" onClick={() => { restoreMenuFocus.current = true; setOpen(false); }} aria-hidden="true" />}
-      <div className="ow-main" {...(open ? { inert: true } : {})}>
+      <div className="ow-main">
         <div className="ow-topbar">
           <GuardedLink href="/merchant" className="ow-topbar-brand" aria-label="Loynara – Übersicht"><BrandMark word={false} /></GuardedLink>
           <div className="ow-topbar-loc">{me ? <><strong>{me.locationName}</strong><span>{many ? "Aktiver Standort" : me.businessName}</span></> : <Skeleton height={14} width={140} />}</div>
@@ -123,12 +103,12 @@ export function OwnerShell({ children }: { children: ReactNode }) {
             ? <div className="ow-page" aria-label="Standort wird gewechselt"><Skeleton height={32} width={240} /><Skeleton height={120} /><Skeleton height={220} /></div>
             : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{children}</div>}
         </main>
-        {/* Phones and tablets: the first areas in thumb reach; "Mehr" opens the full navigation panel. */}
+        {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
           {visibleGroups(role, hidden).slice(0, 4).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{TAB_LABELS[item.id] ?? groupLabel(item, hidden)}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{TAB_LABELS[item.id] ?? item.label}</GuardedLink>
           ))}
-          <button ref={menuButton} type="button" className="ow-tab" aria-label="Mehr: Navigation öffnen" aria-expanded={open} onClick={() => setOpen(true)}><OwnerIcon name="menu" />Mehr</button>
+          <GuardedLink href={MORE_HREF} className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><OwnerIcon name="menu" />Mehr</GuardedLink>
         </nav>
       </div>
     </div>

@@ -15,8 +15,10 @@ async function fixture(browser: Browser, baseURL: string | undefined, width: num
   expect(await (await context.request.get("/api/me")).json()).toMatchObject({ tenantId: null });
   const page = await context.newPage(); await page.goto("/merchant"); await expect(page).toHaveURL(/\/merchant\/program$/);
   const name = `Synthetic Café ${randomUUID().slice(0,8)}`;
-  await page.getByLabel("Geschäftsname").fill(name); await page.getByLabel("Standort", { exact: true }).fill("Synthetic Mitte"); await page.getByLabel("Stadt").fill("Kassel"); await page.getByRole("button", { name: "Café", exact: true }).click();
-  for (let step = 0; step < 3; step++) await page.getByRole("button", { name: "Weiter", exact: true }).click();
+  const weiter = () => page.getByRole("button", { name: "Weiter", exact: true }).click();
+  await page.getByLabel("Geschäftsname").fill(name); await page.getByLabel("Standortname").fill("Synthetic Mitte"); await page.getByLabel("Stadt").fill("Kassel");
+  await weiter(); await weiter(); await page.getByText("Kaffee aufs Haus", { exact: true }).click(); await weiter();
+  await page.getByText("Weitere Einstellungen", { exact: true }).click();
   await page.getByLabel("Programmname", { exact: true }).fill("Synthetic persisted programme");
   return { context, page, name, userId: account.user.id, submit: page.getByRole("button", { name: "Programm starten", exact: true }) };
 }

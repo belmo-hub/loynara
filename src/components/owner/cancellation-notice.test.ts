@@ -32,7 +32,7 @@ describe("the end-date notice", () => {
     expect(html).toContain("Sag es deinen Kunden");
     expect(html).toContain("herunterladen");
     expect(html).toContain("30.12.2026"); // the export window
-    expect(html).toContain('href="/merchant/settings"');
+    expect(html).toContain('href="/merchant/settings/cancel"');
     expect(html).toContain("Text für deine Kunden");
   });
 

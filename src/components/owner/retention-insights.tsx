@@ -54,22 +54,3 @@ export function buildInsights(input: { summary: RetentionSummary; unit: string; 
     actions: [{ label: "Empfehlungen ansehen", href: "/merchant/referrals" }] });
   return list;
 }
-
-export function CardBase({ summary }: { summary: RetentionSummary }) {
-  const total = summary.openCards;
-  const parts = [
-    { key: "recent", label: `Aktiv in ${summary.inactiveDays} Tagen`, value: summary.recent, className: "ow-base-seg--recent" },
-    { key: "drifting", label: "Länger nicht da", value: summary.drifting, className: "ow-base-seg--drifting" },
-    { key: "never", label: "Noch nie an der Kasse", value: summary.never, className: "ow-base-seg--never" },
-  ];
-  return (
-    <div className="ow-base">
-      <div className="ow-base-bar" role="img" aria-label={`${cards(total)}: ${parts.map(part => `${nf.format(part.value)} ${part.label}`).join(", ")}`}>
-        {total > 0 && parts.filter(part => part.value > 0).map(part => <span key={part.key} className={`ow-base-seg ${part.className}`} style={{ flexGrow: part.value }} />)}
-      </div>
-      <ul className="ow-base-legend">
-        {parts.map(part => <li key={part.key}><span className={`ow-base-dot ${part.className}`} aria-hidden="true" /><strong className="ow-num">{nf.format(part.value)}</strong> {part.label}</li>)}
-      </ul>
-    </div>
-  );
-}

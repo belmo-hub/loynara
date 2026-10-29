@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { authClient } from "@/lib/auth-client";
 import { clearBoardCache } from "@/lib/board-cache";
 
-export function LogoutButton({ className, onSignedOut }: { className?: string; onSignedOut?: () => void }) {
+/** `children` lays out the label (the owner's „Mehr“ page draws sign-out as one of its rows). */
+export function LogoutButton({ className, onSignedOut, children }: { className?: string; onSignedOut?: () => void; children?: (label: string) => ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
@@ -31,7 +32,7 @@ export function LogoutButton({ className, onSignedOut }: { className?: string; o
   }
 
   return <div>
-    <button type="button" className={className} style={{ minHeight: 44 }} disabled={busy} onClick={() => void signOut()}>{busy ? "Abmeldung läuft …" : "Abmelden"}</button>
+    <button type="button" className={className} style={{ minHeight: 44 }} disabled={busy} onClick={() => void signOut()}>{(children ?? (label => label))(busy ? "Abmeldung läuft …" : "Abmelden")}</button>
     {error && <p role="alert">Abmelden fehlgeschlagen. Bitte versuche es erneut.</p>}
   </div>;
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { BackToActions } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
 import { ALL_LOCATIONS_NOTE, PeriodBar } from "@/components/owner/period-bar";
@@ -15,7 +16,7 @@ export default function MerchantAdviserPage() {
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [report, reload] = useLoad<MerchantAdvice>(me?.role === "owner" ? `/api/merchant/adviser?window=${windowDays}` : null);
   if (!me) return null;
-  const head = <PageHead title="Beratung" lead="Hinweise aus deinen bestätigten Buchungen. Was du änderst, entscheidest du." />;
+  const head = <PageHead back={<BackToActions />} title="Beratung" lead="Hinweise aus deinen bestätigten Buchungen. Was du änderst, entscheidest du." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können diese Hinweise sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   return (

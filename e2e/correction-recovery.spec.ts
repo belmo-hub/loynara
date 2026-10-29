@@ -27,11 +27,13 @@ async function fixture(browser: Browser, baseURL: string | undefined, quantity =
   const original = (await pool.query("SELECT * FROM ledger_entries WHERE id=$1", [entryId])).rows[0];
   const page = await context.newPage();
   async function open() {
-    await page.goto("/merchant/customers");
-    await page.getByRole("button", { name: new RegExp(`Karte K-${member.card_locator}`) }).click({ timeout: 10000 });
+    await page.goto("/merchant/customers?activity=all");
+    await page.getByRole("link", { name: new RegExp(`K-${member.card_locator}`) }).click({ timeout: 10000 });
     await expect(page.getByRole("heading", { name: "Kartenverlauf", exact: true })).toBeVisible();
-    await page.locator(".ow-feed > li").filter({ hasText: `+${quantity} Stempel` }).getByRole("button", { name: "Korrigieren", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Vorgang korrigieren", exact: true });
+    await page.locator(".ow-diary .ow-day").filter({ hasText: `+${quantity} Stempel` }).getByRole("button", { name: "Korrigieren", exact: true }).click();
+    // A screen since ENG-122a: its form holds the reason, the button and the alerts.
+    await expect(page.getByRole("heading", { name: "Vorgang korrigieren", exact: true })).toBeVisible();
+    const dialog = page.locator("form.ow-q");
     const reason = dialog.getByLabel("Grund (Pflicht, mindestens 10 Zeichen)", { exact: true });
     await reason.fill(originalReason);
     return { dialog, reason };

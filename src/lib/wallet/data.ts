@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programs, tenants, walletMessageRecipients, walletMessages } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programs, tenants, walletMessageConsents, walletMessageRecipients, walletMessages } from "@/db/schema";
+import { signUpRules } from "@/lib/card-extras";
 import { formatCardLocator } from "@/lib/card-locator";
 import { DomainError } from "@/lib/loyalty";
-import { currentRewards } from "@/lib/product";
+import { currentRewards, publicRules } from "@/lib/product";
 import type { WalletBrand, WalletPassData } from "./types";
 import { appleLogoFromData, merchantGoogleLogoUrl } from "./logo";
 
@@ -51,17 +52,21 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
   };
   if (row.member.closedAt) return { open: false, brand };
-  const [target] = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const rewardList = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const [target] = rewardList;
   const [latest] = await reader.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
-  const [lastMessage] = await reader.select({ text: walletMessages.text }).from(walletMessageRecipients)
+  const [lastMessage] = await reader.select({ text: walletMessages.text, sentAt: walletMessages.createdAt }).from(walletMessageRecipients)
     .innerJoin(walletMessages, and(eq(walletMessages.id, walletMessageRecipients.messageId), eq(walletMessages.tenantId, walletMessageRecipients.tenantId)))
     // Every row that may have reached the device, so a refresh never puts an older text back (with a banner):
     // sent, in flight, queued for a retry after a try that may have been applied, or failed with an unknown outcome.
     .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id),
       sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
     .orderBy(desc(walletMessages.createdAt)).limit(1);
+  // A card that allowed messages carries the (empty) field before the first one, because Wallet alerts only when an existing key changes.
+  const [consent] = lastMessage ? [] : await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
+    .where(and(eq(walletMessageConsents.tenantId, row.member.tenantId), eq(walletMessageConsents.membershipId, row.member.id), isNull(walletMessageConsents.withdrawnAt))).limit(1);
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),
@@ -72,8 +77,11 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
       ...(target ? { reward: { title: target.title, cost: target.cost, pending: target.pending, endsOn: target.endsOn } } : {}),
+      rewards: rewardList.map(({ title, cost }) => ({ title, cost })),
+      rules: signUpRules(publicRules(row.program, row.tenant)),
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
-      ...(lastMessage ? { message: lastMessage.text } : {}),
+      // The send day in the shop's timezone („28.10.“): the back keeps a message until the next one (Marketing, ENG-127).
+      ...(lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : consent ? { message: "" } : {}),
     },
   };
 }

@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { deflateSync } from "node:zlib";
+import { unitWord, withUnit } from "../units";
+import { iconPng, stripPng } from "./apple-images";
 import { hexToRgb, passInk, walletProgress, walletText } from "./content";
 import type { WalletPassData, WalletRevokedData, WalletStatus } from "./types";
 
@@ -139,25 +140,39 @@ function common(pass: WalletPassData | WalletRevokedData, serial: string, config
   };
 }
 
+/**
+ * The store card (ENG-119): no primary field, so nothing covers the progress strip; the header carries the balance, the
+ * secondary row the reward and what is left. Location and card number live on the back; the number also stays under the QR code.
+ */
 export function applePassJson(pass: WalletPassData, serial: string, config: ApplePassConfig) {
   const t = walletText(pass.locale);
   const progress = walletProgress(pass);
   const locations = pass.latitude !== undefined && pass.longitude !== undefined ? [{ latitude: pass.latitude, longitude: pass.longitude, relevantText: t.nearby(pass.merchantName) }] : undefined;
-  // One change message per update: on the progress line when there is a target reward, otherwise on the balance.
-  const balanceField = { key: "balance", label: progress.unit.toUpperCase(), value: progress.balanceText, ...(progress.statusText ? {} : { changeMessage: "%@" }) };
+  const reward = pass.reward, rewardLabel = progress.ready ? t.rewardReady : t.nextReward, left = reward ? reward.cost - pass.balance : 0;
+  // One change message per update: on the right-hand field when there is a target reward, otherwise on the balance.
+  const status = progress.ready ? { label: t.redeem, value: t.redeemValue, changeMessage: t.redeemMessage }
+    : { label: t.toGo, value: t.toGoValue(left, unitWord(left, pass.programType, pass.locale)), changeMessage: t.toGoMessage };
   return {
     ...common(pass, serial, config),
     barcodes: [{ format: "PKBarcodeFormatQR", message: pass.scanCode, messageEncoding: "iso-8859-1", altText: pass.cardLocator }],
     storeCard: {
-      headerFields: [balanceField],
-      primaryFields: progress.rewardTitle ? [{ key: "reward", label: (progress.ready ? t.rewardReady : t.nextReward).toUpperCase(), value: progress.rewardTitle }] : [{ key: "programme", label: t.programme.toUpperCase(), value: pass.programName }],
-      secondaryFields: [
-        ...(progress.statusText ? [{ key: "status", label: t.status.toUpperCase(), value: progress.statusText, changeMessage: "%@" }] : []),
-        { key: "card", label: t.card.toUpperCase(), value: pass.cardLocator, textAlignment: "PKTextAlignmentRight" },
-      ],
-      auxiliaryFields: [{ key: "location", label: t.location.toUpperCase(), value: pass.locationName }],
+      headerFields: [{ key: "balance", label: progress.unit.toUpperCase(), value: progress.balanceText, ...(reward ? {} : { changeMessage: t.balanceMessage }) }],
+      secondaryFields: reward ? [
+        { key: "reward", label: rewardLabel.toUpperCase(), value: reward.title },
+        { key: "status", label: status.label.toUpperCase(), value: status.value, changeMessage: status.changeMessage, textAlignment: "PKTextAlignmentRight" },
+      ] : [{ key: "programName", label: t.programme.toUpperCase(), value: pass.programName }],
       backFields: [
+        // ENG-100's dated rule changes will open this field. Owner-written text: no detected links, numbers or units.
+        ...(pass.rules?.length ? [{ key: "rules", label: t.rules, value: pass.rules.join("\n\n"), dataDetectorTypes: [] }] : []),
+        // In full: the name carries the reward's limits (ENG-115), and Wallet may cut it on the front.
+        ...(reward ? [{ key: "rewardTitle", label: rewardLabel, value: reward.title, dataDetectorTypes: [] }] : []),
+        // Owner message (ENG-127), after the rules and the reward (Design): ENG-100's dated lines lead the back. Owner-written: no detected links or numbers.
+        ...(t.message && pass.message !== undefined ? [{ key: "message", label: t.message(pass.merchantName, pass.messageDay), value: pass.message || t.noMessage, changeMessage: "%@", dataDetectorTypes: [] }] : []),
+        // What each reward costs, in the merchant's order (ENG-116): „100 Punkte – Gratiskaffee“.
+        ...(t.rewardList && pass.rewards?.length ? [{ key: "rewards", label: t.rewardList, value: pass.rewards.map(item => `${withUnit(item.cost, pass.programType, pass.locale)} – ${item.title}`).join("\n"), dataDetectorTypes: [] }] : []),
         { key: "programme", label: t.programme, value: pass.programName },
+        { key: "location", label: t.location, value: pass.locationName },
+        { key: "card", label: t.card, value: pass.cardLocator },
         ...(pass.lastActivityAt ? [{ key: "updated", label: t.updated, value: pass.lastActivityAt.toISOString(), dateStyle: "PKDateStyleMedium", timeStyle: "PKDateStyleShort" }] : []),
         { key: "note", label: t.note, value: t.noteBody },
       ],
@@ -182,15 +197,19 @@ export function appleVoidedPassJson(pass: WalletRevokedData, serial: string, con
 
 const run = promisify(execFile);
 
-/** Signs and zips one pass. OpenSSL and zip must exist in the runtime image (see Dockerfile and scripts/wallet-runtime-check.ts). */
-export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo">, config: AppleSigningConfig): Promise<Buffer> {
+/**
+ * Signs and zips one pass. OpenSSL and zip must exist in the runtime image (see Dockerfile and scripts/wallet-runtime-check.ts).
+ * A live card with a target reward gets its progress strip; a voided pass and a programme without a reward get none.
+ */
+export async function applePassArchive(passJson: ReturnType<typeof applePassJson> | ReturnType<typeof appleVoidedPassJson>, brand: Pick<WalletPassData, "brandColor" | "appleLogo"> & Partial<Pick<WalletPassData, "programType" | "balance" | "reward" | "rewards">>, config: AppleSigningConfig): Promise<Buffer> {
   const dir = await mkdtemp(join(tmpdir(), "loynara-pass-"));
   try {
     const files = new Map<string, Buffer>();
     files.set("pass.json", Buffer.from(JSON.stringify(passJson)));
-    files.set("icon.png", iconPng(29, brand.brandColor));
-    files.set("icon@2x.png", iconPng(58, brand.brandColor));
-    files.set("icon@3x.png", iconPng(87, brand.brandColor));
+    for (const [suffix, scale] of [["", 1], ["@2x", 2], ["@3x", 3]] as const) {
+      files.set(`icon${suffix}.png`, iconPng(scale, brand.brandColor));
+      if (brand.reward && brand.balance !== undefined) files.set(`strip${suffix}.png`, stripPng(brand.programType ?? "stamp", brand.balance, brand.rewards?.length ? brand.rewards.map(item => item.cost) : [brand.reward.cost], scale));
+    }
     if (brand.appleLogo) {
       // Wallet scales the logo into its 160 x 50 pt slot; one checked PNG serves every density.
       files.set("logo.png", brand.appleLogo.png);
@@ -205,37 +224,4 @@ export async function applePassArchive(passJson: ReturnType<typeof applePassJson
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
-}
-
-// A minimal opaque PNG icon in the merchant colour (lock screen and notifications). No customer data in any asset.
-function iconPng(size: number, color: string): Buffer {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-  const stride = size * 4 + 1;
-  const pixels = Buffer.alloc(stride * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const offset = y * stride + 1 + x * 4;
-      const circle = Math.hypot(x - (size - 1) / 2, y - (size - 1) / 2) < size * 0.24;
-      pixels.set(circle ? [255, 255, 255, 255] : [r, g, b, 255], offset);
-    }
-  }
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(size, 0); header.writeUInt32BE(size, 4);
-  header[8] = 8; header[9] = 6;
-  const chunk = (type: string, data: Buffer) => {
-    const label = Buffer.from(type);
-    const length = Buffer.alloc(4); length.writeUInt32BE(data.length);
-    const checksum = Buffer.alloc(4); checksum.writeUInt32BE(crc32(Buffer.concat([label, data])));
-    return Buffer.concat([length, label, data, checksum]);
-  };
-  return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), chunk("IHDR", header), chunk("IDAT", deflateSync(pixels)), chunk("IEND", Buffer.alloc(0))]);
-}
-
-function crc32(data: Buffer): number {
-  let crc = 0xffffffff;
-  for (const byte of data) {
-    crc ^= byte;
-    for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
 }

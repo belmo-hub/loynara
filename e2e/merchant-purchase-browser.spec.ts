@@ -61,7 +61,7 @@ test("cashier browser confirms purchase points and selected reward before card r
       await expect(cashier.getByLabel("Kaufbetrag (EUR)")).toHaveValue("");
       // A reward is ready: redeeming is the primary action at the bottom of the dock; entering an amount steps back.
       const dock = cashier.locator("[data-dock]");
-      await expect(dock.locator("button").last()).toHaveText("Prämie einlösen");
+      await expect(dock.locator("button").last()).toHaveText("Prämie einlösenKaffee · Stand reicht");
       await expect(dock.getByRole("button", { name: "Kaufbetrag eingeben" })).toBeVisible();
       await dock.getByRole("button", { name: "Prämie einlösen" }).click();
       await expect(cashier.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText("Kaffee");

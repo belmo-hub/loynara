@@ -12,5 +12,8 @@ export default function MerchantCustomersPage() {
   const unprovisioned = status === "unprovisioned" || Boolean(me && !me.programSlug);
   useEffect(() => { if (unprovisioned) router.replace("/merchant/program"); }, [unprovisioned, router]);
   if (!me || unprovisioned) return null;
-  return <CustomersView key={searchParams.toString()} />;
+  // Every address change reloads the view, except opening or closing a card: the list stays as it was under it.
+  const list = new URLSearchParams(searchParams);
+  list.delete("card");
+  return <CustomersView key={list.toString()} />;
 }

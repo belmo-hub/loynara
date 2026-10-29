@@ -7,10 +7,19 @@ import type { RevokeReason, WalletLocale, WalletPassData } from "./types";
  */
 const TEXT = {
   de: {
-    stamps: "Stempel", points: "Punkte", nextReward: "Nächste Prämie", rewardReady: "Prämie bereit", status: "Status",
+    stamps: "Stempel", points: "Punkte", nextReward: "Nächste Prämie", rewardReady: "Prämie bereit",
     // Lock-screen line (copy v0.4): the reward title exactly as the owner typed it, only after the colon.
     rewardReadyMessage: (reward: string) => `Deine Prämie ist bereit: ${reward}`,
     redeemAtCounter: "An der Kasse einlösen", remaining: (n: number, unit: string) => `Noch ${n} ${unit}`,
+    // Apple front, right field (Marketing FINAL, ENG-119): one key while collecting and once ready, because Wallet alerts
+    // only when the value under the same key changes. The value continues the label: „Noch“ „7 Stempel“, „Einlösen“ „an der Kasse“.
+    toGo: "Noch", toGoValue: (n: number, unit: string) => `${n} ${unit}`, toGoMessage: "Noch %@",
+    redeem: "Einlösen", redeemValue: "an der Kasse", redeemMessage: "Deine Prämie ist bereit. Du kannst sie %@ einlösen.",
+    balanceMessage: "Dein Stand: %@", rules: "Programmregeln", rewardList: "Prämien",
+    // Owner message on the Apple pass back (ENG-127); the lock-screen alert is the text itself.
+    message: (shop: string, day?: string) => day ? `Nachricht von ${shop} vom ${day}` : `Nachricht von ${shop}`,
+    // Before the first message (Design, ENG-127): an empty field reads as broken.
+    noMessage: "Noch keine Nachricht.",
     card: "Karte", location: "Standort", programme: "Programm", updated: "Zuletzt aktualisiert", memberCard: "Mitgliedskarte",
     note: "Hinweis", noteBody: "Stempel, Punkte und Prämien werden nur an der Kasse gebucht. Diese Karte zeigt den aktuellen Stand deiner Treuekarte und aktualisiert sich automatisch.",
     revokedLabel: "Karte", invalid: "Karte ungültig",
@@ -25,9 +34,14 @@ const TEXT = {
     nearby: (shop: string) => `${shop}: deine Karte`,
   },
   fr: {
-    stamps: "tampons", points: "points", nextReward: "Prochaine récompense", rewardReady: "Récompense disponible", status: "Statut",
+    stamps: "tampons", points: "points", nextReward: "Prochaine récompense", rewardReady: "Récompense disponible",
     rewardReadyMessage: null, // no approved French copy yet: French cards get no lock-screen message
     redeemAtCounter: "À utiliser en caisse", remaining: (n: number, unit: string) => `Encore ${n} ${unit}`,
+    // No French for the ENG-119 strings yet (German only, founder 28 Oct): the right field keeps today's approved status line.
+    toGo: "Statut", toGoValue: (n: number, unit: string) => `Encore ${n} ${unit}`, toGoMessage: "%@",
+    redeem: "Statut", redeemValue: "À utiliser en caisse", redeemMessage: "%@",
+    balanceMessage: "%@", rules: "Règles du programme", rewardList: null, // no approved French label: French passes skip the list
+    message: null, noMessage: null, // no approved French label: French native passes get no owner message field
     card: "Carte", location: "Établissement", programme: "Programme", updated: "Dernière mise à jour", memberCard: "Carte de fidélité",
     note: "Remarque", noteBody: "Les tampons, points et récompenses sont enregistrés uniquement en caisse. Cette carte affiche l’état actuel de votre carte de fidélité et se met à jour automatiquement.",
     revokedLabel: "Carte", invalid: "Carte invalide",

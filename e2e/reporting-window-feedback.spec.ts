@@ -31,25 +31,26 @@ for (const width of [375, 1280]) test(`supported window ignores late obsolete re
   const context = await browser.newContext({ baseURL, storageState: storage, viewport: { width, height: 812 } });
   const page = await context.newPage(); let release!: () => void; let started!: () => void;
   const hold = new Promise<void>(r => { release = r; }); const fetched = new Promise<void>(r => { started = r; });
-  const metric = page.locator('.ow-metric').filter({ has: page.getByRole('heading', { name: 'Bestätigte Buchungen', exact: true }) }).locator('.ow-metric-value');
+  const metric = page.locator('.ow-board-big'); // the period's confirmed bookings (ENG-122b)
+  const period = (days: '30' | '90') => page.getByRole('group', { name: 'Zeitraum' }).getByRole('button', { name: `${days} Tage` });
   try {
     await page.goto('/merchant/analytics'); await expect(metric).toHaveText('1');
     await page.route('**/api/merchant/analytics?window=90', async route => {
       const actual = await route.fetch(); expect(actual.status()).toBe(200); const report = await actual.json(); expect(report).toMatchObject({ windowDays: 90, qualifyingCheckouts: 2 });
       expect(report.locationActivity[0]).toMatchObject({ locationId: own.location.id, awardActions: 2 }); expect(report.staffActivity[0]).toMatchObject({ userId: own.userId, awardActions: 2 }); started(); await hold; await route.fulfill({ response: actual });
     });
-    await page.getByLabel('Zeitraum', { exact: true }).selectOption('90'); await fetched;
+    await period('90').click(); await fetched;
     await expect(metric).toHaveCount(0);
-    await page.getByLabel('Zeitraum', { exact: true }).selectOption('30'); await expect(metric).toHaveText('1');
+    await period('30').click(); await expect(metric).toHaveText('1');
     const obsolete = page.waitForResponse(r => new URL(r.url()).pathname === '/api/merchant/analytics' && new URL(r.url()).searchParams.get('window') === '90'); release(); await (await obsolete).finished();
-    await expect(page.getByLabel('Zeitraum', { exact: true })).toHaveValue('30'); await expect(metric).toHaveText('1');
+    await expect(period('30')).toHaveAttribute('aria-pressed', 'true'); await expect(metric).toHaveText('1');
     await page.unroute('**/api/merchant/analytics?window=90');
     expect((await context.request.post('/api/auth/sign-out', { headers: { Origin: origin }, data: {} })).status()).toBe(200);
     const rejection = page.waitForResponse(r => new URL(r.url()).pathname === '/api/merchant/analytics' && new URL(r.url()).searchParams.get('window') === '90');
-    await page.getByLabel('Zeitraum', { exact: true }).selectOption('90'); expect((await rejection).status()).toBe(401);
+    await period('90').click(); expect((await rejection).status()).toBe(401);
     await expect(page.locator('.ow-notice[role="alert"]')).toBeVisible(); await expect(metric).toHaveCount(0);
     await signIn(context); storage = await context.storageState(); await page.getByRole('button', { name: 'Erneut laden', exact: true }).click();
-    await expect(page.getByLabel('Zeitraum', { exact: true })).toHaveValue('90'); await expect(metric).toHaveText('2');
+    await expect(period('90')).toHaveAttribute('aria-pressed', 'true'); await expect(metric).toHaveText('2');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   } finally { release?.(); await context.close(); }
 });

@@ -257,13 +257,20 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual([]);
     });
 
-    it("owner messages: absent changes nothing; on, they need PassFast and a 16+ character webhook secret", () => {
+    it("owner messages: absent changes nothing; on, they need native Apple or PassFast with a 16+ character webhook secret", () => {
       expect(productionConfigIssues({ ...safe, WALLET_MESSAGES_ENABLED: "false" })).toEqual([]);
       refused({ ...safe, WALLET_MESSAGES_ENABLED: "yes" }, /WALLET_MESSAGES_ENABLED must be exactly/);
-      refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "k".repeat(8) + "9".repeat(24) }, /requires PassFast/);
-      for (const secret of [undefined, "", "short-secret-15"]) refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: secret }, /PASSFAST_WEBHOOK_SECRET with at least 16/);
-      const ok = productionConfigIssues({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" });
-      expect(ok.join(" ")).not.toMatch(/PASSFAST_WEBHOOK_SECRET/);
+      refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "k".repeat(8) + "9".repeat(24) }, /requires Apple Wallet/);
+      refused({ ...google, WALLET_MESSAGES_ENABLED: "true" }, /requires Apple Wallet/);
+      // Production today (ENG-127): native Apple on, PassFast off, no webhook secret.
+      expect(productionConfigIssues({ ...apple, WALLET_MESSAGES_ENABLED: "true" })).toEqual([]);
+      const passfast: NodeJS.ProcessEnv = { ...safe, WALLET_PRODUCTION_APPROVED: "true", PASSFAST_ENABLED: "true", PASSFAST_WALLET_TYPES: "apple", PASSFAST_API_KEY: "sk_live_" + "abcdef0123456789".repeat(4), PASSFAST_APP_ID: "11111111-1111-4111-8111-111111111111",
+        PASSFAST_TENANT_TEMPLATES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", templateId: "22222222-2222-4222-8222-222222222222" }]), WALLET_MESSAGES_ENABLED: "true" };
+      for (const env of [passfast, { ...passfast, ...apple, PASSFAST_ENABLED: "true" }]) {
+        for (const secret of [undefined, "", "short-secret-15"]) refused({ ...env, PASSFAST_WEBHOOK_SECRET: secret }, /PASSFAST_WEBHOOK_SECRET with at least 16/);
+      }
+      const ok = productionConfigIssues({ ...passfast, PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" });
+      expect(ok).toEqual([]);
       expect(ok.join(" ")).not.toContain("synthetic-hook-0123456789");
     });
 

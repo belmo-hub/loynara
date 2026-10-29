@@ -64,13 +64,16 @@ export function useReview<Step extends string = "review">() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const open = (next = "review" as Step) => { window.history.pushState({ questionStep: next }, ""); setStep(next); };
-  return { step, open, back: () => window.history.back() };
+  // `leave` closes `from` only while it is still on screen: a request that ends after the owner went back moves no further back.
+  const leave = (from: Step) => { if (window.history.state?.questionStep === from) window.history.back(); };
+  return { step, open, back: () => window.history.back(), leave };
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
-export function QuestionForm({ title, lead, back, busy, failed, action = "Speichern", onSubmit, children }: {
+export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", onSubmit, children }: {
   title: string; lead?: ReactNode; /** A review step goes back to its question instead of the list. */ back?: { label: string; onClick: () => void };
-  busy: boolean; failed: string; action?: string; onSubmit: () => void; children: ReactNode;
+  busy: boolean; busyLabel?: string; /** Kunden's steps keep the live rule: the button waits until the answer is complete. */ disabled?: boolean;
+  failed: string; action?: string; onSubmit: () => void; children: ReactNode;
 }) {
   const heading = useRef<HTMLHeadingElement>(null), fail = useRef<HTMLDivElement>(null), shown = useRef(title);
   useEffect(() => { if (shown.current !== title) { shown.current = title; heading.current?.focus(); } }, [title]);
@@ -87,7 +90,7 @@ export function QuestionForm({ title, lead, back, busy, failed, action = "Speich
         {children}
         {failed && <div ref={fail} className="ow-qfail"><Notice tone="danger" role="alert"><strong>Speichern fehlgeschlagen</strong>{failed} Deine Änderungen sind noch da.</Notice></div>}
         {/* Not disabled while saving: the button keeps the focus, and a second tap does nothing (`busy`). */}
-        <div className="ow-qsave"><button type="submit" className="ow-btn ow-btn--primary" aria-busy={busy}>{busy ? "Speichern …" : action}</button></div>
+        <div className="ow-qsave"><button type="submit" className="ow-btn ow-btn--primary" aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button></div>
       </form>
     </div>
   );
@@ -97,13 +100,16 @@ export const FieldError = ({ id, children }: { id: string; children: string }) =
   children ? <p id={id} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{children}</p> : null;
 
 export type Choice = { value: string; label: string; sub?: string; icon: LucideIcon };
-/** One answer out of a few, as rows (screens 08, 16, 33). The picked row says „Wie bisher“, or „Neu gewählt“ before it is saved (W25). */
-export function Choices({ name, label, options, value, saved, onChange }: { name: string; label: string; options: Choice[]; value: string; saved: string; onChange: (value: string) => void }) {
+/**
+ * One answer out of a few, as rows (screens 08, 16, 33). The picked row says „Wie bisher“, or „Neu gewählt“ before it is
+ * saved (W25); without a `saved` answer (Kunden 05) it says neither, and the question shows as the group's label.
+ */
+export function Choices({ name, label, options, value, saved, onChange }: { name: string; label: string; options: Choice[]; value: string; saved?: string; onChange: (value: string) => void }) {
   return (
     <fieldset className="ow-qchoices">
-      <legend className="ow-sr">{label}</legend>
+      <legend className={saved === undefined ? "ow-qlegend" : "ow-sr"}>{label}</legend>
       {options.map(({ icon: Icon, ...option }) => {
-        const sub = option.sub ?? (option.value !== value ? "" : value === saved ? "Wie bisher" : "Neu gewählt");
+        const sub = option.sub ?? (option.value !== value || saved === undefined ? "" : value === saved ? "Wie bisher" : "Neu gewählt");
         return <label key={option.value} className="ow-qchoice">
           <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} onChange={() => onChange(option.value)} />
           <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
@@ -116,8 +122,8 @@ export function Choices({ name, label, options, value, saved, onChange }: { name
 }
 
 /** On or off for a whole setting (screens 09–11); what it switches shows below only while it is on. */
-export const SwitchRow = ({ label, sub, checked, onChange }: { label: string; sub: string; checked: boolean; onChange: (on: boolean) => void }) =>
-  <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong><small>{sub}</small></span><input type="checkbox" role="switch" checked={checked} onChange={event => onChange(event.target.checked)} /></label>;
+export const SwitchRow = ({ label, sub, checked, disabled, onChange }: { label: string; sub?: string; checked: boolean; disabled?: boolean; onChange: (on: boolean) => void }) =>
+  <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong>{sub && <small>{sub}</small>}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} /></label>;
 
 /** A labelled value on a panel: the label and its control share a line while they fit, the limit or the error under them. */
 export const Control = ({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error: string; children: ReactNode }) => (

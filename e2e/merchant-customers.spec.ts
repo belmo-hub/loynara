@@ -102,9 +102,11 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
       // Cards are listed by their short random card number (K-XXXXXX), never by name.
       const { member } = await (await ownerA.context.get(`/api/merchant/customers/${membershipId}`)).json() as { member: { cardLocator: string } };
       expect(member.cardLocator).toMatch(/^K-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
-      await page.getByRole("button", { name: new RegExp(`Karte ${member.cardLocator}`) }).click();
+      await page.getByRole("link", { name: /Alle Karten/ }).click();
+      await page.getByRole("link", { name: new RegExp(member.cardLocator) }).click();
       await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
       await expect(page.getByText("+3 Stempel")).toBeVisible();
+      await page.goto("/merchant/customers");
       await page.getByRole("link", { name: "CSV-Vorschau" }).click();
       await expect(page.getByRole("heading", { name: "CSV-Vorschau" })).toBeVisible();
       await page.getByRole("button", { name: "Vorschau prüfen" }).click();
