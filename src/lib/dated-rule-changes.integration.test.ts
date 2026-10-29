@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { pool } from "@/db";
 import { award } from "./loyalty";
+import { getCustomerExport } from "./export";
+import { walletCardSnapshot } from "./wallet/data";
 import { createMerchant, enroll, getCard, getPublicProgram, lookupCard, takeBackRuleChange, updateProgram, updateProgramExtras } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
@@ -77,6 +79,11 @@ describe("dated rule changes (ENG-100 S1b)", () => {
     await s.save({ rulesText: "5 Punkte pro Pizza.", worse: true });
     await expect(s.save({ rulesText: "8 Punkte pro Pizza.", worse: false })).rejects.toMatchObject({ code: "CHANGE_PENDING" });
     expect((await getCard(s.card.cardToken))).toMatchObject({ rulesText: "12 Punkte pro Pizza.", pending: { rulesText: "5 Punkte pro Pizza." } });
+    // The export (Art. 15) and the Wallet pass name the rule in force; the pass carries the waiting one as data.
+    expect((await getCustomerExport(s.card.cardToken)).program.rulesText).toBe("12 Punkte pro Pizza.");
+    const wallet = await walletCardSnapshot(s.card.id);
+    expect(wallet.open && wallet.pass).toMatchObject({ rules: expect.arrayContaining([expect.stringContaining("12 Punkte pro Pizza.")]), pending: { rulesText: "5 Punkte pro Pizza." } });
+    expect(JSON.stringify(wallet.open && wallet.pass.rules)).not.toContain("5 Punkte");
     await expect(takeBackRuleChange({ actorUserId: s.owner, programSlug: s.programSlug })).resolves.toEqual({ takenBack: true });
     expect((await getCard(s.card.cardToken))).toMatchObject({ rulesText: "12 Punkte pro Pizza.", pending: null });
     await passDate(s); // the taken-back version never comes into force

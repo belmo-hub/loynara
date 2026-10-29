@@ -6,6 +6,7 @@ import { ledgerEntries, memberships, programRuleVersions, programs, purchaseAwar
 import { DerivedTapKeyProvider, deriveTagKeys, parseMaster, type TapKeyProvider } from "./nfc-keys";
 import { sdmFor } from "./nfc-test-support";
 import { addStaff, nfcFixture } from "./nfc-test-db";
+import { updateProgram } from "./product";
 import { activateSecureTag, cancelTapRequest, confirmTapRequest, pendingTapRequests, previewSecureTap, processSecureTap, provisionSecureTag, secureTapStatus, setTapPolicy } from "./secure-tap";
 
 // NFC taps for points programmes: the tap only opens a request; the cashier enters the purchase amount (or the points)
@@ -46,6 +47,13 @@ const balance = async (membershipId: string) => (await db.select().from(membersh
 const requestStatus = async (id: string) => (await db.select().from(tapRequests).where(eq(tapRequests.id, id)))[0].status;
 
 describe("NFC tap for a points programme", () => {
+  it("shows the cashier the rule in force while a worse switch of mode waits for its date (ENG-100)", async () => {
+    const f = await pointsShop("purchase");
+    const pending = await processSecureTap(f.tap(2));
+    await updateProgram({ actorUserId: f.userId, programSlug: f.program.slug, earningMode: "manual", rulesText: "Zehn Punkte pro Besuch an der Theke.", worse: true });
+    expect(await pendingTapRequests({ userId: f.userId, locationId: f.location.id, now: at(1) })).toEqual([expect.objectContaining({ id: pending.requestId, earningMode: "purchase", pointsPerCurrencyUnit: 1, ruleVersionId: f.ruleVersionId })]);
+  });
+
   it("enables staff-confirmed tap and a tag, refuses automatic tap, and shows the cashier what the entry needs", async () => {
     const f = await nfcFixture({ points: "purchase", tapMode: "disabled" });
     await expect(setTapPolicy({ actorUserId: f.userId, programId: f.program.id, mode: "automatic_fixed", cooldownSeconds: 60 })).rejects.toMatchObject({ code: "INVALID_TAP_POLICY" });
