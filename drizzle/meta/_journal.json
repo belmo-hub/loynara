@@ -299,8 +299,15 @@
     {
       "idx": 42,
       "version": "7",
-      "when": 1793194319092,
-      "tag": "0042_dated_reward_changes",
+      "when": 1793195962467,
+      "tag": "0042_free_month",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793353501977,
+      "tag": "0043_dated_reward_changes",
       "breakpoints": true
     }
   ]

@@ -10,7 +10,7 @@ export const PLANS = {
   list: { priceMinor: 4900, priceEnv: "STRIPE_PRICE_LIST", label: "Listenpreis" },
 } as const;
 export type PlanCode = keyof typeof PLANS;
-/** Kleinunternehmer (BILLING_VAT_MODE absent or "kleinunternehmer"): the footer of every Stripe invoice and the owner page's tax line. */
+/** BILLING_VAT_MODE "kleinunternehmer": the footer of every Stripe invoice and the owner page's tax line. Absent: no VAT wording at all (D-021). */
 export const VAT_NOTE = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.";
 /** BILLING_VAT_MODE "standard": prices are net, Stripe adds the 19 % tax rate named by STRIPE_TAX_RATE_ID. */
 export const VAT_STANDARD_NOTE = "Zuzüglich 19 % Umsatzsteuer.";
@@ -58,6 +58,8 @@ export function stripeConfigIssues(env: Env, production: boolean): string[] {
     if (production && !liveKey) issues.push("Production billing requires a live-mode STRIPE_SECRET_KEY");
     // Taking real money is a second explicit act on real production (CTO, 22 Oct), like Wallet's production approval; flags get copied between environments.
     if (production && env.BILLING_PRODUCTION_APPROVED !== "true") issues.push("Live billing requires a separate production approval (BILLING_PRODUCTION_APPROVED=true)");
+    // A German invoice must state the VAT or why it is exempt: real production never charges with the silent default (CTO, D-021).
+    if (production && env.BILLING_VAT_MODE === undefined) issues.push("Live billing requires an explicit BILLING_VAT_MODE (kleinunternehmer or standard)");
     if (!production && liveKey) issues.push("A live-mode STRIPE_SECRET_KEY is only allowed on real production");
   } else if ([...Object.keys(formats), ...OPTIONAL_SETTINGS].some(name => env[name]) || env.START_GUARANTEE_ENABLED === "true") {
     issues.push("Stripe, VAT or start-guarantee settings are present while live billing is not enabled");
@@ -73,11 +75,13 @@ export function stripeConfigIssues(env: Env, production: boolean): string[] {
   return issues;
 }
 
-export const vatMode = (env: Env = process.env) => env.BILLING_VAT_MODE === "standard" ? "standard" as const : "kleinunternehmer" as const;
-export const vatNote = (env: Env = process.env) => vatMode(env) === "standard" ? VAT_STANDARD_NOTE : VAT_NOTE;
+// Absent means no VAT wording anywhere (D-021: the VAT line waits on counsel); production refuses live billing in that state.
+export const vatMode = (env: Env = process.env) => env.BILLING_VAT_MODE === "standard" ? "standard" as const : env.BILLING_VAT_MODE === "kleinunternehmer" ? "kleinunternehmer" as const : "none" as const;
+export const vatNote = (env: Env = process.env) => ({ standard: VAT_STANDARD_NOTE, kleinunternehmer: VAT_NOTE, none: "" })[vatMode(env)];
 
 /**
- * Off unless START_GUARANTEE_ENABLED is exactly "true". A location qualifies when fewer than `minCustomers` distinct customers
+ * Off by the founder's decision D-021 (28 Oct 2026: no start guarantee): START_GUARANTEE_ENABLED stays unset; removing the
+ * dormant code is ENG-124. Off unless START_GUARANTEE_ENABLED is exactly "true". A location qualifies when fewer than `minCustomers` distinct customers
  * got a team-confirmed credit in its first billing month (pilot agreement § 3 (5)); only contracts started on or before the
  * optional cut-off day (Berlin) take part. The default 20 is the founder's brief; Q-80 may change it to 10 by setting.
  */
@@ -93,4 +97,15 @@ export function guaranteeSettings(env: Env) {
  */
 export function stripeEnabled(env: Env = process.env) {
   return env.LIVE_BILLING_ENABLED === "true" && stripeConfigIssues(env, isProductionDeployment(env)).length === 0;
+}
+
+/**
+ * ENG-123: the first billing date Stripe sets for a start at `at` with the anchor on that Berlin day of the month at 00:00 UTC:
+ * the same date next month, or that month's last day when it is shorter (31 Jan → 28/29 Feb, then back to the 31st). The
+ * free month runs until then, and the owner's last free day is the day before.
+ */
+export function expectedFreeUntil(at: Date) {
+  const [year, month, day] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(at).split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, lastDay)));
 }

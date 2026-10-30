@@ -46,7 +46,7 @@ test('interactive modules: two real tablists (screen, owner), roving tabindex, o
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
   assert.equal(SITE.price.amount, 49); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
-  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch\./); assert.doesNotMatch(text, /Vorläufiger Einstiegspreis/);
+  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Kunden und Karten kosten nichts extra\./); assert.doesNotMatch(text, /Vorläufiger Einstiegspreis/);
   assert.ok(home.includes('mailto:support@getloynara.com')); assert.ok(home.includes('href="https://app.getloynara.com/login"'));
   assert.doesNotMatch(home, /getlyonara/i);
   const src = ['../template.ts', '../src/final-parts.ts', '../src/d-parts.ts', '../src/d.ts', '../src/calc.ts', '../src/demo.ts', '../src/ref.ts'].map(f => readFileSync(resolve(import.meta.dirname, f), 'utf8')).join('\n');
@@ -94,7 +94,7 @@ test('calculator copy: scope, disclaimer next to the result, honest zero case, r
 });
 test('offer: what 49 € means, what is included, the pilot qualifier and what happens next', () => {
   const offer = section('angebot', 'anfrage');
-  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch\./); assert.doesNotMatch(offer.slice(0, offer.indexOf('Gut zu wissen')), /Pilotangebot|vorläufig/i, 'no pilot or provisional label next to the price');
+  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Kunden und Karten kosten nichts extra\./); assert.doesNotMatch(offer.slice(0, offer.indexOf('Gut zu wissen')), /Pilotangebot|vorläufig/i, 'no pilot or provisional label next to the price');
   for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte', 'Apple Wallet auf Wunsch']) assert.ok(offer.includes(x), x);
   assert.match(offer, /Konditionen besprechen wir vor dem Start persönlich\./); assert.doesNotMatch(offer, /Vorläufiger Einstiegspreis/);
   assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');
