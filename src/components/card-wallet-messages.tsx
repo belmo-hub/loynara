@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
@@ -31,16 +31,19 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   const [error, setError] = useState("");
   const url = `/api/card/${encodeURIComponent(token)}/wallet-messages`;
 
+  const shownRef = useRef(false);
+
   useEffect(() => {
     let active = true;
     const read = () => void apiJson<Consent>(url).then(result => { if (active) setState(result); }).catch(() => { /* the card works without this panel */ });
-    const visible = () => { if (document.visibilityState === "visible") read(); };
+    // Only a panel not yet shown re-reads: the reads share their per-card and per-network limits with the tick itself.
+    const visible = () => { if (document.visibilityState === "visible" && !shownRef.current) read(); };
     read();
     document.addEventListener("visibilitychange", visible);
     return () => { active = false; document.removeEventListener("visibilitychange", visible); };
   }, [url]);
   const shown = Boolean(state?.available);
-  useEffect(() => { onShown?.(shown); }, [shown, onShown]);
+  useEffect(() => { shownRef.current = shown; onShown?.(shown); }, [shown, onShown]);
 
   async function change(granted: boolean) {
     setBusy(true); setError("");

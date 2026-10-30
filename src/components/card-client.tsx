@@ -35,8 +35,12 @@ function continueTap() {
   window.location.assign(path);
 }
 
-/** ENG-130 (08): the pass is registered on a device and this device has not yet shown its return from Wallet. */
-export const savedFirstView = (status: Pick<WalletStatus, "appleSaved">, mark: string | null) => status.appleSaved === true && mark !== "saved";
+/** ENG-130 (08): true once per card on this device, the first time the status says a device holds the pass; it leaves the mark. */
+export function firstSavedView(token: string, status: Pick<WalletStatus, "appleSaved">) {
+  if (status.appleSaved !== true || readWalletStep(token) === "saved") return false;
+  markWalletStep(token, "saved");
+  return true;
+}
 
 export function CardClient({ token }: { token: string }) {
   const [card, setCard] = useState<CardResponse | null>(null);
@@ -114,7 +118,7 @@ export function CardClient({ token }: { token: string }) {
     let mounted = true;
     const controller = new AbortController();
     // Capability belongs to this card's tenant/location. A failed check leaves the action hidden.
-    const saved = (result: WalletStatus) => { if (mounted && savedFirstView(result, readWalletStep(token))) { markWalletStep(token, "saved"); setSavedView(true); } };
+    const saved = (result: WalletStatus) => { if (mounted && firstSavedView(token, result)) setSavedView(true); };
     void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setPlatform(walletPlatform()); setWalletScope({ token, availability: result }); setWalletBusy(null); saved(result); } }).catch(() => {});
     // Back from Apple's sheet: the page becomes visible again, and only a registered pass counts.
     const visible = () => { if (document.visibilityState === "visible") void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setWalletScope({ token, availability: result }); saved(result); } }).catch(() => {}); };
