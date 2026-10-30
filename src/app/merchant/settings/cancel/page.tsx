@@ -30,7 +30,9 @@ export default function CancelProgrammePage() {
   const programSlug = me.programSlug;
   const endDate = me.cancellationEndDate ?? null;
   const confirmed = me.cancellationConfirmed === true;
-  const text = endDate ? `Unsere Punktekarte endet am ${germanDate(endDate)}. Löse deine Punkte bis dahin ein.` : "";
+  // Stamp shops hear about Stempel, points shops about Punkte (ENG-133, audit I-28).
+  const unit = me.programType === "stamp" ? "Stempel" : "Punkte";
+  const text = endDate ? `Unsere ${unit}karte läuft noch bis einschließlich ${germanDate(endDate)}. Bis dahin kannst du weiter sammeln und Prämien einlösen. Danach geht das nicht mehr.` : "";
   async function send(withdraw: boolean) {
     setSaving(true); setError("");
     try { await postJson("/api/merchant/program/cancel", { programSlug, withdraw }); await refresh(); router.push(SETTINGS); }
@@ -69,7 +71,7 @@ export default function CancelProgrammePage() {
           <CalendarClock size={24} aria-hidden="true" />
           <p><strong>Voraussichtlich bis zum {germanDate(planned.endDate)}.</strong> Wir bestätigen dir das genaue Enddatum per E-Mail.{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, rechnen wir mit dem Ende des Folgemonats.` : ""}</p>
         </div>
-        <div className="ow-qpanel"><p>Bis zum Enddatum läuft alles normal. Deine Kunden können ihre Punkte weiter einlösen, danach nicht mehr. Ihre Stände bleiben gespeichert.</p></div>
+        <div className="ow-qpanel"><p>Bis zum Enddatum läuft alles normal. Deine Kunden sammeln weiter {unit} und lösen Prämien ein, danach nicht mehr. Die {unit} bleiben gespeichert.</p></div>
         {failed}
         <div className="ow-qsave ow-qsave--pair">
           <button type="button" className="ow-btn ow-btn--danger" disabled={saving} aria-busy={saving} onClick={() => void send(false)}>Ja, Programm beenden</button>

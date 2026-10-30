@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
 import type { UiLocale } from "@/components/loyalty-ui";
-import { CashierAccessState, CashierView, type CashierAward, type CashierBooked, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
+import { awardDelta, awardParts, bonusTotal, CashierAccessState, CashierView, type AwardBonuses, type CashierAward, type CashierBooked, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
 import { QrScanner, SleepingCamera } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
@@ -18,8 +18,8 @@ import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
-type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; winbackBonus?: number; birthdayBonus?: number; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; visits: number; next: { name: string; visits: number } | null } };
-type TransactionResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number };
+type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; welcomeBonus?: number; happyHour?: boolean; winbackBonus?: number; birthdayBonus?: number; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; visits: number; next: { name: string; visits: number } | null } };
+type TransactionResult = AwardBonuses & { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
 type OfflineSyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: number; duplicate?: boolean };
@@ -174,7 +174,7 @@ export default function CashierPage() {
       if (result.stage === "preview") { setCard(null); setPreview({ ...result, code }); return; }
       setPreview(null);
       activeCardId.current = result.membershipId;
-      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), winbackBonus: result.winbackBonus ?? 0, birthdayBonus: result.birthdayBonus ?? 0, level: result.level?.name ? { name: result.level.name, perk: result.level.perk } : undefined });
+      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), welcomeBonus: result.welcomeBonus ?? 0, happyHour: result.happyHour === true, winbackBonus: result.winbackBonus ?? 0, birthdayBonus: result.birthdayBonus ?? 0, level: result.level?.name ? { name: result.level.name, perk: result.level.perk } : undefined });
       const unresolved = unresolvedRef.current.get(result.membershipId);
       if (unresolved && Date.now() - unresolved.at < UNRESOLVED_TTL_MS) {
         pendingRef.current = unresolved.pending;
@@ -451,22 +451,28 @@ function unitLabel(card: CashierCard, amount: number, fr: boolean) {
 function bookingSummary(card: CashierCard, operation: { kind: "award"; award: CashierAward } | { kind: "redeem"; reward: CashierReward }, result: TransactionResult, fr: boolean): { booked: Booked; statusMessage: string } {
   const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)} ${unitLabel(card, result.balance, fr)}`;
   const newBalance = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
-  let detail: string, headline: string | undefined;
+  let detail: string, headline: string | undefined, parts: string | undefined;
   if (result.duplicate) detail = fr ? `Cette opération pour ${card.cardLocator} était déjà enregistrée.` : `Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`;
   else if (operation.kind === "redeem") {
     detail = fr ? `« ${operation.reward.name} » utilisée sur ${card.cardLocator}.` : `„${operation.reward.name}“ auf ${card.cardLocator} eingelöst.`;
     headline = fr ? `« ${operation.reward.name} » utilisée` : `„${operation.reward.name}“ eingelöst`;
   } else {
     const credited = result.creditedQuantity ?? ("quantity" in operation.award ? operation.award.quantity : undefined);
-    const bonus = (result.winbackBonus ?? 0) + (result.birthdayBonus ?? 0);
+    const bonuses: AwardBonuses = { welcomeBonus: result.welcomeBonus, happyHourBonus: result.happyHourBonus, winbackBonus: result.winbackBonus, birthdayBonus: result.birthdayBonus, challengeBonus: result.challengeBonus, referralBonus: result.referralBonus };
+    const bonus = bonusTotal(bonuses);
     const extra = bonus ? fr ? ` Dont ${bonus} ${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus} ${unitLabel(card, bonus, fr)} extra.` : "";
     detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited} ${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited} ${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
-    if (credited !== undefined) headline = `+${credited} ${unitLabel(card, credited, fr)}${bonus ? ` +${bonus} extra` : ""}`;
+    if (credited !== undefined) {
+      // The chip shows the real balance change; the line under it names what it is made of (ENG-133).
+      const { delta, matches } = awardDelta(card.balance, { ...bonuses, balance: result.balance, creditedQuantity: credited });
+      headline = `+${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(delta)} ${unitLabel(card, delta, fr)}`;
+      if (bonus || !matches) parts = awardParts(credited, card.programType, bonuses, fr ? "fr" : "de");
+    }
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);
   const ready = rewardReady ? fr ? "Récompense prête : rescannez pour l’utiliser." : "Prämie bereit: zum Einlösen neu scannen." : "";
   const challenge = result.challengeBonus ? `+${result.challengeBonus} ${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
   const hint = [challenge, ready].filter(Boolean).join(" ") || undefined;
   // The screen shows the headline large; a duplicate keeps its sentence, since nothing new was booked.
-  return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint }, statusMessage: `${detail} ${newBalance}` };
+  return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, parts, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint }, statusMessage: `${detail} ${newBalance}` };
 }

@@ -3,7 +3,12 @@ export type StaffMember = { userId: string; email?: string; role: "owner" | "man
 export type Invitation = { id: string; email: string; role: "manager" | "cashier"; locationId: string; expiresAt: string; status: "pending" | "accepted" | "revoked" | "expired" };
 export const INVITATION_LABEL = { pending: "Offen", accepted: "Angenommen", revoked: "Widerrufen", expired: "Abgelaufen" } as const;
 export const ROLE_LABEL = { owner: "Inhaber:in", manager: "Leitung", cashier: "Kasse" } as const;
-export const ROLE_HINT = { cashier: "Bucht an der Kasse. Bis 10 Stempel je Vorgang, sieht keine Kundenliste und keine Zahlen.", manager: "Alles von Kasse, dazu Kundenkarten, Korrekturen und Neuausstellung für diesen Standort." } as const;
+export const ROLE_HINT = { manager: "Alles von Kasse, dazu Kundenkarten, Korrekturen und Neuausstellung für diesen Standort." } as const;
+
+/** The Kasse role hint in the programme's unit; purchase points have no manual limit to name (award-limits.ts). */
+export const cashierHint = (programType: "stamp" | "points" | undefined, earningMode: "manual" | "purchase" | undefined) => programType === "points" && earningMode === "purchase"
+  ? "Bucht an der Kasse, sieht keine Kundenliste und keine Zahlen."
+  : `Bucht an der Kasse. Bis 10 ${programType === "points" ? "Punkte" : "Stempel"} je Buchung, sieht keine Kundenliste und keine Zahlen.`;
 
 /** Mirrors the server checks (lib/loyalty, card-reissue, merchant-members, owner-only APIs); the server stays the authority. */
 const PERMISSIONS: Array<[string, boolean, boolean]> = [
