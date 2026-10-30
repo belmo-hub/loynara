@@ -98,3 +98,14 @@ export function guaranteeSettings(env: Env) {
 export function stripeEnabled(env: Env = process.env) {
   return env.LIVE_BILLING_ENABLED === "true" && stripeConfigIssues(env, isProductionDeployment(env)).length === 0;
 }
+
+/**
+ * ENG-123: the first billing date Stripe sets for a start at `at` with the anchor on that Berlin day of the month at 00:00 UTC:
+ * the same date next month, or that month's last day when it is shorter (31 Jan → 28/29 Feb, then back to the 31st). The
+ * free month runs until then, and the owner's last free day is the day before.
+ */
+export function expectedFreeUntil(at: Date) {
+  const [year, month, day] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(at).split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, lastDay)));
+}

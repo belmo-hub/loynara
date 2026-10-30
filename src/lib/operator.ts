@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { billingLocationPlans, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
+import { freeMonthsEndingSoon } from "./free-month-reminder";
 import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
@@ -49,13 +50,23 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     const templates = await walletTemplateOverview(tx, env);
     const awaiting = await shopsAwaitingOwner(tx);
     // Billing per shop (the plan the operator chose, the Stripe state) and every start-guarantee decision per location (the operator's notice).
-    const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency })
+    const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency,
+      started: sql<boolean>`${subscriptions.providerSubscriptionId} is not null or ${subscriptions.freeUntil} is not null`,
+      cancelling: subscriptions.cancelAtPeriodEnd,
+      // Prefill for the go-live form (the operator completes street and postcode): the active owner's name and login email, and the shop's first location's city.
+      ownerName: sql<string | null>`(SELECT u.name FROM staff_roles o JOIN "user" u ON u.id = o.user_id WHERE o.tenant_id = ${subscriptions.tenantId} AND o.role = 'owner' AND o.active LIMIT 1)`,
+      ownerEmail: sql<string | null>`(SELECT u.email FROM staff_roles o JOIN "user" u ON u.id = o.user_id WHERE o.tenant_id = ${subscriptions.tenantId} AND o.role = 'owner' AND o.active LIMIT 1)`,
+      city: sql<string | null>`(SELECT l.city FROM locations l WHERE l.tenant_id = ${subscriptions.tenantId} ORDER BY l.created_at, l.id LIMIT 1)`,
+      // The owner-facing date is the last free day, the day before the first billing date (Legal).
+      lastFreeDay: sql<string | null>`to_char((${subscriptions.freeUntil} - interval '1 day') AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY')` })
       .from(subscriptions).innerJoin(tenants, eq(tenants.id, subscriptions.tenantId)).orderBy(asc(tenants.name));
     const guarantees = await tx.select({ locationId: billingLocationPlans.locationId, tenant: tenants.name, location: locations.name, customers: billingLocationPlans.guaranteeCustomers,
       outcome: billingLocationPlans.guaranteeOutcome, credited: sql<boolean>`${billingLocationPlans.guaranteeCreditRef} is not null`, decidedAt: billingLocationPlans.guaranteeDecidedAt })
       .from(billingLocationPlans).innerJoin(tenants, eq(tenants.id, billingLocationPlans.tenantId))
       .innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
       .where(isNotNull(billingLocationPlans.guaranteeOutcome)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
-    return { awaiting, billing, guarantees, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    // ENG-123: free months ending within 7 days, and whether the reminder went out (the fallback while the email lane is off).
+    const freeMonths = await freeMonthsEndingSoon();
+    return { awaiting, billing, guarantees, freeMonths, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

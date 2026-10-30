@@ -28,7 +28,8 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
-type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string };
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
+type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
@@ -45,7 +46,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[] }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[] }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -110,6 +111,25 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
+  // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
+  const [startFor, setStartFor] = useState<string | null>(null);
+  // § 14 UStG: the invoice recipient's full name and address, recorded at go-live and sent to Stripe.
+  const [recipient, setRecipient] = useState({ name: "", line1: "", postalCode: "", city: "", email: "" });
+  const openStart = (b: Billing) => { setStartFor(b.tenantId); setRecipient({ name: b.ownerName ?? "", line1: "", postalCode: "", city: b.city ?? "", email: b.ownerEmail ?? "" }); setError(""); };
+  async function startBilling(tenantId: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-start", { tenantId, billing: recipient }); setStartFor(null); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  // § 2 (3): an owner who cancels in the free month owes nothing; the subscription must end before its first invoice.
+  const [endFor, setEndFor] = useState<string | null>(null);
+  async function endFreeMonth(tenantId: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-free-month-end", { tenantId }); setEndFor(null); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
   async function setPlan(tenantId: string, planCode: string) {
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-plan", { tenantId, planCode }); router.refresh(); }
@@ -194,7 +214,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-billing">
-      <CardHeader id="op-billing" title="Tarife" description="Gilt ab dem nächsten Checkout. Während ein Abo läuft, bleibt der Tarif fest." />
+      <CardHeader id="op-billing" title="Tarife" description="Ohne Wahl gilt der Listenpreis. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos, danach bleibt der Tarif fest." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
           <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>
@@ -202,9 +222,33 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
             <option value="">Noch nicht gewählt</option>
             {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
           </Select>
+          {b.lastFreeDay ? <div style={{ display: "grid", gap: 4 }}><span className="ow-muted">Kostenlos bis {b.lastFreeDay}{b.cancelling ? " · gekündigt, keine Rechnung" : ""}</span>
+            {b.status === "active" && !b.cancelling ? (endFor === b.tenantId
+              ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="danger" loading={busy} onClick={() => void endFreeMonth(b.tenantId)}>Vertrag zum {b.lastFreeDay} beenden, ohne Rechnung</Button><Button variant="quiet" onClick={() => setEndFor(null)}>Zurück</Button></div>
+              : <div><Button variant="quiet" onClick={() => setEndFor(b.tenantId)}>Gekündigt im kostenlosen Monat</Button></div>) : null}</div>
+            : b.started ? null
+              : startFor === b.tenantId
+                ? <form style={{ display: "grid", gap: 8 }} onSubmit={event => { event.preventDefault(); void startBilling(b.tenantId); }}>
+                  <p className="ow-muted">Rechnungsempfänger (wie in der Pilotvereinbarung):</p>
+                  <TextField label="Name" value={recipient.name} onChange={event => setRecipient(r => ({ ...r, name: event.target.value }))} required autoComplete="off" />
+                  <TextField label="Straße und Hausnummer" value={recipient.line1} onChange={event => setRecipient(r => ({ ...r, line1: event.target.value }))} required autoComplete="off" />
+                  <TextField label="Postleitzahl" value={recipient.postalCode} onChange={event => setRecipient(r => ({ ...r, postalCode: event.target.value }))} required inputMode="numeric" pattern="\d{5}" autoComplete="off" />
+                  <TextField label="Ort" value={recipient.city} onChange={event => setRecipient(r => ({ ...r, city: event.target.value }))} required autoComplete="off" />
+                  <TextField label="E-Mail für Rechnungen" type="email" value={recipient.email} onChange={event => setRecipient(r => ({ ...r, email: event.target.value }))} required autoComplete="off" />
+                  {error ? <p role="alert">{error}</p> : null}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button type="submit" loading={busy}>Heute starten bestätigen</Button><Button type="button" variant="quiet" onClick={() => setStartFor(null)}>Zurück</Button></div>
+                </form>
+                : <div><Button variant="secondary" onClick={() => openStart(b)}>Abrechnung starten (Go-live)</Button></div>}
         </li>)}
       </ul>
     </Card>
+
+    {freeMonths.length ? <Card as="section" aria-labelledby="op-free-month">
+      <CardHeader id="op-free-month" title="Kostenloser Monat endet bald" description="Die Erinnerung geht 7 Tage vorher per E-Mail raus. Steht hier „nicht gesendet“, bitte selbst von support@ schicken." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {freeMonths.map(f => <li key={f.tenantId} role={f.sent ? "status" : "alert"}><strong>{f.shop}</strong> · {f.locations.join(", ")} · letzter freier Tag {f.lastFreeDay} · <Badge tone={f.sent ? "success" : "warning"}>{f.sent ? "Erinnerung gesendet" : "nicht gesendet"}</Badge></li>)}
+      </ul>
+    </Card> : null}
 
     <Card as="section" aria-labelledby="op-plates">
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
