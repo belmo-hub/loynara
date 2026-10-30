@@ -543,12 +543,11 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
   .ow-dash.ow-dash--single > * { grid-area: auto; }
 }
 .ow-dash-side { display: grid; gap: var(--space-4); }
-/* Greeting to the next block is 24 at every width (Design FIX 5); without a band its empty grid row would add a gap. */
-.ow-dash > .ow-hello { margin-bottom: var(--space-2); }
+/* Greeting to the next block is 24 at every width (Design FIX 5): its 8 margin plus the 16 gap; without a band the empty grid row would add a gap. */
 @media (min-width: 1024px) { .ow-dash:not(.ow-dash--single):not(:has(> .ow-next)) { grid-template-areas: "notice notice" "hello hello" "board side" "diary diary"; } }
 .ow-dash-notice:empty { display: none; }
 /* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
-.owner-app .ow-hello { margin: 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
+.owner-app .ow-hello { margin: 0 0 var(--space-2); font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
 /* The greeting reads as the Übersicht's title: the same 36 as every page title on desktop (I-07). */
 @media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
