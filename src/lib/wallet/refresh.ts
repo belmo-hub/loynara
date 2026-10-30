@@ -14,6 +14,7 @@ import { withGooglePassLock } from "./write";
 import { isPassFastObjectId, passFastStatus, passFastConfig, PassFastError, type PassFastClient, PASSFAST_OPERATION_MS } from "./passfast";
 import { syncPassFastPass } from "./passfast-lifecycle";
 import { passFastEnv } from "./template-bindings";
+import { liveReward, notSuperseded } from "../reward-versions";
 
 export type WalletRefreshResult = { status: "complete" } | { status: "blocked"; reason: string };
 type PassRow = typeof walletPasses.$inferSelect;
@@ -135,10 +136,10 @@ async function rewardReadyMessage(tx: Pick<typeof db, "execute">, row: PassRow, 
       SELECT latest.title, latest.cost, latest.effective_at FROM rewards r
       JOIN LATERAL (
         SELECT rv.title, rv.cost, rv.effective_at FROM reward_versions rv
-        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= now()
+        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= now() AND ${sql.raw(notSuperseded("rv"))}
         ORDER BY rv.version DESC LIMIT 1
       ) latest ON true
-      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND ${sql.raw(liveReward("r", "now()"))}
       ORDER BY latest.cost, r.sort_order, r.id LIMIT 1
     ) reward ON reward.cost <= m.balance
     JOIN LATERAL (

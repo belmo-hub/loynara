@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { db } from "@/db";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 type Query = Pick<typeof db, "execute">;
 type Scope = { tenantId: string; programId: string };
@@ -19,10 +20,10 @@ export async function rewardReadyMemberships(query: Query, scope: Scope, now: Da
         SELECT 1 FROM rewards r
         JOIN LATERAL (
           SELECT rv.cost FROM reward_versions rv
-          WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${now}
+          WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${now} AND ${sql.raw(notSuperseded("rv"))}
           ORDER BY rv.version DESC LIMIT 1
         ) latest ON true
-        WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+        WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND ${liveReward("r", sql`${now}::timestamptz`)}
           AND latest.cost <= m.balance
       )
     ORDER BY m.id LIMIT 501

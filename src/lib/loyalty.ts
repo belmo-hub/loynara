@@ -9,6 +9,7 @@ import { activeHappyHour } from "./happy-hour";
 import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
+import { liveReward, notSuperseded } from "./reward-versions";
 import { surfaceHidden } from "./pilot-surfaces";
 import { birthdayWeek, WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 
@@ -355,14 +356,16 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
       return { balance: member.balance, duplicate: true, entryId: existing.id };
     }
 
-    const [selected] = await tx.select({ version: rewardVersions, reward: rewards })
+    // ENG-100: the version in force and the archive date at the booking instant (clock_timestamp), so a pending raise or
+    // archive keeps the current reward and cost redeemable until its date.
+    const [selected] = await tx.select({ version: rewardVersions, reward: rewards, live: sql<boolean>`${sql.raw(liveReward("rewards", "clock_timestamp()"))}` })
       .from(rewardVersions)
       .innerJoin(rewards, and(eq(rewards.id, rewardVersions.rewardId), eq(rewards.tenantId, rewardVersions.tenantId)))
       // Keep this catalogue entry stable through booking; owner edit/archive takes an exclusive reward lock.
-      .where(and(eq(rewardVersions.id, input.rewardVersionId), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= now()`)).for("share", { of: rewards });
-    if (!selected || !selected.reward.active || selected.reward.programId !== member.programId) throw new DomainError("INVALID_REWARD", "Reward is not available");
+      .where(and(eq(rewardVersions.id, input.rewardVersionId), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= clock_timestamp()`)).for("share", { of: rewards });
+    if (!selected || !selected.live || selected.reward.programId !== member.programId) throw new DomainError("INVALID_REWARD", "Reward is not available");
     const [currentVersion] = await tx.select({ id: rewardVersions.id }).from(rewardVersions)
-      .where(and(eq(rewardVersions.rewardId, selected.reward.id), eq(rewardVersions.tenantId, member.tenantId)))
+      .where(and(eq(rewardVersions.rewardId, selected.reward.id), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= clock_timestamp()`, sql.raw(notSuperseded("reward_versions"))))
       .orderBy(desc(rewardVersions.version)).limit(1);
     if (currentVersion.id !== input.rewardVersionId) throw new DomainError("STALE_REWARD", "Reward has changed; refresh and confirm again");
     if (member.balance < selected.version.cost) throw new DomainError("INSUFFICIENT_BALANCE", "Not enough points or stamps");

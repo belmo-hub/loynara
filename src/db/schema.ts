@@ -197,6 +197,9 @@ export const programRuleVersions = pgTable("program_rule_versions", {
   rulesText: text("rules_text").notNull(),
   earningMode: varchar("earning_mode", { length: 8 }).notNull(),
   pointsPerCurrencyUnit: integer("points_per_currency_unit").notNull(),
+  // ENG-100: the points expiry that applies with this version (null = off), kept as Legal's proof of what applied when.
+  pointsExpiryMonths: integer("points_expiry_months"),
+  pointsExpirySince: timestamp("points_expiry_since", { withTimezone: true }),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [
@@ -213,6 +216,8 @@ export const rewards = pgTable("rewards", {
   tenantId: uuid("tenant_id").notNull(),
   programId: uuid("program_id").notNull(),
   active: boolean("active").notNull().default(true),
+  // ENG-100: an archive takes effect four weeks after saving and the reward stays redeemable until then. Null = not ending.
+  endsAt: timestamp("ends_at", { withTimezone: true }),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: createdAt(),
 }, (t) => [

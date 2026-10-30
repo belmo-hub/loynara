@@ -5,6 +5,7 @@ import { programs, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 
 import { audienceDefinitionSchema } from "./audience-definition";
+import { liveReward, notSuperseded } from "./reward-versions";
 export { audienceDefinitionSchema, type AudienceDefinition } from "./audience-definition";
 
 const audienceQuerySchema = z.object({
@@ -79,10 +80,10 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
       FROM rewards r
       JOIN LATERAL (
         SELECT rv.cost FROM reward_versions rv
-        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= p.as_of
+        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= p.as_of AND ${notSuperseded("rv")}
         ORDER BY rv.version DESC LIMIT 1
       ) latest ON true
-      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND ${liveReward("r", "p.as_of")}
         AND (p.reward_id IS NULL OR r.id = p.reward_id)
         AND latest.cost > m.balance
     ) reward_gap ON true`;
