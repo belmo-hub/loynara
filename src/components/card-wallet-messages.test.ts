@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { savedPanelShown, savedViewDue } from "./card-client";
+import { savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
 import { consentLines } from "./card-wallet-messages";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
@@ -47,6 +47,17 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
     expect(savedPanelShown("card_b", false, true)).toBe(false);
     expect(items.size).toBe(0);
     expect(savedViewDue("card_b", { appleSaved: true })).toBe(true);
+  });
+  it("says „In Apple Wallet gespeichert“ on the first view after the pass registers only, with its own flag", () => {
+    const items = storage({ "loynara_wallet_step:card_a": "shown" });
+    expect(savedLineDue("card_a", { appleSaved: false })).toBe(false);
+    expect(savedLineDue("card_a", { appleSaved: true })).toBe(true);
+    expect(savedLineDue("card_a", { appleSaved: true })).toBe(false);
+    // walletMessages off: the panel's flag stays open for after the switch, the line is done.
+    expect(items.get("loynara_wallet_step:card_a")).toBe("shown");
+    expect(savedViewDue("card_a", { appleSaved: true })).toBe(true);
+    expect(savedLineDue("card_b", { appleSaved: true })).toBe(true);
+    expect(readFileSync("src/components/card-client.tsx", "utf8")).toContain("walletSaved={savedLine && !french}");
   });
   it("a cancelled Apple sheet registers nothing, so the panel does not move up", () => {
     storage({ "loynara_wallet_step:card_a": "shown" });
