@@ -11,7 +11,8 @@ import { CardBirthday } from "./card-birthday";
 import { CardWalletMessages } from "./card-wallet-messages";
 import { Button } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
-import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform } from "./wallet-preparation";
+import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
+import { markWalletStep, readWalletStep } from "./wallet-step";
 import { cardChanges } from "@/lib/change-lines";
 
 type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable"; appleReAdd?: boolean };
@@ -34,6 +35,9 @@ function continueTap() {
   window.location.assign(path);
 }
 
+/** ENG-130 (08): the pass is registered on a device and this device has not yet shown its return from Wallet. */
+export const savedFirstView = (status: Pick<WalletStatus, "appleSaved">, mark: string | null) => status.appleSaved === true && mark !== "saved";
+
 export function CardClient({ token }: { token: string }) {
   const [card, setCard] = useState<CardResponse | null>(null);
   const [switchRequired, setSwitchRequired] = useState(false);
@@ -49,6 +53,9 @@ export function CardClient({ token }: { token: string }) {
   const walletOperation = useRef<AbortController | null>(null);
   const downloadReset = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
+  // ENG-130 (08): the first card view after a device registered the pass, once per card on this device; the consent panel then sits under the card.
+  const [savedView, setSavedView] = useState(false);
+  const [consentUp, setConsentUp] = useState(false);
   // A stamp booked while the card is open (the team scanned its code) lands on the card when the balance is re-read.
   const [landed, setLanded] = useState<number>();
   const balanceSeen = useRef<number | null>(null);
@@ -107,9 +114,13 @@ export function CardClient({ token }: { token: string }) {
     let mounted = true;
     const controller = new AbortController();
     // Capability belongs to this card's tenant/location. A failed check leaves the action hidden.
-    void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setPlatform(walletPlatform()); setWalletScope({ token, availability: result }); setWalletBusy(null); } }).catch(() => {});
+    const saved = (result: WalletStatus) => { if (mounted && savedFirstView(result, readWalletStep(token))) { markWalletStep(token, "saved"); setSavedView(true); } };
+    void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setPlatform(walletPlatform()); setWalletScope({ token, availability: result }); setWalletBusy(null); saved(result); } }).catch(() => {});
+    // Back from Apple's sheet: the page becomes visible again, and only a registered pass counts.
+    const visible = () => { if (document.visibilityState === "visible") void readWalletStatus(token, controller.signal).then(saved).catch(() => {}); };
+    document.addEventListener("visibilitychange", visible);
     return () => {
-      mounted = false; controller.abort(); walletOperation.current?.abort(); walletOperation.current = null;
+      mounted = false; controller.abort(); walletOperation.current?.abort(); walletOperation.current = null; document.removeEventListener("visibilitychange", visible);
       if (downloadReset.current) clearTimeout(downloadReset.current);
     };
   }, [token]);
@@ -181,14 +192,16 @@ export function CardClient({ token }: { token: string }) {
   if (loading) return <CustomerCardLoading label="Deine Karte wird geladen." />;
   if (!card) return <CardState title="Karte nicht erreichbar." message={error} tone="error" />;
   const french = card.locale === "fr";
+  const expiry = card.programType === "points" && Boolean(card.pointsExpiry || card.pendingExpiry);
   const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
   const notices = <>
     {authenticationRequired && <section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section>}
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
     {bindingError && <p role="alert" className={noticeClass}>{bindingError}</p>}
+    {savedView && <CardWalletMessages token={token} expiry={expiry} first onShown={setConsentUp} />}
     {wallet?.apple === "available" && wallet.appleReAdd && platform !== "android" && <section role="status" className={noticeClass}><p>{french ? "Votre carte Apple Wallet change de version. Ajoutez-la une nouvelle fois pour que votre solde y reste à jour. L’ancienne carte ne sera ensuite plus mise à jour : vous pouvez la supprimer." : "Deine Karte in Apple Wallet bekommt eine neue Version. Füge sie bitte einmal neu hinzu, damit dein Stand dort aktuell bleibt. Die alte Karte wird danach nicht mehr aktualisiert. Du kannst sie aus Wallet löschen."}</p><Button variant="secondary" size="sm" disabled={walletBusy !== null} onClick={() => void addToAppleWallet()}>{french ? "Ajouter de nouveau à Apple Wallet" : "Neu zu Apple Wallet hinzufügen"}</Button></section>}
   </>;
-  return <CustomerCard changes={cardChanges({ programType: card.programType === "points" ? "points" : "stamp", rewards: card.rewards, pending: card.pending, pendingExpiry: card.pendingExpiry })} notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} winback={card.winback} challenge={card.challenge} level={card.level} endsOn={card.endsOn ? new Intl.DateTimeFormat(french ? "fr-FR" : "de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${card.endsOn}T00:00:00Z`)) : undefined} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} contactPanel={<><CardContact token={token} locale={french ? "fr" : "de"} /><CardWalletMessages token={token} /><CardBirthday token={token} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
+  return <CustomerCard changes={cardChanges({ programType: card.programType === "points" ? "points" : "stamp", rewards: card.rewards, pending: card.pending, pendingExpiry: card.pendingExpiry })} notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} winback={card.winback} challenge={card.challenge} level={card.level} endsOn={card.endsOn ? new Intl.DateTimeFormat(french ? "fr-FR" : "de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${card.endsOn}T00:00:00Z`)) : undefined} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} walletSaved={savedView && !french} contactPanel={<>{!(savedView && consentUp) && <CardContact token={token} locale={french ? "fr" : "de"} />}{!savedView && <CardWalletMessages token={token} expiry={expiry} />}<CardBirthday token={token} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
 function CardState({ title, message, tone = "info" }: { title: string; message: string; tone?: "info" | "error" }) {

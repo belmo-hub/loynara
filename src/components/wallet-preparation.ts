@@ -5,6 +5,8 @@ export type WalletStatus = {
   applePass?: { status: "unavailable" | "not_requested" | "pending" | "ready" | "failed"; url?: string; retryAfterSeconds?: number };
   /** The card's Apple pass came from the previous provider, which is being retired; ask the customer to add it again. */
   appleReAdd?: boolean;
+  /** ENG-130: a device registered the card's live Apple pass. */
+  appleSaved?: boolean;
 };
 async function walletRequest<T>(path: string, token: string, signal: AbortSignal): Promise<T> {
   const controller = new AbortController();

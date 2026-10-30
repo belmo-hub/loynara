@@ -11,6 +11,8 @@
 /* The reward is a name: it wraps at spaces only (Head of Design), very long single words may still break. */
 /* The headline stays within two lines; the reward's name follows on its own line, a step smaller. */
 .rewardName { display: block; margin-top: var(--space-1); font-size: var(--text-22); line-height: 1.25; hyphens: manual; overflow-wrap: anywhere; }
+/* ENG-130 (08): a muted line under the goal, once, after the pass is saved in Apple Wallet. */
+.saved { display: flex; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-2)) 0 0; padding-inline: var(--space-1); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }

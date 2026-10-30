@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, ChevronRight, History, RefreshCw } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, History, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -53,6 +53,8 @@ export type CustomerCardProps = {
   /** ENG-100: changes waiting for their date, one line each under the card (W31, W45, W46, W58); a long new rule is
    *  opens in full under its line („Neue Regel lesen“). */
   changes?: { lines: Array<ChangeLine | string>; newRule?: { on: string; text: string } };
+  /** ENG-130 (08): the first card view after a device registered the Apple pass. */
+  walletSaved?: boolean;
   /** Offered only when the server reports the provider available; absent = no button at all. */
   onAppleWallet?: () => void;
   onGoogleWallet?: () => void;
@@ -99,6 +101,7 @@ export function CustomerCard(props: CustomerCardProps) {
     </section> : null}
 
     <Goal t={t} number={number} programType={programType} balance={balance} selected={selected} readyCount={readyCount} nextGoal={nextGoal} />
+    {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
     <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false} business={false}>
