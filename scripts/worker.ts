@@ -109,6 +109,20 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "email.free_month") {
+    try {
+      const { deliverFreeMonthReminder } = await import("../src/lib/free-month-reminder");
+      const result = await deliverFreeMonthReminder(job);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
+      const marked = await mark(job, permanent ? "failed" : "retry", "Free-month reminder failed", permanent ? 0 : delay);
+      console.error(`Free-month reminder job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind === "wallet.message") {
     try {
       const { deliverWalletMessage } = await import("../src/lib/wallet-messages");
@@ -293,6 +307,9 @@ async function main() {
         try {
           const { queueWeeklyOwnerReports } = await import("../src/lib/weekly-owner-report");
           await queueWeeklyOwnerReports(housekeepingDatabase);
+          // ENG-123: free-month reminders, 7 days before the end; idempotent per business and free month.
+          const { queueFreeMonthReminders } = await import("../src/lib/free-month-reminder");
+          await queueFreeMonthReminders(housekeepingDatabase);
           weeklyReportsCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;

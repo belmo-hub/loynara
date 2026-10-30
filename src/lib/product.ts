@@ -286,7 +286,7 @@ async function saveExpiry(tx: Transaction, program: typeof programs.$inferSelect
   // GREATEST: since never moves to an earlier date (Legal), whatever the row held.
   const since = (start: SQL) => sql`GREATEST(${start}, ${program.pointsExpirySince})`;
   const expiry = { pointsExpiryMonths: months, pointsExpirySince: months === null ? null : since(dated ? noticeEnd(at) : at) };
-  // A version from before 0042 records no expiry: first record the one in force, so a take-back can tell a shortening.
+  // A version from before 0043 records no expiry: first record the one in force, so a take-back can tell a shortening.
   const versions = [...(dated && inForce.pointsExpiryMonths !== old ? [{ ...ruleFields(inForce), pointsExpiryMonths: old, pointsExpirySince: program.pointsExpirySince }] : []),
     { ...ruleFields(inForce), ...expiry, ...(dated ? { effectiveAt: noticeEnd(at) } : {}) }];
   await insertRuleVersions(tx, program, at, next, versions);
