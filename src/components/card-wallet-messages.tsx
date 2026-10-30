@@ -13,18 +13,18 @@ const LINK = "Mehr in den Datenschutzhinweisen.";
 /** The lines around Legal's box; points programmes with an expiry rule (in force or pending) name the expiry notice, which needs no tick (Legal, ENG-130). */
 export function consentLines(expiry: boolean) {
   return expiry
-    ? { under: "Deinen neuen Kontostand, „Prämie bereit“ und den Hinweis, bevor Punkte verfallen, siehst du immer, auch ohne Häkchen.", off: "aus. Kontostand, „Prämie bereit“ und der Hinweis vor dem Punkteverfall kommen weiter." }
-    : { under: "Deinen neuen Kontostand und „Prämie bereit“ siehst du immer, auch ohne Häkchen.", off: "aus. Kontostand und „Prämie bereit“ kommen weiter." };
+    ? { under: "Deinen neuen Kontostand, „Prämie bereit“ und den Hinweis, bevor Punkte verfallen, siehst du immer, auch ohne Häkchen.", off: "Kontostand, „Prämie bereit“ und der Hinweis vor dem Punkteverfall kommen weiter." }
+    : { under: "Deinen neuen Kontostand und „Prämie bereit“ siehst du immer, auch ohne Häkchen.", off: "Kontostand und „Prämie bereit“ kommen weiter." };
 }
 
 /**
  * Wallet-message consent (ENG-043): one unticked box with Legal's text, saved on the tap; unticking switches it off without
  * touching the pass. Legal's wording is German only. Renders nothing while the walletMessages surface is withheld (the
  * endpoint answers 404) or the card holds no pass that can get messages (Apple; Google too with ENG-054's marketing flag).
- * ENG-130: re-read when the page comes back into view (the return from Apple's sheet); `first` = the first card view after
- * the pass is saved, where the panel sits under the card with a heading. `onShown` tells the page whether it renders.
+ * ENG-130: the unticked box has a heading; re-read when the page comes back into view (the return from Apple's sheet).
+ * `onShown` tells the page whether it renders (the page places it under the card once, after the pass is saved).
  */
-export function CardWalletMessages({ token, expiry = false, first = false, onShown }: { token: string; expiry?: boolean; first?: boolean; onShown?: (shown: boolean) => void }) {
+export function CardWalletMessages({ token, expiry = false, onShown }: { token: string; expiry?: boolean; onShown?: (shown: boolean) => void }) {
   const [state, setState] = useState<Consent | null>(null);
   const [busy, setBusy] = useState(false);
   const [switchedOff, setSwitchedOff] = useState(false);
@@ -62,10 +62,11 @@ export function CardWalletMessages({ token, expiry = false, first = false, onSho
       {state.givenAt && <p className={styles.muted}>Erlaubt am {new Date(state.givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
       {switchOff}
     </> : switchedOff ? <>
-      <p>{lines.off}</p>
+      <p>Von {state.shop} · Höchstens 2 pro Woche · aus</p>
+      <p className={styles.muted}>{lines.off}</p>
       <Button variant="secondary" size="sm" onClick={() => setSwitchedOff(false)}>Einschalten</Button>
     </> : <>
-      {first && <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>}
+      <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>
       <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}>{lead}<Link href="/datenschutz">{LINK}</Link></Checkbox>
       <p className={styles.muted}>{lines.under}</p>
     </>}

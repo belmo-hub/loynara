@@ -55,6 +55,8 @@ export type CustomerCardProps = {
   changes?: { lines: Array<ChangeLine | string>; newRule?: { on: string; text: string } };
   /** ENG-130 (08): the first card view after a device registered the Apple pass. */
   walletSaved?: boolean;
+  /** ENG-130: a device holds the card's Apple pass, so the Apple add button is not offered again (the re-add notice still is). */
+  appleSaved?: boolean;
   /** Offered only when the server reports the provider available; absent = no button at all. */
   onAppleWallet?: () => void;
   onGoogleWallet?: () => void;
@@ -232,9 +234,9 @@ function Extras({ items, label }: { items: Extra[]; label: string }) {
   </>;
 }
 
-function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", t }: CustomerCardProps & { t: Copy }) {
+function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", appleSaved, t }: CustomerCardProps & { t: Copy }) {
   // Platform only orders and narrows what is shown; the server decides availability.
-  const apple = onAppleWallet && walletPlatform !== "android" ? [{ id: "apple" as const, label: t.addApple, onClick: onAppleWallet }] : [];
+  const apple = onAppleWallet && walletPlatform !== "android" && !appleSaved ? [{ id: "apple" as const, label: t.addApple, onClick: onAppleWallet }] : [];
   const google = onGoogleWallet && walletPlatform !== "ios" ? [{ id: "google" as const, label: t.addGoogle, onClick: onGoogleWallet }] : [];
   const buttons = walletPlatform === "android" ? [...google, ...apple] : [...apple, ...google];
   if (!buttons.length) return null;
