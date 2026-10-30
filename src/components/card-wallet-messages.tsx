@@ -31,7 +31,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   const [error, setError] = useState("");
   const url = `/api/card/${encodeURIComponent(token)}/wallet-messages`;
 
-  const shownRef = useRef(false);
+  const shownRef = useRef(false); // = Boolean(state?.available), readable from the listener
 
   useEffect(() => {
     let active = true;

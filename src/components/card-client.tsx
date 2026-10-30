@@ -35,9 +35,11 @@ function continueTap() {
   window.location.assign(path);
 }
 
-/** ENG-130 (08): true once per card on this device, the first time the status says a device holds the pass; it leaves the mark. */
-export function firstSavedView(token: string, status: Pick<WalletStatus, "appleSaved">) {
-  if (status.appleSaved !== true || readWalletStep(token) === "saved") return false;
+/** ENG-130 (08): the panel moves under the card while a device holds the pass and this device has not yet shown it there. */
+export const savedViewDue = (token: string, status: Pick<WalletStatus, "appleSaved">) => status.appleSaved === true && readWalletStep(token) !== "saved";
+/** The „saved“ mark is left only once the moved-up panel has rendered (CTO, 30 Oct): with walletMessages off, it still comes after the switch. */
+export function savedPanelShown(token: string, savedView: boolean, panelShown: boolean) {
+  if (!savedView || !panelShown) return false;
   markWalletStep(token, "saved");
   return true;
 }
@@ -60,6 +62,7 @@ export function CardClient({ token }: { token: string }) {
   // ENG-130 (08): the first card view after a device registered the pass, once per card on this device; the consent panel then sits under the card.
   const [savedView, setSavedView] = useState(false);
   const [consentUp, setConsentUp] = useState(false);
+  useEffect(() => { savedPanelShown(token, savedView, consentUp); }, [token, savedView, consentUp]);
   // A stamp booked while the card is open (the team scanned its code) lands on the card when the balance is re-read.
   const [landed, setLanded] = useState<number>();
   const balanceSeen = useRef<number | null>(null);
@@ -118,7 +121,7 @@ export function CardClient({ token }: { token: string }) {
     let mounted = true;
     const controller = new AbortController();
     // Capability belongs to this card's tenant/location. A failed check leaves the action hidden.
-    const saved = (result: WalletStatus) => { if (mounted && firstSavedView(token, result)) setSavedView(true); };
+    const saved = (result: WalletStatus) => { if (mounted && savedViewDue(token, result)) setSavedView(true); };
     void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setPlatform(walletPlatform()); setWalletScope({ token, availability: result }); setWalletBusy(null); saved(result); } }).catch(() => {});
     // Back from Apple's sheet: the page becomes visible again, and only a registered pass counts.
     const visible = () => { if (document.visibilityState === "visible") void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setWalletScope({ token, availability: result }); saved(result); } }).catch(() => {}); };

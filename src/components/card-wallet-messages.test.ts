@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { firstSavedView } from "./card-client";
+import { savedPanelShown, savedViewDue } from "./card-client";
 import { consentLines } from "./card-wallet-messages";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
@@ -29,25 +29,37 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
     vi.stubGlobal("localStorage", { getItem: (key: string) => items.get(key) ?? null, setItem: (key: string, value: string) => void items.set(key, value) });
     return items;
   };
-  it("shows once per card on this device, only after a device registered the pass, and leaves the mark", () => {
+  it("moves the panel up while a device holds the pass, and marks „saved“ only once the moved-up panel has shown", () => {
     for (const mark of [undefined, "shown", "pending"]) {
       const items = storage(mark ? { "loynara_wallet_step:card_a": mark } : {});
-      expect(firstSavedView("card_a", { appleSaved: true })).toBe(true);
+      expect(savedViewDue("card_a", { appleSaved: true })).toBe(true);
+      // walletMessages off: the panel renders nothing, so no mark and the next visit moves it up again.
+      expect(savedPanelShown("card_a", true, false)).toBe(false);
+      expect(items.get("loynara_wallet_step:card_a")).toBe(mark);
+      expect(savedViewDue("card_a", { appleSaved: true })).toBe(true);
+      // The panel showed under the card: marked once, later visits keep it in its usual place.
+      expect(savedPanelShown("card_a", true, true)).toBe(true);
       expect(items.get("loynara_wallet_step:card_a")).toBe("saved");
-      expect(firstSavedView("card_a", { appleSaved: true })).toBe(false);
+      expect(savedViewDue("card_a", { appleSaved: true })).toBe(false);
     }
-    // Per card: another card on the same device gets its own first view.
-    expect(firstSavedView("card_b", { appleSaved: true })).toBe(true);
+    // Per card, and only for the moved-up panel: the usual panel on a later visit leaves nothing.
+    const items = storage();
+    expect(savedPanelShown("card_b", false, true)).toBe(false);
+    expect(items.size).toBe(0);
+    expect(savedViewDue("card_b", { appleSaved: true })).toBe(true);
   });
-  it("a cancelled Apple sheet registers nothing, so nothing shows and no mark is left", () => {
-    const items = storage({ "loynara_wallet_step:card_a": "shown" });
-    expect(firstSavedView("card_a", { appleSaved: false })).toBe(false);
-    expect(firstSavedView("card_a", {})).toBe(false);
-    expect(items.get("loynara_wallet_step:card_a")).toBe("shown");
+  it("a cancelled Apple sheet registers nothing, so the panel does not move up", () => {
+    storage({ "loynara_wallet_step:card_a": "shown" });
+    expect(savedViewDue("card_a", { appleSaved: false })).toBe(false);
+    expect(savedViewDue("card_a", {})).toBe(false);
   });
   it("still works where storage is blocked (the view may repeat, nothing breaks)", () => {
     vi.stubGlobal("localStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
-    expect(firstSavedView("card_a", { appleSaved: true })).toBe(true);
+    expect(savedViewDue("card_a", { appleSaved: true })).toBe(true);
+    expect(savedPanelShown("card_a", true, true)).toBe(true);
+  });
+  it("the card page leaves the mark from the panel's own render signal", () => {
+    expect(readFileSync("src/components/card-client.tsx", "utf8")).toContain("useEffect(() => { savedPanelShown(token, savedView, consentUp); }, [token, savedView, consentUp]);");
   });
   it("moves the panel under the card with its heading, never beside the e-mail offer", () => {
     const source = readFileSync("src/components/card-client.tsx", "utf8");
