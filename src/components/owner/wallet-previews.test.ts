@@ -14,4 +14,13 @@ describe("Wallet previews in the card studio say what the pass says (ENG-108)", 
     expect(pass("google", { balance: 8 })).toContain("Kaffee · Noch 2 Punkte</span>");
     expect(pass("apple", { programType: "stamp" })).toContain("<b>Noch 1 Stempel</b>");
   });
+
+  it("shows the logo as the pass does: uncropped, the name only when the pass shows it, the name alone for a faint logo (ENG-134)", () => {
+    const logoData = "data:image/png;base64,iVBORw0KGgo=";
+    expect(pass("apple", { logoData, logoWallet: { showName: false, faint: false, upscaled: false } })).not.toContain("Synthetic Café</strong>");
+    expect(pass("apple", { logoData, logoWallet: { showName: true, faint: false, upscaled: false } })).toContain("Synthetic Café</strong>");
+    const faint = pass("apple", { logoData, logoWallet: { showName: true, faint: true, upscaled: false } });
+    expect(faint).not.toContain("<img");
+    expect(faint).toContain("Synthetic Café</strong>");
+  });
 });

@@ -10,7 +10,8 @@ import { walletPassDataByMembershipId } from "./wallet/data";
 import { GET as getGoogleLogo } from "@/app/api/wallet/assets/google-logo/[programId]/route";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Brand tests require looplocal_test");
-const tinyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
+// A 32 x 32 red square: big enough for the 16 px minimum; the save path stores it re-encoded (ENG-134).
+const tinyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAARUlEQVRYhe3XsREAMAhC0ezDBGzvZmaLpHmFvXcifM40+3OOBcYJSoTxhsuIhhVXGEUcLyAZSFZQGli+ismoZlVO81wHF3vljHlao/5+AAAAAElFTkSuQmCC";
 
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
@@ -34,7 +35,7 @@ describe("merchant brand editor", () => {
       actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "After Café", locationName: "After Mitte",
       brandColor: "#1f4d3f", logoData: tinyPng,
     });
-    expect(saved).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f", logoData: tinyPng });
+    expect(saved).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f", logoData: expect.stringMatching(/^data:image\/png;base64,/), logoWallet: { showName: true, faint: false, upscaled: true } });
     expect(await getMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug })).toMatchObject(saved);
     expect(await getPublicProgram(merchant.programSlug)).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f" });
     expect(await getCard(card.cardToken)).toMatchObject({ merchantName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f" });
@@ -69,7 +70,7 @@ describe("merchant brand editor", () => {
       await expect(getMerchantBrand({ actorUserId: id, programSlug: merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
       expect((await getMerchantContext(id))?.brandColor).toBeUndefined();
     }
-    for (const id of [ownerId, ...Object.values(staff)]) expect(JSON.stringify(await getMerchantContext(id))).not.toContain(tinyPng.split(",")[1]);
+    for (const id of [ownerId, ...Object.values(staff)]) expect(JSON.stringify(await getMerchantContext(id))).not.toContain("data:image/png");
     // The column has no CHECK: a stored value that is not #RRGGBB is left out, so the preview keeps its fallback colour.
     await db.update(locations).set({ brandColor: "red" }).where(eq(locations.id, merchant.locationId));
     expect((await getMerchantContext(ownerId))?.brandColor).toBeUndefined();

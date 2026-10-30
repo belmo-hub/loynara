@@ -192,9 +192,9 @@ test("owner readiness states distinguish issuance and delayed updates across fiv
   test.setTimeout(120_000);
   const readiness = [
     { name: "disabled", apple: "not_set_up", google: "not_set_up", logo: "missing", googleLogo: "fallback", passes: { apple: 0, google: 0 }, delayedUpdates: 0 },
-    { name: "test-only", apple: "not_set_up", google: "test_only", logo: "needs_png", googleLogo: "fallback", passes: { apple: 0, google: 2 }, delayedUpdates: 0 },
+    { name: "test-only", apple: "not_set_up", google: "test_only", logo: "missing", googleLogo: "fallback", passes: { apple: 0, google: 2 }, delayedUpdates: 0 },
     { name: "ready", apple: "ready", google: "ready", logo: "ready", googleLogo: "merchant", passes: { apple: 1, google: 2 }, delayedUpdates: 0 },
-    { name: "delayed", apple: "ready", google: "ready", logo: "too_large", googleLogo: "fallback", passes: { apple: 1, google: 2 }, delayedUpdates: 3 },
+    { name: "delayed", apple: "ready", google: "ready", logo: "low_contrast", googleLogo: "fallback", passes: { apple: 1, google: 2 }, delayedUpdates: 3 },
   ];
   const context = await browser.newContext({ baseURL, storageState: await owner.storageState() });
   try {

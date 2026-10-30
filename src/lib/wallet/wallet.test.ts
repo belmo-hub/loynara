@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
+import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 import { applePassArchive, applePassJson, applePassToken, appleVoidedPassJson, appleWalletStatus, validApplePassToken } from "./apple";
 import { iconPng, stripPng } from "./apple-images";
@@ -36,6 +37,10 @@ const serial = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const revoked: WalletRevokedData = { tenantId: pass.tenantId, programId: pass.programId, merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName, brandColor: pass.brandColor, country: "DE", locale: "de", membershipId: pass.membershipId, reason: "reissued" };
 const appleConfig = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "a".repeat(40) };
 const tinyPng = pngOfSize(1, 1);
+const fakeLogo = { png1x: Buffer.alloc(1), png2x: Buffer.alloc(1), png3x: Buffer.alloc(1), width: 160, height: 50 };
+const svgLogo = async (width: number, height: number, body: string) => `data:image/png;base64,${(await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`)).png().toBuffer()).toString("base64")}`;
+// A white wordmark (three blocks with gaps) on transparent: wide, so the pass shows no name beside it.
+const wordmark = () => svgLogo(360, 120, `<g fill="#fff"><rect width="100" height="120"/><rect x="130" y="30" width="100" height="90"/><rect x="260" width="100" height="60"/></g>`);
 function pngChunk(type: string, data: Buffer) {
   const label = Buffer.from(type), length = Buffer.alloc(4), checksum = Buffer.alloc(4);
   length.writeUInt32BE(data.length);
@@ -217,7 +222,7 @@ describe("Apple pass", () => {
       { key: "reward", label: "NÄCHSTE PRÄMIE", value: "Gratiskaffee" },
       { key: "status", label: "NOCH", value: "7 Stempel", changeMessage: "Noch %@", textAlignment: "PKTextAlignmentRight" },
     ]);
-    const b = front({ balance: 8, brandColor: "#F2C14E", appleLogo: { png: Buffer.alloc(1), width: 330, height: 100 }, reward: { title: "Kugel gratis", cost: 8 } });
+    const b = front({ balance: 8, brandColor: "#F2C14E", appleLogo: { ...fakeLogo, showName: false }, reward: { title: "Kugel gratis", cost: 8 } });
     expect(b).toMatchObject({ foregroundColor: "rgb(17, 17, 17)" });
     expect(b).not.toHaveProperty("logoText"); // a wordmark already carries the name
     expect(b.storeCard.headerFields[0].value).toBe("8 / 8");
@@ -226,7 +231,7 @@ describe("Apple pass", () => {
       { key: "status", label: "EINLÖSEN", value: "an der Kasse", changeMessage: "Deine Prämie ist bereit. Du kannst sie %@ einlösen.", textAlignment: "PKTextAlignmentRight" },
     ]);
     expect(front({ balance: 9, reward: { title: "Kuchenstück gratis", cost: 14 } }).storeCard.secondaryFields[1].value).toBe("5 Stempel");
-    const d = front({ programType: "points", balance: 21, brandColor: "#2C4A7A", appleLogo: { png: Buffer.alloc(1), width: 100, height: 100 }, reward: { title: "Haarwäsche gratis", cost: 100 } });
+    const d = front({ programType: "points", balance: 21, brandColor: "#2C4A7A", appleLogo: { ...fakeLogo, width: 50, showName: true }, reward: { title: "Haarwäsche gratis", cost: 100 } });
     expect(d).toMatchObject({ logoText: "Kasseler Kaffee" });
     expect(d.storeCard.headerFields).toEqual([{ key: "balance", label: "PUNKTE", value: "21" }]);
     expect(d.storeCard.secondaryFields[1]).toMatchObject({ label: "NOCH", value: "79 Punkte" });
@@ -323,14 +328,15 @@ describe("Apple pass", () => {
   it("packages a signed archive whose manifest matches every file, including the merchant logo", async () => {
     const apple = appleFixture();
     try {
-      const logo = appleLogoFromData(pngOfSize(120, 40));
+      const logo = await appleLogoFromData(await wordmark(), pass.brandColor);
       expect(logo).toBeDefined();
+      expect(new Set([logo!.png1x, logo!.png2x, logo!.png3x].map(png => png.toString("base64"))).size).toBe(3);
       const withLogo = { ...pass, appleLogo: logo };
       const buffer = await applePassArchive(applePassJson(withLogo, serial, apple.config), withLogo, apple.config);
       const archive = join(apple.dir, "fixture.pkpass");
       writeFileSync(archive, buffer);
       const files = execFileSync("unzip", ["-Z1", archive], { encoding: "utf8" }).trim().split("\n");
-      expect(files).toEqual(expect.arrayContaining(["pass.json", "manifest.json", "signature", "icon.png", "icon@2x.png", "icon@3x.png", "logo.png", "logo@2x.png", "strip.png", "strip@2x.png", "strip@3x.png"]));
+      expect(files).toEqual(expect.arrayContaining(["pass.json", "manifest.json", "signature", "icon.png", "icon@2x.png", "icon@3x.png", "logo.png", "logo@2x.png", "logo@3x.png", "strip.png", "strip@2x.png", "strip@3x.png"]));
       expect(execFileSync("unzip", ["-p", archive, "strip@3x.png"])).toEqual(stripPng("stamp", 7, [10], 3));
       expect(execFileSync("unzip", ["-p", archive, "icon@3x.png"])).toEqual(iconPng(3, pass.brandColor));
       const manifest = JSON.parse(execFileSync("unzip", ["-p", archive, "manifest.json"], { encoding: "utf8" }));
@@ -386,20 +392,26 @@ describe("merchant logo handling", () => {
       image(deflateSync(Buffer.alloc(1_000_000)), hugeHeader)]) {
       const data = `data:image/png;base64,${bytes.toString("base64")}`;
       expect(decodeMerchantLogoPng(data)).toBeNull();
-      expect(appleLogoFromData(data)).toBeUndefined();
       expect(merchantGoogleLogoUrl(pass.programId, data, env)).toBeUndefined();
     }
   });
 
-  it("accepts a reasonable PNG for Apple and falls back for anything else", () => {
+  it("reads PNG dimensions from the header", () => {
     expect(pngDimensions(decodeMerchantLogoPng(pngOfSize(320, 100))!)).toEqual({ width: 320, height: 100 });
-    expect(appleLogoFromData(pngOfSize(320, 100))).toMatchObject({ width: 320, height: 100 });
-    expect(appleLogoFromData(null)).toBeUndefined();
-    expect(appleLogoFromData("data:image/jpeg;base64,/9j/4AAQ")).toBeUndefined();
-    expect(appleLogoFromData(pngOfSize(4000, 100))).toBeUndefined(); // too wide
-    expect(appleLogoFromData(pngOfSize(8, 8))).toBeUndefined(); // too small
-    expect(appleLogoFromData(pngOfSize(200, 200, 600_000))).toBeUndefined(); // too heavy
-    expect(appleLogoFromData("data:image/png;base64,not-base64!")).toBeUndefined();
+  });
+
+  it("gives Apple every readable logo in its own shape and leaves out a missing, unreadable or faint one (ENG-134)", async () => {
+    expect(await appleLogoFromData(await wordmark(), pass.brandColor)).toMatchObject({ width: 150, height: 50, showName: false });
+    const square = await svgLogo(400, 400, `<rect width="400" height="400" fill="#B3261E"/><rect x="80" y="160" width="240" height="80" fill="#fff"/>`);
+    const jpeg = `data:image/jpeg;base64,${(await sharp(Buffer.from(square.split(",")[1], "base64")).jpeg().toBuffer()).toString("base64")}`;
+    expect(await appleLogoFromData(jpeg, pass.brandColor)).toMatchObject({ width: 50, height: 50, showName: true, icon: expect.any(Array) });
+    expect(await appleLogoFromData(null, pass.brandColor)).toBeUndefined();
+    expect(await appleLogoFromData("data:image/jpeg;base64,/9j/4AAQ", pass.brandColor)).toBeUndefined();
+    expect(await appleLogoFromData(pngOfSize(8, 8), pass.brandColor)).toBeUndefined(); // too small
+    expect(await appleLogoFromData("data:image/png;base64,not-base64!", pass.brandColor)).toBeUndefined();
+    const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
+    const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
+    expect(await appleLogoFromData(darkLogo, "#1F4D3A")).toBeUndefined(); // too faint on Waldgrün: the pass shows the name instead
   });
 
   it("derives a versioned merchant PNG URL for Google only with an explicitly enabled HTTPS asset origin", () => {

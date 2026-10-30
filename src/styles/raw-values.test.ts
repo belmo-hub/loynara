@@ -13,7 +13,7 @@ const tokens = new Set([...readFileSync(join(__dirname, "tokens.css"), "utf8").m
 // The wallet-pass mocks picture Apple's and Google's passes at a reduced scale, so they follow the platforms.
 const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-row:first-child .ow-pass-field b", ".ow-pass-title", ".ow-pass-field small",
   ".ow-pass-field b", ".ow-pass-primary b", ".ow-pass-logo", ".ow-pass-codewrap", ".ow-pass-code", ".ow-pass-alt", ".ow-pass-module", ".ow-pass-module small",
-  ".ow-pass-issuer img", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
+  ".ow-pass-issuer img", ".ow-pass-mark", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
 
