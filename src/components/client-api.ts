@@ -4,15 +4,38 @@ export class ClientApiError extends Error {
   constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number) { super(message); }
 }
 
+// Server codes whose `error` text is German copy written for the page; every other server text is a diagnostic (often
+// English) and never reaches the UI. A code goes on this list only when every message the server sends with it is German.
+const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_ONBOARDED", "AUTHENTICATION_REQUIRED", "BILLING_START_TIME", "CARD_EXISTS",
+  "CHANGE_PENDING", "CHOICE_REQUIRED", "CONFIRM_REQUIRED", "EXPORT_CLOSED", "INVALID_BIRTHDAY", "INVALID_END_DATE", "INVALID_LEVELS", "INVALID_RECOVERY",
+  "INVALID_TEMPLATE", "INVALID_UNSUBSCRIBE", "NO_REACH", "OWNER_INVITE_OPEN", "PLATE_UNLINKED", "PUSH_DEVICE_IN_USE", "PUSH_UNAVAILABLE",
+  "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED", "TEMPLATE_IN_USE",
+  // German in the programme settings; contact verification sends it in English, but that page shows its own state instead.
+  "INVALID_CHALLENGE"]);
+
+export const LOGO_INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.";
+
+/** What a failed request says on the page: by code where the server's text is German or the code has its own words, else by status. */
+export function failureText(status: number, code?: string, serverText?: string): string {
+  if (status === 429 && code === "RATE_LIMIT") return "Zu viele Anfragen. Bitte warte kurz und versuche es erneut.";
+  if (code === "INVALID_LOGO") return LOGO_INVALID;
+  if (code && serverText && GERMAN_SERVER_TEXT.has(code)) return serverText;
+  if (status === 401) return "Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.";
+  if (status === 403) return "Dafür fehlt dir die Berechtigung.";
+  if (status === 404) return "Das gibt es nicht mehr. Bitte lade die Seite neu.";
+  if (status === 409) return "Das hat sich gerade geändert. Bitte lade die Seite neu und versuche es erneut.";
+  if (status === 429) return "Zu viele Anfragen. Bitte warte kurz und versuche es erneut.";
+  if (status >= 500) return "Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal.";
+  return "Bitte prüfe deine Eingaben und speichere erneut.";
+}
+
 export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try { response = await fetch(url, { credentials: "same-origin", cache: "no-store", ...init }); }
   catch { throw new ClientApiError(0, "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut."); }
   const result = await response.json().catch(() => null) as (T & { error?: string; message?: string; code?: string }) | null;
   if (!response.ok) {
-    const text = response.status === 429 && result?.code === "RATE_LIMIT"
-      ? "Zu viele Anfragen. Bitte warte kurz und versuche es erneut."
-      : result?.message || result?.error || `Anfrage fehlgeschlagen (${response.status}).`;
+    const text = result?.message || failureText(response.status, result?.code, result?.error);
     const retry = response.headers.get("retry-after");
     const delay = retry ? (/^\d+$/.test(retry.trim()) ? Number(retry) * 1000 : Date.parse(retry) - Date.now()) : NaN;
     const retryAfterMs = Number.isFinite(delay) && delay > 0 ? delay : undefined;
@@ -31,9 +54,19 @@ export function newRequestId() {
   return crypto.randomUUID();
 }
 
+// The first bytes of each logo type the server accepts (merchant-brand.ts checks the same, and the same 2,000,000-byte limit).
+const LOGO_MAGIC: Record<string, (head: Uint8Array) => boolean> = {
+  "image/png": head => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, i) => head[i] === byte),
+  "image/jpeg": head => head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff,
+  "image/webp": head => String.fromCharCode(...head.slice(0, 4)) === "RIFF" && String.fromCharCode(...head.slice(8, 12)) === "WEBP",
+};
+
+/** Checked when the file is picked: a file over the server's limit, or one whose contents are not its claimed type (a renamed JPEG), fails here. */
 export async function imageToDataUrl(file: File): Promise<string> {
-  if (!(["image/png", "image/jpeg", "image/webp"].includes(file.type))) throw new Error("Bitte ein PNG-, JPG- oder WebP-Bild wählen.");
-  if (file.size > 2 * 1024 * 1024) throw new Error("Das Logo darf höchstens 2 MB groß sein.");
+  const matches = LOGO_MAGIC[file.type];
+  if (!matches) throw new Error("Bitte ein PNG-, JPG- oder WebP-Bild wählen.");
+  if (file.size > 2_000_000) throw new Error("Das Logo darf höchstens 2 MB groß sein. Verkleinere es und wähle es noch einmal.");
+  if (!matches(new Uint8Array(await file.slice(0, 12).arrayBuffer()))) throw new Error(LOGO_INVALID);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Das Logo konnte nicht gelesen werden."));

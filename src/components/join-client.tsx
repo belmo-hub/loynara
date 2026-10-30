@@ -191,7 +191,7 @@ export function JoinClient({ slug }: { slug: string }) {
         </>;
       })()}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} onSubmit={submit} noValidate>
         <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
         {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
         {error && <p className={styles.error} role="alert">{error}</p>}

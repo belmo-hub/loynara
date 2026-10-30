@@ -10,6 +10,7 @@ import { ClientApiError, postJson } from "@/components/client-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { useFormCheck } from "@/components/ui/form-check";
 import { TextField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
@@ -114,6 +115,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
   const [startFor, setStartFor] = useState<string | null>(null);
   // § 14 UStG: the invoice recipient's full name and address, recorded at go-live and sent to Stripe.
+  const fields = useFormCheck();
   const [recipient, setRecipient] = useState({ name: "", line1: "", postalCode: "", city: "", email: "" });
   const openStart = (b: Billing) => { setStartFor(b.tenantId); setRecipient({ name: b.ownerName ?? "", line1: "", postalCode: "", city: b.city ?? "", email: b.ownerEmail ?? "" }); setError(""); };
   async function startBilling(tenantId: string) {
@@ -164,6 +166,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   }
   async function createShop(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!fields.check(event.currentTarget)) return;
     const element = event.currentTarget, form = new FormData(element);
     const text = (key: string) => String(form.get(key) ?? "").trim();
     if (await shop({ action: "create", businessName: text("businessName"), ...(text("locationName") ? { locationName: text("locationName") } : {}), city: text("city"), country: text("country"), timezone: text("timezone"), ownerEmail: text("ownerEmail") }, text("businessName"))) element.reset();
@@ -175,13 +178,13 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
 
     <Card as="section" aria-labelledby="op-new">
       <CardHeader id="op-new" title="Neues Geschäft" description="Legt Geschäft und Standort an und erstellt eine Einladung für die Inhaberin oder den Inhaber. Sie gilt 7 Tage und nur einmal. Das Passwort wählt die Person selbst." />
-      <form onSubmit={createShop} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
-        <TextField label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
-        <TextField label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
-        <TextField label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
+      <form onSubmit={createShop} onInput={fields.onInput} noValidate style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
+        <TextField id="op-1" error={fields.error("op-1")} label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
+        <TextField id="op-2" error={fields.error("op-2")} label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
+        <TextField id="op-3" error={fields.error("op-3")} label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
         <Select label="Land" name="country" defaultValue="DE"><option value="DE">Deutschland</option><option value="MA">Marokko</option></Select>
         <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
-        <TextField label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
+        <TextField id="op-4" error={fields.error("op-4")} label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
         {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
         <Button type="submit" block loading={busy}>Geschäft anlegen und einladen</Button>
       </form>
@@ -228,13 +231,13 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
               : <div><Button variant="quiet" onClick={() => setEndFor(b.tenantId)}>Gekündigt im kostenlosen Monat</Button></div>) : null}</div>
             : b.started ? null
               : startFor === b.tenantId
-                ? <form style={{ display: "grid", gap: 8 }} onSubmit={event => { event.preventDefault(); void startBilling(b.tenantId); }}>
+                ? <form style={{ display: "grid", gap: 8 }} onInput={fields.onInput} noValidate onSubmit={event => { event.preventDefault(); if (fields.check(event.currentTarget)) void startBilling(b.tenantId); }}>
                   <p className="ow-muted">Rechnungsempfänger (wie in der Pilotvereinbarung):</p>
-                  <TextField label="Name" value={recipient.name} onChange={event => setRecipient(r => ({ ...r, name: event.target.value }))} required autoComplete="off" />
-                  <TextField label="Straße und Hausnummer" value={recipient.line1} onChange={event => setRecipient(r => ({ ...r, line1: event.target.value }))} required autoComplete="off" />
-                  <TextField label="Postleitzahl" value={recipient.postalCode} onChange={event => setRecipient(r => ({ ...r, postalCode: event.target.value }))} required inputMode="numeric" pattern="\d{5}" autoComplete="off" />
-                  <TextField label="Ort" value={recipient.city} onChange={event => setRecipient(r => ({ ...r, city: event.target.value }))} required autoComplete="off" />
-                  <TextField label="E-Mail für Rechnungen" type="email" value={recipient.email} onChange={event => setRecipient(r => ({ ...r, email: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-5" error={fields.error("op-5")} label="Name" value={recipient.name} onChange={event => setRecipient(r => ({ ...r, name: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-6" error={fields.error("op-6")} label="Straße und Hausnummer" value={recipient.line1} onChange={event => setRecipient(r => ({ ...r, line1: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-7" error={fields.error("op-7")} label="Postleitzahl" value={recipient.postalCode} onChange={event => setRecipient(r => ({ ...r, postalCode: event.target.value }))} required inputMode="numeric" pattern="\d{5}" autoComplete="off" />
+                  <TextField id="op-8" error={fields.error("op-8")} label="Ort" value={recipient.city} onChange={event => setRecipient(r => ({ ...r, city: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-9" error={fields.error("op-9")} label="E-Mail für Rechnungen" type="email" value={recipient.email} onChange={event => setRecipient(r => ({ ...r, email: event.target.value }))} required autoComplete="off" />
                   {error ? <p role="alert">{error}</p> : null}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button type="submit" loading={busy}>Heute starten bestätigen</Button><Button type="button" variant="quiet" onClick={() => setStartFor(null)}>Zurück</Button></div>
                 </form>
@@ -254,7 +257,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
       {withoutCode.length ? <Button variant="secondary" block loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
-      <form onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
+      <form noValidate onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
         <TextField label="Plattenname" placeholder="P-007" value={typed} onChange={event => setTyped(event.target.value)} autoCapitalize="characters" autoComplete="off" style={{ flex: 1 }} />
         <Button type="submit" variant="secondary">Öffnen</Button>
       </form>
