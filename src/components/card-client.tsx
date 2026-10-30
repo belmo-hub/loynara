@@ -11,26 +11,10 @@ import { CardBirthday } from "./card-birthday";
 import { CardWalletMessages } from "./card-wallet-messages";
 import { Button } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
-import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
+import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform } from "./wallet-preparation";
 import { cardChanges } from "@/lib/change-lines";
 
 type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable"; appleReAdd?: boolean };
-
-function walletPlatform(): "ios" | "android" | "other" {
-  const agent = navigator.userAgent;
-  if (/iPhone|iPod/.test(agent) || (/iPad|Macintosh/.test(agent) && navigator.maxTouchPoints > 1)) return "ios";
-  return /Android/.test(agent) ? "android" : "other";
-}
-
-function walletMessage(cause: unknown, french: boolean): string {
-  const code = cause instanceof ClientApiError ? cause.code : undefined;
-  const status = cause instanceof ClientApiError ? cause.status : -1;
-  if (status === 0) return french ? "Pas de connexion. Vérifiez votre connexion Internet et réessayez." : "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.";
-  if (code === "RATE_LIMIT") return french ? "Trop de tentatives. Patientez un instant puis réessayez." : "Zu viele Versuche. Bitte warte kurz und versuche es dann erneut.";
-  if (code === "NOT_FOUND") return french ? "Ce lien de carte n’est plus valable. Ouvrez votre lien de carte actuel." : "Dieser Kartenlink gilt nicht mehr. Öffne deinen aktuellen Kartenlink.";
-  if (code === "WALLET_UNAVAILABLE") return french ? "Wallet n’est pas disponible pour le moment. Votre carte fonctionne toujours ici, dans le navigateur." : "Wallet ist gerade nicht verfügbar. Deine Karte funktioniert weiterhin hier im Browser.";
-  return french ? "Wallet est momentanément injoignable. Réessayez dans quelques minutes ; votre carte fonctionne toujours ici." : "Wallet ist gerade nicht erreichbar. Bitte versuche es in ein paar Minuten erneut; deine Karte funktioniert weiterhin hier.";
-}
 
 /** Never re-read the card more often than this when the guest comes back to the page. */
 const REFRESH_INTERVAL_MS = 5_000;
