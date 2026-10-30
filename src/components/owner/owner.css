@@ -16,7 +16,7 @@
   -webkit-text-size-adjust: 100%;
 }
 .owner-app *, .owner-app *::before, .owner-app *::after { box-sizing: border-box; }
-.owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .owner-app h1, .owner-app h2, .owner-app h3 { font-family: inherit; letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--color-ink); }
 .owner-app p { margin: 0; }
 .owner-app small { font-size: var(--text-14); } /* browsers shrink <small> to 12.8 px */
@@ -31,7 +31,8 @@
 .ow-nav { display: flex; flex-direction: column; gap: 2px; }
 .ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-nav a:hover { background: var(--color-fill); color: var(--color-ink); }
-.ow-nav a[aria-current="page"] { background: var(--color-action); color: var(--color-on-action); }
+/* Where you are is not the next step: the neutral fill, ink, no green (Design, 30 Oct). */
+.ow-nav a[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-nav svg { flex: none; }
 .ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
@@ -63,7 +64,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
 .ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
 .ow-subnav a:hover { color: var(--color-ink); }
-.ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-action); }
+.ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
 
 @media (max-width: 1023px) {
   .ow-shell { grid-template-columns: minmax(0, 1fr); }
@@ -104,7 +105,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
     text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform var(--dur-press) var(--ease-out), color var(--dur-press);
   }
-  .ow-tab[aria-current="page"] { color: var(--color-action); }
+  .ow-tab[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); }
   .ow-tab:active { transform: scale(.97); }
   .ow-topbar .ow-btn--sm { flex: none; }
 }
@@ -128,7 +129,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 /* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
-.ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
+.ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
 .ow-btn--ghost:disabled { background: transparent; }
 .ow-btn--primary { background: var(--color-action); color: var(--color-on-action); }
 .ow-btn--primary:hover:not(:disabled) { background: var(--color-action-hover); }
@@ -144,12 +145,16 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-chip--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
 .ow-chip--warn { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
 .ow-chip--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
-.ow-chip--info { background: var(--color-action-soft); color: var(--color-ink); }
+.ow-chip--info { background: var(--color-fill); color: var(--color-ink); }
 .ow-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-action-soft); color: var(--color-ink); }
-.ow-notice--warn { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
+/* A notice is a white panel with a muted icon; only real success, warnings and errors carry a status colour. */
+.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
+.ow-notice > span:first-child { color: var(--color-ink-muted); }
+:is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: var(--color-fill); }
+.ow-notice--warn > span:first-child, .ow-notice--warn strong { color: var(--color-warning); }
 .ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
 .ow-notice--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
+.ow-notice:is(.ow-notice--danger, .ow-notice--ok) > span:first-child { color: inherit; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .ow-muted { color: var(--color-ink-muted); }
 .ow-num { font-variant-numeric: tabular-nums; }
@@ -185,8 +190,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
 .ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
-.ow-radio-card:has(input:checked) { border-color: var(--color-action); background: var(--color-action-soft); }
-.ow-radio-card:has(input:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-radio-card:has(input:checked) { border-color: var(--color-ink); background: var(--color-fill); }
+.ow-radio-card:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-radio-card input { margin-top: 3px; accent-color: var(--color-action); width: 18px; height: 18px; flex: none; }
 .ow-radio-card strong { display: block; }
 .ow-radio-card span { color: var(--color-ink-muted); font-size: var(--text-14); }
@@ -201,24 +206,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-metric-value--muted { color: var(--color-ink-muted); font-size: var(--text-22); }
 .ow-metric-note { font-size: var(--text-14); color: var(--color-ink-muted); }
 
-/* Checklist */
-.ow-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.ow-step { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
-.ow-step:first-child { border-top: 0; }
-.ow-step-mark { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--color-line-strong); font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); }
-.ow-step[data-done="true"] .ow-step-mark { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
-.ow-step[data-next="true"] .ow-step-mark { border-color: var(--color-stamp); color: var(--color-ink); }
-.ow-step-title { font-weight: 700; }
-.ow-step-note { font-size: var(--text-14); color: var(--color-ink-muted); }
-@media (max-width: 560px) { .ow-step { grid-template-columns: 32px minmax(0, 1fr); } .ow-step > :last-child { grid-column: 2; justify-self: start; } }
-
 /* Overview layout */
 .ow-two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
 @media (max-width: 900px) { .ow-two { grid-template-columns: minmax(0, 1fr); } }
-.ow-action { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); background: var(--color-raised); }
-.ow-action--lead { border-color: var(--color-action); background: var(--color-action-soft); }
-.ow-action h3 { font-size: var(--text-16); }
-.ow-action p { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-feed { list-style: none; margin: 0; padding: 0; }
 .ow-feed li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
 .ow-feed li:first-child { border-top: 0; }
@@ -345,10 +335,10 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* Stepper */
 .ow-stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 6px; border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: 600; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-stepper li[aria-current="step"] { color: var(--color-ink); border-color: var(--color-action); background: var(--color-action-soft); }
+.ow-stepper li[aria-current="step"] { color: var(--color-ink); border-color: var(--color-ink); background: var(--color-fill); }
 .ow-stepper li[data-done="true"] { color: var(--color-ink-muted); }
 .ow-stepper-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--color-fill); font-size: var(--text-14); font-weight: 700; }
-.ow-stepper li[aria-current="step"] .ow-stepper-n, .ow-stepper li[data-done="true"] .ow-stepper-n { background: var(--color-action); color: var(--color-on-action); }
+.ow-stepper li[aria-current="step"] .ow-stepper-n, .ow-stepper li[data-done="true"] .ow-stepper-n { background: var(--color-ink); color: var(--color-bg); }
 .owner-app h1[tabindex="-1"]:focus, .owner-app main[tabindex="-1"]:focus { outline: none; box-shadow: none; }
 .ow-bare .ow-topbar { padding-inline: var(--space-6); }
 
@@ -377,7 +367,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (max-width: 1280px) { .ow-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ow-goals { grid-template-columns: minmax(0, 1fr); } }
 .ow-goal { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
-.ow-goal:hover { border-color: var(--color-action); transform: translateY(-1px); }
+.ow-goal:hover { border-color: var(--color-ink); transform: translateY(-1px); }
 .ow-goal strong { font-size: var(--text-16); }
 .ow-goal span:not(.ow-link) { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-mail { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-fill); }
@@ -426,7 +416,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* Below 360 px the icons give their room to the words. */
 @media (max-width: 359px) { .ow-prog-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
-.ow-back { display: inline-flex; align-items: center; gap: 2px; min-height: var(--target); margin-left: -6px; padding-right: var(--space-2); font-weight: var(--weight-strong); color: var(--color-action); }
+.ow-back { display: inline-flex; align-items: center; gap: 2px; min-height: var(--target); margin-left: -6px; padding-right: var(--space-2); font-weight: var(--weight-strong); color: var(--color-ink); }
+.ow-back:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* „Gespeichert“ after a row's page saved: one toast above the bottom bar; the region keeps role="status" so it is read out. */
 .ow-toast-region { position: fixed; inset: auto 0 calc(var(--ow-tabbar) + var(--space-6)); z-index: var(--z-toast); display: flex; justify-content: center; padding-inline: var(--space-4); pointer-events: none; }
 @media (min-width: 1024px) { .ow-toast-region { left: var(--ow-sidebar); bottom: var(--space-6); } }
@@ -452,7 +443,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-check input[role="switch"]:checked { background: var(--color-action); }
 .ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
 .ow-check input[role="switch"]:disabled { background: var(--color-line); cursor: not-allowed; }
-.ow-check input[role="switch"]:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-check input[role="switch"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .ow-check input[role="switch"], .ow-check input[role="switch"]::before { transition: none; } }
 
 /* Ergebnisse (ENG-122b): heads on the grey over the Übersicht's rows; the period's weeks drawn with the strip's parts. */
@@ -486,15 +477,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-next .ow-eyebrow { margin: 0; color: var(--color-accent-text); }
 .ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
-.ow-filebtn:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-filebtn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-swatches + .ow-colorrow { margin-top: var(--space-2); }
-@media (max-width: 560px) { .ow-step .ow-btn--ghost { padding-inline: 0; justify-self: start; } }
-.ow-readiness-group + .ow-readiness-group { margin-top: var(--space-4); }
-.ow-readiness-group h3 { font-size: var(--text-16); margin: 0; }
-.ow-step-mark--external { border-style: dashed; }
-.ow-step-mark--na { border-color: var(--color-line); }
-.ow-step-mark--todo { border-color: var(--color-line-strong); }
-details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
 
 /* Retention: insight list (overview). */
 .ow-insights { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
@@ -541,7 +525,7 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 @media (max-width: 359px) { .ow-band-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-band { transition: none; } a.ow-band:active, button.ow-band:active { transform: none; } }
 
-/* The overview card: white (surface), ink numbers; the bars are a light tint of the action green, yesterday in full. */
+/* The overview card: white (surface), ink numbers; the bars are an ink tint, yesterday in full ink (green is the band's). */
 .ow-board { background: var(--color-surface); color: var(--color-ink); border-radius: var(--radius-lg); padding: var(--space-4); }
 .ow-board-kicker, .ow-board-sub, .ow-board-legend, .ow-strip-cap { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-board-big { margin: var(--space-1) 0; font: var(--weight-heavy) var(--display-num)/1.1 var(--font-display); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
@@ -555,8 +539,8 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ow-strip { margin-top: var(--space-4); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
 .ow-strip-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: var(--space-1); height: 100%; min-width: 0; }
 .ow-strip-n { font-size: var(--text-14); font-weight: var(--weight-strong); }
-.ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: color-mix(in oklab, var(--color-action) 25%, var(--color-surface)); }
-.ow-strip-bar[data-lit] { background: var(--color-action); }
+.ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: color-mix(in oklab, var(--color-ink) 40%, var(--color-surface)); }
+.ow-strip-bar[data-lit] { background: var(--color-ink); }
 .ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-line-strong); }
 /* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
 .ow-strip-d { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
@@ -566,8 +550,8 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
 
 .ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: 3px; height: 14px; }
-.ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-action); }
-.ow-stock span[data-kind="drifting"] { background: color-mix(in oklab, var(--color-action) 25%, var(--color-surface)); }
+.ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-ink); }
+.ow-stock span[data-kind="drifting"] { background: color-mix(in oklab, var(--color-ink) 40%, var(--color-surface)); }
 .ow-stock span[data-kind="never"] { background: none; border: 1px solid var(--color-line-strong); }
 .ow-board-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 
@@ -589,10 +573,10 @@ div.ow-prog-row:active { transform: none; }
 .ow-diary h2 { margin-bottom: var(--space-2); }
 .ow-day { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-5); }
 .ow-day-rail { display: flex; flex-direction: column; align-items: center; }
-.ow-day-rail i { width: 12px; height: 12px; margin-top: 6px; border-radius: var(--radius-pill); background: var(--color-action); }
+.ow-day-rail i { width: 12px; height: 12px; margin-top: 6px; border-radius: var(--radius-pill); background: var(--color-ink-muted); }
 .ow-day-rail span { flex: 1; width: 2px; margin-top: 6px; background: var(--color-line); }
 .ow-day[data-gap] .ow-day-rail i, .ow-day[data-state="open"] .ow-day-rail i { background: none; border: 2px solid var(--color-line-strong); }
-.ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-action); }
+.ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-ink); }
 /* The first-steps rail tells done, current and open apart by shape, not only colour. */
 .ow-day[data-state] .ow-day-rail i { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 4px; color: var(--color-on-action); }
 .ow-day[data-state="current"] .ow-day-rail i { border-width: 4px; }
@@ -602,7 +586,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-day-sum { margin: 2px 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .ow-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
-.ow-pill b { color: var(--color-success); }
+.ow-pill b { color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-pill[data-kind="correction"] b { color: var(--color-ink-muted); }
 /* The redeemed reward is the one coral element on the screen (spec §4.2). */
 .ow-pill[data-kind="redemption"] { border-color: var(--color-stamp); }
@@ -622,7 +606,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
 .ow-number button:hover:not(:disabled) { background: var(--color-fill); }
 .ow-number button:active:not(:disabled) { transform: scale(.97); }
-.ow-number button:disabled { box-shadow: inset 0 0 0 1.5px var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
+.ow-number button:disabled { box-shadow: inset 0 0 0 1.5px var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
 .ow-number-value { display: inline-flex; align-items: baseline; justify-content: center; gap: var(--space-1); min-width: 6.5rem; font-size: var(--text-18); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-2)); height: var(--target); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: end; }
 .ow-number-value span { font-size: var(--text-16); font-weight: var(--weight-label); }
@@ -652,7 +636,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-qstep { display: grid; gap: var(--space-2); margin: 2px 0 var(--space-1); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qbar { display: flex; gap: 6px; }
 .ow-qbar i { flex: 1; height: 5px; border-radius: var(--radius-pill); background: var(--color-line); }
-.ow-qbar i[data-on] { background: var(--color-action); }
+.ow-qbar i[data-on] { background: var(--color-ink); }
 .ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
 .ow-qpanel { padding: 14px var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
 .ow-qpanel.ow-field > label { color: var(--color-ink-muted); }
@@ -695,19 +679,18 @@ div.ow-prog-row:active { transform: none; }
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
 .ow-qchoice { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: var(--space-3) 14px; border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
-.ow-qchoice:has(:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
-/* The picked answer is DESIGN.md's selected row in both themes: soft fill, a 2 px action ring, ink text, and a check at the
-   row's end, so the choice never rests on colour alone; the button stays the one solid green (Design, 28 Oct). */
-.ow-qchoice:has(:checked) { background: var(--color-action-soft); box-shadow: inset 0 0 0 2px var(--color-action); }
+/* The picked answer is DESIGN.md's selected row in both themes: the neutral fill, a 2 px ink ring and an ink check at the
+   row's end, so the choice never rests on colour alone; the button stays the one solid green (Design, 30 Oct). */
+.ow-qchoice:has(:checked) { background: var(--color-fill); box-shadow: inset 0 0 0 2px var(--color-ink); }
 .ow-qchoice:has(:checked) .ow-prog-icon { background: var(--color-surface); }
-.ow-qchoice-check { flex: none; margin-left: auto; color: var(--color-action); }
+.ow-qchoice-check { flex: none; margin-left: auto; color: var(--color-ink); }
 @media (hover: hover) { .ow-qchoice:not(:has(:checked)):hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
 @media (prefers-reduced-motion: reduce) { .ow-qchoice:active { transform: none; } }
 .ow-qswitch { justify-content: space-between; min-height: 64px; font-weight: var(--weight-body); }
-/* The whole row is the switch's target, so the focus ring goes round the row, as on the answer rows. */
-.ow-qswitch:has(:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-.ow-qswitch input[role="switch"]:focus-visible { outline: none; }
+/* The ring goes on the switch, not round the white row: a ringed row reads as picked (Design, 30 Oct). */
+.ow-qswitch:has(:focus-visible) { outline: none; }
 .ow-qcontrol { display: grid; gap: var(--space-2); }
 .ow-qcontrol > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
 .ow-qcontrol :is(label, .ow-label) { font-size: var(--text-16); font-weight: var(--weight-strong); }
@@ -719,12 +702,12 @@ div.ow-prog-row:active { transform: none; }
 .ow-qmoney .ow-input { min-height: 56px; padding-right: var(--space-10); font-size: var(--text-22); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .ow-qmoney span { position: absolute; top: 50%; right: var(--space-4); transform: translateY(-50%); font-size: var(--text-22); font-weight: var(--weight-strong); pointer-events: none; }
 /* A text action under the answer: „Vorteile pro Level“ opens more fields, „Neuigkeit entfernen“ saves at once. */
-.ow-qlink { display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-action); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
+.ow-qlink { display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
 .ow-qlink[data-danger] { color: var(--color-danger); text-decoration: none; }
 .ow-qlink svg { flex: none; transition: transform var(--dur-ui) var(--ease-out); }
 .ow-qlink[aria-expanded="true"] svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .ow-qlink svg { transition: none; } }
-.ow-qlink:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.ow-qlink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 /* The rule questions (14, 33) and their review (34, 35): the rule keeps its line breaks, as on the card and the sign-up page. */
 .ow-qpanel .ow-textarea { field-sizing: content; }
 .ow-qrule { display: block; margin-bottom: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -842,7 +825,7 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-qwhen svg { flex: none; color: var(--color-warning); }
 /* A confirmation's two answers at the thumb (Programm 28/30): the destructive one filled, „Abbrechen“ under it. */
 .ow-qsave--pair { display: grid; gap: var(--space-2); }
-.ow-qsave .ow-btn--danger:not(:disabled) { background: var(--color-danger); border-color: transparent; color: var(--color-on-action); }
+.ow-qsave .ow-btn--danger:not(:disabled) { background: var(--color-danger); border-color: transparent; color: var(--color-on-danger); }
 @media (max-width: 1023px) { .ow-content:has(.ow-qsave--pair) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); } }
 /* Team, Abrechnung, Empfehlungen: the band's arrow, a back step inside a page, the price card's note, a price per month. */
 .ow-band-arrow { flex: none; }

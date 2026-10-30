@@ -39,26 +39,28 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-raised` | #FFFFFF | #1D2923 | inputs, tickets, menus |
 | `--color-ink` | #17291F | #E9EFEA | primary text |
 | `--color-ink-muted` | #58645C | #A6B3AA | secondary text (≥ 5.5:1) |
+| `--color-ink-faint` | #76827A | #7F8E85 | disabled and least important text (≥ 3:1) |
 | `--color-line` | #DCE0D6 | #2B3A32 | dividers (decorative) |
 | `--color-line-strong` | #7A867D | #6B7B71 | input and control borders (≥ 3:1) |
-| `--color-action` | #245D47 | #9FD3B5 | primary buttons, links, selection |
+| `--color-action` | #245D47 | #9FD3B5 | the one solid green per screen (band or primary button), links, switch on-tracks |
 | `--color-action-hover` | #143D2E | #B9E2CA | hover |
 | `--color-on-action` | #FFFFFF | #0F1713 | text on action |
-| `--color-action-soft` | #E6EEDF | #22352B | quiet fills, selected rows |
-| `--color-fill` | 7 % ink | 7 % ink | neutral badge, hover fills, segmented track, skeleton |
+| `--color-action-soft` | #E6EEDF | #22352B | icon tiles |
+| `--color-fill` | 7 % ink | 7 % ink | nav active, selected rows, neutral badge, hover fills, segmented track, skeleton |
 | `--color-accent-text` | #9E4B2D | #E8A58A | kickers ("Als Nächstes"), warm emphasis |
 | `--color-stamp` | #E9895F | #E9895F | earned stamps, reward markers (decorative) |
 | `--color-on-stamp` | #17291F | #17291F | check marks and counts on a coral stamp (≥ 4.5:1) |
 | `--color-success` | #1F6B45 | #8FD1A8 | confirmed booking, "+1" |
-| `--color-danger` | #A3321E | #F08F7A | errors, destructive |
+| `--color-danger` | #A3321E | #FF6B6B | errors, destructive, always with the alert icon (ΔE > 20 from stamp) |
+| `--color-on-danger` | #FFFFFF | #0F1713 | text on a danger fill |
 | `--color-warning` | #8A5A00 | #F2C14E | offline queue, pending |
-| `--color-focus` | #2E7D5B | #9FD3B5 | focus ring (3 px, 2 px offset) |
+| `--color-focus` | #17291F | #E8ECEA | focus ring (2 px, 2 px offset) |
 
 Status chips and notices set the status colour as text on a 10 % fill of itself
 (`color-mix(in oklab, var(--color-success), transparent 90%)`), in the shared Badge and in the dashboard alike.
 
 Contrast pairs asserted by `src/styles/tokens.test.ts`: ink, ink-muted, accent-text, success, danger and warning on
-bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1);
+bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, ink-faint, action and focus on surface (≥ 3:1); danger at ΔE*ab > 20 from stamp;
 each status colour on its fill and ink-muted on `--color-fill`, with the shares read from badge.module.css,
 owner.css and tokens.css themselves, over every ground (≥ 4.5:1).
 

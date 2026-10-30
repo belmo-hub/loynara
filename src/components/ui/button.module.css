@@ -14,7 +14,7 @@
 .primary { background: var(--color-action); color: var(--color-on-action); }
 .secondary { background: transparent; border-color: var(--color-line-strong); color: var(--color-ink); }
 .quiet { background: transparent; color: var(--color-action); padding-inline: var(--space-3); }
-.danger { background: var(--color-danger); color: var(--color-raised); }
+.danger { background: var(--color-danger); color: var(--color-on-danger); }
 .go { background: var(--color-success); color: var(--color-raised); border-radius: var(--radius-lg); }
 @media (hover: hover) and (pointer: fine) {
   .primary:hover:not(:disabled) { background: var(--color-action-hover); }

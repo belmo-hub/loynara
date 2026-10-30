@@ -16,5 +16,5 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
    the value is the dark --color-bg from tokens.css. */
 :root:has(.ly-theme-dark) body { background-color: #0F1713; }
 @media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) body { background-color: #0F1713; } }
-::selection { background: color-mix(in oklab, var(--color-stamp), transparent 55%); color: var(--color-ink); }
+::selection { background: color-mix(in oklab, var(--color-ink) 18%, transparent); color: var(--color-ink); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
