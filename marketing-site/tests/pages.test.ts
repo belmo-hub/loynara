@@ -33,8 +33,8 @@ test('price comes from the single source and the break-even line is plain arithm
   const src = readFileSync(resolve(import.meta.dirname, '../src/pages.ts'), 'utf8');
   assert.ok(!/(?<![#\d,.])\b39\b(?![\d,.;])/.test(src), 'the fee is never hard-coded in pages.ts');
   assert.equal(visitsToCoverFee(25), Math.ceil(SITE.price.amount / 25));
-  assert.match(visible(subPage(barber)), new RegExp(`Bei rund 25 € pro Haarschnitt entspricht das etwa ${visitsToCoverFee(25)} zusätzlichen Besuchen im Monat\\.`));
-  assert.match(visible(subPage(pizzeria)), new RegExp(`Bei rund 18 € pro Bestellung entspricht das etwa ${visitsToCoverFee(18)} zusätzlichen Besuchen im Monat\\.`));
+  assert.match(visible(subPage(barber)), new RegExp(`Bei rund 25 € pro Haarschnitt entsprechen 49 € etwa ${visitsToCoverFee(25)} zusätzlichen Besuchen im Monat\\.`));
+  assert.match(visible(subPage(pizzeria)), new RegExp(`Bei rund 18 € pro Bestellung entsprechen 49 € etwa ${visitsToCoverFee(18)} zusätzlichen Besuchen im Monat\\.`));
   for (const { p, text } of pages) {
     assert.match(text, new RegExp(`${SITE.price.amount} € / Monat / Standort`), p.path);
     if (p !== referrals) assert.match(text, /Rechenbeispiel, keine Prognose\. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt\./, p.path);
