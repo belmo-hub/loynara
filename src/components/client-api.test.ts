@@ -20,7 +20,7 @@ it("never shows the server's English diagnostics (ENG-135)", async () => {
   reply("Program not found", 404, "NOT_FOUND");
   await expect(apiJson("/api/program/x")).rejects.toMatchObject({ status: 404, message: "Das haben wir nicht gefunden. Bitte lade die Seite neu." });
   reply("Invalid input", 400);
-  await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Das hat nicht geklappt. Prüfe deine Eingaben und versuche es noch einmal." });
+  await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Bitte prüfe deine Eingaben und versuche es noch einmal." });
   reply("Internal error", 500);
   await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal." });
   reply("Logo format does not match its contents", 400, "INVALID_LOGO");
@@ -48,5 +48,5 @@ it("keeps the server's German words for the codes that only send German", () => 
   // A locked NFC plate, a mistyped plate code, quiet hours, the pilot's NFC rule and a half-finished setup say what to do.
   for (const code of ["INVALID_ACTIVATION", "INVALID_CODE_FORMAT", "QUIET_HOURS", "TAP_AUTOMATIC_NOT_ALLOWED", "SETUP_INCOMPLETE", "END_DATE_TOO_EARLY", "MESSAGE_REFUSED"])
     expect(failureText(400, code, `Deutscher Text für ${code}.`)).toBe(`Deutscher Text für ${code}.`);
-  expect(failureText(400, "INVALID_CSV", "CSV has no header row")).toBe("Das hat nicht geklappt. Prüfe deine Eingaben und versuche es noch einmal.");
+  expect(failureText(400, "INVALID_CSV", "CSV has no header row")).toBe("Bitte prüfe deine Eingaben und versuche es noch einmal.");
 });

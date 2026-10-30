@@ -40,7 +40,7 @@ export function failureText(status: number, code?: string, serverText?: string, 
   if (status === 409) return "Das hat sich gerade geändert. Bitte lade die Seite neu und versuche es erneut.";
   if (status === 429) return "Zu viele Anfragen. Bitte warte kurz und versuche es erneut.";
   if (status >= 500) return "Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal.";
-  return "Das hat nicht geklappt. Prüfe deine Eingaben und versuche es noch einmal.";
+  return "Bitte prüfe deine Eingaben und versuche es noch einmal.";
 }
 
 export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
