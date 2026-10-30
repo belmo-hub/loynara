@@ -11,7 +11,8 @@ import { ErrorNotice, LoadingBlock, Notice, Skeleton } from "./owner-ui";
 import { ExtrasQuestion } from "./program-extras";
 import { EXTRA_RULES, QUESTIONS, type Question } from "./program-helpers";
 import { NewReward } from "./program-new-reward";
-import { RewardsCard } from "./program-rewards";
+import { RewardPage } from "./program-reward";
+import { ArchivedRewards, RewardOrder } from "./program-rewards";
 import { EarningQuestion, RuleQuestion } from "./program-rules";
 import { useBackToList } from "./question-form";
 import { TapPolicyCard } from "./tap-policy";
@@ -61,7 +62,7 @@ export function ProgramQuestion({ question }: { question: Question }) {
   return <ExtrasQuestion me={me} question={question} program={data} />;
 }
 
-/** A reward row's page (today's rewards card with that reward's form open), or „Prämie hinzufügen“ (reward "new"): three steps. */
+/** A reward row's page (03 and its steps, ENG-100), or „Prämie hinzufügen“ (reward "new"): three steps. */
 export function RewardQuestion({ reward }: { reward: string }) {
   const { me } = useOwner();
   const done = useBackToList();
@@ -70,7 +71,11 @@ export function RewardQuestion({ reward }: { reward: string }) {
   if (me.role !== "owner") return <Frame title="Prämien"><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
   if (program.state === "error") return <Frame title="Prämien"><ErrorNotice message={program.message} onRetry={reload} /></Frame>;
   if (program.state !== "ok") return <Frame><LoadingBlock /></Frame>;
+  if (reward === "archived") return <Frame title="Archivierte Prämien"><ArchivedRewards slug={me.programSlug} program={program.data} /></Frame>;
+  if (reward === "order") return <Frame title="Reihenfolge ändern"><RewardOrder slug={me.programSlug} program={program.data} onChanged={reload} /></Frame>;
   if (reward === "new") return <NewReward slug={me.programSlug} program={program.data} onSaved={rewardId => done(`/merchant/program/rewards/${rewardId}`)} />;
-  const title = program.data.rewards.find(item => item.rewardId === reward)?.title ?? "Prämien";
-  return <Frame title={title}><RewardsCard me={me} program={program.data} onChanged={reload} open={reward} onSaved={() => done()} /></Frame>;
+  const found = program.data.rewards.find(item => item.rewardId === reward);
+  // An archived reward (an old link) is no longer on the list: back to it.
+  if (!found) return <Frame title="Prämien"><Notice tone="warn">Diese Prämie gibt es nicht mehr.</Notice></Frame>;
+  return <RewardPage program={program.data} reward={found} slug={me.programSlug} />;
 }

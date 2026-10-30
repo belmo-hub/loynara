@@ -326,6 +326,8 @@ async function rewardCatalogue(reader: Pick<typeof db, "select">, tenantId: stri
   const rows = await reader.select({
     reward: rewards, version: rewardVersions, live: sql<boolean>`${sql.raw(liveReward("rewards", "now()"))}`,
     endsOn: sql<string | null>`CASE WHEN ${rewards.endsAt} > now() THEN ${localDay(sql`${rewards.endsAt}`)} END`,
+    /** The day a dated archive took effect (owner's „Archivierte Prämien“); null for archives from before ENG-100. */
+    endedOn: sql<string | null>`CASE WHEN ${rewards.endsAt} <= now() THEN ${localDay(sql`${rewards.endsAt}`)} END`,
     pending: sql<RewardChange | null>`(SELECT json_build_object('effectiveOn', ${localDay(sql`pv.effective_at`)}, 'title', pv.title, 'cost', pv.cost) FROM reward_versions pv
       WHERE pv.tenant_id = ${rewards.tenantId} AND pv.reward_id = ${rewards.id} AND pv.effective_at > now() AND ${sql.raw(notSuperseded("pv"))} ORDER BY pv.version DESC LIMIT 1)`,
   }).from(rewards)
@@ -378,7 +380,7 @@ export async function getMerchantRewards(input: { actorUserId: string; programSl
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
     return (await rewardCatalogue(tx, program.tenantId, program.id, false))
-      .map(({ reward, version, live, endsOn, pending }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: live, endsOn, pending }));
+      .map(({ reward, version, live, endsOn, endedOn, pending }) => ({ rewardId: reward.id, versionId: version.id, version: version.version, title: version.title, cost: version.cost, termsText: version.termsText, sortOrder: reward.sortOrder, active: live, endsOn, endedOn, pending }));
   });
 }
 
@@ -616,7 +618,9 @@ export async function getPublicProgram(slug: string) {
   if (!row) throw new DomainError("NOT_FOUND", "Program not found");
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;
-  return { businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(row.program, row.tenant), ownerRulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  // The day a change saved now would take effect (ENG-100, four weeks on, the shop's calendar), for the owner's screens before saving.
+  const noticeOn = new Intl.DateTimeFormat("en-CA", { timeZone: row.location.timezone }).format(new Date(Date.now() + 28 * 86_400_000));
+  return { noticeOn, businessName: row.tenant.name, locationName: row.location.name, programName: row.program.name, programType: row.program.type, earningMode: row.program.earningMode, pointsPerCurrencyUnit: row.program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(row.program, row.tenant), ownerRulesText: row.program.rulesText, rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

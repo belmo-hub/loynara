@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BadgePlus, CalendarCheck, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { Archive, ArrowRight, ArrowUpDown, BadgePlus, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, LoadingBlock, nf, PageHead } from "./owner-ui";
+import { cardDay } from "@/lib/change-lines";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
-type Row = { href: string; icon: LucideIcon; title: string; sub?: string; value?: string; big?: boolean; pair?: boolean; off?: boolean };
+type Row = { href: string; icon: LucideIcon; title: string; sub?: string; value?: string; big?: boolean; pair?: boolean; off?: boolean; /** ENG-100: a change waiting for its date (W29, W59). */ pending?: string };
 /** `referrals` is the latest referrals read (empty when it failed); only those waiting for review count. */
-export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean };
+export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean; /** Rewards no longer live (owner read). */ archived?: number };
 
 const ask = (question: Question) => ({ href: `/merchant/program/${question}`, title: QUESTIONS[question] });
 const off = (value: string) => ({ value, off: true });
@@ -29,8 +30,16 @@ export function quoteStart(text: string, max = 44) {
   return `„${flat.slice(0, cut > 0 ? cut : max)} …“`;
 }
 
+/** A reward row's chip while a change waits (W29, W59): the archive, a new cost (also with a new name), or a new name. */
+export function rewardChip(type: PublicProgram["programType"], reward: PublicProgram["rewards"][number]) {
+  if (reward.endsOn) return `Ab ${cardDay(reward.endsOn)} archiviert`;
+  if (!reward.pending) return undefined;
+  const day = cardDay(reward.pending.effectiveOn), cost = reward.pending.cost;
+  return cost !== reward.cost ? `Ab ${day}: ${nf.format(cost)} ${unitName(type, cost)}` : `Ab ${day}: neuer Name`;
+}
+
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
-export function programSections({ me, program, winback, referrals, nfc, logo }: ListData) {
+export function programSections({ me, program, winback, referrals, nfc, logo, archived = 0 }: ListData) {
   const type = program.programType, points = type === "points", referral = program.referral, rate = program.pointsPerCurrencyUnit;
   const reviews = referrals.filter(item => item.status === "review").length;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
@@ -41,8 +50,11 @@ export function programSections({ me, program, winback, referrals, nfc, logo }: 
   const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
-      ...program.rewards.map(reward => ({ href: `/merchant/program/rewards/${reward.rewardId}`, icon: Gift, title: reward.title, sub: `Einlösbar ab ${nf.format(reward.cost)} ${reward.cost === 1 ? unitName(type, 1) : unitDative(type)}` })),
+      ...program.rewards.map(reward => ({ href: `/merchant/program/rewards/${reward.rewardId}`, icon: Gift, title: reward.title, sub: `Einlösbar ab ${nf.format(reward.cost)} ${reward.cost === 1 ? unitName(type, 1) : unitDative(type)}`, pending: rewardChip(type, reward) })),
+      ...(program.rewards.length > 1 ? [{ href: "/merchant/program/rewards/order", icon: ArrowUpDown, title: "Reihenfolge ändern" }] : []),
       { href: "/merchant/program/rewards/new", icon: Plus, title: "Prämie hinzufügen" },
+      // Quiet, and only once a reward has been archived (Design): read-only, no restore.
+      ...(archived ? [{ href: "/merchant/program/rewards/archived", icon: Archive, title: "Archivierte Prämien", ...off(nf.format(archived)) }] : []),
     ] },
     { title: "So sammeln Kunden", rows: [
       ...(extras ? [...earning, rule] : [rule, ...earning]),
@@ -93,11 +105,12 @@ export function ProgramList({ me }: { me: MeResponse }) {
   const [program, reload] = useLoad<PublicProgram>(`/api/program/${slug}`);
   const [winback] = useLoad<Winback>(`/api/merchant/program/winback?programSlug=${slug}`);
   const [referrals] = useLoad<{ referrals: Array<{ status: string }> }>(`/api/merchant/referrals?programSlug=${slug}`);
+  const [stored] = useLoad<{ rewards: Array<{ active: boolean }> }>(`/api/merchant/program/rewards?programSlug=${slug}`);
   const [back] = useState(readReturn);
   const [toast, setToast] = useState(Boolean(back?.saved));
   const list = useRef<HTMLDivElement>(null);
   // The two side reads only fill values; waiting for them keeps rows from moving once the list shows.
-  const ready = program.state === "ok" && winback.state !== "loading" && referrals.state !== "loading";
+  const ready = program.state === "ok" && winback.state !== "loading" && referrals.state !== "loading" && stored.state !== "loading";
   useEffect(() => { writeReturn(null); }, []);
   useEffect(() => {
     if (!ready || !back) return;
@@ -114,7 +127,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
 
   const sections = program.state === "ok" && ready ? programSections({
     me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"),
-    referrals: referrals.state === "ok" ? referrals.data.referrals : [],
+    referrals: referrals.state === "ok" ? referrals.data.referrals : [], archived: stored.state === "ok" ? stored.data.rewards.filter(reward => !reward.active).length : 0,
   }) : null;
   return (
     <div className="ow-page">
@@ -129,6 +142,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
                 <span className="ow-prog-main">
                   <span className="ow-prog-text"><strong>{row.title}</strong>{row.sub && <small>{row.sub}</small>}</span>
                   {row.value && <span className="ow-prog-value" data-big={row.big || undefined} data-pair={row.pair || undefined} data-off={row.off || undefined}>{row.value}</span>}
+                  {row.pending && <span className="ow-prog-pend"><span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span></span>}
                 </span>
                 <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
               </Link>
