@@ -2,7 +2,7 @@ import { manualAwardLimit, type StaffRole } from "./award-limits";
 import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
-import { automationRules, ledgerEntries, locations, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { automationRules, ledgerEntries, locations, memberships, outboxJobs, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { challengeFor } from "./card-extras";
 import { challengeProgress } from "./challenges";
 import { activeHappyHour } from "./happy-hour";
@@ -10,6 +10,7 @@ import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 import { liveReward, notSuperseded } from "./reward-versions";
+import { programInForce } from "./rule-versions";
 import { surfaceHidden } from "./pilot-surfaces";
 import { birthdayWeek, WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 
@@ -137,7 +138,11 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     // other and the save's "no activity yet" check before a type change cannot miss a first award committing at the
     // same moment. Read again under the lock. Automatic tap awards keep the plain read: they hold their tag first, and
     // never run in production.
-    const program = atThisLocation((trustedTap ? await programRow() : await lockProgrammeForBooking(tx, () => programRow().for("share")))[0]);
+    // ENG-100: the rule version in force at the booking instant (clock_timestamp, not the transaction start, so a change
+    // committed while this booking waited is seen), never the newest saved row: a dated change waits for its date.
+    const program = await programInForce(tx, atThisLocation((trustedTap ? await programRow() : await lockProgrammeForBooking(tx, () => programRow().for("share")))[0]), sql`clock_timestamp()`);
+    // A screen from before a change (or its date) is stale, whatever entry it sent: checked before the entry's shape.
+    if (input.ruleVersionId !== undefined && input.ruleVersionId !== program.ruleVersionId) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
     if (trustedTap && (program.type !== "stamp" || program.earningMode !== "manual" || input.quantity !== 1)) throw new DomainError("INVALID_EARNING_MODE", "Tap supports one fixed stamp only");
     const purchaseMode = program.type === "points" && program.earningMode === "purchase";
 
@@ -145,9 +150,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     let ruleVersionId: string | undefined;
     if (purchaseMode) {
       if (input.quantity !== undefined || input.purchaseAmountMinor === undefined || !input.ruleVersionId) throw new DomainError("INVALID_EARNING_MODE", "A purchase amount and rule version are required");
-      const [rule] = await tx.select().from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, program.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
-      if (!rule || rule.id !== input.ruleVersionId) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
-      ruleVersionId = rule.id;
+      ruleVersionId = program.ruleVersionId;
       try { quantity = purchasePoints(input.purchaseAmountMinor, program.pointsPerCurrencyUnit); }
       catch (error) { if (error instanceof PointsError) throw new DomainError(error.code, error.code); throw error; }
     } else {

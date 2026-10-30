@@ -8,6 +8,7 @@ import { DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeFo
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
 import { formatCardLocator } from "./card-locator";
+import { programInForce } from "./rule-versions";
 import { enqueueTapPush } from "./staff-push";
 import { derivedProviderFromEnv, type TapKeyContext, type TapKeyProvider, type TapKeys } from "./nfc-keys";
 
@@ -301,6 +302,8 @@ export async function secureTapStatus(input: { tagRef: string; requestId: string
   return { state: "expired", balance };
 }
 
+const counterRule = ({ type, earningMode, pointsPerCurrencyUnit, ruleVersionId }: Awaited<ReturnType<typeof programInForce>>) => ({ programType: type, earningMode, pointsPerCurrencyUnit, ruleVersionId });
+
 export async function pendingTapRequests(input: { userId: string; locationId: string; now?: Date }) {
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
   if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
@@ -308,15 +311,17 @@ export async function pendingTapRequests(input: { userId: string; locationId: st
   // The card number only: the scan code is a credential and never leaves the server here. A points request also carries
   // what the cashier's entry needs, as a counter lookup does: earning mode, rate, currency and the rule version to confirm.
   const rows = await db.select({ id: tapRequests.id, createdAt: tapRequests.createdAt, expiresAt: tapRequests.expiresAt, balance: memberships.balance, locator: memberships.cardLocator,
-    programType: programs.type, earningMode: programs.earningMode, pointsPerCurrencyUnit: programs.pointsPerCurrencyUnit, currency: tenants.currency,
-    ruleVersionId: sql<string>`(SELECT r.id FROM program_rule_versions r WHERE r.tenant_id = ${tapRequests.tenantId} AND r.program_id = ${tapRequests.programId} ORDER BY r.version DESC LIMIT 1)` }).from(tapRequests)
+    program: programs, currency: tenants.currency }).from(tapRequests)
     .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId)))
     .innerJoin(programs, and(eq(programs.id, tapRequests.programId), eq(programs.tenantId, tapRequests.tenantId)))
     .innerJoin(tenants, eq(tenants.id, tapRequests.tenantId))
     .where(and(eq(tapRequests.tenantId, role.tenantId), eq(tapRequests.locationId, input.locationId), eq(tapRequests.status, "pending_staff"), gt(tapRequests.expiresAt, now), isNull(memberships.closedAt)))
     .orderBy(desc(tapRequests.createdAt)).limit(20);
   // Remaining and elapsed time are computed here, so a cashier phone with a wrong clock still shows the right countdown.
-  return rows.map(({ locator, ...row }) => ({ ...row, cardLocator: formatCardLocator(locator), expiresInMs: Math.max(0, row.expiresAt.getTime() - now.getTime()), ageMs: Math.max(0, now.getTime() - row.createdAt.getTime()) }));
+  // The rule in force (ENG-100), read once per programme: a waiting change reaches the counter at its date.
+  const rules = new Map<string, Awaited<ReturnType<typeof programInForce>>>();
+  for (const { program } of rows) if (!rules.has(program.id)) rules.set(program.id, await programInForce(db, program));
+  return rows.map(({ locator, program, ...row }) => ({ ...row, ...counterRule(rules.get(program.id)!), cardLocator: formatCardLocator(locator), expiresInMs: Math.max(0, row.expiresAt.getTime() - now.getTime()), ageMs: Math.max(0, now.getTime() - row.createdAt.getTime()) }));
 }
 
 /** `award` is the cashier's entry for a points programme (purchase amount and rule version, or points); a stamp tap takes none. */

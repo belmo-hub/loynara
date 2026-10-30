@@ -23,7 +23,7 @@ async function fixture() {
   await db.update(programs).set({ type: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).where(eq(programs.id, f.program.id));
   const [rule] = await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 2, name: f.program.name, type: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3, rulesText: "Synthetic three points per euro" }).returning();
   const request = { userId: f.userId, locationId: f.location.id, membershipId: f.member.id, purchaseAmountMinor: 499, ruleVersionId: rule.id, idempotencyKey: randomUUID(), requestId: randomUUID() };
-  const change = () => updateProgram({ actorUserId: f.userId, programSlug: f.program.slug, name: f.program.name, rulesText: "Synthetic four points per euro", pointsPerCurrencyUnit: 4 });
+  const change = () => updateProgram({ actorUserId: f.userId, programSlug: f.program.slug, name: f.program.name, rulesText: "Synthetic four points per euro", pointsPerCurrencyUnit: 4, worse: false });
   return { f, rule, request, change };
 }
 async function assertSnapshot(f: Awaited<ReturnType<typeof fixture>>) {

@@ -40,4 +40,11 @@ describe("customer legal pages", () => {
     expect(html).toContain("bei Apple-Wallet-Karten PassFast, bei Google-Wallet-Karten Google");
     expect(html).toContain("Stand: 22. Oktober 2026.");
   });
+
+  it("announces changes to the customer's disadvantage four weeks ahead (ENG-100, Legal §3 and Q-88)", () => {
+    const html = renderToStaticMarkup(createElement(TeilnahmebedingungenPage));
+    expect(html).toContain("Es gelten die Regeln, die auf deiner Karte angezeigt werden. Das Geschäft kann sie für die Zukunft ändern. Verbesserungen gelten sofort. Ändert das Geschäft etwas zu deinem Nachteil, zeigt deine Karte das mindestens vier Wochen vorher mit Datum an, zum Beispiel wenn eine Prämie mehr Stempel oder Punkte braucht, kleiner oder eingeschränkt wird oder wegfällt, oder wenn du für deinen Einkauf weniger bekommst. Bis dahin gilt die bisherige Regel. Deine gesammelten Stempel und Punkte bleiben erhalten. Extra-Boni wie den Willkommen-zurück- oder den Geburtstagsbonus kann das Geschäft jederzeit ändern oder beenden; schon gebuchte Boni bleiben dir.");
+    expect(html).toContain("Stand: 30. Oktober 2026.");
+    expect(html).not.toContain("die bei der Anmeldung für das gewählte Programm angezeigt werden");
+  });
 });

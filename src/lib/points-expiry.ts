@@ -3,6 +3,7 @@ import { and, asc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs } from "@/db/schema";
 import { duePoints, EXPIRY_REMINDER_DAYS, expiryBatches, expiryBuckets, expiryReminderText, expiryRuleText, upcomingExpiry } from "./points-expiry-rules";
+import { programInForce } from "./rule-versions";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 import { queueCardWalletMessage } from "./wallet-messages";
 
@@ -44,8 +45,9 @@ export async function expireCardPoints(membershipId: string, now = new Date()) {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, membershipId)).for("update");
     if (!member || member.closedAt) return 0;
     // Shared like a booking, so an owner's save of the rule and this job wait for each other.
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId))).for("share");
-    if (!program || program.status !== "active") return 0;
+    const [row] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId))).for("share");
+    if (!row || row.status !== "active") return 0;
+    const program = await programInForce(tx, row);
     const amount = Math.min(duePoints(await cardExpiryBuckets(tx, member.tenantId, member.id, program), now), member.balance);
     if (amount <= 0) return 0;
     await tx.insert(ledgerEntries).values({
@@ -83,7 +85,7 @@ export async function queueExpiryReminders(now = new Date()) {
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
       .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_passes p where p.tenant_id = ${card.tenantId}::uuid and p.membership_id = ${card.membershipId}::uuid and p.provider = 'apple' and p.status = 'created' and p.revoked_at is null)`));
     if (!row) continue;
-    const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, row.program), now);
+    const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, await programInForce(db, row.program)), now);
     if (!upcoming) continue;
     const text = expiryReminderText(upcoming, row.timezone);
     try { if (await queueCardWalletMessage({ tenantId: card.tenantId, programId: card.programId, membershipId: card.membershipId, kind: "expiry", text, onceWithinDays: EXPIRY_REMINDER_DAYS }, now)) queued += 1; }

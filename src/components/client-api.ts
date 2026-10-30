@@ -118,9 +118,15 @@ export type PublicProgram = {
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
   /** The day a change to customers' disadvantage saved now would take effect (four weeks on). */
   noticeOn?: string;
+  /** ENG-100: a rule change waiting for its day (the rule in force is above), and a waiting expiry with the months before it. */
+  pending?: { effectiveOn: string; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string; old: { earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string } } | null;
+  pendingExpiry?: { effectiveOn: string; months: number; before: number | null } | null;
   brandColor?: string;
   active?: boolean;
   referral?: { enabled: boolean; referrerBonus: number; referredBonus: number };
+  /** ENG-100 D7: the newest rule and reward versions shown, sent back with the join. */
+  ruleVersionId?: string;
+  rewardVersionIds?: string[];
 };
 
 export type CardResponse = {
@@ -150,6 +156,9 @@ export type CardResponse = {
   challenge?: { text: string; conditions: string; visits: number; target: number; done: boolean };
   /** The card's level (visit days in 90 days), its perk and the next step; absent while the shop has no levels. */
   level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; until?: string; visits: number; next: { name: string; visits: number } | null };
-  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; sortOrder?: number }>;
+  rewards: Array<{ id: string; rewardId?: string; title: string; cost: number; sortOrder?: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
+  /** ENG-100: a rule or expiry change waiting for its date (the card shows the rule in force until then). */
+  pending?: PublicProgram["pending"];
+  pendingExpiry?: PublicProgram["pendingExpiry"];
   activity: Array<{ delta: number; kind: string; createdAt: string; isPurchase?: boolean; isWelcomeBonus?: boolean; isHappyHour?: boolean; isWinbackBonus?: boolean; isBirthdayBonus?: boolean; isChallengeBonus?: boolean }>;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, History, RefreshCw } from "lucide-react";
+import { CalendarClock, ChevronRight, History, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
 import { CardFace, nearestReward, type CardReward } from "./card-face";
+import type { ChangeLine } from "@/lib/change-lines";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
 import { copyText } from "@/components/copy-text";
@@ -49,6 +50,9 @@ export type CustomerCardProps = {
   endsOn?: string;
   /** Binding prompts and errors from the card page, shown right under the code (the code comes first at the counter). */
   notices?: ReactNode;
+  /** ENG-100: changes waiting for their date, one line each under the card (W31, W45, W46, W58); a long new rule is
+   *  opens in full under its line („Neue Regel lesen“). */
+  changes?: { lines: Array<ChangeLine | string>; newRule?: { on: string; text: string } };
   /** Offered only when the server reports the provider available; absent = no button at all. */
   onAppleWallet?: () => void;
   onGoogleWallet?: () => void;
@@ -72,10 +76,11 @@ export type CustomerCardProps = {
  * code inset like a Wallet pass, at most one highlighted extra, then everything that keeps the card findable.
  */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showRule, setShowRule] = useState(false);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
   const nearest = nearestReward(rewards, balance);
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
@@ -103,6 +108,14 @@ export function CustomerCard(props: CustomerCardProps) {
         {readyCount > 0 ? <p className={styles.ticketNote}>{t.showToRedeem}</p> : null}
       </section>
     </CardFace>
+    {changes?.lines.length ? <ul className={styles.changes} aria-label="Änderungen">{changes.lines.map(line => {
+      const { text, link } = typeof line === "string" ? { text: line, link: false } : line;
+      // A long new rule opens in place under its line (Design, as on the join page).
+      return <li key={text}><CalendarClock size={18} aria-hidden="true" /><span>{text}{link && changes.newRule ? <>
+        {" "}<button type="button" className={styles.ruleToggle} aria-expanded={showRule} aria-controls="customer-new-rule" onClick={() => setShowRule(!showRule)}>{showRule ? "Neue Regel ausblenden" : "Neue Regel lesen"}</button>
+        {showRule ? <span id="customer-new-rule" className={styles.newRule}>{changes.newRule.text}</span> : null}
+      </> : null}</span></li>;
+    })}</ul> : null}
     {props.onRefresh ? <div className={styles.refresh}>
       <Button variant="quiet" size="sm" icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
       {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}

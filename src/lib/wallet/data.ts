@@ -3,9 +3,11 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, tenants, walletMessageConsents, walletMessageRecipients, walletMessages } from "@/db/schema";
 import { signUpRules } from "@/lib/card-extras";
+import { changeLines, waitingLines } from "@/lib/change-lines";
 import { formatCardLocator } from "@/lib/card-locator";
 import { DomainError } from "@/lib/loyalty";
 import { currentRewards, publicRules } from "@/lib/product";
+import { programInForce } from "@/lib/rule-versions";
 import type { WalletBrand, WalletPassData } from "./types";
 import { appleLogoFromData, merchantGoogleLogoUrl } from "./logo";
 
@@ -33,16 +35,17 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(eq(memberships.id, membershipId));
   if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+  const program = await programInForce(reader, row.program);
   const appleLogo = appleLogoFromData(row.location.logoData);
   const googleLogoUrl = merchantGoogleLogoUrl(row.program.id, row.location.logoData);
   const brand: WalletBrand & { membershipId: string } = {
-    programType: row.program.type === "points" ? "points" : "stamp",
+    programType: program.type === "points" ? "points" : "stamp",
     tenantId: row.tenant.id,
     locationId: row.location.id,
     membershipId: row.member.id,
     programId: row.program.id,
     merchantName: row.tenant.name,
-    programName: row.program.name,
+    programName: program.name,
     locationName: row.location.name,
     brandColor: row.location.brandColor,
     country: row.location.country,
@@ -72,16 +75,18 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     credentialHash: credentialHash(row.member.scanCode),
     pass: {
       ...brand,
-      programType: row.program.type === "points" ? "points" : "stamp",
+      programType: program.type === "points" ? "points" : "stamp",
       balance: row.member.balance,
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
       ...(target ? { reward: { title: target.title, cost: target.cost, pending: target.pending, endsOn: target.endsOn } } : {}),
       rewards: rewardList.map(({ title, cost }) => ({ title, cost })),
-      rules: signUpRules(publicRules(row.program, row.tenant)),
+      // ENG-100: the dated lines come first, the whole new rule quoted (W46, W58), then the rules in force.
+      rules: [...waitingLines(changeLines({ programType: program.type === "points" ? "points" : "stamp", rewards: rewardList, pending: program.pending, pendingExpiry: program.pendingExpiry }, true)), ...signUpRules(publicRules(program, row.tenant))],
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       // The send day in the shop's timezone („28.10.“): the back keeps a message until the next one (Marketing, ENG-127).
       ...(lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : consent ? { message: "" } : {}),
+      pending: program.pending, pendingExpiry: program.pendingExpiry,
     },
   };
 }

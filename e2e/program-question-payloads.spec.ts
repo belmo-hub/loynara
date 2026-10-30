@@ -9,9 +9,11 @@ type Shop = "stamp" | "purchase" | "manual";
 type Question = { shop: Shop; path: string; url: string; keys: string[]; answer: (page: Page) => Promise<void> };
 
 const speichern = (page: Page) => page.getByRole("button", { name: "Speichern", exact: true }).click();
-/** A rule screen: „Weiter“ through the steps, then „Neue Regelversion speichern“. */
-const review = async (page: Page, steps = 1) => {
+/** A rule screen: „Weiter“ through the steps, the owner's answer whether it is worse for customers where the review asks
+ *  it (ENG-100 W46: a rules text or a switch of mode), then „Neue Regelversion speichern“. */
+const review = async (page: Page, { steps = 1, choice }: { steps?: number; choice?: "Besser oder gleich" | "Schlechter" } = {}) => {
   for (let step = 0; step < steps; step++) await page.getByRole("button", { name: "Weiter" }).click();
+  if (choice) await page.getByText(choice, { exact: true }).click();
   await page.getByRole("button", { name: "Neue Regelversion speichern" }).click();
 };
 
@@ -25,16 +27,19 @@ const PAYLOADS: Record<string, Question> = {
   "12 Neuigkeit entfernen": { shop: "stamp", path: "news", url: EXTRAS, keys: ["programId", "cardNews"], answer: page => page.getByRole("button", { name: "Neuigkeit entfernen" }).click() },
   "13 Google-Bewertung": { shop: "stamp", path: "review-link", url: EXTRAS, keys: ["programId", "reviewUrl"], answer: async page => { await page.getByLabel("Link zur Google-Bewertung").fill("https://g.page/r/abc/review"); await speichern(page); } },
   "15 Durchschnittsbon": { shop: "stamp", path: "average-spend", url: EXTRAS, keys: ["programId", "averageVisitSpendMinor"], answer: async page => { await page.getByLabel("Durchschnittsbon pro Buchung").fill("13,90"); await speichern(page); } },
-  "16 Punkte verfallen": { shop: "purchase", path: "points-expiry", url: EXTRAS, keys: ["programId", "pointsExpiryMonths"], answer: async page => { await page.getByText("Nach 24 Monaten").click(); await speichern(page); } },
-  "14 Regel auf der Karte": { shop: "stamp", path: "rule", url: UPDATE, keys: ["programSlug", "rulesText"], answer: async page => { await page.getByLabel("Regel auf der Karte", { exact: true }).fill("Ein Stempel pro Heißgetränk. Kaltgetränke zählen nicht."); await review(page); } },
-  "52 Weitere Regeln": { shop: "purchase", path: "rule", url: UPDATE, keys: ["programSlug", "rulesText"], answer: async page => { await page.getByLabel("Weitere Regeln (optional)", { exact: true }).fill("Nur Mo–Fr."); await review(page); } },
+  "16 Punkte verfallen": { shop: "purchase", path: "points-expiry", url: EXTRAS, keys: ["programId", "pointsExpiryMonths"], answer: async page => {
+    // Switching expiry on waits four weeks (ENG-100 60/61): „Weiter“ to the date, then „Speichern“.
+    await page.getByText("Nach 24 Monaten").click(); await page.getByRole("button", { name: "Weiter" }).click(); await speichern(page);
+  } },
+  "14 Regel auf der Karte": { shop: "stamp", path: "rule", url: UPDATE, keys: ["programSlug", "rulesText", "worse"], answer: async page => { await page.getByLabel("Regel auf der Karte", { exact: true }).fill("Ein Stempel pro Heißgetränk. Kaltgetränke zählen nicht."); await review(page, { choice: "Schlechter" }); } },
+  "52 Weitere Regeln": { shop: "purchase", path: "rule", url: UPDATE, keys: ["programSlug", "rulesText", "worse"], answer: async page => { await page.getByLabel("Weitere Regeln (optional)", { exact: true }).fill("Nur Mo–Fr."); await review(page, { choice: "Besser oder gleich" }); } },
   "33 Punkte pro 1 €": { shop: "purchase", path: "earning", url: UPDATE, keys: ["programSlug", "earningMode", "pointsPerCurrencyUnit"], answer: async page => { await page.getByRole("button", { name: "1 Punkt mehr" }).click(); await review(page); } },
-  "33 Manuell zu Nach Einkaufswert (C1)": { shop: "manual", path: "earning", url: UPDATE, keys: ["programSlug", "earningMode", "pointsPerCurrencyUnit", "rulesText"], answer: async page => { await page.getByText("Nach Einkaufswert", { exact: true }).click(); await review(page); } },
-  "33 Nach Einkaufswert zu Manuell (C2)": { shop: "purchase", path: "earning", url: UPDATE, keys: ["programSlug", "earningMode", "rulesText"], answer: async page => {
+  "33 Manuell zu Nach Einkaufswert (C1)": { shop: "manual", path: "earning", url: UPDATE, keys: ["programSlug", "earningMode", "pointsPerCurrencyUnit", "rulesText", "worse"], answer: async page => { await page.getByText("Nach Einkaufswert", { exact: true }).click(); await review(page, { choice: "Besser oder gleich" }); } },
+  "33 Nach Einkaufswert zu Manuell (C2)": { shop: "purchase", path: "earning", url: UPDATE, keys: ["programSlug", "earningMode", "rulesText", "worse"], answer: async page => {
     await page.getByText("Manuell", { exact: true }).click();
     await page.getByRole("button", { name: "Weiter" }).click();
     await page.getByLabel("Regel auf der Karte", { exact: true }).fill("10 Punkte pro Einkauf.");
-    await review(page);
+    await review(page, { choice: "Schlechter" });
   } },
   "36 Programmname": { shop: "stamp", path: "card", url: UPDATE, keys: ["programSlug", "name"], answer: async page => { await page.getByLabel("Programmname").fill("Kaffeekarte Mitte"); await page.getByRole("button", { name: "Kundenkarte speichern" }).click(); } },
 };

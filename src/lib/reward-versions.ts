@@ -16,5 +16,14 @@ export function liveReward(r: string, at: string | SQL) {
   return sql`(${sql.raw(`${r}.active AND (${r}.ends_at IS NULL OR ${r}.ends_at >`)} ${at}))`;
 }
 
+/**
+ * A save's one instant, read after the programme lock (Reviewer, 29 Oct): created_at, effective_at and the date four weeks
+ * on all come from it, so version order follows lock order rather than transaction start. As text, to keep microseconds.
+ */
+export async function savedAt(tx: { execute: (query: SQL) => Promise<{ rows: unknown[] }> }): Promise<SQL> {
+  const [{ at }] = (await tx.execute(sql`SELECT clock_timestamp()::text AS at`)).rows as Array<{ at: string }>;
+  return sql`${at}::timestamptz`;
+}
+
 /** Changes to customers' disadvantage take effect four weeks after saving (Q-87); never backdated. */
-export const NOTICE_END = sql`now() + interval '28 days'`;
+export const noticeEnd = (at: SQL) => sql`(${at} + interval '28 days')`;

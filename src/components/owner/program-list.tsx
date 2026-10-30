@@ -8,6 +8,7 @@ import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, LoadingBlock, nf, PageHead } from "./owner-ui";
 import { cardDay } from "@/lib/change-lines";
+import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
 import { useLoad } from "./use-load";
@@ -46,8 +47,10 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
   // By purchase amount the card states the earning itself, and the owner's text holds extra rules only (W51): the earning
   // row comes first, then what adds to it.
   const rules = program.ownerRulesText ?? program.rulesText, extras = ruleKind(type, program.earningMode) === "purchase";
-  const rule: Row = { ...ask("rule"), icon: ScrollText, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) };
-  const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
+  // ENG-100: rows keep the value in force; a change waiting for its date shows as a chip (Design gaps §1).
+  const chips = ruleChips(program), expiry = program.pendingExpiry ? program.pendingExpiry.before : me.pointsExpiryMonths;
+  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) };
+  const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, pending: chips.earning, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
       ...program.rewards.map(reward => ({ href: `/merchant/program/rewards/${reward.rewardId}`, icon: Gift, title: reward.title, sub: `Einlösbar ab ${nf.format(reward.cost)} ${reward.cost === 1 ? unitName(type, 1) : unitDative(type)}`, pending: rewardChip(type, reward) })),
@@ -58,7 +61,7 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
     ] },
     { title: "So sammeln Kunden", rows: [
       ...(extras ? [...earning, rule] : [rule, ...earning]),
-      ...(points ? [{ ...ask("points-expiry"), icon: Hourglass, ...(me.pointsExpiryMonths ? { sub: `Nach ${me.pointsExpiryMonths} Monaten` } : off("Nie")) }] : []),
+      ...(points ? [{ ...ask("points-expiry"), icon: Hourglass, pending: chips.expiry, ...(expiry ? { sub: `Nach ${expiry} Monaten` } : off("Nie")) }] : []),
       ...(nfc ? [{ ...ask("nfc"), icon: Nfc, ...(tap ? { sub: tap.label } : off("Aus")) }] : []),
     ] },
     { title: "Extras", note: EXCLUDED_GOODS, rows: [

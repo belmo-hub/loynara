@@ -64,7 +64,7 @@ export async function enqueueWalletProgramRefresh(tx: Query, tenantId: string, p
  */
 export const WALLET_PROGRAM_REFRESH = "wallet.program_refresh";
 
-/** `at` is SQL (NOTICE_END) so the job matches the stored date to the microsecond; a JS Date would cut it to milliseconds. */
+/** `at` is SQL (noticeEnd) so the job matches the stored date to the microsecond; a JS Date would cut it to milliseconds. */
 export async function scheduleWalletProgramRefresh(tx: Query, tenantId: string, programId: string, at: SQL): Promise<void> {
   await tx.execute(sql`INSERT INTO outbox_jobs (tenant_id, kind, payload, next_attempt_at)
     VALUES (${tenantId}::uuid, ${WALLET_PROGRAM_REFRESH}, jsonb_build_object('programId', ${programId}::text), ${at})`);

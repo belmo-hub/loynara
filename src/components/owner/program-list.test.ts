@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { isQuestion } from "./program-helpers";
 import { programSections, quoteStart, rewardChip, type ListData } from "./program-list";
+import { ruleChips } from "./program-rule-changes";
 
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
 const program = {
@@ -111,6 +112,23 @@ describe("a reward row's chip while a change waits (ENG-100, W29, W59)", () => {
   it("puts the chip on the reward's row", () => {
     const pending = { ...program, rewards: [{ ...program.rewards[0], pending: { effectiveOn: "2026-11-24", title: "Gratiskaffee", cost: 12 } }] } as PublicProgram;
     expect(rows({ program: pending }).Gratiskaffee).toMatchObject({ sub: "Einlösbar ab 10 Stempeln", pending: "Ab 24.11.: 12 Stempel" });
+  });
+});
+
+describe("rule, earning and expiry chips while a change waits (ENG-100, W45, W59)", () => {
+  const points = { ...program, programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2, ownerRulesText: "" } as PublicProgram;
+  const old: { earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string } = { earningMode: "purchase", pointsPerCurrencyUnit: 2, rulesText: "" };
+  const waiting = (change: Partial<typeof old>) => ({ ...points, pending: { effectiveOn: "2026-11-24", ...old, ...change, old } }) as PublicProgram;
+  it.each([
+    [{ pointsPerCurrencyUnit: 1 }, { earning: "Ab 24.11.: 1 Punkt pro €" }],
+    [{ earningMode: "manual" as const, rulesText: "10 Punkte pro Pizza." }, { earning: "Ab 24.11.: Manuell" }],
+    [{ rulesText: "Nicht auf Getränke." }, { rule: "Ab 24.11.: neue Regel" }],
+  ])("%o", (change, chips) => expect(ruleChips(waiting(change))).toEqual({ earning: undefined, rule: undefined, expiry: undefined, ...chips }));
+
+  it("keeps the expiry in force on its row and shows the waiting one as a chip", () => {
+    const data = { me: { ...me, programType: "points", pointsExpiryMonths: 24 } as MeResponse, program: { ...points, pendingExpiry: { effectiveOn: "2026-11-24", months: 24, before: 36 } } as PublicProgram };
+    expect(rows(data)["Punkte verfallen"]).toMatchObject({ sub: "Nach 36 Monaten", pending: "Ab 24.11.: nach 24 Monaten" });
+    expect(rows({ ...data, program: { ...points, pendingExpiry: { effectiveOn: "2026-11-24", months: 24, before: null } } as PublicProgram })["Punkte verfallen"]).toMatchObject({ value: "Nie", pending: "Ab 24.11.: nach 24 Monaten" });
   });
 });
 
