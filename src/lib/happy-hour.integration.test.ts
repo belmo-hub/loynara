@@ -73,6 +73,7 @@ describe("happy hour", () => {
     expect(result).toMatchObject({ creditedQuantity: 10, welcomeBonus: 5, happyHourBonus: 10, winbackBonus: 0, birthdayBonus: 0, referralBonus: 0, balance: 25 });
     const bonuses = result.welcomeBonus! + result.happyHourBonus! + result.winbackBonus! + result.birthdayBonus! + (result.challengeBonus ?? 0) + result.referralBonus!;
     expect(result.creditedQuantity + bonuses).toBe(await balanceOf(m.card.id) - before);
+    expect(result.balanceBefore).toBe(before);
     // The Startbonus is booked once: the next lookup no longer offers it.
     expect(await lookupCard({ userId: owner, locationId: m.locationId, scanCode })).toMatchObject({ welcomeBonus: 0, happyHour: true });
   });

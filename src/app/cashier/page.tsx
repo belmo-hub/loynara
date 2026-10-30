@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson, type MeResponse } from "@/components/client-api";
 import type { UiLocale } from "@/components/loyalty-ui";
-import { awardDelta, awardParts, bonusTotal, CashierAccessState, CashierView, type AwardBonuses, type CashierAward, type CashierBooked, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
+import { bonusTotal, bookedAward, cashierCard, CashierAccessState, CashierView, type AwardBonuses, type CashierAward, type CashierLookup, type CashierBooked, type CashierCard, type CashierReward } from "@/components/cashier/cashier-view";
 import { QrScanner, SleepingCamera } from "@/components/qr-scanner";
 import { OfflineQueuePanel } from "@/components/offline-queue-panel";
 import { LogoutButton } from "@/components/logout-button";
@@ -18,8 +18,8 @@ import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
-type LookupResult = { stage: "open"; membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; welcomeBonus?: number; happyHour?: boolean; winbackBonus?: number; birthdayBonus?: number; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string; visits: number; next: { name: string; visits: number } | null } };
-type TransactionResult = AwardBonuses & { balance: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
+type LookupResult = CashierLookup & { stage: "open" };
+type TransactionResult = AwardBonuses & { balance: number; balanceBefore?: number; duplicate: boolean; entryId: string; creditedQuantity?: number };
 type PendingOperation = { signature: string; idempotencyKey: string; requestId: string };
 type OfflineLease = { leaseId: string; expiresAt: string; membershipId: string };
 type OfflineSyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: number; duplicate?: boolean };
@@ -174,7 +174,7 @@ export default function CashierPage() {
       if (result.stage === "preview") { setCard(null); setPreview({ ...result, code }); return; }
       setPreview(null);
       activeCardId.current = result.membershipId;
-      setCard({ id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), welcomeBonus: result.welcomeBonus ?? 0, happyHour: result.happyHour === true, winbackBonus: result.winbackBonus ?? 0, birthdayBonus: result.birthdayBonus ?? 0, level: result.level?.name ? { name: result.level.name, perk: result.level.perk } : undefined });
+      setCard(cashierCard(result, code));
       const unresolved = unresolvedRef.current.get(result.membershipId);
       if (unresolved && Date.now() - unresolved.at < UNRESOLVED_TTL_MS) {
         pendingRef.current = unresolved.pending;
@@ -458,16 +458,11 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
     headline = fr ? `« ${operation.reward.name} » utilisée` : `„${operation.reward.name}“ eingelöst`;
   } else {
     const credited = result.creditedQuantity ?? ("quantity" in operation.award ? operation.award.quantity : undefined);
-    const bonuses: AwardBonuses = { welcomeBonus: result.welcomeBonus, happyHourBonus: result.happyHourBonus, winbackBonus: result.winbackBonus, birthdayBonus: result.birthdayBonus, challengeBonus: result.challengeBonus, referralBonus: result.referralBonus };
-    const bonus = bonusTotal(bonuses);
+    const bonus = bonusTotal(result);
     const extra = bonus ? fr ? ` Dont ${bonus} ${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus} ${unitLabel(card, bonus, fr)} extra.` : "";
     detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited} ${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited} ${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
-    if (credited !== undefined) {
-      // The chip shows the real balance change; the line under it names what it is made of (ENG-133).
-      const { delta, matches } = awardDelta(card.balance, { ...bonuses, balance: result.balance, creditedQuantity: credited });
-      headline = `+${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(delta)} ${unitLabel(card, delta, fr)}`;
-      if (bonus || !matches) parts = awardParts(credited, card.programType, bonuses, fr ? "fr" : "de");
-    }
+    // The chip shows the real balance change; the line under it names what it is made of (ENG-133).
+    if (credited !== undefined) ({ headline, parts } = bookedAward(card, credited, result, fr ? "fr" : "de"));
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);
   const ready = rewardReady ? fr ? "Récompense prête : rescannez pour l’utiliser." : "Prämie bereit: zum Einlösen neu scannen." : "";

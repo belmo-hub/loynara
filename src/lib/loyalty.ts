@@ -92,7 +92,7 @@ async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) 
 
 /** Client entry point (cashier route, scripts). Tap confirmation and offline sync call awardInTransaction with server keys. */
 // Every bonus booked with the award, by source, so the counter can show how the new balance adds up (ENG-133).
-type AwardResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity: number; welcomeBonus?: number; happyHourBonus?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number; referralBonus?: number };
+type AwardResult = { balance: number; /** The card's balance under the booking's lock, on a new booking. */ balanceBefore?: number; duplicate: boolean; entryId: string; creditedQuantity: number; welcomeBonus?: number; happyHourBonus?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number; referralBonus?: number };
 
 export async function award(input: AwardInput): Promise<AwardResult> {
   assertClientKey(input.idempotencyKey);
@@ -204,7 +204,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
     }
     // The cashier screen shows the challenge bonus with this booking („+1 extra: Monats-Challenge“).
-    return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity, welcomeBonus, happyHourBonus: happyHour, winbackBonus, birthdayBonus, referralBonus: referral.referredBonus, ...(challenge ? { challengeBonus: challenge } : {}) };
+    return { balance: balance + referral.referredBonus, balanceBefore: member.balance, duplicate: false, entryId: entry.id, creditedQuantity: quantity, welcomeBonus, happyHourBonus: happyHour, winbackBonus, birthdayBonus, referralBonus: referral.referredBonus, ...(challenge ? { challengeBonus: challenge } : {}) };
 }
 
 // The welcome bonus ("Startbonus") is its own ledger row next to the card's first staff-confirmed award, keyed by that
