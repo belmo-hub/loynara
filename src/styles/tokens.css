@@ -135,7 +135,6 @@
     --color-ink: #E9EFEA;
     --color-ink-muted: #A6B3AA;
     --color-ink-faint: #7F8E85;
-  --color-ink-faint: #7F8E85;
     --color-line: #2B3A32;
     --color-line-strong: #6B7B71;
     --color-action: #9FD3B5;
@@ -146,7 +145,7 @@
     --color-accent-text: #E8A58A;
     --color-success: #8FD1A8;
     --color-danger: #FF6B6B;
-  --color-on-danger: #0F1713;
+    --color-on-danger: #0F1713;
     --color-warning: #F2C14E;
     --color-focus: #E8ECEA;
     --color-scrim: rgba(0, 0, 0, .6);

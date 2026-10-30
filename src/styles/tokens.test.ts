@@ -50,6 +50,9 @@ describe.each([["light", light], ["dark", dark]])("%s tokens", (_name, t) => {
   it("danger is more than 20 ΔE*ab away from the stamp coral", () => {
     expect(deltaE(t["--color-danger"], t["--color-stamp"])).toBeGreaterThan(20);
   });
+  it("the focus ring is ink, not a second green", () => {
+    expect(deltaE(t["--color-focus"], t["--color-ink"])).toBeLessThan(3);
+  });
   it.each(grounds)("faint text on %s is at least 3:1 and quieter than muted text", (bg) => {
     expect(contrast(t["--color-ink-faint"], t[bg])).toBeGreaterThanOrEqual(3);
     expect(contrast(t["--color-ink-faint"], t[bg])).toBeLessThan(contrast(t["--color-ink-muted"], t[bg]));
@@ -83,6 +86,12 @@ describe.each([["light", light], ["dark", dark]])("%s tinted fills", (_name, t) 
   it.each(grounds)("muted text on the quiet fill over %s is at least 4.5:1", (bg) => {
     const share = 1 - Number(quietFill![1]) / 100;
     expect(contrast(t["--color-ink-muted"], mix(t[bg], t["--color-ink"], share))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("text selection", () => {
+  it("is an ink tint, not stamp coral", () => {
+    expect(readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8")).toMatch(/::selection\s*\{\s*background:\s*color-mix\(in oklab, var\(--color-ink\)/);
   });
 });
 
