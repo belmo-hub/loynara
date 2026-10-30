@@ -52,7 +52,7 @@ export default function CancelProgrammePage() {
           : <Notice tone="warn">Voraussichtlich bis zum {germanDate(endDate)}. Laut Pilotvereinbarung endet der Vertrag mit {MIN_NOTICE_DAYS} Tagen Frist zum Ende eines Abrechnungsmonats. Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal.</Notice>}
         {confirmed && <div className="ow-qpanel ow-field">
           <label htmlFor="ow-cancel-text">Text für deine Kunden</label>
-          <textarea id="ow-cancel-text" className="ow-textarea" readOnly rows={2} value={text} aria-describedby="ow-cancel-hint" onFocus={event => event.currentTarget.select()} />
+          <textarea id="ow-cancel-text" className="ow-textarea" readOnly rows={4} value={text} aria-describedby="ow-cancel-hint" onFocus={event => event.currentTarget.select()} />
           <p id="ow-cancel-hint" className="ow-hint">Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
           <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button></div>
         </div>}
