@@ -2,8 +2,9 @@ import sharp, { type Sharp } from "sharp";
 import { DomainError } from "../loyalty";
 
 export const MAX_LOGO_BYTES = 2_000_000;
-// Against decompression bombs only: a 12 MP phone photo and a 5000 x 5000 export pass. sharp shrinks while it decodes.
-const MAX_LOGO_PIXELS = 40_000_000;
+// Against decompression bombs: a 12 MP phone photo and a 5000 x 5000 export pass. A PNG that size costs about 70 MB of
+// transient memory while it shrinks (measured); owners only reach this, after the ownership check and the rate limit.
+const MAX_LOGO_PIXELS = 25_000_000;
 // Analysis runs on at most 2048 x 2048, the 16.8 MB RGBA budget logo.ts used, whatever the upload's size.
 const WORK_MAX = 2048;
 const STORED_MAX = 1280;
