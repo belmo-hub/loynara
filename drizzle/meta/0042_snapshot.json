@@ -1,5 +1,5 @@
 {
-  "id": "27d36cfe-b890-4cb9-8f35-a7eb1b203930",
+  "id": "b2a63150-7be2-4efc-95c0-415c16d58ff6",
   "prevId": "edcc96fa-863d-4b61-a8b9-9801d98e2d86",
   "version": "7",
   "dialect": "postgresql",
@@ -2160,6 +2160,60 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.free_month_reminders": {
+      "name": "free_month_reminders",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "free_until": {
+          "name": "free_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "free_month_reminders_tenant_id_tenants_id_fk": {
+          "name": "free_month_reminders_tenant_id_tenants_id_fk",
+          "tableFrom": "free_month_reminders",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "free_month_reminders_tenant_id_free_until_pk": {
+          "name": "free_month_reminders_tenant_id_free_until_pk",
+          "columns": [
+            "tenant_id",
+            "free_until"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.ledger_entries": {
       "name": "ledger_entries",
       "schema": "",
@@ -3446,18 +3500,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "points_expiry_months": {
-          "name": "points_expiry_months",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "points_expiry_since": {
-          "name": "points_expiry_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "effective_at": {
           "name": "effective_at",
@@ -4947,12 +4989,6 @@
           "notNull": true,
           "default": true
         },
-        "ends_at": {
-          "name": "ends_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -5801,6 +5837,12 @@
         },
         "started_at": {
           "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "free_until": {
+          "name": "free_until",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

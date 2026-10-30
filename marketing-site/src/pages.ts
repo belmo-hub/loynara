@@ -45,7 +45,7 @@ const ownerToday = (unit: string, rows: Array<[string, string, string]>) =>
 
 const breakEven = (basket: number, what: string) => {
   const n = visitsToCoverFee(basket);
-  return `<div class="price-card"><p class="price"><b>${price()}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks"><li>Bei rund ${basket} € pro ${what} entspricht das etwa ${n} zusätzlichen ${n === 1 ? 'Besuch' : 'Besuchen'} im Monat.</li><li>Ohne App für deine Kunden, ohne Kassenanbindung.</li><li>Prämie, Bonus und Regeln legst du selbst fest.</li></ul><p class="fine">Rechenbeispiel, keine Prognose. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt. <a href="/#rechner">Mit deinen eigenen Zahlen rechnen</a></p></div>`;
+  return `<div class="price-card"><p class="price"><b>${price()}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks"><li>Bei rund ${basket} € pro ${what} entsprechen ${price()} etwa ${n} zusätzlichen ${n === 1 ? 'Besuch' : 'Besuchen'} im Monat.</li><li>Ohne App für deine Kunden, ohne Kassenanbindung.</li><li>Prämie, Bonus und Regeln legst du selbst fest.</li></ul><p class="fine">Rechenbeispiel, keine Prognose. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt. <a href="/#rechner">Mit deinen eigenen Zahlen rechnen</a></p></div>`;
 };
 
 // ── Barber ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
