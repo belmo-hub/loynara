@@ -34,6 +34,9 @@ async function fixture(quantity = 8, email = "reward@example.test") {
   const now = new Date((await pool.query("SELECT clock_timestamp() AS now")).rows[0].now.getTime() + 1000);
   now.setUTCHours(10, 0, 0, 0);
   now.setUTCDate(now.getUTCDate() + 1); // daylight in Berlin; all fixture rows predate the scan
+  // The monthly cap counts per calendar month in the shop's timezone: keep now and now + 1 day in the same month.
+  const month = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", month: "2-digit" }).format(at);
+  if (month(now) !== month(new Date(now.getTime() + DAY))) now.setUTCDate(now.getUTCDate() + 1);
   return { ownerId, merchant, card, entry, now };
 }
 async function queue(f: Awaited<ReturnType<typeof fixture>>) {
