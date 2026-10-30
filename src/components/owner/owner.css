@@ -150,12 +150,12 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-chip--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
 .ow-chip--info { background: var(--color-fill); color: var(--color-ink); }
 .ow-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-/* A notice is a white panel with a muted icon; only real success, warnings and errors carry a status colour. */
-.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
+/* A notice is a white panel with a muted icon (inside a card, a ruled row); only real success, warnings and errors carry a status colour. */
+.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
 .ow-notice > span:first-child { display: flex; align-items: center; height: 1lh; color: var(--color-ink-muted); } /* the icon on the first line's centre */
 .ow-notice > div { min-width: 0; }
 .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
-:is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: var(--color-fill); }
+:is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: none; box-shadow: none; border-radius: 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--color-line); }
 .ow-notice--warn > span:first-child { color: var(--color-warning); }
 .ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
 .ow-notice--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
@@ -475,7 +475,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-check input[role="switch"]:checked { background: var(--color-action); }
 .ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
 .ow-check input[role="switch"]:disabled { background: var(--color-line); cursor: not-allowed; }
-.ow-check input[role="switch"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.ow-check input[role="switch"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ow-check input[role="switch"], .ow-check input[role="switch"]::before { transition: none; } }
 
 /* Ergebnisse (ENG-122b): heads on the grey over the Übersicht's rows; the period's weeks drawn with the strip's parts. */
@@ -619,7 +619,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-day[data-gap] .ow-day-rail i, .ow-day[data-state="open"] .ow-day-rail i { background: none; border: 2px solid var(--color-line-strong); }
 .ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-ink); }
 /* The first-steps rail tells done, current and open apart by shape, not only colour. */
-.ow-day[data-state] .ow-day-rail i { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 4px; color: var(--color-on-action); }
+.ow-day[data-state] .ow-day-rail i { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 4px; color: var(--color-bg); }
 .ow-day[data-state="current"] .ow-day-rail i { border-width: 4px; }
 .ow-day[data-state="open"] .ow-day-rail i { border-width: 1px; }
 .ow-day h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); }
