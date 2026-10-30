@@ -42,7 +42,7 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-ink-faint` | #76827A | #7F8E85 | disabled and least important text (≥ 3:1) |
 | `--color-line` | #DCE0D6 | #2B3A32 | dividers (decorative) |
 | `--color-line-strong` | #7A867D | #6B7B71 | input and control borders (≥ 3:1) |
-| `--color-action` | #245D47 | #9FD3B5 | the one solid green per screen (band or primary button), links, switch on-tracks |
+| `--color-action` | #245D47 | #9FD3B5 | the one solid green per screen (band or primary button), switch on-tracks, icon tiles' glyphs |
 | `--color-action-hover` | #143D2E | #B9E2CA | hover |
 | `--color-on-action` | #FFFFFF | #0F1713 | text on action |
 | `--color-action-soft` | #E6EEDF | #22352B | icon tiles |
@@ -108,7 +108,7 @@ Weights: 400 body, 650 labels, 720 buttons and emphasis, 800 card codes and cash
 - Touch targets: 44 × 44 px minimum; cashier actions 56 px, primary booking button 64 px. A link that stands on its
   own (a footer row, a line of its own, beside a button) is a target too: `min-height: var(--target)` or a positioned
   `::after` that extends its hit area. A link inside a sentence is exempt (WCAG 2.5.8 inline exception) and is always
-  underlined, `--color-action`, at least 14 px, with the focus ring. `e2e/support/targets.ts` is the one check every
+  underlined, `--color-ink`, at least 14 px, with the focus ring. `e2e/support/targets.ts` is the one check every
   phone spec uses.
 - Z-index: `--z-sticky` 10 · `--z-nav` 20 · `--z-sheet` 40 · `--z-dialog` 50 · `--z-toast` 60.
 

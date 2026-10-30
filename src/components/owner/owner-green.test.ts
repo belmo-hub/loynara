@@ -13,16 +13,8 @@ const ALLOWED: Record<string, string> = {
   ".ow-check input[role=\"switch\"]:checked": "switch on-track: a state, not a next step (Head of Design ruling, 30 Oct)",
   ".ow-check input": "checkbox tick (accent-color)",
   ".ow-radio-card input": "radio dot (accent-color)",
-  ".ow-prog-icon": "icon tiles, approved in the mocks",
-  ".ow-link": "inline links (DESIGN.md)",
-  ".ow-cardline-link": "inline link in the card preview",
-  ".ow-cardline-shop i": "fallback swatch for the shop's colour in the card preview",
-  ".ow-cardline-text u": "the customer's card line as the card shows it",
-  ".ow-cardline-reward[data-new] b": "the new reward in the card preview",
-  ".ow-qsum dl > div[data-new] dd": "the changed value in a review",
-  ".ow-qcmp[data-new]": "the new version in a before/after review",
-  ".ow-prog-row[data-saved]": "the row just saved, a short confirmation ring",
-  ".ow-when[data-undo] > svg": "the undo icon on a take-back",
+  ".ow-prog-icon": "icon tiles, the approved Übersicht grammar (Head of Design ruling, 30 Oct)",
+  ".ow-cardline-shop i": "fallback swatch for the shop's own colour in the card preview (exempt by ruling)",
 };
 
 const css = readFileSync(join(process.cwd(), "src/components/owner/owner.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -33,6 +25,9 @@ const green = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
 describe("green in the owner app", () => {
   it("is used only by the listed rules", () => {
     expect(green.filter((selector) => !(selector in ALLOWED))).toEqual([]);
+  });
+  it("puts the alert icon on every danger button and danger link", () => {
+    expect(css).toMatch(/\.ow-btn--danger::before, \.ow-qlink\[data-danger\]::before \{[^}]*mask:/);
   });
   it("lists no rule that no longer uses it", () => {
     expect(Object.keys(ALLOWED).filter((selector) => !green.includes(selector))).toEqual([]);

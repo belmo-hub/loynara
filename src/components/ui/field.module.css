@@ -7,7 +7,7 @@
   transition: border-color var(--dur-press) ease, box-shadow var(--dur-press) ease;
 }
 .input::placeholder { color: var(--color-ink-muted); opacity: 1; }
-.input:focus-visible { outline: none; border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-focus), transparent 70%); }
+.input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .input[aria-invalid="true"] { border-color: var(--color-danger); }
 .input:disabled { background: var(--color-surface); color: var(--color-ink-muted); }
 .area { min-height: 120px; padding-block: var(--space-3); resize: vertical; }
