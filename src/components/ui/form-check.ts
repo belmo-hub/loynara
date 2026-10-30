@@ -7,10 +7,9 @@ export function validityMessage(control: Control): string {
   const v = control.validity;
   if (v.valid) return "";
   if (control.type === "checkbox") return "Bitte bestätige das, um fortzufahren.";
-  if (control.type === "email") return v.valueMissing ? "Bitte gib deine E-Mail-Adresse ein." : "Diese E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.";
+  if (control.type === "email") return v.valueMissing ? "Bitte gib die E-Mail-Adresse ein." : "Die E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.";
   const { min, max } = control as HTMLInputElement;
-  // The setup's wording for a number out of range (question-form rangeError).
-  if (control.type === "number" && min && max) return `Bitte eine ganze Zahl von ${min} bis ${max} eingeben.`;
+  if (control.type === "number" && min && max) return `Bitte gib eine ganze Zahl von ${min} bis ${max} ein.`;
   if (v.valueMissing) return control.type === "file" ? "Bitte wähle eine Datei." : "Bitte fülle dieses Feld aus.";
   if (v.tooShort) return `Bitte gib mindestens ${(control as HTMLInputElement).minLength} Zeichen ein.`;
   return "Bitte prüfe diese Eingabe.";

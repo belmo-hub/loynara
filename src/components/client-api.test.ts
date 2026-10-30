@@ -18,13 +18,18 @@ it("preserves the server's useful explanation for other errors", async () => {
 it("never shows the server's English diagnostics (ENG-135)", async () => {
   const reply = (error: string, status: number, code?: string) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error, code }, { status })));
   reply("Program not found", 404, "NOT_FOUND");
-  await expect(apiJson("/api/program/x")).rejects.toMatchObject({ status: 404, message: "Das gibt es nicht mehr. Bitte lade die Seite neu." });
+  await expect(apiJson("/api/program/x")).rejects.toMatchObject({ status: 404, message: "Das haben wir nicht gefunden. Bitte lade die Seite neu." });
   reply("Invalid input", 400);
-  await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Bitte prüfe deine Eingaben und speichere erneut." });
+  await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Das hat nicht geklappt. Prüfe deine Eingaben und versuche es noch einmal." });
   reply("Internal error", 500);
   await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal." });
   reply("Logo format does not match its contents", 400, "INVALID_LOGO");
   await expect(apiJson("/api/x")).rejects.toMatchObject({ code: "INVALID_LOGO", message: LOGO_INVALID });
+  reply("Invitation already accepted", 409, "INVITE_USED");
+  await expect(apiJson("/api/staff/accept")).rejects.toMatchObject({ message: "Diese Einladung wurde schon angenommen." });
+  reply("Sign in required", 401, "UNAUTHENTICATED");
+  await expect(apiJson("/api/merchant/locations")).rejects.toMatchObject({ message: "Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an." });
+  await expect(apiJson("/api/card/x")).rejects.toMatchObject({ message: "Bitte öffne deine Karte noch einmal über deinen Kartenlink." });
   // A code whose server text is German copy keeps it.
   reply("Für diese Prämie wartet schon eine Änderung auf ihr Datum. Nimm sie zuerst zurück.", 409, "CHANGE_PENDING");
   await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Für diese Prämie wartet schon eine Änderung auf ihr Datum. Nimm sie zuerst zurück." });
@@ -33,8 +38,8 @@ it("never shows the server's English diagnostics (ENG-135)", async () => {
 it("refuses a logo the server would refuse when it is picked", async () => {
   const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
   await expect(imageToDataUrl(new File([new Uint8Array(2_050_000).fill(0).map((_, i) => png[i] ?? 0)], "logo.png", { type: "image/png" })))
-    .rejects.toThrow("Das Logo darf höchstens 2 MB groß sein.");
+    .rejects.toThrow("Dein Logo ist größer als 2 MB. Wähle eine kleinere Datei.");
   // A JPEG renamed to .png: the browser claims image/png from the name.
   await expect(imageToDataUrl(new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])], "logo.png", { type: "image/png" }))).rejects.toThrow(LOGO_INVALID);
-  await expect(imageToDataUrl(new File(["GIF89a"], "logo.gif", { type: "image/gif" }))).rejects.toThrow("Bitte ein PNG-, JPG- oder WebP-Bild wählen.");
+  await expect(imageToDataUrl(new File(["GIF89a"], "logo.gif", { type: "image/gif" }))).rejects.toThrow(LOGO_INVALID);
 });
