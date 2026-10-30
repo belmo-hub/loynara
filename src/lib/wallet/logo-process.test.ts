@@ -80,6 +80,12 @@ describe("processMerchantLogo: every logo keeps its own shape (ENG-134)", () => 
     expect(big.wallet.png3x.length).toBeLessThanOrEqual(50_000);
   });
 
+  it("keeps semi-transparent edges: only nearly invisible pixels count as margin", async () => {
+    const soft = await png(400, 200, `<rect x="50" y="50" width="100" height="100" fill="#fff" fill-opacity="0.08"/><rect x="150" y="50" width="200" height="100" fill="#fff"/>`);
+    const logo = await processMerchantLogo(soft, TAPPI_RED);
+    expect(logo.meta.ratio).toBeCloseTo(3, 1); // 300 x 100, the faint block included
+  });
+
   it("accepts a 16 px PNG, never upscaling past 2x, and fits an 8:1 banner by its width", async () => {
     const tiny = await processMerchantLogo(await png(16, 16, `<rect width="16" height="16" fill="#123"/>`), TAPPI_RED);
     expect(await size(tiny.wallet.png3x)).toEqual([32, 32]);
@@ -97,6 +103,14 @@ describe("checkedLogoUpload: one check for both save paths", () => {
     expect(await size(logoBytes(stored)!)).toEqual([300, 300]);
     expect(await size(logoBytes(await checkedLogoUpload(dataUrl("image/png", await widePadded()))!)!)).toEqual([800, 200]);
   });
+
+  it("accepts large images and stores them at most 1280 px: 3000 x 3000 PNG, 4000 x 3000 JPEG, 5000 x 5000 PNG", async () => {
+    const solid = (width: number, height: number) => sharp({ create: { width, height, channels: 3, background: TAPPI_RED } });
+    for (const [type, bytes] of [["image/png", await solid(3000, 3000).png().toBuffer()], ["image/jpeg", await solid(4000, 3000).jpeg().toBuffer()], ["image/png", await solid(5000, 5000).png().toBuffer()]] as const) {
+      const [width, height] = await size(logoBytes(await checkedLogoUpload(dataUrl(type, bytes)))!);
+      expect(Math.max(width!, height!)).toBe(1280);
+    }
+  }, 30_000);
 
   it("rejects a renamed JPEG, an oversized file, a tiny image and garbage with INVALID_LOGO in German", async () => {
     const jpeg = await svg(300, 300, `<rect width="300" height="300" fill="#123"/>`).jpeg().toBuffer();

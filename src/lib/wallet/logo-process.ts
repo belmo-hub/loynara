@@ -2,8 +2,10 @@ import sharp, { type Sharp } from "sharp";
 import { DomainError } from "../loyalty";
 
 export const MAX_LOGO_BYTES = 2_000_000;
-// The 16.8 MB decoded-image budget logo.ts used, counted in RGBA pixels: 2048 x 2048.
-const MAX_LOGO_PIXELS = 4_200_000;
+// Against decompression bombs only: a 12 MP phone photo and a 5000 x 5000 export pass. sharp shrinks while it decodes.
+const MAX_LOGO_PIXELS = 40_000_000;
+// Analysis runs on at most 2048 x 2048, the 16.8 MB RGBA budget logo.ts used, whatever the upload's size.
+const WORK_MAX = 2048;
 const STORED_MAX = 1280;
 const INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.";
 const UNREADABLE = "Dieses Bild können wir nicht lesen. Speichere es neu als PNG und wähle es erneut.";
@@ -44,9 +46,11 @@ export async function checkedLogoUpload(value: string): Promise<string> {
 }
 
 async function trimmedLogo(bytes: Buffer): Promise<Buffer> {
-  const input = () => sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).rotate();
-  const { width = 0, height = 0 } = await input().metadata();
+  const { width = 0, height = 0 } = await sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).metadata();
   if (width < 16 || height < 16) throw new TooSmall("Logo too small");
+  const work = await sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).rotate()
+    .resize(WORK_MAX, WORK_MAX, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+  const input = () => sharp(work);
   const { isOpaque } = await input().stats();
   // Transparent margins go; on an opaque image only a white canvas does, so a logo's own coloured box stays whole.
   const trimmed = isOpaque ? await input().trim({ background: { r: 255, g: 255, b: 255 }, threshold: 15 }).png().toBuffer()

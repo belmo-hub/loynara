@@ -354,6 +354,21 @@ describe("Apple pass", () => {
     } finally { apple.cleanup(); }
   });
 
+  it("takes the pass icon from a square logo and keeps the stamp disc for a wide one (ENG-134)", async () => {
+    const apple = appleFixture();
+    try {
+      const icon = async (logoData: string) => {
+        const logo = await appleLogoFromData(logoData, pass.brandColor);
+        const withLogo = { ...pass, appleLogo: logo };
+        writeFileSync(join(apple.dir, "icon.pkpass"), await applePassArchive(applePassJson(withLogo, serial, apple.config), withLogo, apple.config));
+        return { logo, icon3x: execFileSync("unzip", ["-p", join(apple.dir, "icon.pkpass"), "icon@3x.png"]) };
+      };
+      const square = await icon(await svgLogo(400, 400, `<rect width="400" height="400" fill="#B3261E"/><rect x="80" y="160" width="240" height="80" fill="#fff"/>`));
+      expect(square.icon3x).toEqual(square.logo!.icon![2]);
+      expect((await icon(await wordmark())).icon3x).toEqual(iconPng(3, pass.brandColor));
+    } finally { apple.cleanup(); }
+  });
+
   it("adds no strip without a target reward, nor to a voided pass", async () => {
     const apple = appleFixture();
     try {

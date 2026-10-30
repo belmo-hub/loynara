@@ -39,6 +39,8 @@ export async function getMerchantBrand(raw: { actorUserId: string; programSlug: 
 
 export async function updateMerchantBrand(raw: z.input<typeof inputSchema>) {
   const input = inputSchema.parse(raw);
+  // Owners only reach the image decoder; the transaction checks again under the row lock.
+  if (input.logoData != null) await ownerProgramme(db, input.actorUserId, input.programSlug);
   const logoData = input.logoData == null ? input.logoData : await checkedLogoUpload(input.logoData);
   const brand = await db.transaction(async tx => {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug);

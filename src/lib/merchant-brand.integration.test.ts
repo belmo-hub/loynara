@@ -5,7 +5,9 @@ import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { createAdditionalLocation } from "./locations";
 import { createMerchant, enroll, getCard, getMerchantContext, getPublicProgram } from "./product";
+import sharp from "sharp";
 import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
+import { ownerWalletReadiness } from "./wallet/readiness";
 import { walletPassDataByMembershipId } from "./wallet/data";
 import { GET as getGoogleLogo } from "@/app/api/wallet/assets/google-logo/[programId]/route";
 
@@ -28,6 +30,25 @@ async function fixture() {
 }
 
 describe("merchant brand editor", () => {
+  it("setup validates the logo like the studio: a renamed JPEG is refused (ENG-134)", async () => {
+    const ownerId = randomUUID();
+    await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic setup owner", `${ownerId}@example.test`]);
+    const jpeg = await sharp({ create: { width: 32, height: 32, channels: 3, background: "#c0392b" } }).jpeg().toBuffer();
+    await expect(createMerchant({
+      userId: ownerId, businessName: "Renamed Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
+      programName: "Card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,
+      logoData: `data:image/png;base64,${jpeg.toString("base64")}`,
+    })).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  });
+
+  it("readiness says low_contrast for a dark wordmark on a dark colour, and the brand read says so too (ENG-134)", async () => {
+    const { ownerId, merchant } = await fixture();
+    const dark = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120"><g fill="#111"><rect width="100" height="120"/><rect x="130" y="30" width="100" height="90"/><rect x="260" width="100" height="60"/></g></svg>`)).png().toBuffer();
+    await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#1f4a3a", logoData: `data:image/png;base64,${dark.toString("base64")}` });
+    expect(await ownerWalletReadiness({ actorUserId: ownerId, programSlug: merchant.programSlug })).toMatchObject({ logo: "low_contrast" });
+    expect((await getMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug })).logoWallet).toMatchObject({ faint: true, showName: true });
+  });
+
   it("persists owner edits and exposes them on the actual public programme and card", async () => {
     const { ownerId, merchant } = await fixture();
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
