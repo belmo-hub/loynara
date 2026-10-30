@@ -45,10 +45,10 @@ export function HappyHourCard({ me, earningMode, onSaved }: { me: MeResponse; ea
       {draft.windows.map((w, index) => (
         <fieldset key={index} className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend>Zeitfenster {index + 1}</legend>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <div className="ow-row">
             {DAYS.map((name, d) => <label key={name}><input type="checkbox" checked={w.days.includes(d + 1)} onChange={() => toggleDay(index, d + 1)} /> {name}</label>)}
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <div className="ow-row">
             <label>von <input className="ow-input" type="time" value={w.start} onChange={event => setWindow(index, { start: event.target.value })} /></label>
             <label>bis <input className="ow-input" type="time" value={w.end} onChange={event => setWindow(index, { end: event.target.value })} /></label>
             <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => edit({ ...draft, windows: draft.windows.filter((_, i) => i !== index) })}>Entfernen</button>

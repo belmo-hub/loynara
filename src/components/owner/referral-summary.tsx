@@ -14,7 +14,7 @@ export function ReferralSummary({ enabled, referrerBonus, referredBonus, program
     : `Nach der ersten bestätigten Buchung der neuen Karte erhält die empfehlende Karte ${referrerBonus} ${unit} und die neue Karte ${referredBonus} ${unit}.`;
   const stat = (label: string, value: number, note: string) => <div className="ow-metric"><dt>{label}</dt><dd><span className="ow-metric-value">{value}{truncated ? "+" : ""}</span></dd><dd className="ow-metric-note">{note}</dd></div>;
   return (
-    <section className="ow-card ow-stack" aria-label="Empfehlungen im Überblick" style={{ marginBottom: 16 }}>
+    <section className="ow-card ow-stack" aria-label="Empfehlungen im Überblick">
       <p><strong>Regel:</strong> {rule}</p>
       <dl className="ow-metrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {stat("1 · Über Link angemeldet", signedUp, "Erfasste Anmeldungen, unabhängig vom Bonusstatus")}

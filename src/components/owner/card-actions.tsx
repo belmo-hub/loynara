@@ -146,7 +146,7 @@ export function ReissueStep({ membershipId, cardLocator, back, onIssued }: { mem
       <p className="ow-hint">Das ist dein Vermerk. Loynara prüft die Person nicht selbst; Vermerk, Grund und dein Name werden im Verlauf der Karte gespeichert.</p>
       <div className="ow-field ow-qpanel"><label htmlFor="reissue-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="reissue-reason" className="ow-textarea" rows={3} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Neues Handy, alten Kartenlink auf dem alten Gerät gezeigt" aria-describedby="reissue-reason-n" /><ReasonHint id="reissue-reason-n" length={reason.trim().length} /></div>
       {/* Kept from the live dialog: the merchant confirms entitlement explicitly before the old link stops working. */}
-      <div className="ow-qpanel ow-stack" style={{ gap: 4 }}>
+      <div className="ow-qpanel ow-stack ow-stack--tight">
         <p>Stelle die Karte nur neu aus, wenn du geprüft hast, dass die Person zu dieser Karte gehört. Der bisherige Kartenlink und QR-Code werden sofort ungültig. Guthaben, Kartennummer und Verlauf bleiben erhalten.</p>
         <label className="ow-check"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /> Berechtigung geprüft</label>
       </div>

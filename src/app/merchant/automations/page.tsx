@@ -5,6 +5,7 @@ import { apiJson, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { BackToActions } from "@/components/owner/actions-list";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type Kind = "first_checkout" | "inactive" | "reward_ready";
@@ -26,7 +27,7 @@ export default function AutomationsPage() {
   const slug = me?.programSlug ?? "";
   const [data, reload] = useLoad<Data>(me?.role === "owner" && slug ? `/api/merchant/automations?programSlug=${encodeURIComponent(slug)}` : null);
   if (!me) return null;
-  const head = <PageHead eyebrow="Aktionen" title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
+  const head = <PageHead back={<BackToActions />} title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;

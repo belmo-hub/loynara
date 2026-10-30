@@ -125,7 +125,7 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       await page.goto("/merchant");
       await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", level: 1 })).toBeVisible();
       // Readiness is derived from saved state: only the programme exists, so the green band leads with the first card.
-      await expect(page.getByText("Startklar · 1 von 3 Pflichtschritten")).toBeVisible();
+      await expect(page.getByText("Pflichtschritte erledigt")).toBeVisible();
       await expect(page.locator(".ow-band b")).toHaveText("Melde die erste Karte selbst an.");
       await expect(page.getByText("Zugang wiederherstellen")).toHaveCount(0); // operator password reset is not a start step
       await expect(page.getByText("Rechtstexte freigegeben")).toHaveCount(0); // the legal texts are final; no open step for them
@@ -141,8 +141,8 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       await page.reload();
       // Direction D (ENG-085): the first booking switches to the board, the tiles and the diary; the checklist is gone.
       await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeVisible();
-      await expect(page.getByText("Buchungen · letzte 30 Tage")).toBeVisible(); // a stamp shop without till amounts leads with bookings
-      await expect(page.getByText("bestätigt an der Kasse", { exact: true })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Buchungen, letzte 30 Tage" })).toBeVisible(); // a stamp shop without till amounts leads with bookings
+      await expect(page.getByText("in den letzten 30 Tagen, an der Kasse bestätigt", { exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Letzte 30 Tage an diesem Standort" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Die letzten Tage am Tresen" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Aktualisieren" })).toHaveCount(0);

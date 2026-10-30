@@ -98,7 +98,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   const logoIsPng = draft.logoData?.startsWith("data:image/png;base64,") ?? false;
   return (
     <div className="ow-stack" style={{ gap: 0 }}>
-      <div className="ow-mobile-switch ow-seg" role="group" aria-label="Ansicht" style={{ marginBottom: 16 }}>
+      <div className="ow-mobile-switch ow-seg" role="group" aria-label="Ansicht">
         <button type="button" aria-pressed={pane === "edit"} onClick={() => setPane("edit")}><OwnerIcon name="pencil" size={16} /> Bearbeiten</button>
         <button type="button" aria-pressed={pane === "preview"} onClick={() => setPane("preview")}><OwnerIcon name="eye" size={16} /> Vorschau</button>
       </div>

@@ -28,7 +28,7 @@ export function RewardOrder({ slug, program, onChanged }: { slug: string; progra
   }
 
   return (
-    <section className="ow-card ow-stack" aria-label="Reihenfolge der Prämien" style={{ gap: 16 }}>
+    <section className="ow-card ow-stack" aria-label="Reihenfolge der Prämien">
       <p className="ow-muted">So stehen die Prämien bei der Anmeldung, auf der Karte und an der Kasse. Die oberste zeigt die Karte als Ziel an, auch in der Wallet.</p>
       {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
       {error && <p className="ow-error" role="alert">{error}</p>}

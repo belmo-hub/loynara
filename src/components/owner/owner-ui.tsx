@@ -41,7 +41,7 @@ export function OwnerDialog({ title, children, actions, onClose, tone = "default
     <div className="ow-dialog-scrim" onKeyDown={onKeyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={box} className="ow-dialog" role={tone === "danger" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
-        <div className="ow-stack" style={{ gap: 8 }}>{children}</div>
+        <div className="ow-stack ow-stack--tight">{children}</div>
         <div className="ow-dialog-actions">{actions}</div>
       </div>
     </div>
@@ -61,7 +61,7 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
         {state !== "clean" && <><span className="ow-dot" aria-hidden="true" /><span className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
         {state === "clean" && <span className="ow-muted">Keine Änderungen</span>}
-        {detail && state !== "clean" && <span className="ow-muted" style={{ fontWeight: 500 }} role={state === "error" ? "alert" : undefined}>{detail}</span>}
+        {detail && state !== "clean" && <span className="ow-muted ow-savestate-detail" role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>
       <span className="ow-row">
         {onDiscard && <button type="button" className="ow-btn ow-btn--ghost" onClick={onDiscard} disabled={busy || (!alwaysDiscard && (state === "clean" || state === "saved"))}>{discardLabel}</button>}
@@ -73,7 +73,7 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
 
 export function Notice({ tone = "info", children, actions, role }: { tone?: "info" | "warn" | "danger" | "ok"; children: ReactNode; actions?: ReactNode; role?: "alert" | "status" }) {
   const icon = tone === "danger" || tone === "warn" ? "alert" : tone === "ok" ? "check" : "info";
-  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span style={{ marginTop: 2 }}><OwnerIcon name={icon} size={18} /></span><div style={{ minWidth: 0 }}>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
+  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={18} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
 }
 
 export function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) { return <div className="ow-skel" style={{ height, width }} aria-hidden="true" />; }
@@ -90,9 +90,9 @@ export function MoreInfo({ summary = "Mehr dazu", children }: { summary?: string
   return <details className="ow-more"><summary>{summary}</summary><div className="ow-more-body">{children}</div></details>;
 }
 
-/** `back`: the link to the list a page was opened from („‹ Aktionen“), above the heading. */
-export function PageHead({ eyebrow, title, lead, actions, back }: { eyebrow?: string; title: string; lead?: string; actions?: ReactNode; back?: ReactNode }) {
-  return <header className="ow-pagehead"><div>{back}{eyebrow && <p className="ow-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{lead && <p>{lead}</p>}</div>{actions && <div className="ow-row">{actions}</div>}</header>;
+/** `back`: the link to the list a page was opened from („‹ Aktionen“), above the heading; no eyebrow or kicker (SF-5). */
+export function PageHead({ title, lead, actions, back }: { title: string; lead?: string; actions?: ReactNode; back?: ReactNode }) {
+  return <header className="ow-pagehead"><div>{back}<h1>{title}</h1>{lead && <p>{lead}</p>}</div>{actions && <div className="ow-row">{actions}</div>}</header>;
 }
 
 /** Shared read-failure block: says what failed, keeps the page usable and offers one retry. */

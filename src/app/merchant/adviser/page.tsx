@@ -31,18 +31,18 @@ export default function MerchantAdviserPage() {
         <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
           <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Buchungen" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
         </dl>
-        <section aria-labelledby="advice-heading" className="ow-stack"><h2 id="advice-heading" style={{ fontSize: "var(--text-18)" }}>Prüfpunkte</h2>
+        <section aria-labelledby="advice-heading" className="ow-stack ow-stack--tight"><h2 id="advice-heading" className="ow-section-head">Prüfpunkte</h2>
           {r.recommendations.map(item => (
             <article className="ow-card ow-stack" key={item.id}>
-              <h3 style={{ fontSize: "var(--text-16)" }}>{item.title}</h3>
+              <h3>{item.title}</h3>
               <dl className="ow-dl">{item.observed.map(observation => [<dt key={`${observation.label}-t`}>{observation.label}</dt>, <dd key={`${observation.label}-d`}>{observation.value}</dd>])}</dl>
               <div><h4 className="ow-label">Warum dieser Hinweis?</h4><p>{item.reasoning}</p></div>
-              <div><h4 className="ow-label">Was fehlt?</h4><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{item.missingInformation.map(value => <li key={value}>{value}</li>)}</ul></div>
-              <div className="ow-readonly"><h4 className="ow-label">Nächster Schritt zur Prüfung</h4><p>{item.nextAction}</p>{item.link && <p style={{ marginTop: 8 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={item.link.href}>{item.link.label}</Link></p>}</div>
+              <div><h4 className="ow-label">Was fehlt?</h4><ul>{item.missingInformation.map(value => <li key={value}>{value}</li>)}</ul></div>
+              <div className="ow-readonly"><h4 className="ow-label">Nächster Schritt zur Prüfung</h4><p>{item.nextAction}</p>{item.link && <p><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={item.link.href}>{item.link.label}</Link></p>}</div>
             </article>
           ))}
         </section>
-        <Notice><div><strong>Datengrenzen</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{r.limitations.map(value => <li key={value}>{value}</li>)}</ul><p style={{ marginTop: 6 }}><Link className="ow-link" href="/merchant/analytics">Zählregeln in den Ergebnissen ansehen</Link> · <Link className="ow-link" href="/merchant/program">Programm manuell öffnen</Link></p></div></Notice>
+        <Notice><div><strong>Datengrenzen</strong><ul>{r.limitations.map(value => <li key={value}>{value}</li>)}</ul><p><Link className="ow-link" href="/merchant/analytics">Zählregeln in den Ergebnissen ansehen</Link> · <Link className="ow-link" href="/merchant/program">Programm manuell öffnen</Link></p></div></Notice>
       </>}
     </div>
   );

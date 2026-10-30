@@ -140,7 +140,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
               </div>;
             })}
           {olderError && <ErrorNotice message={olderError} onRetry={() => void loadOlder()} />}
-          {nextCursor && <div style={{ marginTop: 12 }}><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void loadOlder()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button></div>}
+          {nextCursor && <div className="ow-mt-3"><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void loadOlder()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button></div>}
         </section>
         {!member.closedAt && <div>
           <h2>Karte</h2>

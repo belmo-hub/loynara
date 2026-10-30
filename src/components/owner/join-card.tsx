@@ -63,10 +63,10 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
     try { await downloadCounterSign(me); } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }
   }
 
-  if (!joinUrl) return <div className="ow-card"><h2>Kunden einladen</h2><p className="ow-muted" style={{ marginTop: 8 }}>Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p></div>;
+  if (!joinUrl) return <div className="ow-card"><h2>Kunden einladen</h2><p className="ow-muted ow-mt-2">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p></div>;
   return (
     <section className="ow-card ow-card--flat ow-stack" aria-labelledby="ow-join-title">
-      <div><h2 id="ow-join-title">Kunden einladen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)", marginTop: 2 }}>Dieser Link führt zur Anmeldung für {me.locationName}.</p></div>
+      <div><h2 id="ow-join-title">Kunden einladen</h2><p className="ow-muted ow-mt-1" style={{ fontSize: "var(--text-14)" }}>Dieser Link führt zur Anmeldung für {me.locationName}.</p></div>
       <div className="ow-field"><label htmlFor="ow-join-url" className="ow-sr">Anmeldelink</label><input id="ow-join-url" className="ow-input" readOnly value={joinUrl} onFocus={event => event.currentTarget.select()} /></div>
       <div className="ow-row">
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}><CopyLabel copied={copied} label="Link kopieren" /></button>

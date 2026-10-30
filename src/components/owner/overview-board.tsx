@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Flag, RefreshCw, type LucideIcon } from "lucide-react";
+import { ArrowRight, CircleHelp, Flag, RefreshCw, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -14,14 +14,12 @@ import { nf } from "./owner-ui";
 
 const NBSP = "\u00a0";
 
-/** The overview card (Wegweiser A): white, since green marks only the one thing to do. Kicker, then what the caller passes in. */
-export function Board({ kicker, busy = false, children }: { kicker: string; busy?: boolean; children: ReactNode }) {
-  return (
-    <section className="ow-board" aria-labelledby="ow-board-kicker" aria-busy={busy}>
-      <p className="ow-board-kicker" id="ow-board-kicker">{kicker}</p>
-      {children}
-    </section>
-  );
+/**
+ * The overview card (Wegweiser A): white, since green marks only the one thing to do. No kicker (SF-5): the number leads
+ * and its sub-line says what it counts and over which days; `label` names the card for screen readers.
+ */
+export function Board({ label, busy = false, children }: { label: string; busy?: boolean; children: ReactNode }) {
+  return <section className="ow-board" aria-label={label} aria-busy={busy}>{children}</section>;
 }
 
 /** „128,10 €“ with the cents set smaller, from the shared money formatter's output. */
@@ -32,7 +30,7 @@ export function BigMoney({ text }: { text: string }) {
 
 /** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
 export function BoardPlaceholder() {
-  return <div aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%", margin: "8px 0" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112, marginTop: 20 }} /></div>;
+  return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
 
 /** The last 7 local days ending yesterday; only yesterday lights up, and only if it had bookings. */
@@ -101,10 +99,10 @@ export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
   const titleId = useId();
   const close = () => setHelp(false);
   return (
-    <section className="ow-stack" aria-labelledby={titleId} style={{ gap: 8 }}>
+    <section className="ow-stack ow-stack--tight" aria-labelledby={titleId}>
       <div className="ow-rows-head">
         <h2 id={titleId} className="ow-tiles-title">{title}</h2>
-        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{title}“</span></button>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
       </div>
       <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>
       <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
@@ -170,7 +168,7 @@ export function Brought({ brought, all, currency }: { brought: BroughtCustomers;
     <section className="ow-brought" aria-labelledby={titleId}>
       <div className="ow-brought-head">
         <h2 id={titleId} className="ow-tiles-title">{BROUGHT_COPY.title}</h2>
-        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „Wieder da oder neu auf Empfehlung“</span></button>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „Wieder da oder neu auf Empfehlung“</span></button>
       </div>
       <p className="ow-brought-n">{BROUGHT_COPY.customers(brought.customers)}</p>
       <dl className="ow-brought-lines">

@@ -14,11 +14,15 @@
   font-size: var(--text-16);
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
+  font-variant-numeric: tabular-nums; /* figures line up in every row, total and date (checklist §5) */
 }
 .owner-app *, .owner-app *::before, .owner-app *::after { box-sizing: border-box; }
 .owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.owner-app h1, .owner-app h2, .owner-app h3 { font-family: inherit; letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--color-ink); }
+/* D-020: every heading is Manrope 800 (SF-4); no later rule lowers it (owner-type.test.ts). */
+.owner-app :is(h1, h2, h3) { font-family: inherit; font-weight: var(--weight-heavy); letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--color-ink); text-wrap: balance; }
 .owner-app p { margin: 0; }
+/* Running text leaves no word alone on its last line (SF-6). */
+.owner-app :is(p, .ow-hint, .ow-notice, .ow-prog-note, small) { text-wrap: pretty; }
 .owner-app small { font-size: var(--text-14); } /* browsers shrink <small> to 12.8 px */
 /* Disclosure rows are tap targets too (marker kept: display stays list-item). */
 .owner-app summary { min-height: 44px; padding-block: 10px; line-height: 24px; cursor: pointer; }
@@ -118,14 +122,13 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: manual; overflow-wrap: break-word; }
 @media (min-width: 1024px) { .ow-pagehead h1 { font-size: var(--display-36); line-height: 1.1; } }
 .ow-pagehead p { color: var(--color-ink-muted); margin-top: 4px; max-width: 62ch; }
-.ow-eyebrow { font-size: var(--text-14); font-weight: 700; letter-spacing: .04em; color: var(--color-ink-muted); margin-bottom: 4px; }
 
 /* Primitives */
 .ow-card { background: var(--color-raised); border: 1px solid var(--color-line); border-radius: var(--radius-lg); padding: var(--space-6); }
 .ow-card--flat { box-shadow: none; }
-.ow-card h2 { font-size: var(--text-18); }
+.ow-card :is(h2, h3) { font-size: var(--text-18); }
 .ow-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
-.ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: 2px; }
+.ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: var(--space-1); }
 .ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 /* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
@@ -149,7 +152,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 /* A notice is a white panel with a muted icon; only real success, warnings and errors carry a status colour. */
 .ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
-.ow-notice > span:first-child { color: var(--color-ink-muted); }
+.ow-notice > span:first-child { display: flex; align-items: center; height: 1lh; color: var(--color-ink-muted); } /* the icon on the first line's centre */
+.ow-notice > div { min-width: 0; }
 .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
 :is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: var(--color-fill); }
 .ow-notice--warn > span:first-child { color: var(--color-warning); }
@@ -160,19 +164,36 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-muted { color: var(--color-ink-muted); }
 .ow-num { font-variant-numeric: tabular-nums; }
 .ow-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.ow-stack--tight { gap: var(--space-2); }
+.ow-stack--wide { gap: var(--space-5); }
+/* One-off gaps on the 4 px scale instead of inline styles (SF-7); `.owner-app` beats `.owner-app p { margin: 0 }`. */
+.owner-app .ow-mt-1 { margin-top: var(--space-1); }
+.owner-app .ow-mt-2 { margin-top: var(--space-2); }
+.owner-app .ow-mt-3 { margin-top: var(--space-3); }
+/* A list or a second paragraph inside a panel or notice: 4 under the line before it, the markers inside the column. */
+.owner-app :is(.ow-card, .ow-notice, .ow-readonly) ul:not([class]) { margin: var(--space-1) 0 0; padding-left: var(--space-5); }
+.owner-app .ow-notice div > * + :is(p, ul, ol) { margin-top: var(--space-1); }
+.owner-app .ow-readonly p + p { margin-top: var(--space-2); }
+/* Numbered steps in a help sheet. */
+.ow-steps-list { display: grid; gap: var(--space-2); margin: 0 0 var(--space-3); padding-left: var(--space-5); list-style: decimal; }
 .ow-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .ow-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Fields */
-.ow-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ow-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+/* A number or date answer is as wide as its value, not the column (SF-7). */
+.ow-field--narrow { max-width: 12rem; }
 .ow-field > label, .ow-label { font-weight: 700; font-size: var(--text-14); }
 .ow-hint { font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-more { font-size: var(--text-14); color: var(--color-ink-muted); }
+/* Body text runs at most 65 characters a line (SF-6). */
+.ow-notice > div, .ow-hint, .ow-prog-note, .ow-rows-note, .ow-card p { max-width: 65ch; }
 .ow-more-body { max-width: 65ch; padding-bottom: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
 .ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
+.ow-input[type="file"] { padding-block: var(--space-2); }
 .ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
 .ow-input:hover, .ow-select:hover, .ow-textarea:hover { border-color: var(--color-ink); }
 /* Native selects: appearance none so Safari honours the 44 px height; the chevron is drawn in the theme ink. */
@@ -203,7 +224,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-metric { background: var(--color-raised); border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ow-metric dt { font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); }
 .ow-metric dd { margin: 0; }
-.ow-metric-value { font-size: var(--text-28); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: proportional-nums; }
+.ow-metric-value { font-size: var(--text-28); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
 .ow-metric-value--muted { color: var(--color-ink-muted); font-size: var(--text-22); }
 .ow-metric-note { font-size: var(--text-14); color: var(--color-ink-muted); }
 
@@ -228,6 +249,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }
 /* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
 .ow-savestate-label { flex: 1 1 12rem; min-width: 0; }
+.ow-savestate-detail { font-weight: var(--weight-body); }
 .ow-savestate > .ow-dot { align-self: flex-start; margin-top: calc((1lh - 8px) / 2); } /* on the first line, not between two */
 .ow-savestate[data-state="dirty"] { color: var(--color-warning); }
 .ow-savestate[data-state="saving"] { color: var(--color-ink-muted); }
@@ -248,6 +270,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 
 .ow-skip { position: absolute; left: -9999px; top: 8px; z-index: var(--z-toast); padding: 10px 16px; background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
 .ow-skip:focus { left: 8px; }
+/* The owner area could not load: one card, centred lower on the page. */
+.ow-page--alone { max-width: 560px; padding-top: calc(var(--space-12) * 2); }
 .ow-bare .ow-topbar { position: static; padding-block: var(--space-3); }
 
 /* Card preview */
@@ -292,7 +316,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-stage { width: 100%; min-height: 360px; display: flex; align-items: center; justify-content: center; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--color-fill); border: 1px dashed var(--color-line-strong); }
 .ow-group { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-group + .ow-group { border-top: 1px solid var(--color-line); padding-top: var(--space-6); margin-top: var(--space-6); }
-.ow-group > legend { font-size: var(--text-14); font-weight: 700; letter-spacing: .04em; color: var(--color-ink-muted); padding: 0; margin-bottom: var(--space-3); }
+.ow-group > legend { padding: 0; margin-bottom: var(--space-3); }
 .ow-swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .ow-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--color-raised); box-shadow: 0 0 0 1px var(--color-line-strong); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .ow-swatch:hover { transform: scale(1.06); }
@@ -301,12 +325,12 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; }
 .ow-logo-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .ow-logo-thumb { width: 56px; height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-line); object-fit: cover; background: var(--color-raised); }
-.ow-mobile-switch { display: none; }
+.ow-mobile-switch { display: none; margin-bottom: var(--space-4); }
 .ow-readonly { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-fill); font-size: var(--text-14); }
 .ow-readonly dl { margin: 0; }
 .ow-wallet-ready-list { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-wallet-ready-list > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: start; }
-.ow-wallet-ready-list dt { font-size: var(--text-14); font-weight: 600; padding-top: 3px; }
+.ow-wallet-ready-list dt { font-size: var(--text-14); font-weight: 600; padding-top: var(--space-1); }
 .ow-wallet-ready-list dd { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 @media (max-width: 420px) { .ow-wallet-ready-list > div { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) {
@@ -324,7 +348,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-reward { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); flex-wrap: wrap; }
 .ow-reward:first-child { border-top: 0; }
 .ow-reward-head { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; flex: 1 1 260px; }
-.ow-reward-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ow-reward-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1; }
 .ow-reward-main > strong { font-size: var(--text-16); }
 .ow-reward-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 /* Move arrows sit beside the name they move: quiet, borderless, and a disabled one only fades (no fill, no ring). */
@@ -335,7 +359,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 
 /* Stepper */
 .ow-stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 6px; border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: 600; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: 600; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-stepper li[aria-current="step"] { color: var(--color-ink); border-color: var(--color-ink); background: var(--color-fill); }
 .ow-stepper li[data-done="true"] { color: var(--color-ink-muted); }
 .ow-stepper-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--color-fill); font-size: var(--text-14); font-weight: 700; }
@@ -358,7 +382,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-stand .ow-board-big small { font-size: var(--text-22); }
 .ow-stand-grid { margin-top: var(--space-3); }
 .ow-day-sum strong { color: var(--color-ink); font-weight: var(--weight-strong); }
-.ow-qlegend { margin: 0 2px var(--space-1); padding: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); color: var(--color-ink-muted); }
+.ow-qlegend { margin: 0 0 var(--space-2); }
 .ow-qsum dl > div[data-new] dd { color: var(--color-ink); }
 .ow-reissued { display: grid; justify-items: center; gap: var(--space-2); text-align: center; text-wrap: pretty; }
 .ow-reissued strong { font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
@@ -367,7 +391,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
 @media (max-width: 1280px) { .ow-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ow-goals { grid-template-columns: minmax(0, 1fr); } }
-.ow-goal { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-goal { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-goal:hover { border-color: var(--color-ink); transform: translateY(-1px); }
 .ow-goal strong { font-size: var(--text-16); }
 .ow-goal span:not(.ow-link) { color: var(--color-ink-muted); font-size: var(--text-14); }
@@ -379,9 +403,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-seg { max-width: 100%; flex-wrap: wrap; }
 .ow-studio-preview > * { max-width: 100%; }
 
-/* Refinement pass 1: heading weight (Tailwind preflight resets it) and icon+label segmented buttons */
-.owner-app h1 { font-weight: 700; }
-.owner-app h2, .owner-app h3 { font-weight: 650; }
+/* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
@@ -393,19 +415,25 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 
 /* Programm list (ENG-099, Wegweiser): section labels on the grey, one row per setting, the whole row one link. */
 .ow-prog { max-width: 40rem; }
-.ow-prog h2 { margin: var(--space-5) 2px 0; font-size: var(--text-14); font-weight: var(--weight-heavy); letter-spacing: 0; color: var(--color-ink-muted); }
+/* One section head (SF-4): 14/800 muted on the grey, on the rows' left edge, 8 above its rows and 20 below the block
+   above. Every label over a group wears it; its margins come from where it stands. */
+.owner-app .ow-section-head, .ow-prog h2, .owner-app .ow-tiles-title, .ow-diary h2, .ow-group > legend, .ow-qlegend, .ow-q .ow-qsub, .ow-q .ow-qlabel, .ow-cardline-label {
+  padding: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.3; letter-spacing: 0; color: var(--color-ink-muted);
+}
+.owner-app .ow-section-head { margin: 0 0 var(--space-2); } /* the page's 24 gap is the space above */
+.owner-app .ow-stack > .ow-section-head { margin-bottom: 0; } /* the stack's gap is the 8 */
+.ow-prog h2 { margin: var(--space-5) 0 0; }
 .ow-prog > div:first-child h2 { margin-top: 0; }
 .ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
-/* 10 px gaps and 14 px side padding keep „Google-Bewertung“ and its value on one line at 375 px (Design). */
-.ow-prog-row { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: var(--space-3) 14px; border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
+.ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
 .ow-prog-row:active { transform: scale(.985); }
 .ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
 .ow-prog-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
 /* A value sits beside the words while they fit unbroken, else on a line of its own: a word never splits around it. */
-.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) 10px; }
+.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
 .ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
 .ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
-.ow-prog-text small { display: block; margin-top: 2px; color: var(--color-ink-muted); line-height: 1.4; }
+.ow-prog-text small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); line-height: 1.4; }
 .ow-prog-value { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ow-prog-value[data-off] { color: var(--color-ink-muted); }
 .ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
@@ -413,11 +441,11 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-value[data-pair] { font-size: var(--text-22); }
 .ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 @media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
-.ow-prog .ow-prog-note { margin: var(--space-2) var(--space-1) 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Below 360 px the icons give their room to the words. */
 @media (max-width: 359px) { .ow-prog-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
-.ow-back { display: inline-flex; align-items: center; gap: 2px; min-height: var(--target); margin-left: -6px; padding-right: var(--space-2); font-weight: var(--weight-strong); color: var(--color-ink); }
+.ow-back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); margin-left: -6px; padding-right: var(--space-2); font-weight: var(--weight-strong); color: var(--color-ink); }
 .ow-back:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* „Gespeichert“ after a row's page saved: one toast above the bottom bar; the region keeps role="status" so it is read out. */
 .ow-toast-region { position: fixed; inset: auto 0 calc(var(--ow-tabbar) + var(--space-6)); z-index: var(--z-toast); display: flex; justify-content: center; padding-inline: var(--space-4); pointer-events: none; }
@@ -432,11 +460,13 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (max-width: 640px) {
   .ow-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .ow-table, .ow-table tbody, .ow-table tr, .ow-table td { display: block; width: 100%; }
-  .ow-table tr { padding: 10px 0; border-bottom: 1px solid var(--color-line); }
-  .ow-table td { border: 0; padding: 2px 0; display: flex; gap: var(--space-3); justify-content: space-between; }
+  .ow-table tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-line); }
+  .ow-table td { border: 0; padding: var(--space-1) 0; display: flex; gap: var(--space-3); justify-content: space-between; }
   .ow-table td::before { content: attr(data-label); color: var(--color-ink-muted); font-weight: 600; flex: none; }
 }
 .ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
+/* NFC-Tap's disclosure: its title and state chip on one 44 px line. */
+.ow-tap-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
 .ow-check input { width: 20px; height: 20px; accent-color: var(--color-action); }
 /* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
 .ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
@@ -449,8 +479,9 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 
 /* Ergebnisse (ENG-122b): heads on the grey over the Übersicht's rows; the period's weeks drawn with the strip's parts. */
 .ow-results { gap: var(--space-4); }
+.ow-results > .ow-pagehead { margin-bottom: var(--space-2); } /* head to first block stays 24 (SF-7) */
 .ow-rows-section { display: grid; gap: var(--space-2); }
-.ow-rows-note { padding-inline: 2px; font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-rows-note { font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 /* Twelve weeks at 320 px: narrower gaps, the counts and dates one step smaller. */
 .ow-weeks[data-many] { gap: var(--space-1); }
 .ow-weeks[data-many] :is(.ow-strip-n, .ow-strip-d) { font-size: var(--text-12); }
@@ -475,7 +506,6 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
   .ow-metrics--three .ow-metric dd:not(.ow-metric-note) { grid-column: 2; grid-row: 1 / span 2; }
 }
 .ow-next { display: grid; gap: var(--space-3); justify-items: start; }
-.ow-next .ow-eyebrow { margin: 0; color: var(--color-accent-text); }
 .ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
 .ow-filebtn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -487,7 +517,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* Team permissions matrix. */
 .ow-table-wrap { overflow-x: auto; }
 .ow-perm { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
-.ow-perm th, .ow-perm td { padding: 10px 8px; border-bottom: 1px solid var(--color-line); text-align: center; }
+.ow-perm th, .ow-perm td { padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-line); text-align: center; }
 .ow-perm thead th { font-size: var(--text-14); color: var(--color-ink-muted); font-weight: 700; }
 .ow-perm th[scope="row"], .ow-perm thead th:first-child { text-align: left; font-weight: 600; }
 .ow-perm-yes { color: var(--color-success); font-weight: 800; }
@@ -512,6 +542,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-dash-notice:empty { display: none; }
 /* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
 .owner-app .ow-hello { margin: 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
+/* The greeting reads as the Übersicht's title: the same 36 as every page title on desktop (I-07). */
+@media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
 /* The next step: the one green thing on the page, the whole band one action. */
 .ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
@@ -521,7 +553,7 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ow-band-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
 .ow-band-text { flex: 1; min-width: 0; overflow-wrap: break-word; }
 .ow-band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; text-wrap: balance; }
-.ow-band small { display: block; margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
+.ow-band small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
 .ow-band-go { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); font-weight: var(--weight-strong); }
 @media (max-width: 359px) { .ow-band-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-band { transition: none; } a.ow-band:active, button.ow-band:active { transform: none; } }
@@ -553,13 +585,16 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 @media (max-width: 359px) { .ow-strip-d { font-size: var(--text-12); } }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
 
-.ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: 3px; height: 14px; }
+.ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: var(--space-1); height: 14px; }
 .ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-ink); }
 .ow-stock span[data-kind="drifting"] { background: color-mix(in oklab, var(--color-ink) 28%, var(--color-surface)); }
 .ow-stock span[data-kind="never"] { background: none; border: 1px solid var(--color-line-strong); }
 .ow-board-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 
 .ow-ph { display: block; border-radius: var(--radius-sm); background: var(--color-fill); }
+/* The board's placeholder: number, sub-line, then the strip 20 lower. */
+.ow-board-ph { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
+.ow-board-ph > :last-child { margin-top: var(--space-3); }
 @media (prefers-reduced-motion: no-preference) { .ow-board[aria-busy="true"] .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
 @keyframes ow-pulse { 50% { opacity: .45; } }
 
@@ -572,13 +607,13 @@ div.ow-prog-row:active { transform: none; }
 .ow-rows .ow-prog-value { order: 1; }
 .ow-rows div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
 .ow-rows-help + .ow-rows-help { margin-top: var(--space-4); }
-.ow-rows-help h3 { margin: 0 0 var(--space-1); font-size: var(--text-16); font-weight: var(--weight-strong); }
+.ow-rows-help h3 { margin: 0 0 var(--space-1); font-size: var(--text-16); font-weight: var(--weight-heavy); }
 
 .ow-diary h2 { margin-bottom: var(--space-2); }
 .ow-day { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-5); }
 .ow-day-rail { display: flex; flex-direction: column; align-items: center; }
-.ow-day-rail i { width: 12px; height: 12px; margin-top: 6px; border-radius: var(--radius-pill); background: var(--color-ink-muted); }
-.ow-day-rail span { flex: 1; width: 2px; margin-top: 6px; background: var(--color-line); }
+.ow-day-rail i { width: 12px; height: 12px; margin-top: var(--space-1); border-radius: var(--radius-pill); background: var(--color-ink-muted); }
+.ow-day-rail span { flex: 1; width: 2px; margin-top: var(--space-1); background: var(--color-line); }
 .ow-day[data-gap] .ow-day-rail i, .ow-day[data-state="open"] .ow-day-rail i { background: none; border: 2px solid var(--color-line-strong); }
 .ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-ink); }
 /* The first-steps rail tells done, current and open apart by shape, not only colour. */
@@ -586,24 +621,22 @@ div.ow-prog-row:active { transform: none; }
 .ow-day[data-state="current"] .ow-day-rail i { border-width: 4px; }
 .ow-day[data-state="open"] .ow-day-rail i { border-width: 1px; }
 .ow-day h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); }
+.ow-day h3 .ow-chip { margin-left: var(--space-2); }
 .ow-day[data-gap] h3 { color: var(--color-ink-muted); }
-.ow-day-sum { margin: 2px 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-day-sum { margin: var(--space-1) 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.ow-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
+.ow-pill { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-pill b { color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-pill[data-kind="correction"] b { color: var(--color-ink-muted); }
 /* The redeemed reward is the one coral element on the screen (spec §4.2). */
 .ow-pill[data-kind="redemption"] { border-color: var(--color-stamp); }
 .ow-pill[data-kind="redemption"] b { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--color-stamp); }
-/* `.owner-app` so the muted colour beats `.owner-app h2` (it rendered in ink before ENG-095); the h2 weight 650 stays. */
-.owner-app .ow-tiles-title { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
-/* A 24 px "?" with a 44 px target (spec §1.3). */
+/* The help „?“: lucide CircleHelp at 22 px in a 44 px target (spec §1.3, C-16). */
 .ow-tile-q { position: relative; display: inline-grid; place-items: center; flex: none; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
-.ow-tile-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
 .ow-pill[data-kind="more"] { color: var(--color-ink-muted); }
-/* The board's „?“ ends its sub-line: a 24 px circle with a 44 px target; the negative margins keep the line's height. */
+/* The board's „?“ ends its sub-line, a 22 px CircleHelp in a 44 px target; the negative margins keep the line's height. */
 .ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; vertical-align: middle; cursor: pointer; }
-.ow-board-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
+.ow-tile-q svg, .ow-board-q svg { flex: none; }
 .ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Number stepper (owner-fields spec §3): − value + with 44 px round buttons; the value stays a typed field, sized to its digits. */
 .ow-number { display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -617,7 +650,6 @@ div.ow-prog-row:active { transform: none; }
 .ow-number[data-invalid] .ow-number-value { color: var(--color-danger); }
 /* Card preview (spec §6): the customer's line on a raised mini card in a grey inset; the rules sit under a hairline. */
 .ow-cardline { display: grid; gap: var(--space-2); }
-.ow-cardline-label { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-cardline-ground { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-bg); }
 .ow-cardline-card { padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-raised); }
 .ow-cardline-shop { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
@@ -626,7 +658,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-cardline-text u { color: var(--color-ink); font-weight: var(--weight-strong); text-underline-offset: 3px; }
 .ow-cardline-rules { margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 /* The preview's reward lines (screen 07): name, then the threshold; the new reward in the action colour. */
-.ow-cardline-reward { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: 6px; }
+.ow-cardline-reward { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); }
 .ow-cardline-reward + .ow-cardline-reward { border-top: 1px solid var(--color-line); }
 .ow-cardline-reward b { min-width: 0; font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .ow-cardline-reward span { flex: none; color: var(--color-ink-muted); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
@@ -635,22 +667,25 @@ div.ow-prog-row:active { transform: none; }
 /* Question pages (ENG-099, Wegweiser, screens 05–07, 18, 19): the question is the heading, its answer sits on a panel on
    the grey, and one action waits at the thumb. Adding a reward shows „Schritt n von 3“ under a bar per step. */
 .ow-qpage { gap: var(--space-3); }
+/* Page head to the first block is 24 everywhere (SF-7): the panels' 12 gap plus 12 under the head. */
+.ow-qpage > .ow-pagehead { margin-bottom: var(--space-3); }
 .ow-qpage [aria-invalid="true"]:focus-visible { outline-color: var(--color-danger); }
 .ow-qhead { width: 100%; max-width: 40rem; }
-.ow-qstep { display: grid; gap: var(--space-2); margin: 2px 0 var(--space-1); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.ow-qbar { display: flex; gap: 6px; }
-.ow-qbar i { flex: 1; height: 5px; border-radius: var(--radius-pill); background: var(--color-line); }
+.ow-qstep { display: grid; gap: var(--space-2); margin: var(--space-1) 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.ow-qbar { display: flex; gap: var(--space-2); }
+.ow-qbar i { flex: 1; height: 4px; border-radius: var(--radius-pill); background: var(--color-line); }
 .ow-qbar i[data-on] { background: var(--color-ink); }
 .ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
-.ow-qpanel { padding: 14px var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-qpanel { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
 .ow-qpanel.ow-field > label { color: var(--color-ink-muted); }
 .ow-qpanel .ow-input { min-height: 52px; }
 /* The shop's colour keeps an edge on a card of the same tone, as the card studio's swatches do. */
 .ow-qpanel .ow-cardline-shop i { box-shadow: 0 0 0 1px var(--color-line-strong); }
 .ow-qcount { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-qcount span:last-child { flex: none; }
-.ow-qerror { display: flex; align-items: flex-start; gap: 6px; }
-.ow-qerror svg { flex: none; margin-top: 1px; }
+.ow-qerror { display: flex; align-items: flex-start; gap: var(--space-2); }
+/* One line tall, so the icon centres on the message's first line. */
+.ow-qerror svg { flex: none; height: 1lh; }
 /* One number as the whole answer: − 20 + at full size, the unit under the number. */
 .ow-qnumber { display: grid; justify-items: center; gap: var(--space-2); padding-top: var(--space-4); text-align: center; }
 .ow-qnumber .ow-number { gap: var(--space-5); }
@@ -681,7 +716,7 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
 /* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
-.ow-qchoice { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: var(--space-3) 14px; border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
@@ -719,18 +754,18 @@ div.ow-prog-row:active { transform: none; }
 /* C2: the extra rules so far, in ink after their muted label, as the owner wrote them. */
 .ow-qformer span { color: var(--color-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* ENG-100: the date box of a change that waits four weeks (28, 30, 57) and of a take-back (58, undo icon). */
-.ow-when { display: flex; gap: var(--space-3); align-items: flex-start; padding: 14px var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
-.ow-when > svg { flex: none; margin-top: 2px; color: var(--color-warning); }
+.ow-when { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-when > svg { flex: none; margin-top: var(--space-1); color: var(--color-warning); }
 .ow-when[data-undo] > svg { color: var(--color-ink); }
 .ow-when b { display: block; font-size: var(--text-18); font-weight: var(--weight-heavy); }
 .ow-when p { margin-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-q > .ow-hint[data-later] { color: var(--color-warning); font-weight: var(--weight-label); }
-.ow-qchoices-lead { margin: 0 2px var(--space-2); }
+.ow-qchoices-lead { margin: 0 0 var(--space-2); }
 .ow-cardline-link { color: var(--color-ink); font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .ow-qsave .ow-btn + .ow-btn { margin-top: var(--space-2); }
 /* The list's chip for a change waiting for its date sits on its own line under the row's text (Design gaps §1). */
 .ow-prog-pend { flex-basis: 100%; }
-.ow-qcmp { display: grid; gap: 6px; }
+.ow-qcmp { display: grid; gap: var(--space-2); }
 .ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ow-qcmp[data-new] { box-shadow: inset 0 0 0 2px var(--color-ink); }
@@ -745,13 +780,13 @@ div.ow-prog-row:active { transform: none; }
    the step's buttons in the page's flow (the cards below the question have their own save bar, so nothing pins here). */
 .ow-lock { display: grid; gap: var(--space-4); padding: var(--space-4) var(--space-3) var(--space-5); border-radius: var(--radius-lg); background: var(--color-board); color: var(--color-on-board); }
 .ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.ow-lock-note { display: grid; gap: 2px; padding: 10px var(--space-3); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-board), transparent 84%); font-size: var(--text-14); overflow-wrap: anywhere; }
+.ow-lock-note { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-board), transparent 84%); font-size: var(--text-14); overflow-wrap: anywhere; }
 .ow-lock-note b { display: flex; justify-content: space-between; gap: var(--space-3); }
 .ow-lock-note b span + span { flex: none; color: var(--color-on-board-muted); font-weight: var(--weight-label); }
 .ow-qnote { display: flex; align-items: flex-start; gap: var(--space-3); }
 .ow-qnote > svg { flex: none; color: var(--color-warning); }
 .ow-qnote strong { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); }
-.ow-qnote p { padding-top: 2px; color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-qnote p { padding-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-qactions { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
 .ow-qactions .ow-btn, .ow-qactions button { width: 100%; min-height: 52px; }
 /* First setup (ENG-122f, screens 19–22): the question pages before a programme exists, in the bare shell. The column is
@@ -762,7 +797,7 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-bare--setup .ow-topbar { padding-inline: var(--space-4); } }
 .ow-bare .ow-qsave { position: static; margin-top: var(--space-3); padding: 0; background: none; }
 /* A second question inside a step („So entstehen Punkte“) gets a section head on the grey, as on the Programm list. */
-.ow-q .ow-qsub { margin: var(--space-3) 2px 0; font-size: var(--text-14); font-weight: var(--weight-heavy); letter-spacing: 0; color: var(--color-ink-muted); }
+.ow-q .ow-qsub { margin: var(--space-3) 0 0; }
 .ow-qpanel > summary { font-weight: var(--weight-strong); }
 .ow-qpanel > summary::marker { color: var(--color-ink-muted); }
 .ow-qpanel[open] > summary { margin-bottom: var(--space-3); }
@@ -791,7 +826,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-brought-off > span:first-child { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); }
 .ow-brought-off > span + span { flex: 1; min-width: 0; }
 .ow-brought-off b { display: block; font-weight: var(--weight-strong); line-height: 1.3; }
-.ow-brought-off small { display: block; margin-top: 2px; color: var(--color-ink-muted); }
+.ow-brought-off small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); }
 .ow-brought-off:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-brought-off > svg { flex: none; color: var(--color-ink-muted); }
 @media (prefers-reduced-motion: reduce) { .ow-brought-off { transition: none; } .ow-brought-off:active { transform: none; } }
@@ -811,18 +846,18 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
 .ow-prog-value[data-off] { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ow-prog li p[role="alert"] { margin-top: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-danger); }
-.ow-prog .ow-prog-head { margin: var(--space-5) 2px 0; }
+.ow-prog .ow-prog-head { margin: var(--space-5) 0 0; }
 .ow-prog > div:first-child .ow-prog-head { margin-top: 0; }
 .ow-prog .ow-prog-head h2 { margin: 0; }
 /* A state on its own line under the row's text (the 55 chip rule), squared like every chip (DESIGN.md: --radius-sm). */
 .ow-prog-row:has(> .ow-prog-chip) { flex-wrap: wrap; row-gap: 0; }
-.ow-prog-chip { flex-basis: 100%; padding-left: 50px; }
+.ow-prog-chip { flex-basis: 100%; padding-left: calc(40px + var(--space-3)); } /* under the text: icon + gap */
 .ow-prog-chip .ow-chip, .ow-chip--state { margin-top: var(--space-1); border-radius: var(--radius-sm); }
 @media (max-width: 359px) { .ow-prog-chip { padding-left: 0; } }
 /* The white card above the rows, as wide as they are; its unit is a step smaller than the Übersicht board's. */
 .ow-numcard { max-width: 40rem; }
 .ow-numcard .ow-board-big small { font-size: var(--text-22); letter-spacing: -.01em; }
-.ow-numcard-facts { display: grid; gap: 2px; margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+.ow-numcard-facts { display: grid; gap: var(--space-1); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
 .ow-numcard-facts div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .ow-numcard-facts dd { margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* A dated fact („Voraussichtlich bis zum …“) beside its calendar, in the warning colour the surface brief keeps for dates. */
@@ -839,6 +874,5 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 /* A price at a row's right edge with „im Monat“ under it, so it stays beside the location's name. */
 .ow-price { display: inline-grid; justify-items: end; }
 .ow-price small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; line-height: 1.2; color: var(--color-ink-muted); }
-.ow-q .ow-qlabel { margin: var(--space-3) 2px 0; font-size: var(--text-14); font-weight: var(--weight-heavy); letter-spacing: 0; color: var(--color-ink-muted); }
+.ow-q .ow-qlabel { margin: var(--space-3) 0 0; }
 .ow-q .ow-qnote, .ow-qpanel .ow-qreason { margin-top: var(--space-2); }
-.ow-q .ow-qnote { margin-inline: var(--space-1); }
