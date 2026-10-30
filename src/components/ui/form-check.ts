@@ -15,6 +15,27 @@ export function validityMessage(control: Control): string {
   return "Bitte prüfe diese Eingabe.";
 }
 
+/** Each invalid control's message by id (a field's own message when it is empty or too short); the first one takes the focus. */
+export function checkForm(form: Pick<HTMLFormElement, "elements">, messages: Record<string, string> = {}) {
+  const errors: Record<string, string> = {};
+  let first: Control | undefined;
+  for (const control of Array.from(form.elements) as Control[]) {
+    if (!control.id || !control.validity || control.validity.valid) continue;
+    errors[control.id] = ((control.validity.valueMissing || control.validity.tooShort) && messages[control.id]) || validityMessage(control);
+    first ??= control;
+  }
+  first?.focus();
+  return errors;
+}
+
+/** `errors` without the control's entry once that control is valid again (same object when nothing changes). */
+export function clearFixed(errors: Record<string, string>, control: Control) {
+  if (!errors[control.id] || !control.validity?.valid) return errors;
+  const rest = { ...errors };
+  delete rest[control.id];
+  return rest;
+}
+
 /**
  * Checks a noValidate form against its own attributes (required, minLength, min, max, type) on submit. `error(id)` is the
  * message for the control with that id, for the field's `error`; the first invalid control takes the focus. An error goes
@@ -24,21 +45,11 @@ export function validityMessage(control: Control): string {
 export function useFormCheck(messages: Record<string, string> = {}) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   function check(form: HTMLFormElement) {
-    const next: Record<string, string> = {};
-    let first: Control | undefined;
-    for (const control of Array.from(form.elements) as Control[]) {
-      if (!control.id || !control.validity || control.validity.valid) continue;
-      next[control.id] = ((control.validity.valueMissing || control.validity.tooShort) && messages[control.id]) || validityMessage(control);
-      first ??= control;
-    }
+    const next = checkForm(form, messages);
     setErrors(next);
-    first?.focus();
-    return !first;
+    return Object.keys(next).length === 0;
   }
-  function onInput(event: FormEvent<HTMLFormElement>) {
-    const control = event.target as Control;
-    if (errors[control.id] && control.validity?.valid) setErrors(current => { const rest = { ...current }; delete rest[control.id]; return rest; });
-  }
+  const onInput = (event: FormEvent<HTMLFormElement>) => setErrors(current => clearFixed(current, event.target as Control));
   const aria = (id: string) => errors[id] ? { "aria-invalid": true, "aria-describedby": `${id}-error` } : {};
   return { check, onInput, aria, error: (id: string) => errors[id] || undefined };
 }

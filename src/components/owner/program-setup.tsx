@@ -48,7 +48,9 @@ export function ProgramSetup() {
   const [amount, setAmount] = useState("");
   const set = (patch: Partial<typeof f>) => setF(current => ({ ...current, ...patch }));
   // Checked when picked (ENG-135): a file the server would refuse says so here, not after the last step.
-  const pickLogo = (file: File | undefined) => file ? imageToDataUrl(file).then(logoData => set({ logoData, logoError: "" }), (cause: Error) => set({ logoData: undefined, logoError: cause.message })) : set({ logoData: undefined, logoError: "" });
+  // A later pick wins over a slower earlier read.
+  const logoPick = useRef(0);
+  const pickLogo = (file: File | undefined, pick = ++logoPick.current) => file ? imageToDataUrl(file).then(logoData => pick === logoPick.current && set({ logoData, logoError: "" }), (cause: Error) => pick === logoPick.current && set({ logoData: undefined, logoError: cause.message })) : set({ logoData: undefined, logoError: "" });
   const touched = f.businessName !== (draft?.businessName ?? "") || f.locationName !== (draft?.locationName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
   useDirtyGuard("program-setup", touched && !busy);
 
