@@ -63,7 +63,8 @@ describe("Wallet step screen (ENG-130 03/04)", () => {
   it("shows the example message, its „Beispiel“ tag and the caption only while the programme says walletMessages is on", () => {
     for (const band of [false, true]) {
       const on = render(true, "stamp", band);
-      expect(on).toContain("Heute bis 17 Uhr: Kuchen zum Kaffee für 2 €.");
+      // A no-break space keeps „2 €“ together at every width (Design).
+      expect(on).toContain("Heute bis 17 Uhr: Kuchen zum Kaffee für 2\u00a0€.");
       expect(on).toMatch(/Café Lindenblatt<\/strong><em[^>]*>Beispiel<\/em>/);
       expect(on).toContain("Angebote vom Laden nur, wenn du es erlaubst: höchstens 2 pro Woche, jederzeit abschaltbar.");
       for (const off of [render(false, "stamp", band), render(undefined, "stamp", band)]) {
