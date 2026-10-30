@@ -11,7 +11,7 @@ import { buttonClassName } from "./ui/button";
 import { CustomerShell } from "./ui/customer-shell";
 import styles from "./customer/tap.module.css";
 import { walletPlatform } from "./wallet-preparation";
-import { readWalletStep, tapOffersWalletStep, WalletStep } from "./wallet-step";
+import { markWalletStep, readWalletStep, tapAsksForWalletStep, tapWalletStep, WalletStep } from "./wallet-step";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
@@ -156,9 +156,14 @@ export function TapClient({ refId }: { refId: string }) {
   const done = state === "confirmed" || state === "awarded" || state === "already_processed";
   // ENG-130: a card the join handed over to this tap gets the Wallet step after its stamp, asked of the location again.
   useEffect(() => {
-    if (!preview || !recoveryCard || !tapOffersWalletStep({ done, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
+    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
     let active = true;
-    void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => { if (active) setWalletProgram(value); }).catch(() => {});
+    void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => {
+      if (!active) return;
+      const step = tapWalletStep(value);
+      markWalletStep(recoveryCard, step.mark);
+      if (step.show) setWalletProgram(value);
+    }).catch(() => {});
     return () => { active = false; };
   }, [preview, recoveryCard, done]);
 
@@ -189,7 +194,7 @@ export function TapClient({ refId }: { refId: string }) {
       {preview?.cardPath && state !== "needs_enrollment" && <Link className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath}>Karte und Prämien ansehen</Link>}
       {state === "error" && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     </section>
-    {walletProgram?.appleWallet && recoveryCard && <WalletStep band token={recoveryCard} businessName={walletProgram.businessName} programType={walletProgram.programType} messages={walletProgram.walletMessages === true} />}
+    {walletProgram && recoveryCard && <WalletStep band token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerShell>;
 }
