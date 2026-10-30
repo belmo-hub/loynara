@@ -8,4 +8,4 @@ export type LocationList = { scope: "all_merchant_locations"; currency: "EUR" | 
 
 /** „Kaffeekarte · Stempel“: the location's programme as the list has always named it. */
 export const programLine = (location: Pick<Location, "programName" | "programType">) =>
-  `${location.programName || "Kein aktives Programm"}${location.programType ? ` · ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}`;
+  `${location.programName || "Kein aktives Programm"}${location.programType ? `\u00a0· ${location.programType === "stamp" ? "Stempel" : "Punkte"}` : ""}`;

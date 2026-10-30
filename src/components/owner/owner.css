@@ -14,7 +14,6 @@
   font-size: var(--text-16);
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
-  font-variant-numeric: tabular-nums; /* figures line up in every row, total and date (checklist §5) */
 }
 .owner-app *, .owner-app *::before, .owner-app *::after { box-sizing: border-box; }
 .owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -154,6 +153,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
 .ow-notice > span:first-child { display: flex; align-items: center; height: 1lh; color: var(--color-ink-muted); } /* the icon on the first line's centre */
 .ow-notice > div { min-width: 0; }
+/* Until the desktop grid (SF-1), a notice on the page is as wide as its text, not half empty (Design FIX 8). */
+@media (min-width: 1024px) { .ow-notice:not(:is(.ow-card, .ow-qpanel) .ow-notice) { width: fit-content; max-width: 100%; } }
 .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
 :is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: none; box-shadow: none; border-radius: 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--color-line); }
 .ow-notice--warn > span:first-child { color: var(--color-warning); }
@@ -162,7 +163,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-notice:is(.ow-notice--danger, .ow-notice--ok) > span:first-child { color: inherit; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .ow-muted { color: var(--color-ink-muted); }
-.ow-num { font-variant-numeric: tabular-nums; }
+/* Tabular figures on number roles only, so prose („17 Uhr“, „+1 Buchung“) keeps its spacing (Design FIX 3). */
+.ow-num, .ow-metric-value, .ow-table td, .ow-qcount, .ow-strip-n, .ow-day-sum, .ow-pill b { font-variant-numeric: tabular-nums; }
 .ow-stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .ow-stack--tight { gap: var(--space-2); }
 .ow-stack--wide { gap: var(--space-5); }
@@ -171,7 +173,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .owner-app .ow-mt-2 { margin-top: var(--space-2); }
 .owner-app .ow-mt-3 { margin-top: var(--space-3); }
 /* A list or a second paragraph inside a panel or notice: 4 under the line before it, the markers inside the column. */
-.owner-app :is(.ow-card, .ow-notice, .ow-readonly) ul:not([class]) { margin: var(--space-1) 0 0; padding-left: var(--space-5); }
+.owner-app :is(.ow-card, .ow-notice, .ow-readonly) ul:not([class]) { margin: var(--space-1) 0 0; padding-left: 0; } /* unmarked: flush with the head (Design FIX 7) */
 .owner-app .ow-notice div > * + :is(p, ul, ol) { margin-top: var(--space-1); }
 .owner-app .ow-readonly p + p { margin-top: var(--space-2); }
 /* Numbered steps in a help sheet. */
@@ -187,7 +189,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-hint { font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-more { font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Body text runs at most 65 characters a line (SF-6). */
-.ow-notice > div, .ow-hint, .ow-prog-note, .ow-rows-note, .ow-card p { max-width: 65ch; }
+.ow-notice > div, .ow-hint, .ow-prog-note, .ow-rows-note, .ow-card p, .ow-card ul, .ow-card ol { max-width: 65ch; }
 .ow-more-body { max-width: 65ch; padding-bottom: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
@@ -425,13 +427,14 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog h2 { margin: var(--space-5) 0 0; }
 .ow-prog > div:first-child h2 { margin-top: 0; }
 .ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
-/* 12 side padding and 8 gaps keep „Google-Bewertung“ / „Durchschnittsbon“ and their value on one line at 360 (review R-1). */
-.ow-prog-row { display: flex; align-items: center; gap: var(--space-2); min-height: 64px; padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
+/* 12/16 with gap 12 (SF-7). Long titles („Google-Bewertung“, „Durchschnittsbon“) stay whole at 360 because the value
+   wraps under the text instead of splitting a word (.ow-prog-text min-width, Design FIX 1). */
+.ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
 .ow-prog-row:active { transform: scale(.985); }
 .ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
 .ow-prog-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
 /* A value sits beside the words while they fit unbroken, else on a line of its own: a word never splits around it. */
-.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-2); }
+.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
 .ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
 .ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
 .ow-prog-text small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); line-height: 1.4; }
@@ -540,6 +543,9 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
   .ow-dash.ow-dash--single > * { grid-area: auto; }
 }
 .ow-dash-side { display: grid; gap: var(--space-4); }
+/* Greeting to the next block is 24 at every width (Design FIX 5); without a band its empty grid row would add a gap. */
+.ow-dash > .ow-hello { margin-bottom: var(--space-2); }
+@media (min-width: 1024px) { .ow-dash:not(.ow-dash--single):not(:has(> .ow-next)) { grid-template-areas: "notice notice" "hello hello" "board side" "diary diary"; } }
 .ow-dash-notice:empty { display: none; }
 /* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
 .owner-app .ow-hello { margin: 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
@@ -718,8 +724,7 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
 /* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
-/* Same room as the list's rows, so long answers stay whole at 360. */
-.ow-qchoice { display: flex; align-items: center; gap: var(--space-2); min-height: 64px; padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
@@ -845,11 +850,13 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog ul:has(a.ow-prog-row, button.ow-prog-row) div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
 .ow-prog li > * + * { margin-top: var(--space-2); }
 /* A title word never splits: the text is at least its longest title word wide, so the value moves to its own line
-   instead (review R-1, „Durchschnittsbon“ at 360). E-mail titles may break anywhere (.ow-email); a long text value
+   instead (Design FIX 1, „Durchschnittsbon“ at 360). E-mail titles break after their „@“ (<wbr>); a long text value
    („Aktiver Standort“) takes its own line and wraps there. */
 .ow-prog-text { min-width: min-content; }
 .ow-prog-text strong { overflow-wrap: normal; }
-.ow-prog-text small, .ow-email { overflow-wrap: anywhere; }
+.ow-prog-text small { overflow-wrap: anywhere; }
+/* A head with its „?“ sits on the „?“'s centre line, not 20 lower (Design FIX 2). */
+.owner-app .ow-rows-head > h2 { margin: 0; }
 .ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
 .ow-prog-value[data-off] { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ow-prog li p[role="alert"] { margin-top: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-danger); }
@@ -858,7 +865,7 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog .ow-prog-head h2 { margin: 0; }
 /* A state on its own line under the row's text (the 55 chip rule), squared like every chip (DESIGN.md: --radius-sm). */
 .ow-prog-row:has(> .ow-prog-chip) { flex-wrap: wrap; row-gap: 0; }
-.ow-prog-chip { flex-basis: 100%; padding-left: calc(40px + var(--space-2)); } /* under the text: icon + gap */
+.ow-prog-chip { flex-basis: 100%; padding-left: calc(40px + var(--space-3)); } /* under the text: icon + gap */
 .ow-prog-chip .ow-chip, .ow-chip--state { margin-top: var(--space-1); border-radius: var(--radius-sm); }
 @media (max-width: 359px) { .ow-prog-chip { padding-left: 0; } }
 /* The white card above the rows, as wide as they are; its unit is a step smaller than the Übersicht board's. */

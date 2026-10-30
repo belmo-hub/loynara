@@ -29,7 +29,7 @@ export default function NewLocationPage() {
   useDirtyGuard("location-draft", dirty);
   if (!me) return null;
   const currency = list.state === "ok" ? list.data.currency : null;
-  const head = <PageTitle back={BACK} title="Standort hinzufügen" lead={currency && `Der neue Standort startet ohne Karten. Währung und Land bleiben: ${currency} · ${currency === "EUR" ? "Deutschland" : "Marokko"}.`} />;
+  const head = <PageTitle back={BACK} title="Standort hinzufügen" lead={currency && `Der neue Standort startet ohne Karten. Währung und Land bleiben: ${currency}\u00a0· ${currency === "EUR" ? "Deutschland" : "Marokko"}.`} />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
   if (!currency) return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
