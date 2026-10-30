@@ -88,7 +88,7 @@ export function JoinClient({ slug }: { slug: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setReferralUnavailable(false);
-    if (!acceptedTerms) { setError(t.acceptError); return; }
+    if (!acceptedTerms) { setError(t.acceptError); document.getElementById("join-consent")?.focus(); return; }
     if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); return; }
     setBusy(true);
     try {
@@ -192,9 +192,9 @@ export function JoinClient({ slug }: { slug: string }) {
       })()}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit} noValidate>
-        <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
+        <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === t.acceptError || undefined} aria-describedby={error === t.acceptError ? "join-error" : undefined}>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
         {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
-        {error && <p className={styles.error} role="alert">{error}</p>}
+        {error && <p id="join-error" className={styles.error} role="alert">{error}</p>}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
         <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
