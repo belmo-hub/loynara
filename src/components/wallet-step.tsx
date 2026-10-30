@@ -77,7 +77,7 @@ export function WalletStep({ token, program: { businessName, programType, wallet
     <p className={styles.lead}>Dann ist sie immer griffbereit, bei deinen anderen Karten. Kein Link, den du suchen musst.</p>
     <div className={styles.lock} role="group" aria-label="So sieht das auf dem Sperrbildschirm aus">
       <p className={styles.alert}><span className={styles.mono} aria-hidden="true">{initial}</span><span className={styles.from}><strong>{businessName}</strong><small>jetzt</small></span><span className={styles.text}>Deine Prämie ist bereit. Du kannst sie an der Kasse einlösen.</span></p>
-      {messages && <p className={styles.alert}><span className={styles.mono} aria-hidden="true">{initial}</span><span className={styles.from}><strong>{businessName}</strong><em className={styles.example}>Beispiel</em><small>gestern</small></span><span className={styles.text}>Heute bis 17 Uhr: Kuchen zum Kaffee für 2 €.</span></p>}
+      {messages && <p className={styles.alert}><span className={styles.mono} aria-hidden="true">{initial}</span><span className={styles.from}><strong>{businessName}</strong><em className={styles.example}>Beispiel</em><small>gestern</small></span><span className={styles.text}>Heute bis 17 Uhr: Kuchen zum Kaffee für 2 €.</span></p>}
     </div>
     {messages && <p className={styles.muted}>Angebote vom Laden nur, wenn du es erlaubst: höchstens 2 pro Woche, jederzeit abschaltbar.</p>}
     {/* shortcut: house black button with Apple's wording until Apple's German badge artwork is in public/wallet. */}
