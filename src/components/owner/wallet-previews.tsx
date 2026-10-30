@@ -58,12 +58,16 @@ function ApplePass({ data }: { data: PreviewData }) {
 function GooglePass({ data }: { data: PreviewData }) {
   const ink = readableInk(data.brandColor);
   const p = progress(data);
-  const logo = data.logoData;
+  // Same contrast rule as Apple: a faint logo gives way to the initial and the name.
+  const logo = data.logoWallet?.faint ? null : data.logoData;
   const [ratio, onLoad] = useLogoRatio();
+  const square = ratio >= 0.8 && ratio <= 1.25;
+  // Google's loyalty template: with wideProgramLogo the card title is the wide logo and the programme name, no issuer name.
+  const wide = Boolean(logo) && !square;
   const name = data.businessName || "Dein Geschäft";
   return (
     <div className="ow-pass ow-pass--google" style={{ backgroundColor: data.brandColor, color: ink }} role="img" aria-label={`Google-Wallet-Vorschau: ${name}, ${p.balance} ${p.unit}, ${p.status}`}>
-      <div className="ow-pass-row"><span className="ow-pass-issuer">{logo ? <Image unoptimized src={logo} alt="" width={160} height={32} className={ratio >= 0.8 && ratio <= 1.25 ? "ow-pass-mark" : "ow-pass-wide"} onLoad={onLoad} /> : <span className="ow-pass-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>}<strong>{name}</strong></span></div>
+      <div className="ow-pass-row"><span className="ow-pass-issuer">{logo ? <Image unoptimized src={logo} alt="" width={160} height={32} className={square ? "ow-pass-mark" : "ow-pass-wide"} onLoad={onLoad} /> : <span className="ow-pass-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>}{!wide && <strong>{name}</strong>}</span></div>
       <div className="ow-pass-program">{data.programName}</div>
       <div className="ow-pass-row"><span className="ow-pass-big"><small>{p.unit}</small><b className="ow-num">{p.balance}</b></span><span className="ow-pass-field ow-pass-field--end"><small>Mitgliedskarte</small><b>{SAMPLE_LOCATOR}</b></span></div>
       <div className="ow-pass-module"><small>{p.ready ? "Prämie bereit" : "Nächste Prämie"}</small><span>{data.rewardTitle} · {p.status}</span></div>

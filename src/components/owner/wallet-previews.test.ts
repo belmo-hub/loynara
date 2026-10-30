@@ -23,4 +23,11 @@ describe("Wallet previews in the card studio say what the pass says (ENG-108)", 
     expect(faint).not.toContain("<img");
     expect(faint).toContain("Synthetic Café</strong>");
   });
+
+  it("Google: a faint logo gives way to the initial and the name (ENG-134)", () => {
+    const faint = pass("google", { logoData: "data:image/png;base64,iVBORw0KGgo=", logoWallet: { showName: true, faint: true, upscaled: false } });
+    expect(faint).not.toContain("<img");
+    expect(faint).toContain("ow-pass-initial");
+    expect(faint).toContain("Synthetic Café</strong>");
+  });
 });
