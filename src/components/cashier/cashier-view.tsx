@@ -81,12 +81,16 @@ const BONUS_NAMES: Record<keyof AwardBonuses, string> = { happyHourBonus: "Happy
 export const bonusesOf = (r: AwardBonuses): AwardBonuses => ({ welcomeBonus: r.welcomeBonus, happyHourBonus: r.happyHourBonus, winbackBonus: r.winbackBonus, birthdayBonus: r.birthdayBonus, challengeBonus: r.challengeBonus, referralBonus: r.referralBonus });
 export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bonuses)).reduce((sum: number, n) => sum + (n ?? 0), 0);
 
-/** „1 Punkt + 5 Punkte Startbonus“: the quantity and each bonus by name. French sums the bonuses (« + 5 en plus »). */
+/**
+ * „1 Punkt + 5 Punkte Startbonus“: the quantity and each bonus by name. French sums the bonuses (« + 5 en plus »). Each part
+ * keeps its words together with no-break spaces, so a narrow line only breaks at a „+“.
+ */
 export function awardParts(quantity: number, kind: ProgramType, bonuses: AwardBonuses, locale: UiLocale) {
   const n = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format;
   const base = `${n(quantity)} ${unitWord(quantity, kind, locale)}`;
-  if (locale === "fr") { const extra = bonusTotal(bonuses); return extra ? `${base} + ${n(extra)} en plus` : base; }
-  return [base, ...(Object.keys(BONUS_NAMES) as Array<keyof AwardBonuses>).filter(key => (bonuses[key] ?? 0) > 0).map(key => `${n(bonuses[key]!)} ${unitWord(bonuses[key]!, kind, locale)} ${BONUS_NAMES[key]}`)].join(" + ");
+  const parts = locale === "fr" ? [base, ...(bonusTotal(bonuses) ? [`${n(bonusTotal(bonuses))} en plus`] : [])]
+    : [base, ...(Object.keys(BONUS_NAMES) as Array<keyof AwardBonuses>).filter(key => (bonuses[key] ?? 0) > 0).map(key => `${n(bonuses[key]!)} ${unitWord(bonuses[key]!, kind, locale)} ${BONUS_NAMES[key]}`)];
+  return parts.map(part => part.replace(/ /g, "\u00a0")).join(" + ");
 }
 
 /**
@@ -109,10 +113,11 @@ export function bookedAward(card: Pick<CashierCard, "balance" | "programType">, 
   return { headline, parts: bonusTotal(result) || !matches ? awardParts(credited, card.programType, bonusesOf(result), locale) : undefined };
 }
 
-/** What the amount sheet previews for a purchase: its points, the bonuses booked with them, and the balance after. */
+/** What the amount sheet previews, read like the booked screen: the total („+29 Punkte“), its parts if any bonus comes with it, the balance after. */
 export function purchasePreviewOf(card: Pick<CashierCard, "balance" | "happyHour" | "welcomeBonus" | "winbackBonus" | "birthdayBonus">, points: number, locale: UiLocale) {
   const bonuses: AwardBonuses = { happyHourBonus: card.happyHour ? points : 0, welcomeBonus: card.welcomeBonus, winbackBonus: card.winbackBonus, birthdayBonus: card.birthdayBonus };
-  return { line: `+${awardParts(points, "points", bonuses, locale)}`, balanceAfter: card.balance + points + bonusTotal(bonuses) };
+  const total = points + bonusTotal(bonuses);
+  return { total: `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(total)} ${unitWord(total, "points", locale)}`, parts: bonusTotal(bonuses) ? awardParts(points, "points", bonuses, locale) : undefined, balanceAfter: card.balance + total };
 }
 
 /** The lookup's open card as the counter holds it (ENG-133: the bonuses the next award books come along). */
@@ -328,7 +333,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
             onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
           <div id="purchase-preview" className={styles.preview} aria-live="polite">{purchasePreview
             ? <>
-              <strong>{purchaseOutcome?.line}</strong>
+              <strong>{purchaseOutcome?.total}</strong>
+              {purchaseOutcome?.parts && <span className={styles.previewParts}>{purchaseOutcome.parts}</span>}
               <span>{t.newBalance}: {number.format(purchaseOutcome?.balanceAfter ?? 0)} {unitWord(purchaseOutcome?.balanceAfter ?? 0, "points", locale)}</span>
             </>
             : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
