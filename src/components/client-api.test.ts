@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { apiJson, ClientApiError, imageToDataUrl, LOGO_INVALID } from "./client-api";
+import { apiJson, ClientApiError, failureText, imageToDataUrl, LOGO_INVALID } from "./client-api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -42,4 +42,11 @@ it("refuses a logo the server would refuse when it is picked", async () => {
   // A JPEG renamed to .png: the browser claims image/png from the name.
   await expect(imageToDataUrl(new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])], "logo.png", { type: "image/png" }))).rejects.toThrow(LOGO_INVALID);
   await expect(imageToDataUrl(new File(["GIF89a"], "logo.gif", { type: "image/gif" }))).rejects.toThrow(LOGO_INVALID);
+});
+
+it("keeps the server's German words for the codes that only send German", () => {
+  // A locked NFC plate, a mistyped plate code, quiet hours, the pilot's NFC rule and a half-finished setup say what to do.
+  for (const code of ["INVALID_ACTIVATION", "INVALID_CODE_FORMAT", "QUIET_HOURS", "TAP_AUTOMATIC_NOT_ALLOWED", "SETUP_INCOMPLETE", "END_DATE_TOO_EARLY", "MESSAGE_REFUSED"])
+    expect(failureText(400, code, `Deutscher Text für ${code}.`)).toBe(`Deutscher Text für ${code}.`);
+  expect(failureText(400, "INVALID_CSV", "CSV has no header row")).toBe("Das hat nicht geklappt. Prüfe deine Eingaben und versuche es noch einmal.");
 });
