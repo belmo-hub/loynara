@@ -29,7 +29,7 @@ export default function InvitePage() {
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const fields = useFormCheck();
+  const fields = useFormCheck({ "st-email": "Bitte gib die E-Mail-Adresse der Person ein." });
   const { copied, copy: copyLink } = useCopy();
   useDirtyGuard("staff-invite", email.trim().length > 0);
   if (!me) return null;

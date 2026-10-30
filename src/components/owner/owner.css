@@ -175,7 +175,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   background-image: linear-gradient(45deg, transparent 50%, var(--color-ink-muted) 50%), linear-gradient(135deg, var(--color-ink-muted) 50%, transparent 50%);
   background-position: right 20px center, right 14px center; background-size: 6px 6px; background-repeat: no-repeat;
 }
-.ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 6%, var(--color-raised)); }
+.ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 /* Controls on one line when one label wraps and the other doesn't; only for fields without a hint under the control. */
 .ow-grid-2--end { align-items: end; }

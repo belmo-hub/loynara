@@ -27,7 +27,15 @@ export default function NewLocationPage() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const fields = useFormCheck();
+  const stamps = draft.programType === "stamp";
+  const fields = useFormCheck({
+    "lc-name": "Bitte gib einen Standortnamen mit mindestens 2 Zeichen ein.",
+    "lc-city": "Bitte gib die Stadt ein.",
+    "lc-prog": "Bitte gib einen Programmnamen mit mindestens 2 Zeichen ein.",
+    "lc-rules": `Bitte schreibe mindestens 10 Zeichen, z. B. ${stamps ? "„Ein Stempel pro Kaffee.“" : "„1 Punkt pro Euro.“"}`,
+    "lc-reward": "Bitte gib die erste Prämie ein, z. B. „Kaffee aufs Haus“.",
+    "lc-cost": `Bitte gib ein, wie viele ${stamps ? "Stempel" : "Punkte"} die Prämie kostet.`,
+  });
   const dirty = JSON.stringify(draft) !== JSON.stringify(emptyDraft);
   useDirtyGuard("location-draft", dirty);
   if (!me) return null;

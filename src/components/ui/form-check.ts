@@ -19,15 +19,16 @@ export function validityMessage(control: Control): string {
  * Checks a noValidate form against its own attributes (required, minLength, min, max, type) on submit. `error(id)` is the
  * message for the control with that id, for the field's `error`; the first invalid control takes the focus. An error goes
  * as soon as its control is valid again (`onInput` on the form). `aria(id)` wires a bare input to its `${id}-error` line.
+ * `messages` names what is missing for a field id, used when it is empty or too short; other problems keep the general line.
  */
-export function useFormCheck() {
+export function useFormCheck(messages: Record<string, string> = {}) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   function check(form: HTMLFormElement) {
     const next: Record<string, string> = {};
     let first: Control | undefined;
     for (const control of Array.from(form.elements) as Control[]) {
       if (!control.id || !control.validity || control.validity.valid) continue;
-      next[control.id] = validityMessage(control);
+      next[control.id] = ((control.validity.valueMissing || control.validity.tooShort) && messages[control.id]) || validityMessage(control);
       first ??= control;
     }
     setErrors(next);

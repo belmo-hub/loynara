@@ -68,7 +68,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
   const [editor, setEditor] = useState<Editor>(pick(initial));
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
-  const fields = useFormCheck();
+  const fields = useFormCheck({ [`${initial.triggerKind}-subject`]: "Bitte gib einen Betreff ein.", [`${initial.triggerKind}-body`]: "Bitte schreibe eine Nachricht." });
   const changed = JSON.stringify(editor) !== JSON.stringify(saved);
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard(`automation-${editor.triggerKind}`, changed);

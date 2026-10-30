@@ -19,7 +19,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const fields = useFormCheck();
+  const fields = useFormCheck({ "login-password": "Bitte gib dein Passwort ein." });
   // Until the page is interactive, a tap on "Anmelden" would submit the bare form natively and just reload the page, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
 
