@@ -152,7 +152,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-notice > span:first-child { color: var(--color-ink-muted); }
 .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
 :is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: var(--color-fill); }
-.ow-notice--warn > span:first-child, .ow-notice--warn strong { color: var(--color-warning); }
+.ow-notice--warn > span:first-child { color: var(--color-warning); }
 .ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
 .ow-notice--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
 .ow-notice:is(.ow-notice--danger, .ow-notice--ok) > span:first-child { color: inherit; }
