@@ -425,12 +425,13 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog h2 { margin: var(--space-5) 0 0; }
 .ow-prog > div:first-child h2 { margin-top: 0; }
 .ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
-.ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
+/* 12 side padding and 8 gaps keep „Google-Bewertung“ / „Durchschnittsbon“ and their value on one line at 360 (review R-1). */
+.ow-prog-row { display: flex; align-items: center; gap: var(--space-2); min-height: 64px; padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
 .ow-prog-row:active { transform: scale(.985); }
 .ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
 .ow-prog-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
 /* A value sits beside the words while they fit unbroken, else on a line of its own: a word never splits around it. */
-.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-2); }
 .ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
 .ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
 .ow-prog-text small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); line-height: 1.4; }
@@ -563,6 +564,7 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ow-board-kicker, .ow-board-sub, .ow-board-legend, .ow-strip-cap { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-board-big { margin: var(--space-1) 0; font: var(--weight-heavy) var(--display-num)/1.1 var(--font-display); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .ow-board-big small { font-size: var(--text-28); letter-spacing: -.02em; }
+.ow-board .ow-board-est { margin: 0 0 var(--space-1); }
 .ow-board .ow-board-news { margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--color-line); font: var(--weight-heavy) var(--text-16)/1.4 var(--font-display); text-wrap: balance; }
 .ow-board-ask { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); display: grid; gap: var(--space-3); }
 .ow-board-ask p { margin: 0; }
@@ -716,7 +718,8 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
 /* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
-.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+/* Same room as the list's rows, so long answers stay whole at 360. */
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-2); min-height: 64px; padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
@@ -841,8 +844,12 @@ button.ow-prog-row:disabled { cursor: progress; }
 /* In a list with links, a plain row keeps the arrow's width empty, so every value shares one right edge. */
 .ow-prog ul:has(a.ow-prog-row, button.ow-prog-row) div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
 .ow-prog li > * + * { margin-top: var(--space-2); }
-/* A long name or e-mail breaks inside its column; a long text value („Aktiver Standort“) takes its own line and wraps there. */
-.ow-prog-text { min-width: 0; }
+/* A title word never splits: the text is at least its longest title word wide, so the value moves to its own line
+   instead (review R-1, „Durchschnittsbon“ at 360). E-mail titles may break anywhere (.ow-email); a long text value
+   („Aktiver Standort“) takes its own line and wraps there. */
+.ow-prog-text { min-width: min-content; }
+.ow-prog-text strong { overflow-wrap: normal; }
+.ow-prog-text small, .ow-email { overflow-wrap: anywhere; }
 .ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
 .ow-prog-value[data-off] { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ow-prog li p[role="alert"] { margin-top: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-danger); }
@@ -851,7 +858,7 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog .ow-prog-head h2 { margin: 0; }
 /* A state on its own line under the row's text (the 55 chip rule), squared like every chip (DESIGN.md: --radius-sm). */
 .ow-prog-row:has(> .ow-prog-chip) { flex-wrap: wrap; row-gap: 0; }
-.ow-prog-chip { flex-basis: 100%; padding-left: calc(40px + var(--space-3)); } /* under the text: icon + gap */
+.ow-prog-chip { flex-basis: 100%; padding-left: calc(40px + var(--space-2)); } /* under the text: icon + gap */
 .ow-prog-chip .ow-chip, .ow-chip--state { margin-top: var(--space-1); border-radius: var(--radius-sm); }
 @media (max-width: 359px) { .ow-prog-chip { padding-left: 0; } }
 /* The white card above the rows, as wide as they are; its unit is a step smaller than the Übersicht board's. */

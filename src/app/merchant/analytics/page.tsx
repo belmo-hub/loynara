@@ -50,7 +50,7 @@ export default function MerchantAnalyticsPage() {
         <Board label={`Bestätigte Buchungen, letzte ${windowDays} Tage`} busy={!r}>
           {!r ? <BoardPlaceholder /> : <>
             <p className="ow-board-big">{nf.format(r.qualifyingCheckouts)}{"\u00a0"}<small>{r.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"}</small></p>
-            <p className="ow-board-sub">in den letzten {windowDays} Tagen bestätigt, Korrekturen abgezogen</p>
+            <p className="ow-board-sub">letzte {windowDays} Tage, Korrekturen abgezogen</p>
             <Weeks weeks={weeks} />
             {lastWasBest && <p className="ow-board-news">Die meisten Buchungen gab es letzte Woche.</p>}
           </>}

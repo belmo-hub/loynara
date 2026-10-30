@@ -114,7 +114,7 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     await cashier.getByLabel("Passwort").fill(demo.ownerPassword);
     await cashier.getByRole("button", { name: "Anmelden" }).click();
     await expect.poll(() => new URL(cashier.url()).pathname).toBe("/merchant");
-    await expect(cashier.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
+    await expect(cashier.getByRole("heading", { name: /^Übersicht:/, level: 1 })).toBeVisible();
     await expect(cashier.locator(width < 768 ? ".ow-topbar-loc" : ".ow-who")).toContainText(demo.merchantName);
     await page.screenshot({ path: `/tmp/loy-105-customer-${width}.png` });
     await cashier.screenshot({ path: `/tmp/loy-105-merchant-${width}.png` });

@@ -83,13 +83,13 @@ export default function StaffPage() {
         <Band icon={Plus} title="Person einladen" sub="Jede Person bekommt ein eigenes Konto für die Kasse." href="/merchant/staff/invite" />
         {staff.state === "loading" ? <LoadingBlock rows={2} height={64} /> : <>
           <Rows title="Aktuelle Zugänge" note="Gesperrte Teammitglieder können nicht mehr buchen.">
-            {people.map(item => <Row key={item.userId} icon={Users} title={<>{item.email || "E-Mail nicht verfügbar"}{item.userId === me.userId && <span className="ow-muted"> (du)</span>}</>}
+            {people.map(item => <Row key={item.userId} icon={Users} title={<><span className="ow-email">{item.email || "E-Mail nicht verfügbar"}</span>{item.userId === me.userId && <span className="ow-muted"> (du)</span>}</>}
               sub={`${ROLE_LABEL[item.role]} · ${item.role === "owner" ? "Alle Standorte" : placeOf(item.locationId)} · ${item.active ? "Aktiv" : "Gesperrt"}`}
               {...(item.role !== "owner" && item.active ? { onClick: () => open(`revoke:${item.userId}`) } : {})} />)}
           </Rows>
           {/* R16: the invitation's sub-line names role, location and state (copy-rest R16 FINAL). */}
           <Rows title="Einladungen" note={invitations.some(item => item.status === "pending") ? "Offene Einladungen kannst du widerrufen." : undefined}>
-            {invitations.length ? invitations.map(item => <Row key={item.id} icon={Mail} title={item.email} sub={`${ROLE_LABEL[item.role]} · ${placeOf(item.locationId)} · ${INVITATION_LABEL[item.status]}`}
+            {invitations.length ? invitations.map(item => <Row key={item.id} icon={Mail} title={<span className="ow-email">{item.email}</span>} sub={`${ROLE_LABEL[item.role]} · ${placeOf(item.locationId)} · ${INVITATION_LABEL[item.status]}`}
               {...(item.status === "pending" ? { onClick: () => open(`cancel:${item.id}`) } : {})} />)
               : <EmptyState key="none" level={3} size="compact" title="Noch keine Einladungen.">Lade Mitarbeitende mit ihrer E-Mail-Adresse ein. Jede Person bekommt ein eigenes Konto für die Kasse.</EmptyState>}
           </Rows>

@@ -136,7 +136,7 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
       const page = await ctx.newPage();
       const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
       await page.goto("/merchant");
-      await expect(page.getByRole("heading", { name: "Dein Treueprogramm einrichten", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: /^Dein Treueprogramm einrichten:/, level: 1 })).toBeVisible();
       if (productionLike) {
         // With campaigns, automations and owner messages withheld, the Aktionen list keeps only the reports (ENG-122d).
         await expect(nav.getByRole("link", { name: "Aktionen" })).toBeVisible();

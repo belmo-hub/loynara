@@ -65,18 +65,19 @@ beforeEach(() => {
 describe("Übersicht direction D (ENG-085)", () => {
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {
     const html = render();
-    expect(html).toMatch(/<p class="ow-hello">Guten (Morgen|Tag|Abend), Lena\.<\/p>/); // the visible heading, outside the card
+    expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena\.<\/h1>/); // the visible heading, outside the card
     expect(html).not.toContain("Café Lindenblatt.");
     expect(html).toContain('aria-label="Umsatz deiner Loynara-Kunden, letzte 30 Tage"'); // no kicker: the sub-line says the days
     expect(html).not.toContain("ow-board-kicker");
     expect(html).toContain("128<small>,10"); // this location, not the 999,00 € of the whole business
-    expect(html).toContain("Umsatz der letzten 30 Tage, aus Kassenbeträgen an diesem Standort");
+    expect(html).toContain("Umsatz deiner Loynara-Kunden, 30 Tage");
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
     expect(html).toMatch(/role="img" aria-label="Buchungen an diesem Standort · letzte 7 Tage: [^"]*gestern 3/);
     expect(html).toContain("Letzte 30 Tage an diesem Standort");
     expect(labels(html)).toEqual(["Buchungen", "Neue Karten", "Wieder\u00adgekommen", "Prämien eingelöst"]); // breaks only at the soft hyphen
     expect(html).toContain('<button type="button" class="ow-board-q" aria-expanded="false"'); // the board's „?“ ends the sub-line
-    expect(html).toMatch(/aus Kassenbeträgen an diesem Standort\u00a0<button/);
+    expect(html).toMatch(/Umsatz deiner Loynara-Kunden, 30 Tage\u00a0<button/);
+    expect(html).not.toContain("ow-board-est"); // exact till amounts: no estimate chip
     expect(html).toContain("vorher 10");
     // Wegweiser rows: label, note as sub-line, the value at the right edge; the whole linked row is the link, with the arrow.
     const link = html.match(/<a class="ow-prog-row" href="([^"]+)">(.*?)<\/a>/);
@@ -104,14 +105,16 @@ describe("Übersicht direction D (ENG-085)", () => {
     const html = render();
     expect(html).toContain('aria-label="Buchungen, letzte 30 Tage"');
     expect(html).toContain(`9${NBSP}<small>Buchungen</small>`);
-    expect(html).toContain("in den letzten 30 Tagen, an der Kasse bestätigt");
+    expect(html).toContain("letzte 30 Tage, Korrekturen abgezogen");
     expect(html).not.toContain("€");
     expect(html).not.toContain("Durchschnittsbon");
   });
 
-  it("mixed till amounts and estimates read „teilweise geschätzt“", () => {
+  it("mixed till amounts and estimates read „teils geschätzt“", () => {
     state.loads["/api/merchant/spend"] = ok(spend(figures({ visits: 17, spentMinor: 12_810, realMinor: 10_000, estimatedMinor: 2_810, averagePerVisitMinor: 1_423 })));
-    expect(render()).toContain("teilweise geschätzt");
+    const html = render();
+    expect(html).toContain('<p class="ow-board-est"><span class="ow-chip ow-chip--info">teils geschätzt</span></p>');
+    expect(html).toContain("Umsatz deiner Loynara-Kunden, 30 Tage");
   });
 
   it("quiet week: rule 4, the Tresenschild next step in one line, a grey gap in the diary", () => {
@@ -163,7 +166,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(state.urls.some(url => url.startsWith("/api/merchant/spend"))).toBe(false);
     expect(html).toContain('aria-label="Karten an deinem Standort, letzte 30 Tage"');
     expect(html).toContain("17 <small>von 20</small>");
-    expect(html).toContain("Karten mit Buchung in den letzten 30 Tagen");
+    expect(html).toContain("Karten mit Buchung, letzte 30 Tage");
     expect(html).toContain("Karten an deinem Standort: 17 da · 0 länger nicht da · 2 noch nie an der Kasse");
     expect(html).toContain("Buchungen an diesem Standort · letzte 7 Tage");
     expect(html).toContain('<div class="ow-prog-row">'); // unlinked rows carry no arrow
@@ -373,7 +376,7 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     const html = render();
     expect(html).toContain("Willkommen bei Loynara, Café Lindenblatt.");
     expect(html).toContain(`<p class="ow-board-big">1${NBSP}<small>von 3</small></p><p class="ow-board-sub">Pflichtschritte erledigt</p>`);
-    expect(html).toContain('<p class="ow-hello">Willkommen bei Loynara, Café Lindenblatt.</p>');
+    expect(html).toContain('<h1 class="ow-hello"><span class="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, Café Lindenblatt.</h1>');
     // The current step is the green band; its external link opens in a new tab, its label the last line.
     expect(html).toMatch(/<a class="ow-band" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">[^]*<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><span class="ow-band-go">Anmeldelink öffnen<svg/);
     expect(html.indexOf('class="ow-band"')).toBeLessThan(html.indexOf("Pflichtschritte erledigt")); // the card holds the count and the strip

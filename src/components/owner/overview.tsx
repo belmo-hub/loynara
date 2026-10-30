@@ -122,9 +122,9 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
   return (
     <div className="ow-page ow-dash">
-      <h1 className="ow-sr">Übersicht</h1>
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
-      <p className="ow-hello">{hello}</p>
+      {/* The greeting is the page's h1 (Design, 30 Oct); the hidden page name leads what a screen reader hears. */}
+      <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>
       {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
       {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
       <div className="ow-dash-lead ow-stack">
@@ -133,7 +133,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
             {!board ? <BoardPlaceholder /> : <>
               {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
                 <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
-                <p className="ow-board-sub">Karten mit Buchung in den letzten 30 Tagen</p>
+                <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
               <Strip days={board.days} caption={STRIP_CAPTION} />
@@ -181,14 +181,16 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     const exact = f.estimatedMinor === 0;
     return <>
       <BigMoney text={formatMinor(f.spentMinor, spend.currency)} />
+      {/* An estimate says so in a neutral chip under the number; the sub-line stays the same (Design, 30 Oct). */}
+      {!exact && <p className="ow-board-est"><span className="ow-chip ow-chip--info">{f.realMinor === 0 ? "geschätzt" : "teils geschätzt"}</span></p>}
       {/* The „?“ ends the sub-line (no break before it); its sentence opens below. */}
-      <p className="ow-board-sub">Umsatz der letzten 30 Tage, {exact ? "aus Kassenbeträgen an diesem Standort" : f.realMinor === 0 ? "geschätzt aus Buchungen × Durchschnittsbon" : "teilweise geschätzt"}{NBSP}<button type="button" className="ow-board-q" aria-expanded={why} aria-controls={whyId} onClick={() => setWhy(open => !open)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir den Umsatz</span></button></p>
+      <p className="ow-board-sub">Umsatz deiner Loynara-Kunden, 30 Tage{NBSP}<button type="button" className="ow-board-q" aria-expanded={why} aria-controls={whyId} onClick={() => setWhy(open => !open)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir den Umsatz</span></button></p>
       <p id={whyId} className="ow-board-help" hidden={!why}>{exact ? "Summe der Kassenbeträge, die dein Team bei Loynara-Buchungen eingegeben hat. Bonuspunkte zählen nicht." : "Buchungen × dein Durchschnittsbon. Darum steht „geschätzt“ dabei."}</p>
     </>;
   }
   return <>
     <p className="ow-board-big">{nf.format(bookings)}{NBSP}<small>{bookings === 1 ? "Buchung" : "Buchungen"}</small></p>
-    <p className="ow-board-sub">in den letzten 30 Tagen, an der Kasse bestätigt</p>
+    <p className="ow-board-sub">letzte 30 Tage, Korrekturen abgezogen</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>
       <div className="ow-board-actions"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
@@ -311,9 +313,8 @@ function EmptyShop({ me }: { me: MeResponse }) {
         : { title: current.evidence, action: current.action ? { label: current.action.label, href: current.action.href } : undefined };
   return (
     <div className="ow-page ow-dash ow-dash--single">
-      <h1 className="ow-sr">Dein Treueprogramm einrichten</h1>
       <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
-      <p className="ow-hello">Willkommen bei Loynara, {me.businessName}.</p>
+      <h1 className="ow-hello"><span className="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, {me.businessName}.</h1>
       {lead && <NextBand {...lead} />}
       <Board label="Startklar" busy={readiness.state !== "ok" && readiness.state !== "error"}>
         {readiness.state === "ok" && <>

@@ -76,7 +76,9 @@ export function sourceFindings(file: string, source: string, tokens: ReadonlySet
   const code = source.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
   const findings: Finding[] = [];
   // Style objects are looked for outside CSS strings (those are read as CSS below).
-  const objects = code.replace(/`[^`]*`/g, "``").replace(/"[^"\n]*[;{][^"\n]*"/g, '""').replace(/'[^'\n]*[;{][^'\n]*'/g, "''");
+  // Strings are taken whole from left to right, so the span between two attributes' quotes is never read as one string.
+  const blank = (quote: string) => (text: string) => /[;{]/.test(text) ? quote + quote : text;
+  const objects = code.replace(/`[^`]*`/g, "``").replace(/"[^"\n]*"/g, blank('"')).replace(/'[^'\n]*'/g, blank("'"));
   for (const match of objects.matchAll(/\b([a-zA-Z]+)\s*:\s*(-?\d+(?:\.\d+)?\b(?!\s*[?:])|"[^"\n]*"|'[^'\n]*'|`[^`$]*`)/g)) {
     const property = STYLE_KEYS[match[1]];
     if (!property) continue;

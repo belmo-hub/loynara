@@ -109,6 +109,11 @@ describe("the checker", () => {
     expect(tsx('<p style={{ margin: 0, gap: "var(--space-2)", padding: "0 var(--space-4)" }} />')).toEqual([]);
   });
 
+  it("reads an inline style that sits between two quoted attributes (review N-1)", () => {
+    expect(tsx('<div className="a" style={{ marginTop: 8 }} id="b" />')).toEqual(["spacing: margin-top"]);
+    expect(tsx('<p className="a" style={{ color: "#123456" }} id="b" />')).toEqual(["colour: color"]);
+  });
+
   it("reads CSS written inside strings", () => {
     expect(tsx("const style = `.a { color: #123456; font-size: 13px; }`;")).toEqual(["colour: color", "font size: font-size"]);
   });
