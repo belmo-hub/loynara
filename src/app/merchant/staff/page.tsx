@@ -18,7 +18,7 @@ import { Sheet } from "@/components/ui/sheet";
 type AuditEvent = { id: string; inviteId?: string | null; action: "invite_created" | "invite_accepted" | "access_revoked"; actorUserId: string; subjectUserId: string | null; locationId: string | null; role: "manager" | "cashier"; createdAt: string };
 /** An e-mail title may break after its „@“, never inside a word (Design FIX 1). */
 const breakAfterAt = (email: string) => { const at = email.indexOf("@"); return at < 0 ? email : <>{email.slice(0, at + 1)}<wbr />{email.slice(at + 1)}</>; };
-const AUDIT_LABEL ={ invite_created: "Einladung erstellt", invite_accepted: "Einladung angenommen", access_revoked: "Zugang gesperrt" } as const;
+const AUDIT_LABEL = { invite_created: "Einladung erstellt", invite_accepted: "Einladung angenommen", access_revoked: "Zugang gesperrt" } as const;
 /**
  * Team (ENG-122c, screen 15): „Person einladen“ as the band, access and invitations as rows; a row that can be blocked or
  * withdrawn opens its confirmation as a step of this page, so Back returns to the list. Roles and history open in sheets.

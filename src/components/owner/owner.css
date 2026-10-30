@@ -848,11 +848,11 @@ button.ow-prog-row:disabled { cursor: progress; }
 /* In a list with links, a plain row keeps the arrow's width empty, so every value shares one right edge. */
 .ow-prog ul:has(a.ow-prog-row, button.ow-prog-row) div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
 .ow-prog li > * + * { margin-top: var(--space-2); }
-/* A title word never splits: the text is at least its longest title word wide, so the value moves to its own line
-   instead (Design FIX 1, „Durchschnittsbon“ at 360). E-mail titles break after their „@“ (<wbr>); a long text value
-   („Aktiver Standort“) takes its own line and wraps there. */
-.ow-prog-text { min-width: min-content; }
-.ow-prog-text strong { overflow-wrap: normal; }
+/* A title word that fits stays whole: the text's flex basis is its longest word, so the value wraps under it first
+   („Durchschnittsbon“ at 360, Design FIX 1). A word wider than the column (a long reward name, an e-mail) still breaks
+   inside it, never under the arrow or past the page edge (review R-2). Shared by the list rows and the answer rows. */
+.ow-prog-text { flex: 1 1 min-content; min-width: 0; }
+.ow-prog-text strong { overflow-wrap: break-word; }
 .ow-prog-text small { overflow-wrap: anywhere; }
 /* A head with its „?“ sits on the „?“'s centre line, not 20 lower (Design FIX 2). */
 .owner-app .ow-rows-head > h2 { margin: 0; }
