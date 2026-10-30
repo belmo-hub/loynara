@@ -15,7 +15,7 @@ import { CustomerShell } from "./ui/customer-shell";
 import { PointsLadder } from "./ui/points-ladder";
 import { StampGrid } from "./ui/stamp-grid";
 import { walletPlatform } from "./wallet-preparation";
-import { afterJoin, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
+import { afterJoin, iphoneJoin, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
 
 const copy = {
@@ -58,9 +58,6 @@ async function checkReturning(slug: string): Promise<Returning> {
 export function staleJoin(program: PublicProgram, fresh: PublicProgram | null, message: string) {
   return { program: fresh ?? program, acceptedTerms: false, stale: true, error: message };
 }
-
-/** ENG-130 (01): on an iPhone where this location has Apple Wallet, the h1 names the iPhone and two steps replace the lead (German only). */
-export const iphoneJoin = (platform: "ios" | "android" | "other", program: Pick<PublicProgram, "appleWallet" | "locale">) => platform === "ios" && program.appleWallet === true && program.locale !== "fr";
 
 export function JoinClient({ slug }: { slug: string }) {
   const router = useRouter();
@@ -118,8 +115,7 @@ export function JoinClient({ slug }: { slug: string }) {
       if (!result) return;
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
-      const tap = Boolean(continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation));
-      const next = afterJoin({ tap, ios: platform === "ios", appleWallet: program?.appleWallet === true, mark: readWalletStep(result.cardToken) });
+      const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
       if (next.mark) markWalletStep(result.cardToken, next.mark);
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);
@@ -149,7 +145,7 @@ export function JoinClient({ slug }: { slug: string }) {
   if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle />;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
-    <WalletStep token={walletStep} businessName={program.businessName} programType={program.programType} messages={program.walletMessages === true} />
+    <WalletStep token={walletStep} program={program} />
   </CustomerShell>;
   const iphone = iphoneJoin(platform, program);
 

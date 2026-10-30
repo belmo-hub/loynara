@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { PublicProgram } from "./client-api";
 import { prepareAppleWallet, walletMessage } from "./wallet-preparation";
 import styles from "./customer/wallet-step.module.css";
 
@@ -20,20 +21,31 @@ export function markWalletStep(token: string, mark: WalletStepMark) {
   try { localStorage.setItem(key(token), mark); } catch { /* private mode: the step may show again, nothing breaks */ }
 }
 
-/** Where a successful join goes: a pending tap continues first, then the Wallet step on an iPhone where the location has Apple Wallet. */
-export function afterJoin({ tap, ios, appleWallet, mark }: { tap: boolean; ios: boolean; appleWallet: boolean; mark: WalletStepMark | null }): { go: "tap" | "step" | "card"; mark?: "pending" } {
-  const offer = ios && appleWallet && mark === null;
-  if (tap) return offer ? { go: "tap", mark: "pending" } : { go: "tap" };
-  return { go: offer ? "step" : "card" };
+/** ENG-130 (01): on an iPhone where this location has Apple Wallet, the join names the iPhone and offers the Wallet step (German shops only). */
+export const iphoneJoin = (platform: "ios" | "android" | "other", program: Pick<PublicProgram, "appleWallet" | "locale">) => platform === "ios" && program.appleWallet === true && program.locale !== "fr";
+
+const TAP_URL = /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/;
+
+/**
+ * Where a successful join goes and the mark it leaves: a stored tap continues first (the tap page then offers the step),
+ * else the Wallet step once where `offer` holds (iPhone, the location's Apple Wallet, a German shop: iphoneJoin).
+ */
+export function afterJoin({ continuation, offer, mark }: { continuation: string | null; offer: boolean; mark: WalletStepMark | null }): { go: "tap" | "step" | "card"; mark?: WalletStepMark } {
+  const first = offer && mark === null;
+  if (continuation && TAP_URL.test(continuation)) return first ? { go: "tap", mark: "pending" } : { go: "tap" };
+  return first ? { go: "step", mark: "shown" } : { go: "card" };
 }
 
-/** The tap page offers the step after a booked stamp, only for a card the join handed over; it then asks the location for Apple Wallet again. */
-export const tapOffersWalletStep = ({ done, ios, mark }: { done: boolean; ios: boolean; mark: WalletStepMark | null }) => done && ios && mark === "pending";
+/** The tap page asks the location again after a booked stamp, only for a card the join handed over. */
+export const tapAsksForWalletStep = ({ done, ios, mark }: { done: boolean; ios: boolean; mark: WalletStepMark | null }) => done && ios && mark === "pending";
+/** With the location's answer the hand-over ends either way ("shown"); the band shows only where the join would have offered it. */
+export const tapWalletStep = (program: Pick<PublicProgram, "appleWallet" | "locale">) => ({ show: iphoneJoin("ios", program), mark: "shown" as const });
 
-type Props = { token: string; businessName: string; programType: "stamp" | "points"; messages: boolean; band?: boolean };
+type Props = { token: string; program: Pick<PublicProgram, "businessName" | "programType" | "walletMessages">; band?: boolean };
 
 /** Screens 03–07: why Wallet, a lock-screen picture (the example owner message only while walletMessages is on), the Apple button and the skip link. */
-export function WalletStep({ token, businessName, programType, messages, band }: Props) {
+export function WalletStep({ token, program: { businessName, programType, walletMessages }, band }: Props) {
+  const messages = walletMessages === true;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,10 +53,7 @@ export function WalletStep({ token, businessName, programType, messages, band }:
   const cardHref = `/card/${encodeURIComponent(token)}`;
   const initial = Array.from(businessName)[0];
 
-  useEffect(() => {
-    markWalletStep(token, "shown");
-    return () => operation.current?.abort();
-  }, [token]);
+  useEffect(() => () => operation.current?.abort(), []);
 
   async function add() {
     if (operation.current) return;
