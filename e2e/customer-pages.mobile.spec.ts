@@ -9,7 +9,7 @@ const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) a
 const pages = [
   ["join", () => `/join/${encodeURIComponent(demo.programSlug)}`, /, direkt im Browser\.$/],
   ["recover", () => "/recover", "Karte wiederfinden"],
-  ["verify-email", () => "/verify-email", "Bestätigungslink ungültig"],
+  ["verify-email", () => "/verify-email", /Bestätigungs\u00AD?link ungültig/],
   ["unsubscribe", () => "/unsubscribe", "E-Mail-Angebote abbestellen"],
 ] as const;
 

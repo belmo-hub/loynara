@@ -8,6 +8,9 @@ describe("CustomerState (mock 29, G-07)", () => {
     expect(renderToStaticMarkup(h(CustomerState, { title: "Anfrage abgelaufen", merchant: "Café Lindenblatt" }))).toMatch(/<strong>Café Lindenblatt<\/strong><span>Deine Treuekarte<\/span>/);
     expect(renderToStaticMarkup(h(CustomerState, { title: "Link unvollständig" }))).toContain('aria-label="Loynara"');
   });
+  it("draws the icon tile only for an error", () => {
+    expect(renderToStaticMarkup(h(CustomerState, { title: "Abgemeldet", icon: h("svg") }))).not.toContain("<svg></svg>");
+  });
   it("gives an error its danger tile and announces the message", () => {
     const out = renderToStaticMarkup(h(CustomerState, { title: "Karte nicht erreichbar", message: "x", tone: "error", icon: h("svg") }));
     expect(out).toMatch(/data-tone="error" aria-hidden="true"><svg>/);

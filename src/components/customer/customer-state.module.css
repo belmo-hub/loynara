@@ -1,7 +1,6 @@
 /* Mock 29: the heading on the grey, a muted line, the actions below; no panel around the state. */
 .state { display: grid; align-content: start; justify-items: start; gap: var(--space-2); padding-top: var(--space-2); }
-.icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: var(--space-2); border-radius: var(--radius-md); background: var(--color-fill); color: var(--color-ink); }
-.icon[data-tone="error"] { background: color-mix(in oklab, var(--color-danger), transparent 86%); color: var(--color-danger); }
+.icon[data-tone="error"] { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: var(--space-2); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-danger), transparent 86%); color: var(--color-danger); }
 .title:focus { outline: none; }
 .title { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: manual; overflow-wrap: anywhere; } /* balance + auto hyphens split „Bestätigungs-link“ even with room (G-23); „anywhere“ lets one long word break at 320 px */
 @media (min-width: 1024px) { .title { font-size: var(--display-36); } }

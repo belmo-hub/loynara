@@ -42,8 +42,8 @@ export function tapCopy(state: TapState | "loading" | "error", error?: ClientApi
     case "cancelled": return { title: "Nicht bestätigt", detail: "Das Team hat diese Anfrage nicht bestätigt. Frage bitte an der Kasse nach." };
     case "disabled": return { title: "NFC ist hier aus", detail: "Für dieses Programm ist die NFC-Berührung gerade ausgeschaltet. Zeige stattdessen deinen Kartencode an der Kasse." };
     case "error":
-      if (error instanceof ClientApiError && error.code === "PLATE_UNLINKED") return { title: "Dieses Schild ist gerade keinem Geschäft zugeordnet.", detail: "Hier wird nichts gutgeschrieben. Bitte frag das Team an der Kasse." };
-      if (error instanceof ClientApiError && error.status === 404) return { title: "Dieses Schild ist gerade nicht aktiv.", detail: "Bitte nutze den QR-Code an der Kasse oder frage das Team." };
+      if (error instanceof ClientApiError && error.code === "PLATE_UNLINKED") return { title: "Dieses Schild ist gerade keinem Geschäft zugeordnet", detail: "Hier wird nichts gutgeschrieben. Bitte frag das Team an der Kasse." };
+      if (error instanceof ClientApiError && error.status === 404) return { title: "Dieses Schild ist gerade nicht aktiv", detail: "Bitte nutze den QR-Code an der Kasse oder frage das Team." };
       if (error instanceof ClientApiError && error.status === 429) return { title: "Zu viele Versuche", detail: "Bitte warte einen Moment und berühre das Schild erneut." };
       if (error instanceof ClientApiError && error.status === 0) return { title: "Keine Verbindung", detail: error.message };
       return { title: "Berührung nicht bestätigt", detail: "Die Berührung konnte nicht geprüft werden. Bitte berühre das Schild erneut." };
@@ -168,16 +168,15 @@ export function TapClient({ refId }: { refId: string }) {
 
   const celebrate = moment && done;
   const announcement = stampAnnouncement(state, result?.balance, points);
-  const failed = state === "error" || state === "cancelled" || state === "expired";
   const number = result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) ? result.cardLocator : null;
   // Mock 27–29 (G-07): the tap states on the guest state screen; an error carries the danger tile.
   return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live
     icon={state === "error" ? <TriangleAlert size={24} /> : undefined}
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
     {done && card && typeof result?.balance === "number" && <div className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
-    {number && <div className={styles.number}>
+    {number && waiting && <div className={styles.number}>
       <p><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{number}</strong></p>
-      {waiting && <p className={styles.note}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>}
+      <p className={styles.note}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>
     </div>}
     {typeof result?.balance === "number" && state !== "needs_enrollment" && !(done && card) && <p className={styles.balance}>{currentBalance(result.balance, points)}</p>}
     {selectionRequired && preview?.cardPath && <div className={styles.actions}>
@@ -190,7 +189,7 @@ export function TapClient({ refId }: { refId: string }) {
       <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </div>}
     {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
-    {(failed || waiting) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
+    {(waiting || state === "expired" || state === "cancelled") && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     {walletProgram && recoveryCard && <WalletStep band token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerState>;

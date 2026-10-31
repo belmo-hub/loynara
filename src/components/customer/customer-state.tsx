@@ -19,17 +19,18 @@ type Props = { title: ReactNode; message?: ReactNode; tone?: "info" | "error"; i
 
 /**
  * One guest state screen (mock 29, G-07): the shop's header (or the Loynara mark), the heading on the grey, a muted
- * line, then the actions. An error carries a danger icon tile above the heading. Titles follow Marketing's rule (G-M4):
- * a state or result takes no full stop („Abgemeldet“), a headline written as a sentence keeps it.
+ * line, then the actions. An error carries a danger icon tile above the heading. Titles take no trailing full stop
+ * (PR-CHECKLIST §4, mock 29).
  */
 export function CustomerState({ title, message, tone = "info", icon, locale = "de", brandColor, merchant, live = false, children, focusTitle = false }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (focusTitle) heading.current?.focus(); }, [focusTitle]);
   return <CustomerShell brandColor={brandColor} locale={locale} header={merchant ? <MerchantHeader name={merchant} locale={locale} /> : <BrandMark label="Loynara" />} footer={<LegalLinks locale={locale} />}>
     <section className={`card-state-page ${styles.state}`} data-tone={tone}>
-      {icon ? <span className={styles.icon} data-tone={tone} aria-hidden="true">{icon}</span> : null}
+      {/* The tile marks an error before a word is read (G-07); other states carry no decorative icon. */}
+      {icon && tone === "error" ? <span className={styles.icon} data-tone={tone} aria-hidden="true">{icon}</span> : null}
       <h1 ref={heading} tabIndex={-1} className={styles.title}>{title}</h1>
-      {message ? <p className={styles.message} role={tone === "error" ? "alert" : live ? "status" : undefined} aria-live={live && tone !== "error" ? "polite" : undefined}>{message}</p> : null}
+      {message ? <p key={tone} className={styles.message} role={tone === "error" ? "alert" : live ? "status" : undefined} aria-live={live && tone !== "error" ? "polite" : undefined}>{message}</p> : null}
       {children ? <div className={styles.body}>{children}</div> : null}
     </section>
   </CustomerShell>;

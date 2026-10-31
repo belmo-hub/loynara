@@ -1,9 +1,7 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./legal-links.module.css";
 
 const IMPRESSUM = "https://getloynara.com/impressum/";
@@ -25,29 +23,9 @@ export function LegalLinks({ locale = "de", newTab = false }: { locale?: "de" | 
   </nav>;
 }
 
-function sameOrigin() {
-  try { return document.referrer !== "" && new URL(document.referrer).origin === window.location.origin; } catch { return false; }
-}
-
-/** „Zurück“ on a legal page, only when the reader came from this app (G-11): the brand no longer leads to the sign-in. */
-export function LegalBack() {
-  const shown = useSyncExternalStore(() => () => undefined, sameOrigin, () => false);
-  if (!shown) return null;
-  return <button type="button" className={styles.back} onClick={() => history.back()}><ChevronLeft size={16} aria-hidden="true" />Zurück</button>;
-}
-
-/** „Inhalt“: one anchor per section heading of the surrounding article, read from the page itself (G-26). */
-export function LegalContents() {
-  const ref = useRef<HTMLElement>(null);
-  const [items, setItems] = useState<Array<{ id: string; title: string }>>([]);
-  useEffect(() => {
-    const headings = [...(ref.current?.closest("article")?.querySelectorAll("h2") ?? [])];
-    setItems(headings.map((heading, index) => {
-      heading.id ||= `abschnitt-${index + 1}`;
-      return { id: heading.id, title: heading.textContent ?? "" };
-    }));
-  }, []);
-  return <nav ref={ref} className={styles.contents} aria-label="Inhalt" hidden={!items.length}>
-    <ol>{items.map(item => <li key={item.id}><a href={`#${item.id}`}>{item.title}</a></li>)}</ol>
+/** „Inhalt“ (G-26): one anchor per section, from the page's own list, so it is in the server HTML and nothing jumps. */
+export function LegalContents({ sections }: { sections: ReadonlyArray<{ id: string; title: string }> }) {
+  return <nav className={styles.contents} aria-label="Inhalt">
+    <ol>{sections.map(section => <li key={section.id}><a href={`#${section.id}`}>{section.title}</a></li>)}</ol>
   </nav>;
 }
