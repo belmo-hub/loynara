@@ -18,3 +18,21 @@ for (const width of [320, 360, 375, 1280]) {
     await expect(page.locator(".customer-card [data-title]", { hasText: "Bartöl" })).toBeVisible();
   });
 }
+
+test("no shown name sits under another reward's shown price (80 / 160 / 250 at 375 px)", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  const real = await (await page.request.get(`/api/enroll/card/${demo.cardToken}`)).json();
+  const rewards = [{ id: "a", title: "Bartöl", cost: 80 }, { id: "b", title: "Rasur", cost: 160 }, { id: "c", title: "Haarschnitt gratis", cost: 250 }];
+  await page.route(new RegExp(`/api/(enroll/)?card/${demo.cardToken}$`), route => route.fulfill({ json: { ...real, programType: "points", balance: 12, rewards, activity: [] } }));
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  await expect(page.locator(".customer-card [data-title]", { hasText: "Haarschnitt gratis" })).toBeVisible();
+  await expect.poll(() => page.locator(".customer-card [data-titles]").evaluate(ladder => {
+    const shown = (el: Element) => getComputedStyle(el).visibility !== "hidden";
+    const marks = [...ladder.children].slice(1);
+    return marks.flatMap((mark, i) => [...mark.querySelectorAll("[data-title]")].filter(shown).flatMap(name => {
+      const a = name.getBoundingClientRect();
+      return marks.filter((_, j) => j !== i).map(other => other.querySelector("small")!).filter(shown)
+        .filter(price => { const b = price.getBoundingClientRect(); return a.left < b.right && a.right > b.left; }).map(price => `${name.textContent} over ${price.textContent}`);
+    }));
+  })).toEqual([]);
+});

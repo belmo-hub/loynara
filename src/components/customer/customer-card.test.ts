@@ -225,26 +225,59 @@ describe("changes waiting for their date (ENG-100 U3)", () => {
   });
 });
 
-describe("ladder names by need, the goal first (Design round 2)", () => {
+describe("ladder names by need, the goal first (Design rounds 2 and 3)", () => {
   const marks = (...at: number[]) => at.map((x) => ({ at: x, hideLabel: false }));
+  // Measured widths of the names in Manrope 14/650 (rounded): Bartöl, Haarschnitt gratis, Espresso zum Mitnehmen, Rasur.
+  const W = { bartol: 44, goal: 122, espresso: 160, rasur: 40 };
+  const sets = { drei: { at: [0.32, 0.64, 1], needs: [W.bartol, W.rasur, W.goal] }, frueh: { at: [0.08, 0.4, 1], needs: [W.espresso, W.bartol, W.goal] } };
+
   it("keeps the goal whole beside a short neighbour on a 228 px track (100 Bartöl / 250 Haarschnitt gratis)", async () => {
     const { titleLayout } = await import("@/components/ui/points-ladder");
-    const [bartol, goal] = titleLayout(marks(0.4, 1), 228, [44, 122]);
-    expect(goal?.width).toBe(122);
-    expect(bartol?.width).toBe(44);
+    const { titles: [bartol, goal] } = titleLayout(marks(0.4, 1), 228, [W.bartol, W.goal]);
+    expect(goal?.width).toBe(W.goal);
+    expect(bartol?.width).toBe(W.bartol);
   });
-  it("hides a middle name below the floor before the goal yields, and never shows a name under the floor", async () => {
-    const { titleLayout, TITLE_FLOOR } = await import("@/components/ui/points-ladder");
-    const widths = titleLayout(marks(0.32, 0.64, 1), 228, [120, 110, 122]);
-    expect(widths[2]?.width).toBe(122);
-    for (const w of widths) if (w !== null) expect(w.width).toBeGreaterThanOrEqual(Math.min(TITLE_FLOOR, 110));
-    expect(widths).toContain(null);
-  });
-  it("keeps an early long name and the goal apart", async () => {
+
+  it("never lets a shown name span another marker whose price is shown (Design round 3)", async () => {
     const { titleLayout } = await import("@/components/ui/points-ladder");
-    const [early, , goal] = titleLayout(marks(0.08, 0.4, 1), 228, [160, 44, 122]);
-    expect(goal?.width).toBe(122);
-    // The early name ends before the goal begins (positions: start at 0.08·228 − 14, goal ends at 228 + 14).
-    expect(0.08 * 228 - 14 + (early?.width ?? 0)).toBeLessThanOrEqual(228 + 14 - 122 - 8);
+    for (const [name, set] of Object.entries(sets)) for (const track of [228, 283, 364]) {
+      const { titles, covered } = titleLayout(marks(...set.at), track, set.needs);
+      expect(titles[2]?.width, `${name} ${track}: goal whole`).toBe(W.goal);
+      titles.forEach((title, i) => {
+        if (!title) return;
+        const at = set.at[i] * track, from = set.at[i] === 1 ? at + 14 - title.width : set.at[i] < 0.25 ? at - 14 : at - title.width / 2 + title.shift;
+        set.at.forEach((other, j) => {
+          if (j === i || covered[j]) return;
+          const x = other * track;
+          expect(from < x + 12 && from + title.width > x - 12, `${name} ${track}: name ${i} over price ${j}`).toBe(false);
+        });
+      });
+    }
+  });
+
+  it("hides a name that would fall under the 72 px floor, and keeps the goal at its full width", async () => {
+    const { titleLayout, TITLE_FLOOR } = await import("@/components/ui/points-ladder");
+    const { titles } = titleLayout(marks(0.55, 1), 200, [150, W.goal]);
+    expect(titles[1]?.width).toBe(W.goal);
+    expect(titles[0]).toBeNull();
+    expect(titleLayout(marks(0.55, 1), 400, [150, W.goal]).titles[0]?.width).toBeGreaterThanOrEqual(TITLE_FLOOR);
+  });
+
+  it("does not slide a middle name off its marker to make room", async () => {
+    const { titleLayout } = await import("@/components/ui/points-ladder");
+    const { titles } = titleLayout(marks(0.5, 1), 228, [100, W.goal]);
+    for (const title of titles) if (title) expect(Math.abs(title.shift)).toBeLessThanOrEqual(title.width / 2 - 8);
+  });
+});
+
+describe("ENG-130 placement kept by the rebuild (Reviewer N-2)", () => {
+  it("puts the saved line above the card and the notices (the moved-up consent panel) right under it", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, walletSaved: true, notices: h("section", { id: "consent-panel" }) }));
+    const saved = out.indexOf("In Apple Wallet gespeichert"), cardAt = out.indexOf('class="customer-card '), panel = out.indexOf('id="consent-panel"');
+    expect(saved).toBeGreaterThan(-1);
+    expect(saved).toBeLessThan(cardAt);
+    expect(cardAt).toBeLessThan(panel);
+    // Nothing but the card's own band and refresh row sits between the card and the panel.
+    expect(out.slice(cardAt, panel)).not.toMatch(/customer-(notes|rewards|activity|more)-title/);
   });
 });
