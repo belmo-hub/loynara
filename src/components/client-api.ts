@@ -12,15 +12,16 @@ const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_ONBOARDE
   "MESSAGE_REFUSED", "NO_REACH", "OWNER_INVITE_OPEN", "PLATE_UNLINKED", "PUSH_DEVICE_IN_USE", "PUSH_UNAVAILABLE", "QUIET_HOURS",
   "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SETUP_INCOMPLETE", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED",
   "TAP_AUTOMATIC_NOT_ALLOWED", "TEMPLATE_IN_USE",
+  // Logo pipeline (ENG-134): every server line is German and names the actual fix.
+  "INVALID_LOGO",
   // German in the programme settings; contact verification sends it in English, but that page shows its own state instead.
   "INVALID_CHALLENGE"]);
 
-// Interim until the logo pipeline (ENG-134) is live; then Marketing's line names the formats and the 2 MB limit.
+// The pick-time check's own line, before anything reaches the server.
 export const LOGO_INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.";
 
 // Codes with mixed German and English server text that still get their own words.
 const OWN_WORDS: Record<string, string> = {
-  INVALID_LOGO: LOGO_INVALID,
   INVITE_USED: "Diese Einladung wurde schon angenommen.",
   INVALID_INVITE: "Diese Einladung gilt nicht. Bitte frage nach einer neuen.",
   PROGRAM_ENDED: "Das Programm ist beendet.",

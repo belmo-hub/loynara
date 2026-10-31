@@ -23,8 +23,8 @@ it("never shows the server's English diagnostics (ENG-135)", async () => {
   await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Bitte prüfe deine Eingaben und versuche es noch einmal." });
   reply("Internal error", 500);
   await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal." });
-  reply("Logo format does not match its contents", 400, "INVALID_LOGO");
-  await expect(apiJson("/api/x")).rejects.toMatchObject({ code: "INVALID_LOGO", message: LOGO_INVALID });
+  reply("Dieses Bild ist zu klein. Wähle eine größere Version deines Logos.", 400, "INVALID_LOGO");
+  await expect(apiJson("/api/x")).rejects.toMatchObject({ code: "INVALID_LOGO", message: "Dieses Bild ist zu klein. Wähle eine größere Version deines Logos." });
   reply("Invitation already accepted", 409, "INVITE_USED");
   await expect(apiJson("/api/staff/accept")).rejects.toMatchObject({ message: "Diese Einladung wurde schon angenommen." });
   reply("Sign in required", 401, "UNAUTHENTICATED");
