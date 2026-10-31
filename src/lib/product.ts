@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
-import { birthdayState, DomainError, winbackState } from "./loyalty";
+import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
@@ -713,7 +713,10 @@ export async function lookupCard(input: { userId: string; locationId: string; sc
   const { member, tenant, by } = card;
   // The counter keeps the rule in force until a waiting change's date (ENG-100): no pending data here.
   const program = await programInForce(db, card.program);
-  return { stage: "open" as const, membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: program.ruleVersionId, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, new Date())) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, new Date())) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
+  const now = new Date();
+  // Bonuses the next award books on top, so the button can say so before the tap (ENG-133). Happy hour doubles purchase points only.
+  const [location] = program.happyHourEnabled && program.earningMode === "purchase" ? await db.select({ timezone: locations.timezone }).from(locations).where(and(eq(locations.id, program.locationId), eq(locations.tenantId, program.tenantId))) : [];
+  return { stage: "open" as const, welcomeBonus: await welcomeBonusDue(db, program, { tenantId: member.tenantId, membershipId: member.id }), happyHour: Boolean(location && activeHappyHour(program.happyHourWindows, now, location.timezone)), membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: program.ruleVersionId, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, now)) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, now)) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
 }
 
 export async function getPublicProgram(slug: string) {
