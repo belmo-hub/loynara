@@ -24,14 +24,24 @@ const PRICE = 12;
 const DEFAULT_TRACK = 260;
 const estimate = (title: string) => Math.ceil(Array.from(title).length * 7.6);
 
-/** Marker positions (0..1) and which cost labels to hide so neighbours never collide. */
+/**
+ * Marker positions (0..1) and which cost labels to hide so neighbours never collide. The goal's (last) label always
+ * shows: when it falls within the gap of earlier shown labels, those hide instead (Design, 31 Oct; their prices and
+ * names stay in „Deine Prämien“).
+ */
 export function ladderMarks(sorted: Reward[], max: number, balance: number, gap = MIN_LABEL_GAP) {
-  return sorted.reduce<Array<Reward & { at: number; hideLabel: boolean; reached: boolean }>>((marks, reward) => {
+  const marks = sorted.reduce<Array<Reward & { at: number; hideLabel: boolean; reached: boolean }>>((list, reward) => {
     const at = reward.cost / max;
-    const lastShown = [...marks].reverse().find((m) => !m.hideLabel);
-    marks.push({ ...reward, at, hideLabel: lastShown ? at - lastShown.at < gap : false, reached: balance >= reward.cost });
-    return marks;
+    const lastShown = [...list].reverse().find((m) => !m.hideLabel);
+    list.push({ ...reward, at, hideLabel: lastShown ? at - lastShown.at < gap : false, reached: balance >= reward.cost });
+    return list;
   }, []);
+  const goal = marks.at(-1);
+  if (goal?.hideLabel) {
+    goal.hideLabel = false;
+    for (const m of marks.slice(0, -1)) if (goal.at - m.at < gap) m.hideLabel = true;
+  }
+  return marks;
 }
 
 const rank = (at: number) => (at === 1 ? 0 : at < START_ALIGN ? 1 : 2);
