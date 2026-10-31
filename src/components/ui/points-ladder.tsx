@@ -24,16 +24,31 @@ export function ladderMarks(sorted: Reward[], max: number, balance: number, gap 
   }, []);
 }
 
+/**
+ * How wide each shown name may be, as a share of the track: every name owns the stretch up to the midpoints with its shown
+ * neighbours, so a start-aligned early name and an end-aligned last one never run into each other (Design, 31 Oct).
+ */
+export function titleRooms(marks: Array<{ at: number; hideLabel: boolean }>) {
+  const shown = marks.filter((m) => !m.hideLabel);
+  return marks.map((m) => {
+    const i = shown.indexOf(m);
+    if (i < 0) return 0;
+    const left = i > 0 ? (shown[i - 1].at + m.at) / 2 : 0, right = i < shown.length - 1 ? (m.at + shown[i + 1].at) / 2 : 1;
+    return m.at === 1 ? m.at - left : m.at < START_ALIGN ? right - m.at : 2 * Math.min(m.at - left, right - m.at);
+  });
+}
+
 /** One track to the most expensive reward; a marker per reward becomes a pressed mark once affordable. */
 export function PointsLadder({ balance, rewards, locale = "de", titles = false, className }: Props) {
   if (!rewards.length) return null;
   const sorted = [...rewards].sort((a, b) => a.cost - b.cost);
   const max = Math.max(1, sorted.at(-1)?.cost ?? 1);
   const marks = ladderMarks(sorted, max, balance, titles ? MIN_TITLE_GAP : MIN_LABEL_GAP);
+  const rooms = titleRooms(marks);
   const label = locale === "fr" ? `${withUnit(balance, "points", "fr")} sur ${max}` : `${balance} von ${withUnit(max, "points", "de", "dat")}`;
   return <div className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
-    {marks.map((m) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
+    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at, "--room": rooms[i] } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
       <span className={styles.dot}>{m.reached ? <Check size={14} strokeWidth={3} /> : null}</span>
       <small className={styles.cost}>{m.cost}</small>
       {titles ? <small className={styles.title}>{m.title}</small> : null}
