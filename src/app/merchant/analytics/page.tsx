@@ -47,10 +47,10 @@ export default function MerchantAnalyticsPage() {
         {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}
       </div>
       {report.state === "error" ? <ErrorNotice message={report.message} onRetry={reload} /> : (
-        <Board kicker={`Bestätigte Buchungen · letzte ${windowDays} Tage`} busy={!r}>
+        <Board label={`Bestätigte Buchungen, letzte ${windowDays} Tage`} busy={!r}>
           {!r ? <BoardPlaceholder /> : <>
-            <p className="ow-board-big">{nf.format(r.qualifyingCheckouts)}</p>
-            <p className="ow-board-sub">Vom Team bestätigt, Korrekturen abgezogen</p>
+            <p className="ow-board-big">{nf.format(r.qualifyingCheckouts)}{"\u00a0"}<small>{r.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"}</small></p>
+            <p className="ow-board-sub">letzte {windowDays} Tage, Korrekturen abgezogen</p>
             <Weeks weeks={weeks} />
             {lastWasBest && <p className="ow-board-news">Die meisten Buchungen gab es letzte Woche.</p>}
           </>}

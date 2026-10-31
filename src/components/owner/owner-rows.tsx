@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronLeft, type LucideIcon } from "lucide-react";
+import { ArrowRight, ChevronLeft, CircleHelp, type LucideIcon } from "lucide-react";
 import { Children, isValidElement, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -91,7 +91,7 @@ export function Rows({ title, help, helpTitle = "So zählen wir", note, children
   return (
     <div>
       {help
-        ? <div className="ow-rows-head ow-prog-head"><h2>{title}</h2><button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setOpen(true)}><span aria-hidden="true">?</span><span className="ow-sr">{helpTitle} „{title}“</span></button></div>
+        ? <div className="ow-rows-head ow-prog-head"><h2>{title}</h2><button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setOpen(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">{helpTitle} „{title}“</span></button></div>
         : <h2>{title}</h2>}
       <ul>{Children.toArray(children).map((child, index) => <li key={isValidElement(child) ? child.key : index}>{child}</li>)}</ul>
       {note && <p className="ow-prog-note">{note}</p>}

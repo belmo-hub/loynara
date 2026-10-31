@@ -122,7 +122,7 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
       await cashier.page.goto("/cashier");
       await expect(cashier.page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
       await owner.page.goto("/merchant");
-      await expect(owner.page.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
+      await expect(owner.page.getByRole("heading", { name: /^Übersicht:/, level: 1 })).toBeVisible();
       for (const [path, booking] of [["award", journey.award], ["redeem", journey.redemption]] as const) {
         const replay = await post(cashier.page, `/api/cashier/${path}`, booking);
         expect(replay.status()).toBe(200); expect((await replay.json()).duplicate).toBe(true);

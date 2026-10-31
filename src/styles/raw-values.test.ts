@@ -7,6 +7,8 @@ import { applyExceptions, cssFindings, sourceFindings, type Exception } from "./
 // dashboard had grown its own scale next to the tokens; this keeps any stylesheet, inline style or CSS string from doing
 // that again. Each exception names the file, the kind, the exact rule or value and why. Dev-only previews (src/app/dev)
 // and SVG artwork attributes (logos) are not checked.
+// Spacing (SF-7, ENG-137) is checked on the owner screens: stylesheet values on the 4 px scale, and no raw spacing in
+// inline styles at all. The customer, Kasse and ui modules follow in their area tickets (G, H).
 
 const tokens = new Set([...readFileSync(join(__dirname, "tokens.css"), "utf8").matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
 
@@ -16,6 +18,10 @@ const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-r
   ".ow-pass-issuer img", ".ow-pass-mark", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
+const OWNER_UI = /^src\/(?:components\/owner|app\/merchant)\//;
+// Spacing that later tickets own: the shell and navigation (ENG-138) and the form controls, chips and toast (ENG-139).
+const SHELL = [".ow-nav", ".ow-loc", ".ow-tab", ".ow-skip"];
+const CONTROLS = [".owner-app summary", ".ow-chip", ".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button", ".ow-toast"];
 
 const EXCEPTIONS: Exception[] = [
   { file: "src/app/globals.css", kind: "colour", property: "background-color", value: "#0F1713", reason: "the page canvas follows the dark theme above any token scope (dark --color-bg); documented beside the rule" },
@@ -31,6 +37,11 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: SHELL, reason: "shell and navigation, ENG-138" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, chips and the toast, ENG-139 (SF-8, SF-9)" },
+  { file: "src/components/owner/owner-shell.tsx", kind: "spacing", property: "gap", value: "16px", reason: "the bare setup and sign-out top bars, ENG-138" },
+  { file: "src/components/owner/card-actions.tsx", kind: "spacing", property: "margin", value: "1px", reason: "QRCode.toDataURL's quiet zone in modules, not a style" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".video"], value: "#0B1410", reason: "camera viewport behind the live video, darker than any surface" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
   { file: "src/components/ui/dialog.module.css", kind: "colour", selectors: [".dialog::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
@@ -53,13 +64,13 @@ function repositoryFindings() {
   return [
     ...sources.filter(path => path.endsWith(".css")).flatMap(path => cssFindings(path, readFileSync(path, "utf8"), tokens)),
     ...sources.filter(path => /\.tsx?$/.test(path)).flatMap(path => sourceFindings(path, readFileSync(path, "utf8"), tokens)),
-  ];
+  ].filter(finding => finding.kind !== "spacing" || OWNER_UI.test(finding.file.split("\\").join("/")));
 }
 
 describe("raw design values in the repository", () => {
   const { rest, unused } = applyExceptions(repositoryFindings(), EXCEPTIONS);
 
-  it("stylesheets, inline styles and CSS strings take colours, font sizes, radii and layers from the tokens", () => {
+  it("stylesheets, inline styles and CSS strings take colours, font sizes, radii and layers from the tokens, spacing from the scale", () => {
     expect(rest.map(f => `${f.file} | ${f.selector} | ${f.property}: ${f.value} (${f.kind})`)).toEqual([]);
   });
 
@@ -91,6 +102,18 @@ describe("the checker", () => {
     expect(tsx('<p style={{ fontSize: "14px" }} />')).toEqual(["font size: font-size"]);
     expect(tsx("<p style={{ zIndex: 3, borderRadius: 8, color: '#123456' }} />")).toEqual(["layer: z-index", "radius: border-radius", "colour: color"]);
     expect(tsx('<p style={{ fontSize: "var(--text-14)", zIndex: "var(--z-nav)" }} />')).toEqual([]);
+  });
+
+  it("flags spacing off the 4 px scale in stylesheets, and any raw spacing in an inline style", () => {
+    expect(css(".a { padding: 14px var(--space-4); gap: 6px; margin: 0 2px 8px; }")).toEqual(["spacing: padding", "spacing: gap", "spacing: margin"]);
+    expect(css(".a { padding: 12px 16px; gap: var(--space-3); margin-left: -6px; padding-left: calc(40px + var(--space-3)); }")).toEqual([]);
+    expect(tsx("<p style={{ marginTop: 8, paddingBlock: '4px', gap: 12 }} />")).toEqual(["spacing: margin-top", "spacing: padding-block", "spacing: gap"]);
+    expect(tsx('<p style={{ margin: 0, gap: "var(--space-2)", padding: "0 var(--space-4)" }} />')).toEqual([]);
+  });
+
+  it("reads an inline style that sits between two quoted attributes (review N-1)", () => {
+    expect(tsx('<div className="a" style={{ marginTop: 8 }} id="b" />')).toEqual(["spacing: margin-top"]);
+    expect(tsx('<p className="a" style={{ color: "#123456" }} id="b" />')).toEqual(["colour: color"]);
   });
 
   it("reads CSS written inside strings", () => {

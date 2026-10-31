@@ -120,7 +120,7 @@ export function BirthdayCard({ slug, type, initial }: { slug: string; type: "sta
         </fieldset>
         : <div className="ow-field">
           <label htmlFor="birthday-bonus">Bonus in Punkten (0 = kein Bonus)</label>
-          <input id="birthday-bonus" className="ow-input" inputMode="numeric" style={{ maxWidth: 120 }} value={draft.bonus} aria-invalid={!bonusValid} onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
+          <input id="birthday-bonus" className="ow-input ow-field--narrow" inputMode="numeric" value={draft.bonus} aria-invalid={!bonusValid} onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
           <p className="ow-hint">{bonusRange(initial.bonusMax)}: höchstens ein Viertel deiner günstigsten Prämie.</p>
         </div>}
       <p className="ow-hint">Kundinnen und Kunden können auf ihrer Karte Tag und Monat ihres Geburtstags eintragen. In ihrer Geburtstagswoche wird der Bonus beim Bestätigen eines Besuchs mitgebucht, einmal im Jahr. Mit Wallet-Nachrichten bekommen sie dazu eine Erinnerung. {initial.cards} {initial.cards === 1 ? "Karte hat" : "Karten haben"} einen Geburtstag eingetragen.</p>

@@ -40,7 +40,7 @@ export default function NewLocationPage() {
   useDirtyGuard("location-draft", dirty);
   if (!me) return null;
   const currency = list.state === "ok" ? list.data.currency : null;
-  const head = <PageTitle back={BACK} title="Standort hinzufügen" lead={currency && `Der neue Standort startet ohne Karten. Währung und Land bleiben: ${currency} · ${currency === "EUR" ? "Deutschland" : "Marokko"}.`} />;
+  const head = <PageTitle back={BACK} title="Standort hinzufügen" lead={currency && `Der neue Standort startet ohne Karten. Währung und Land bleiben: ${currency}\u00a0· ${currency === "EUR" ? "Deutschland" : "Marokko"}.`} />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
   if (!currency) return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
@@ -89,7 +89,7 @@ export default function NewLocationPage() {
             {draft.programType === "points" && <span id="lc-rules-hint" className="ow-hint">{SETUP_EXTRA_RULES_HINT}</span>}
           </Field>
           <Field error={fields.error} id="lc-reward" label="Erste Prämie"><input id="lc-reward" {...fields.aria("lc-reward")} className="ow-input" value={draft.rewardTitle} onChange={event => set({ rewardTitle: event.target.value })} minLength={2} maxLength={180} required /></Field>
-          <Field error={fields.error} id="lc-cost" label={`Kosten in ${draft.programType === "stamp" ? "Stempeln" : "Punkten"}`}><input id="lc-cost" {...fields.aria("lc-cost")} className="ow-input" style={{ maxWidth: 200 }} type="number" value={draft.rewardCost} onChange={event => set({ rewardCost: Number(event.target.value) })} min={1} max={100000} step={1} required /></Field>
+          <Field error={fields.error} id="lc-cost" label={`Kosten in ${draft.programType === "stamp" ? "Stempeln" : "Punkten"}`}><input id="lc-cost" {...fields.aria("lc-cost")} className="ow-input ow-field--narrow" type="number" value={draft.rewardCost} onChange={event => set({ rewardCost: Number(event.target.value) })} min={1} max={100000} step={1} required /></Field>
         </div>
         <div className="ow-qsave"><button type="submit" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy}>{busy ? "Wird angelegt …" : "Standort und Programm anlegen"}</button></div>
       </form>

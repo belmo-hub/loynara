@@ -7,7 +7,7 @@ vi.mock("react", async original => {
   const react = await original<typeof import("react")>();
   return { ...react, useState: (initial: unknown) => state.overrides.length ? [state.overrides.shift(), () => {}] : react.useState(initial) };
 });
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(state.query) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(state.query), useRouter: () => ({ push: () => {} }) }));
 vi.mock("./owner-context", () => ({ useDirtyGuard: () => {}, useOwner: () => ({ me: { role: state.role, businessName: "Synthetic Café", locationName: "Berlin", programSlug: "synthetic", programType: "stamp", hiddenSurfaces: [] }, locations: [], announce: () => {} }) }));
 vi.mock("./use-load", () => ({ useLoad: (url: string) => [{ state: "ok", data: url.startsWith("/api/merchant/campaigns") ? { deliveryMode: state.mode, campaigns: state.campaigns } : { rewards: [{ id: "version", rewardId: "75e35319-6a75-4377-bb91-a6c5ce1bcd00", title: "Coffee", cost: 8 }] } }, () => {}] }));
 

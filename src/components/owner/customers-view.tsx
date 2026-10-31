@@ -248,7 +248,7 @@ function CardList({ filters, fresh }: { filters: Filters; fresh: Record<string, 
           </Link></li>;
         })}</ul>}
       {moreError && <ErrorNotice message={moreError} onRetry={() => void loadMore()} />}
-      {next && <div style={{ marginTop: 12 }}><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void loadMore()} disabled={moreBusy} aria-busy={moreBusy}>{moreBusy ? "Wird geladen …" : "Weitere Karten laden"}</button></div>}
+      {next && <div className="ow-mt-3"><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void loadMore()} disabled={moreBusy} aria-busy={moreBusy}>{moreBusy ? "Wird geladen …" : "Weitere Karten laden"}</button></div>}
     </section>
   );
 }

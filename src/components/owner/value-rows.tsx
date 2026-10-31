@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, type LucideIcon } from "lucide-react";
+import { ArrowRight, CircleHelp, type LucideIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -22,7 +22,7 @@ export function RowSection({ title, help, helpTitle = BROUGHT_COPY.howWeCountTit
     <section className="ow-rows-section" aria-labelledby={id}>
       <div className="ow-rows-head">
         <h2 id={id} className="ow-tiles-title">{title}</h2>
-        {help && <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setOpen(true)}><span aria-hidden="true">?</span><span className="ow-sr">{helpTitle} „{title}“</span></button>}
+        {help && <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setOpen(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">{helpTitle} „{title}“</span></button>}
       </div>
       {children}
       {help && <Sheet open={open} onClose={close} title={helpTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
