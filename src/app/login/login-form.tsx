@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
-import { AuthShell, LegalLinks } from "@/components/ui/auth-shell";
+import { AuthShell } from "@/components/ui/auth-shell";
+import { LegalLinks } from "@/components/ui/legal-links";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
@@ -61,7 +62,8 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
     } finally { setBusy(false); }
   }
 
-  // Design's screen 34 (ENG-122h): the mark alone, the larger question, the legal links right under the form. Copy is live (R22).
+  // Design's screen 34 (ENG-122h): the mark alone, the larger question, the legal links right under the form, muted like
+  // everywhere else (G-22: green is the one next step). Copy is live (R22).
   return <AuthShell mark footer={null}>
     <div className={styles.page}>
       <PageHeader className={styles.signin} title="Gut, dass du da bist." description="Melde dich an, um dein Treueprogramm und die Kasse zu öffnen." />
@@ -77,7 +79,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
           ? <>Noch kein Konto? <Link className={styles.link} href="/register">Konto erstellen</Link></>
           : <>Noch keinen Zugang? Loynara richtet ihn gemeinsam mit dir ein.</>}</p>
       </div>
-      <LegalLinks className={styles.legal} />
+      <LegalLinks />
     </div>
   </AuthShell>;
 }

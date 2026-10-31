@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
 import { cx } from "./cx";
+import { LegalLinks } from "./legal-links";
 import styles from "./auth-shell.module.css";
 
 type Props = {
@@ -9,9 +10,6 @@ type Props = {
   /** The mark alone and larger, as on the sign-in (Design's screen 34). */ mark?: boolean;
 };
 
-/** Datenschutz and Teilnahmebedingungen, each a 44 px target. */
-export const LegalLinks = ({ className = styles.legal }: { className?: string }) =>
-  <nav aria-label="Rechtliches" className={className}><Link href="/datenschutz">Datenschutz</Link><Link href="/teilnahmebedingungen">Teilnahmebedingungen</Link></nav>;
 
 /** Sign-in, invitation, legal and system pages: brand, one centred column, legal links. */
 export function AuthShell({ children, width = "narrow", footer, brandHref, mark = false }: Props) {

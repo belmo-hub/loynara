@@ -1,0 +1,14 @@
+/* G-22: one style for the legal links on every shell; G-M6: the current page is plain ink text. */
+.legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--space-5); }
+.legal :is(a, span) { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); }
+.legal a { color: var(--color-ink-muted); text-decoration: underline; text-underline-offset: 3px; }
+.legal a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.legal span { color: var(--color-ink); }
+.back { display: inline-flex; align-items: center; gap: var(--space-1); justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-action); font: var(--weight-label) var(--text-14)/1 var(--font-sans); cursor: pointer; }
+.back:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* G-26: the contents as a white panel of 44 px rows. */
+.contents { padding: var(--space-1) var(--space-5); border-radius: var(--radius-lg); background: var(--color-surface); }
+.contents ol { margin: 0; padding: 0; list-style: none; }
+.contents li + li { border-top: 1px solid var(--color-line); }
+.contents a { display: flex; align-items: center; min-height: var(--target); padding-block: var(--space-2); color: var(--color-action); line-height: 1.35; text-decoration: none; }
+.contents a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }

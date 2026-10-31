@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { AuthShell } from "@/components/ui/auth-shell";
+import { LegalBack, LegalContents } from "@/components/ui/legal-links";
 import styles from "@/components/ui/legal-text.module.css";
 
 export default function TeilnahmebedingungenPage() {
-  return <AuthShell width="reading" brandHref="/">
+  return <AuthShell width="reading">
     <article className={styles.legal}>
+    <LegalBack />
     <h1>Teilnahmebedingungen</h1>
     <p>Stand: 30. Oktober 2026. Diese Bedingungen gelten für die digitale Kundenkarte, die du bei einem Geschäft über Loynara anlegst.</p>
+    <LegalContents />
     <h2>Wer bietet das Programm an?</h2>
     <p>Das Programm bietet das Geschäft an, dessen Name und Standort auf deiner Karte stehen. Jedes Geschäft legt seine Regeln und Prämien selbst fest. Es gelten die Regeln, die auf deiner Karte angezeigt werden. Das Geschäft kann sie für die Zukunft ändern. Verbesserungen gelten sofort. Ändert das Geschäft etwas zu deinem Nachteil, zeigt deine Karte das mindestens vier Wochen vorher mit Datum an, zum Beispiel wenn eine Prämie mehr Stempel oder Punkte braucht, kleiner oder eingeschränkt wird oder wegfällt, oder wenn du für deinen Einkauf weniger bekommst. Bis dahin gilt die bisherige Regel. Deine gesammelten Stempel und Punkte bleiben erhalten. Extra-Boni wie den Willkommen-zurück- oder den Geburtstagsbonus kann das Geschäft jederzeit ändern oder beenden; schon gebuchte Boni bleiben dir. Die technische Plattform betreibt Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, support@getloynara.com.</p>
     <h2>Teilnahme</h2>

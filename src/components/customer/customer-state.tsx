@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
+import { LegalLinks } from "@/components/ui/legal-links";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import styles from "./customer-state.module.css";
@@ -64,11 +65,3 @@ export function CustomerCardLoading({ label }: { label: string }) {
   </CustomerShell>;
 }
 
-/** `newTab`: the card opens the legal pages beside itself, so the way back to the card stays (G-11). */
-export function LegalLinks({ locale, newTab = false }: { locale: "de" | "fr"; newTab?: boolean }) {
-  const target = newTab ? { target: "_blank", rel: "noopener" } : {};
-  return <nav className={styles.legal} aria-label={locale === "fr" ? "Mentions" : "Rechtliches"}>
-    <Link href="/datenschutz" {...target}>{locale === "fr" ? "Confidentialité" : "Datenschutz"}</Link>
-    <Link href="/teilnahmebedingungen" {...target}>{locale === "fr" ? "Conditions de participation" : "Teilnahmebedingungen"}</Link>
-  </nav>;
-}

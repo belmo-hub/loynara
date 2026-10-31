@@ -1,11 +1,14 @@
 import { AuthShell } from "@/components/ui/auth-shell";
+import { LegalBack, LegalContents } from "@/components/ui/legal-links";
 import styles from "@/components/ui/legal-text.module.css";
 
 export default function DatenschutzPage() {
-  return <AuthShell width="reading" brandHref="/">
+  return <AuthShell width="reading">
     <article className={styles.legal}>
+    <LegalBack />
     <h1>Datenschutzhinweise</h1>
     <p>Stand: 31. Oktober 2026. Diese Hinweise gelten für deine digitale Kundenkarte, die du über einen QR-Code oder ein NFC-Schild eines Geschäfts anlegst.</p>
+    <LegalContents />
     <h2>Wer ist verantwortlich?</h2>
     <p>Für deine Karte ist das Geschäft verantwortlich, bei dem du sie nutzt. Name und Standort stehen auf deiner Karte. Die technische Plattform betreibt Loynara im Auftrag dieses Geschäfts:</p>
     <p>Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, Deutschland<br />E-Mail: support@getloynara.com</p>
