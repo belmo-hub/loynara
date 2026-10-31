@@ -55,7 +55,7 @@
 .locator strong { font-size: clamp(var(--text-16), 14cqi, var(--text-28)); font-weight: var(--weight-heavy); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .locator small { font-size: var(--text-14); line-height: 1.4; color: #58645C; text-wrap: pretty; }
 /* Below 360 the number goes under a 128 px QR: beside it, a worst-case number („K-WWWWWW“) would drop under 14 px. */
-@media (max-width: 359px) { .ticket { grid-template-columns: minmax(0, 1fr); justify-items: start; } .qr { width: 128px; } }
+@media (max-width: 359px) { .ticket { grid-template-columns: minmax(0, 1fr); } .qr { justify-self: start; width: 128px; } }
 
 .cardGroup { display: grid; gap: var(--space-3); }
 .alert { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
@@ -122,12 +122,13 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.activity { display: grid; margin: 0; padding: 0; list-style: none; }
+/* One day column for all rows (subgrid), so labels after „Gestern“ and „Mi“ start on one edge. */
+.activity { display: grid; grid-template-columns: minmax(2.5rem, max-content) minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; }
 /* The day first as a muted column, the label, the value in ink (G-21: no green here). */
-.activity li { display: grid; grid-template-columns: minmax(2.5rem, max-content) minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
+.activity li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
 .activity li:first-child { border-top: 0; }
 .activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
-.activity strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; }
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
