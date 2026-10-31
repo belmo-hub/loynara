@@ -173,13 +173,16 @@ export function TapClient({ refId }: { refId: string }) {
   const cardRef = useRef<HTMLDivElement>(null);
   // Apple's sheet opened from the band (ENG-160): the band, not this page, then follows the stamp to the card.
   const [walletAdding, setWalletAdding] = useState(false);
-  // The stamp lands above a customer who scrolled down to the band: back to the top, as the page arrives (Design, 31 Oct).
-  // Not after Apple's sheet opened; the card page takes over then.
+  // A new state lands above a customer who scrolled down to the band: back to the top, as the page arrives (Design,
+  // 31 Oct). The stamp only when the card is out of view and Apple's sheet did not open (the card page takes over then);
+  // a request that ended (expired, rejected, failed) always, since those stay on this page.
+  const ended = state === "expired" || state === "cancelled" || state === "error";
   useEffect(() => {
-    const el = cardRef.current;
-    if (!celebrate || walletAdding || !el || el.getBoundingClientRect().top >= 0) return;
+    const card = cardRef.current;
+    const stampAbove = celebrate && !walletAdding && card !== null && card.getBoundingClientRect().top < 0;
+    if (!stampAbove && !(ended && window.scrollY > 0)) return;
     window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  }, [celebrate, walletAdding]);
+  }, [celebrate, walletAdding, ended]);
   const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
   // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";

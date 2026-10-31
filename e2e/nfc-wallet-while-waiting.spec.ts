@@ -118,8 +118,10 @@ test("an Apple add while waiting, then a rejected request, stays on the tap page
   try {
     await addAndOpenSheet(page);
     await page.waitForTimeout(4_500);
+    // The customer is down at the band; the new state must come into view, not render above them.
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     const cashier = await reject();
-    await expect(page.getByRole("heading", { name: "Nicht bestätigt" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Nicht bestätigt" })).toBeInViewport({ timeout: 15_000 });
     await page.waitForTimeout(1_000);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
     await cashier.close();
