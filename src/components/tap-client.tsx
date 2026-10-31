@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiJson, ClientApiError, type CardResponse } from "./client-api";
+import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
 import { CheckCircle2, Clock3, Nfc, TriangleAlert } from "lucide-react";
 import { CardFace, nearestReward } from "./customer/card-face";
@@ -10,6 +10,8 @@ import { LegalLinks } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
 import { CustomerShell } from "./ui/customer-shell";
 import styles from "./customer/tap.module.css";
+import { walletPlatform } from "./wallet-preparation";
+import { markWalletStep, readWalletStep, tapAsksForWalletStep, tapWalletStep, WalletStep } from "./wallet-step";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
@@ -80,6 +82,7 @@ export function TapClient({ refId }: { refId: string }) {
   const [selectionRequired, setSelectionRequired] = useState(false);
   const [loading, setLoading] = useState(true);
   const [moment, setMoment] = useState(false);
+  const [walletProgram, setWalletProgram] = useState<PublicProgram | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -151,6 +154,19 @@ export function TapClient({ refId }: { refId: string }) {
   const waiting = state === "pending_staff";
   const recoveryCard = preview?.cardPath?.match(/^\/card\/(card_[A-Za-z0-9_-]{32,80})$/)?.[1];
   const done = state === "confirmed" || state === "awarded" || state === "already_processed";
+  // ENG-130: a card the join handed over to this tap gets the Wallet step after its stamp, asked of the location again.
+  useEffect(() => {
+    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
+    let active = true;
+    void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => {
+      if (!active) return;
+      const step = tapWalletStep(value);
+      markWalletStep(recoveryCard, step.mark);
+      if (step.show) setWalletProgram(value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [preview, recoveryCard, done]);
+
   const celebrate = moment && done;
   const announcement = stampAnnouncement(state, result?.balance, points);
   const plus = !celebrate ? null : points ? (result?.credited ? `+${result.credited}` : null) : card?.programType === "stamp" ? "+1" : null;
@@ -178,6 +194,7 @@ export function TapClient({ refId }: { refId: string }) {
       {preview?.cardPath && state !== "needs_enrollment" && <Link className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath}>Karte und Prämien ansehen</Link>}
       {state === "error" && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     </section>
+    {walletProgram && recoveryCard && <WalletStep band token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerShell>;
 }

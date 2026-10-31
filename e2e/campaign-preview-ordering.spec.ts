@@ -40,7 +40,7 @@ for (const scenario of [
     } else await page.getByLabel("Inaktiv seit mindestens (Tage)").fill("60");
     await page.getByRole("button", { name: "Zielgruppe prüfen" }).click();
     if ("failCurrent" in scenario && scenario.failCurrent) {
-      await expect(page.getByText("Synthetic current preview failure", { exact: true })).toBeVisible();
+      await expect(page.getByText("Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal.", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Zielgruppe prüfen" }).click();
     }
     await expect(page.getByText(/2 Karten, davon 2 per E-Mail erreichbar/)).toBeVisible();
@@ -50,7 +50,8 @@ for (const scenario of [
     // Flush browser rendering after the controlled obsolete response has completed, without a fixed sleep.
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await expect.soft(page.getByText(/2 Karten, davon 2 per E-Mail erreichbar/)).toBeVisible();
-    await expect.soft(page.getByText("Synthetic obsolete preview error", { exact: true })).toHaveCount(0);
+    // Both failures read the same German line (apiJson); none may show once the current preview has arrived.
+    await expect.soft(page.getByText("Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal.", { exact: true })).toHaveCount(0);
     await expect.soft(page.getByText(/99 Karten/)).toHaveCount(0);
     await page.getByRole("button", { name: "Weiter", exact: true }).click();
     await page.getByLabel("Interner Titel").fill("Synthetic B");

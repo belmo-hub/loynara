@@ -6,6 +6,8 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { tapModesFor, type TapMode as Mode } from "./tap-modes";
+import { FieldError } from "./question-form";
+import { useFormCheck } from "@/components/ui/form-check";
 
 export const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
   { id: "disabled", label: "Aus", text: "Nur QR-Scan oder Kartencode an der Kasse." },
@@ -33,8 +35,10 @@ function PlateActivation({ programId, onLinked }: { programId: string; onLinked:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [linked, setLinked] = useState("");
+  const fields = useFormCheck();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!fields.check(event.currentTarget)) return;
     const element = event.currentTarget, form = new FormData(element);
     setBusy(true); setError(""); setLinked("");
     try {
@@ -43,10 +47,10 @@ function PlateActivation({ programId, onLinked }: { programId: string; onLinked:
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Platte konnte nicht aktiviert werden."); }
     finally { setBusy(false); }
   }
-  return <form className="ow-stack" onSubmit={submit} aria-labelledby="plate-activate-title">
+  return <form className="ow-stack" onSubmit={submit} onInput={fields.onInput} noValidate aria-labelledby="plate-activate-title">
     <strong id="plate-activate-title">Platte aus der Post aktivieren</strong>
-    <div className="ow-field"><label htmlFor="plate-label">Plattenname</label><input id="plate-label" name="plate" className="ow-input ow-field--narrow" placeholder="P-007" autoCapitalize="characters" autoComplete="off" spellCheck={false} required maxLength={16} /></div>
-    <div className="ow-field"><label htmlFor="plate-code">Code von der Karte in der Box</label><input id="plate-code" name="code" className="ow-input" placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="one-time-code" spellCheck={false} required maxLength={20} style={{ maxWidth: 240 }} /></div>
+    <div className="ow-field"><label htmlFor="plate-label">Plattenname</label><input id="plate-label" {...fields.aria("plate-label")} name="plate" className="ow-input ow-field--narrow" placeholder="P-007" autoCapitalize="characters" autoComplete="off" spellCheck={false} required maxLength={16} /><FieldError id="plate-label-error">{fields.error("plate-label") ?? ""}</FieldError></div>
+    <div className="ow-field"><label htmlFor="plate-code">Code von der Karte in der Box</label><input id="plate-code" {...fields.aria("plate-code")} name="code" className="ow-input" placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="one-time-code" spellCheck={false} required maxLength={20} style={{ maxWidth: 240 }} /><FieldError id="plate-code-error">{fields.error("plate-code") ?? ""}</FieldError></div>
     {error && <p className="ow-error" role="alert">{error}</p>}
     {linked && <p role="status">{linked}</p>}
     <div><button type="submit" className="ow-btn ow-btn--secondary" disabled={busy}>{busy ? "Wird geprüft …" : "Platte aktivieren"}</button></div>

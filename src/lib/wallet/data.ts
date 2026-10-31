@@ -36,7 +36,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .where(eq(memberships.id, membershipId));
   if (!row) throw new DomainError("NOT_FOUND", "Card not found");
   const program = await programInForce(reader, row.program);
-  const appleLogo = appleLogoFromData(row.location.logoData);
+  const appleLogo = await appleLogoFromData(row.location.logoData, row.location.brandColor);
   const googleLogoUrl = merchantGoogleLogoUrl(row.program.id, row.location.logoData);
   const brand: WalletBrand & { membershipId: string } = {
     programType: program.type === "points" ? "points" : "stamp",

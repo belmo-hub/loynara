@@ -14,6 +14,8 @@ import { Checkbox } from "./ui/checkbox";
 import { CustomerShell } from "./ui/customer-shell";
 import { PointsLadder } from "./ui/points-ladder";
 import { StampGrid } from "./ui/stamp-grid";
+import { walletPlatform } from "./wallet-preparation";
+import { afterJoin, iphoneJoin, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
 
 const copy = {
@@ -33,6 +35,8 @@ function subscribeToLocation(notify: () => void) {
 }
 function currentReferralCode() { return new URLSearchParams(window.location.search).get("ref"); }
 function serverReferralCode() { return null; }
+const noSubscription = () => () => {};
+const serverPlatform = () => "other" as const;
 
 type Returning = { state: "checking" | "none" | "stale" | "unknown" } | { state: "existing"; cardLocator: string };
 
@@ -69,6 +73,9 @@ export function JoinClient({ slug }: { slug: string }) {
   // ENG-100: the full new rule opens in place, above the checkbox (W58); a stale join marks the rules it reloaded.
   const [showRule, setShowRule] = useState(false), [stale, setStale] = useState(false);
   const referralCode = useSyncExternalStore(subscribeToLocation, currentReferralCode, serverReferralCode);
+  const platform = useSyncExternalStore(noSubscription, walletPlatform, serverPlatform);
+  // ENG-130: the card made here, while the Wallet step shows instead of the join form.
+  const [walletStep, setWalletStep] = useState<string | null>(null);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
   const unit = program?.programType === "points" ? t.points : t.stamp;
@@ -80,7 +87,8 @@ export function JoinClient({ slug }: { slug: string }) {
     void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).then(result => {
       if (mounted) { setProgram(result); setLoading(false); }
     }).catch(cause => {
-      if (mounted) { setError(cause instanceof Error ? cause.message : copy.de.loadError); setLoading(false); }
+      // Never the server's text (G-02); without a programme the page is German.
+      if (mounted) { setError(cause instanceof ClientApiError && cause.status === 404 ? "Der Link ist veraltet oder falsch. Frag im Geschäft nach dem aktuellen QR-Code." : "Das Programm konnte gerade nicht geladen werden. Versuche es gleich noch einmal."); setLoading(false); }
     });
     void checkReturning(slug).then(result => { if (mounted) setReturning(result); });
     return () => { mounted = false; };
@@ -88,7 +96,7 @@ export function JoinClient({ slug }: { slug: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setReferralUnavailable(false);
-    if (!acceptedTerms) { setError(t.acceptError); return; }
+    if (!acceptedTerms) { setError(t.acceptError); document.getElementById("join-consent")?.focus(); return; }
     if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); return; }
     setBusy(true);
     try {
@@ -108,7 +116,10 @@ export function JoinClient({ slug }: { slug: string }) {
       if (!result) return;
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
-      if (continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation)) router.push(continuation);
+      const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
+      if (next.mark) markWalletStep(result.cardToken, next.mark);
+      if (next.go === "tap") router.push(continuation!);
+      else if (next.go === "step") setWalletStep(result.cardToken);
       else router.push(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.code === "CARD_EXISTS") {
@@ -124,7 +135,7 @@ export function JoinClient({ slug }: { slug: string }) {
         setReferralUnavailable(true); setError(t.referralUnavailable);
       } else if (cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300))) {
         setError(t.unconfirmed);
-      } else setError(cause instanceof Error ? cause.message : t.submitError);
+      } else setError(t.submitError);
     }
     finally { setBusy(false); }
   }
@@ -133,7 +144,11 @@ export function JoinClient({ slug }: { slug: string }) {
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
   if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
-  if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle />;
+  if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
+  if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
+    <WalletStep token={walletStep} program={program} />
+  </CustomerShell>;
+  const iphone = iphoneJoin(platform, program);
 
   const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview}>
     <p className={styles.welcome}>{t.welcome}</p>
@@ -151,7 +166,7 @@ export function JoinClient({ slug }: { slug: string }) {
       <h2 className={styles.title}>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2>
       <p className={styles.muted}>{t.staleNote}</p>
       <p className={styles.muted}>{locale === "fr" ? "Ouvrez votre lien privé actuel. Le numéro de carte seul ne prouve pas que la carte vous appartient." : "Öffne deinen aktuellen privaten Kartenlink. Die Kartennummer allein ist kein Eigentumsnachweis."}</p>
-      <Link className={buttonClassName({ block: true })} href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte sicher wiederherstellen"}</Link>
+      <Link className={buttonClassName({ block: true })} href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte wiederfinden"}</Link>
       <Button variant="quiet" onClick={() => setWantsAnother(true)}>{t.anotherLink}</Button>
     </section> : existing && !wantsAnother ? <section className={`join-returning ${styles.panel}`}>
       <h2 className={styles.title}>{t.welcomeBack}</h2>
@@ -164,6 +179,12 @@ export function JoinClient({ slug }: { slug: string }) {
         <h2 className={styles.title}>{t.anotherTitle}</h2>
         <p className={`join-another-warning ${styles.warning}`} role="note">{locale === "fr" ? `Une nouvelle carte commence à ${withUnit(0, program.programType, locale)}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei ${withUnit(0, program.programType, locale, "dat")}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p>
         <a className={buttonClassName({ variant: "secondary", block: true })} href={openHref}>{t.backToCard}</a>
+      </> : iphone ? <>
+        <h2 className={styles.headline}>Deine {program.programType === "points" ? "Punktekarte" : "Stempelkarte"}, direkt auf dem iPhone.</h2>
+        <ol className={styles.steps}>
+          <li><span aria-hidden="true">1</span><p><strong>Karte erstellen</strong>Ohne App und ohne Konto</p></li>
+          <li><span aria-hidden="true">2</span><p><strong>In Apple Wallet legen</strong>Dann ist sie bei deinen Karten</p></li>
+        </ol>
       </> : <>
         <h2 className={styles.headline}>{t.headline}</h2>
         <p className={styles.lead}>{t.intro} {unit} {t.introEnd}</p>
@@ -191,15 +212,15 @@ export function JoinClient({ slug }: { slug: string }) {
         </>;
       })()}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
-      <form className={styles.form} onSubmit={submit}>
-        <Checkbox checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
+      <form className={styles.form} onSubmit={submit} noValidate>
+        <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === t.acceptError || undefined} aria-describedby={error === t.acceptError ? "join-error" : undefined}>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
         {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
-        {error && <p className={styles.error} role="alert">{error}</p>}
+        {error && <p id="join-error" className={styles.error} role="alert">{error}</p>}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
         <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>
-      <p className={styles.link}><Link href="/recover">{locale === "fr" ? "Vous avez déjà une carte ? Récupération sécurisée" : "Du hast schon eine Karte? Sicher wiederherstellen"}</Link></p>
+      <p className={styles.link}>{locale === "fr" ? <Link href="/recover">Vous avez déjà une carte ? Récupération sécurisée</Link> : <><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></>}</p>
     </section>}
   </CustomerShell>;
 }

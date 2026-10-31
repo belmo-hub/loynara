@@ -71,6 +71,7 @@
 .preview { display: grid; gap: var(--space-1); min-height: 4.5rem; align-content: center; }
 .preview strong { font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; font-variant-numeric: tabular-nums; }
 .preview span { color: var(--color-ink-muted); font-size: var(--text-18); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.preview .previewParts { font-size: var(--text-16); font-weight: var(--weight-label); }
 .preview .previewProblem { color: var(--color-danger); font-size: var(--text-16); }
 
 /* Dock: stepper over the booking button. The value changes at once; only the press scales. */

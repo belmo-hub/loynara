@@ -5,7 +5,7 @@ import { locations, programs, staffRoles } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletAvailability } from "./capability";
 import { passInk } from "./content";
-import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl } from "./logo";
+import { merchantGoogleLogoUrl, walletLogoView } from "./logo";
 import { passFastEnv } from "./template-bindings";
 
 /**
@@ -15,7 +15,7 @@ import { passFastEnv } from "./template-bindings";
 export type OwnerWalletReadiness = {
   apple: "ready" | "not_set_up";
   google: "ready" | "test_only" | "not_set_up";
-  logo: "ready" | "needs_png" | "too_large" | "missing" | "needs_review";
+  logo: "ready" | "low_contrast" | "missing" | "needs_review";
   /** Whether Google shows the merchant's own logo or the neutral Loynara fallback. */
   googleLogo: "merchant" | "fallback";
   ink: "light" | "dark";
@@ -36,8 +36,9 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
   if (!role) throw new DomainError("FORBIDDEN", "Owner access required");
 
   const availability = walletAvailability(await passFastEnv(program.tenantId, program.locationId), program.tenantId, program.locationId, program.id);
-  const png = decodeMerchantLogoPng(program.logoData);
-  const logo = !program.logoData ? "missing" : !png ? "needs_png" : appleLogoFromData(program.logoData) ? "ready" : "too_large";
+  // Every accepted upload is converted and resized; a stored logo is left off when it is too faint, or (unreadable) treated as absent.
+  const view = await walletLogoView(program.logoData, program.brandColor);
+  const logo = !view ? "missing" : view.faint ? "low_contrast" : "ready";
   const counts = await db.execute<{ provider: string; n: number }>(sql`
     SELECT p.provider, count(*)::int AS n FROM wallet_passes p JOIN memberships m ON m.id = p.membership_id AND m.tenant_id = p.tenant_id
     WHERE p.tenant_id = ${program.tenantId}::uuid AND m.program_id = ${program.id}::uuid AND p.revoked_at IS NULL AND m.closed_at IS NULL
