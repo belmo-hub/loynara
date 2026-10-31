@@ -50,10 +50,10 @@ describe("processMerchantLogo: every logo keeps its own shape (ENG-134)", () => 
     expect(await Promise.all(logo.icon!.map(size))).toEqual([[29, 29], [58, 58], [87, 87]]);
   });
 
-  it("keeps a wide logo with its own box a rectangle", async () => {
+  it("keeps a wide logo with its own box a rectangle, with a margin of its box colour (ENG-153)", async () => {
     const logo = await processMerchantLogo(await wideOpaque(), TAPPI_RED);
-    expect(await size(logo.wallet.png1x)).toEqual([150, 50]);
-    expect(logo.meta).toMatchObject({ ratio: 3, boxed: true, showName: true });
+    expect(await size(logo.wallet.png1x)).toEqual([131, 50]); // 600 x 200 plus 24 px of box on every side
+    expect(logo.meta).toMatchObject({ ratio: 3, boxed: true, box: "#dd0000", showName: true });
     expect(await alphaAt(logo.wallet.png1x, 0, 0)).toBe(255);
   });
 
@@ -88,10 +88,10 @@ describe("processMerchantLogo: every logo keeps its own shape (ENG-134)", () => 
 
   it("accepts a 16 px PNG, never upscaling past 2x, and fits an 8:1 banner by its width", async () => {
     const tiny = await processMerchantLogo(await png(16, 16, `<rect width="16" height="16" fill="#123"/>`), TAPPI_RED);
-    expect(await size(tiny.wallet.png3x)).toEqual([32, 32]);
+    expect(await size(tiny.wallet.png3x)).toEqual([40, 40]); // 16 px box plus its 2 px margin, at 2x
     expect(tiny.meta.upscaled).toBe(true);
     const banner = await processMerchantLogo(await png(1600, 200, `<rect width="1600" height="200" fill="#123"/>`), TAPPI_RED);
-    expect(await size(banner.wallet.png1x)).toEqual([160, 20]);
+    expect(await size(banner.wallet.png1x)).toEqual([160, 24]);
   });
 });
 
@@ -117,21 +117,50 @@ describe("processMerchantLogo: Google gets each logo in its own shape (ENG-153)"
     expect(await pixel(tile, 330, 330)).toEqual([255, 255, 255, 255]);
   });
 
-  it("gives a wide logo, and a tall one, the 1280 x 400 wide logo instead: left-aligned on transparent, never a squeezed tile", async () => {
-    for (const bytes of [await wideTransparent(), await png(120, 400, `<rect width="120" height="400" fill="#fff"/>`), await png(300, 200, `<rect width="300" height="200" fill="#fff"/>`)]) {
+  it("gives a wide or in-between logo the 1280 x 400 wide logo: left-aligned, vertically centred on transparent, never a squeezed tile", async () => {
+    for (const bytes of [await wideTransparent(), await png(300, 200, `<rect width="300" height="200" rx="40" fill="#fff"/>`)]) {
       const logo = await processMerchantLogo(bytes, TAPPI_RED);
       expect(square660(logo)).toBeUndefined();
       expect(await size(wide(logo)!)).toEqual([1280, 400]);
-      expect((await pixel(wide(logo)!, 0, 200))[3]).toBe(255);
-      expect((await pixel(wide(logo)!, 1279, 0))[3]).toBe(0);
+      expect((await pixel(wide(logo)!, 2, 200))[3]).toBe(255);
+      expect((await pixel(wide(logo)!, 1279, 385))[3]).toBe(0);
     }
   });
 
-  it("keeps a boxed wide logo's box", async () => {
+  it("puts a tall mark in the circle, inside the safe square, so the name stays beside it", async () => {
+    const logo = await processMerchantLogo(await png(100, 200, `<rect width="100" height="200" rx="20" fill="#fff"/>`), TAPPI_RED);
+    expect(wide(logo)).toBeUndefined();
+    const tile = square660(logo)!;
+    expect(await pixel(tile, 330, 135)).toEqual([255, 255, 255, 255]); // 2x cap: 200 -> 400 px, centred from row 130
+    expect(await pixel(tile, 330, 125)).toEqual([0xB3, 0x26, 0x1E, 255]);
+  });
+
+  it("never enlarges a small upload more than 2x, and flags it like Apple", async () => {
+    const logo = await processMerchantLogo(await png(160, 40, `<rect width="160" height="40" rx="8" fill="#fff"/>`), TAPPI_RED);
+    const banner = wide(logo)!;
+    expect((await pixel(banner, 300, 200))[3]).toBe(255);
+    expect((await pixel(banner, 330, 200))[3]).toBe(0); // 320 x 80, not 1280 wide
+    expect((await pixel(banner, 100, 155))[3]).toBe(0); // centred: rows 160 to 239
+    expect(logo.meta.upscaled).toBe(true);
+    const small = await processMerchantLogo(await png(100, 100, `<circle cx="50" cy="50" r="50" fill="#fff"/>`), TAPPI_RED);
+    expect(await pixel(square660(small)!, 330, 228)).toEqual([0xB3, 0x26, 0x1E, 255]); // 200 px, not 462
+  });
+
+  it("keeps a boxed wide logo's box, now with a margin", async () => {
     const banner = wide(await processMerchantLogo(await wideOpaque(), TAPPI_RED))!;
     expect(await pixel(banner, 0, 0)).toEqual([0xdd, 0, 0, 255]);
-    expect(await pixel(banner, 1199, 399)).toEqual([0xdd, 0, 0, 255]); // 600 x 200 fills 1200 x 400
-    expect((await pixel(banner, 1201, 200))[3]).toBe(0);
+    expect(await pixel(banner, 30, 200)).toEqual([0xdd, 0, 0, 255]); // margin before the white bar starts
+    expect((await pixel(banner, 1100, 200))[3]).toBe(0);
+  });
+
+  it("gives a black wordmark JPG on white back its white margin, for Apple and Google", async () => {
+    const jpeg = await svg(400, 260, `<rect width="400" height="260" fill="#fff"/><g fill="#111"><rect x="30" y="50" width="100" height="160"/><rect x="150" y="30" width="100" height="200"/><rect x="270" y="50" width="100" height="160"/></g>`).jpeg({ quality: 95 }).toBuffer();
+    const logo = await processMerchantLogo(jpeg, WALDGRUEN);
+    expect(logo.meta).toMatchObject({ boxed: true, box: expect.stringMatching(/^#f[a-f0-9]f[a-f0-9]f[a-f0-9]$/) });
+    const [width, height] = await size(logo.wallet.png3x);
+    expect((await pixel(logo.wallet.png3x, 1, Math.round(height! / 2)))[0]).toBeGreaterThan(240); // white, not a glyph at the edge
+    expect((await pixel(logo.wallet.png3x, width! - 2, Math.round(height! / 2)))[0]).toBeGreaterThan(240);
+    expect((await pixel(wide(logo)!, 2, 200))[0]).toBeGreaterThan(240);
   });
 });
 

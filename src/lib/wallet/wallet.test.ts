@@ -13,6 +13,7 @@ import { walletAvailability } from "./capability";
 import { passInk, walletProgress } from "./content";
 import { GoogleWalletClient, googleClass, googleObject, googleObjectId, googleRevokedObject, googleSaveUrl, googleWalletStatus } from "./google";
 import { appleLogoFromData, googleLogoAsset, merchantGoogleLogoUrls } from "./logo";
+import { INITIAL_CHARACTERS, initialOf } from "./initial";
 import { initialLogo } from "./logo-initial";
 import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 import { createDownloadTicket, readDownloadTicket } from "./ticket";
@@ -406,7 +407,8 @@ describe("merchant logo handling", () => {
       image(deflateSync(Buffer.alloc(32 * 129, 5))),
       image(deflateSync(Buffer.alloc(1_000_000)), hugeHeader)]) {
       const data = `data:image/png;base64,${bytes.toString("base64")}`;
-      expect(await merchantGoogleLogoUrls(pass.programId, data, pass.brandColor, pass.merchantName, env)).toEqual({});
+      // Treated as no logo: only the initial, never the bytes.
+      expect(await merchantGoogleLogoUrls(pass.programId, data, pass.brandColor, pass.merchantName, env)).toEqual(await merchantGoogleLogoUrls(pass.programId, null, pass.brandColor, pass.merchantName, env));
     }
   });
 
@@ -439,39 +441,52 @@ describe("merchant logo handling", () => {
     expect((await urls(await wordmark(), "#B3261E")).googleLogoUrl).not.toBe(wide.googleLogoUrl);
     expect(await urls(square, pass.brandColor, { ...env, GOOGLE_WALLET_ASSET_ENABLED: "false" })).toEqual({});
     expect(await urls(square, pass.brandColor, { ...env, GOOGLE_WALLET_ASSET_ORIGIN: "http://localhost:3000" })).toEqual({});
-    expect(await urls("data:image/jpeg;base64,YWJj")).toEqual({});
+    expect(await urls("data:image/jpeg;base64,YWJj")).toEqual({ googleLogoUrl: wide.googleLogoUrl }); // unreadable: the initial only
   });
 
   it("never squeezes a wide logo into Google's circle and drops a faint one for the initial, like Apple (ENG-153)", async () => {
     const size = async (bytes?: Buffer) => { const { width, height } = await sharp(bytes!).metadata(); return [width, height]; };
     const logo = await wordmark();
     const circle = await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName);
-    expect(circle).toEqual(await initialLogo(pass.merchantName, pass.brandColor));
+    expect(circle).toEqual(await initialLogo("K", pass.brandColor));
     expect(await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName)).toBe(circle); // drawn once, then remembered
     expect(await size(circle)).toEqual([660, 660]);
     expect(await size(await googleLogoAsset("wide", logo, pass.brandColor, pass.merchantName))).toEqual([1280, 400]);
     const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
     const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
     expect(await googleLogoAsset("wide", darkLogo, "#1F4D3A", pass.merchantName)).toBeUndefined();
-    expect(await googleLogoAsset("square", darkLogo, "#1F4D3A", pass.merchantName)).toEqual(await initialLogo(pass.merchantName, "#1F4D3A"));
+    expect(await googleLogoAsset("square", darkLogo, "#1F4D3A", pass.merchantName)).toEqual(await initialLogo("K", "#1F4D3A"));
     const square = await svgLogo(400, 400, `<circle cx="200" cy="200" r="180" fill="#fff"/>`);
     expect(await googleLogoAsset("wide", square, pass.brandColor, pass.merchantName)).toBeUndefined();
-    expect(await googleLogoAsset("square", null, pass.brandColor, pass.merchantName)).toBeUndefined();
+    const tall = await svgLogo(100, 200, `<rect width="100" height="200" rx="20" fill="#fff"/>`);
+    expect(await googleLogoAsset("wide", tall, pass.brandColor, pass.merchantName)).toBeUndefined(); // a tall mark sits in the circle
+    expect(await googleLogoAsset("square", tall, pass.brandColor, pass.merchantName)).not.toEqual(circle);
+    // No logo: the initial, as the studio shows it; a name with nothing to draw gets no circle rather than an empty disc.
+    expect(await googleLogoAsset("square", null, pass.brandColor, pass.merchantName)).toBe(circle);
+    expect(await googleLogoAsset("square", null, pass.brandColor, "★ & ✿")).toBeUndefined();
+    expect(await googleLogoAsset("square", logo, pass.brandColor, "★ & ✿")).toBeUndefined();
+  });
+
+  it("takes the initial from the first drawable letter, the same for the circle and the studio preview (ENG-153)", () => {
+    expect(["„Zur Linde“", "'s Eck", "Ølhus", "Öztürk", "1. FC Kebab", "&Co", "éclair", "1. Döner", "4711", "  ", "★"].map(initialOf))
+      .toEqual(["Z", "S", "L", "Ö", "F", "C", "E", "D", "4", "", ""]);
   });
 
   it("draws the shop's initial in the pass ink on the brand colour, accents folded, without any font installed (ENG-153)", async () => {
-    const inked = async (name: string, color: string) => {
-      const { data } = await sharp(await initialLogo(name, color)).raw().toBuffer({ resolveWithObject: true });
-      let count = 0;
-      for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i] - parseInt(color.slice(1, 3), 16)) > 100) count++;
-      return count;
+    const rows = async (initial: string) => {
+      const { data } = await sharp(await initialLogo(initial, "#264C45")).raw().toBuffer({ resolveWithObject: true });
+      const inked: number[] = [];
+      for (let y = 0; y < 660; y++) for (let x = 0; x < 660; x++) if (data[(y * 660 + x) * 4] > 200) { inked.push(y); break; }
+      return [inked[0], inked.at(-1)!];
     };
-    expect(await inked("Kasseler Kaffee", "#264C45")).toBeGreaterThan(10_000);
-    expect(await inked("éclair", "#264C45")).toBe(await inked("Eis", "#264C45"));
-    expect(await inked("Ömer", "#264C45")).not.toBe(await inked("O", "#264C45"));
-    expect(await inked("★ Shop", "#264C45")).toBe(0);
-    expect((await sharp(await initialLogo("Kasseler Kaffee", "#264C45")).stats()).channels[0].max).toBe(255); // white on dark
-    expect((await sharp(await initialLogo("Kasseler Kaffee", "#F2E9DC")).stats()).channels[0].min).toBeLessThan(30); // dark on light
+    expect(await rows("K")).toEqual([198, 461]); // caps 264 px tall, centred
+    const [oTop, oBottom] = await rows("O");
+    const [umlautTop, umlautBottom] = await rows("Ö");
+    expect(umlautBottom).toBe(oBottom); // same size and baseline: the dots sit above, the letter does not shrink
+    expect(umlautTop).toBeLessThan(oTop - 30);
+    for (const initial of INITIAL_CHARACTERS) await expect(initialLogo(initial, "#264C45")).resolves.toBeInstanceOf(Buffer);
+    expect((await sharp(await initialLogo("K", "#264C45")).stats()).channels[0].max).toBe(255); // white on dark
+    expect((await sharp(await initialLogo("K", "#F2E9DC")).stats()).channels[0].min).toBeLessThan(30); // dark on light
   });
 });
 

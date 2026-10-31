@@ -44,14 +44,18 @@ const GLYPHS: Record<string, string> = {
   9: "M30.1-73.4L30.1-73.4Q37.3-73.4 42.9-70.0Q48.6-66.7 51.9-60.7Q55.2-54.8 55.2-46.9L55.2-46.9L55.2-26Q55.2-17.5 51.9-11.3Q48.6-5.2 42.6-1.8Q36.6 1.5 28.5 1.5L28.5 1.5Q23.3 1.5 18.5-0.1Q13.8-1.7 9.8-5.3L9.8-5.3L19.5-15Q21.3-13.2 23.7-12.2Q26.1-11.2 28.5-11.2L28.5-11.2Q32.4-11.2 35.3-13.0Q38.1-14.9 39.7-17.8Q41.3-20.7 41.3-24L41.3-24L41.3-34.7L43.6-32.2Q40.6-29.1 36.5-27.4Q32.4-25.7 28-25.7L28-25.7Q21.2-25.7 16.0-28.8Q10.9-31.8 7.9-37.1Q5-42.4 5-49.2L5-49.2Q5-56 8.5-61.5Q11.9-67.0 17.6-70.2Q23.3-73.4 30.1-73.4ZM30.1-60.4L30.1-60.4Q27-60.4 24.4-58.9Q21.9-57.4 20.3-54.9Q18.8-52.3 18.8-49.2L18.8-49.2Q18.8-46.1 20.3-43.5Q21.8-41.0 24.4-39.4Q26.9-37.9 30-37.9L30-37.9Q33.1-37.9 35.7-39.4Q38.3-41.0 39.8-43.5Q41.3-46.1 41.3-49.2L41.3-49.2Q41.3-52.2 39.8-54.8Q38.3-57.3 35.8-58.9Q33.2-60.4 30.1-60.4Z",
 };
 
-/** Google's round programLogo for a shop without a square mark: its initial, centred on the brand colour in the pass ink. */
-export async function initialLogo(name: string, brandColor: string): Promise<Buffer> {
-  const first = name.trim().charAt(0).toUpperCase();
-  const path = GLYPHS[first] ?? GLYPHS[first.normalize("NFD").charAt(0)];
-  const disc = sharp({ create: { width: 660, height: 660, channels: 4, background: brandColor } });
-  if (!path) return disc.png().toBuffer();
+// Cap height 72 units drawn 264 px tall with the baseline at 462, so the caps sit centred and every initial, umlaut
+// dots included, shares one size and one baseline.
+const SCALE = 264 / 72;
+
+/** Google's round programLogo when the shop has no square mark: the initial (from initialOf), centred on the brand colour in the pass ink. */
+export async function initialLogo(initial: string, brandColor: string): Promise<Buffer> {
+  const path = GLYPHS[initial];
+  if (!path) throw new Error("No outline for this initial");
   const ink = passInk(brandColor) === "light" ? "#ffffff" : "#111111";
-  const glyph = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1300" viewBox="-10 -110 120 130"><path fill="${ink}" d="${path}"/></svg>`))
-    .trim().resize(400, 264, { fit: "inside" }).png().toBuffer();
-  return disc.composite([{ input: glyph, gravity: "center" }]).png({ compressionLevel: 9 }).toBuffer();
+  const strip = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="660" height="660"><path fill="${ink}" transform="translate(150 462) scale(${SCALE})" d="${path}"/></svg>`)).png().toBuffer();
+  const { info } = await sharp(strip).trim().toBuffer({ resolveWithObject: true });
+  const glyph = await sharp(strip).extract({ left: -(info.trimOffsetLeft ?? 0), top: 0, width: info.width, height: 660 }).toBuffer();
+  return sharp({ create: { width: 660, height: 660, channels: 4, background: brandColor } })
+    .composite([{ input: glyph, left: Math.round((660 - info.width) / 2), top: 0 }]).png({ compressionLevel: 9 }).toBuffer();
 }

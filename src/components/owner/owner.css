@@ -290,9 +290,12 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-pass-issuer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .ow-pass-issuer strong { min-width: 0; overflow-wrap: anywhere; }
 .ow-pass-issuer img { flex: none; }
-.ow-pass-mark { width: 32px; height: 32px; border-radius: 50%; object-fit: contain; }
+/* Google's circle: the mark at 22 of 32 px (the asset's 15 % margin) on its box or the brand colour. */
+.ow-pass-mark { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.ow-pass-mark img { width: 22px; height: 22px; object-fit: contain; }
 .ow-pass-wide { width: auto; height: 32px; max-width: 160px; object-fit: contain; }
-.ow-pass-initial { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .85); color: #1a2b25; font-weight: 700; }
+/* As the generated asset: the initial in the pass ink straight on the brand colour. */
+.ow-pass-initial { width: 32px; height: 32px; display: grid; place-items: center; flex: none; background: transparent; color: inherit; font-weight: 800; font-size: 18px; }
 .ow-pass-program { font-size: 13px; opacity: .9; overflow-wrap: anywhere; }
 .ow-pass-big { display: flex; flex-direction: column; }
 .ow-pass-big small { font-size: 12px; opacity: .85; }

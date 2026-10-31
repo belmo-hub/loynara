@@ -3,11 +3,13 @@
 import Image from "next/image";
 import { useState, type SyntheticEvent } from "react";
 import { withUnit } from "@/lib/units";
+import { initialOf } from "@/lib/wallet/initial";
 import { BrowserCardPreview, CodeMock, type CardPreviewProps } from "./card-preview";
 import { readableInk } from "./color";
 
 export type Surface = "browser" | "apple" | "google";
-export type LogoWallet = { showName: boolean; faint: boolean; upscaled: boolean };
+/** box: the saved logo's own background colour, which fills Google's circle behind it. */
+export type LogoWallet = { showName: boolean; faint: boolean; upscaled: boolean; box?: string };
 /** logoWallet is known only for the saved logo; without it the preview judges the logo by its shape. */
 export type PreviewData = CardPreviewProps & { programName: string; logoData: string | null; logoWallet?: LogoWallet | null };
 
@@ -54,20 +56,24 @@ function ApplePass({ data }: { data: PreviewData }) {
   );
 }
 
-/** Mirrors lib/wallet/google: Google lays the card out itself; colour, logo, names and the points line come from us. A square or round logo sits in Google's circle, a wide one keeps its rectangle. */
+/** Mirrors lib/wallet/google: Google lays the card out itself; colour, logo, names and the points line come from us. A mark up to 1.25 wide sits in Google's circle, a wider one keeps its rectangle. */
 function GooglePass({ data }: { data: PreviewData }) {
   const ink = readableInk(data.brandColor);
   const p = progress(data);
   // Same contrast rule as Apple: a faint logo gives way to the initial and the name.
   const logo = data.logoWallet?.faint ? null : data.logoData;
   const [ratio, onLoad] = useLogoRatio();
-  const square = ratio >= 0.8 && ratio <= 1.25;
+  // Same split as lib/wallet/logo-process: before the image loads its shape is unknown, so it defaults to the rectangle.
+  const square = ratio > 0 && ratio <= 1.25;
   // Google's loyalty template: with wideProgramLogo the card title is the wide logo and the programme name, no issuer name.
   const wide = Boolean(logo) && !square;
   const name = data.businessName || "Dein Geschäft";
+  const initial = initialOf(name);
   return (
     <div className="ow-pass ow-pass--google" style={{ backgroundColor: data.brandColor, color: ink }} role="img" aria-label={`Google-Wallet-Vorschau: ${name}, ${p.balance} ${p.unit}, ${p.status}`}>
-      <div className="ow-pass-row"><span className="ow-pass-issuer">{logo ? <Image unoptimized src={logo} alt="" width={160} height={32} className={square ? "ow-pass-mark" : "ow-pass-wide"} onLoad={onLoad} /> : <span className="ow-pass-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>}{!wide && <strong>{name}</strong>}</span></div>
+      <div className="ow-pass-row"><span className="ow-pass-issuer">{logo
+        ? <span className={square ? "ow-pass-mark" : undefined} style={square ? { backgroundColor: data.logoWallet?.box ?? data.brandColor } : undefined}><Image unoptimized src={logo} alt="" width={160} height={32} className={square ? undefined : "ow-pass-wide"} onLoad={onLoad} /></span>
+        : initial && <span className="ow-pass-initial" aria-hidden="true">{initial}</span>}{!wide && <strong>{name}</strong>}</span></div>
       <div className="ow-pass-program">{data.programName}</div>
       <div className="ow-pass-row"><span className="ow-pass-big"><small>{p.unit}</small><b className="ow-num">{p.balance}</b></span><span className="ow-pass-field ow-pass-field--end"><small>Mitgliedskarte</small><b>{SAMPLE_LOCATOR}</b></span></div>
       <div className="ow-pass-module"><small>{p.ready ? "Prämie bereit" : "Nächste Prämie"}</small><span>{data.rewardTitle} · {p.status}</span></div>

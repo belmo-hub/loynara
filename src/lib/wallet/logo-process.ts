@@ -20,7 +20,8 @@ export type ProcessedLogo = {
   icon?: [Buffer, Buffer, Buffer];
   /** Google: a square or round mark fills the 660 circle inside its 15 % safe margin; any other shape is the 1280 x 400 wide logo. */
   google: { square660: Buffer } | { wide: Buffer };
-  meta: { ratio: number; boxed: boolean; contrast: number; upscaled: boolean; showName: boolean };
+  /** box: a boxed logo's own background colour (#rrggbb), the disc Google's circle is filled with. */
+  meta: { ratio: number; boxed: boolean; box?: string; contrast: number; upscaled: boolean; showName: boolean };
 };
 
 const MAGIC: Record<string, (bytes: Buffer) => boolean> = {
@@ -86,18 +87,23 @@ const hexRgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2),
 
 /** Every Wallet output for one stored logo (any of the three upload types). Deterministic for the same bytes and colour. */
 export async function processMerchantLogo(bytes: Buffer, brandColor: string): Promise<ProcessedLogo> {
-  const source = await trimmedLogo(bytes);
-  const { data, info } = await sharp(source).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const { width, height } = info;
-  const pixel = (x: number, y: number) => Array.from(data.subarray((y * width + x) * 4, (y * width + x) * 4 + 4));
-  const corners = [pixel(0, 0), pixel(width - 1, 0), pixel(0, height - 1), pixel(width - 1, height - 1)];
+  const trimmed = await trimmedLogo(bytes);
+  const { data, info } = await sharp(trimmed).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const pixel = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4));
+  const [lastX, lastY] = [info.width - 1, info.height - 1];
+  const corners = [pixel(0, 0), pixel(lastX, 0), pixel(0, lastY), pixel(lastX, lastY)];
   const boxed = corners.every(c => c[3] >= 250) && corners.every(c => corners.every(d => deltaE(c, d) < 5));
   // shortcut: mean luminance of the opaque pixels, which overrates a two-colour logo; per-region contrast if owners hit it.
   let sum = 0, count = 0;
   for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 128) { sum += luminance([data[i], data[i + 1], data[i + 2]]); count++; }
   const [logoLum, brandLum] = [count ? sum / count : 0, luminance(hexRgb(brandColor))];
   const contrast = (Math.max(logoLum, brandLum) + 0.05) / (Math.min(logoLum, brandLum) + 0.05);
-  const ratio = width / height;
+  const ratio = info.width / info.height;
+  const box = boxed ? `#${corners[0].slice(0, 3).map(c => c.toString(16).padStart(2, "0")).join("")}` : undefined;
+  // A logo on its own box (a JPG wordmark on white, typically) is trimmed to its glyphs; give it back a margin in the box colour.
+  const pad = box ? Math.round(info.height * 0.12) : 0;
+  const source = box ? await sharp(trimmed).extend({ top: pad, bottom: pad, left: pad, right: pad, background: box }).png().toBuffer() : trimmed;
+  const [width, height] = [info.width + 2 * pad, info.height + 2 * pad];
   const fit = Math.min(160 / width, 50 / height);
   // Fit Apple's slot without padding, so Wallet draws it at full slot height or width; never more than 2x the source.
   const sizes = [1, 2, 3].map(scale => Math.min(fit * scale, 2)).map(s => [Math.max(1, Math.round(width * s)), Math.max(1, Math.round(height * s))]);
@@ -108,15 +114,22 @@ export async function processMerchantLogo(bytes: Buffer, brandColor: string): Pr
     const mark = await sharp(source).resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
     return sharp({ create: { width: size, height: size, channels: 4, background: brandColor } }).composite([{ input: mark, gravity: "center" }]).png().toBuffer();
   })) as [Buffer, Buffer, Buffer] : undefined;
-  const clear = { r: 0, g: 0, b: 0, alpha: 0 };
-  // Google masks programLogo into a circle; 462 = 660 less the 15 % margin each side, so the mark's corners stay inside it.
-  const google = square ? { square660: await sharp({ create: { width: 660, height: 660, channels: 4, background: boxed ? { r: corners[0][0], g: corners[0][1], b: corners[0][2] } : brandColor } })
-    .composite([{ input: await sharp(source).resize(462, 462, { fit: "contain", background: clear }).png().toBuffer(), gravity: "center" }]).png({ compressionLevel: 9 }).toBuffer() }
-    : { wide: await sharp(source).resize(1280, 400, { fit: "contain", position: "left", background: clear }).png({ compressionLevel: 9 }).toBuffer() };
+  // Google masks programLogo into a circle: any mark not wider than 1.25 sits in the 462 safe square (660 less the 15 %
+  // margin each side), where even a 1:2 mark's corners stay inside the circle. Wider logos go to the 16:5 wide logo instead.
+  const wide = ratio > 1.25;
+  const needed = wide ? Math.min(1280 / width, 400 / height) : Math.min(462 / width, 462 / height);
+  const scale = Math.min(needed, 2); // like Apple: never more than 2x, so a small upload stays sharp
+  const mark = await sharp(source).resize(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)), { fit: "fill" }).png().toBuffer();
+  const markHeight = Math.max(1, Math.round(height * scale));
+  const google = wide
+    ? { wide: await sharp({ create: { width: 1280, height: 400, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite([{ input: mark, left: 0, top: Math.round((400 - markHeight) / 2) }]).png({ compressionLevel: 9 }).toBuffer() }
+    : { square660: await sharp({ create: { width: 660, height: 660, channels: 4, background: box ?? brandColor } })
+      .composite([{ input: mark, gravity: "center" }]).png({ compressionLevel: 9 }).toBuffer() };
   return {
     wallet: { png1x, png2x, png3x, width: sizes[0][0], height: sizes[0][1] },
     ...(icon ? { icon } : {}),
     google,
-    meta: { ratio, boxed, contrast, upscaled: fit * 3 > 1, showName: ratio < 2.2 || boxed },
+    meta: { ratio, boxed, ...(box ? { box } : {}), contrast, upscaled: fit * 3 > 1 || needed > 2, showName: ratio < 2.2 || boxed },
   };
 }

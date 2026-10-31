@@ -41,6 +41,14 @@ describe("Wallet previews in the card studio say what the pass says (ENG-108)", 
     expect(wide).not.toContain("Synthetic Café</strong>");
   });
 
+  it("Google: the initial is the asset's, from the first drawable letter, in the pass ink on the brand colour (ENG-153)", () => {
+    expect(pass("google", { businessName: "„Zur Linde“" })).toContain('<span class="ow-pass-initial" aria-hidden="true">Z</span>');
+    expect(pass("google", { businessName: "1. FC Kebab" })).toContain('aria-hidden="true">F</span>');
+    expect(pass("google", { businessName: "★" })).not.toContain("ow-pass-initial");
+    const css = readFileSync(join(__dirname, "owner.css"), "utf8");
+    expect(css).toMatch(/\.ow-pass-initial \{[^}]*background: transparent;[^}]*color: inherit;[^}]*font-weight: 800;/);
+  });
+
   it("no stylesheet rule crops or rounds the Apple logo or the logo tile (ENG-134)", () => {
     const css = readFileSync(join(__dirname, "owner.css"), "utf8");
     const rule = (selector: string) => css.match(new RegExp(`^${selector.replace(/[.]/g, "\\.")} \\{([^}]*)\\}`, "m"))?.[1] ?? "";
