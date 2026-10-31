@@ -31,6 +31,17 @@ test("the Wallet band shows while waiting for the team and stays once after the 
     await expect(band).toBeVisible({ timeout: 15_000 });
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
 
+    // Adding to Wallet from the band keeps the customer on the tap page (Reviewer N-1): Apple's sheet opens over it,
+    // and 4 s later the band only resets its button instead of going to the card.
+    await customer.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }));
+    await customer.route("**/api/wallet/apple/download/synthetic-ticket", route => route.fulfill({ contentType: "application/vnd.apple.pkpass", body: Buffer.from("synthetic pass") }));
+    const add = page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" });
+    await add.click();
+    await page.waitForTimeout(4_500);
+    expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
+    await expect(add).toBeEnabled();
+    await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+
     // The team confirms; the stamp lands on the same page and the band stays, once.
     const cashierCtx = await browser.newContext({ baseURL: url, storageState: await m.cashier.storageState() });
     const cashierPage = await cashierCtx.newPage();
