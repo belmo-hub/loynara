@@ -9,7 +9,7 @@ import styles from "./customer/wallet-step.module.css";
 
 /**
  * ENG-130: the Wallet step is offered once per card on this device. "pending" = the join handed over to a tap
- * continuation and the tap page offers it after the stamp; "shown" = offered; "saved" = the card page has shown its
+ * continuation and the tap page offers it while the team confirms or after the stamp (ENG-160); "shown" = offered; "saved" = the card page has shown its
  * return from Wallet (screen 08).
  */
 export type WalletStepMark = "pending" | "shown" | "saved";
@@ -36,8 +36,11 @@ export function afterJoin({ continuation, offer, mark }: { continuation: string 
   return first ? { go: "step", mark: "shown" } : { go: "card" };
 }
 
-/** The tap page asks the location again after a booked stamp, only for a card the join handed over. */
-export const tapAsksForWalletStep = ({ done, ios, mark }: { done: boolean; ios: boolean; mark: WalletStepMark | null }) => done && ios && mark === "pending";
+/**
+ * The tap page asks the location again, only for a card the join handed over: while the customer waits for the team
+ * (founder, ENG-160: alone at the counter nobody may confirm) or once the stamp is booked.
+ */
+export const tapAsksForWalletStep = ({ done, waiting, ios, mark }: { done: boolean; waiting: boolean; ios: boolean; mark: WalletStepMark | null }) => (done || waiting) && ios && mark === "pending";
 /** With the location's answer the hand-over ends either way ("shown"); the band shows only where the join would have offered it. */
 export const tapWalletStep = (program: Pick<PublicProgram, "appleWallet" | "locale">) => ({ show: iphoneJoin("ios", program), mark: "shown" as const });
 
@@ -63,8 +66,12 @@ export function WalletStep({ token, program: { businessName, programType, wallet
       const url = await prepareAppleWallet(token, controller.signal);
       if (controller.signal.aborted) return;
       window.location.assign(url);
-      // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08).
-      setTimeout(() => router.replace(cardHref), 4000);
+      // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08). As a band
+      // on the tap page it stays there instead, so the customer still sees the team confirm the stamp (ENG-160).
+      setTimeout(() => {
+        if (!band) { router.replace(cardHref); return; }
+        operation.current = null; setBusy(false);
+      }, 4000);
     } catch (cause) {
       if (!controller.signal.aborted) { setError(walletMessage(cause, false)); setBusy(false); }
       operation.current = null;

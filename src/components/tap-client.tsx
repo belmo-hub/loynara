@@ -158,7 +158,7 @@ export function TapClient({ refId }: { refId: string }) {
   const done = state === "confirmed" || state === "awarded" || state === "already_processed";
   // ENG-130: a card the join handed over to this tap gets the Wallet step after its stamp, asked of the location again.
   useEffect(() => {
-    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
+    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, waiting, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
     let active = true;
     void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => {
       if (!active) return;
@@ -167,7 +167,7 @@ export function TapClient({ refId }: { refId: string }) {
       if (step.show) setWalletProgram(value);
     }).catch(() => {});
     return () => { active = false; };
-  }, [preview, recoveryCard, done]);
+  }, [preview, recoveryCard, done, waiting]);
 
   const celebrate = moment && done;
   const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
