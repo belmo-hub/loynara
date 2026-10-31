@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { cssDeclarations } from "@/styles/raw-values";
 import { readableInk, whiteContrast } from "./color";
 import { activeGroup, groupHref, visibleGroups } from "./nav";
 import { confirmSentence, earningSentence, minimumSpendMinor, parseGermanMoney, parseWholeNumber, purchaseExample } from "./program-helpers";
@@ -68,8 +71,16 @@ describe("colour helpers", () => {
 
 describe("navigation", () => {
   it("has five destinations for owners and hides owner-only areas from managers", () => {
-    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
-    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden"]);
+    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden"]);
+  });
+  it("marks the current tab by more than colour: a 56×32 neutral pill behind a 2.5 icon, 800 (I-10, ENG-138)", () => {
+    const rules = cssDeclarations(readFileSync(join(__dirname, "owner.css"), "utf8"));
+    const style = (selector: string) => Object.fromEntries(rules.filter(rule => rule.selector === selector).map(rule => [rule.property, rule.value]));
+    expect(style(".ow-tab-icon")).toMatchObject({ width: "56px", height: "32px", "border-radius": "var(--radius-pill)" });
+    expect(style('.ow-tab[aria-current="page"] .ow-tab-icon')).toMatchObject({ background: "var(--color-fill)" });
+    expect(style('.ow-tab[aria-current="page"] svg')).toMatchObject({ "stroke-width": "2.5" });
+    expect(style('.ow-tab[aria-current="page"]')).toMatchObject({ "font-weight": "var(--weight-heavy)" });
   });
   it("maps every existing merchant URL to a destination", () => {
     const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/more", "/merchant/settings", "/merchant/settings/cancel", "/merchant/locations", "/merchant/locations/new", "/merchant/locations/x", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];

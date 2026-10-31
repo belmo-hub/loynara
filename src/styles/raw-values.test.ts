@@ -19,8 +19,7 @@ const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-r
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
 const OWNER_UI = /^src\/(?:components\/owner|app\/merchant)\//;
-// Spacing that later tickets own: the shell and navigation (ENG-138) and the form controls, chips and toast (ENG-139).
-const SHELL = [".ow-nav", ".ow-loc", ".ow-tab", ".ow-skip"];
+// Spacing that a later ticket owns: the form controls, chips and toast (ENG-139).
 const CONTROLS = [".owner-app summary", ".ow-chip", ".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button", ".ow-toast"];
 
 const EXCEPTIONS: Exception[] = [
@@ -38,9 +37,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
-  { file: "src/components/owner/owner.css", kind: "spacing", selectors: SHELL, reason: "shell and navigation, ENG-138" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, chips and the toast, ENG-139 (SF-8, SF-9)" },
-  { file: "src/components/owner/owner-shell.tsx", kind: "spacing", property: "gap", value: "16px", reason: "the bare setup and sign-out top bars, ENG-138" },
   { file: "src/components/owner/card-actions.tsx", kind: "spacing", property: "margin", value: "1px", reason: "QRCode.toDataURL's quiet zone in modules, not a style" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".video"], value: "#0B1410", reason: "camera viewport behind the live video, darker than any surface" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
