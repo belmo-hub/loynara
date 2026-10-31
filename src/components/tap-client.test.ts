@@ -45,6 +45,8 @@ describe("tap page for a points programme", () => {
     expect(tapCopy("pending_staff", undefined, true)).toEqual({ title: "Warte auf das Team", detail: "Das Team an der Kasse trägt deine Punkte ein und bestätigt sie. Du musst nichts weiter tun." });
     expect(tapCopy("confirmed", undefined, true).title).toBe("Punkte erhalten");
     expect(stampAnnouncement("confirmed", 40, true)).toBe("Punkte erhalten, neuer Stand 40.");
+    expect(stampAnnouncement("confirmed", 112, true, 16)).toBe("16 Punkte erhalten, neuer Stand 112.");
+    expect(stampAnnouncement("awarded", 97, true, 1)).toBe("1 Punkt erhalten, neuer Stand 97.");
     expect(tapCopy("pending_staff").detail).toContain("Stempel");   // stamp copy unchanged
   });
   it("names a balance of one point in the singular (ENG-104)", () => {

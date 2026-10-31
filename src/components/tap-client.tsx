@@ -59,8 +59,11 @@ export function playsStampMoment(state: TapState, waited: boolean) {
 }
 
 /** What the status line announces once a stamp (or the team's points) is booked. */
-export function stampAnnouncement(state: TapState | "loading" | "error", balance?: number, points = false) {
-  return (state === "confirmed" || state === "awarded") && typeof balance === "number" ? `${points ? "Punkte" : "Stempel"} erhalten, neuer Stand ${balance}.` : null;
+export function stampAnnouncement(state: TapState | "loading" | "error", balance?: number, points = false, credited?: number) {
+  if ((state !== "confirmed" && state !== "awarded") || typeof balance !== "number") return null;
+  // Screen readers hear the amount the booked pill shows (Design, 31 Oct).
+  const what = points && credited ? `${credited} ${credited === 1 ? "Punkt" : "Punkte"}` : points ? "Punkte" : "Stempel";
+  return `${what} erhalten, neuer Stand ${balance}.`;
 }
 
 /** „Aktueller Stand: 1 Punkt“, „… 2 Punkte“; stamps read the same in both numbers. */
@@ -167,7 +170,7 @@ export function TapClient({ refId }: { refId: string }) {
   }, [preview, recoveryCard, done]);
 
   const celebrate = moment && done;
-  const announcement = stampAnnouncement(state, result?.balance, points);
+  const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
   // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";
   const number = result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) ? result.cardLocator : null;
