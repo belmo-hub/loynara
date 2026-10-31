@@ -68,8 +68,8 @@ describe("colour helpers", () => {
 
 describe("navigation", () => {
   it("has five destinations for owners and hides owner-only areas from managers", () => {
-    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
-    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden"]);
+    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden"]);
   });
   it("maps every existing merchant URL to a destination", () => {
     const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/more", "/merchant/settings", "/merchant/settings/cancel", "/merchant/locations", "/merchant/locations/new", "/merchant/locations/x", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];

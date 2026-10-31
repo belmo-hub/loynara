@@ -11,7 +11,7 @@ const DRAFT_HREFS = ["/merchant/audiences"];
 describe("navigation with pilot-withheld surfaces", () => {
   it("owner: no entry for billing, campaigns or automations; audiences are present and the group keeps its name while owner messages are offered", () => {
     const groups = visibleGroups("owner", ALL);
-    expect(groups.map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(groups.map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = groups.flatMap(group => visibleItems(group, "owner", ALL).map(item => item.href));
     for (const hidden of HIDDEN_HREFS) expect(hrefs).not.toContain(hidden);
     expect(hrefs).toEqual(expect.arrayContaining(DRAFT_HREFS));
@@ -39,7 +39,7 @@ describe("navigation with pilot-withheld surfaces", () => {
     expect(visibleItems(groups[2], "manager", ALL).map(item => item.href)).toEqual(["/merchant/customers", "/merchant/audiences"]);
   });
   it("without hidden surfaces nothing changes (development, preview, device test)", () => {
-    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Aktionen", "Einstellungen"]);
     const hrefs = visibleGroups("owner").flatMap(group => visibleItems(group, "owner").map(item => item.href));
     // Billing, campaigns and automations live on the „Mehr“ page and the Aktionen list, so the navigation is the same either way.
     expect(hrefs).toEqual(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/audiences", "/merchant/actions", "/merchant/more"]);

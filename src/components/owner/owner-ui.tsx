@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { Check, CircleAlert, Eye, House, Info, Megaphone, Menu, Minus, Pencil, Plus, ScanLine, Settings, Smartphone, Stamp, Users, X, type LucideIcon } from "lucide-react";
+import { Check, CircleAlert, Eye, House, Info, Megaphone, Menu, Minus, Pencil, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, Users, X, type LucideIcon } from "lucide-react";
 import type { NavIconName } from "./nav";
 
 // The dashboard draws the same lucide set as the guest, cashier and sign-in pages, at lucide's default stroke.
 type IconName = NavIconName | "menu" | "close" | "check" | "plus" | "minus" | "till" | "alert" | "info" | "phone" | "eye" | "pencil";
 const ICONS: Record<IconName, LucideIcon> = {
-  home: House, loyalty: Stamp, users: Users, megaphone: Megaphone, gear: Settings,
+  home: House, loyalty: SlidersHorizontal, users: Users, megaphone: Megaphone, gear: Settings,
   menu: Menu, close: X, check: Check, plus: Plus, minus: Minus, till: ScanLine, alert: CircleAlert, info: Info, phone: Smartphone, eye: Eye, pencil: Pencil,
 };
 

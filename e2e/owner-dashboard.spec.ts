@@ -65,7 +65,7 @@ test("browser Back asks before discarding unsaved edits where the Navigation API
     try {
       const page = await ctx.newPage();
       await page.goto("/merchant");
-      await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Treueprogramm" }).click();
+      await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Programm", exact: true }).click();
       await page.getByRole("link", { name: /^Kundenkarte/ }).click(); // the Programm list's row (ENG-099)
       await expect(page.getByLabel("Geschäftsname")).toBeVisible();
       test.skip(!(await page.evaluate(() => "navigation" in window)), "Navigation API not available in this browser");

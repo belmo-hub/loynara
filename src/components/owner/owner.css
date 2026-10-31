@@ -29,23 +29,29 @@
 /* Shell */
 .ow-shell { display: grid; grid-template-columns: var(--ow-sidebar) minmax(0, 1fr); min-height: 100vh; }
 .ow-side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6) var(--space-4); background: var(--color-raised); border-right: 1px solid var(--color-line); overflow-y: auto; }
-.ow-brand { display: flex; align-items: center; padding-inline: var(--space-2); min-height: 44px; }
+/* Sidebar (SF-13): brand, location and foot start at the column edge (x 16); brand → location 16, location → nav 24. */
+.ow-brand { display: flex; align-items: center; min-height: 44px; }
 .ow-brand a { display: inline-flex; align-items: center; min-height: 44px; }
-.ow-nav { display: flex; flex-direction: column; gap: 2px; }
-.ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
+/* Rows 36 px with 4 px between them; every icon sits in one column 12 px in. */
+.ow-nav { display: flex; flex-direction: column; gap: var(--space-1); }
+.ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-nav a:hover:not([aria-current]) { background: color-mix(in oklab, var(--color-fill) 55%, transparent); color: var(--color-ink); }
 /* Where you are is not the next step: the neutral fill, ink, no green (Design, 30 Oct). */
 .ow-nav a[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-nav svg { flex: none; }
-.ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-3); }
-.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
+.ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-4); }
+.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
 .ow-utility:hover { background: var(--color-fill); border-color: var(--color-ink); }
-.ow-who { font-size: var(--text-14); color: var(--color-ink-muted); padding-inline: var(--space-2); overflow-wrap: anywhere; }
+.ow-side-who { display: flex; flex-direction: column; gap: var(--space-2); }
+.ow-who { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
+/* Abmelden is rare (Einstellungen › Konto has it too): a quiet text button on the who-line's edge, not a second pill. */
+.ow-side-who .ow-btn--ghost { padding-inline: 0; justify-content: flex-start; }
+.ow-side-who .ow-btn--ghost:hover:not(:disabled) { background: none; color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; }
 
-.ow-loc { display: flex; flex-direction: column; gap: 6px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-bg); }
-.ow-loc-label { font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); letter-spacing: .02em; }
-.ow-loc select { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background-color: var(--color-raised); appearance: none; font-weight: 700; color: var(--color-ink); }
-.ow-loc-name { font-weight: 700; color: var(--color-ink); min-height: 24px; overflow-wrap: anywhere; }
+/* No box and no fill: the current nav item is the only filled thing in the sidebar. */
+.ow-loc { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-2); }
+.ow-loc .ow-select { height: 48px; font-weight: var(--weight-strong); }
+.ow-loc-name { font-weight: var(--weight-strong); color: var(--color-ink); overflow-wrap: anywhere; }
 .ow-loc-sub { font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .ow-main { min-width: 0; display: flex; flex-direction: column; }
@@ -75,8 +81,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-side { display: none; }
   .ow-topbar { position: sticky; top: 0; z-index: var(--z-nav); display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: 0 var(--space-4); background: var(--color-raised); border-bottom: 1px solid var(--color-line); }
   .ow-topbar-loc { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
-  .ow-topbar-loc strong { font-size: var(--text-14); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ow-topbar-loc span { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The shop over its location, as in the approved mocks (A-22, F-22). */
+  .ow-topbar-loc strong { font-size: var(--text-16); font-weight: var(--weight-heavy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ow-topbar-loc span { font-size: var(--text-14); font-weight: 500; color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-subnav { top: 56px; }
   html:has(.ow-topbar) { scroll-padding-top: 56px; }
   html:has(.ow-subnav) { scroll-padding-top: 105px; }
@@ -100,16 +107,22 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-content:has(.ow-savebar:not([data-idle])) :focus { scroll-margin-bottom: calc(var(--ow-tabbar) + 140px); }
   .ow-tabs {
     position: fixed; inset: auto 0 0 0; z-index: var(--z-nav); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-    padding: 4px var(--space-2) calc(4px + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
+    padding: var(--space-1) 0 calc(var(--space-1) + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
   }
   .ow-tab {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 0 2px;
-    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-12); font-weight: 700;
-    text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
+    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: 600; line-height: 1.1;
+    text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform var(--dur-press) var(--ease-out), color var(--dur-press);
   }
-  .ow-tab[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
+  /* The current tab is marked by more than colour (I-10): the neutral pill behind the icon (as the sidebar), a heavier icon and 800. */
+  .ow-tab-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: var(--radius-pill); transition: background var(--dur-press) var(--ease-out); }
+  .ow-tab[aria-current="page"] { color: var(--color-ink); font-weight: var(--weight-heavy); }
+  .ow-tab[aria-current="page"] .ow-tab-icon { background: var(--color-fill); }
+  .ow-tab[aria-current="page"] svg { stroke-width: 2.5; }
   .ow-tab:active { transform: scale(.97); }
+  /* „Programm“ at 800 is 72 px at 14 px: below 375 a fifth of the screen is narrower, so the labels step down to 12. */
+  @media (max-width: 374px) { .ow-tab { font-size: var(--text-12); } }
   .ow-topbar .ow-btn--sm { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ow-tab, .ow-btn { transition: none; } .ow-tab:active, .ow-btn:active:not(:disabled) { transform: none; } }
@@ -199,7 +212,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
 .ow-input:hover, .ow-select:hover, .ow-textarea:hover { border-color: var(--color-ink); }
 /* Native selects: appearance none so Safari honours the 44 px height; the chevron is drawn in the theme ink. */
-.ow-select, .ow-loc select {
+.ow-select {
   -webkit-appearance: none; appearance: none; height: 44px; padding-right: 40px;
   background-image: linear-gradient(45deg, transparent 50%, var(--color-ink-muted) 50%), linear-gradient(135deg, var(--color-ink-muted) 50%, transparent 50%);
   background-position: right 20px center, right 14px center; background-size: 6px 6px; background-repeat: no-repeat;
@@ -270,8 +283,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 }
 @media (max-width: 640px) { .ow-btn, .ow-input, .ow-select { font-size: var(--text-16); } }
 
-.ow-skip { position: absolute; left: -9999px; top: 8px; z-index: var(--z-toast); padding: 10px 16px; background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
-.ow-skip:focus { left: 8px; }
+.ow-skip { position: absolute; left: -9999px; top: var(--space-2); z-index: var(--z-toast); padding: var(--space-3) var(--space-4); background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
+.ow-skip:focus { left: var(--space-2); }
 /* The owner area could not load: one card, centred lower on the page. */
 .ow-page--alone { max-width: 560px; padding-top: calc(var(--space-12) * 2); }
 .ow-bare .ow-topbar { position: static; padding-block: var(--space-3); }

@@ -17,7 +17,7 @@ export const MORE_HREF = "/merchant/more";
 export const NAV_GROUPS: NavGroup[] = [
   { id: "overview", label: "Übersicht", icon: "home", roles: BOTH, prefixes: ["/merchant"], exact: true, items: [{ label: "Übersicht", href: "/merchant", roles: BOTH }] },
   // Kundenkarte and Empfehlungen are rows of the Programm list (ENG-099), so the area has no sub-tabs.
-  { id: "program", label: "Treueprogramm", icon: "loyalty", roles: BOTH, prefixes: ["/merchant/program", "/merchant/referrals"], items: [
+  { id: "program", label: "Programm", icon: "loyalty", roles: BOTH, prefixes: ["/merchant/program", "/merchant/referrals"], items: [
     { label: "Programm", href: "/merchant/program", roles: BOTH },
   ] },
   { id: "customers", label: "Kunden", icon: "users", roles: BOTH, prefixes: ["/merchant/customers", "/merchant/audiences"], items: [
