@@ -43,10 +43,14 @@ export function ProgramSetup() {
   const [f, setF] = useState({
     businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", country: (draft?.country === "MA" ? "MA" : "DE") as "DE" | "MA", locale: (draft?.locale === "fr" ? "fr" : "de") as "de" | "fr", contactEmail: "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
-    programName: "", brandColor: "#1F4A3A", logo: null as File | null, date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
+    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
   });
   const [amount, setAmount] = useState("");
   const set = (patch: Partial<typeof f>) => setF(current => ({ ...current, ...patch }));
+  // Checked when picked (ENG-135): a file the server would refuse says so here, not after the last step.
+  // A later pick wins over a slower earlier read.
+  const logoPick = useRef(0);
+  const pickLogo = (file: File | undefined, pick = ++logoPick.current) => file ? imageToDataUrl(file).then(logoData => pick === logoPick.current && set({ logoData, logoError: "" }), (cause: Error) => pick === logoPick.current && set({ logoData: undefined, logoError: cause.message })) : set({ logoData: undefined, logoError: "" });
   const touched = f.businessName !== (draft?.businessName ?? "") || f.locationName !== (draft?.locationName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
   useDirtyGuard("program-setup", touched && !busy);
 
@@ -65,7 +69,7 @@ export function ProgramSetup() {
     { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", locationName: f.locationName.trim().length < 2 ? "Bitte den Standort benennen." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
     { rate: rateValid ? "" : `Bitte eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} eingeben.`, rules: !extras && rulesText.trim().length < 10 ? SHORT_RULE : "" },
     { rewardName: f.rewardName.trim().length < 2 ? "Bitte die Prämie benennen." : "", cost: cost === null ? "Bitte eine ganze Zahl größer 0 eingeben." : "" },
-    { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", ...reviewValidation.problems },
+    { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", logo: f.logoError, ...reviewValidation.problems },
   ];
   const stepProblems = Object.entries(problems[step]).filter(([, message]) => message);
   const firstProblem = problems.findIndex(group => Object.values(group).some(Boolean));
@@ -117,13 +121,12 @@ export function ProgramSetup() {
     }
     setBusy(true); setError("");
     try {
-      const logoData = f.logo ? await imageToDataUrl(f.logo) : undefined;
       await postJson<{ programSlug: string }>("/api/merchant/onboard", {
         businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: draft && draft.country === f.country ? draft.timezone : f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
         locationName: f.locationName.trim(), ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
-        brandColor: f.brandColor, effectiveDate: f.date, logoData,
+        brandColor: f.brandColor, effectiveDate: f.date, logoData: f.logoData,
         ...reviewValidation.coordinates,
       });
       if (!await owner.refresh()) throw new Error("Die Einrichtung konnte noch nicht geladen werden. Sie kann bereits gespeichert sein. Bitte prüfe den gespeicherten Stand, bevor du erneut startest.");
@@ -227,7 +230,7 @@ export function ProgramSetup() {
                 <input id="su-brandColor" className="ow-input" style={{ maxWidth: 200 }} value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" />
                 <FieldError id="su-brandColor-error">{err("brandColor")}</FieldError>
               </div>
-              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB."><input id="su-logo" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => set({ logo: event.target.files?.[0] ?? null })} /></Field>}
+              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><input id="su-logo" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></Field>}
               <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} {...invalid("programName")} onChange={event => set({ programName: event.target.value })} /></Field>
               <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input" type="date" required {...invalid("date")} value={f.date} onChange={event => set({ date: event.target.value })} style={{ maxWidth: 220 }} /></Field>
               {!walletsHidden && <>

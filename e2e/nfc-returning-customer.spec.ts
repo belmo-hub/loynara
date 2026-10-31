@@ -107,7 +107,7 @@ test("one browser isolates two merchants and explicitly selects identity after a
     expect(remembered.cardLocator).toBe(ca.cardLocator);
     const binding = page.waitForResponse(r => r.url().includes("/session") && r.status() === 200);
     await page.getByRole("button", { name: "Diese Karte für NFC verwenden" }).click();
-    await expect(page.getByText("Browserzugang vorübergehend nicht erreichbar.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Gerade hat etwas nicht geklappt. Bitte versuche es gleich noch einmal.", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Diese Karte für NFC verwenden" }).click();
     await binding;
     await page.unroute(`**/api/tap/card/${secondA.cardToken}/session`);

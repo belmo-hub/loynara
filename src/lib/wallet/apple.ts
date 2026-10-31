@@ -123,8 +123,6 @@ function colors(brandColor: string) {
 }
 
 function common(pass: WalletPassData | WalletRevokedData, serial: string, config: ApplePassConfig) {
-  // A wordmark logo already carries the name; a square mark gets the name beside it.
-  const wideLogo = pass.appleLogo ? pass.appleLogo.width / pass.appleLogo.height >= 2.2 : false;
   return {
     formatVersion: 1,
     passTypeIdentifier: config.passTypeId,
@@ -132,7 +130,8 @@ function common(pass: WalletPassData | WalletRevokedData, serial: string, config
     teamIdentifier: config.teamId,
     organizationName: pass.merchantName,
     description: `${pass.programName} · ${pass.merchantName}`,
-    ...(wideLogo ? {} : { logoText: pass.merchantName }),
+    // A wordmark already carries the name; a square mark or a boxed logo gets the name beside it.
+    ...(pass.appleLogo && !pass.appleLogo.showName ? {} : { logoText: pass.merchantName }),
     ...colors(pass.brandColor),
     webServiceURL: config.webServiceUrl,
     authenticationToken: applePassToken(serial, config),
@@ -207,13 +206,14 @@ export async function applePassArchive(passJson: ReturnType<typeof applePassJson
     const files = new Map<string, Buffer>();
     files.set("pass.json", Buffer.from(JSON.stringify(passJson)));
     for (const [suffix, scale] of [["", 1], ["@2x", 2], ["@3x", 3]] as const) {
-      files.set(`icon${suffix}.png`, iconPng(scale, brand.brandColor));
+      files.set(`icon${suffix}.png`, brand.appleLogo?.icon?.[scale - 1] ?? iconPng(scale, brand.brandColor));
       if (brand.reward && brand.balance !== undefined) files.set(`strip${suffix}.png`, stripPng(brand.programType ?? "stamp", brand.balance, brand.rewards?.length ? brand.rewards.map(item => item.cost) : [brand.reward.cost], scale));
     }
     if (brand.appleLogo) {
-      // Wallet scales the logo into its 160 x 50 pt slot; one checked PNG serves every density.
-      files.set("logo.png", brand.appleLogo.png);
-      files.set("logo@2x.png", brand.appleLogo.png);
+      // Each density is already fitted to the 160 x 50 pt slot, so Wallet draws the logo uncropped in its own shape.
+      files.set("logo.png", brand.appleLogo.png1x);
+      files.set("logo@2x.png", brand.appleLogo.png2x);
+      files.set("logo@3x.png", brand.appleLogo.png3x);
     }
     for (const [name, bytes] of files) await writeFile(join(dir, name), bytes);
     const manifest = Object.fromEntries([...files].map(([name, bytes]) => [name, createHash("sha1").update(bytes).digest("hex")]));

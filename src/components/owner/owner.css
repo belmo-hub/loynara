@@ -181,7 +181,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   background-image: linear-gradient(45deg, transparent 50%, var(--color-ink-muted) 50%), linear-gradient(135deg, var(--color-ink-muted) 50%, transparent 50%);
   background-position: right 20px center, right 14px center; background-size: 6px 6px; background-repeat: no-repeat;
 }
-.ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 6%, var(--color-raised)); }
+.ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 /* Controls on one line when one label wraps and the other doesn't; only for fields without a hint under the control. */
 .ow-grid-2--end { align-items: end; }
@@ -263,7 +263,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-pass-field--end { text-align: right; align-items: flex-end; }
 .ow-pass--apple .ow-pass-row:first-child .ow-pass-field b { font-size: 22px; line-height: 1.05; letter-spacing: -.01em; white-space: nowrap; }
 .ow-pass-primary b { font-size: 24px; line-height: 1.15; letter-spacing: -.02em; font-weight: 600; }
-.ow-pass-logo { border-radius: 6px; object-fit: contain; flex: none; }
+/* Apple's 160 x 50 pt logo slot at about 1.06 px/pt on the 340 px pass: the logo keeps its own shape, never cropped or rounded. */
+.ow-pass-logo { width: auto; height: auto; max-width: 170px; max-height: 53px; object-fit: contain; flex: none; }
 .ow-pass-row--sec { padding-top: 2px; }
 .ow-cardprev { width: 100%; max-width: 380px; }
 .ow-cardprev-ticket { display: grid; justify-items: center; gap: 6px; padding: 12px; border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
@@ -279,7 +280,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-pass--google { border-radius: 22px; min-height: 300px; }
 .ow-pass-issuer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .ow-pass-issuer strong { min-width: 0; overflow-wrap: anywhere; }
-.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; flex: none; }
+.ow-pass-issuer img { flex: none; }
+.ow-pass-mark { width: 32px; height: 32px; border-radius: 50%; object-fit: contain; }
+.ow-pass-wide { width: auto; height: 32px; max-width: 160px; object-fit: contain; }
 .ow-pass-initial { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .85); color: #1a2b25; font-weight: 700; }
 .ow-pass-program { font-size: 13px; opacity: .9; overflow-wrap: anywhere; }
 .ow-pass-big { display: flex; flex-direction: column; }
@@ -300,7 +303,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-colorrow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); align-items: end; }
 .ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; }
 .ow-logo-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-.ow-logo-thumb { width: 56px; height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-line); object-fit: cover; background: var(--color-raised); }
+/* The 160:50 Wallet slot on the brand colour, so the owner sees the whole logo as the pass shows it. */
+.ow-logo-thumb { width: 112px; height: 35px; padding: 6px; box-sizing: border-box; border-radius: var(--radius-sm); object-fit: contain; }
 .ow-mobile-switch { display: none; }
 .ow-readonly { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-fill); font-size: var(--text-14); }
 .ow-readonly dl { margin: 0; }

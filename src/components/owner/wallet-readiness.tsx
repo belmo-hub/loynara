@@ -7,7 +7,7 @@ import { useLoad } from "./use-load";
 export type OwnerWalletReadiness = {
   apple: "ready" | "not_set_up";
   google: "ready" | "test_only" | "not_set_up";
-  logo: "ready" | "needs_png" | "too_large" | "missing" | "needs_review";
+  logo: "ready" | "low_contrast" | "missing" | "needs_review";
   googleLogo: "merchant" | "fallback";
   ink: "light" | "dark";
   passes: { apple: number; google: number };
@@ -28,9 +28,8 @@ const PROVIDER: Record<OwnerWalletReadiness["google"], { tone: Tone; label: stri
 const LOGO: Record<OwnerWalletReadiness["logo"], { tone: Tone; label: string; hint: string }> = {
   needs_review: { tone: "warn", label: "Design prüfen", hint: "Loynara prüft das Wallet-Design vor der Freigabe. Änderungen an Logo und Farben müssen dort gesondert übernommen werden." },
   ready: { tone: "ok", label: "Bereit", hint: "Dein Logo erscheint auf der Wallet-Karte." },
-  needs_png: { tone: "warn", label: "PNG nötig", hint: "Wallet zeigt nur PNG-Logos. Lade dein Logo als PNG hoch, sonst steht dort dein Geschäftsname." },
-  too_large: { tone: "warn", label: "Zu groß", hint: "Bitte ein PNG bis 500 KB und höchstens 2048 Pixel Kantenlänge hochladen. Bis dahin steht dort dein Geschäftsname." },
-  missing: { tone: "info", label: "Ohne Logo", hint: "Ohne Logo steht dein Geschäftsname auf der Wallet-Karte. Das sieht ordentlich aus; ein PNG-Logo wirkt persönlicher." },
+  low_contrast: { tone: "warn", label: "Schwer zu sehen", hint: "Dein Logo ist auf dieser Farbe schwer zu sehen. Wähle eine andere Farbe oder eine andere Version deines Logos. Bis dahin zeigt Apple Wallet deinen Geschäftsnamen statt des Logos." },
+  missing: { tone: "info", label: "Ohne Logo", hint: "Ohne Logo steht dein Geschäftsname auf der Wallet-Karte. Das sieht ordentlich aus; ein Logo wirkt persönlicher." },
 };
 
 export function WalletReadiness({ programSlug, version }: { programSlug: string; version: number }) {

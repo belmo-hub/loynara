@@ -30,7 +30,9 @@ export default function CancelProgrammePage() {
   const programSlug = me.programSlug;
   const endDate = me.cancellationEndDate ?? null;
   const confirmed = me.cancellationConfirmed === true;
-  const text = endDate ? `Unsere Punktekarte endet am ${germanDate(endDate)}. Löse deine Punkte bis dahin ein.` : "";
+  // Stamp shops hear about Stempel, points shops about Punkte (ENG-133, audit I-28).
+  const unit = me.programType === "stamp" ? "Stempel" : "Punkte";
+  const text = endDate ? `Unsere ${unit}karte läuft noch bis einschließlich ${germanDate(endDate)}. Bis dahin kannst du weiter sammeln und Prämien einlösen. Danach geht das nicht mehr.` : "";
   async function send(withdraw: boolean) {
     setSaving(true); setError("");
     try { await postJson("/api/merchant/program/cancel", { programSlug, withdraw }); await refresh(); router.push(SETTINGS); }
@@ -50,7 +52,7 @@ export default function CancelProgrammePage() {
           : <Notice tone="warn">Voraussichtlich bis zum {germanDate(endDate)}. Laut Pilotvereinbarung endet der Vertrag mit {MIN_NOTICE_DAYS} Tagen Frist zum Ende eines Abrechnungsmonats. Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal.</Notice>}
         {confirmed && <div className="ow-qpanel ow-field">
           <label htmlFor="ow-cancel-text">Text für deine Kunden</label>
-          <textarea id="ow-cancel-text" className="ow-textarea" readOnly rows={2} value={text} aria-describedby="ow-cancel-hint" onFocus={event => event.currentTarget.select()} />
+          <textarea id="ow-cancel-text" className="ow-textarea" readOnly rows={4} value={text} aria-describedby="ow-cancel-hint" onFocus={event => event.currentTarget.select()} />
           <p id="ow-cancel-hint" className="ow-hint">Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
           <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button></div>
         </div>}
@@ -69,7 +71,7 @@ export default function CancelProgrammePage() {
           <CalendarClock size={24} aria-hidden="true" />
           <p><strong>Voraussichtlich bis zum {germanDate(planned.endDate)}.</strong> Wir bestätigen dir das genaue Enddatum per E-Mail.{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, rechnen wir mit dem Ende des Folgemonats.` : ""}</p>
         </div>
-        <div className="ow-qpanel"><p>Bis zum Enddatum läuft alles normal. Deine Kunden können ihre Punkte weiter einlösen, danach nicht mehr. Ihre Stände bleiben gespeichert.</p></div>
+        <div className="ow-qpanel"><p>Bis zum Enddatum läuft alles normal. Deine Kunden sammeln weiter {unit} und lösen Prämien ein, danach nicht mehr. Die {unit} bleiben gespeichert.</p></div>
         {failed}
         <div className="ow-qsave ow-qsave--pair">
           <button type="button" className="ow-btn ow-btn--danger" disabled={saving} aria-busy={saving} onClick={() => void send(false)}>Ja, Programm beenden</button>
