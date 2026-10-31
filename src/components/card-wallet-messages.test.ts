@@ -106,4 +106,7 @@ describe("activity dates on the card (G-M3)", () => {
     expect(activityDay("2026-10-20T09:00:00Z", "de-DE", now)).toBe("20. Okt.");
     expect(activityDay("2025-12-24T09:00:00Z", "de-DE", now)).toBe("24. Dez. 2025");
   });
+  it("gives French cards the plain date, with no new French words", () => {
+    expect(activityDay("2026-10-31T07:00:00Z", "fr-FR", now)).toBe(new Date("2026-10-31T07:00:00Z").toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }));
+  });
 });

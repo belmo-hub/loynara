@@ -233,3 +233,15 @@ describe("ladder names never run into each other (Design round 2)", () => {
     titleRooms([{ at: 0.3, hideLabel: false }, { at: 0.7, hideLabel: false }, { at: 1, hideLabel: false }]).forEach((room, i) => expect(room).toBeCloseTo([0.4, 0.3, 0.15][i]));
   });
 });
+
+describe("ENG-130 placement kept by the rebuild (Reviewer N-2)", () => {
+  it("puts the saved line above the card and the notices (the moved-up consent panel) right under it", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, walletSaved: true, notices: h("section", { id: "consent-panel" }) }));
+    const saved = out.indexOf("In Apple Wallet gespeichert"), cardAt = out.indexOf('class="customer-card '), panel = out.indexOf('id="consent-panel"');
+    expect(saved).toBeGreaterThan(-1);
+    expect(saved).toBeLessThan(cardAt);
+    expect(cardAt).toBeLessThan(panel);
+    // Nothing but the card's own band and refresh row sits between the card and the panel.
+    expect(out.slice(cardAt, panel)).not.toMatch(/customer-(notes|rewards|activity|more)-title/);
+  });
+});
