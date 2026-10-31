@@ -47,7 +47,7 @@ async function waitingGuest(browser: Browser, url: string) {
   };
   return { m, customer, page, confirm, reject };
 }
-const addToWallet = (page: Page) => page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" }).click();
+const addToWallet = (page: Page) => page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" }).click();
 /** Tap add and wait until the pass itself is requested, as Apple's sheet would be opened. */
 async function addAndOpenSheet(page: Page) {
   const pass = page.waitForRequest(/\/api\/wallet\/apple\/download\//);
@@ -77,7 +77,7 @@ test("an Apple add while waiting stays on the tap page; the stamp landing then o
     await addAndOpenSheet(page);
     await page.waitForTimeout(4_500);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
-    await expect(page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" })).toBeEnabled();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     const cashier = await confirm();
     await expect(page).toHaveURL(/\/card\/card_/, { timeout: 15_000 });

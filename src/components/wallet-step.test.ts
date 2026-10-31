@@ -81,7 +81,7 @@ describe("Wallet step screen (ENG-130 03/04)", () => {
   it("keeps the Apple button, the skip link to the card and the programme's note", () => {
     const html = render(false);
     expect(html).toContain("Deine Karte ist fertig. Leg sie in Apple Wallet.");
-    expect(html).toContain('alt="Zu Apple Wallet hinzufügen"');
+    expect(html).toContain('alt="Hinzufügen zu Apple Wallet"');
     expect(html).toContain('src="/wallet/apple-add-de.svg"');
     expect(html).toContain('href="/card/card_x"');
     expect(html).toContain("Später, zuerst meine Karte ansehen");

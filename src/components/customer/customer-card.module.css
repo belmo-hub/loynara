@@ -115,10 +115,12 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .walletButton:active:not(:disabled) { transform: scale(.98); }
 .walletButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .walletButton:disabled { cursor: progress; opacity: .7; }
-.walletButton[data-badge] { padding: 0; background: transparent; }
+.walletButton[data-badge] { justify-self: center; width: fit-content; padding: 0; background: transparent; }
 /* Apple's guidelines: a badge is never shown dimmed; the quiet line under it says it is busy. */
 .walletButton[data-badge]:disabled { opacity: 1; }
 .walletBusy { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-align: center; }
+/* Always mounted so it is announced; out of the grid's flow while it says nothing. */
+.walletBusy:empty { position: absolute; }
 .walletButton img { display: block; height: 52px; width: auto; }
 
 .steps { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); list-style: decimal; line-height: 1.5; }

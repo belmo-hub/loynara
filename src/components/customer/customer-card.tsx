@@ -297,11 +297,11 @@ function Wallet({ buttons, walletBusy = null, googleTestOnly, walletError, local
       <p className={styles.muted}>{t.walletIntro}</p>
       <div className={styles.walletButtons}>{buttons.map((button) => {
         const badge = walletBadge(button.id, locale);
-        return <button key={button.id} type="button" className={`wallet-add wallet-add--${button.id} ${styles.walletButton}`} data-badge={badge ? true : undefined} onClick={button.onClick} disabled={walletBusy !== null} aria-busy={walletBusy === button.id} aria-label={walletBusy === button.id ? t.walletLoading : button.label}>
+        return <button key={button.id} type="button" className={`wallet-add wallet-add--${button.id} ${styles.walletButton}`} data-badge={badge ? true : undefined} onClick={button.onClick} disabled={walletBusy !== null} aria-busy={walletBusy === button.id} aria-label={badge ? undefined : walletBusy === button.id ? t.walletLoading : button.label}>
           {badge ? <Image unoptimized src={badge} alt={button.label} width={button.id === "google" ? 199 : 166} height={button.id === "google" ? 55 : 52} /> : <span>{walletBusy === button.id ? t.walletLoading : button.label}</span>}
         </button>;
       })}</div>
-      {walletBusy !== null && walletBadge(walletBusy, locale) ? <p className={`wallet-busy ${styles.walletBusy}`} role="status">{t.walletLoading}</p> : null}
+      <p className={`wallet-busy ${styles.walletBusy}`} role="status">{walletBusy !== null && walletBadge(walletBusy, locale) ? t.walletLoading : ""}</p>
       {googleTestOnly && buttons.some(button => button.id === "google") ? <p className={`wallet-mode-note ${styles.muted}`}>{t.googleDemo}</p> : null}
       {walletError && open ? <p className={`wallet-error ${styles.alert}`} role="alert">{walletError}</p> : null}
     </div>

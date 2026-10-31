@@ -18,11 +18,13 @@
 .example { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: #5B6560; color: #FFFFFF; font-size: var(--text-12); font-style: normal; font-weight: var(--weight-label); line-height: 1.6; }
 .text { grid-column: 2; overflow-wrap: anywhere; }
 
-/* The whole row stays the tap target; Apple's badge (black, its own outline, one artwork for both themes) sits centred. */
-.apple { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; cursor: pointer; }
+/* Apple's badge (black, its own outline, one artwork for both themes), centred; hit area and focus ring are the badge's. */
+.apple { display: flex; align-items: center; justify-content: center; justify-self: center; width: fit-content; min-height: 52px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; cursor: pointer; }
 .apple img { display: block; height: 52px; width: auto; }
 .apple:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .apple:disabled { cursor: progress; }
 .busy { margin: calc(var(--space-2) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-align: center; }
+/* Always mounted so it is announced; out of the grid's flow while it says nothing. */
+.busy:empty { position: absolute; margin: 0; }
 .skip { margin: 0; text-align: center; }
 .skip a { display: inline-flex; align-items: center; min-height: var(--target); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
