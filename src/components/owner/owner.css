@@ -164,7 +164,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .ow-muted { color: var(--color-ink-muted); }
 /* Tabular figures on number roles only, so prose („17 Uhr“, „+1 Buchung“) keeps its spacing (Design FIX 3). */
-.ow-num, .ow-metric-value, .ow-table td, .ow-qcount, .ow-strip-n, .ow-day-sum, .ow-pill b { font-variant-numeric: tabular-nums; }
+.ow-num, .ow-metric-value, .ow-table td, .ow-qcount > span:last-child, .ow-strip-n { font-variant-numeric: tabular-nums; }
 .ow-stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .ow-stack--tight { gap: var(--space-2); }
 .ow-stack--wide { gap: var(--space-5); }
