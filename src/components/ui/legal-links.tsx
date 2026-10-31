@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./legal-links.module.css";
 
+const IMPRESSUM = "https://getloynara.com/impressum/";
 const PAGES = [{ href: "/datenschutz", de: "Datenschutz", fr: "Confidentialité" }, { href: "/teilnahmebedingungen", de: "Teilnahmebedingungen", fr: "Conditions de participation" }];
 
 /**
@@ -19,6 +20,8 @@ export function LegalLinks({ locale = "de", newTab = false }: { locale?: "de" | 
     {PAGES.map(page => page.href === path
       ? <span key={page.href} aria-current="page">{page[locale]}</span>
       : <Link key={page.href} href={page.href} {...target}>{page[locale]}</Link>)}
+    {/* G-16, Legal 31 Oct: the operator's Impressum one tap away, linked rather than copied; the word stays German. */}
+    <a href={IMPRESSUM} target="_blank" rel="noopener">Impressum</a>
   </nav>;
 }
 

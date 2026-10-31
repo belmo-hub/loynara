@@ -12,6 +12,9 @@ describe("one set of legal links (G-22, G-M6)", () => {
     expect(out).toContain('<span aria-current="page">Datenschutz</span>');
     expect(out).toContain('<a href="/teilnahmebedingungen">Teilnahmebedingungen</a>');
   });
+  it("links the operator's Impressum on the website, in a new tab (G-16)", () => {
+    expect(renderToStaticMarkup(h(LegalLinks))).toContain('<a href="https://getloynara.com/impressum/" target="_blank" rel="noopener">Impressum</a>');
+  });
   it("opens both beside the card when asked", () => {
     path.current = "/card/x";
     expect(renderToStaticMarkup(h(LegalLinks, { newTab: true }))).toContain('<a target="_blank" rel="noopener" href="/datenschutz">Datenschutz</a>');

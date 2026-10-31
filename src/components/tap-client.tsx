@@ -27,17 +27,17 @@ export function tapCopy(state: TapState | "loading" | "error", error?: ClientApi
   if (points) switch (state) {
     case "needs_enrollment": return { title: "Deine Karte erstellen", detail: "Mit einer kostenlosen Karte im Browser sammelst du Punkte. Du brauchst keine App." };
     case "pending_staff": return { title: "Warte auf das Team", detail: "Das Team an der Kasse trägt deine Punkte ein und bestätigt sie. Du musst nichts weiter tun." };
-    case "confirmed": return { title: "Punkte erhalten", detail: "Das Team hat deine Punkte bestätigt. Sie sind auf deiner Karte gebucht." };
-    case "cooldown": return { title: "Gerade erst gebucht", detail: "Auf deiner Karte wurden gerade erst Punkte gebucht. Beim nächsten Besuch kannst du das Schild wieder berühren." };
+    case "confirmed": return { title: "Punkte erhalten", detail: "Das Team hat deine Punkte bestätigt. Sie sind jetzt auf deiner Karte." };
+    case "cooldown": return { title: "Gerade erst gesammelt", detail: "Auf deiner Karte sind gerade erst Punkte dazugekommen. Beim nächsten Besuch kannst du das Schild wieder berühren." };
   }
   switch (state) {
     case "loading": return { title: "NFC-Berührung wird geprüft", detail: "Einen Moment bitte." };
     case "needs_enrollment": return { title: "Deine Karte erstellen", detail: "Mit einer kostenlosen Karte im Browser sammelst du Stempel. Du brauchst keine App." };
     case "pending_staff": return { title: "Warte auf das Team", detail: "Das Team an der Kasse bestätigt deinen Stempel. Du musst nichts weiter tun." };
-    case "confirmed": return { title: "Stempel erhalten", detail: "Das Team hat deinen Stempel bestätigt. Er ist auf deiner Karte gebucht." };
-    case "awarded": return { title: "Stempel erhalten", detail: "Ein Stempel wurde bestätigt und auf deiner Karte gebucht." };
-    case "already_processed": return { title: "Schon erledigt", detail: "Diese Berührung wurde bereits verarbeitet. Es wurde nichts doppelt gebucht." };
-    case "cooldown": return { title: "Gerade erst gestempelt", detail: "Auf deiner Karte wurde gerade erst ein Stempel gebucht. Beim nächsten Besuch kannst du das Schild wieder berühren." };
+    case "confirmed": return { title: "Stempel erhalten", detail: "Das Team hat deinen Stempel bestätigt. Er ist jetzt auf deiner Karte." };
+    case "awarded": return { title: "Stempel erhalten", detail: "Ein Stempel wurde bestätigt und ist jetzt auf deiner Karte." };
+    case "already_processed": return { title: "Schon erledigt", detail: "Diese Berührung wurde bereits verarbeitet. Es wurde nichts doppelt gezählt." };
+    case "cooldown": return { title: "Gerade erst gestempelt", detail: "Auf deiner Karte ist gerade erst ein Stempel dazugekommen. Beim nächsten Besuch kannst du das Schild wieder berühren." };
     case "expired": return { title: "Anfrage abgelaufen", detail: "Das Team hat diese Anfrage nicht rechtzeitig bestätigt. Berühre das Schild noch einmal, um es erneut zu versuchen." };
     case "cancelled": return { title: "Nicht bestätigt", detail: "Das Team hat diese Anfrage nicht bestätigt. Frage bitte an der Kasse nach." };
     case "disabled": return { title: "NFC ist hier aus", detail: "Für dieses Programm ist die NFC-Berührung gerade ausgeschaltet. Zeige stattdessen deinen Kartencode an der Kasse." };
