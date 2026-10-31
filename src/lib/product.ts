@@ -23,6 +23,7 @@ import { expiryWaits, programInForce, ruleVersions } from "./rule-versions";
 import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
+import { checkedLogoUpload } from "./wallet/logo-process";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -53,18 +54,6 @@ function randomCode(bytes: number) { return randomBytes(bytes).toString("base64u
 const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
 const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
 export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
-function checkedLogo(value?: string) {
-  if (!value) return null;
-  const match = /^data:(image\/png|image\/jpeg|image\/webp);base64,([A-Za-z0-9+/=]+)$/.exec(value);
-  if (!match) throw new DomainError("INVALID_LOGO", "Logo must be PNG, JPEG or WebP");
-  const bytes = Buffer.from(match[2], "base64");
-  if (bytes.length < 16 || bytes.length > 2_000_000) throw new DomainError("INVALID_LOGO", "Logo must be at most 2 MB");
-  const magic = bytes.subarray(0, 12).toString("hex");
-  const valid = match[1] === "image/png" ? magic.startsWith("89504e470d0a1a0a") : match[1] === "image/jpeg" ? magic.startsWith("ffd8ff") : bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
-  if (!valid) throw new DomainError("INVALID_LOGO", "Logo format does not match its contents");
-  return value;
-}
-
 export async function createMerchant(raw: z.input<typeof merchantInput>) {
   const input = merchantInput.parse(raw);
   const earningMode = input.earningMode ?? "manual";
@@ -73,7 +62,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
-  const logoData = checkedLogo(input.logoData);
+  const logoData = input.logoData ? await checkedLogoUpload(input.logoData) : null;
   return db.transaction(async (tx) => {
     // Serialize retries for this authenticated identity, including the first
     // request before a staff row exists. No provisioning happens in auth hooks.

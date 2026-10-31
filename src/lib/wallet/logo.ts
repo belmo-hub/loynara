@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { inflateSync } from "node:zlib";
+import { logoBytes, processMerchantLogo, type ProcessedLogo } from "./logo-process";
+import type { AppleLogo } from "./types";
 
 const programIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pngPrefix = "data:image/png;base64,";
@@ -89,19 +91,38 @@ export function pngDimensions(bytes: Buffer): { width: number; height: number } 
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 }
 
-const APPLE_LOGO_MAX_BYTES = 512_000;
+const processed = new Map<string, Promise<ProcessedLogo | null>>();
+
+/** Processing is deterministic, so each process keeps the last few results instead of redoing them for every pass download. */
+function processedLogo(logoData: string | null | undefined, brandColor: string): Promise<ProcessedLogo | null> {
+  const bytes = logoBytes(logoData);
+  if (!bytes) return Promise.resolve(null);
+  const key = `${createHash("sha256").update(bytes).digest("hex")}:${brandColor.toLowerCase()}`;
+  let result = processed.get(key);
+  if (!result) {
+    result = processMerchantLogo(bytes, brandColor).catch(() => null);
+    processed.set(key, result);
+    if (processed.size > 64) processed.delete(processed.keys().next().value!);
+  }
+  return result;
+}
+
+const faint = (logo: ProcessedLogo) => !logo.meta.boxed && logo.meta.contrast < 3;
 
 /**
- * The merchant logo for the Apple pass, or undefined so the pass falls back to the merchant name as logo text. Wallet
- * scales the image into a 160 x 50 pt area; very large or oddly shaped files are left out instead of bloating every pass
- * download. JPEG/WebP uploads are not converted: the Card Studio asks for a PNG.
+ * The merchant logo for the Apple pass, or undefined so the pass shows the merchant name as logo text instead: no logo,
+ * an unreadable one, or one too faint on the brand colour (a boxed logo carries its own background).
  */
-export function appleLogoFromData(logoData: string | null | undefined): { png: Buffer; width: number; height: number } | undefined {
-  const png = decodeMerchantLogoPng(logoData);
-  if (!png || png.length > APPLE_LOGO_MAX_BYTES) return undefined;
-  const size = pngDimensions(png);
-  if (!size || size.width < 16 || size.height < 16 || size.width > 2048 || size.height > 2048 || size.width / size.height > 8 || size.height / size.width > 4) return undefined;
-  return { png, ...size };
+export async function appleLogoFromData(logoData: string | null | undefined, brandColor: string): Promise<AppleLogo | undefined> {
+  const logo = await processedLogo(logoData, brandColor);
+  if (!logo || faint(logo)) return undefined;
+  return { ...logo.wallet, ...(logo.icon ? { icon: logo.icon } : {}), showName: logo.meta.showName };
+}
+
+/** What the pass does with the saved logo, so the studio preview can show the same. */
+export async function walletLogoView(logoData: string | null | undefined, brandColor: string): Promise<{ showName: boolean; faint: boolean; upscaled: boolean } | null> {
+  const logo = await processedLogo(logoData, brandColor);
+  return logo && { showName: logo.meta.showName || faint(logo), faint: faint(logo), upscaled: logo.meta.upscaled };
 }
 
 export function approvedGoogleAssetOrigin(env: Record<string, string | undefined> = process.env): string | undefined {
