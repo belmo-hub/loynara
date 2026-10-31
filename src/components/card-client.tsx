@@ -213,7 +213,7 @@ export function CardClient({ token }: { token: string }) {
   </CardState>;
   const french = card.locale === "fr";
   const expiry = card.programType === "points" && Boolean(card.pointsExpiry || card.pendingExpiry);
-  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : card.programType === "stamp" ? "Stempel gesammelt" : entry.delta === 1 ? "Punkt gesammelt" : "Punkte gesammelt" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: activityDay(entry.createdAt, french ? "fr-FR" : "de-DE"), change: entry.delta }));
+  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Gesammelt" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: activityDay(entry.createdAt, french ? "fr-FR" : "de-DE"), change: entry.delta }));
   const notices = <>
     {authenticationRequired && <section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section>}
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
@@ -230,13 +230,13 @@ function CardState({ title, message, tone = "info", icon, children }: { title: s
 }
 
 /** Activity dates (G-M3), by calendar day: „Heute“, „Gestern“, the weekday within the week, then „30. Okt.“, the year only
- *  when it is not this one. */
+ *  when it is not this one. French cards keep the plain date (no new French copy for now). */
 export function activityDay(iso: string, locale: string, now = new Date()) {
   const date = new Date(iso);
+  if (locale.startsWith("fr")) return date.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
   const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / 86_400_000);
-  const fr = locale.startsWith("fr");
-  if (days === 0) return fr ? "Aujourd’hui" : "Heute";
-  if (days === 1) return fr ? "Hier" : "Gestern";
+  if (days === 0) return "Heute";
+  if (days === 1) return "Gestern";
   if (days > 1 && days < 7) return date.toLocaleDateString(locale, { weekday: "short" });
   return date.toLocaleDateString(locale, { day: "numeric", month: "short", ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) });
 }
