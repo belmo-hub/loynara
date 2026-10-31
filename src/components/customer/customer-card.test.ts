@@ -263,6 +263,17 @@ describe("ladder names by need, the goal first (Design rounds 2 and 3)", () => {
     expect(titleLayout(marks(0.55, 1), 400, [150, W.goal]).titles[0]?.width).toBeGreaterThanOrEqual(TITLE_FLOOR);
   });
 
+  it("always shows the goal's price and name when the top prices sit close (50 / 220 / 240 / 250, Design round 4)", async () => {
+    const { ladderMarks, titleLayout } = await import("@/components/ui/points-ladder");
+    const marks = ladderMarks([50, 220, 240, 250].map((cost) => ({ title: String(cost), cost })), 250, 0);
+    expect(marks.map((m) => m.hideLabel)).toEqual([false, true, true, false]);
+    for (const track of [228, 283, 364]) {
+      const { titles, covered } = titleLayout(marks, track, [48, 110, 120, W.goal]);
+      expect(titles[3]?.width, `${track}`).toBe(W.goal);
+      expect(covered[3]).toBe(false);
+    }
+  });
+
   it("does not slide a middle name off its marker to make room", async () => {
     const { titleLayout } = await import("@/components/ui/points-ladder");
     const { titles } = titleLayout(marks(0.5, 1), 228, [100, W.goal]);
