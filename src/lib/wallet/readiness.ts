@@ -1,11 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { locations, programs, staffRoles } from "@/db/schema";
+import { locations, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletAvailability } from "./capability";
 import { passInk } from "./content";
-import { merchantGoogleLogoUrl, walletLogoView } from "./logo";
+import { merchantGoogleLogoUrls, walletLogoView } from "./logo";
 import { passFastEnv } from "./template-bindings";
 
 /**
@@ -27,8 +27,9 @@ export type OwnerWalletReadiness = {
 
 export async function ownerWalletReadiness(raw: { actorUserId: string; programSlug: string }): Promise<OwnerWalletReadiness> {
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
-  const [program] = await db.select({ id: programs.id, tenantId: programs.tenantId, locationId: locations.id, brandColor: locations.brandColor, logoData: locations.logoData })
+  const [program] = await db.select({ id: programs.id, tenantId: programs.tenantId, locationId: locations.id, brandColor: locations.brandColor, logoData: locations.logoData, merchantName: tenants.name })
     .from(programs).innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+    .innerJoin(tenants, eq(tenants.id, programs.tenantId))
     .where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).limit(1);
   if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const [role] = await db.select({ userId: staffRoles.userId }).from(staffRoles)
@@ -54,7 +55,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
     apple: availability.apple === "available" ? "ready" : "not_set_up",
     google: availability.google === "available" ? "ready" : availability.google === "test_only" ? "test_only" : "not_set_up",
     logo: process.env.NODE_ENV === "production" || process.env.PASSFAST_ENABLED === "true" ? "needs_review" : logo,
-    googleLogo: merchantGoogleLogoUrl(program.id, program.logoData) ? "merchant" : "fallback",
+    googleLogo: (await merchantGoogleLogoUrls(program.id, program.logoData, program.brandColor, program.merchantName)).googleLogoUrl ? "merchant" : "fallback",
     ink: passInk(program.brandColor),
     passes: { apple: byProvider.apple ?? 0, google: byProvider.google ?? 0 },
     delayedUpdates: Number(delayed.rows[0]?.n ?? 0),

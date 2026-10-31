@@ -12,7 +12,9 @@ import { apnsPassUpdateRequest } from "./apple-push";
 import { walletAvailability } from "./capability";
 import { passInk, walletProgress } from "./content";
 import { GoogleWalletClient, googleClass, googleObject, googleObjectId, googleRevokedObject, googleSaveUrl, googleWalletStatus } from "./google";
-import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl, pngDimensions } from "./logo";
+import { appleLogoFromData, googleLogoAsset, merchantGoogleLogoUrls } from "./logo";
+import { INITIAL_CHARACTERS, initialOf } from "./initial";
+import { initialLogo } from "./logo-initial";
 import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 import { createDownloadTicket, readDownloadTicket } from "./ticket";
 import type { WalletPassData, WalletRevokedData } from "./types";
@@ -36,7 +38,6 @@ const pass: WalletPassData = {
 const serial = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const revoked: WalletRevokedData = { tenantId: pass.tenantId, programId: pass.programId, merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName, brandColor: pass.brandColor, country: "DE", locale: "de", membershipId: pass.membershipId, reason: "reissued" };
 const appleConfig = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "a".repeat(40) };
-const tinyPng = pngOfSize(1, 1);
 const fakeLogo = { png1x: Buffer.alloc(1), png2x: Buffer.alloc(1), png3x: Buffer.alloc(1), width: 160, height: 50 };
 const svgLogo = async (width: number, height: number, body: string) => `data:image/png;base64,${(await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`)).png().toBuffer()).toString("base64")}`;
 // A white wordmark (three blocks with gaps) on transparent: wide, so the pass shows no name beside it.
@@ -392,7 +393,7 @@ describe("Apple pass", () => {
 });
 
 describe("merchant logo handling", () => {
-  it("falls back for truncated, checksum-corrupted, invalid image data and decompression bombs", () => {
+  it("gives Google no merchant logo for truncated, checksum-corrupted, invalid image data and decompression bombs", async () => {
     const valid = Buffer.from(pngOfSize(32, 32).split(",")[1], "base64");
     const badCrc = Buffer.from(valid); badCrc[29] ^= 1;
     const header = valid.subarray(16, 29);
@@ -406,13 +407,9 @@ describe("merchant logo handling", () => {
       image(deflateSync(Buffer.alloc(32 * 129, 5))),
       image(deflateSync(Buffer.alloc(1_000_000)), hugeHeader)]) {
       const data = `data:image/png;base64,${bytes.toString("base64")}`;
-      expect(decodeMerchantLogoPng(data)).toBeNull();
-      expect(merchantGoogleLogoUrl(pass.programId, data, env)).toBeUndefined();
+      // Treated as no logo: only the initial, never the bytes.
+      expect(await merchantGoogleLogoUrls(pass.programId, data, pass.brandColor, pass.merchantName, env)).toEqual(await merchantGoogleLogoUrls(pass.programId, null, pass.brandColor, pass.merchantName, env));
     }
-  });
-
-  it("reads PNG dimensions from the header", () => {
-    expect(pngDimensions(decodeMerchantLogoPng(pngOfSize(320, 100))!)).toEqual({ width: 320, height: 100 });
   });
 
   it("gives Apple every readable logo in its own shape and leaves out a missing, unreadable or faint one (ENG-134)", async () => {
@@ -429,13 +426,73 @@ describe("merchant logo handling", () => {
     expect(await appleLogoFromData(darkLogo, "#1F4D3A")).toBeUndefined(); // too faint on Waldgrün: the pass shows the name instead
   });
 
-  it("derives a versioned merchant PNG URL for Google only with an explicitly enabled HTTPS asset origin", () => {
+  it("gives Google a versioned URL per asset only with an explicitly enabled HTTPS asset origin (ENG-153)", async () => {
     const env = { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.example.test" };
-    const url = merchantGoogleLogoUrl(pass.programId, tinyPng, env);
-    expect(url).toMatch(new RegExp(`^https://assets\\.example\\.test/api/wallet/assets/google-logo/${pass.programId}\\.png\\?v=[0-9a-f]{16}$`));
-    expect(merchantGoogleLogoUrl(pass.programId, tinyPng, { ...env, GOOGLE_WALLET_ASSET_ENABLED: "false" })).toBeUndefined();
-    expect(merchantGoogleLogoUrl(pass.programId, tinyPng, { ...env, GOOGLE_WALLET_ASSET_ORIGIN: "http://localhost:3000" })).toBeUndefined();
-    expect(merchantGoogleLogoUrl(pass.programId, "data:image/jpeg;base64,YWJj", env)).toBeUndefined();
+    const urls = (logo: string, color = pass.brandColor, e: Record<string, string> = env) => merchantGoogleLogoUrls(pass.programId, logo, color, pass.merchantName, e);
+    const route = (name: string) => new RegExp(`^https://assets\\.example\\.test/api/wallet/assets/${name}/${pass.programId}\\.png\\?v=[0-9a-f]{16}$`);
+    const square = await svgLogo(400, 400, `<circle cx="200" cy="200" r="180" fill="#fff"/>`);
+    expect(Object.keys(await urls(square))).toEqual(["googleLogoUrl"]);
+    expect((await urls(square)).googleLogoUrl).toMatch(route("google-logo"));
+    const wide = await urls(await wordmark());
+    expect(wide.googleLogoUrl).toMatch(route("google-logo"));
+    expect(wide.googleWideLogoUrl).toMatch(route("google-wide-logo"));
+    expect(new URL(wide.googleWideLogoUrl!).search).not.toBe(new URL(wide.googleLogoUrl!).search);
+    // The initial is drawn on the brand colour, so a new colour is a new revision.
+    expect((await urls(await wordmark(), "#B3261E")).googleLogoUrl).not.toBe(wide.googleLogoUrl);
+    expect(await urls(square, pass.brandColor, { ...env, GOOGLE_WALLET_ASSET_ENABLED: "false" })).toEqual({});
+    expect(await urls(square, pass.brandColor, { ...env, GOOGLE_WALLET_ASSET_ORIGIN: "http://localhost:3000" })).toEqual({});
+    expect(await urls("data:image/jpeg;base64,YWJj")).toEqual({ googleLogoUrl: wide.googleLogoUrl }); // unreadable: the initial only
+  });
+
+  it("never squeezes a wide logo into Google's circle and drops a faint one for the initial, like Apple (ENG-153)", async () => {
+    const size = async (bytes?: Buffer) => { const { width, height } = await sharp(bytes!).metadata(); return [width, height]; };
+    const logo = await wordmark();
+    const circle = await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName);
+    expect(circle).toEqual(await initialLogo("K", pass.brandColor));
+    expect(await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName)).toBe(circle); // drawn once, then remembered
+    expect(await size(circle)).toEqual([660, 660]);
+    expect(await size(await googleLogoAsset("wide", logo, pass.brandColor, pass.merchantName))).toEqual([1280, 400]);
+    const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
+    const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
+    expect(await googleLogoAsset("wide", darkLogo, "#1F4D3A", pass.merchantName)).toBeUndefined();
+    expect(await googleLogoAsset("square", darkLogo, "#1F4D3A", pass.merchantName)).toEqual(await initialLogo("K", "#1F4D3A"));
+    const square = await svgLogo(400, 400, `<circle cx="200" cy="200" r="180" fill="#fff"/>`);
+    expect(await googleLogoAsset("wide", square, pass.brandColor, pass.merchantName)).toBeUndefined();
+    const tall = await svgLogo(100, 200, `<rect width="100" height="200" rx="20" fill="#fff"/>`);
+    expect(await googleLogoAsset("wide", tall, pass.brandColor, pass.merchantName)).toBeUndefined(); // a tall mark sits in the circle
+    expect(await googleLogoAsset("square", tall, pass.brandColor, pass.merchantName)).not.toEqual(circle);
+    // No logo: the initial, as the studio shows it; a name with nothing to draw gets no circle rather than an empty disc.
+    expect(await googleLogoAsset("square", null, pass.brandColor, pass.merchantName)).toBe(circle);
+    expect(await googleLogoAsset("square", null, pass.brandColor, "★ & ✿")).toBeUndefined();
+    expect(await googleLogoAsset("square", logo, pass.brandColor, "★ & ✿")).toBeUndefined();
+  });
+
+  it("keeps a real black wordmark JPG on a light brand colour on both wallets: its white box carries it (ENG-153)", async () => {
+    const jpg = `data:image/jpeg;base64,${readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg")).toString("base64")}`;
+    expect(await appleLogoFromData(jpg, "#F2E8DC")).toBeDefined();
+    expect(await googleLogoAsset("wide", jpg, "#F2E8DC", pass.merchantName)).toBeDefined();
+  });
+
+  it("takes the initial from the first drawable letter, the same for the circle and the studio preview (ENG-153)", () => {
+    expect(["„Zur Linde“", "'s Eck", "Ølhus", "Öztürk", "1. FC Kebab", "&Co", "éclair", "1. Döner", "4711", "  ", "★"].map(initialOf))
+      .toEqual(["Z", "S", "L", "Ö", "F", "C", "E", "D", "4", "", ""]);
+  });
+
+  it("draws the shop's initial in the pass ink on the brand colour, accents folded, without any font installed (ENG-153)", async () => {
+    const rows = async (initial: string) => {
+      const { data } = await sharp(await initialLogo(initial, "#264C45")).raw().toBuffer({ resolveWithObject: true });
+      const inked: number[] = [];
+      for (let y = 0; y < 660; y++) for (let x = 0; x < 660; x++) if (data[(y * 660 + x) * 4] > 200) { inked.push(y); break; }
+      return [inked[0], inked.at(-1)!];
+    };
+    expect(await rows("K")).toEqual([198, 461]); // caps 264 px tall, centred
+    const [oTop, oBottom] = await rows("O");
+    const [umlautTop, umlautBottom] = await rows("Ö");
+    expect(umlautBottom).toBe(oBottom); // same size and baseline: the dots sit above, the letter does not shrink
+    expect(umlautTop).toBeLessThan(oTop - 30);
+    for (const initial of INITIAL_CHARACTERS) await expect(initialLogo(initial, "#264C45")).resolves.toBeInstanceOf(Buffer);
+    expect((await sharp(await initialLogo("K", "#264C45")).stats()).channels[0].max).toBe(255); // white on dark
+    expect((await sharp(await initialLogo("K", "#F2E9DC")).stats()).channels[0].min).toBeLessThan(30); // dark on light
   });
 });
 
@@ -485,6 +542,16 @@ describe("Google Wallet adapter", () => {
     expect(googleClass({ ...pass, googleLogoUrl: merchantLogoUrl }, config).programLogo.sourceUri.uri).toBe(merchantLogoUrl);
     expect(googleClass(pass, config).programLogo.sourceUri.uri).toBe(config.logoUrl);
     expect(() => googleClass({ ...pass, googleLogoUrl: "http://localhost:3000/logo.png" }, config)).toThrow("HTTPS");
+  });
+
+  it("sets wideProgramLogo only for a logo that is not square, keeping the circle for the initial (ENG-153)", () => {
+    const googleLogoUrl = "https://assets.example.test/api/wallet/assets/google-logo/cccccccc-cccc-4ccc-8ccc-cccccccccccc.png?v=0123456789abcdef";
+    const googleWideLogoUrl = "https://assets.example.test/api/wallet/assets/google-wide-logo/cccccccc-cccc-4ccc-8ccc-cccccccccccc.png?v=fedcba9876543210";
+    const cls = googleClass({ ...pass, googleLogoUrl, googleWideLogoUrl }, config);
+    expect(cls.programLogo.sourceUri.uri).toBe(googleLogoUrl);
+    expect(cls.wideProgramLogo).toEqual({ sourceUri: { uri: googleWideLogoUrl }, contentDescription: { defaultValue: { language: "de-DE", value: "Kasseler Kaffee Logo" } } });
+    expect("wideProgramLogo" in googleClass({ ...pass, googleLogoUrl }, config)).toBe(false);
+    expect(() => googleClass({ ...pass, googleLogoUrl, googleWideLogoUrl: "http://localhost:3000/wide.png" }, config)).toThrow("HTTPS");
   });
 
   it("signs a Save link that references the prepared object by id only (no scan code in the URL)", () => {

@@ -10,6 +10,7 @@ import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
 import { ownerWalletReadiness } from "./wallet/readiness";
 import { walletPassDataByMembershipId } from "./wallet/data";
 import { GET as getGoogleLogo } from "@/app/api/wallet/assets/google-logo/[programId]/route";
+import { GET as getGoogleWideLogo } from "@/app/api/wallet/assets/google-wide-logo/[programId]/route";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Brand tests require looplocal_test");
 // A 32 x 32 red square: big enough for the 16 px minimum; the save path stores it re-encoded (ENG-134).
@@ -118,6 +119,17 @@ describe("merchant brand editor", () => {
       expect(response.headers.get("content-type")).toBe("image/png");
       expect(Buffer.from(await response.arrayBuffer()).toString("hex", 0, 8)).toBe("89504e470d0a1a0a");
       expect((await getGoogleLogo(request, { params: Promise.resolve({ programId: `${randomUUID()}.png` }) })).status).toBe(404);
+      // ENG-153: a square logo has no wide asset; a wide one gets the 1280 x 400 PNG and the initial in the circle.
+      expect(pass.googleWideLogoUrl).toBeUndefined();
+      expect((await getGoogleWideLogo(request, routeContext)).status).toBe(404);
+      const wide = await sharp({ create: { width: 600, height: 150, channels: 4, background: "#ffffff" } }).png().toBuffer();
+      await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#2f6b58", logoData: `data:image/png;base64,${wide.toString("base64")}` });
+      const widePass = await walletPassDataByMembershipId(card.id);
+      expect(widePass.googleWideLogoUrl).toMatch(new RegExp(`/api/wallet/assets/google-wide-logo/${merchant.programId}\\.png\\?v=[0-9a-f]{16}$`));
+      const wideResponse = await getGoogleWideLogo(request, routeContext);
+      expect(wideResponse.status).toBe(200);
+      expect(await sharp(Buffer.from(await wideResponse.arrayBuffer())).metadata()).toMatchObject({ width: 1280, height: 400, hasAlpha: true });
+      expect(await sharp(Buffer.from(await (await getGoogleLogo(request, routeContext)).arrayBuffer())).metadata()).toMatchObject({ width: 660, height: 660 });
     } finally {
       if (previousEnabled === undefined) delete process.env.GOOGLE_WALLET_ASSET_ENABLED;
       else process.env.GOOGLE_WALLET_ASSET_ENABLED = previousEnabled;

@@ -34,7 +34,8 @@ function classReviewStatus(value: unknown): unknown {
 function comparableClassField(value: unknown): string | undefined {
   const normalize = (item: unknown): unknown => Array.isArray(item) ? item.map(normalize)
     : item && typeof item === "object" ? Object.fromEntries(Object.entries(item).filter(([key]) => key !== "kind").sort(([a], [b]) => a.localeCompare(b)).map(([key, field]) => [key, normalize(field)])) : item;
-  return JSON.stringify(normalize(value));
+  // A cleared field (null) compares equal to an absent one.
+  return value === null ? undefined : JSON.stringify(normalize(value));
 }
 
 function assertClassEligibility(current: Record<string, unknown>, id: string, config: GoogleConfig) {
@@ -97,7 +98,7 @@ function assertGoogleScope(pass: WalletBrand, config: Pick<GoogleConfig, "issuer
 export function googleClass(pass: WalletBrand, config: GoogleConfig) {
   assertGoogleScope(pass, config);
   const logoUrl = pass.googleLogoUrl ?? config.logoUrl;
-  if (new URL(logoUrl).protocol !== "https:") throw new Error("Google logo must use HTTPS");
+  if ([logoUrl, pass.googleWideLogoUrl ?? logoUrl].some(url => new URL(url).protocol !== "https:")) throw new Error("Google logo must use HTTPS");
   if (config.approvedDeviceTestLogoUrl !== undefined) {
     // Approval covers one program PNG path and its optional content revision,
     // not arbitrary programs or query parameters on the same asset origin.
@@ -109,6 +110,10 @@ export function googleClass(pass: WalletBrand, config: GoogleConfig) {
         || config.approvedDeviceTestLogoUrl !== `${approved.origin}${approved.pathname}`
         || (selected.search !== "" && !/^\?v=[0-9a-f]{16}$/.test(selected.search))
         || logoUrl !== `${config.approvedDeviceTestLogoUrl}${selected.search}`) throw new Error("Unapproved logo");
+      // The wide logo is the same programme's PNG on the sibling route, with its own revision.
+      const wide = pass.googleWideLogoUrl === undefined ? undefined : new URL(pass.googleWideLogoUrl);
+      if (wide && (!/^\?v=[0-9a-f]{16}$/.test(wide.search)
+        || pass.googleWideLogoUrl !== `${config.approvedDeviceTestLogoUrl.replace("/google-logo/", "/google-wide-logo/")}${wide.search}`)) throw new Error("Unapproved logo");
     } catch { throw new Error("Google device-test program or selected logo is outside the approved route"); }
   }
   const t = walletText(pass.locale);
@@ -119,6 +124,8 @@ export function googleClass(pass: WalletBrand, config: GoogleConfig) {
     programName: pass.programName,
     reviewStatus: "UNDER_REVIEW",
     programLogo: { sourceUri: { uri: logoUrl }, contentDescription: { defaultValue: { language, value: t.logoAlt(pass.merchantName) } } },
+    // A logo that is not square shows as itself in place of the circle; the circle keeps the initial for Google's small marks.
+    ...(pass.googleWideLogoUrl ? { wideProgramLogo: { sourceUri: { uri: pass.googleWideLogoUrl }, contentDescription: { defaultValue: { language, value: t.logoAlt(pass.merchantName) } } } } : {}),
     countryCode: pass.country,
     hexBackgroundColor: pass.brandColor,
     // A loyalty card belongs to one person; Google must not offer to hand it to another account.
@@ -237,12 +244,13 @@ export class GoogleWalletClient {
       const current = await classGet.json() as Record<string, unknown>;
       assertClassEligibility(current, cls.id, config);
       const patch: Record<string, unknown> = {};
-      for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "merchantLocations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
+      for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "wideProgramLogo", "merchantLocations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
         const observed = key === "multipleDevicesAndHoldersAllowedStatus"
           ? ({ oneUserAllDevices: "ONE_USER_ALL_DEVICES", oneUserOneDevice: "ONE_USER_ONE_DEVICE", multipleHolders: "MULTIPLE_HOLDERS" } as Record<string, string>)[String(current[key])] ?? current[key] : current[key];
         if (comparableClassField(observed) !== comparableClassField(cls[key as keyof typeof cls])) {
           const value = cls[key as keyof typeof cls];
-          if (value !== undefined) patch[key] = value;
+          // A logo changed to square must drop the wide one, which Google clears on a PATCH with null.
+          if (value !== undefined || key === "wideProgramLogo") patch[key] = value ?? null;
         }
       }
       if (Object.keys(patch).length) {
