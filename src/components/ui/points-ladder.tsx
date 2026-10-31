@@ -18,6 +18,8 @@ export const TITLE_FLOOR = 72;
 /** The edge markers' labels may reach this far past the track's ends (the ladder's inset). */
 const EDGE = 14;
 const GAP = 8;
+/** Half a price label's width under its marker. */
+const PRICE = 12;
 /** Before the page measures: about the track of a card on a 375 px phone, and Manrope 14/650's average letter. */
 const DEFAULT_TRACK = 260;
 const estimate = (title: string) => Math.ceil(Array.from(title).length * 7.6);
@@ -39,10 +41,11 @@ const rank = (at: number) => (at === 1 ? 0 : at < START_ALIGN ? 1 : 2);
  * marker) takes what it needs first and never yields, then the start-aligned name, then the middle ones from the right.
  * A name gets what it needs where that fits beside the names already placed, else the room left; below TITLE_FLOOR it
  * is hidden (null) and its cost stays. A middle name may slide sideways (`shift`) within its free stretch, as long as it
- * still sits under its marker. The ellipsis is the last resort, for a goal wider than the whole track.
+ * still sits under its marker. The ellipsis is the last resort, for a goal wider than the whole track. A price under
+ * another reward's shown name is hidden too (`covered`), so no price reads as that name's; its dot stays.
  */
-export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, track: number, needs: number[]): Array<{ width: number; shift: number } | null> {
-  const placed: Array<[number, number]> = [];
+export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, track: number, needs: number[]): { titles: Array<{ width: number; shift: number } | null>; covered: boolean[] } {
+  const placed: Array<[number, number, number]> = [];
   const result: Array<{ width: number; shift: number } | null> = marks.map(() => null);
   const order = marks.map((_, i) => i).filter((i) => !marks[i].hideLabel).sort((a, b) => rank(marks[a].at) - rank(marks[b].at) || marks[b].at - marks[a].at);
   for (const i of order) {
@@ -59,9 +62,10 @@ export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, tr
     const shift = at === 1 || at < START_ALIGN ? 0 : from - (x - width / 2);
     if (Math.abs(shift) > width / 2 - GAP) continue;
     result[i] = { width, shift };
-    placed.push([from, from + width]);
+    placed.push([from, from + width, i]);
   }
-  return result;
+  const covered = marks.map((m, j) => m.at !== 1 && placed.some(([l, r, i]) => i !== j && l < m.at * track + PRICE && r > m.at * track - PRICE));
+  return { titles: result, covered };
 }
 
 /** One track to the most expensive reward; a marker per reward becomes a pressed mark once affordable. */
@@ -77,11 +81,14 @@ export function PointsLadder({ balance, rewards, locale = "de", titles = false, 
     const context = document.createElement("canvas").getContext("2d");
     const measure = () => {
       const names = [...el.querySelectorAll<HTMLElement>("[data-title]")];
-      setMeasured({ track: el.clientWidth, needs: names.map((n) => {
+      const next = { track: el.clientWidth, needs: names.map((n) => {
         if (!context) return estimate(n.textContent ?? "");
-        context.font = getComputedStyle(n).font;
+        // Longhands: an engine may return the `font` shorthand empty.
+        const style = getComputedStyle(n);
+        context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
         return Math.ceil(context.measureText(n.textContent ?? "").width) + 1;
-      }) });
+      }) };
+      setMeasured((last) => last && last.track === next.track && last.needs.join() === next.needs.join() ? last : next);
     };
     measure();
     // Names measured in the fallback font are too wide; measure again whenever a web font finishes loading.
@@ -90,19 +97,22 @@ export function PointsLadder({ balance, rewards, locale = "de", titles = false, 
     document.fonts?.addEventListener("loadingdone", measure);
     const observer = new ResizeObserver(measure);
     observer.observe(el);
+    // A text-size change at the same width (Safari's text zoom, a larger browser font) resizes the names, not the track.
+    const name = el.querySelector("small");
+    if (name) observer.observe(name);
     return () => { live = false; document.fonts?.removeEventListener("loadingdone", measure); observer.disconnect(); };
   }, [titles, key]);
   if (!rewards.length) return null;
   const max = Math.max(1, sorted.at(-1)?.cost ?? 1);
   const marks = ladderMarks(sorted, max, balance);
-  const layout = titles ? titleLayout(marks, measured?.track ?? DEFAULT_TRACK, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title))) : [];
+  const layout = titles ? titleLayout(marks, measured?.track ?? DEFAULT_TRACK, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title))) : null;
   const label = locale === "fr" ? `${withUnit(balance, "points", "fr")} sur ${max}` : `${balance} von ${withUnit(max, "points", "de", "dat")}`;
   return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
-    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
+    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
       <span className={styles.dot}>{m.reached ? <Check size={14} strokeWidth={3} /> : null}</span>
       <small className={styles.cost}>{m.cost}</small>
-      {titles ? <small className={styles.title} data-title style={{ "--room": `${layout[i]?.width ?? 0}px`, "--shift": `${layout[i]?.shift ?? 0}px` } as CSSProperties} data-title-hidden={layout[i] === null || undefined}>{m.title}</small> : null}
+      {titles ? <small className={styles.title} data-title style={{ "--room": `${layout?.titles[i]?.width ?? 0}px`, "--shift": `${layout?.titles[i]?.shift ?? 0}px` } as CSSProperties} data-title-hidden={!layout?.titles[i] || undefined}>{m.title}</small> : null}
     </span>)}
   </div>;
 }

@@ -8,7 +8,7 @@
 .dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
 .mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
 .cost { font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
-.mark[data-label-hidden] .cost, .mark[data-label-hidden] .title, .title[data-title-hidden] { visibility: hidden; }
+.mark[data-label-hidden] .cost, .mark[data-label-hidden] .title, .title[data-title-hidden], .mark[data-price-hidden] .cost { visibility: hidden; }
 .ladder[data-titles] { height: 80px; }
 .ladder[data-titles] .mark { gap: 4px; }
 /* --room: the width titleLayout gives this name; a hidden name keeps its cost. */
