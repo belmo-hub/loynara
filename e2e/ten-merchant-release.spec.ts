@@ -26,7 +26,7 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     const unit = program.programType === "stamp" ? "Stempel" : "Punkte";
 
     await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
-    await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "E-Mail-Adresse" })).toHaveCount(0);
     await expect(page.getByRole("checkbox")).toHaveCount(1);
     await page.getByRole("checkbox").first().check();

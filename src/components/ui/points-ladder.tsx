@@ -11,6 +11,8 @@ type Props = { balance: number; rewards: Reward[]; locale?: "de" | "fr"; titles?
 const MIN_LABEL_GAP = 0.14;
 /** Named markers need room for a short reward name. */
 const MIN_TITLE_GAP = 0.34;
+/** Markers this close to the start align their labels to it (as the last one does to the end). */
+const START_ALIGN = 0.25;
 
 /** Marker positions (0..1) and which labels to hide so neighbours never collide. */
 export function ladderMarks(sorted: Reward[], max: number, balance: number, gap = MIN_LABEL_GAP) {
@@ -31,7 +33,7 @@ export function PointsLadder({ balance, rewards, locale = "de", titles = false, 
   const label = locale === "fr" ? `${withUnit(balance, "points", "fr")} sur ${max}` : `${balance} von ${withUnit(max, "points", "de", "dat")}`;
   return <div className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
-    {marks.map((m) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-end={m.at === 1 || undefined}>
+    {marks.map((m) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
       <span className={styles.dot}>{m.reached ? <Check size={14} strokeWidth={3} /> : null}</span>
       <small className={styles.cost}>{m.cost}</small>
       {titles ? <small className={styles.title}>{m.title}</small> : null}

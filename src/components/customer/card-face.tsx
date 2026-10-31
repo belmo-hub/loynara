@@ -27,7 +27,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
   landed?: number; locale?: "de" | "fr";
   /** The line to the selected reward; the guest's card page states it once, above the card, and passes false. */
   progress?: boolean;
-  /** The shop's name on the card; the guest's card page has it in its header and passes false (the location stays when it differs). */
+  /** The shop's name on the card, as on the pass the cashier sees; false shows only the location when it differs. */
   business?: boolean;
   /** The card's level (Bronze, Silber, Gold) in the top corner; the guest's page shows its ready band instead of the ready tag. */
   tag?: string; className?: string; children?: ReactNode;
