@@ -8,6 +8,7 @@ const MAX_LOGO_PIXELS = 25_000_000;
 // Analysis runs on at most 2048 x 2048, the 16.8 MB RGBA budget logo.ts used, whatever the upload's size.
 const WORK_MAX = 2048;
 const STORED_MAX = 1280;
+const WHITE = { r: 255, g: 255, b: 255 };
 const INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.";
 const UNREADABLE = "Dieses Bild können wir nicht lesen. Speichere es neu als PNG und wähle es erneut.";
 const TOO_SMALL = "Dieses Bild ist zu klein. Wähle eine größere Version deines Logos.";
@@ -45,21 +46,28 @@ export function logoBytes(value: string | null | undefined): Buffer | null {
 export async function checkedLogoUpload(value: string): Promise<string> {
   const bytes = logoBytes(value);
   if (!bytes) throw new DomainError("INVALID_LOGO", INVALID);
-  try { return `data:image/png;base64,${(await trimmedLogo(bytes)).toString("base64")}`; }
+  try { return `data:image/png;base64,${(await trimmedLogo(bytes)).png.toString("base64")}`; }
   catch (error) { throw new DomainError("INVALID_LOGO", error instanceof TooSmall ? TOO_SMALL : UNREADABLE); }
 }
 
-async function trimmedLogo(bytes: Buffer): Promise<Buffer> {
+/**
+ * whiteCanvas: an opaque upload lost a white margin, so it is a logo on a white canvas (a JPG wordmark, typically). The
+ * result keeps a 1 px white edge then, so the stored PNG still says so when a pass is built from it.
+ */
+async function trimmedLogo(bytes: Buffer): Promise<{ png: Buffer; whiteCanvas: boolean }> {
   const { width = 0, height = 0 } = await sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).metadata();
   if (width < 16 || height < 16) throw new TooSmall("Logo too small");
-  const work = await sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).rotate()
-    .resize(WORK_MAX, WORK_MAX, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+  const { data: work, info } = await sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).rotate()
+    .resize(WORK_MAX, WORK_MAX, { fit: "inside", withoutEnlargement: true }).png().toBuffer({ resolveWithObject: true });
   const input = () => sharp(work);
   const { isOpaque } = await input().stats();
   // Transparent margins go; on an opaque image only a white canvas does, so a logo's own coloured box stays whole.
-  const trimmed = isOpaque ? await input().trim({ background: { r: 255, g: 255, b: 255 }, threshold: 15 }).png().toBuffer()
-    : await input().extract(await visibleBox(input())).png().toBuffer();
-  return sharp(trimmed).resize(STORED_MAX, STORED_MAX, { fit: "inside", withoutEnlargement: true }).png({ compressionLevel: 9 }).toBuffer();
+  const trimmed = isOpaque ? await input().trim({ background: WHITE, threshold: 15 }).png().toBuffer({ resolveWithObject: true })
+    : await input().extract(await visibleBox(input())).png().toBuffer({ resolveWithObject: true });
+  const whiteCanvas = isOpaque && (trimmed.info.width < info.width || trimmed.info.height < info.height);
+  const stored = sharp(trimmed.data).resize(STORED_MAX, STORED_MAX, { fit: "inside", withoutEnlargement: true });
+  return { png: await (whiteCanvas ? sharp(await stored.png().toBuffer()).extend({ top: 1, bottom: 1, left: 1, right: 1, background: WHITE }) : stored)
+    .png({ compressionLevel: 9 }).toBuffer(), whiteCanvas };
 }
 
 /** The bounding box of the visible pixels; sharp's own trim compares colour too, and transparent pixels carry any colour. */
@@ -85,30 +93,17 @@ function lab(rgb: number[]) {
 const deltaE = (a: number[], b: number[]) => Math.hypot(...lab(a).map((value, i) => value - lab(b)[i]));
 const hexRgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 
-/** The mean colour of the most common border colour (16 levels per channel), so a few glyph pixels at the edge don't decide it. */
-function borderColour(pixel: (x: number, y: number) => number[], lastX: number, lastY: number): number[] {
-  const groups = new Map<number, number[][]>();
-  const add = (x: number, y: number) => {
-    const p = pixel(x, y), key = (p[0] >> 4) << 8 | (p[1] >> 4) << 4 | p[2] >> 4;
-    (groups.get(key) ?? groups.set(key, []).get(key)!).push(p);
-  };
-  for (let x = 0; x <= lastX; x++) { add(x, 0); add(x, lastY); }
-  for (let y = 1; y < lastY; y++) { add(0, y); add(lastX, y); }
-  const common = [...groups.values()].reduce((a, b) => b.length > a.length ? b : a);
-  return [0, 1, 2].map(i => common.reduce((sum, p) => sum + p[i], 0) / common.length);
-}
-
 /** Every Wallet output for one stored logo (any of the three upload types). Deterministic for the same bytes and colour. */
 export async function processMerchantLogo(bytes: Buffer, brandColor: string): Promise<ProcessedLogo> {
-  const trimmed = await trimmedLogo(bytes);
+  const { png: trimmed, whiteCanvas } = await trimmedLogo(bytes);
   const { data, info } = await sharp(trimmed).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const pixel = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4));
   const [lastX, lastY] = [info.width - 1, info.height - 1];
   const corners = [pixel(0, 0), pixel(lastX, 0), pixel(0, lastY), pixel(lastX, lastY)];
   const hex = (rgb: number[]) => `#${rgb.slice(0, 3).map(c => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
-  // An opaque upload (a JPG wordmark on white) is its own box even where a glyph reaches a corner: the box is the colour
-  // most of its border shares. A logo with transparency is boxed only when its four corners are one opaque colour.
-  const box = (await sharp(trimmed).stats()).isOpaque ? hex(borderColour(pixel, lastX, lastY))
+  // A logo on a white canvas is boxed in white even where a glyph reaches a corner; any other logo is boxed only when its
+  // four corners are one opaque colour (its own square or frame).
+  const box = whiteCanvas ? "#ffffff"
     : corners.every(c => c[3] >= 250) && corners.every(c => corners.every(d => deltaE(c, d) < 5)) ? hex(corners[0]) : undefined;
   const boxed = Boolean(box);
   // shortcut: mean luminance of the opaque pixels, which overrates a two-colour logo; per-region contrast if owners hit it.
@@ -117,9 +112,9 @@ export async function processMerchantLogo(bytes: Buffer, brandColor: string): Pr
   const [logoLum, brandLum] = [count ? sum / count : 0, luminance(hexRgb(brandColor))];
   const contrast = (Math.max(logoLum, brandLum) + 0.05) / (Math.min(logoLum, brandLum) + 0.05);
   const ratio = info.width / info.height;
-  // A logo on its own box (a JPG wordmark on white, typically) is trimmed to its glyphs; give it back a margin in the box colour.
-  const pad = box ? Math.round(info.height * 0.12) : 0;
-  const source = box ? await sharp(trimmed).extend({ top: pad, bottom: pad, left: pad, right: pad, background: box }).png().toBuffer() : trimmed;
+  // The white canvas was trimmed to the glyphs: give it back a margin. A logo's own box or frame keeps its own edge.
+  const pad = whiteCanvas ? Math.round(info.height * 0.12) : 0;
+  const source = pad ? await sharp(trimmed).extend({ top: pad, bottom: pad, left: pad, right: pad, background: WHITE }).png().toBuffer() : trimmed;
   const [width, height] = [info.width + 2 * pad, info.height + 2 * pad];
   const fit = Math.min(160 / width, 50 / height);
   // Fit Apple's slot without padding, so Wallet draws it at full slot height or width; never more than 2x the source.

@@ -52,9 +52,9 @@ describe("processMerchantLogo: every logo keeps its own shape (ENG-134)", () => 
     expect(await Promise.all(logo.icon!.map(size))).toEqual([[29, 29], [58, 58], [87, 87]]);
   });
 
-  it("keeps a wide logo with its own box a rectangle, with a margin of its box colour (ENG-153)", async () => {
+  it("keeps a wide logo with its own box a rectangle, its own edge unpadded", async () => {
     const logo = await processMerchantLogo(await wideOpaque(), TAPPI_RED);
-    expect(await size(logo.wallet.png1x)).toEqual([131, 50]); // 600 x 200 plus 24 px of box on every side
+    expect(await size(logo.wallet.png1x)).toEqual([150, 50]);
     expect(logo.meta).toMatchObject({ ratio: 3, boxed: true, box: "#dd0000", showName: true });
     expect(await alphaAt(logo.wallet.png1x, 0, 0)).toBe(255);
   });
@@ -90,10 +90,10 @@ describe("processMerchantLogo: every logo keeps its own shape (ENG-134)", () => 
 
   it("accepts a 16 px PNG, never upscaling past 2x, and fits an 8:1 banner by its width", async () => {
     const tiny = await processMerchantLogo(await png(16, 16, `<rect width="16" height="16" fill="#123"/>`), TAPPI_RED);
-    expect(await size(tiny.wallet.png3x)).toEqual([40, 40]); // 16 px box plus its 2 px margin, at 2x
+    expect(await size(tiny.wallet.png3x)).toEqual([32, 32]);
     expect(tiny.meta.upscaled).toBe(true);
     const banner = await processMerchantLogo(await png(1600, 200, `<rect width="1600" height="200" fill="#123"/>`), TAPPI_RED);
-    expect(await size(banner.wallet.png1x)).toEqual([160, 24]);
+    expect(await size(banner.wallet.png1x)).toEqual([160, 20]);
   });
 });
 
@@ -148,17 +148,33 @@ describe("processMerchantLogo: Google gets each logo in its own shape (ENG-153)"
     expect(await pixel(square660(small)!, 330, 228)).toEqual([0xB3, 0x26, 0x1E, 255]); // 200 px, not 462
   });
 
-  it("keeps a boxed wide logo's box, now with a margin", async () => {
+  it("keeps a boxed wide logo's box, edge to edge", async () => {
     const banner = wide(await processMerchantLogo(await wideOpaque(), TAPPI_RED))!;
     expect(await pixel(banner, 0, 0)).toEqual([0xdd, 0, 0, 255]);
-    expect(await pixel(banner, 30, 200)).toEqual([0xdd, 0, 0, 255]); // margin before the white bar starts
-    expect((await pixel(banner, 1100, 200))[3]).toBe(0);
+    expect(await pixel(banner, 1199, 399)).toEqual([0xdd, 0, 0, 255]); // 600 x 200 at the 2x cap
+    expect((await pixel(banner, 1201, 200))[3]).toBe(0);
+  });
+
+  it("leaves an opaque photo and a logo's own coloured frame alone: no box colour invented, no frame added", async () => {
+    const photo = await processMerchantLogo(await svg(600, 300, `<rect width="600" height="150" fill="#7EC8F0"/><rect y="150" width="600" height="150" fill="#3C8D2F"/>`).jpeg().toBuffer(), TAPPI_RED);
+    expect(photo.meta).toMatchObject({ boxed: false });
+    expect(photo.meta.box).toBeUndefined();
+    expect((await pixel(photo.wallet.png3x, 0, 0))[2]).toBeGreaterThan(200); // the sky reaches the edge, no green frame
+    expect((await pixel(wide(photo)!, 0, 0))[2]).toBeGreaterThan(200);
+    const framed = await processMerchantLogo(await svg(600, 200, `<rect width="600" height="200" fill="#C62828"/><rect x="20" y="20" width="560" height="160" fill="#fff"/><rect x="200" y="80" width="200" height="40" fill="#111"/>`).jpeg({ quality: 95 }).toBuffer(), TAPPI_RED);
+    expect(framed.meta).toMatchObject({ boxed: true });
+    // @3x is 450 x 150 (x 0.75): the 20 px frame stays 15 px, not thicker.
+    expect(await size(framed.wallet.png3x)).toEqual([450, 150]);
+    expect((await pixel(framed.wallet.png3x, 11, 75))[1]).toBeLessThan(80);
+    expect((await pixel(framed.wallet.png3x, 18, 75))[1]).toBeGreaterThan(220);
   });
 
   it("gives a real black wordmark JPG on white its white box and margin, even where the K reaches the trimmed corner", async () => {
-    const logo = await processMerchantLogo(readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg")), "#F2E8DC");
+    // As in production: the save stores the trimmed PNG, and every pass is built from that.
+    const stored = await checkedLogoUpload(dataUrl("image/jpeg", readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg"))));
+    const logo = await processMerchantLogo(logoBytes(stored)!, "#F2E8DC");
     expect(logo.meta.boxed).toBe(true);
-    expect(logo.meta.box).toMatch(/^#f[a-f0-9]f[a-f0-9]f[a-f0-9]$/);
+    expect(logo.meta.box).toBe("#ffffff");
     const [, height] = await size(logo.wallet.png3x);
     expect((await pixel(logo.wallet.png3x, 1, Math.round(height! / 2))).slice(0, 3).every(c => c > 240)).toBe(true); // white, not the K
     expect((await pixel(wide(logo)!, 2, 200)).slice(0, 3).every(c => c > 240)).toBe(true);
