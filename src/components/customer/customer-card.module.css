@@ -56,7 +56,7 @@
 .walletButtons { display: grid; gap: var(--space-2); }
 .walletButton { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: #111111; color: #FFFFFF; font: var(--weight-label) var(--text-16)/1.2 var(--font-sans); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .walletButton:active:not(:disabled) { transform: scale(.98); }
-.walletButton:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.walletButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .walletButton:disabled { cursor: progress; opacity: .7; }
 .walletButton:global(.wallet-add--google) { padding: 0; background: transparent; }
 .walletButton img { display: block; height: 52px; width: auto; }
@@ -66,7 +66,7 @@
 .rewardRow:first-child { border-top: 0; }
 .rewardRow[aria-pressed="true"] { border-radius: var(--radius-md); background: var(--color-action-soft); }
 .rewardRow[aria-pressed="true"] + .rewardRow { border-top-color: transparent; }
-.rewardRow:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; border-radius: var(--radius-md); }
+.rewardRow:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: var(--radius-md); }
 .rewardText { display: grid; min-width: 0; }
 .rewardText strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .rewardText small { font-size: var(--text-14); color: var(--color-ink-muted); }
@@ -92,7 +92,7 @@
 .close { display: grid; justify-items: center; gap: var(--space-3); }
 .closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0 var(--space-3); border: 0; background: transparent; color: var(--color-ink-muted); font: var(--weight-label) var(--text-14)/1 var(--font-sans); cursor: pointer; }
 .closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
-.closeToggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .closeConfirm { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
 .closeConfirm p { margin: 0; }
 .footer { margin: 0; text-align: center; }

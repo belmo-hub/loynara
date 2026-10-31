@@ -8,7 +8,7 @@
 .leaving { opacity: 0; transform: translateY(6px); transition-duration: 160ms; }
 .icon { flex: none; }
 .success .icon { color: color-mix(in oklab, var(--color-success), var(--color-bg) 55%); }
-.error { background: var(--color-danger); color: var(--color-raised); }
+.error { background: var(--color-danger); color: var(--color-on-danger); }
 .message { flex: 1; font-size: var(--text-16); font-weight: var(--weight-label); line-height: 1.35; }
 .close { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); border: 0; border-radius: var(--radius-pill); background: transparent; color: inherit; opacity: .8; cursor: pointer; }
 .close:focus-visible { outline: 3px solid currentColor; outline-offset: -4px; }
