@@ -224,3 +224,12 @@ describe("changes waiting for their date (ENG-100 U3)", () => {
     expect(readFileSync("src/components/card-client.tsx", "utf8")).toMatch(/changes=\{cardChanges\(\{[^}]*rewards: card\.rewards, pending: card\.pending, pendingExpiry: card\.pendingExpiry \}\)\}/);
   });
 });
+
+describe("ladder names never run into each other (Design round 2)", () => {
+  it("gives each shown name the stretch up to the midpoints with its neighbours", async () => {
+    const { titleRooms } = await import("@/components/ui/points-ladder");
+    const [early, , last] = titleRooms([{ at: 0.08, hideLabel: false }, { at: 0.4, hideLabel: true }, { at: 1, hideLabel: false }]);
+    expect(early + last).toBeCloseTo(0.92);
+    titleRooms([{ at: 0.3, hideLabel: false }, { at: 0.7, hideLabel: false }, { at: 1, hideLabel: false }]).forEach((room, i) => expect(room).toBeCloseTo([0.4, 0.3, 0.15][i]));
+  });
+});

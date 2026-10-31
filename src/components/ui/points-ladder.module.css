@@ -9,14 +9,13 @@
 .mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
 .cost { font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .mark[data-label-hidden] .cost, .mark[data-label-hidden] .title { visibility: hidden; }
-.ladder[data-titles] { height: 80px; }
+.ladder[data-titles] { height: 80px; container-type: inline-size; }
 .ladder[data-titles] .mark { gap: 4px; }
-.title { max-width: 8.5rem; overflow: hidden; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-/* The last marker sits at the track's end: its labels align to the right edge instead of hanging past it. */
+.title { max-width: min(12rem, calc(var(--room) * 100cqi - 8px)); overflow: hidden; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 /* Three classes, so owner.css „.owner-app :is(p, small …) { text-wrap: pretty }“ cannot wrap the name in the studio. */
 .ladder[data-titles] .title { text-wrap: nowrap; }
+/* The last marker sits at the track's end: its labels align to the right edge instead of hanging past it. */
 .mark[data-end] { justify-items: end; transform: translateX(calc(-100% + 14px)); }
 /* An early marker mirrors that at the track's start, so a cheap reward's long name stays inside the card. */
 .mark[data-start] { justify-items: start; transform: translateX(-14px); }
-.mark[data-end] .title { max-width: min(12rem, 60vw); }
 @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
