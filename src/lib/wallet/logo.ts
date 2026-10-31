@@ -5,20 +5,24 @@ import type { AppleLogo } from "./types";
 
 const programIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const processed = new Map<string, Promise<ProcessedLogo | null>>();
+/** Processing is deterministic, so each process keeps the last 64 results instead of redoing them for every pass download. */
+function remembered<T>(cache: Map<string, Promise<T>>, key: string, make: () => Promise<T>): Promise<T> {
+  let result = cache.get(key);
+  if (!result) {
+    result = make();
+    cache.set(key, result);
+    if (cache.size > 64) cache.delete(cache.keys().next().value!);
+  }
+  return result;
+}
 
-/** Processing is deterministic, so each process keeps the last few results instead of redoing them for every pass download. */
+const processed = new Map<string, Promise<ProcessedLogo | null>>();
+const initials = new Map<string, Promise<Buffer>>();
+
 function processedLogo(logoData: string | null | undefined, brandColor: string): Promise<ProcessedLogo | null> {
   const bytes = logoBytes(logoData);
   if (!bytes) return Promise.resolve(null);
-  const key = `${createHash("sha256").update(bytes).digest("hex")}:${brandColor.toLowerCase()}`;
-  let result = processed.get(key);
-  if (!result) {
-    result = processMerchantLogo(bytes, brandColor).catch(() => null);
-    processed.set(key, result);
-    if (processed.size > 64) processed.delete(processed.keys().next().value!);
-  }
-  return result;
+  return remembered(processed, `${createHash("sha256").update(bytes).digest("hex")}:${brandColor.toLowerCase()}`, () => processMerchantLogo(bytes, brandColor).catch(() => null));
 }
 
 const faint = (logo: ProcessedLogo) => !logo.meta.boxed && logo.meta.contrast < 3;
@@ -57,7 +61,7 @@ export async function googleLogoAsset(kind: "square" | "wide", logoData: string 
   if (!logo) return undefined;
   const shown = faint(logo) ? undefined : logo.google;
   if (kind === "wide") return shown && "wide" in shown ? shown.wide : undefined;
-  return shown && "square660" in shown ? shown.square660 : initialLogo(merchantName, brandColor);
+  return shown && "square660" in shown ? shown.square660 : remembered(initials, `${merchantName}\0${brandColor.toLowerCase()}`, () => initialLogo(merchantName, brandColor));
 }
 
 /** Versioned asset URLs for the Google class, each with a hash of its own PNG; none without an approved HTTPS asset origin. */

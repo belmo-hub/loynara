@@ -447,6 +447,7 @@ describe("merchant logo handling", () => {
     const logo = await wordmark();
     const circle = await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName);
     expect(circle).toEqual(await initialLogo(pass.merchantName, pass.brandColor));
+    expect(await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName)).toBe(circle); // drawn once, then remembered
     expect(await size(circle)).toEqual([660, 660]);
     expect(await size(await googleLogoAsset("wide", logo, pass.brandColor, pass.merchantName))).toEqual([1280, 400]);
     const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");

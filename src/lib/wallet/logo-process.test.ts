@@ -152,6 +152,13 @@ describe("checkedLogoUpload: one check for both save paths", () => {
     }
   }, 30_000);
 
+  it("refuses a valid PNG over the 25 MP decode cap, however small the file (ENG-153: the only decode guard on the public Google routes)", async () => {
+    const bytes = await sharp({ create: { width: 5001, height: 5001, channels: 3, background: "#808080" } }).greyscale().png({ compressionLevel: 9 }).toBuffer();
+    expect(bytes.length).toBeLessThan(100_000);
+    await expect(processMerchantLogo(bytes, TAPPI_RED)).rejects.toThrow(/pixel limit/i);
+    await expect(checkedLogoUpload(dataUrl("image/png", bytes))).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  }, 30_000);
+
   it("rejects a renamed JPEG, an oversized file, a tiny image and garbage with INVALID_LOGO in German", async () => {
     const jpeg = await svg(300, 300, `<rect width="300" height="300" fill="#123"/>`).jpeg().toBuffer();
     const oversized = Buffer.concat([await png(32, 32, `<rect width="32" height="32"/>`), Buffer.alloc(2_000_001)]);
