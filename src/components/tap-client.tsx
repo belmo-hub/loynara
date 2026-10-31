@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
 import { Gift, TriangleAlert } from "lucide-react";
@@ -170,6 +171,22 @@ export function TapClient({ refId }: { refId: string }) {
   }, [preview, recoveryCard, done, waiting]);
 
   const celebrate = moment && done;
+  const router = useRouter();
+  const cardRef = useRef<HTMLDivElement>(null);
+  // An Apple add started from the band while waiting (ENG-160).
+  const [walletAdding, setWalletAdding] = useState(false);
+  // The stamp lands above a customer who scrolled down to the band: bring the heading and the card into view (Design, 31 Oct).
+  // Not while Apple's sheet is up; the card page takes over then.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!celebrate || walletAdding || !el || el.getBoundingClientRect().top >= 0) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    (el.closest(".card-state-page")?.querySelector("h1") ?? el).scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+  }, [celebrate, walletAdding]);
+  // A stamp landing after an add started while waiting goes to the card, as ENG-130's step does after Apple's sheet.
+  useEffect(() => {
+    if (done && walletAdding && preview?.cardPath) router.replace(preview.cardPath);
+  }, [done, walletAdding, preview, router]);
   const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
   // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";
@@ -180,7 +197,7 @@ export function TapClient({ refId }: { refId: string }) {
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
     {/* A points visit's amount depends on what the cashier entered, so the booked state says what it brought (CTO, 31 Oct). */}
     {done && points && result?.credited ? <p className={styles.credited}><span>+{result.credited}</span> {result.credited === 1 ? "Punkt" : "Punkte"}</p> : null}
-    {done && card && typeof result?.balance === "number" && <div className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
+    {done && card && typeof result?.balance === "number" && <div ref={cardRef} className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
     {number && waiting && <div className={styles.number}>
       <p><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{number}</strong></p>
       <p className={styles.note}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>
@@ -197,7 +214,7 @@ export function TapClient({ refId }: { refId: string }) {
     </div>}
     {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
     {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
-    {walletProgram && recoveryCard && <WalletStep band token={recoveryCard} program={walletProgram} />}
+    {walletProgram && recoveryCard && <WalletStep band stay={waiting} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerState>;
 }

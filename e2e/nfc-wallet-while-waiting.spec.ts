@@ -1,57 +1,83 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import { MASTER, merchantWithTag, pathOf, resetPeerLimits } from "./nfc-support";
 
-// ENG-160 (founder, 31 Oct): after an NFC join on an iPhone, the Wallet offer shows while the customer waits for the team,
-// stays on the tap page, and stays once (not twice) when the stamp is then confirmed.
+// ENG-160 (founder, 31 Oct): after an NFC join on an iPhone, the Wallet offer shows while the customer waits for the team.
+// While waiting, Apple's sheet leaves the customer on the tap page; once the stamp has landed, the card page takes over
+// as in ENG-130. A stamp landing above a customer scrolled down to the band is brought into view (Design, 31 Oct).
 test.skip(!MASTER, "Run only against a server configured with the synthetic derived NFC provider (E2E_NFC_VERIFY_MASTER)");
 test.beforeEach(async () => { await resetPeerLimits(); });
 
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+const BAND = "Deine Karte ist fertig. Leg sie in Apple Wallet.";
 
-test("the Wallet band shows while waiting for the team and stays once after the stamp lands", async ({ baseURL, browser }) => {
-  const url = baseURL ?? "http://localhost:3000";
+/** A fresh shop and an iPhone guest who joined from the plate and now waits for the team, with the band showing. */
+async function waitingGuest(browser: Browser, url: string) {
   const m = await merchantWithTag(url);
+  const customer = await browser.newContext({ baseURL: url, userAgent: IPHONE, viewport: { width: 390, height: 844 } });
+  // No Apple Wallet credentials run in CI: only the location's availability flag and Apple's pass are stand-ins; join,
+  // tap and confirmation stay real.
+  await customer.route(/\/api\/program\/[^/?]+$/, async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), appleWallet: true } });
+  });
+  await customer.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }));
+  await customer.route("**/api/wallet/apple/download/synthetic-ticket", route => route.fulfill({ contentType: "application/vnd.apple.pkpass", body: Buffer.from("synthetic pass") }));
+  const page = await customer.newPage();
+  await page.goto(pathOf(m.nextUrl()));
+  await page.getByRole("link", { name: "Karte erstellen", exact: true }).click();
+  await page.getByRole("checkbox").first().check();
+  await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
+  await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: BAND })).toBeVisible({ timeout: 15_000 });
+  expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
+  const confirm = async () => {
+    const cashier = await browser.newContext({ baseURL: url, storageState: await m.cashier.storageState() });
+    const counter = await cashier.newPage();
+    await counter.goto("/cashier");
+    await counter.getByRole("button", { name: "Stempel bestätigen", exact: true }).click({ timeout: 15_000 });
+    return cashier;
+  };
+  return { m, customer, page, confirm };
+}
+const addToWallet = (page: Page) => page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" }).click();
+
+test("scrolled down to the band, the confirmed stamp comes into view and the band stays once", async ({ baseURL, browser }) => {
+  const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
   try {
-    const customer = await browser.newContext({ baseURL: url, userAgent: IPHONE, viewport: { width: 390, height: 844 } });
-    // No Apple Wallet credentials run in CI: only the location's availability flag is presented as on; join, tap and
-    // confirmation stay real.
-    await customer.route(/\/api\/program\/[^/?]+$/, async route => {
-      const response = await route.fetch();
-      await route.fulfill({ response, json: { ...(await response.json()), appleWallet: true } });
-    });
-    const page = await customer.newPage();
-    await page.goto(pathOf(m.nextUrl()));
-    await page.getByRole("link", { name: "Karte erstellen", exact: true }).click();
-    await page.getByRole("checkbox").first().check();
-    await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
-
-    // Waiting: the band is already there, and the page stays the tap page.
-    await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
-    const band = page.getByRole("heading", { name: "Deine Karte ist fertig. Leg sie in Apple Wallet." });
-    await expect(band).toBeVisible({ timeout: 15_000 });
+    // Read down past the band to the page's end, as a customer waiting at the counter might.
+    await page.getByRole("heading", { name: BAND }).scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const cashier = await confirm();
+    await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
+    // Chrome's scroll anchoring may already keep the card on screen; WebKit has none, and the page scrolls to it.
+    await expect(page.locator(".customer-card")).toBeInViewport();
+    await expect(page.getByRole("heading", { name: BAND })).toHaveCount(1);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
 
-    // Adding to Wallet from the band keeps the customer on the tap page (Reviewer N-1): Apple's sheet opens over it,
-    // and 4 s later the band only resets its button instead of going to the card.
-    await customer.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }));
-    await customer.route("**/api/wallet/apple/download/synthetic-ticket", route => route.fulfill({ contentType: "application/vnd.apple.pkpass", body: Buffer.from("synthetic pass") }));
-    const add = page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" });
-    await add.click();
+test("an Apple add while waiting stays on the tap page; the stamp landing then opens the card", async ({ baseURL, browser }) => {
+  const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    await addToWallet(page);
     await page.waitForTimeout(4_500);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
-    await expect(add).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" })).toBeEnabled();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+    const cashier = await confirm();
+    await expect(page).toHaveURL(/\/card\/card_/, { timeout: 15_000 });
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
 
-    // The team confirms; the stamp lands on the same page and the band stays, once.
-    const cashierCtx = await browser.newContext({ baseURL: url, storageState: await m.cashier.storageState() });
-    const cashierPage = await cashierCtx.newPage();
-    await cashierPage.goto("/cashier");
-    const confirm = cashierPage.getByRole("button", { name: "Stempel bestätigen", exact: true });
-    await expect(confirm).toBeVisible({ timeout: 15_000 });
-    await confirm.click();
+test("an Apple add after the stamp has landed goes to the card, as on the join's step", async ({ baseURL, browser }) => {
+  const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    const cashier = await confirm();
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
-    await expect(band).toHaveCount(1);
-    await expect(band).toBeVisible();
-    await Promise.all([customer.close(), cashierCtx.close()]);
-  } finally { await m.close(); }
+    await addToWallet(page);
+    await expect(page).toHaveURL(/\/card\/card_/, { timeout: 10_000 });
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
 });

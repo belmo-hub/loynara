@@ -44,10 +44,14 @@ export const tapAsksForWalletStep = ({ done, waiting, ios, mark }: { done: boole
 /** With the location's answer the hand-over ends either way ("shown"); the band shows only where the join would have offered it. */
 export const tapWalletStep = (program: Pick<PublicProgram, "appleWallet" | "locale">) => ({ show: iphoneJoin("ios", program), mark: "shown" as const });
 
-type Props = { token: string; program: Pick<PublicProgram, "businessName" | "programType" | "walletMessages">; band?: boolean };
+type Props = { token: string; program: Pick<PublicProgram, "businessName" | "programType" | "walletMessages">; band?: boolean;
+  /** As a band on the tap page while the team has not confirmed yet: stay there after Apple's sheet (ENG-160). */
+  stay?: boolean;
+  /** Told when an Apple add starts, so the tap page can follow the stamp to the card. */
+  onAdd?: () => void };
 
 /** Screens 03–07: why Wallet, a lock-screen picture (the example owner message only while walletMessages is on), the Apple button and the skip link. */
-export function WalletStep({ token, program: { businessName, programType, walletMessages }, band }: Props) {
+export function WalletStep({ token, program: { businessName, programType, walletMessages }, band, stay = false, onAdd }: Props) {
   const messages = walletMessages === true;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -55,21 +59,24 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   const operation = useRef<AbortController | null>(null);
   const cardHref = `/card/${encodeURIComponent(token)}`;
   const initial = Array.from(businessName)[0];
+  // Read when Apple's sheet has had its 4 s: the stamp may have landed meanwhile.
+  const stayRef = useRef(stay);
+  useEffect(() => { stayRef.current = stay; }, [stay]);
 
   useEffect(() => () => operation.current?.abort(), []);
 
   async function add() {
     if (operation.current) return;
     const controller = new AbortController(); operation.current = controller;
-    setBusy(true); setError("");
+    setBusy(true); setError(""); onAdd?.();
     try {
       const url = await prepareAppleWallet(token, controller.signal);
       if (controller.signal.aborted) return;
       window.location.assign(url);
-      // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08). As a band
-      // on the tap page it stays there instead, so the customer still sees the team confirm the stamp (ENG-160).
+      // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08). While the
+      // tap page still waits for the team it stays there instead, so the customer sees the stamp confirmed (ENG-160).
       setTimeout(() => {
-        if (!band) { router.replace(cardHref); return; }
+        if (!stayRef.current) { router.replace(cardHref); return; }
         operation.current = null; setBusy(false);
       }, 4000);
     } catch (cause) {
