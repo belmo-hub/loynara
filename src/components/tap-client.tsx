@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
@@ -171,22 +170,16 @@ export function TapClient({ refId }: { refId: string }) {
   }, [preview, recoveryCard, done, waiting]);
 
   const celebrate = moment && done;
-  const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
-  // An Apple add started from the band while waiting (ENG-160).
+  // Apple's sheet opened from the band (ENG-160): the band, not this page, then follows the stamp to the card.
   const [walletAdding, setWalletAdding] = useState(false);
-  // The stamp lands above a customer who scrolled down to the band: bring the heading and the card into view (Design, 31 Oct).
-  // Not while Apple's sheet is up; the card page takes over then.
+  // The stamp lands above a customer who scrolled down to the band: back to the top, as the page arrives (Design, 31 Oct).
+  // Not after Apple's sheet opened; the card page takes over then.
   useEffect(() => {
     const el = cardRef.current;
     if (!celebrate || walletAdding || !el || el.getBoundingClientRect().top >= 0) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    (el.closest(".card-state-page")?.querySelector("h1") ?? el).scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [celebrate, walletAdding]);
-  // A stamp landing after an add started while waiting goes to the card, as ENG-130's step does after Apple's sheet.
-  useEffect(() => {
-    if (done && walletAdding && preview?.cardPath) router.replace(preview.cardPath);
-  }, [done, walletAdding, preview, router]);
   const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
   // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";

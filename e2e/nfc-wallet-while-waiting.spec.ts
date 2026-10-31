@@ -20,7 +20,8 @@ async function waitingGuest(browser: Browser, url: string) {
     const response = await route.fetch();
     await route.fulfill({ response, json: { ...(await response.json()), appleWallet: true } });
   });
-  await customer.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }));
+  // Apple's prepare answers after a realistic pause, so a page that navigates away too early cancels it (Design, 31 Oct).
+  await customer.route("**/api/wallet/apple", async route => { await new Promise(resolve => setTimeout(resolve, 300)); await route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
   await customer.route("**/api/wallet/apple/download/synthetic-ticket", route => route.fulfill({ contentType: "application/vnd.apple.pkpass", body: Buffer.from("synthetic pass") }));
   const page = await customer.newPage();
   await page.goto(pathOf(m.nextUrl()));
@@ -40,6 +41,12 @@ async function waitingGuest(browser: Browser, url: string) {
   return { m, customer, page, confirm };
 }
 const addToWallet = (page: Page) => page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" }).click();
+/** Tap add and wait until the pass itself is requested, as Apple's sheet would be opened. */
+async function addAndOpenSheet(page: Page) {
+  const pass = page.waitForRequest(/\/api\/wallet\/apple\/download\//);
+  await addToWallet(page);
+  await pass;
+}
 
 test("scrolled down to the band, the confirmed stamp comes into view and the band stays once", async ({ baseURL, browser }) => {
   const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
@@ -60,7 +67,7 @@ test("scrolled down to the band, the confirmed stamp comes into view and the ban
 test("an Apple add while waiting stays on the tap page; the stamp landing then opens the card", async ({ baseURL, browser }) => {
   const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
   try {
-    await addToWallet(page);
+    await addAndOpenSheet(page);
     await page.waitForTimeout(4_500);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
     await expect(page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" })).toBeEnabled();
@@ -76,7 +83,7 @@ test("an Apple add after the stamp has landed goes to the card, as on the join's
   try {
     const cashier = await confirm();
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
-    await addToWallet(page);
+    await addAndOpenSheet(page);
     await expect(page).toHaveURL(/\/card\/card_/, { timeout: 10_000 });
     await cashier.close();
   } finally { await customer.close(); await m.close(); }

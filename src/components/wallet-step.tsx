@@ -47,7 +47,7 @@ export const tapWalletStep = (program: Pick<PublicProgram, "appleWallet" | "loca
 type Props = { token: string; program: Pick<PublicProgram, "businessName" | "programType" | "walletMessages">; band?: boolean;
   /** As a band on the tap page while the team has not confirmed yet: stay there after Apple's sheet (ENG-160). */
   stay?: boolean;
-  /** Told once Apple's sheet opens, so the tap page can follow the stamp to the card. */
+  /** Told once Apple's sheet opens, so the tap page leaves the stamp's scroll to the sheet's return. */
   onAdd?: () => void };
 
 /** Screens 03–07: why Wallet, a lock-screen picture (the example owner message only while walletMessages is on), the Apple button and the skip link. */
@@ -62,6 +62,9 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   // Read when Apple's sheet has had its 4 s: the stamp may have landed meanwhile.
   const stayRef = useRef(stay);
   useEffect(() => { stayRef.current = stay; }, [stay]);
+  // Back from Apple's sheet on the waiting tap page: once the stamp lands, the card takes over (ENG-130 screen 08).
+  const [back, setBack] = useState(false);
+  useEffect(() => { if (back && !stay) router.replace(cardHref); }, [back, stay, router, cardHref]);
 
   useEffect(() => () => operation.current?.abort(), []);
 
@@ -79,7 +82,7 @@ export function WalletStep({ token, program: { businessName, programType, wallet
       // tap page still waits for the team it stays there instead, so the customer sees the stamp confirmed (ENG-160).
       setTimeout(() => {
         if (!stayRef.current) { router.replace(cardHref); return; }
-        operation.current = null; setBusy(false);
+        operation.current = null; setBusy(false); setBack(true);
       }, 4000);
     } catch (cause) {
       if (!controller.signal.aborted) { setError(walletMessage(cause, false)); setBusy(false); }
