@@ -130,6 +130,8 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
 .activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; }
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Below 360 the rows give the label more room, so „Gesammelt“ stays on one line. */
+@media (max-width: 359px) { .card:has(> .activity) { padding-inline: var(--space-4); } .activity li { column-gap: var(--space-2); } }
 .showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 .rules { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
