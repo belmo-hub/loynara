@@ -13,3 +13,12 @@ for (const [path, action] of [["/unsubscribe", "Angebote abbestellen"], ["/recov
     await expect(page.getByRole("heading", { name: "Link unvollständig" })).toHaveCount(0);
   });
 }
+
+test("/unsubscribe posts the token from its link, also when effects run twice in development", async ({ page }) => {
+  let posted: unknown;
+  await page.route("**/api/unsubscribe", async route => { posted = route.request().postDataJSON(); await route.fulfill({ json: { ok: true } }); });
+  await page.goto("/unsubscribe#token=synthetic_token_value");
+  await page.getByRole("button", { name: "Angebote abbestellen" }).click();
+  await expect(page.getByRole("heading", { name: "Abgemeldet", exact: true })).toBeVisible();
+  expect(posted).toEqual({ token: "synthetic_token_value" });
+});

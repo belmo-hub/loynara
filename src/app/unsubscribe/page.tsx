@@ -11,10 +11,11 @@ export default function UnsubscribePage() {
   const token = useRef("");
   const [status, setStatus] = useState<"ready" | "busy" | "done" | "error" | "missing">("ready");
   useEffect(() => {
-    token.current = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
-    window.history.replaceState(null, "", window.location.pathname);
+    // The hash is scrubbed after the first read, so a second run (strict effects) keeps the captured token.
+    const next = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
+    if (next) { token.current = next; window.history.replaceState(null, "", window.location.pathname); }
     // G-10: without its token the link can only fail, so it gets the invalid state instead of the button.
-    if (!token.current) setStatus("missing");
+    else if (!token.current) setStatus("missing");
   }, []);
   async function confirm() {
     setStatus("busy");
