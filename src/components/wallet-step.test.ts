@@ -88,6 +88,17 @@ describe("Wallet step screen (ENG-130 03/04)", () => {
     expect(html).toContain("Stempel sammelst du auch ohne Wallet. Speichern kannst du die Karte später unter „In Wallet speichern“.");
     expect(render(false, "points")).toContain("Punkte sammelst du auch ohne Wallet.");
   });
+  it("names the button as Apple's badge reads, keeps the status line mounted and never dims the badge (ENG-132)", async () => {
+    for (const band of [false, true]) {
+      const html = render(false, "stamp", band);
+      expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>).)*alt="Hinzufügen zu Apple Wallet"/);
+      expect(html).not.toMatch(/<button[^>]*aria-label/);
+      expect(html).toMatch(/<p class="[^"]*" role="status"><\/p>/);
+    }
+    const css = (await import("node:fs")).readFileSync("src/components/customer/wallet-step.module.css", "utf8");
+    expect(css).toContain(".apple:disabled { cursor: progress; }");
+    expect(css).not.toMatch(/\.apple[^{]*\{[^}]*opacity/);
+  });
 });
 
 describe("the pages wire the decisions (ENG-130 review N-3)", () => {
