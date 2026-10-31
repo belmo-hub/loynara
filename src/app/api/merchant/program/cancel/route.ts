@@ -11,7 +11,7 @@ const input = z.object({ programSlug: z.string().min(1).max(120), withdraw: z.bo
 export async function POST(request: Request) {
   try {
     requireSameOrigin(request);
-    if (surfaceHidden("cancellation")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); // withheld on real production until Legal's gate closes
+    if (surfaceHidden("cancellation")) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar."); // withheld on real production until Legal's gate closes
     const user = await sessionUser(request);
     await enforceRateLimit({ scope: "merchant_program_cancel_write", identity: user.id, max: 10, windowSeconds: 15 * 60 });
     const { programSlug, withdraw } = input.parse(await jsonBody(request, 500));

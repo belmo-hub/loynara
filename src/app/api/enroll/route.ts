@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     await enforcePeerLimit(request, "enroll_peer", 25, 15 * 60);
     const data = await jsonBody(request, 10_000);
     if (data && typeof data === "object" && ("email" in data || ("marketingOptIn" in data && data.marketingOptIn !== false))) {
-      throw new DomainError("CONTACT_DISABLED", "Bitte Wiederherstellungsadresse nach der Kartenerstellung bestätigen");
+      throw new DomainError("CONTACT_DISABLED", "Bitte erstelle zuerst deine Karte. Deine E-Mail-Adresse kannst du danach hinterlegen.");
     }
     const headers = new Headers({ "Cache-Control": "no-store" });
     let input = data;
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       // empty card. Another card is created only when the guest deliberately asked for one (additionalCard: true).
       // Stale credentials require recovery or a deliberate request for a separate new card.
       const { additionalCard, ...rest } = data as Record<string, unknown>;
-      if (additionalCard !== undefined && additionalCard !== true) throw new DomainError("INVALID_INPUT", "additionalCard must be true when present");
+      if (additionalCard !== undefined && additionalCard !== true) throw new DomainError("INVALID_INPUT", "Die Anfrage ist unvollständig. Bitte lade die Seite neu und versuche es noch einmal.");
       input = rest;
       const found = await findReturningCard(request, data.slug);
       if (found.state === "stale" && additionalCard !== true) throw new DomainError("RECOVERY_REQUIRED", "Öffne deinen aktuellen Kartenlink oder stelle deine Karte sicher wieder her.");

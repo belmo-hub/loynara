@@ -31,7 +31,7 @@ function requireCampaignMail() {
 async function ownerRole(actorUserId: string, query: Query = db) {
   const [role] = await query.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Only an active owner can manage campaigns");
+  if (!role) throw new DomainError("FORBIDDEN", "Kampagnen kann nur die Inhaberin oder der Inhaber verwalten.");
   return role;
 }
 
@@ -39,7 +39,7 @@ async function ownerProgram(actorUserId: string, programSlug: string, query: Que
   const role = await ownerRole(actorUserId, query);
   const [program] = await query.select().from(programs)
     .where(and(eq(programs.slug, programSlug), eq(programs.tenantId, role.tenantId), eq(programs.status, "active"))).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found in this merchant");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return program;
 }
 
@@ -48,7 +48,7 @@ async function ownerCampaign(actorUserId: string, campaignId: string, query: Que
   const selection = query.select().from(campaigns)
     .where(and(eq(campaigns.id, campaignId), eq(campaigns.tenantId, role.tenantId)));
   const [campaign] = lock ? await selection.for("update").limit(1) : await selection.limit(1);
-  if (!campaign) throw new DomainError("NOT_FOUND", "Campaign not found in this merchant");
+  if (!campaign) throw new DomainError("NOT_FOUND", "Diese Kampagne haben wir nicht gefunden. Bitte lade die Seite neu.");
   return campaign;
 }
 

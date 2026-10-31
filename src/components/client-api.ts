@@ -6,12 +6,14 @@ export class ClientApiError extends Error {
 
 // Server codes whose `error` text is German copy written for the page; every other server text is a diagnostic (often
 // English) and never reaches the UI. A code goes on this list only when every message the server sends with it is German.
-const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_ONBOARDED", "AUTHENTICATION_REQUIRED", "BILLING_START_TIME", "CARD_EXISTS", "CHANGE_PENDING",
+export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_ONBOARDED", "AUTHENTICATION_REQUIRED", "BILLING_START_TIME", "CARD_EXISTS", "CHANGE_PENDING",
   "CHOICE_REQUIRED", "CONFIRM_REQUIRED", "END_DATE_TOO_EARLY", "EXPORT_CLOSED", "INVALID_ACTIVATION", "INVALID_BIRTHDAY",
   "INVALID_CODE_FORMAT", "INVALID_END_DATE", "INVALID_LEVELS", "INVALID_RECOVERY", "INVALID_TEMPLATE", "INVALID_UNSUBSCRIBE",
   "MESSAGE_REFUSED", "NO_REACH", "OWNER_INVITE_OPEN", "PLATE_UNLINKED", "PUSH_DEVICE_IN_USE", "PUSH_UNAVAILABLE", "QUIET_HOURS",
   "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SETUP_INCOMPLETE", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED",
   "TAP_AUTOMATIC_NOT_ALLOWED", "TEMPLATE_IN_USE",
+  // German since ENG-152 (the shared codes many routes send).
+  "BILLING_STATE", "CONTACT_DISABLED", "FORBIDDEN", "INVALID_INPUT", "NOT_FOUND", "PLAN_UNAVAILABLE",
   // Logo pipeline (ENG-134): every server line is German and names the actual fix.
   "INVALID_LOGO",
   // German in the programme settings; contact verification sends it in English, but that page shows its own state instead.

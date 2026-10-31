@@ -16,18 +16,18 @@ import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 // (loyalty.ts, bookBirthdayBonus); this file holds the card field, the owner set-up and the reminder to consented holders.
 
 const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
-const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
+const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar."); };
 /** Same as the bonus: once in this many days per card, so a moved birthday gets no second reminder. */
 const REPEAT_DAYS = 300;
 
 async function cardOf(cardToken: string) {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [card] = rows<{ tenantId: string; membershipId: string; shop: string; enabled: boolean; day: number | null; month: number | null }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, p.birthday_enabled AS enabled, b.day, b.month
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id JOIN tenants t ON t.id = m.tenant_id
       LEFT JOIN card_birthdays b ON b.membership_id = m.id AND b.tenant_id = m.tenant_id
     WHERE m.card_token = ${cardToken} AND m.closed_at IS NULL`));
-  if (!card) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return card;
 }
 
@@ -46,7 +46,7 @@ export async function setCardBirthday(cardToken: string, raw: { day: number; mon
   const parsed = birthdayInput.safeParse(raw);
   if (!parsed.success) throw new DomainError("INVALID_BIRTHDAY", "Bitte wähle einen gültigen Tag und Monat.");
   const card = await cardOf(cardToken);
-  if (!card.enabled) throw new DomainError("NOT_FOUND", "Nicht verfügbar");
+  if (!card.enabled) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar.");
   await db.execute(sql`INSERT INTO card_birthdays (membership_id, tenant_id, day, month) VALUES (${card.membershipId}::uuid, ${card.tenantId}::uuid, ${parsed.data.day}, ${parsed.data.month})
     ON CONFLICT (membership_id) DO UPDATE SET day = EXCLUDED.day, month = EXCLUDED.month, updated_at = now()`);
   return { day: parsed.data.day, month: parsed.data.month };

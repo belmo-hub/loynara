@@ -60,7 +60,7 @@ export async function reissueOwnerInvite(raw: { actorUserId: string; env: Env; t
     await assertPlateOperator(tx, raw.actorUserId, raw.env);
     const [tenant] = await tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, input.tenantId)).for("update");
     const [location] = tenant ? await tx.select({ id: locations.id }).from(locations).where(eq(locations.tenantId, tenant.id)).orderBy(asc(locations.createdAt), asc(locations.id)).limit(1) : [];
-    if (!tenant || !location) throw new DomainError("NOT_FOUND", "Geschäft nicht gefunden.");
+    if (!tenant || !location) throw new DomainError("NOT_FOUND", "Dieses Geschäft haben wir nicht gefunden.");
     return { tenantId: tenant.id, locationId: location.id, ...await issue(tx, tenant.id, location.id, input.ownerEmail.toLowerCase(), raw.actorUserId) };
   });
 }
@@ -72,7 +72,7 @@ export async function revokeOwnerInvite(raw: { actorUserId: string; env: Env; in
     await assertPlateOperator(tx, raw.actorUserId, raw.env);
     // The same row lock acceptance takes, so a revocation and an acceptance cannot both win.
     const [invite] = await tx.select().from(staffInvites).where(and(eq(staffInvites.id, inviteId), eq(staffInvites.role, "owner"))).for("update");
-    if (!invite) throw new DomainError("NOT_FOUND", "Einladung nicht gefunden.");
+    if (!invite) throw new DomainError("NOT_FOUND", "Diese Einladung haben wir nicht gefunden. Bitte lade die Seite neu.");
     if (invite.acceptedAt) throw new DomainError("INVITE_USED", "Die Einladung wurde bereits angenommen.");
     if (invite.revokedAt) return { inviteId, status: "revoked" as const };
     await tx.update(staffInvites).set({ revokedAt: new Date() }).where(eq(staffInvites.id, inviteId));

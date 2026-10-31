@@ -14,9 +14,9 @@ const noticeVersion = "2026-09";
 function syntheticEmail(email: string) { return email.toLowerCase().endsWith(".test"); }
 
 async function cardInTransaction(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], cardToken: string) {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
-  if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return member;
 }
 
@@ -28,9 +28,9 @@ async function latestMarketingConsent(tenantId: string, membershipId: string) {
 }
 
 export async function contactStatus(cardToken: string): Promise<{ available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean }> {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [member] = await db.select({ id: memberships.id, tenantId: memberships.tenantId, closedAt: memberships.closedAt }).from(memberships).where(eq(memberships.cardToken, cardToken));
-  if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [contact] = await db.select({ email: membershipContacts.email, emailVerified: membershipContacts.emailVerified }).from(membershipContacts)
     .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
   const verified = Boolean(contact?.email && contact.emailVerified);
@@ -44,7 +44,7 @@ export async function contactStatus(cardToken: string): Promise<{ available: boo
 export async function requestContactVerification(cardToken: string, rawEmail: string): Promise<{ status: "queued" | "verified" }> {
   const email = emailSchema.parse(rawEmail.trim().normalize("NFC").toLowerCase());
   const mode = emailTransportMode();
-  if (mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Contact verification is unavailable");
+  if (mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Das Bestätigen per E-Mail ist gerade nicht verfügbar. Bitte versuche es später noch einmal.");
   if (mode === "mailpit" && !syntheticEmail(email)) throw new DomainError("LOCAL_TEST_ONLY", "Only synthetic .test contacts are supported");
   return db.transaction(async tx => {
     const member = await cardInTransaction(tx, cardToken);
@@ -102,7 +102,7 @@ export async function consumeContactVerification(token: string): Promise<{ verif
 
 export async function setEmailMarketingPreference(cardToken: string, granted: boolean): Promise<{ marketingEmail: boolean }> {
   const mode = promotionalEmailMode();
-  if (granted && mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Marketing email is unavailable");
+  if (granted && mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Angebote per E-Mail sind gerade nicht verfügbar.");
   return db.transaction(async tx => {
     const member = await cardInTransaction(tx, cardToken);
     const [contact] = await tx.select().from(membershipContacts)

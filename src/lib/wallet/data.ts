@@ -34,7 +34,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(eq(memberships.id, membershipId));
-  if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!row) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const program = await programInForce(reader, row.program);
   const appleLogo = await appleLogoFromData(row.location.logoData, row.location.brandColor);
   const googleLogoUrl = merchantGoogleLogoUrl(row.program.id, row.location.logoData);
@@ -94,6 +94,6 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
 /** The open card's pass data; a closed or unknown card is NOT_FOUND. */
 export async function walletPassDataByMembershipId(membershipId: string): Promise<WalletPassData> {
   const snapshot = await walletCardSnapshot(membershipId);
-  if (!snapshot.open) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!snapshot.open) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return snapshot.pass;
 }

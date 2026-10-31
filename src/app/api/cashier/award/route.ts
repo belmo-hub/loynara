@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     requireSameOrigin(request);
     const user = await sessionUser(request);
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!context) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const { deviceAt, ...input } = body.parse(await jsonBody(request, 2000));
     return Response.json(await award({ ...input, userId: user.id, locationId: context.locationId, deviceAt: deviceAt ? new Date(deviceAt) : undefined }), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }

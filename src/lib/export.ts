@@ -16,7 +16,7 @@ function checked<T>(rows: T[], label: string) {
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function ownerTenantId(tx: Tx, actorUserId: string) {
   const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return owner.tenantId;
 }
 
@@ -42,7 +42,7 @@ export async function getMerchantExport(actorUserId: string) {
       tx.select().from(billingInvoices).where(eq(billingInvoices.tenantId, tenantId)).limit(MAX_ROWS + 1),
       tx.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.tenantId, tenantId)).orderBy(desc(cardSecurityEvents.createdAt)).limit(MAX_ROWS + 1),
     ]);
-    if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
+    if (!tenant) throw new DomainError("NOT_FOUND", "Dieses Geschäft haben wir nicht gefunden.");
     return {
       // 4: card locators on memberships; card security events (reissues with actor, reason and verification method).
       formatVersion: 4,
@@ -132,12 +132,12 @@ export async function getMerchantCsv(actorUserId: string, kind: MerchantCsvKind)
 }
 
 export async function getCustomerExport(cardToken: string) {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   // Membership balance and exported activity must come from one committed
   // snapshot, including when an award/redeem completes between these reads.
   return db.transaction(async (tx) => {
     const [card] = await tx.select({ id: memberships.id, cardLocator: memberships.cardLocator, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
-    if (!card) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const [[program], entries, redemptionRows, consentRows, [birthday]] = await Promise.all([
       tx.select().from(programs).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
       tx.select({ id: ledgerEntries.id, delta: ledgerEntries.delta, kind: ledgerEntries.kind, reason: ledgerEntries.reason, reversalOfId: ledgerEntries.reversalOfId, createdAt: ledgerEntries.createdAt }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, card.tenantId), eq(ledgerEntries.membershipId, card.id))).limit(MAX_ROWS + 1),

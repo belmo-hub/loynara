@@ -101,16 +101,16 @@ export async function retentionScope(actorUserId: string, requestedLocationId?: 
   const [staff] = await scopedDb.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
-    throw new DomainError("FORBIDDEN", "Owner or manager access required");
+    throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   }
   if (staff.role === "manager") {
-    if (requestedLocationId && requestedLocationId !== staff.locationId) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+    if (requestedLocationId && requestedLocationId !== staff.locationId) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
     return { tenantId: staff.tenantId, locationId: staff.locationId!, role: staff.role };
   }
   if (!requestedLocationId) return { tenantId: staff.tenantId, locationId: null, role: staff.role };
   const [location] = await scopedDb.select({ id: locations.id }).from(locations)
     .where(and(eq(locations.id, requestedLocationId), eq(locations.tenantId, staff.tenantId))).limit(1);
-  if (!location) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   return { tenantId: staff.tenantId, locationId: location.id, role: staff.role };
 }
 
@@ -119,7 +119,7 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 export async function getRetentionSummary(actorUserId: string, options: { inactiveDays?: RetentionDays; locationId?: string | null; asOf?: Date } = {}, snapshot?: PoolClient): Promise<RetentionSummary> {
   const inactiveDays = options.inactiveDays ?? 30;
   if (!RETENTION_DAYS.includes(inactiveDays)) throw new DomainError("INVALID_FILTER", "Choose 14, 30, 60 or 90 days");
-  if (options.locationId && !uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  if (options.locationId && !uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   const scope = await retentionScope(actorUserId, options.locationId, snapshot);
   const reader = snapshot ?? pool;
   const asOf = options.asOf ?? (await reader.query<{ now: Date }>("SELECT now() AS now")).rows[0].now;

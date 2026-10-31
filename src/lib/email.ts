@@ -43,9 +43,9 @@ export async function queueMarketingEmail(raw: z.input<typeof messageInput>): Pr
     // insertion must commit together so a closed card cannot gain a fresh job
     // after closure has already scrubbed the outbox.
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Membership not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const [role] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true), eq(staffRoles.role, "owner"))).limit(1);
-    if (!role) throw new DomainError("FORBIDDEN", "Only this merchant's owner can queue a local email test");
+    if (!role) throw new DomainError("FORBIDDEN", "Eine Test-E-Mail kann nur die Inhaberin oder der Inhaber schicken.");
     const [contact] = await tx.select().from(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);
     if (!contact?.email || !contact.emailVerified) throw new DomainError("EMAIL_UNVERIFIED", "A verified email is required");
     if (!syntheticAddress(contact.email)) throw new DomainError("EMAIL_TEST_ONLY", "Only synthetic .test recipients are allowed");
@@ -56,18 +56,18 @@ export async function queueMarketingEmail(raw: z.input<typeof messageInput>): Pr
 }
 
 export async function withdrawMarketingConsent(cardToken: string): Promise<void> {
-  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   await db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
-    if (!member) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: false, noticeVersion: "2026-09", source: "card_preferences" });
   });
 }
 
 export async function getMarketingPreference(cardToken: string): Promise<{ marketingEmail: boolean }> {
-  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [member] = await db.select().from(memberships).where(eq(memberships.cardToken, cardToken)).limit(1);
-  if (!member) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!member) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return { marketingEmail: await latestMarketingConsent(member.tenantId, member.id) };
 }
 

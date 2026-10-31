@@ -115,17 +115,17 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
   if (!validKeyLength(input.idempotencyKey)) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const programRow = () => tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
     const atThisLocation = (row: typeof programs.$inferSelect | undefined) => {
-      if (!row || row.locationId !== input.locationId || row.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+      if (!row || row.locationId !== input.locationId || row.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
       return row;
     };
     // Authorization and replay come before the programme lock below: a booking that already went through is reported
     // as such even while an owner saves the programme, never as "nothing was booked", which would invite a second one.
     atThisLocation((await programRow())[0]);
     const staff = trustedTap ? undefined : await checkoutStaff(tx, member.tenantId, input.userId);
-    if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
       if (existing.membershipId !== member.id || existing.kind !== "award") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
@@ -352,11 +352,11 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
   assertClientKey(input.idempotencyKey);
   return db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
-    if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+    if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
     const staff = await checkoutStaff(tx, member.tenantId, input.userId);
-    if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
 
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
@@ -424,7 +424,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
   assertClientKey(input.idempotencyKey);
   return db.transaction(async (tx) => {
     const [original] = await tx.select().from(ledgerEntries).where(eq(ledgerEntries.id, input.entryId));
-    if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Transaction not found at this location");
+    if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Diese Buchung haben wir an diesem Standort nicht gefunden.");
     if (original.source === "referral_bonus") throw new DomainError("REFERRAL_REVIEW_REQUIRED", "Referral bonuses are corrected through referral review");
     if (original.source === "happy_hour") throw new DomainError("HAPPY_HOUR_WITH_AWARD", "The happy-hour points are corrected together with their award");
     if (original.source === "welcome_bonus") throw new DomainError("WELCOME_BONUS_WITH_AWARD", "The welcome bonus is corrected together with the card's first award");
@@ -432,12 +432,12 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     if (original.source === "winback_bonus") throw new DomainError("WINBACK_BONUS_WITH_AWARD", "The win-back bonus is corrected together with its award");
     if (original.source === "challenge_bonus") throw new DomainError("CHALLENGE_BONUS_WITH_AWARD", "The challenge bonus is corrected together with the visits that earned it");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     // An ended programme books nothing more, corrections included (the end job never touches memberships, so a plain read is safe).
     const [ended] = member ? await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.id, member.programId), eq(programs.status, "ended"))) : [];
-    if (ended) throw new DomainError("NOT_FOUND", "Card not found at this location");
+    if (ended) throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
     const staff = await checkoutStaff(tx, original.tenantId, input.userId);
-    if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Manager or owner access required");
+    if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
     if (staff.role === "manager" && Math.abs(original.delta) > 100) throw new DomainError("LIMIT_EXCEEDED", "Owner approval required for this correction");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {

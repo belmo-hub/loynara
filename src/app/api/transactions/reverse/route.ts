@@ -13,8 +13,8 @@ export async function POST(request: Request) {
     const user = await sessionUser(request);
     const body = input.parse(await jsonBody(request, 2000));
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context || context.role === "cashier") throw new DomainError("FORBIDDEN", "Manager or owner access required");
-    if (context.locationId !== body.locationId) throw new DomainError("NOT_FOUND", "Transaction not found at selected location");
+    if (!context || context.role === "cashier") throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
+    if (context.locationId !== body.locationId) throw new DomainError("NOT_FOUND", "Diese Buchung haben wir an diesem Standort nicht gefunden.");
     return Response.json(await reverseEntry({ ...body, userId: user.id, requestId: randomUUID() }));
   } catch (error) { return respondError(error); }
 }

@@ -29,7 +29,7 @@ type LocationRow = {
 async function ownerRole(actorUserId: string) {
   const [owner] = await db.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return owner;
 }
 
@@ -48,11 +48,11 @@ export async function createAdditionalLocation(actorUserId: string, raw: z.input
   return db.transaction(async tx => {
     const [owner] = await tx.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
       .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, owner.tenantId)).for("update");
-    if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
+    if (!tenant) throw new DomainError("NOT_FOUND", "Dieses Geschäft haben wir nicht gefunden.");
     const [subscription] = await tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenant.id)).for("update");
-    if (!subscription) throw new DomainError("PLAN_UNAVAILABLE", "Merchant plan is unavailable");
+    if (!subscription) throw new DomainError("PLAN_UNAVAILABLE", "Für dein Geschäft ist noch kein Tarif hinterlegt. Bitte wende dich an den Support.");
     if ((tenant.currency === "EUR" && data.country !== "DE") || (tenant.currency === "MAD" && data.country !== "MA")) {
       throw new DomainError("INVALID_COUNTRY", "Location country must match the merchant currency");
     }
@@ -87,14 +87,14 @@ export async function validateOwnerLocation(actorUserId: string, locationId: str
   if (!z.uuid().safeParse(locationId).success) throw new DomainError("INVALID_LOCATION", "Invalid location");
   const [location] = await db.select({ id: locations.id, name: locations.name }).from(locations)
     .where(and(eq(locations.tenantId, owner.tenantId), eq(locations.id, locationId))).limit(1);
-  if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   return location;
 }
 
 export async function listMerchantLocations(actorUserId: string) {
   const owner = await ownerRole(actorUserId);
   const [tenant] = await db.select({ currency: tenants.currency }).from(tenants).where(eq(tenants.id, owner.tenantId)).limit(1);
-  if (!tenant) throw new DomainError("NOT_FOUND", "Merchant not found");
+  if (!tenant) throw new DomainError("NOT_FOUND", "Dieses Geschäft haben wir nicht gefunden.");
   const result = await pool.query<LocationRow>(`
     SELECT l.id, l.name, l.city, l.country, l.timezone, l.created_at AS "createdAt",
       p.slug AS "programSlug", p.name AS "programName", p.type AS "programType",

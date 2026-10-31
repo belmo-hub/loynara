@@ -23,7 +23,7 @@ async function ownerProgramme(tx: Transaction, actorUserId: string, programSlug:
   const [program] = await tx.select({ id: programs.id, tenantId: programs.tenantId, status: programs.status, end: programs.cancellationEndDate, confirmed: programs.cancellationConfirmedAt, requested: programs.cancellationRequestedAt, due: dueSql(now) }).from(programs).where(eq(programs.slug, programSlug)).for("update");
   const [owner] = program ? await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))) : [];
   // Not an owner of this shop: the same answer as a programme that does not exist.
-  if (!program || !owner) throw new DomainError("NOT_FOUND", "Program not found");
+  if (!program || !owner) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return program;
 }
 
@@ -80,7 +80,7 @@ const realDay = (day?: string): day is string => !!day && isoDay.test(day) && !N
 
 /** Operator console: show, confirm (or move) the end date, or end a programme at once. Dry run unless `execute`. */
 export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end"; endDate?: string; execute: boolean; now?: Date }) {
-  if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   if (input.command === "schedule") {
     if (!realDay(input.endDate)) throw new DomainError("INVALID_END_DATE", "Dieses Datum gibt es nicht. Bitte einen Kalendertag angeben, z. B. 2026-10-31.");
     // A day that has begun would end the programme within minutes; ending now is the `end` command.
@@ -89,7 +89,7 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [row] = await tx.select({ id: programs.id, tenantId: programs.tenantId, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt, requestedAt: programs.cancellationRequestedAt }).from(programs).where(eq(programs.id, input.programId)).for("update");
-    if (!row) throw new DomainError("NOT_FOUND", "Programme not found");
+    if (!row) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     if (input.command === "schedule" && input.execute && row.status === "active") {
       await tx.update(programs).set({ cancellationEndDate: input.endDate, cancellationConfirmedAt: new Date() }).where(eq(programs.id, row.id));
       // "confirm" answers an owner's open request; "schedule" sets a date of the operator's own or moves a confirmed one.

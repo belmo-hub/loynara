@@ -1,5 +1,7 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { apiJson, ClientApiError, failureText, imageToDataUrl, LOGO_INVALID } from "./client-api";
+import { apiJson, ClientApiError, failureText, GERMAN_SERVER_TEXT, imageToDataUrl, LOGO_INVALID } from "./client-api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -17,7 +19,7 @@ it("preserves the server's useful explanation for other errors", async () => {
 
 it("never shows the server's English diagnostics (ENG-135)", async () => {
   const reply = (error: string, status: number, code?: string) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error, code }, { status })));
-  reply("Program not found", 404, "NOT_FOUND");
+  reply("Not found", 404);
   await expect(apiJson("/api/program/x")).rejects.toMatchObject({ status: 404, message: "Das haben wir nicht gefunden. Bitte lade die Seite neu." });
   reply("Invalid input", 400);
   await expect(apiJson("/api/x")).rejects.toMatchObject({ message: "Bitte prüfe deine Eingaben und versuche es noch einmal." });
@@ -46,7 +48,20 @@ it("refuses a logo the server would refuse when it is picked", async () => {
 
 it("keeps the server's German words for the codes that only send German", () => {
   // A locked NFC plate, a mistyped plate code, quiet hours, the pilot's NFC rule and a half-finished setup say what to do.
-  for (const code of ["INVALID_ACTIVATION", "INVALID_CODE_FORMAT", "QUIET_HOURS", "TAP_AUTOMATIC_NOT_ALLOWED", "SETUP_INCOMPLETE", "END_DATE_TOO_EARLY", "MESSAGE_REFUSED"])
+  for (const code of ["INVALID_ACTIVATION", "INVALID_CODE_FORMAT", "QUIET_HOURS", "TAP_AUTOMATIC_NOT_ALLOWED", "SETUP_INCOMPLETE", "END_DATE_TOO_EARLY", "MESSAGE_REFUSED",
+    // ENG-152: the shared codes, e.g. „Dein Zugang wurde entzogen …“ on FORBIDDEN.
+    "NOT_FOUND", "FORBIDDEN", "BILLING_STATE", "INVALID_INPUT", "CONTACT_DISABLED", "PLAN_UNAVAILABLE"])
     expect(failureText(400, code, `Deutscher Text für ${code}.`)).toBe(`Deutscher Text für ${code}.`);
   expect(failureText(400, "INVALID_CSV", "CSV has no header row")).toBe("Bitte prüfe deine Eingaben und versuche es noch einmal.");
+});
+
+// The list's promise: every message the server throws with a listed code is German. Contact verification's English
+// INVALID_CHALLENGE is the known exception (see the list).
+it("finds no English server text behind a code on the list (ENG-152)", () => {
+  const ts = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
+    entry.isDirectory() ? ts(join(dir, entry.name)) : /\.tsx?$/.test(entry.name) && !/\.test\./.test(entry.name) ? [join(dir, entry.name)] : []);
+  const english = /\b(not|found|required|access|invalid|unavailable|only|must|already|expired|needs|no|is)\b/i;
+  const leaks = ts(join(__dirname, "..")).flatMap(file => [...readFileSync(file, "utf8").matchAll(/DomainError\(\s*"([A-Z_]+)",\s*("[^"]*"|`[^`]*`)/g)]
+    .filter(([, code, text]) => GERMAN_SERVER_TEXT.has(code) && code !== "INVALID_CHALLENGE" && english.test(text)).map(([match]) => `${file}: ${match}`));
+  expect(leaks).toEqual([]);
 });

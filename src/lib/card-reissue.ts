@@ -44,14 +44,14 @@ export async function reissueCardByStaff(raw: z.input<typeof input>): Promise<Re
   const parsed = input.parse(raw);
   return db.transaction(async tx => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, parsed.membershipId)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const [program] = await tx.select({ locationId: programs.locationId }).from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
-    if (!program || program.locationId !== parsed.locationId) throw new DomainError("NOT_FOUND", "Card not found at this location");
+    if (!program || program.locationId !== parsed.locationId) throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
     // Match checkout/onboarding identity-before-role ordering. Authorized reissue holds the active role until commit;
     // revocation that owns it first makes PostgreSQL recheck the active predicate before any credential mutation.
     await tx.execute(sql`SELECT id FROM "user" WHERE id = ${parsed.actorUserId} FOR KEY SHARE`);
     const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, parsed.actorUserId), eq(staffRoles.active, true))).for("share");
-    if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== parsed.locationId)) throw new DomainError("FORBIDDEN", "Manager or owner access required");
+    if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== parsed.locationId)) throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
 
     const [prior] = await tx.select().from(cardSecurityEvents).where(and(eq(cardSecurityEvents.tenantId, member.tenantId), eq(cardSecurityEvents.idempotencyKey, parsed.idempotencyKey)));
     if (prior) {

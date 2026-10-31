@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     await db.transaction(tx => assertPlateOperator(tx, user.id, process.env));
     await enforceRateLimit({ scope: "operator_billing_free_end_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const body = await jsonBody(request, 500) as { tenantId?: unknown };
-    if (typeof body.tenantId !== "string") throw new DomainError("INVALID_INPUT", "Invalid input");
+    if (typeof body.tenantId !== "string") throw new DomainError("INVALID_INPUT", "Bitte prüfe deine Eingaben und versuche es noch einmal.");
     return Response.json(await endInFreeMonth({ actorUserId: user.id, env: process.env, tenantId: body.tenantId }), { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof DomainError && (error.code === "UNAUTHENTICATED" || error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN")) return notFound();

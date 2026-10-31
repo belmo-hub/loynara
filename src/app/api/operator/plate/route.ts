@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     await db.transaction(tx => assertPlateOperator(tx, user.id, process.env));
     await enforceRateLimit({ scope: "operator_plate_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const body = await jsonBody(request, 2000) as { plateLabel?: unknown; programId?: unknown; execute?: unknown };
-    if (typeof body.plateLabel !== "string" || (body.programId !== null && typeof body.programId !== "string") || typeof body.execute !== "boolean") throw new DomainError("INVALID_INPUT", "Invalid input");
+    if (typeof body.plateLabel !== "string" || (body.programId !== null && typeof body.programId !== "string") || typeof body.execute !== "boolean") throw new DomainError("INVALID_INPUT", "Bitte prüfe deine Eingaben und versuche es noch einmal.");
     const result = await setPlateLink({ actorUserId: user.id, env: process.env, plateLabel: body.plateLabel, programId: body.programId, execute: body.execute });
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

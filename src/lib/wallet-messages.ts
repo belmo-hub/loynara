@@ -31,7 +31,7 @@ type Tx = Pick<typeof db, "execute">;
 const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
 /** Message kinds that are service information, not marketing: sent without marketing consent. */
 const SERVICE_KINDS: readonly string[] = ["expiry"];
-const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
+const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar."); };
 /** Off until Google approves the issuer: absent or anything but "true" leaves the Apple-only behaviour exactly as it was. */
 const googleOn = () => process.env.GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED === "true";
 const native = sql`(p.provider = 'apple' AND p.provider_object_id NOT LIKE 'passfast:%')`;
@@ -45,7 +45,7 @@ const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_object_id L
 // ---- Consent (customer side, card-token scoped like the other card endpoints) -------------------------------------
 
 async function cardOf(cardToken: string) {
-  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location,
       EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND ${messagePass()}
@@ -54,7 +54,7 @@ async function cardOf(cardToken: string) {
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = m.tenant_id
     WHERE m.card_token = ${cardToken} AND m.closed_at IS NULL`));
-  if (!card) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return card;
 }
 
@@ -70,7 +70,7 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
   available();
   const card = await cardOf(cardToken);
   if (granted) {
-    if (!card.walletPass) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!card.walletPass) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     await db.execute(sql`INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES (${card.tenantId}::uuid, ${card.membershipId}::uuid, ${CONSENT_TEXT_VERSION})
       ON CONFLICT (membership_id) WHERE withdrawn_at IS NULL DO NOTHING`);
   } else {

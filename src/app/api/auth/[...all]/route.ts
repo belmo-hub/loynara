@@ -19,7 +19,7 @@ function validateIngress(request: Request) {
 
 /** The account a sign-in targets. A body this cannot read is refused, so it can never slip past the account limit. */
 async function signInAccount(request: Request) {
-  const invalid = new DomainError("INVALID_INPUT", "Invalid sign-in request");
+  const invalid = new DomainError("INVALID_INPUT", "Die Anmeldung hat nicht geklappt. Bitte lade die Seite neu und versuche es noch einmal.");
   if (!request.headers.get("content-type")?.startsWith("application/json")) throw invalid;
   const text = await request.clone().text();
   if (text.length > 4096) throw invalid;

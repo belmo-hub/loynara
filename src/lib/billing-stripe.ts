@@ -73,7 +73,7 @@ export const STRIPE_STATUS = {
 
 async function lockedSubscription(tx: Transaction, tenantId: string) {
   const [sub] = await tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)).for("update");
-  if (!sub) throw new DomainError("NOT_FOUND", "Subscription not found");
+  if (!sub) throw new DomainError("NOT_FOUND", "Dein Abo haben wir nicht gefunden. Bitte wende dich an den Support.");
   return sub;
 }
 
@@ -144,9 +144,9 @@ const billingRecipient = z.object({
 
 export async function startBilling(input: { actorUserId: string; env: Env; tenantId: string; billing: unknown; at?: Date }) {
   requireStripe();
-  if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid shop");
+  if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Bitte wähle ein gültiges Geschäft.");
   const recipient = billingRecipient.safeParse(input.billing);
-  if (!recipient.success) throw new DomainError("INVALID_INPUT", "Bitte Name, Straße, Postleitzahl, Ort und E-Mail für die Rechnung angeben.");
+  if (!recipient.success) throw new DomainError("INVALID_INPUT", "Bitte gib Name, Straße, Postleitzahl, Ort und E-Mail-Adresse für die Rechnung an.");
   const at = input.at ?? new Date();
   // The anchor is that day of the month at 00:00 UTC; in the first hours after Berlin midnight that UTC moment is still ahead, which would end the free month within hours.
   if (berlinDay(at) !== at.toISOString().slice(0, 10)) throw new DomainError("BILLING_START_TIME", "Bitte schalte die Abrechnung nach 2 Uhr frei.");
@@ -155,7 +155,7 @@ export async function startBilling(input: { actorUserId: string; env: Env; tenan
     let sub = await lockedSubscription(tx, input.tenantId);
     // shortcut: one free month per shop, ever; a restart after a cancellation goes through the owner's checkout. Add a restart path if shops come back.
     if (sub.providerSubscriptionId || sub.freeUntil) throw new DomainError("BILLING_STATE", "Die Abrechnung für dieses Geschäft wurde schon gestartet.");
-    if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Plans are priced in EUR");
+    if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte prüfe die Währung des Geschäfts.");
     if (!isPlanCode(sub.planCode)) sub = await applyPlan(tx, sub.tenantId, "list");
     const charge = planCharge(sub)!;
     const price = await verifiedPrice(charge);
@@ -195,7 +195,7 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
     const sub = await lockedSubscription(tx, tenantId);
     if (!CHECKOUT_OPEN.includes(sub.status)) throw new DomainError("BILLING_STATE", "Für dieses Geschäft läuft bereits ein Abo.");
     const charge = planCharge(sub);
-    if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Der Tarif wird noch festgelegt. Bitte wende dich an Loynara.");
+    if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Der Tarif für dein Geschäft wird noch festgelegt. Bitte wende dich an den Support.");
     const amountMinor = charge.totalMinor;
     const [pending] = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, tenantId), eq(billingHandoffs.provider, "stripe"), eq(billingHandoffs.status, "pending")))
       .orderBy(desc(billingHandoffs.createdAt)).limit(1);
@@ -269,7 +269,7 @@ export async function applyStripeWebhook(raw: string, signature: string, at = ne
     const current = stripeSubscription.parse(await client("GET", `/subscriptions/${event.data.object.id}`));
     const tenantId = current.metadata.tenant_id;
     const sub = await lockedSubscription(tx, tenantId);
-    if (sub.providerCustomerId !== current.customer) throw new DomainError("NOT_FOUND", "Subscription does not belong to this shop");
+    if (sub.providerCustomerId !== current.customer) throw new DomainError("NOT_FOUND", "Abo gehört nicht zu diesem Geschäft.");
     const status = STRIPE_STATUS[current.status];
     if (sub.providerSubscriptionId && sub.providerSubscriptionId !== current.id) {
       // A late event for a subscription this shop has replaced: record it, change nothing.
@@ -280,7 +280,7 @@ export async function applyStripeWebhook(raw: string, signature: string, at = ne
       if (RUNNING.includes(sub.status)) {
         // Stripe retries a refused event for days and only a 4xx shows; this fixed line is what someone searches for.
         console.error(`Billing: second Stripe subscription for tenant ${tenantId} refused; review in Stripe (kept ${sub.providerSubscriptionId})`);
-        throw new DomainError("BILLING_STATE", "A second Stripe subscription for this shop needs review");
+        throw new DomainError("BILLING_STATE", "Zweites Stripe-Abo für dieses Geschäft, bitte prüfen.");
       }
     }
     const periodEnd = new Date(current.items.data[0].current_period_end * 1000);
@@ -324,7 +324,7 @@ async function applyPlan(tx: Transaction, tenantId: string, planCode: PlanCode) 
  */
 export async function endInFreeMonth(input: { actorUserId: string; env: Env; tenantId: string; at?: Date }) {
   requireStripe();
-  if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid shop");
+  if (!z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Bitte wähle ein gültiges Geschäft.");
   const at = input.at ?? new Date();
   return db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
@@ -342,12 +342,12 @@ export async function endInFreeMonth(input: { actorUserId: string; env: Env; ten
 
 /** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */
 export async function setTenantPlan(input: { actorUserId: string; env: Env; tenantId: string; planCode: unknown }) {
-  if (!isPlanCode(input.planCode) || !z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Invalid plan");
+  if (!isPlanCode(input.planCode) || !z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Bitte wähle einen gültigen Tarif.");
   const plan = PLANS[input.planCode];
   return db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const sub = await lockedSubscription(tx, input.tenantId);
-    if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Plans are priced in EUR");
+    if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte prüfe die Währung des Geschäfts.");
     if (sub.providerSubscriptionId && RUNNING.includes(sub.status)) throw new DomainError("BILLING_STATE", "Der Tarif ist für die Vertragslaufzeit fest.");
     // An open checkout still shows the old price: close it so it can never complete at that price.
     const open = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, input.tenantId), eq(billingHandoffs.provider, "stripe"), eq(billingHandoffs.status, "pending")));

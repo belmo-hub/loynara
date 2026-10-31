@@ -110,7 +110,7 @@ async function assertLocationStaff(userId: string, tenantId: string, locationId:
   const { rows } = await pool.query<{ role: string; location_id: string | null }>(
     "SELECT role, location_id FROM staff_roles WHERE user_id = $1 AND tenant_id = $2 AND active", [userId, tenantId]);
   const role = rows[0];
-  if (!role || (role.role !== "owner" && role.location_id !== locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
+  if (!role || (role.role !== "owner" && role.location_id !== locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
 }
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

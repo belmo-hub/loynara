@@ -49,7 +49,7 @@ export async function updateWinback(input: { actorUserId: string; programSlug: s
     if (row?.changed) await enqueueWalletProgramRefresh(tx, row.tenantId, row.id);
     return row;
   });
-  if (!updated) throw new DomainError("NOT_FOUND", "Programme not found in this merchant");
+  if (!updated) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return winbackSettings(updated);
 }
 

@@ -67,7 +67,7 @@ describe("temporary identity-only onboarding bridge", () => {
     const merchant = await createMerchant(input(ownerId));
     const managerId = await identity();
     await db.insert(staffRoles).values({ userId: managerId, tenantId: merchant.tenantId, locationId: merchant.locationId, role: "manager" });
-    await expect(createMerchant(input(managerId))).rejects.toMatchObject({ code: "FORBIDDEN", message: expect.stringContaining("Inhaber") });
+    await expect(createMerchant(input(managerId))).rejects.toMatchObject({ code: "FORBIDDEN", message: expect.stringContaining("kein eigenes Geschäft") });
     expect(await db.select().from(tenants)).toHaveLength(1);
   });
 

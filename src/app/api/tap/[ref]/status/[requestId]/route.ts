@@ -8,7 +8,7 @@ export async function GET(request: Request, context: { params: Promise<{ ref: st
     // A generous separate ingress cap protects unauthenticated reads without spending the fresh-tap allowance.
     await enforcePeerLimit(request, "tap_status_peer", 3000, 60);
     const { ref, requestId } = await context.params;
-    if (!/^[a-f0-9-]{36}$/.test(requestId)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+    if (!/^[a-f0-9-]{36}$/.test(requestId)) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
     const programId = await tapProgramId(ref);
     const result = await secureTapStatus({ tagRef: ref, requestId, cardToken: tapCardToken(request, programId) });
     // Only a card-authorized request gets its own bucket: 180 reads cover the entire five-minute wait at four seconds.
