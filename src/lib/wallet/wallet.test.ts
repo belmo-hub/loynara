@@ -467,6 +467,12 @@ describe("merchant logo handling", () => {
     expect(await googleLogoAsset("square", logo, pass.brandColor, "★ & ✿")).toBeUndefined();
   });
 
+  it("keeps a real black wordmark JPG on a light brand colour on both wallets: its white box carries it (ENG-153)", async () => {
+    const jpg = `data:image/jpeg;base64,${readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg")).toString("base64")}`;
+    expect(await appleLogoFromData(jpg, "#F2E8DC")).toBeDefined();
+    expect(await googleLogoAsset("wide", jpg, "#F2E8DC", pass.merchantName)).toBeDefined();
+  });
+
   it("takes the initial from the first drawable letter, the same for the circle and the studio preview (ENG-153)", () => {
     expect(["„Zur Linde“", "'s Eck", "Ølhus", "Öztürk", "1. FC Kebab", "&Co", "éclair", "1. Döner", "4711", "  ", "★"].map(initialOf))
       .toEqual(["Z", "S", "L", "Ö", "F", "C", "E", "D", "4", "", ""]);

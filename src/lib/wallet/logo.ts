@@ -12,6 +12,8 @@ function remembered<T>(cache: Map<string, Promise<T>>, key: string, make: () => 
   if (!result) {
     result = make();
     cache.set(key, result);
+    // A failure is not remembered: the next request tries again.
+    result.catch(() => { if (cache.get(key) === result) cache.delete(key); });
     if (cache.size > 64) cache.delete(cache.keys().next().value!);
   }
   return result;

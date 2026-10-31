@@ -33,12 +33,13 @@ describe("Wallet previews in the card studio say what the pass says (ENG-108)", 
     expect(faint).toContain("Synthetic Café</strong>");
   });
 
-  it("Google: a wide logo is never put in the circle and replaces the issuer name (ENG-134)", () => {
-    // Server-side the image has not loaded, so its shape is unknown: the preview must default to the rectangle.
-    const wide = pass("google", { logoData: "data:image/png;base64,iVBORw0KGgo=", logoWallet: { showName: false, faint: false, upscaled: false } });
-    expect(wide).toContain("ow-pass-wide");
-    expect(wide).not.toContain("ow-pass-mark");
-    expect(wide).not.toContain("Synthetic Café</strong>");
+  it("Google: until the logo's shape is known, the name stays beside it (ENG-153)", () => {
+    // Server-side the image has not loaded; the wide split (ratio > 1.25) applies once it has.
+    const unknown = pass("google", { logoData: "data:image/png;base64,iVBORw0KGgo=", logoWallet: { showName: false, faint: false, upscaled: false, box: "#ffffff" } });
+    expect(unknown).toContain("ow-pass-mark");
+    expect(unknown).toContain("background-color:#ffffff");
+    expect(unknown).not.toContain("ow-pass-wide");
+    expect(unknown).toContain("Synthetic Café</strong>");
   });
 
   it("Google: the initial is the asset's, from the first drawable letter, in the pass ink on the brand colour (ENG-153)", () => {

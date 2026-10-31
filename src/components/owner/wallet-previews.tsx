@@ -63,10 +63,10 @@ function GooglePass({ data }: { data: PreviewData }) {
   // Same contrast rule as Apple: a faint logo gives way to the initial and the name.
   const logo = data.logoWallet?.faint ? null : data.logoData;
   const [ratio, onLoad] = useLogoRatio();
-  // Same split as lib/wallet/logo-process: before the image loads its shape is unknown, so it defaults to the rectangle.
-  const square = ratio > 0 && ratio <= 1.25;
-  // Google's loyalty template: with wideProgramLogo the card title is the wide logo and the programme name, no issuer name.
-  const wide = Boolean(logo) && !square;
+  // Same split as lib/wallet/logo-process. Google's loyalty template: with wideProgramLogo the card title is the wide logo
+  // and the programme name, no issuer name. Until the image loads its shape is unknown, so the name stays.
+  const wide = Boolean(logo) && ratio > 1.25;
+  const square = !wide;
   const name = data.businessName || "Dein Geschäft";
   const initial = initialOf(name);
   return (

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { checkedLogoUpload, logoBytes, processMerchantLogo } from "./logo-process";
@@ -153,14 +155,19 @@ describe("processMerchantLogo: Google gets each logo in its own shape (ENG-153)"
     expect((await pixel(banner, 1100, 200))[3]).toBe(0);
   });
 
-  it("gives a black wordmark JPG on white back its white margin, for Apple and Google", async () => {
-    const jpeg = await svg(400, 260, `<rect width="400" height="260" fill="#fff"/><g fill="#111"><rect x="30" y="50" width="100" height="160"/><rect x="150" y="30" width="100" height="200"/><rect x="270" y="50" width="100" height="160"/></g>`).jpeg({ quality: 95 }).toBuffer();
-    const logo = await processMerchantLogo(jpeg, WALDGRUEN);
-    expect(logo.meta).toMatchObject({ boxed: true, box: expect.stringMatching(/^#f[a-f0-9]f[a-f0-9]f[a-f0-9]$/) });
-    const [width, height] = await size(logo.wallet.png3x);
-    expect((await pixel(logo.wallet.png3x, 1, Math.round(height! / 2)))[0]).toBeGreaterThan(240); // white, not a glyph at the edge
-    expect((await pixel(logo.wallet.png3x, width! - 2, Math.round(height! / 2)))[0]).toBeGreaterThan(240);
-    expect((await pixel(wide(logo)!, 2, 200))[0]).toBeGreaterThan(240);
+  it("gives a real black wordmark JPG on white its white box and margin, even where the K reaches the trimmed corner", async () => {
+    const logo = await processMerchantLogo(readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg")), "#F2E8DC");
+    expect(logo.meta.boxed).toBe(true);
+    expect(logo.meta.box).toMatch(/^#f[a-f0-9]f[a-f0-9]f[a-f0-9]$/);
+    const [, height] = await size(logo.wallet.png3x);
+    expect((await pixel(logo.wallet.png3x, 1, Math.round(height! / 2))).slice(0, 3).every(c => c > 240)).toBe(true); // white, not the K
+    expect((await pixel(wide(logo)!, 2, 200)).slice(0, 3).every(c => c > 240)).toBe(true);
+  });
+
+  it("flags only a logo that really is small: a wide one needing more than 3x, not one held at 2x", async () => {
+    // 540 x 160 needs 2.4x to fill 1280 x 400: held at 2x, but not small enough to warn the owner.
+    expect((await processMerchantLogo(await png(540, 160, `<rect width="540" height="160" rx="20" fill="#fff"/>`), TAPPI_RED)).meta.upscaled).toBe(false);
+    expect((await processMerchantLogo(await png(160, 40, `<rect width="160" height="40" rx="8" fill="#fff"/>`), TAPPI_RED)).meta.upscaled).toBe(true);
   });
 });
 

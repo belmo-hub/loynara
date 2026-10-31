@@ -85,6 +85,19 @@ function lab(rgb: number[]) {
 const deltaE = (a: number[], b: number[]) => Math.hypot(...lab(a).map((value, i) => value - lab(b)[i]));
 const hexRgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 
+/** The mean colour of the most common border colour (16 levels per channel), so a few glyph pixels at the edge don't decide it. */
+function borderColour(pixel: (x: number, y: number) => number[], lastX: number, lastY: number): number[] {
+  const groups = new Map<number, number[][]>();
+  const add = (x: number, y: number) => {
+    const p = pixel(x, y), key = (p[0] >> 4) << 8 | (p[1] >> 4) << 4 | p[2] >> 4;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(p);
+  };
+  for (let x = 0; x <= lastX; x++) { add(x, 0); add(x, lastY); }
+  for (let y = 1; y < lastY; y++) { add(0, y); add(lastX, y); }
+  const common = [...groups.values()].reduce((a, b) => b.length > a.length ? b : a);
+  return [0, 1, 2].map(i => common.reduce((sum, p) => sum + p[i], 0) / common.length);
+}
+
 /** Every Wallet output for one stored logo (any of the three upload types). Deterministic for the same bytes and colour. */
 export async function processMerchantLogo(bytes: Buffer, brandColor: string): Promise<ProcessedLogo> {
   const trimmed = await trimmedLogo(bytes);
@@ -92,14 +105,18 @@ export async function processMerchantLogo(bytes: Buffer, brandColor: string): Pr
   const pixel = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4));
   const [lastX, lastY] = [info.width - 1, info.height - 1];
   const corners = [pixel(0, 0), pixel(lastX, 0), pixel(0, lastY), pixel(lastX, lastY)];
-  const boxed = corners.every(c => c[3] >= 250) && corners.every(c => corners.every(d => deltaE(c, d) < 5));
+  const hex = (rgb: number[]) => `#${rgb.slice(0, 3).map(c => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
+  // An opaque upload (a JPG wordmark on white) is its own box even where a glyph reaches a corner: the box is the colour
+  // most of its border shares. A logo with transparency is boxed only when its four corners are one opaque colour.
+  const box = (await sharp(trimmed).stats()).isOpaque ? hex(borderColour(pixel, lastX, lastY))
+    : corners.every(c => c[3] >= 250) && corners.every(c => corners.every(d => deltaE(c, d) < 5)) ? hex(corners[0]) : undefined;
+  const boxed = Boolean(box);
   // shortcut: mean luminance of the opaque pixels, which overrates a two-colour logo; per-region contrast if owners hit it.
   let sum = 0, count = 0;
   for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 128) { sum += luminance([data[i], data[i + 1], data[i + 2]]); count++; }
   const [logoLum, brandLum] = [count ? sum / count : 0, luminance(hexRgb(brandColor))];
   const contrast = (Math.max(logoLum, brandLum) + 0.05) / (Math.min(logoLum, brandLum) + 0.05);
   const ratio = info.width / info.height;
-  const box = boxed ? `#${corners[0].slice(0, 3).map(c => c.toString(16).padStart(2, "0")).join("")}` : undefined;
   // A logo on its own box (a JPG wordmark on white, typically) is trimmed to its glyphs; give it back a margin in the box colour.
   const pad = box ? Math.round(info.height * 0.12) : 0;
   const source = box ? await sharp(trimmed).extend({ top: pad, bottom: pad, left: pad, right: pad, background: box }).png().toBuffer() : trimmed;
@@ -130,6 +147,6 @@ export async function processMerchantLogo(bytes: Buffer, brandColor: string): Pr
     wallet: { png1x, png2x, png3x, width: sizes[0][0], height: sizes[0][1] },
     ...(icon ? { icon } : {}),
     google,
-    meta: { ratio, boxed, ...(box ? { box } : {}), contrast, upscaled: fit * 3 > 1 || needed > 2, showName: ratio < 2.2 || boxed },
+    meta: { ratio, boxed, ...(box ? { box } : {}), contrast, upscaled: fit * 3 > 1 || (wide && needed > 3), showName: ratio < 2.2 || boxed },
   };
 }
