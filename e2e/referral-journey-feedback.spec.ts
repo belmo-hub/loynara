@@ -43,7 +43,7 @@ for (const width of [375, 1280]) test(`valid referral survives terms navigation 
   page.on("request", req => { if (req.method() === "POST" && new URL(req.url()).pathname === "/api/enroll") writes++; });
   try {
     const before = await snapshot(); await page.goto(shareUrl); await expect(page.getByText(/Empfehlungslink:/)).toBeVisible();
-    const terms = context.waitForEvent("page"); await page.getByRole("link", { name: "Weitere Teilnahmebedingungen", exact: true }).click(); const termsPage = await terms; await expect(termsPage).toHaveURL(/\/teilnahmebedingungen$/); await termsPage.close();
+    await page.getByRole("button", { name: "Programmregeln" }).click(); const terms = context.waitForEvent("page"); await page.getByRole("link", { name: "Weitere Teilnahmebedingungen", exact: true }).click(); const termsPage = await terms; await expect(termsPage).toHaveURL(/\/teilnahmebedingungen$/); await termsPage.close();
     expect(page.url()).toBe(shareUrl); expect(await snapshot()).toEqual(before);
     const response = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/enroll");
     await page.getByRole("checkbox").check(); await page.getByRole("button", { name: "Meine Karte erstellen", exact: true }).click(); expect((await response).status()).toBe(201);

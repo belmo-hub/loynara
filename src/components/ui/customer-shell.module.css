@@ -5,3 +5,8 @@
 .main { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--space-4); padding-block: var(--space-4) var(--space-8); }
 .header + .main { padding-top: var(--space-2); }
 .footer { padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom)); color: var(--color-ink-muted); font-size: var(--text-14); }
+/* The card page from 960 px: the goal and the card on the left, the sections on the right (G-34). */
+@media (min-width: 960px) {
+  .shell[data-wide] :is(.header, .main, .footer) { max-width: 960px; }
+  .shell[data-wide] .main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-8); align-items: start; }
+}

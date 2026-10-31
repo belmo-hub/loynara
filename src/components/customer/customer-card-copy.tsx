@@ -20,6 +20,10 @@ const de = {
   showToRedeem: "Zum Einlösen an der Kasse zeigen.",
   walletTitle: "In Wallet speichern",
   walletIntro: "Deine Karte liegt dann bei deinen anderen Karten auf dem Handy. Stempel und Prämien aktualisieren sich dort automatisch; gebucht wird weiterhin an der Kasse.",
+  // ENG-148, cards 23–26: copy-rest R20, Marketing FINAL 28 Oct. The ready band says rewardReady in two lines.
+  goodToKnow: "Gut zu wissen", yourCardHead: "Deine Karte", walletRow: "Stand aktualisiert sich automatisch",
+  readyTitle: "Prämie verfügbar.", readyText: "Lass sie an der Kasse einlösen.",
+  of: (n: string, total: string) => `${n} von ${total}`, showAll: "Alle anzeigen",
   addApple: "Zu Apple Wallet hinzufügen", addGoogle: "Zu Google Wallet hinzufügen", walletLoading: "Wird vorbereitet …",
   googleDemo: "Google Wallet ist für dieses Geschäft noch in der Testphase. Speichern ist nur mit freigegebenen Testkonten möglich.",
   chooseReward: "Deine Prämien", rewardsGroup: "Prämien", redeemable: "Einlösbar", short: (n: string) => `noch ${n}`,
@@ -29,7 +33,7 @@ const de = {
   stepNumber: (locator: string) => <>Notiere dir deine Kartennummer <strong>{locator}</strong>. Damit findet das Geschäft deine Karte und kann dir nach einer Prüfung einen neuen Kartenlink geben.</>,
   linkWarning: "Wer den Kartenlink hat, kann die Karte öffnen. Gib ihn nicht weiter.",
   copyLink: "Kartenlink kopieren", copied: "Kartenlink kopiert.", copyFailed: "Kopieren nicht möglich. Speichere diese Seite über deinen Browser.",
-  activity: "Letzte Aktivität", activityEmpty: "Noch keine Buchungen. Deine Besuche erscheinen hier, sobald die Kasse sie bestätigt.",
+  activity: "Letzte Aktivität", activityEmpty: "Noch keine Buchungen. Sie erscheinen hier, sobald die Kasse bestätigt.",
   endsOn: (date: string) => `Diese Karte endet am ${date}.`,
   endsWindow: (points: boolean) => `Bis dahin kannst du weiter ${points ? "Punkte" : "Stempel"} sammeln und Prämien einlösen.`,
   // Level and challenge (the level names and the challenge sentence come from the server).
@@ -40,7 +44,7 @@ const de = {
   levelRule: "Das Level zählt deine Besuche der letzten 90 Tage. Ohne Besuch sinkt es wieder; das Datum beim Level sagt, bis wann es sicher gilt.",
   challenge: "Monats-Challenge", challengeDone: "Geschafft! Der Bonus ist gutgeschrieben.", challengeDoneShort: "geschafft",
   challengeProgress: (visits: number, target: number) => `${visits} von ${target} Besuchen`,
-  expiryList: "Deine Punkte verfallen:", more: "Außerdem",
+  expiryList: "Deine Punkte verfallen:",
   // ENG-089 (Marketing v1.8 §9, Legal 24 Oct): a card inside its win-back window; [Datum] is the window's last day. The
   // „Bedingungen“ link to the rules is Legal's condition for leaving the exclusions out of this line.
   winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Bis zum ${day} gibt's bei deinem nächsten Besuch ${points ? `${bonus} ${bonus === 1 ? "Punkt" : "Punkte"}` : "1 Stempel"} extra.`,
@@ -72,6 +76,9 @@ const fr: Copy = {
   showToRedeem: "À présenter en caisse pour utiliser la récompense.",
   walletTitle: "Ajouter à Wallet",
   walletIntro: "Votre carte rejoint vos autres cartes sur le téléphone. Tampons et récompenses s’y mettent à jour automatiquement ; les opérations restent confirmées en caisse.",
+  // No new French copy for now (founder, 28 Oct): these stay German until French is commissioned.
+  goodToKnow: de.goodToKnow, yourCardHead: de.yourCardHead, walletRow: de.walletRow, readyTitle: "Récompense disponible.", readyText: "Demandez son utilisation en caisse.",
+  of: (n, total) => `${n} sur ${total}`, showAll: de.showAll,
   addApple: "Ajouter à Apple Wallet", addGoogle: "Ajouter à Google Wallet", walletLoading: "Préparation …",
   googleDemo: "Google Wallet est encore en phase de test pour ce commerce. L’enregistrement n’est possible que pour des comptes de test autorisés.",
   chooseReward: "Vos récompenses", rewardsGroup: "Récompenses", redeemable: "Disponible", short: (n) => `encore ${n}`,
@@ -91,7 +98,7 @@ const fr: Copy = {
   levelRule: "Le niveau compte vos visites des 90 derniers jours. Sans visite, il redescend ; la date indiquée avec le niveau dit jusqu’à quand il est garanti.",
   challenge: "Défi du mois", challengeDone: "Réussi ! Le bonus a été crédité.", challengeDoneShort: "réussi",
   challengeProgress: (visits, target) => `${visits} visite${visits === 1 ? "" : "s"} sur ${target}`,
-  expiryList: "Vos points expirent :", more: "Également",
+  expiryList: "Vos points expirent :",
   winback: (points, bonus, day) => `Bon retour ! Jusqu’au ${day}, votre prochaine visite vous rapporte ${points ? `${bonus} ${bonus === 1 ? "point supplémentaire" : "points supplémentaires"}` : "1 tampon supplémentaire"}.`,
   conditions: "Conditions",
   happyHour: (until: string) => `Points doubles jusqu’à ${until}`, rules: "Règles du programme", news: "Actualités", review: "Ça vous a plu ? Laissez-nous un avis.", terms: "Autres conditions de participation", privacy: "Confidentialité", export: "Exporter les données de ma carte",

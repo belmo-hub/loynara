@@ -341,7 +341,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     // The page loads the card through /api/enroll/card/ and re-reads it through /api/card/.
     page.on("request", request => { if (request.method() === "GET" && new RegExp(`^/api/(enroll/)?card/${card.cardToken}$`).test(new URL(request.url()).pathname)) reads.push(Date.now()); });
     await page.goto(`/card/${encodeURIComponent(card.cardToken)}`);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText("0 Stempel");
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
     await page.waitForTimeout(500);
     // Development mode runs the initial effect twice (React Strict Mode); count from the settled initial load.
     const initial = reads.length;
@@ -360,7 +360,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     const membershipId = await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
     await returnToPage();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText("1 Stempel");
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
     await expect(page.locator(".customer-activity-list")).toContainText("+1 Stempel");
     expect(reads).toHaveLength(initial + 1);
 
@@ -373,7 +373,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
     await page.getByRole("button", { name: "Karte aktualisieren" }).click();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText("2 Stempel");
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
     expect(reads).toHaveLength(initial + 2);
 
     // A link that was reissued elsewhere stops showing the old card and says what to do.

@@ -1,19 +1,21 @@
 /* Guest card (DESIGN.md, "Customer card"). Budget: merchant, balance and the QR fit a 360 × 800 screen. */
 .merchant { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
+.headerWallet { display: grid; place-items: center; flex: none; width: 48px; height: 48px; margin-left: auto; border: 0; border-radius: 50%; background: var(--color-surface); color: var(--color-ink); cursor: pointer; }
+.headerWallet:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
-.merchantText { display: grid; min-width: 0; }
+.merchantText { display: grid; flex: 1; min-width: 0; }
 .merchantName { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: 1.3; overflow-wrap: anywhere; }
 .merchantText span { font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .goal { display: grid; gap: var(--space-1); padding-inline: var(--space-1); }
-.goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: clamp(1.5rem, 6.6vw, var(--text-28)); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
-.goalNum { color: var(--merchant-text); font-size: 1.2em; font-variant-numeric: lining-nums; }
-/* The reward is a name: it wraps at spaces only (Head of Design), very long single words may still break. */
-/* The headline stays within two lines; the reward's name follows on its own line, a step smaller. */
-.rewardName { display: block; margin-top: var(--space-1); font-size: var(--text-22); line-height: 1.25; hyphens: manual; overflow-wrap: anywhere; }
+.goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: break-word; }
+@media (min-width: 1024px) { .goalLine { font-size: var(--display-36); } }
+.goalNum { font-variant-numeric: tabular-nums; }
+/* The reward is a name: inline in the sentence, it wraps at spaces only, very long single words may still break. */
+.rewardName { hyphens: manual; overflow-wrap: anywhere; }
 /* ENG-130 (08): a muted line under the goal, once, after the pass is saved in Apple Wallet. */
 .saved { display: flex; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-2)) 0 0; padding-inline: var(--space-1); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
-.goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 
 .object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
 .objectTop { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
@@ -28,33 +30,81 @@
 .stamps { margin: 0; }
 .stamps li { max-width: 56px; justify-self: center; width: 100%; }
 .ladder { margin-block: var(--space-1) 0; }
-.balancePanel { display: grid; gap: 2px; padding-top: var(--space-3); border-top: 1px solid color-mix(in oklab, var(--merchant-ink), transparent 78%); }
-.balanceLine { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin: 0; }
-.balanceLine span { font-size: var(--text-14); }
-.balanceLine strong { font-size: var(--text-22); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.balanceLine em { font-style: normal; font-size: var(--text-16); font-weight: var(--weight-strong); }
+/* Stamps: the reward and „7 von 10“ under the grid (mock 23). */
+.balanceLine { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: 0; font-weight: var(--weight-strong); }
+.balanceLine span { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow-wrap: anywhere; }
+.balanceLine svg { flex: none; }
+.balanceLine strong { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Points: the balance leads the card (mock 24). */
+.pointsLead { margin: 0; line-height: 1; }
+.pointsLead strong { font-family: var(--font-display); font-size: var(--display-tile); font-weight: var(--weight-heavy); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pointsLead em { margin-left: var(--space-1); font-style: normal; font-family: var(--font-sans); font-size: var(--text-18); font-weight: var(--weight-strong); letter-spacing: 0; }
+.levelTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--merchant-ink), transparent 82%); font-size: var(--text-14); font-weight: var(--weight-heavy); }
 .remaining { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.4; }
 
 /* The code: inset in the card on white, in both themes, for the counter's camera. */
-.ticket { display: grid; justify-items: center; gap: var(--space-2); margin-top: var(--space-1); padding: var(--space-3) var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
-.qr { width: clamp(188px, 52vw, 220px); aspect-ratio: 1; }
+/* The QR and the number side by side (mock 23), so the card stays short. */
+.ticket { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: var(--space-3); margin-top: var(--space-1); padding: var(--space-3); border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
+.qr { width: 128px; aspect-ratio: 1; }
 .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-.missingQr { margin: 0; padding: var(--space-6) var(--space-2); text-align: center; font-size: var(--text-14); }
-.locator { display: grid; justify-items: center; margin: 0; text-align: center; }
+.missingQr { margin: 0; font-size: var(--text-14); }
+.locator { display: grid; gap: var(--space-1); min-width: 0; margin: 0; container-type: inline-size; }
 .locator span { font-size: var(--text-14); color: #58645C; }
-.locator strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
-.locator small { font-size: var(--text-14); color: #58645C; }
-.ticketNote { margin: 0; text-align: center; font-size: var(--text-14); color: #58645C; text-wrap: pretty; }
+/* Read aloud at the counter, so it stays on one line (G-05); a step smaller on narrow phones. */
+.locator strong { font-size: clamp(var(--text-16), 14cqi, var(--text-28)); font-weight: var(--weight-heavy); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.locator small { font-size: var(--text-14); line-height: 1.4; color: #58645C; text-wrap: pretty; }
+@media (max-width: 359px) { .ticket { grid-template-columns: 112px minmax(0, 1fr); } .qr { width: 112px; } }
 
-.cardGroup { display: grid; gap: var(--space-1); }
-.refresh { display: grid; justify-items: center; gap: var(--space-1); }
+.cardGroup { display: grid; gap: var(--space-3); }
 .alert { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.refresh { display: grid; justify-items: center; gap: var(--space-1); }
+
+/* Phone: one column in source order. From 960 px the shell runs two columns and these become them (G-34). */
+.lead, .rest { display: contents; }
+@media (min-width: 960px) {
+  .lead, .rest { display: grid; align-content: start; gap: var(--space-4); min-width: 0; }
+  .lead { position: sticky; top: var(--space-6); }
+}
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 
-.panel { display: grid; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
-.panelTitle { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
+/* Section heads on the grey with white rows, as on the owner's Programm list; one green band for the one next step. */
+.section { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
+.sectionHead { margin: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.4; color: var(--color-ink-muted); }
+.card { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--color-surface); }
+.rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); width: 100%; min-height: 64px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); font: inherit; text-align: start; }
+button.row { cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+button.row:active { transform: scale(.985); }
+button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+/* The reward the goal and the card refer to: the neutral fill, not green (D-020). */
+.row[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--color-line-strong); }
+.rowIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); color: var(--color-ink); }
+.rowIcon[data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
+/* A value sits beside the words while they fit, else on a line of its own. */
+.rowMain { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+.rowText { flex: 1 1 0; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.rowText > strong, .rowText > small, .rowText > span { display: block; }
+.rowText > strong { font-weight: var(--weight-strong); line-height: 1.35; }
+.rowText > span { font-weight: var(--weight-label); line-height: 1.4; text-wrap: pretty; }
+.rowText > small { margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: var(--color-ink-muted); }
+.ink { color: var(--color-ink); font-weight: var(--weight-strong); }
+.rowValue { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rowArrow { flex: none; margin-left: auto; color: var(--color-ink-muted); }
+@media (hover: hover) { button.row:hover .rowArrow { color: var(--color-ink); } }
+/* „Einlösbar“ stands on its own line under the reward's text. */
+.chipLine { flex-basis: 100%; padding-left: 52px; }
+.chip { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 28px; margin-top: var(--space-1); padding: 0 var(--space-3); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); font-size: var(--text-14); font-weight: var(--weight-strong); }
+/* The one green surface on the card: shown only while a reward is ready. */
+.band { display: flex; align-items: center; gap: var(--space-3); min-height: 76px; margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); }
+.bandIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
+.band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; }
+.band small { display: block; margin-top: 2px; font-size: var(--text-16); line-height: 1.4; }
+/* Below 360 px the icons give their room to the words. */
+@media (max-width: 359px) { .rowIcon, .bandIcon { display: none; } .chipLine { padding-left: 0; } }
+@media (prefers-reduced-motion: reduce) { button.row:active { transform: none; } }
+.sheetBody { display: grid; gap: var(--space-3); }
+.newsText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
-.wallet { composes: panel; }
 .walletButtons { display: grid; gap: var(--space-2); }
 .walletButton { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: #111111; color: #FFFFFF; font: var(--weight-label) var(--text-16)/1.2 var(--font-sans); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .walletButton:active:not(:disabled) { transform: scale(.98); }
@@ -63,56 +113,44 @@
 .walletButton:global(.wallet-add--google) { padding: 0; background: transparent; }
 .walletButton img { display: block; height: 52px; width: auto; }
 
-.rewardList { display: grid; }
-.rewardRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border: 0; border-top: 1px solid var(--color-line); background: transparent; color: var(--color-ink); text-align: left; font: inherit; cursor: pointer; }
-.rewardRow:first-child { border-top: 0; }
-.rewardRow[aria-pressed="true"] { border-radius: var(--radius-md); background: var(--color-action-soft); }
-.rewardRow[aria-pressed="true"] + .rewardRow { border-top-color: transparent; }
-.rewardRow:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: var(--radius-md); }
-.rewardText { display: grid; min-width: 0; }
-.rewardText strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
-.rewardText small { font-size: var(--text-14); color: var(--color-ink-muted); }
-
 .steps { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); list-style: decimal; line-height: 1.5; }
 .steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.steps strong { font-variant-numeric: tabular-nums; }
+.steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .activity { display: grid; margin: 0; padding: 0; list-style: none; }
-.activity li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
+/* The day first as a muted column, the label, the value in ink (G-21: no green here). */
+.activity li { display: grid; grid-template-columns: 4rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
 .activity li:first-child { border-top: 0; }
-.activity li > span { display: grid; }
-.activity small { font-size: var(--text-14); color: var(--color-ink-muted); }
+.activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
+.activity strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.activity b[data-sign="plus"] { color: var(--color-success); }
+.showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 .rules { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); margin: 0; }
-.links a, .export :global(.terms-link) { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
-.export { display: grid; justify-items: center; }
-.export :global(.auth-error) { margin: 0; font-size: var(--text-14); color: var(--color-danger); }
+.links a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
+/* The export as a „Deine Karte“ row; its own button and error line keep their behaviour. */
+.export :global(.terms-link) { flex: 1; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1.35 var(--font-sans); text-align: start; text-decoration: none; cursor: pointer; }
+.export :global(.auth-error) { flex-basis: 100%; margin: 0; padding-left: 52px; font-size: var(--text-14); color: var(--color-danger); }
 
-.close { display: grid; justify-items: center; gap: var(--space-3); }
-.closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0 var(--space-3); border: 0; background: transparent; color: var(--color-ink-muted); font: var(--weight-label) var(--text-14)/1 var(--font-sans); cursor: pointer; }
+/* „Karte schließen“ comes last, as a danger link; the binding step stays behind it. */
+.close { display: grid; justify-items: start; gap: var(--space-3); margin-top: var(--space-2); }
+.closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0; border: 0; background: transparent; color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
 .closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .closeConfirm { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
 .closeConfirm p { margin: 0; }
-.footer { margin: 0; text-align: center; }
+.footer { display: grid; justify-items: center; gap: var(--space-2); }
+.footer p { margin: 0; }
 
 /* An ending programme opens the card (ENG-075): the date, then what still works until then. */
 .ending { display: grid; gap: var(--space-1); padding: var(--space-4); border-radius: var(--radius-lg); background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-ink); }
 .ending p { margin: 0; font-size: var(--text-14); line-height: 1.45; }
 .endingTitle { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.3; text-wrap: balance; }
 
-/* The one highlighted extra (expiry, happy hour) as a single strong line; the others fold into .moreList. */
-.highlight { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); font-weight: var(--weight-strong); }
-.moreList { display: grid; gap: var(--space-1); margin: 0; padding: 0 var(--space-1); list-style: none; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 /* „Bedingungen“ after the win-back line: an inline link to the programme rules (Legal: the rules one tap away). */
-.inlineLink { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
+.inlineLink { display: inline; padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
-/* ENG-100: a change waiting for its date, one line each under the card (Design 31). */
-.changes { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.changes li { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-ink); font-weight: 650; line-height: 1.4; }
-.changes svg { flex: none; margin-top: 2px; color: var(--color-warning); }
+/* ENG-100: a change waiting for its date is a „Gut zu wissen“ row (mock 25); a long new rule opens under its line. */
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
 .newRule { display: block; margin-top: var(--space-2); font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }

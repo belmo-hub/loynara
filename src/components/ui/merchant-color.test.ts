@@ -99,7 +99,8 @@ describe("points ladder on the card", () => {
 
   it("has no rules beyond the ones checked here and in e2e/points-ladder.mobile.spec.ts", () => {
     const selectors = [...css.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap(([, head]) => head.replace(/^[\s\S]*\{/, "").split(",").map((part) => part.trim()));
-    expect(selectors).toEqual([".ladder", ".track", ".fill", ".mark", ".dot", ".mark[data-reached] .dot", ".cost", ".mark[data-label-hidden] .cost", ".fill"]);
+    expect(selectors).toEqual([".ladder", ".track", ".fill", ".mark", ".dot", ".mark[data-reached] .dot", ".cost", ".mark[data-label-hidden] .cost", ".mark[data-label-hidden] .title",
+      ".ladder[data-titles]", ".ladder[data-titles] .mark", ".title", ".mark[data-end]", ".mark[data-end] .title", ".fill"]);
   });
 
   it("reads a supported track and fill", () => {
