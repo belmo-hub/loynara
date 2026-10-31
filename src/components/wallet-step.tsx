@@ -104,7 +104,7 @@ export function WalletStep({ token, program: { businessName, programType, wallet
     {messages && <p className={styles.muted}>Angebote vom Laden nur, wenn du es erlaubst: höchstens 2 pro Woche, jederzeit abschaltbar.</p>}
     {/* Apple's German badge as supplied (ENG-132); never dimmed while busy, the quiet line says so instead. */}
     <button type="button" className={styles.apple} onClick={() => void add()} disabled={busy} aria-busy={busy} aria-label={busy ? "Wird vorbereitet …" : undefined}><Image unoptimized src="/wallet/apple-add-de.svg" alt="Zu Apple Wallet hinzufügen" width={166} height={52} /></button>
-    {busy && <p className={styles.busy}>Wird vorbereitet …</p>}
+    {busy && <p className={styles.busy} role="status">Wird vorbereitet …</p>}
     {error && <p className={styles.error} role="alert">{error}</p>}
     <p className={styles.skip}><Link href={cardHref}>Später, zuerst meine Karte ansehen</Link></p>
     <p className={styles.muted}>{programType === "points" ? "Punkte" : "Stempel"} sammelst du auch ohne Wallet. Speichern kannst du die Karte später unter „In Wallet speichern“.</p>

@@ -301,7 +301,7 @@ function Wallet({ buttons, walletBusy = null, googleTestOnly, walletError, local
           {badge ? <Image unoptimized src={badge} alt={button.label} width={button.id === "google" ? 199 : 166} height={button.id === "google" ? 55 : 52} /> : <span>{walletBusy === button.id ? t.walletLoading : button.label}</span>}
         </button>;
       })}</div>
-      {walletBusy !== null && walletBadge(walletBusy, locale) ? <p className={`wallet-busy ${styles.walletBusy}`}>{t.walletLoading}</p> : null}
+      {walletBusy !== null && walletBadge(walletBusy, locale) ? <p className={`wallet-busy ${styles.walletBusy}`} role="status">{t.walletLoading}</p> : null}
       {googleTestOnly && buttons.some(button => button.id === "google") ? <p className={`wallet-mode-note ${styles.muted}`}>{t.googleDemo}</p> : null}
       {walletError && open ? <p className={`wallet-error ${styles.alert}`} role="alert">{walletError}</p> : null}
     </div>
