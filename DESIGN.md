@@ -84,7 +84,7 @@ file; no external requests.
 
 | Token | Size / line | Use |
 |---|---|---|
-| `--text-12` | 12 / 16 | bottom-bar labels below 420 px (14 from 420). Never body copy. |
+| `--text-12` | 12 / 16 | bottom-bar labels below 420 px (14 from 420), dense diary-strip labels. Never body copy. |
 | `--text-14` | 14 / 20 | secondary text, hints, table meta |
 | `--text-16` | 16 / 24 | body, buttons, inputs (16 px stops iOS zoom) |
 | `--text-18` | 18 / 26 | section titles |

@@ -126,7 +126,10 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-tab[aria-current="page"] .ow-tab-icon { background: var(--color-fill); }
   .ow-tab[aria-current="page"] svg { stroke-width: 2.5; }
   /* Under text scaling a label ends in an ellipsis instead of running into its neighbour. */
-  .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* 1.34 (the 12/16 token) leaves room for descenders: WebKit clips the „g“ of „Programm“ at 1.1 under overflow: hidden. */
+  .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.34; }
+  /* From 360 a 4 px inset keeps scaled labels apart; at 320 the current „Programm“ at 800 needs the full cell. */
+  @media (min-width: 360px) { .ow-tab { padding-inline: var(--space-1); } }
   /* No side padding: the ring sits inside the tab so it neither cuts the next label nor touches the screen edge. */
   .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }

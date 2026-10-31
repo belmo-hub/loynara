@@ -6,7 +6,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
-import { useOwner } from "./owner-context";
+import { useOwner, type OwnerLocation } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 import { ProgrammeEndedPage } from "./programme-ended-page";
 
@@ -119,13 +119,15 @@ function LocationBox() {
   const me = owner.me;
   if (!me) return <div className="ow-loc"><Skeleton height={44} /></div>;
   const many = owner.locations.length > 1;
+  const label = (location: OwnerLocation) => owner.locations.filter(other => other.name === location.name).length > 1 && location.city ? `${location.name} · ${location.city}` : location.name;
+  const current = owner.locations.find(location => location.id === me.locationId);
   // One location is plain text, not a box: nothing to choose (I-15). Several get a labelled select.
   return (
     <div className="ow-loc">
       {many && <label className="ow-label" htmlFor="ow-loc-select">Standort</label>}
       {many
-        ? <select id="ow-loc-select" className="ow-select" title={me.locationName} value={me.locationId} disabled={owner.switching} onChange={event => owner.switchLocation(event.target.value)}>
-            {owner.locations.map(location => <option key={location.id} value={location.id}>{owner.locations.filter(other => other.name === location.name).length > 1 && location.city ? `${location.name} · ${location.city}` : location.name}</option>)}
+        ? <select id="ow-loc-select" className="ow-select" title={current ? label(current) : me.locationName} value={me.locationId} disabled={owner.switching} onChange={event => owner.switchLocation(event.target.value)}>
+            {owner.locations.map(location => <option key={location.id} value={location.id}>{label(location)}</option>)}
           </select>
         : <span className="ow-loc-name">{me.locationName}</span>}
       <span className="ow-loc-sub">{me.programType === "stamp" ? "Stempelkarte" : "Punktekarte"}</span>
