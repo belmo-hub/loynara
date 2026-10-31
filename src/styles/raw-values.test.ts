@@ -15,7 +15,7 @@ const tokens = new Set([...readFileSync(join(__dirname, "tokens.css"), "utf8").m
 // The wallet-pass mocks picture Apple's and Google's passes at a reduced scale, so they follow the platforms.
 const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-row:first-child .ow-pass-field b", ".ow-pass-title", ".ow-pass-field small",
   ".ow-pass-field b", ".ow-pass-primary b", ".ow-pass-logo", ".ow-pass-codewrap", ".ow-pass-code", ".ow-pass-alt", ".ow-pass-module", ".ow-pass-module small",
-  ".ow-pass-issuer img", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
+  ".ow-pass-issuer img", ".ow-pass-mark", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
 const OWNER_UI = /^src\/(?:components\/owner|app\/merchant)\//;
@@ -31,11 +31,13 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/customer/customer-card.module.css", kind: "font size", selectors: [".goalLine"], value: "clamp(1.5rem, 6.6vw, var(--text-28))", reason: "the goal line shrinks on narrow phones so merchant, balance and QR fit 360 × 800" },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small", ".ticketNote"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
+  { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
+  { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".apple"], reason: "Add to Wallet buttons follow Apple's button artwork (black with white)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
-  { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket"], reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: SHELL, reason: "shell and navigation, ENG-138" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, chips and the toast, ENG-139 (SF-8, SF-9)" },
   { file: "src/components/owner/owner-shell.tsx", kind: "spacing", property: "gap", value: "16px", reason: "the bare setup and sign-out top bars, ENG-138" },

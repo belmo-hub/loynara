@@ -91,7 +91,8 @@ async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) 
 }
 
 /** Client entry point (cashier route, scripts). Tap confirmation and offline sync call awardInTransaction with server keys. */
-type AwardResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number };
+// Every bonus booked with the award, by source, so the counter can show how the new balance adds up (ENG-133).
+type AwardResult = { balance: number; /** The card's balance under the booking's lock, on a new booking. */ balanceBefore?: number; duplicate: boolean; entryId: string; creditedQuantity: number; welcomeBonus?: number; happyHourBonus?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number; referralBonus?: number };
 
 export async function award(input: AwardInput): Promise<AwardResult> {
   assertClientKey(input.idempotencyKey);
@@ -203,7 +204,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
     }
     // The cashier screen shows the challenge bonus with this booking („+1 extra: Monats-Challenge“).
-    return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity, winbackBonus, birthdayBonus, ...(challenge ? { challengeBonus: challenge } : {}) };
+    return { balance: balance + referral.referredBonus, balanceBefore: member.balance, duplicate: false, entryId: entry.id, creditedQuantity: quantity, welcomeBonus, happyHourBonus: happyHour, winbackBonus, birthdayBonus, referralBonus: referral.referredBonus, ...(challenge ? { challengeBonus: challenge } : {}) };
 }
 
 // The welcome bonus ("Startbonus") is its own ledger row next to the card's first staff-confirmed award, keyed by that
@@ -211,14 +212,19 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
 // and analytics count only staff sources, so the bonus never counts as a purchase or visit.
 const welcomeBonusKey = (awardEntryId: string) => `welcome:${awardEntryId}`;
 
+/** The welcome bonus the card's next staff-confirmed award books: the programme's bonus until a first award, then 0. */
+export async function welcomeBonusDue(tx: Pick<typeof db, "select">, program: { welcomeBonus: number }, card: { tenantId: string; membershipId: string }, exceptEntryId?: string): Promise<number> {
+  if (program.welcomeBonus <= 0) return 0;
+  const [earlier] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
+    eq(ledgerEntries.tenantId, card.tenantId), eq(ledgerEntries.membershipId, card.membershipId), exceptEntryId ? ne(ledgerEntries.id, exceptEntryId) : undefined,
+    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus"]))).limit(1);
+  return earlier ? 0 : program.welcomeBonus;
+}
+
 async function bookWelcomeBonus(tx: Transaction, input: { program: typeof programs.$inferSelect; entry: typeof ledgerEntries.$inferSelect }): Promise<number> {
   const { program, entry } = input;
-  if (program.welcomeBonus <= 0) return 0;
   // The membership row is locked by the caller, so this "first award" check cannot race another booking for this card.
-  const [earlier] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
-    eq(ledgerEntries.tenantId, entry.tenantId), eq(ledgerEntries.membershipId, entry.membershipId), ne(ledgerEntries.id, entry.id),
-    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus"]))).limit(1);
-  if (earlier) return 0;
+  if (!(await welcomeBonusDue(tx, program, entry, entry.id))) return 0;
   await tx.insert(ledgerEntries).values({
     tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: program.welcomeBonus, kind: "award",
     source: "welcome_bonus", actorUserId: entry.actorUserId, requestId: entry.requestId, idempotencyKey: welcomeBonusKey(entry.id), reason: "Startbonus",

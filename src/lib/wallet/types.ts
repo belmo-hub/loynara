@@ -16,8 +16,8 @@ export type WalletBrand = {
   brandColor: string;
   country: string;
   locale: WalletLocale;
-  /** Merchant PNG logo for the Apple pass archive, only when it passed the size/format checks in logo.ts. */
-  appleLogo?: { png: Buffer; width: number; height: number };
+  /** Merchant logo for the Apple pass archive, processed in logo-process.ts; absent means the name stands alone. */
+  appleLogo?: AppleLogo;
   googleLogoUrl?: string;
   latitude?: number;
   longitude?: number;
@@ -57,3 +57,5 @@ export type WalletRevokedData = WalletBrand & { membershipId: string; reason: Re
 
 /** Operator-side provider status. `reason` may name configuration keys: never send it to a browser. */
 export type WalletStatus = { enabled: boolean; ready: boolean; reason: string | null };
+
+export type AppleLogo = { png1x: Buffer; png2x: Buffer; png3x: Buffer; width: number; height: number; icon?: [Buffer, Buffer, Buffer]; showName: boolean };

@@ -7,6 +7,8 @@ import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead, SaveBar, type Sa
 import { useLoad } from "@/components/owner/use-load";
 import { BackToActions } from "@/components/owner/actions-list";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FieldError } from "@/components/owner/question-form";
+import { useFormCheck } from "@/components/ui/form-check";
 
 type Kind = "first_checkout" | "inactive" | "reward_ready";
 type Editor = { triggerKind: Kind; enabled: boolean; subject: string; body: string; inactivityDays?: number; cooldownDays: number; dailyCap: number };
@@ -67,6 +69,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
   const [editor, setEditor] = useState<Editor>(pick(initial));
   const [state, setState] = useState<SaveState>("clean");
   const [error, setError] = useState("");
+  const fields = useFormCheck({ [`${initial.triggerKind}-subject`]: "Bitte gib einen Betreff ein.", [`${initial.triggerKind}-body`]: "Bitte schreibe eine Nachricht." });
   const changed = JSON.stringify(editor) !== JSON.stringify(saved);
   const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
   useDirtyGuard(`automation-${editor.triggerKind}`, changed);
@@ -74,7 +77,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (state === "saving") return;
+    if (state === "saving" || !fields.check(event.currentTarget)) return;
     setState("saving"); setError("");
     try {
       await postJson("/api/merchant/automations", { programSlug: slug, ...editor });
@@ -86,13 +89,13 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
     <section className="ow-card ow-stack">
       <h2>{title}</h2>
       <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>{description}</p>
-      <form onSubmit={submit} className="ow-stack">
-        <div className="ow-field"><label htmlFor={`${editor.triggerKind}-subject`}>Betreff</label><input id={`${editor.triggerKind}-subject`} className="ow-input" value={editor.subject} minLength={2} maxLength={120} required onChange={event => edit({ subject: event.target.value })} /></div>
-        <div className="ow-field"><label htmlFor={`${editor.triggerKind}-body`}>Nachricht</label><textarea id={`${editor.triggerKind}-body`} className="ow-textarea" value={editor.body} minLength={5} maxLength={3000} rows={4} required onChange={event => edit({ body: event.target.value })} /></div>
+      <form onSubmit={submit} onInput={fields.onInput} className="ow-stack" noValidate>
+        <div className="ow-field"><label htmlFor={`${editor.triggerKind}-subject`}>Betreff</label><input id={`${editor.triggerKind}-subject`} {...fields.aria(`${editor.triggerKind}-subject`)} className="ow-input" value={editor.subject} minLength={2} maxLength={120} required onChange={event => edit({ subject: event.target.value })} /><FieldError id={`${editor.triggerKind}-subject-error`}>{fields.error(`${editor.triggerKind}-subject`) ?? ""}</FieldError></div>
+        <div className="ow-field"><label htmlFor={`${editor.triggerKind}-body`}>Nachricht</label><textarea id={`${editor.triggerKind}-body`} {...fields.aria(`${editor.triggerKind}-body`)} className="ow-textarea" value={editor.body} minLength={5} maxLength={3000} rows={4} required onChange={event => edit({ body: event.target.value })} /><FieldError id={`${editor.triggerKind}-body-error`}>{fields.error(`${editor.triggerKind}-body`) ?? ""}</FieldError></div>
         <div className="ow-grid-2">
-          {editor.triggerKind === "inactive" && <div className="ow-field"><label htmlFor="au-days">Inaktiv nach Tagen</label><input id="au-days" className="ow-input" type="number" value={editor.inactivityDays} min={7} max={365} required onChange={event => edit({ inactivityDays: Number(event.target.value) })} /></div>}
-          <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cool`}>Mindestabstand in Tagen</label><input id={`${editor.triggerKind}-cool`} className="ow-input" type="number" value={editor.cooldownDays} min={7} max={365} required onChange={event => edit({ cooldownDays: Number(event.target.value) })} /></div>
-          <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cap`}>Tageslimit je Regel</label><input id={`${editor.triggerKind}-cap`} className="ow-input" type="number" value={editor.dailyCap} min={1} max={20} required onChange={event => edit({ dailyCap: Number(event.target.value) })} /></div>
+          {editor.triggerKind === "inactive" && <div className="ow-field"><label htmlFor="au-days">Inaktiv nach Tagen</label><input id="au-days" {...fields.aria("au-days")} className="ow-input" type="number" value={editor.inactivityDays} min={7} max={365} required onChange={event => edit({ inactivityDays: Number(event.target.value) })} /><FieldError id="au-days-error">{fields.error("au-days") ?? ""}</FieldError></div>}
+          <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cool`}>Mindestabstand in Tagen</label><input id={`${editor.triggerKind}-cool`} {...fields.aria(`${editor.triggerKind}-cool`)} className="ow-input" type="number" value={editor.cooldownDays} min={7} max={365} required onChange={event => edit({ cooldownDays: Number(event.target.value) })} /><FieldError id={`${editor.triggerKind}-cool-error`}>{fields.error(`${editor.triggerKind}-cool`) ?? ""}</FieldError></div>
+          <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cap`}>Tageslimit je Regel</label><input id={`${editor.triggerKind}-cap`} {...fields.aria(`${editor.triggerKind}-cap`)} className="ow-input" type="number" value={editor.dailyCap} min={1} max={20} required onChange={event => edit({ dailyCap: Number(event.target.value) })} /><FieldError id={`${editor.triggerKind}-cap-error`}>{fields.error(`${editor.triggerKind}-cap`) ?? ""}</FieldError></div>
         </div>
         <label className="ow-check"><input type="checkbox" role="switch" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
         <SaveBar asSubmit state={shown} onDiscard={() => { setEditor(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Regel gespeichert. Änderungen gelten nur für neue Ausführungen." : undefined} />

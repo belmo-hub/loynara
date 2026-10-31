@@ -6,11 +6,12 @@ import { imageToDataUrl, postJson, type MeResponse, type PublicProgram } from "@
 import { HEX_COLOR as HEX, readableInk } from "./color";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { MoreInfo, OwnerIcon, SaveBar, type SaveState } from "./owner-ui";
-import { SurfacePreview, type Surface } from "./wallet-previews";
+import { SurfacePreview, type LogoWallet, type Surface } from "./wallet-previews";
 import { WalletReadiness } from "./wallet-readiness";
 import { brandingSaveFeedback } from "./branding-save-feedback";
 
-export type Brand = { businessName: string; locationName: string; brandColor: string; logoData: string | null };
+/** logoWallet: what the pass does with the saved logo on the saved colour (server-side processing, lib/wallet/logo). */
+export type Brand = { businessName: string; locationName: string; brandColor: string; logoData: string | null; logoWallet?: LogoWallet | null };
 const SWATCHES: Array<{ name: string; hex: string }> = [
   { name: "Waldgrün", hex: "#1F4A3A" }, { name: "Salbei", hex: "#2F6B58" }, { name: "Terrakotta", hex: "#A8492C" },
   { name: "Nachtblau", hex: "#2B4A66" }, { name: "Pflaume", hex: "#6B3A6F" }, { name: "Graphit", hex: "#23282B" }, { name: "Senf", hex: "#C99A2E" },
@@ -52,10 +53,12 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
 
   const cost = Math.max(1, program.rewards[0]?.cost ?? program.rewardCost);
   const balance = demo === "new" ? 0 : demo === "close" ? Math.max(0, cost - 1) : cost;
+  // The server's verdict holds only for the saved logo on the saved colour; a new pick or colour falls back to its shape.
+  const savedLogo = draft.logoData === saved.logoData && draft.brandColor.toLowerCase() === saved.brandColor.toLowerCase();
   const previewData = useMemo(() => ({
     businessName: draft.businessName.trim(), locationName: draft.locationName.trim(), brandColor: colorValid ? draft.brandColor : saved.brandColor,
-    programType: program.programType, rewardTitle: program.rewards[0]?.title ?? program.rewardTitle, rewardCost: cost, balance, programName: draft.programName.trim(), logoData: draft.logoData,
-  }), [draft, colorValid, saved.brandColor, program, cost, balance]);
+    programType: program.programType, rewardTitle: program.rewards[0]?.title ?? program.rewardTitle, rewardCost: cost, balance, programName: draft.programName.trim(), logoData: draft.logoData, logoWallet: savedLogo ? saved.logoWallet : undefined,
+  }), [draft, colorValid, saved.brandColor, saved.logoWallet, savedLogo, program, cost, balance]);
 
   function edit(patch: Partial<Draft>) { revision.current++; setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } }
 
@@ -95,7 +98,6 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
   }
   function discard() { logoRevision.current++; revision.current++; setDraft(saved); setState("clean"); setError(""); setLogoError(""); }
 
-  const logoIsPng = draft.logoData?.startsWith("data:image/png;base64,") ?? false;
   return (
     <div className="ow-stack" style={{ gap: 0 }}>
       <div className="ow-mobile-switch ow-seg" role="group" aria-label="Ansicht">
@@ -129,13 +131,14 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
             <div className="ow-field">
               <span className="ow-label">Logo</span>
               <div className="ow-logo-row">
-                {draft.logoData && <Image unoptimized className="ow-logo-thumb" src={draft.logoData} width={56} height={56} alt="Ausgewähltes Logo" />}
+                {draft.logoData && <Image unoptimized className="ow-logo-thumb" src={draft.logoData} width={112} height={35} alt="Ausgewähltes Logo" style={{ backgroundColor: draft.brandColor }} />}
                 <label htmlFor="cs-logo" className="ow-btn ow-btn--secondary ow-filebtn">{draft.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="cs-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void pickLogo(event.target.files?.[0])} /></label>
                 {draft.logoData && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { logoRevision.current++; setLogoError(""); edit({ logoData: null }); }}>Logo entfernen</button>}
               </div>
-              <span className="ow-hint">PNG, JPG oder WebP bis 2 MB.</span>
+              <span className="ow-hint">PNG, JPG oder WebP bis 2 MB. Wir schneiden dein Logo nicht zu, ob rund, eckig oder breit.</span>
               {logoError && <span className="ow-error" role="alert">{logoError}</span>}
-              {draft.logoData && <span className="ow-hint">Das Logo erscheint auf der Wallet-Karte{logoIsPng ? "" : ", sobald es als PNG vorliegt (dieses Bild ist kein PNG)"}. Die Browserkarte zeigt deinen Geschäftsnamen.</span>}
+              {savedLogo && saved.logoWallet?.faint && <span className="ow-hint">Dein Logo ist auf dieser Farbe schwer zu sehen. Wähle eine andere Farbe oder eine andere Version deines Logos. Bis dahin zeigt Apple Wallet deinen Geschäftsnamen statt des Logos.</span>}
+              {savedLogo && !saved.logoWallet?.faint && saved.logoWallet?.upscaled && <span className="ow-hint">Dein Logo ist sehr klein und kann auf der Karte unscharf wirken.</span>}
             </div>
             )}
           </fieldset>

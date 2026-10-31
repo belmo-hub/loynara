@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, ChevronRight, History, RefreshCw } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, History, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -53,6 +53,10 @@ export type CustomerCardProps = {
   /** ENG-100: changes waiting for their date, one line each under the card (W31, W45, W46, W58); a long new rule is
    *  opens in full under its line („Neue Regel lesen“). */
   changes?: { lines: Array<ChangeLine | string>; newRule?: { on: string; text: string } };
+  /** ENG-130 (08): the first card view after a device registered the Apple pass. */
+  walletSaved?: boolean;
+  /** ENG-130: a device holds the card's Apple pass, so the Apple add button is not offered again (the re-add notice still is). */
+  appleSaved?: boolean;
   /** Offered only when the server reports the provider available; absent = no button at all. */
   onAppleWallet?: () => void;
   onGoogleWallet?: () => void;
@@ -99,6 +103,7 @@ export function CustomerCard(props: CustomerCardProps) {
     </section> : null}
 
     <Goal t={t} number={number} programType={programType} balance={balance} selected={selected} readyCount={readyCount} nextGoal={nextGoal} />
+    {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
     <div className={`customer-balance-panel ${styles.cardGroup}`}>
     <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false} business={false}>
@@ -229,9 +234,9 @@ function Extras({ items, label }: { items: Extra[]; label: string }) {
   </>;
 }
 
-function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", t }: CustomerCardProps & { t: Copy }) {
+function Wallet({ onAppleWallet, onGoogleWallet, walletBusy = null, googleTestOnly, walletPlatform = "other", walletError, locale = "de", appleSaved, t }: CustomerCardProps & { t: Copy }) {
   // Platform only orders and narrows what is shown; the server decides availability.
-  const apple = onAppleWallet && walletPlatform !== "android" ? [{ id: "apple" as const, label: t.addApple, onClick: onAppleWallet }] : [];
+  const apple = onAppleWallet && walletPlatform !== "android" && !appleSaved ? [{ id: "apple" as const, label: t.addApple, onClick: onAppleWallet }] : [];
   const google = onGoogleWallet && walletPlatform !== "ios" ? [{ id: "google" as const, label: t.addGoogle, onClick: onGoogleWallet }] : [];
   const buttons = walletPlatform === "android" ? [...google, ...apple] : [...apple, ...google];
   if (!buttons.length) return null;
