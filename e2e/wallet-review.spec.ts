@@ -285,7 +285,7 @@ test("Wallet OFF preserves hardened closure guidance and confirmation", async ({
   await page.getByRole("button", { name: "Karte schließen", exact: true }).click();
   await expect(page.locator(".customer-close-confirm")).not.toContainText("Wallet");
   await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-  await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
   await expect(page.locator(".card-state-page")).not.toContainText("Wallet");
 });
 

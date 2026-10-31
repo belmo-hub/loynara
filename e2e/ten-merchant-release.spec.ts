@@ -106,9 +106,9 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     await page.getByRole("button", { name: "Karte schließen" }).click();
     await expect(page.getByText("Buchungen und Einlösungen bleiben vorerst")).toBeVisible();
     await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-    await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar" })).toBeVisible();
     await cashier.goto("/login");
     await cashier.getByLabel("E-Mail-Adresse").fill(demo.ownerEmail);
     await cashier.getByLabel("Passwort").fill(demo.ownerPassword);

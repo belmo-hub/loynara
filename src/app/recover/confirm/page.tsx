@@ -55,7 +55,7 @@ export default function RecoverConfirmPage() {
       window.location.replace(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) { if (generation.current === submitted) { setError(recoveryConfirmationFeedback(cause, "rotate")); setBusy(false); } }
   }
-  if (missing) return <CustomerState tone="error" icon={<CircleAlert size={24} />} title="Wiederherstellungslink ungültig." message="Der Link ist unvollständig. Fordere einen neuen Link an und öffne ihn direkt aus der E-Mail.">
+  if (missing) return <CustomerState tone="error" icon={<CircleAlert size={24} />} title="Link unvollständig" message="Bitte fordere einen neuen Link an und öffne ihn direkt aus der E-Mail.">
     <Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Neuen Link anfordern</Link>
   </CustomerState>;
   return <CustomerState icon={<KeyRound size={22} />} title="Karte wiederherstellen" message="Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.">

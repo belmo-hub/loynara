@@ -6,10 +6,10 @@ import { CustomerState, StateLink } from "./customer-state";
 describe("CustomerState (mock 29, G-07)", () => {
   it("heads a known shop's state with its header, and an unknown one with the Loynara mark", () => {
     expect(renderToStaticMarkup(h(CustomerState, { title: "Anfrage abgelaufen", merchant: "Café Lindenblatt" }))).toMatch(/<strong>Café Lindenblatt<\/strong><span>Deine Treuekarte<\/span>/);
-    expect(renderToStaticMarkup(h(CustomerState, { title: "Abmeldelink ungültig." }))).toContain('aria-label="Loynara"');
+    expect(renderToStaticMarkup(h(CustomerState, { title: "Link unvollständig" }))).toContain('aria-label="Loynara"');
   });
   it("gives an error its danger tile and announces the message", () => {
-    const out = renderToStaticMarkup(h(CustomerState, { title: "Karte nicht erreichbar.", message: "x", tone: "error", icon: h("svg") }));
+    const out = renderToStaticMarkup(h(CustomerState, { title: "Karte nicht erreichbar", message: "x", tone: "error", icon: h("svg") }));
     expect(out).toMatch(/data-tone="error" aria-hidden="true"><svg>/);
     expect(out).toContain('role="alert"');
   });

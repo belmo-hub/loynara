@@ -21,8 +21,8 @@ export default function UnsubscribePage() {
     try { await postJson("/api/unsubscribe", { token: token.current }); token.current = ""; setStatus("done"); }
     catch { setStatus("error"); }
   }
-  if (status === "missing") return <CustomerState tone="error" icon={<CircleAlert size={24} />} title="Abmeldelink ungültig." message="Der Link ist unvollständig. Öffne ihn bitte direkt aus der E-Mail." />;
-  if (status === "done") return <CustomerState icon={<MailX size={22} />} title="Abgemeldet." message="Du erhältst keine Angebote für diese Karte mehr per E-Mail. Deine Karte bleibt, wie sie ist." focusTitle />;
+  if (status === "missing") return <CustomerState tone="error" icon={<CircleAlert size={24} />} title="Link unvollständig" message="Bitte öffne den Link direkt aus der E-Mail." />;
+  if (status === "done") return <CustomerState icon={<MailX size={22} />} title="Abgemeldet" message="Du erhältst keine Angebote für diese Karte mehr per E-Mail. Deine Karte bleibt, wie sie ist." focusTitle />;
   return <CustomerState icon={<MailX size={22} />} title="E-Mail-Angebote abbestellen" message="Du erhältst danach keine Angebote für diese Karte per E-Mail mehr. Deine Treuekarte und eine separat bestätigte Wiederherstellungsadresse bleiben bestehen.">
     <Button block loading={status === "busy"} onClick={() => void confirm()}>Angebote abbestellen</Button>
     {status === "error" && <p className={styles.error} role="alert">Der Link konnte nicht verarbeitet werden. Bitte prüfe die Nachricht und versuche es erneut.</p>}

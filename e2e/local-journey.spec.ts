@@ -103,9 +103,9 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await page.getByRole("button", { name: "Karte schließen" }).click();
     await expect(page.getByText("Buchungen und Einlösungen bleiben vorerst")).toBeVisible();
     await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-    await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar" })).toBeVisible();
   } finally {
     await cashier.close();
   }

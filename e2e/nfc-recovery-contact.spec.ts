@@ -58,7 +58,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     await verificationPage.goto(verification);
     expect((await sql("SELECT email_verified FROM membership_contacts WHERE membership_id=$1", [original.id]))[0].email_verified).toBe(false);
     await verificationPage.getByRole("button", { name: "E-Mail-Adresse bestätigen", exact: true }).click();
-    await expect(verificationPage.getByRole("heading", { name: "E-Mail bestätigt." })).toBeVisible();
+    await expect(verificationPage.getByRole("heading", { name: "E-Mail bestätigt" })).toBeVisible();
     const verifyToken = new URLSearchParams(new URL(verification).hash.slice(1)).get("token");
     expect((await verifier.request.post("/api/contact/verify", { headers: origin, data: { token: verifyToken } })).status()).toBe(400);
     const pending = await pendingOf(a.cashier);
@@ -104,7 +104,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     await expect(secondSetup.getByText(/Bestätigungslink angefordert/)).toBeVisible();
     await verificationPage.goto(await deliveredLink(email,"/verify-email"));
     await verificationPage.getByRole("button", { name:"E-Mail-Adresse bestätigen",exact:true }).click();
-    await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt." })).toBeVisible();
+    await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt" })).toBeVisible();
     const fresh = await newDevice.newPage();
     await fresh.goto("/recover");
     await fresh.getByRole("textbox", { name:"Bestätigte E-Mail-Adresse" }).fill(email);
