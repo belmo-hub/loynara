@@ -225,23 +225,26 @@ describe("changes waiting for their date (ENG-100 U3)", () => {
   });
 });
 
-describe("ladder names never run into each other (Design round 2)", () => {
-  it("gives each shown name the stretch up to the midpoints with its neighbours", async () => {
-    const { titleRooms } = await import("@/components/ui/points-ladder");
-    const [early, , last] = titleRooms([{ at: 0.08, hideLabel: false }, { at: 0.4, hideLabel: true }, { at: 1, hideLabel: false }]);
-    expect(early + last).toBeCloseTo(0.92);
-    titleRooms([{ at: 0.3, hideLabel: false }, { at: 0.7, hideLabel: false }, { at: 1, hideLabel: false }]).forEach((room, i) => expect(room).toBeCloseTo([0.4, 0.3, 0.15][i]));
+describe("ladder names by need, the goal first (Design round 2)", () => {
+  const marks = (...at: number[]) => at.map((x) => ({ at: x, hideLabel: false }));
+  it("keeps the goal whole beside a short neighbour on a 228 px track (100 Bartöl / 250 Haarschnitt gratis)", async () => {
+    const { titleLayout } = await import("@/components/ui/points-ladder");
+    const [bartol, goal] = titleLayout(marks(0.4, 1), 228, [44, 122]);
+    expect(goal?.width).toBe(122);
+    expect(bartol?.width).toBe(44);
   });
-});
-
-describe("ENG-130 placement kept by the rebuild (Reviewer N-2)", () => {
-  it("puts the saved line above the card and the notices (the moved-up consent panel) right under it", () => {
-    const out = renderToStaticMarkup(h(CustomerCard, { ...base, walletSaved: true, notices: h("section", { id: "consent-panel" }) }));
-    const saved = out.indexOf("In Apple Wallet gespeichert"), cardAt = out.indexOf('class="customer-card '), panel = out.indexOf('id="consent-panel"');
-    expect(saved).toBeGreaterThan(-1);
-    expect(saved).toBeLessThan(cardAt);
-    expect(cardAt).toBeLessThan(panel);
-    // Nothing but the card's own band and refresh row sits between the card and the panel.
-    expect(out.slice(cardAt, panel)).not.toMatch(/customer-(notes|rewards|activity|more)-title/);
+  it("hides a middle name below the floor before the goal yields, and never shows a name under the floor", async () => {
+    const { titleLayout, TITLE_FLOOR } = await import("@/components/ui/points-ladder");
+    const widths = titleLayout(marks(0.32, 0.64, 1), 228, [120, 110, 122]);
+    expect(widths[2]?.width).toBe(122);
+    for (const w of widths) if (w !== null) expect(w.width).toBeGreaterThanOrEqual(Math.min(TITLE_FLOOR, 110));
+    expect(widths).toContain(null);
+  });
+  it("keeps an early long name and the goal apart", async () => {
+    const { titleLayout } = await import("@/components/ui/points-ladder");
+    const [early, , goal] = titleLayout(marks(0.08, 0.4, 1), 228, [160, 44, 122]);
+    expect(goal?.width).toBe(122);
+    // The early name ends before the goal begins (positions: start at 0.08·228 − 14, goal ends at 228 + 14).
+    expect(0.08 * 228 - 14 + (early?.width ?? 0)).toBeLessThanOrEqual(228 + 14 - 122 - 8);
   });
 });

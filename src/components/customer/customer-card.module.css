@@ -128,7 +128,8 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .activity li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
 .activity li:first-child { border-top: 0; }
 .activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
-.activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; }
+/* Hyphenate only long words, and leave at least three letters on each side („Kauf erfasst“ stays whole). */
+.activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 8 3 3; -webkit-hyphenate-limit-before: 3; -webkit-hyphenate-limit-after: 3; }
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Below 360 the rows give the label more room, so „Gesammelt“ stays on one line. */
 @media (max-width: 359px) { .card:has(> .activity) { padding-inline: var(--space-4); } .activity li { column-gap: var(--space-2); } }
