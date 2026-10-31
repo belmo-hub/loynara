@@ -84,7 +84,7 @@ file; no external requests.
 
 | Token | Size / line | Use |
 |---|---|---|
-| `--text-12` | 12 / 16 | bottom-bar labels, sidebar group labels. Never body copy. |
+| `--text-12` | 12 / 16 | bottom-bar labels below 420 px (14 from 420). Never body copy. |
 | `--text-14` | 14 / 20 | secondary text, hints, table meta |
 | `--text-16` | 16 / 24 | body, buttons, inputs (16 px stops iOS zoom) |
 | `--text-18` | 18 / 26 | section titles |
@@ -147,7 +147,7 @@ No hover lift on cards, no stagger on page load, no animation on keyboard-trigge
 - **Stamps.** Grid of 4 columns (up to 12 stamps; 5 columns for 10, 15). Earned stamps are pressed coral marks with a small resting rotation; empty slots are dashed rings.
 - **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track; the rewards list below always carries the names.
 - **Cashier.** Status bar (Scannen / Karte offen / Wird gebucht / Erledigt / Fehler) → camera or opened card → stepper (stamps) or amount field (points) → bottom dock with the primary booking button (thumb zone). Destructive actions only get a confirm dialog.
-- **Dashboard.** Sidebar groups: Überblick · Programm · Kunden · Marketing · Auswertung · Betrieb, location switcher on top, "Kasse öffnen" and user menu at the bottom. Phones: top bar with location switcher, bottom bar (Übersicht, Kunden, Programm, Auswertung, Mehr) and a "Mehr" sheet with the remaining groups. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
+- **Dashboard.** Sidebar (≥ 1024 px): brand, then the location (one location as plain text, name 16/720 over the card type 14 muted; several as a 48 px select labelled „Standort“), then Übersicht · Programm · Kunden · Aktionen · Einstellungen, with "Kasse öffnen" (48 px) and the who-line with a quiet „Abmelden“ at the bottom. Sidebar rows are 36 px with 4 px between them for a fine pointer and 44 px for a coarse one; the current row has the neutral fill, 800 and a 2.5 icon stroke, and is the only filled thing in the sidebar. Phones: top bar with the shop name (16/800) over the location (14/500 muted), bottom bar (Übersicht, Programm, Kunden, Aktionen, Mehr) and a "Mehr" page with the rest. Bottom-bar labels are 12 px below 420 px wide and 14 px from 420, at 600 (current 800); the current tab has a 56×32 neutral pill behind its icon and a 2.5 stroke. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
   high instead of 48) but keep the shared shapes: pill buttons and segmented controls, `--radius-md` inputs. Forms: titled sections, inline validation, sticky save bar when dirty.
 
 ## Copy rules

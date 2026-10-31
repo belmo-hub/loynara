@@ -105,9 +105,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
           {visibleGroups(role, hidden).slice(0, 4).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span>{item.label}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}
-          <GuardedLink href={MORE_HREF} className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span>Mehr</GuardedLink>
+          <GuardedLink href={MORE_HREF} className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
         </nav>
       </div>
     </div>
@@ -124,7 +124,7 @@ function LocationBox() {
     <div className="ow-loc">
       {many && <label className="ow-label" htmlFor="ow-loc-select">Standort</label>}
       {many
-        ? <select id="ow-loc-select" className="ow-select" value={me.locationId} disabled={owner.switching} onChange={event => owner.switchLocation(event.target.value)}>
+        ? <select id="ow-loc-select" className="ow-select" title={me.locationName} value={me.locationId} disabled={owner.switching} onChange={event => owner.switchLocation(event.target.value)}>
             {owner.locations.map(location => <option key={location.id} value={location.id}>{owner.locations.filter(other => other.name === location.name).length > 1 && location.city ? `${location.name} · ${location.city}` : location.name}</option>)}
           </select>
         : <span className="ow-loc-name">{me.locationName}</span>}

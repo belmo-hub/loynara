@@ -38,6 +38,10 @@
 .ow-nav a:hover:not([aria-current]) { background: color-mix(in oklab, var(--color-fill) 55%, transparent); color: var(--color-ink); }
 /* Where you are is not the next step: the neutral fill, ink, no green (Design, 30 Oct). */
 .ow-nav a[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
+/* The same current-item cue as the tab bar: fill, 800 and the heavier stroke. */
+.ow-nav a[aria-current="page"] svg { stroke-width: 2.5; }
+/* 36 px rows suit a mouse; a touch screen at 1024 px and up (iPad landscape) gets 44 px targets. */
+@media (pointer: coarse) { .ow-nav a { min-height: 44px; } }
 .ow-nav svg { flex: none; }
 .ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-4); }
 .ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
@@ -45,12 +49,13 @@
 .ow-side-who { display: flex; flex-direction: column; gap: var(--space-2); }
 .ow-who { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
 /* Abmelden is rare (Einstellungen › Konto has it too): a quiet text button on the who-line's edge, not a second pill. */
-.ow-side-who .ow-btn--ghost { padding-inline: 0; justify-content: flex-start; }
+/* The text sits on x 16; the 8 px padding pulled back by a negative margin gives the focus ring room. */
+.ow-side-who .ow-btn--ghost { border: 0; padding-inline: var(--space-2); margin-inline-start: calc(-1 * var(--space-2)); justify-content: flex-start; }
 .ow-side-who .ow-btn--ghost:hover:not(:disabled) { background: none; color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* No box and no fill: the current nav item is the only filled thing in the sidebar. */
 .ow-loc { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-2); }
-.ow-loc .ow-select { height: 48px; font-weight: var(--weight-strong); }
+.ow-loc .ow-select { height: 48px; font-weight: var(--weight-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ow-loc-name { font-weight: var(--weight-strong); color: var(--color-ink); overflow-wrap: anywhere; }
 .ow-loc-sub { font-size: var(--text-14); color: var(--color-ink-muted); }
 
@@ -120,9 +125,13 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-tab[aria-current="page"] { color: var(--color-ink); font-weight: var(--weight-heavy); }
   .ow-tab[aria-current="page"] .ow-tab-icon { background: var(--color-fill); }
   .ow-tab[aria-current="page"] svg { stroke-width: 2.5; }
+  /* Under text scaling a label ends in an ellipsis instead of running into its neighbour. */
+  .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* No side padding: the ring sits inside the tab so it neither cuts the next label nor touches the screen edge. */
+  .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }
-  /* „Programm“ at 800 is 72 px at 14 px: below 375 a fifth of the screen is narrower, so the labels step down to 12. */
-  @media (max-width: 374px) { .ow-tab { font-size: var(--text-12); } }
+  /* „Programm“ at 800 needs a cell of about 84 px at 14 px; below 420 a fifth of the screen is narrower (Design ruling 1). */
+  @media (max-width: 419px) { .ow-tab { font-size: var(--text-12); } }
   .ow-topbar .ow-btn--sm { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ow-tab, .ow-btn { transition: none; } .ow-tab:active, .ow-btn:active:not(:disabled) { transform: none; } }

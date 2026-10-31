@@ -4,7 +4,8 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Check, CircleAlert, Eye, House, Info, Megaphone, Menu, Minus, Pencil, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, Users, X, type LucideIcon } from "lucide-react";
 import type { NavIconName } from "./nav";
 
-// The dashboard draws the same lucide set as the guest, cashier and sign-in pages, at lucide's default stroke.
+// The dashboard draws the same lucide set as the guest, cashier and sign-in pages, at lucide's default stroke (2);
+// only the current sidebar item and tab draw theirs at 2.5 (owner.css), since lucide has no filled variants.
 type IconName = NavIconName | "menu" | "close" | "check" | "plus" | "minus" | "till" | "alert" | "info" | "phone" | "eye" | "pencil";
 const ICONS: Record<IconName, LucideIcon> = {
   home: House, loyalty: SlidersHorizontal, users: Users, megaphone: Megaphone, gear: Settings,
