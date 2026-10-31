@@ -632,7 +632,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-day[data-gap] h3 { color: var(--color-ink-muted); }
 .ow-day-sum { margin: var(--space-1) 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.ow-pill { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
+.ow-pill { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-pill b { color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-pill[data-kind="correction"] b { color: var(--color-ink-muted); }
 /* The redeemed reward is the one coral element on the screen (spec §4.2). */
