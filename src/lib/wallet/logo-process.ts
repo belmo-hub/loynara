@@ -18,6 +18,8 @@ export type ProcessedLogo = {
   wallet: { png1x: Buffer; png2x: Buffer; png3x: Buffer; width: number; height: number };
   /** Only for square or round marks: 29, 58 and 87 px on the brand colour. */
   icon?: [Buffer, Buffer, Buffer];
+  /** Google: a square or round mark fills the 660 circle inside its 15 % safe margin; any other shape is the 1280 x 400 wide logo. */
+  google: { square660: Buffer } | { wide: Buffer };
   meta: { ratio: number; boxed: boolean; contrast: number; upscaled: boolean; showName: boolean };
 };
 
@@ -106,9 +108,15 @@ export async function processMerchantLogo(bytes: Buffer, brandColor: string): Pr
     const mark = await sharp(source).resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
     return sharp({ create: { width: size, height: size, channels: 4, background: brandColor } }).composite([{ input: mark, gravity: "center" }]).png().toBuffer();
   })) as [Buffer, Buffer, Buffer] : undefined;
+  const clear = { r: 0, g: 0, b: 0, alpha: 0 };
+  // Google masks programLogo into a circle; 462 = 660 less the 15 % margin each side, so the mark's corners stay inside it.
+  const google = square ? { square660: await sharp({ create: { width: 660, height: 660, channels: 4, background: boxed ? { r: corners[0][0], g: corners[0][1], b: corners[0][2] } : brandColor } })
+    .composite([{ input: await sharp(source).resize(462, 462, { fit: "contain", background: clear }).png().toBuffer(), gravity: "center" }]).png({ compressionLevel: 9 }).toBuffer() }
+    : { wide: await sharp(source).resize(1280, 400, { fit: "contain", position: "left", background: clear }).png({ compressionLevel: 9 }).toBuffer() };
   return {
     wallet: { png1x, png2x, png3x, width: sizes[0][0], height: sizes[0][1] },
     ...(icon ? { icon } : {}),
+    google,
     meta: { ratio, boxed, contrast, upscaled: fit * 3 > 1, showName: ratio < 2.2 || boxed },
   };
 }

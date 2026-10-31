@@ -51,6 +51,30 @@ describe("bound Google Direct projection", () => {
     } finally { fixture.cleanup(); }
   });
 
+  it("sets wideProgramLogo for a wide logo, leaves it alone while unchanged and clears it when the logo turns square (ENG-153)", async () => {
+    const fixture = googleFixture();
+    try {
+      const api = fakeGoogleApi();
+      const client = new GoogleWalletClient({ clientEmail: "issuer@example.test", privateKey: fixture.privateKey }, api.fetcher);
+      const unbound = { issuerId, logoUrl: "https://assets.example.test/fallback.png" };
+      const asset = (route: string, v: string) => `https://assets.example.test/api/wallet/assets/${route}/${programId}.png?v=${v}`;
+      const wide = { ...pass, googleLogoUrl: asset("google-logo", "1".repeat(16)), googleWideLogoUrl: asset("google-wide-logo", "2".repeat(16)) };
+      await client.upsertClass(wide, unbound);
+      expect(api.calls.at(-1)).toMatchObject({ method: "POST", body: { wideProgramLogo: { sourceUri: { uri: wide.googleWideLogoUrl } } } });
+      const before = api.calls.length;
+      await client.upsertClass(wide, unbound);
+      expect(api.calls.slice(before).map(call => call.method)).toEqual(["GET"]);
+      const square = { ...pass, googleLogoUrl: asset("google-logo", "3".repeat(16)) };
+      await client.upsertClass(square, unbound);
+      expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { programLogo: { sourceUri: { uri: square.googleLogoUrl } }, wideProgramLogo: null, reviewStatus: "UNDER_REVIEW" } });
+      const cleared = api.calls.length;
+      await client.upsertClass(square, unbound);
+      expect(api.calls.slice(cleared).map(call => call.method)).toEqual(["GET"]);
+      await client.upsertClass(wide, unbound);
+      expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { wideProgramLogo: { sourceUri: { uri: wide.googleWideLogoUrl } } } });
+    } finally { fixture.cleanup(); }
+  });
+
   it("uses the approved class and freezes tenant/location/class into a stable per-generation object identity", () => {
     expect(googleObject(pass, serial, config).classId).toBe(`${issuerId}.loynara_demo`);
     const objectId = googleObjectId(serial, config);

@@ -95,6 +95,46 @@ describe("processMerchantLogo: every logo keeps its own shape (ENG-134)", () => 
   });
 });
 
+describe("processMerchantLogo: Google gets each logo in its own shape (ENG-153)", () => {
+  const pixel = async (bytes: Buffer, x: number, y: number) => {
+    const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4));
+  };
+  const square660 = (logo: Awaited<ReturnType<typeof processMerchantLogo>>) => "square660" in logo.google ? logo.google.square660 : undefined;
+  const wide = (logo: Awaited<ReturnType<typeof processMerchantLogo>>) => "wide" in logo.google ? logo.google.wide : undefined;
+
+  it("puts a transparent round mark on the brand colour inside the 15 % safe margin of a 660 square", async () => {
+    const tile = square660(await processMerchantLogo(await roundBadge(), TAPPI_RED))!;
+    expect(await size(tile)).toEqual([660, 660]);
+    expect(await pixel(tile, 0, 0)).toEqual([0xB3, 0x26, 0x1E, 255]);
+    expect(await pixel(tile, 98, 330)).toEqual([0xB3, 0x26, 0x1E, 255]); // margin: 99 px a side
+    expect((await pixel(tile, 104, 330))[0]).toBeLessThan(40); // the badge reaches the margin: the full inner width
+  });
+
+  it("puts a boxed square logo on its own box colour, uncropped", async () => {
+    const tile = square660(await processMerchantLogo(await squareOpaque(), WALDGRUEN))!;
+    expect(await pixel(tile, 0, 0)).toEqual([0xB3, 0x26, 0x1E, 255]);
+    expect(await pixel(tile, 330, 330)).toEqual([255, 255, 255, 255]);
+  });
+
+  it("gives a wide logo, and a tall one, the 1280 x 400 wide logo instead: left-aligned on transparent, never a squeezed tile", async () => {
+    for (const bytes of [await wideTransparent(), await png(120, 400, `<rect width="120" height="400" fill="#fff"/>`), await png(300, 200, `<rect width="300" height="200" fill="#fff"/>`)]) {
+      const logo = await processMerchantLogo(bytes, TAPPI_RED);
+      expect(square660(logo)).toBeUndefined();
+      expect(await size(wide(logo)!)).toEqual([1280, 400]);
+      expect((await pixel(wide(logo)!, 0, 200))[3]).toBe(255);
+      expect((await pixel(wide(logo)!, 1279, 0))[3]).toBe(0);
+    }
+  });
+
+  it("keeps a boxed wide logo's box", async () => {
+    const banner = wide(await processMerchantLogo(await wideOpaque(), TAPPI_RED))!;
+    expect(await pixel(banner, 0, 0)).toEqual([0xdd, 0, 0, 255]);
+    expect(await pixel(banner, 1199, 399)).toEqual([0xdd, 0, 0, 255]); // 600 x 200 fills 1200 x 400
+    expect((await pixel(banner, 1201, 200))[3]).toBe(0);
+  });
+});
+
 describe("checkedLogoUpload: one check for both save paths", () => {
   it("stores a trimmed PNG for every accepted type", async () => {
     const jpeg = await svg(300, 300, `<rect width="300" height="300" fill="#123"/>`).jpeg().toBuffer();

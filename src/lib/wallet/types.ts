@@ -18,7 +18,10 @@ export type WalletBrand = {
   locale: WalletLocale;
   /** Merchant logo for the Apple pass archive, processed in logo-process.ts; absent means the name stands alone. */
   appleLogo?: AppleLogo;
+  /** Google's round programLogo: the square mark or the shop's initial. */
   googleLogoUrl?: string;
+  /** Google's wideProgramLogo, only for a logo that is not square. */
+  googleWideLogoUrl?: string;
   latitude?: number;
   longitude?: number;
 };

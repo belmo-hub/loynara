@@ -9,7 +9,7 @@ import { DomainError } from "@/lib/loyalty";
 import { currentRewards, publicRules } from "@/lib/product";
 import { programInForce } from "@/lib/rule-versions";
 import type { WalletBrand, WalletPassData } from "./types";
-import { appleLogoFromData, merchantGoogleLogoUrl } from "./logo";
+import { appleLogoFromData, merchantGoogleLogoUrls } from "./logo";
 
 /**
  * Binds an issued pass to the card credential it was issued for. A staff reissue or closure replaces the scan code, so
@@ -37,7 +37,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
   if (!row) throw new DomainError("NOT_FOUND", "Card not found");
   const program = await programInForce(reader, row.program);
   const appleLogo = await appleLogoFromData(row.location.logoData, row.location.brandColor);
-  const googleLogoUrl = merchantGoogleLogoUrl(row.program.id, row.location.logoData);
+  const googleLogos = await merchantGoogleLogoUrls(row.program.id, row.location.logoData, row.location.brandColor, row.tenant.name);
   const brand: WalletBrand & { membershipId: string } = {
     programType: program.type === "points" ? "points" : "stamp",
     tenantId: row.tenant.id,
@@ -51,7 +51,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     country: row.location.country,
     locale: row.tenant.locale === "fr" ? "fr" : "de",
     ...(appleLogo ? { appleLogo } : {}),
-    ...(googleLogoUrl ? { googleLogoUrl } : {}),
+    ...googleLogos,
     ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
   };
   if (row.member.closedAt) return { open: false, brand };
