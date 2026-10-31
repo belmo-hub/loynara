@@ -288,13 +288,20 @@ function walletButtons({ onAppleWallet, onGoogleWallet, walletPlatform = "other"
   return walletPlatform === "android" ? [...google, ...apple] : [...apple, ...google];
 }
 
+/** The provider's badge artwork where we have it (Apple's: German only, ENG-132), else the house button with its wording. */
+const walletBadge = (id: WalletButton["id"], locale: "de" | "fr") => id === "google" ? `/wallet/google-add-${locale}.svg` : locale === "de" ? "/wallet/apple-add-de.svg" : null;
+
 function Wallet({ buttons, walletBusy = null, googleTestOnly, walletError, locale = "de", t, open, onClose }: CustomerCardProps & { t: Copy; buttons: WalletButton[]; open: boolean; onClose: () => void }) {
   return <Sheet open={open} onClose={onClose} title={t.walletTitle}>
     <div className={`customer-wallet-add ${styles.sheetBody}`}>
       <p className={styles.muted}>{t.walletIntro}</p>
-      <div className={styles.walletButtons}>{buttons.map((button) => <button key={button.id} type="button" className={`wallet-add wallet-add--${button.id} ${styles.walletButton}`} onClick={button.onClick} disabled={walletBusy !== null} aria-busy={walletBusy === button.id} aria-label={walletBusy === button.id ? t.walletLoading : button.label}>
-        {button.id === "google" ? <Image unoptimized src={`/wallet/google-add-${locale}.svg`} alt={button.label} width={199} height={55} /> : <span>{walletBusy === button.id ? t.walletLoading : button.label}</span>}
-      </button>)}</div>
+      <div className={styles.walletButtons}>{buttons.map((button) => {
+        const badge = walletBadge(button.id, locale);
+        return <button key={button.id} type="button" className={`wallet-add wallet-add--${button.id} ${styles.walletButton}`} data-badge={badge ? true : undefined} onClick={button.onClick} disabled={walletBusy !== null} aria-busy={walletBusy === button.id} aria-label={walletBusy === button.id ? t.walletLoading : button.label}>
+          {badge ? <Image unoptimized src={badge} alt={button.label} width={button.id === "google" ? 199 : 166} height={button.id === "google" ? 55 : 52} /> : <span>{walletBusy === button.id ? t.walletLoading : button.label}</span>}
+        </button>;
+      })}</div>
+      {walletBusy !== null && walletBadge(walletBusy, locale) ? <p className={`wallet-busy ${styles.walletBusy}`}>{t.walletLoading}</p> : null}
       {googleTestOnly && buttons.some(button => button.id === "google") ? <p className={`wallet-mode-note ${styles.muted}`}>{t.googleDemo}</p> : null}
       {walletError && open ? <p className={`wallet-error ${styles.alert}`} role="alert">{walletError}</p> : null}
     </div>
