@@ -16,7 +16,7 @@ const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_ONBOARDE
   "INVALID_CHALLENGE"]);
 
 // Interim until the logo pipeline (ENG-134) is live; then Marketing's line names the formats and the 2 MB limit.
-export const LOGO_INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein anderes Logo.";
+export const LOGO_INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.";
 
 // Codes with mixed German and English server text that still get their own words.
 const OWN_WORDS: Record<string, string> = {

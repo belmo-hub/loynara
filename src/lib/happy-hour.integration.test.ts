@@ -8,7 +8,7 @@ import { getMerchantAnalytics } from "./merchant-analytics";
 import { getMerchantMember } from "./merchant-members";
 import { configureReferrals, getCardReferralShare } from "./referrals";
 import { getRetentionSummary } from "./retention";
-import { createMerchant, enroll, getCard, updateProgram, updateProgramHappyHour } from "./product";
+import { createMerchant, enroll, getCard, lookupCard, updateProgram, updateProgramExtras, updateProgramHappyHour } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -60,6 +60,22 @@ describe("happy hour", () => {
     const view = await getCard(m.card.cardToken);
     expect(view.happyHourUntil).toBe("24:00");
     expect(view.activity.filter(a => a.isHappyHour).map(a => a.delta)).toEqual([10]);
+  });
+
+  it("award and lookup name every bonus by source, and the credited points plus the bonuses are the balance change (ENG-133)", async () => {
+    const owner = await user(); const m = await shop(owner);
+    await on(owner, m);
+    await updateProgramExtras({ actorUserId: owner, programId: m.programId, welcomeBonus: 5 });
+    const scanCode = (await db.select({ scanCode: memberships.scanCode }).from(memberships).where(eq(memberships.id, m.card.id)))[0].scanCode;
+    expect(await lookupCard({ userId: owner, locationId: m.locationId, scanCode })).toMatchObject({ welcomeBonus: 5, happyHour: true });
+    const before = await balanceOf(m.card.id);
+    const result = await buy(owner, m);
+    expect(result).toMatchObject({ creditedQuantity: 10, welcomeBonus: 5, happyHourBonus: 10, winbackBonus: 0, birthdayBonus: 0, referralBonus: 0, balance: 25 });
+    const bonuses = result.welcomeBonus! + result.happyHourBonus! + result.winbackBonus! + result.birthdayBonus! + (result.challengeBonus ?? 0) + result.referralBonus!;
+    expect(result.creditedQuantity + bonuses).toBe(await balanceOf(m.card.id) - before);
+    expect(result.balanceBefore).toBe(before);
+    // The Startbonus is booked once: the next lookup no longer offers it.
+    expect(await lookupCard({ userId: owner, locationId: m.locationId, scanCode })).toMatchObject({ welcomeBonus: 0, happyHour: true });
   });
 
   it("books nothing outside the windows, with the switch off, and shows no line on the card", async () => {

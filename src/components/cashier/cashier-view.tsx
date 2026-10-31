@@ -23,8 +23,8 @@ import styles from "./cashier-view.module.css";
 
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
 export type CashierAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
-export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: win-back (ENG-044), birthday (ENG-049); 0 = none. */ winbackBonus?: number; birthdayBonus?: number; level?: { name: string; perk?: string } };
-export type CashierBooked = { tone: "success" | "pending" | "undone"; title: string; headline?: string; detail: string; meta?: string; hint?: string; undo?: "available" | "staff-only"; error?: string };
+export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: Startbonus (first award), win-back (ENG-044), birthday (ENG-049); 0 = none. */ welcomeBonus?: number; winbackBonus?: number; birthdayBonus?: number; /** A happy-hour window is running: purchase points count twice. */ happyHour?: boolean; level?: { name: string; perk?: string } };
+export type CashierBooked = { tone: "success" | "pending" | "undone"; title: string; headline?: string; /** How the headline adds up: „1 Punkt + 5 Startbonus“. */ parts?: string; detail: string; meta?: string; hint?: string; undo?: "available" | "staff-only"; error?: string };
 export type CashierViewProps = {
   locationName: string;
   card?: CashierCard | null;
@@ -72,6 +72,60 @@ export type CashierViewProps = {
   role?: StaffRole;
   logoutControl?: ReactNode;
 };
+
+/** Bonuses booked with an award, by source (ENG-133). */
+export type AwardBonuses = { welcomeBonus?: number; happyHourBonus?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number; referralBonus?: number };
+// The names the owner's ledger export uses for these sources (lib/export.ts), in the order the line names them: happy hour
+// first, since it doubles the purchase itself (Marketing, 30 Oct).
+const BONUS_NAMES: Record<keyof AwardBonuses, string> = { happyHourBonus: "Happy Hour", welcomeBonus: "Startbonus", winbackBonus: "Willkommen-zurück-Bonus", birthdayBonus: "Geburtstags-Bonus", challengeBonus: "Challenge-Bonus", referralBonus: "Empfehlungsbonus" };
+/** Only the bonus fields of a server result, so other numbers on it are never summed. */
+export const bonusesOf = (r: AwardBonuses): AwardBonuses => ({ welcomeBonus: r.welcomeBonus, happyHourBonus: r.happyHourBonus, winbackBonus: r.winbackBonus, birthdayBonus: r.birthdayBonus, challengeBonus: r.challengeBonus, referralBonus: r.referralBonus });
+export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bonuses)).reduce((sum: number, n) => sum + (n ?? 0), 0);
+
+/**
+ * „1 Punkt + 5 Punkte Startbonus“: the quantity and each bonus by name. French sums the bonuses (« + 5 en plus »). Each part
+ * keeps its words together with no-break spaces, so a narrow line only breaks at a „+“.
+ */
+export function awardParts(quantity: number, kind: ProgramType, bonuses: AwardBonuses, locale: UiLocale) {
+  const n = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format;
+  const base = `${n(quantity)} ${unitWord(quantity, kind, locale)}`;
+  const parts = locale === "fr" ? [base, ...(bonusTotal(bonuses) ? [`${n(bonusTotal(bonuses))} en plus`] : [])]
+    : [base, ...(Object.keys(BONUS_NAMES) as Array<keyof AwardBonuses>).filter(key => (bonuses[key] ?? 0) > 0).map(key => `${n(bonuses[key]!)} ${unitWord(bonuses[key]!, kind, locale)} ${BONUS_NAMES[key]}`)];
+  return parts.map(part => part.replace(/ /g, "\u00a0")).join(" + ");
+}
+
+/**
+ * What a booking added: the balance change the cashier sees, and whether the credited quantity plus the bonuses the server
+ * named add up to it. A mismatch (a bonus the server did not name, or a balance that moved meanwhile) is logged; the
+ * screen shows the real change either way.
+ */
+export function awardDelta(balanceBefore: number, result: AwardBonuses & { balance: number; creditedQuantity: number }) {
+  const delta = result.balance - balanceBefore;
+  const known = result.creditedQuantity + bonusTotal(result);
+  if (known !== delta) console.warn(`Kasse: booked ${known} (quantity and bonuses) but the balance moved by ${delta}`);
+  return { delta, matches: known === delta };
+}
+
+/** The booked screen's chip and the line under it: „+6 Punkte“ and „1 Punkt + 5 Punkte Startbonus“; no line without a bonus. */
+export function bookedAward(card: Pick<CashierCard, "balance" | "programType">, credited: number, result: AwardBonuses & { balance: number; balanceBefore?: number }, locale: UiLocale) {
+  // The server's balance under the booking's lock; the lookup's balance only if an older server leaves it out.
+  const { delta, matches } = awardDelta(result.balanceBefore ?? card.balance, { ...result, creditedQuantity: credited });
+  const headline = `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(delta)} ${unitWord(delta, card.programType, locale)}`;
+  return { headline, parts: bonusTotal(result) || !matches ? awardParts(credited, card.programType, bonusesOf(result), locale) : undefined };
+}
+
+/** What the amount sheet previews, read like the booked screen: the total („+29 Punkte“), its parts if any bonus comes with it, the balance after. */
+export function purchasePreviewOf(card: Pick<CashierCard, "balance" | "happyHour" | "welcomeBonus" | "winbackBonus" | "birthdayBonus">, points: number, locale: UiLocale) {
+  const bonuses: AwardBonuses = { happyHourBonus: card.happyHour ? points : 0, welcomeBonus: card.welcomeBonus, winbackBonus: card.winbackBonus, birthdayBonus: card.birthdayBonus };
+  const total = points + bonusTotal(bonuses);
+  return { total: `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(total)} ${unitWord(total, "points", locale)}`, parts: bonusTotal(bonuses) ? awardParts(points, "points", bonuses, locale) : undefined, balanceAfter: card.balance + total };
+}
+
+/** The lookup's open card as the counter holds it (ENG-133: the bonuses the next award books come along). */
+export type CashierLookup = { membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; welcomeBonus?: number; happyHour?: boolean; winbackBonus?: number; birthdayBonus?: number; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string } };
+export function cashierCard(result: CashierLookup, code: string): CashierCard {
+  return { id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), welcomeBonus: result.welcomeBonus ?? 0, happyHour: result.happyHour === true, winbackBonus: result.winbackBonus ?? 0, birthdayBonus: result.birthdayBonus ?? 0, level: result.level?.name ? { name: result.level.name, perk: result.level.perk } : undefined };
+}
 
 function previewMonth(isoMonth: string, locale: UiLocale) {
   const [year, month] = isoMonth.split("-").map(Number);
@@ -122,10 +176,13 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
-  const winback = card?.winbackBonus ?? 0, birthday = card?.birthdayBonus ?? 0;
-  const balanceAfter = card && purchasePreview ? card.balance + purchasePreview.points + winback + birthday : 0;
-  const awardLabel = winback + birthday > 0
-    ? `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} + ${winback + birthday} ${locale === "fr" ? "en plus" : "extra"}`
+  const welcome = card?.welcomeBonus ?? 0, winback = card?.winbackBonus ?? 0, birthday = card?.birthdayBonus ?? 0;
+  const purchaseOutcome = card && purchasePreview ? purchasePreviewOf(card, purchasePreview.points, locale) : null;
+  // The Startbonus by name; win-back and birthday as „extra“, since the note above the balance names them.
+  const extras = locale === "fr" ? welcome + winback + birthday ? [`${welcome + winback + birthday} en plus`] : []
+    : [welcome ? `${welcome} Startbonus` : "", winback + birthday ? `${winback + birthday} extra` : ""].filter(Boolean);
+  const awardLabel = extras.length
+    ? [awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`, ...extras].join(" + ")
     : awardCount === 1 && !offlineChoice
       ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
       : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
@@ -215,6 +272,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={56} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
         <h2>{booked.title}</h2>
         {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
+        {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
         <p className={styles.bookedDetail}>{booked.detail}</p>
         {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
         {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
@@ -277,8 +335,9 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
             onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
           <div id="purchase-preview" className={styles.preview} aria-live="polite">{purchasePreview
             ? <>
-              <strong>+{number.format(purchasePreview.points)} {unitWord(purchasePreview.points, "points", locale)}{winback + birthday > 0 ? ` + ${winback + birthday} extra` : ""}</strong>
-              <span>{t.newBalance}: {number.format(balanceAfter)} {unitWord(balanceAfter, "points", locale)}</span>
+              <strong>{purchaseOutcome?.total}</strong>
+              {purchaseOutcome?.parts && <span className={styles.previewParts}>{purchaseOutcome.parts}</span>}
+              <span>{t.newBalance}: {number.format(purchaseOutcome?.balanceAfter ?? 0)} {unitWord(purchaseOutcome?.balanceAfter ?? 0, "points", locale)}</span>
             </>
             : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
           {offlineChoice && <p className={styles.note} role="note">{t.offlineNote}</p>}
