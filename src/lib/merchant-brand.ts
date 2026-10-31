@@ -20,10 +20,10 @@ type Query = Pick<typeof db, "select">;
 async function ownerProgramme(query: Query, actorUserId: string, programSlug: string) {
   const [program] = await query.select({ tenantId: programs.tenantId, locationId: programs.locationId })
     .from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const [role] = await query.select({ userId: staffRoles.userId }).from(staffRoles)
     .where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!role) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return program;
 }
 
@@ -33,7 +33,7 @@ export async function getMerchantBrand(raw: { actorUserId: string; programSlug: 
   const [brand] = await db.select({ businessName: tenants.name, locationName: locations.name, brandColor: locations.brandColor, logoData: locations.logoData })
     .from(locations).innerJoin(tenants, eq(tenants.id, locations.tenantId))
     .where(and(eq(locations.id, program.locationId), eq(locations.tenantId, program.tenantId))).limit(1);
-  if (!brand) throw new DomainError("NOT_FOUND", "Location not found");
+  if (!brand) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   return { ...brand, logoWallet: await walletLogoView(brand.logoData, brand.brandColor) };
 }
 
@@ -46,7 +46,7 @@ export async function updateMerchantBrand(raw: z.input<typeof inputSchema>) {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug);
     const [location] = await tx.select({ id: locations.id }).from(locations)
       .where(and(eq(locations.id, program.locationId), eq(locations.tenantId, program.tenantId))).for("update").limit(1);
-    if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+    if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
     await tx.update(tenants).set({ name: input.businessName }).where(eq(tenants.id, program.tenantId));
     await tx.update(locations).set({
       name: input.locationName, brandColor: input.brandColor,

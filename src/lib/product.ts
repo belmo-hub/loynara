@@ -70,7 +70,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
     const [existing] = await tx.select().from(staffRoles).where(eq(staffRoles.userId, input.userId)).limit(1).for("update");
     if (existing) {
       if (!existing.active) throw new DomainError("FORBIDDEN", ACCESS_REVOKED);
-      if (existing.role !== "owner") throw new DomainError("FORBIDDEN", "Nur Inhaber:innen dürfen ein Geschäft einrichten. Dein Konto hat bereits einen Teamzugang.");
+      if (existing.role !== "owner") throw new DomainError("FORBIDDEN", "Dein Konto gehört schon zu einem Team. Mit diesem Konto kannst du kein eigenes Geschäft einrichten.");
       const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, existing.tenantId)).for("update");
       const ownedLocations = await tx.select().from(locations).where(eq(locations.tenantId, existing.tenantId)).limit(2);
       if (ownedLocations.length > 1) throw new DomainError("ALREADY_ONBOARDED", "Dein Geschäft ist bereits eingerichtet. Öffne die Übersicht und wähle dort den gewünschten Standort.");
@@ -174,9 +174,9 @@ export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
   const input = updateProgramInput.parse(raw);
   return db.transaction(async (tx) => {
     const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).for("update");
-    if (!program) throw new DomainError("NOT_FOUND", "Program not found");
+    if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const name = input.name ?? program.name, rulesText = input.rulesText ?? program.rulesText;
     const nextType = input.programType ?? program.type;
     const earningMode = input.earningMode ?? program.earningMode;
@@ -289,9 +289,9 @@ export async function updateProgramExtras(raw: z.input<typeof programExtrasInput
   const input = programExtrasInput.parse(raw);
   return db.transaction(async (tx) => {
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
-    if (!program) throw new DomainError("NOT_FOUND", "Program not found");
+    if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (input.welcomeBonus !== undefined && input.welcomeBonus > (program.type === "stamp" ? 3 : 50)) throw new DomainError("INVALID_WELCOME_BONUS", "Welcome bonus is 0 to 3 stamps or 0 to 50 points");
     const cardNews = input.cardNews?.trim();
     if (cardNews !== undefined && cardNewsProblem(cardNews)) throw new DomainError("INVALID_CARD_NEWS", "Card news is plain text, at most 140 characters, without links");
@@ -348,9 +348,9 @@ export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>
   const input = happyHourInput.parse(raw);
   return db.transaction(async (tx) => {
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
-    if (!program) throw new DomainError("NOT_FOUND", "Program not found");
+    if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (happyHourProblem(input.happyHourWindows)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour: up to 3 weekly windows with weekdays, start and end time (HH:MM), each ending after it starts the same day (midnight-crossing windows are not supported)");
     if (input.happyHourEnabled && (program.type !== "points" || input.happyHourWindows.length === 0)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour needs a points programme and at least one window");
     const [updated] = await tx.update(programs).set({ happyHourEnabled: input.happyHourEnabled, happyHourWindows: input.happyHourWindows as HappyHourWindow[] }).where(eq(programs.id, program.id)).returning();
@@ -384,14 +384,14 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     // Shared and taken first, as a booking does, so an owner's save (FOR UPDATE, also programme first) cannot commit a
     // new rule or reward version between the staleness check and the card.
     const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.slug), eq(programs.status, "active"))).for("share");
-    if (!program) throw new DomainError("NOT_FOUND", "Program not found");
+    if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     const [availability] = await tx.select({ active: sql<boolean>`${programs.effectiveAt} <= now()` }).from(programs).where(eq(programs.id, program.id));
     if (!availability.active) throw new DomainError("NOT_AVAILABLE", "Program is not active yet");
     const shownRewards = input.rewardVersionIds && [...input.rewardVersionIds].sort().join();
     if ((input.ruleVersionId && input.ruleVersionId !== (await programInForce(tx, program)).newestRuleVersionId)
       || (shownRewards !== undefined && shownRewards !== (await newestRewardVersionIds(tx, program.tenantId, program.id)).sort().join())) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
-    if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Location plan is unavailable");
+    if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Für dieses Geschäft kannst du gerade keine Karte erstellen. Bitte frage im Geschäft nach.");
     const [usage] = await tx.select({ total: sql<number>`count(*)::int` }).from(memberships)
       .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
       .where(and(eq(memberships.tenantId, program.tenantId), eq(programs.locationId, program.locationId), sql`${memberships.closedAt} is null`));
@@ -442,9 +442,9 @@ const rewardTarget = z.object({ actorUserId: z.string().min(1), programSlug: z.s
 
 async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], actorUserId: string, programSlug: string) {
   const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).for("update");
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return program;
 }
 
@@ -452,12 +452,12 @@ async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>
  *  its pending version and the next version number. One pending change per reward (ENG-100): `waiting` blocks other edits. */
 async function ownerReward(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], program: typeof programs.$inferSelect, rewardId: string, at: SQL) {
   const [reward] = await tx.select().from(rewards).where(and(eq(rewards.id, rewardId), eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), liveReward("rewards", at))).for("update");
-  if (!reward) throw new DomainError("NOT_FOUND", "Reward not found");
+  if (!reward) throw new DomainError("NOT_FOUND", "Diese Prämie haben wir nicht gefunden. Bitte lade die Seite neu.");
   const versions = await tx.select({ version: rewardVersions, due: sql<boolean>`${rewardVersions.effectiveAt} <= ${at}`, kept: sql<boolean>`${sql.raw(notSuperseded("reward_versions"))}` })
     .from(rewardVersions).where(and(eq(rewardVersions.tenantId, program.tenantId), eq(rewardVersions.rewardId, reward.id))).orderBy(desc(rewardVersions.version));
   const kept = versions.filter(row => row.kept);
   const inForce = kept.find(row => row.due)?.version;
-  if (!inForce) throw new DomainError("NOT_FOUND", "Reward version not found");
+  if (!inForce) throw new DomainError("NOT_FOUND", "Diese Prämie haben wir nicht gefunden. Bitte lade die Seite neu.");
   const pending = kept[0]?.due ? undefined : kept[0]?.version;
   return { reward, inForce, pending, next: versions[0].version.version + 1, waiting: Boolean(pending || reward.endsAt) };
 }
@@ -634,7 +634,7 @@ export function capLevelUntil<T extends { until?: string }>(level: T | undefined
 
 export async function getCard(token: string, explicitNow?: Date) {
   const now = explicitNow ?? new Date();
-  if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   // Balance, recent activity and reward progress must describe one committed state.
   return db.transaction(async (tx) => {
     const [row] = await tx.select({ member: memberships, program: programs, location: locations, tenant: tenants })
@@ -643,7 +643,7 @@ export async function getCard(token: string, explicitNow?: Date) {
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
       .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
       .where(and(eq(memberships.cardToken, token), sql`${memberships.closedAt} is null`));
-    if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!row) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     // The rule in force by the database clock, as saves and bookings decide it (a web server a few ms off would show the
     // switch-over late or early); `explicitNow` only for tests.
     const program = await programInForce(tx, row.program, explicitNow ?? sql`clock_timestamp()`);
@@ -675,14 +675,14 @@ async function resolveCounterCard(input: { userId: string; locationId: string; c
   const locator = isScanCodeInput(code) ? null : parseCardLocator(code);
   if (!locator && !isScanCodeInput(code)) throw new DomainError("INVALID_CODE", "Invalid card code");
   const [actor] = locator ? await db.select({ tenantId: staffRoles.tenantId }).from(staffRoles).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.active, true))) : [];
-  if (locator && !actor) throw new DomainError("FORBIDDEN", "No checkout access");
+  if (locator && !actor) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
   const [row] = await db.select({ member: memberships, program: programs, tenant: tenants }).from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(locator ? and(eq(memberships.tenantId, actor.tenantId), eq(memberships.cardLocator, locator)) : eq(memberships.scanCode, code));
-  if (!row || row.member.closedAt || row.program.locationId !== input.locationId || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+  if (!row || row.member.closedAt || row.program.locationId !== input.locationId || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, row.member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
-  if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
+  if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
   return { ...row, by: locator ? "locator" : "code" };
 }
 
@@ -713,7 +713,7 @@ export async function getPublicProgram(slug: string) {
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, programs.tenantId))
     .where(and(eq(programs.slug, slug), eq(programs.status, "active")));
-  if (!row) throw new DomainError("NOT_FOUND", "Program not found");
+  if (!row) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const program = await programInForce(db, row.program);
   const rewardList = await currentRewards(row.tenant.id, row.program.id);
   const [reward] = rewardList;

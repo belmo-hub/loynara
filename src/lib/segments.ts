@@ -49,12 +49,12 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
   const [staff] = await db.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, input.actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
-    throw new DomainError("FORBIDDEN", "Owner or manager access required");
+    throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   }
   const [program] = await db.select({ id: programs.id, locationId: programs.locationId, effectiveAt: programs.effectiveAt })
     .from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, staff.tenantId), eq(programs.status, "active"))).limit(1);
   if (!program || program.effectiveAt > asOf || (staff.role === "manager" && staff.locationId !== program.locationId)) {
-    throw new DomainError("NOT_FOUND", "Programme not found in your scope");
+    throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   }
 
   const definition = input.definition;
@@ -140,6 +140,6 @@ export async function selectAudienceBySlug(raw: SlugAudienceQuery): Promise<Audi
   const { programSlug, ...query } = raw;
   const slug = z.string().min(1).max(120).parse(programSlug);
   const [program] = await db.select({ id: programs.id }).from(programs).where(eq(programs.slug, slug)).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found in your scope");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return selectAudience({ ...query, programId: program.id });
 }

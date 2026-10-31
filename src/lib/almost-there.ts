@@ -16,7 +16,7 @@ const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
 /** Only a card that got there with a recent stamp: switching the reminder on does not message cards that sat near a reward for months. */
 const RECENT_HOURS = 48;
 
-const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
+const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar."); };
 
 export async function setAlmostThere(input: { actorUserId: string; programSlug: string; enabled: boolean }) {
   available();

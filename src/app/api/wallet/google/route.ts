@@ -32,11 +32,11 @@ export async function POST(request: Request) {
     const config = googleDirectConfig(process.env, eligibility.tenantId, eligibility.locationId, eligibility.programId);
     const pass = await issueWalletPass(token, "google", id => googleObjectId(id, config), database);
     const object = await withGooglePassLock(pass.id, async (tx, current) => {
-      if (!current || current.revokedAt) throw new DomainError("NOT_FOUND", "Card not found");
+      if (!current || current.revokedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
       const snapshot = await walletCardSnapshot(current.membershipId, tx);
-      if (!snapshot.open || snapshot.credentialHash !== current.credentialHash) throw new DomainError("NOT_FOUND", "Card not found");
+      if (!snapshot.open || snapshot.credentialHash !== current.credentialHash) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
       const latestConfig = googleDirectConfig(process.env, snapshot.pass.tenantId, snapshot.pass.locationId!, snapshot.pass.programId);
-      if (current.providerObjectId !== googleObjectId(current.id, latestConfig)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      if (current.providerObjectId !== googleObjectId(current.id, latestConfig)) throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
       const object = await new GoogleWalletClient(latestConfig, fetch, Math.min(60_000, deadline - Date.now())).upsert(snapshot.pass, current.id, latestConfig);
       await tx.update(walletPasses).set({ status: "created", syncedAt: new Date() }).where(and(eq(walletPasses.id, current.id), eq(walletPasses.status, "pending")));
       return object;

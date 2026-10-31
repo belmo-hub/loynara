@@ -33,7 +33,7 @@ export function passFastEventsAvailable(env: Record<string, string | undefined> 
 export async function recordPassFastEvent(raw: string, signature: string | null, now = new Date(), env: Record<string, string | undefined> = process.env) {
   const secret = env.PASSFAST_WEBHOOK_SECRET ?? "";
   // Absent secret or withheld surface: the route does not exist.
-  if (!passFastEventsAvailable(env)) throw new DomainError("NOT_FOUND", "Not found");
+  if (!passFastEventsAvailable(env)) throw new DomainError("NOT_FOUND", "Nicht gefunden.");
   if (!validPassFastSignature(raw, signature, secret)) throw new DomainError("UNAUTHENTICATED", "Invalid signature");
   let parsed: z.infer<typeof payload>;
   try { parsed = payload.parse(JSON.parse(raw)); } catch { throw new DomainError("INVALID_EVENT", "Invalid event"); }

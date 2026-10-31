@@ -18,7 +18,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
     await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
     await tx.execute(sql`SET LOCAL statement_timeout = '10s'`);
     const [candidate] = await tx.select().from(walletPasses).where(and(eq(walletPasses.id, passId), deps.tenantId ? eq(walletPasses.tenantId, deps.tenantId) : undefined));
-    if (!candidate || !isPassFastObjectId(candidate.providerObjectId)) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!candidate || !isPassFastObjectId(candidate.providerObjectId)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const candidateSnapshot = await walletCardSnapshot(candidate.membershipId, tx);
     const candidateBrand = candidateSnapshot.open ? candidateSnapshot.pass : candidateSnapshot.brand;
     const candidateConfig = passFastConfig(await passFastEnv(candidate.tenantId, candidateBrand.locationId, tx), candidate.tenantId, candidateBrand.locationId);
@@ -33,7 +33,7 @@ export async function syncPassFastPass(passId: string, deps: { client?: PassFast
     await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
     await tx.execute(sql`SET LOCAL statement_timeout = '10s'`);
     const [row] = await tx.select().from(walletPasses).where(and(eq(walletPasses.id, passId), deps.tenantId ? eq(walletPasses.tenantId, deps.tenantId) : undefined)).for("update");
-    if (!row || !isPassFastObjectId(row.providerObjectId)) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!row || !isPassFastObjectId(row.providerObjectId)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     if (row.status === "revoked") return {};
     const snapshot = await walletCardSnapshot(row.membershipId, tx);
     const brand = snapshot.open ? snapshot.pass : snapshot.brand;

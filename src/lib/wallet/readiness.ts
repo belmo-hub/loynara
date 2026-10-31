@@ -30,10 +30,10 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
   const [program] = await db.select({ id: programs.id, tenantId: programs.tenantId, locationId: locations.id, brandColor: locations.brandColor, logoData: locations.logoData })
     .from(programs).innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const [role] = await db.select({ userId: staffRoles.userId }).from(staffRoles)
     .where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!role) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
 
   const availability = walletAvailability(await passFastEnv(program.tenantId, program.locationId), program.tenantId, program.locationId, program.id);
   // Every accepted upload is converted and resized; a stored logo is left off when it is too faint, or (unreadable) treated as absent.

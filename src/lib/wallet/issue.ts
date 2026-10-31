@@ -23,21 +23,21 @@ export type IssuedPass = typeof walletPasses.$inferSelect;
  * The provider object itself is created by the caller AFTER commit; provider latency never holds the card lock.
  */
 export async function issueWalletPass(cardToken: string, provider: WalletProvider, objectIdFor: (passId: string) => string, database: Pick<typeof db, "transaction"> = db): Promise<IssuedPass> {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return database.transaction(async tx => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     let managedConfig: PassFastConfig | undefined;
     if (provider === "google") {
       const eligibility = await walletCardEligibility(cardToken, tx);
-      if (eligibility.availability.google === "unavailable") throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      if (eligibility.availability.google === "unavailable") throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
       const config = googleDirectConfig(process.env, eligibility.tenantId, eligibility.locationId, eligibility.programId);
-      if (objectIdFor(member.id) !== googleObjectId(member.id, config)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      if (objectIdFor(member.id) !== googleObjectId(member.id, config)) throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
     }
     // Refuse unmapped tenants before changing any projection or enqueueing work.
     if (isPassFastObjectId(objectIdFor(member.id))) {
       const eligibility = await walletCardEligibility(cardToken, tx);
-      if (eligibility.availability[provider] !== "available") throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      if (eligibility.availability[provider] !== "available") throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
       managedConfig = passFastConfig(await passFastEnv(eligibility.tenantId, eligibility.locationId, tx), eligibility.tenantId, eligibility.locationId);
     }
     const hash = credentialHash(member.scanCode);
@@ -45,11 +45,11 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
       .where(and(eq(walletPasses.tenantId, member.tenantId), eq(walletPasses.membershipId, member.id), eq(walletPasses.provider, provider), isNull(walletPasses.revokedAt)));
     if (active?.credentialHash === hash && isPassFastObjectId(active.providerObjectId) === isPassFastObjectId(objectIdFor(active.id))) {
       if (managedConfig) assertPassFastBinding(active.providerObjectId, managedConfig);
-      if (provider === "google" && active.providerObjectId !== objectIdFor(active.id)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+      if (provider === "google" && active.providerObjectId !== objectIdFor(active.id)) throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
       return active;
     }
     // Selecting Direct must not silently retire or convert a managed-provider projection.
-    if (active && provider === "google" && isPassFastObjectId(active.providerObjectId)) throw new DomainError("FORBIDDEN", "Wallet unavailable");
+    if (active && provider === "google" && isPassFastObjectId(active.providerObjectId)) throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
     if (active) {
       await tx.update(walletPasses).set({ revokedAt: new Date(), revokeReason: "superseded", status: active.status === "pending" && (provider === "apple" || isPassFastObjectId(active.providerObjectId)) ? "revoked" : "revocation_pending", updatedAt: new Date() }).where(eq(walletPasses.id, active.id));
       await enqueueWalletRefresh(tx, member.tenantId, member.id);

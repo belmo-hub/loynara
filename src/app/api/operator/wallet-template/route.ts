@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     await db.transaction(tx => assertPlateOperator(tx, user.id, process.env));
     await enforceRateLimit({ scope: "operator_wallet_template_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const body = await jsonBody(request, 2000) as { tenantId?: unknown; locationId?: unknown; templateId?: unknown; execute?: unknown };
-    if (typeof body.tenantId !== "string" || typeof body.locationId !== "string" || typeof body.templateId !== "string" || typeof body.execute !== "boolean") throw new DomainError("INVALID_INPUT", "Invalid input");
+    if (typeof body.tenantId !== "string" || typeof body.locationId !== "string" || typeof body.templateId !== "string" || typeof body.execute !== "boolean") throw new DomainError("INVALID_INPUT", "Bitte prüfe deine Eingaben und versuche es noch einmal.");
     const result = await setWalletTemplate({ actorUserId: user.id, env: process.env, tenantId: body.tenantId, locationId: body.locationId, templateId: body.templateId, execute: body.execute });
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

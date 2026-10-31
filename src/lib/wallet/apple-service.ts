@@ -29,10 +29,10 @@ export function validAppleDeviceId(deviceId: string) { return devicePattern.test
 export async function authenticatedApplePass(input: PassInput, config: ApplePassConfig): Promise<ApplePassView> {
   const token = /^ApplePass ([A-Za-z0-9_-]{16,100})$/.exec(input.authorization)?.[1];
   if (input.passTypeId !== config.passTypeId || !token || !serialPattern.test(input.serial) || !validApplePassToken(input.serial, token, config)) {
-    throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+    throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
   }
   const [row] = await db.select().from(walletPasses).where(and(eq(walletPasses.id, input.serial), eq(walletPasses.provider, "apple")));
-  if (!row) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  if (!row) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
   const snapshot = await walletCardSnapshot(row.membershipId);
   if (row.revokedAt === null && snapshot.open && row.credentialHash === snapshot.credentialHash) {
     return { kind: "active", passId: row.id, updatedAt: row.updatedAt, pass: snapshot.pass };
@@ -48,11 +48,11 @@ export async function registerAppleDevice(input: RegistrationInput, config: Appl
   if (!validAppleDeviceId(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
   if (!/^[a-f0-9]{32,300}$/i.test(input.pushToken)) throw new DomainError("INVALID_TOKEN", "Invalid Apple push token");
   const view = await authenticatedApplePass(input, config);
-  if (view.kind !== "active") throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  if (view.kind !== "active") throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
   return db.transaction(async (tx) => {
     // Lock the pass row: a concurrent reissue/closure revokes it, and then no new registration may appear.
     const [row] = await tx.select().from(walletPasses).where(eq(walletPasses.id, view.passId)).for("update");
-    if (!row || row.revokedAt) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+    if (!row || row.revokedAt) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
     if (row.status === "pending" || row.status === "downloaded") await tx.update(walletPasses).set({ status: "registered" }).where(eq(walletPasses.id, row.id));
     await tx.insert(appleDevices).values({ deviceLibraryIdentifier: input.deviceId, pushToken: input.pushToken })
       .onConflictDoUpdate({ target: appleDevices.deviceLibraryIdentifier, set: { pushToken: input.pushToken, updatedAt: new Date() } });

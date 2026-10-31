@@ -22,7 +22,7 @@ export async function POST(request: Request, context: { params: Promise<{ member
     const body = input.parse(await jsonBody(request, 2000));
     const merchant = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
     // Authorise before touching any data, so a cashier learns nothing about which cards exist.
-    if (!merchant || merchant.role === "cashier") throw new DomainError("FORBIDDEN", "Manager or owner access required");
+    if (!merchant || merchant.role === "cashier") throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
     const { membershipId } = await context.params;
     const result = await reissueCardByStaff({ actorUserId: user.id, locationId: merchant.locationId, membershipId, ...body });
     const base = process.env.PUBLIC_BASE_URL ?? new URL(request.url).origin;

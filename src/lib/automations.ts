@@ -34,10 +34,10 @@ const deliveryPayload = z.object({ ruleId: z.uuid(), runId: z.uuid(), membership
 export async function ownerProgram(actorUserId: string, programSlug: string, query: Pick<typeof db, "select"> = db) {
   const [role] = await query.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Only an active owner can manage automations");
+  if (!role) throw new DomainError("FORBIDDEN", "Automationen kann nur die Inhaberin oder der Inhaber verwalten.");
   const [program] = await query.select().from(programs)
     .where(and(eq(programs.slug, programSlug), eq(programs.tenantId, role.tenantId), eq(programs.status, "active"))).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found in this merchant");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return program;
 }
 

@@ -76,7 +76,7 @@ export async function getMerchantAnalytics(
       `SELECT tenant_id AS "tenantId" FROM staff_roles WHERE user_id = $1 AND role = 'owner' AND active = true LIMIT 1`,
       [actorUserId],
     )).rows;
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     return readAnalytics(client, owner.tenantId, new Date(asOf.getTime() - options.windowDays * 86_400_000), asOf, options.windowDays);
   });
 }
@@ -309,7 +309,7 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
        WHERE r.user_id = $1 AND r.role = 'owner' AND r.active = true LIMIT 1`,
       [actorUserId],
     )).rows;
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const { rows } = await client.query<SpendRow>(`
       WITH loc AS (
         SELECT l.id, l.name,
@@ -467,7 +467,7 @@ const LOCATION_WINDOW_DAYS = 30;
  * location only), with the same counting rule and rolling window as getMerchantAnalytics. Cashiers get FORBIDDEN.
  */
 export async function getLocationAnalytics(actorUserId: string, options: { locationId: string; asOf?: Date }): Promise<LocationAnalytics> {
-  if (!uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  if (!uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   return inSnapshot(undefined, async client => {
     const asOf = options.asOf ?? (await client.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
     if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");

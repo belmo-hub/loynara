@@ -18,10 +18,10 @@ const codeSchema = z.string().regex(/^ref_[A-Za-z0-9_-]{24}$/);
 
 async function ownerProgram(tx: Transaction, actorUserId: string, programSlug: string) {
   const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active")));
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles)
     .where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return program;
 }
 
@@ -63,13 +63,13 @@ function publicOrigin() {
 }
 
 export async function getCardReferralShare(cardToken: string) {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const origin = publicOrigin();
   return db.transaction(async tx => {
     const [row] = await tx.select({ member: memberships, program: programs }).from(memberships)
       .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
       .where(eq(memberships.cardToken, cardToken));
-    if (!row || row.member.closedAt || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found");
+    if (!row || row.member.closedAt || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const [setting] = await tx.select().from(referralSettings).where(and(eq(referralSettings.tenantId, row.member.tenantId), eq(referralSettings.programId, row.program.id)));
     if (!setting?.enabled) throw new DomainError("REFERRAL_DISABLED", "Referral sharing is unavailable for this programme");
     await tx.insert(referralCodes).values({ tenantId: row.member.tenantId, programId: row.program.id, membershipId: row.member.id, code: `ref_${randomBytes(18).toString("base64url")}` })
@@ -246,10 +246,10 @@ export async function reviewReferral(raw: z.input<typeof reviewInput>) {
   const input = reviewInput.parse(raw);
   return db.transaction(async tx => {
     const [referral] = await tx.select().from(referrals).where(eq(referrals.id, input.referralId)).for("update");
-    if (!referral) throw new DomainError("NOT_FOUND", "Referral not found");
+    if (!referral) throw new DomainError("NOT_FOUND", "Diese Empfehlung haben wir nicht gefunden. Bitte lade die Seite neu.");
     const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles)
       .where(and(eq(staffRoles.tenantId, referral.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (referral.status !== "review") throw new DomainError("INVALID_REFERRAL_STATE", "Referral is not in review");
     if (input.action === "reject") {
       if (referral.referrerBonusEntryId || referral.referredBonusEntryId) throw new DomainError("INVALID_REFERRAL_STATE", "Credited bonuses require reversal review");

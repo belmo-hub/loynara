@@ -48,7 +48,7 @@ async function memberScope(actorUserId: string): Promise<Scope> {
   const [staff] = await db.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
-    throw new DomainError("FORBIDDEN", "Owner or manager access required");
+    throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   }
   return { tenantId: staff.tenantId, locationId: staff.role === "manager" ? staff.locationId : null };
 }
@@ -144,11 +144,11 @@ export async function listMerchantMembers(actorUserId: string, options: { locati
   const scope = await memberScope(actorUserId);
   if (options.locationId) {
     if (!uuidPattern.test(options.locationId) || (scope.locationId && options.locationId !== scope.locationId)) {
-      throw new DomainError("NOT_FOUND", "Location not found in your scope");
+      throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
     }
     const [location] = await db.select({ id: locations.id }).from(locations)
       .where(and(eq(locations.id, options.locationId), eq(locations.tenantId, scope.tenantId))).limit(1);
-    if (!location) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+    if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
     scope.locationId = location.id;
   }
   const minAgeDays = options.minAgeDays ?? 0;
@@ -203,7 +203,7 @@ export async function listMerchantMembers(actorUserId: string, options: { locati
 
 export async function getMerchantMember(actorUserId: string, membershipId: string, options: { cursor?: string; limit?: number } = {}): Promise<MerchantMemberDetail> {
   const scope = await memberScope(actorUserId);
-  if (!uuidPattern.test(membershipId)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!uuidPattern.test(membershipId)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const cursor = decodeCursor(options.cursor);
   const limit = options.limit === undefined ? timelineLimit : Math.max(1, Math.min(timelineLimit, Math.trunc(options.limit)));
   const selected = await pool.query<MemberRow>(`
@@ -220,7 +220,7 @@ export async function getMerchantMember(actorUserId: string, membershipId: strin
     SELECT ${memberFields} FROM page LEFT JOIN LATERAL (${activitySummary}) summary ON true
   `, [scope.tenantId, membershipId, scope.locationId]);
   const row = selected.rows[0];
-  if (!row) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!row) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
 
   const entries = await pool.query<TimelineRow>(`
     SELECT e.id, e.kind, e.delta, e.source, e.created_at AS "createdAt",

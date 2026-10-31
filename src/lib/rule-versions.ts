@@ -28,7 +28,7 @@ function split(rows: Awaited<ReturnType<typeof versionRows>>) {
 /** The programme's rule versions at `at`, for a save: see split. */
 export async function ruleVersions(reader: Reader, program: Pick<Program, "id" | "tenantId" | "locationId">, at: Date | SQL = sql`now()`) {
   const rows = await versionRows(reader, program, at);
-  if (!rows.length) throw new DomainError("NOT_FOUND", "Programme rule not found");
+  if (!rows.length) throw new DomainError("NOT_FOUND", "Diese Regel haben wir nicht gefunden. Bitte lade die Seite neu.");
   return split(rows);
 }
 

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     if (body.action === "create") return linked(await createShopWithOwnerInvite({ ...actor, shop: body }));
     if (body.action === "reissue") return linked(await reissueOwnerInvite({ ...actor, tenantId: String(body.tenantId ?? ""), ownerEmail: String(body.ownerEmail ?? "") }));
     if (body.action === "revoke") return Response.json(await revokeOwnerInvite({ ...actor, inviteId: String(body.inviteId ?? "") }), { headers: { "Cache-Control": "no-store" } });
-    throw new DomainError("INVALID_INPUT", "Invalid input");
+    throw new DomainError("INVALID_INPUT", "Bitte prüfe deine Eingaben und versuche es noch einmal.");
   } catch (error) {
     // Anyone who is not the operator gets the same empty 404 as the page: the route does not admit it exists.
     if (error instanceof DomainError && (error.code === "UNAUTHENTICATED" || error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN")) return notFound();

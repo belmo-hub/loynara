@@ -24,12 +24,12 @@ async function requireLocalOwner(request: Request) {
   if (!isLocalImportPreviewOrigin(process.env.PUBLIC_BASE_URL) ||
     !isLocalImportPreviewOrigin(new URL(request.url).origin) ||
     !isLocalImportPreviewOrigin(`http://${request.headers.get("host") ?? ""}`)) {
-    throw new DomainError("NOT_FOUND", "Import preview unavailable");
+    throw new DomainError("NOT_FOUND", "Die Import-Vorschau ist hier nicht verfügbar.");
   }
   const user = await sessionUser(request);
   const [owner] = await db.select({ userId: staffRoles.userId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, user.id), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return user;
 }
 

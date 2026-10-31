@@ -43,9 +43,9 @@ const germanDate = (value: Date, timezone: string) => value.toLocaleDateString("
 
 export async function getLaunchReadiness(actorUserId: string, locationId: string, env: Record<string, string | undefined> = process.env): Promise<LaunchReadiness> {
   const [staff] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true)));
-  if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== locationId)) throw new DomainError("FORBIDDEN", "Owner or manager access required");
+  if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== locationId)) throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   const [location] = await db.select().from(locations).where(and(eq(locations.id, locationId), eq(locations.tenantId, staff.tenantId)));
-  if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, staff.tenantId), eq(programs.locationId, location.id), eq(programs.status, "active")));
 
   const facts = (await pool.query<{

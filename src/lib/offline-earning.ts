@@ -27,11 +27,11 @@ export async function prepareOfflineAward(raw: z.input<typeof prepareSchema>): P
   const input = prepareSchema.parse(raw);
   const now = input.now ?? new Date((await db.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
   const [member] = await db.select().from(memberships).where(eq(memberships.id, input.membershipId));
-  if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [program] = await db.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
-  if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+  if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
   const [staff] = await db.select().from(staffRoles).where(and(eq(staffRoles.tenantId, member.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
-  if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
+  if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
   const hash = deviceHash(input.deviceId);
   const [existing] = await db.select().from(offlineAwardLeases).where(and(eq(offlineAwardLeases.actorUserId, input.userId), eq(offlineAwardLeases.membershipId, input.membershipId), eq(offlineAwardLeases.deviceHash, hash), sql`${offlineAwardLeases.expiresAt} > ${now}`)).limit(1);
   if (existing) return { leaseId: existing.id, expiresAt: existing.expiresAt };

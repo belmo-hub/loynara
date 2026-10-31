@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const user = await sessionUser(request);
     await enforceRateLimit({ scope: "merchant_readiness_user", identity: user.id, max: 120, windowSeconds: 15 * 60 });
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "Owner or manager access required");
+    if (!context) throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
     return Response.json(await getLaunchReadiness(user.id, context.locationId), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

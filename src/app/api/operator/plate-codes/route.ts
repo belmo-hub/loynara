@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       return Response.json({ codes: await issuePlateCodes({ ...actor, plateLabels: body.plateLabels }) }, { headers: { "Cache-Control": "no-store" } });
     }
     if (body.action === "unlock" && typeof body.plateLabel === "string") return Response.json(await unlockPlateCode({ ...actor, plateLabel: body.plateLabel }), { headers: { "Cache-Control": "no-store" } });
-    throw new DomainError("INVALID_INPUT", "Invalid input");
+    throw new DomainError("INVALID_INPUT", "Bitte prüfe deine Eingaben und versuche es noch einmal.");
   } catch (error) {
     // Anyone who is not the operator gets the same empty 404 as the page: the route does not admit it exists.
     if (error instanceof DomainError && (error.code === "UNAUTHENTICATED" || error.code === "FORBIDDEN" || error.code === "INVALID_ORIGIN")) return notFound();

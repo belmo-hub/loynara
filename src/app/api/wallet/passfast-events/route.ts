@@ -28,7 +28,7 @@ async function rawBody(request: Request) {
 export async function POST(request: Request) {
   try {
     await enforcePeerLimit(request, "passfast_events_peer", 600, 60);
-    if (!passFastEventsAvailable()) throw new DomainError("NOT_FOUND", "Not found");
+    if (!passFastEventsAvailable()) throw new DomainError("NOT_FOUND", "Nicht gefunden.");
     let raw: string;
     try { raw = await rawBody(request); } catch { return new Response(null, { status: 413 }); }
     await recordPassFastEvent(raw, request.headers.get("x-webhook-signature"));
