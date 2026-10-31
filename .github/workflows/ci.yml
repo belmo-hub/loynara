@@ -222,7 +222,7 @@ jobs:
       # Desktop project only: it uses the runner's installed Chrome. The *.mobile.spec.ts files need WebKit.
       # program-question-payloads (ENG-099 N-3) needs only sign-up and the owner pages, so it runs on this app too.
       - name: Run the NFC specs
-        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy e2e/program-question-payloads
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy e2e/program-question-payloads e2e/token-guards
       - name: Show the app log
         if: failure()
         run: cat "$RUNNER_TEMP/next-dev.log"

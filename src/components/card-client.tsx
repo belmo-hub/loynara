@@ -206,9 +206,9 @@ export function CardClient({ token }: { token: string }) {
     } finally { setCloseBusy(false); }
   }
 
-  if (closed) return <CardState title="Karte geschlossen." message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
+  if (closed) return <CardState title="Karte geschlossen" message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
   if (loading) return <CustomerCardLoading label="Deine Karte wird geladen." />;
-  if (!card) return <CardState title="Karte nicht erreichbar." message={error} tone="error" icon={<CreditCard size={24} />}>
+  if (!card) return <CardState title="Karte nicht erreichbar" message={error} tone="error" icon={<CreditCard size={24} />}>
     <Link className={buttonClassName({ block: true })} href="/recover">Karte wiederfinden</Link>
   </CardState>;
   const french = card.locale === "fr";

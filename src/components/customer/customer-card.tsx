@@ -8,7 +8,7 @@ import { NumberRoll } from "@/components/ui/number-roll";
 import { Button } from "@/components/ui/button";
 import { CustomerShell } from "@/components/ui/customer-shell";
 import { Sheet } from "@/components/ui/sheet";
-import { LegalLinks } from "./customer-state";
+import { LegalLinks } from "@/components/ui/legal-links";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
 import { CardFace, nearestReward, type CardReward } from "./card-face";
 import type { ChangeLine } from "@/lib/change-lines";

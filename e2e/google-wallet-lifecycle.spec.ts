@@ -28,11 +28,11 @@ for(const [index,leave,failure] of [[0,false,false],[1,true,false],[2,true,true]
   await page.goto('/card/'+encodeURIComponent(member.cardToken));await page.locator('.customer-header').getByRole('button',{name:'In Wallet speichern'}).click();await expect(page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true}).click();await acknowledged;await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Karte schließen',exact:true}).click();await page.getByRole('button',{name:'Schließung verbindlich bestätigen',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Karte geschlossen.',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Karte geschlossen',exact:true})).toBeVisible();
   if(leave){await page.getByRole('link',{name:'Datenschutz',exact:true}).click();await expect(page).toHaveURL(baseURL+'/datenschutz');}
   release();await Promise.race([navigated,page.waitForFunction(()=>(window as Window&{walletSettled?:boolean}).walletSettled===true)]);
   expect(navigation).toEqual([]);
-  if(!leave)await expect(page.getByRole('heading',{name:'Karte geschlossen.',exact:true})).toBeVisible();else await expect(page).toHaveURL(baseURL+'/datenschutz');
+  if(!leave)await expect(page.getByRole('heading',{name:'Karte geschlossen',exact:true})).toBeVisible();else await expect(page).toHaveURL(baseURL+'/datenschutz');
   expect((await pool.query('SELECT closed_at IS NOT NULL AS closed FROM memberships WHERE id=$1',[member.id])).rows).toEqual([{closed:true}]);
   expect((await pool.query('SELECT revoked_at IS NOT NULL AS revoked FROM wallet_passes WHERE membership_id=$1',[member.id])).rows).toEqual([{revoked:true}]);
  }finally{release();await context.close();}

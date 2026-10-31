@@ -107,7 +107,7 @@ test("a returning guest is offered the saved card instead of a silent second car
     // A closed card is never offered again; the guest sees a plain note and can join normally.
     await page.getByRole("button", { name: "Karte schließen" }).click();
     await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-    await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
     await page.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
     await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByText("die nicht mehr gilt", { exact: false })).toBeVisible();
@@ -381,7 +381,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     expect(reissue.status()).toBe(200);
     await page.waitForTimeout(5_200);
     await returnToPage();
-    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar" })).toBeVisible();
     await expect(page.getByText("Dieser Kartenlink ist nicht mehr gültig.", { exact: false })).toBeVisible();
   } finally { await phone.close(); await shop.owner.dispose(); }
 });
